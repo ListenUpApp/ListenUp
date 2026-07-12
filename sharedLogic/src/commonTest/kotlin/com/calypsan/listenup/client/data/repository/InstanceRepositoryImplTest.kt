@@ -128,6 +128,32 @@ class InstanceRepositoryImplTest :
             persisted shouldBe null
         }
 
+        test("getServerInfo seeds the peer server version from the fetched ServerInfo") {
+            // Pre-auth seam: the server's version/apiVersion arrive on ServerInfo (screen-one
+            // probe) before any authenticated request exists to carry X-Server-Version headers.
+            val factory =
+                FakeInstanceRpcFactory(
+                    RpcResult.Success(serverInfo.copy(version = "0.9.0", apiVersion = "v2")),
+                )
+            var persistedVersion: String? = null
+            var persistedApi: String? = null
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { ServerUrl("http://192.168.1.10:8080") },
+                    instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
+                    persistPeerVersion = { version, api ->
+                        persistedVersion = version
+                        persistedApi = api
+                    },
+                )
+
+            repository.getServerInfo(forceRefresh = true)
+
+            persistedVersion shouldBe "0.9.0"
+            persistedApi shouldBe "v2"
+        }
+
         test("a rapid repeat probe of the same URL reuses the first result instead of reconnecting") {
             // Picker-select fires two probes ~immediately: findReachableUrl, then checkServerStatus's
             // getServerInfo. Opening that second kRPC WebSocket so soon hangs on a real server, so the

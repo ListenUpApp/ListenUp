@@ -373,6 +373,54 @@ class SyncEventDispatcherTest :
             }
         }
 
+        test("control: malformed frame reports contract-mismatch evidence, doesn't throw, doesn't advance cursor") {
+            runTest {
+                var advanced = false
+                val compatReports = mutableListOf<String>()
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = ClientSyncDomainRegistry(),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> advanced = true },
+                        reportCompat = { compatReports += it },
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = 1L,
+                        event = "control",
+                        data = "{not valid json for SyncControl}",
+                    )
+                dispatcher.handle(frame) // no throw
+                compatReports shouldHaveSize 1
+                advanced shouldBe false
+            }
+        }
+
+        test("data event: malformed frame reports contract-mismatch evidence, doesn't throw, doesn't advance cursor") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                registry.register(RecordingHandler())
+                var advanced = false
+                val compatReports = mutableListOf<String>()
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> advanced = true },
+                        reportCompat = { compatReports += it },
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = 1L,
+                        event = "tags",
+                        data = "{not valid json for a Tag SyncEvent}",
+                    )
+                dispatcher.handle(frame) // no throw
+                compatReports shouldHaveSize 1
+                advanced shouldBe false
+            }
+        }
+
         test("a failed apply does not stall the stream — a later successful event still advances the cursor") {
             runTest {
                 val registry = ClientSyncDomainRegistry()

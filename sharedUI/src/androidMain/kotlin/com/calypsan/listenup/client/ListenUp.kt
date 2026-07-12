@@ -179,13 +179,14 @@ val playbackModule =
 
         // Structured device identity — shared source for auth login + listening history.
         single<DeviceInfoProvider> {
+            val clientVersion = get<String>(named("clientVersion"))
             DeviceInfoProvider {
                 DeviceInfo(
                     deviceType = "phone",
                     platform = "Android",
                     platformVersion = android.os.Build.VERSION.RELEASE,
                     clientName = "ListenUp Android",
-                    clientVersion = null,
+                    clientVersion = clientVersion,
                     deviceName = null,
                     deviceModel = android.os.Build.MODEL,
                 )

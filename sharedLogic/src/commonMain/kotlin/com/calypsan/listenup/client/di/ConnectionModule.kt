@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.data.repository.InstanceRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ServerRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerRepository
 import com.calypsan.listenup.core.ServerUrl
 import org.koin.core.module.Module
@@ -40,6 +41,11 @@ internal val connectionModule: Module =
                         secureStorage.delete("server_remote_url")
                     }
                 },
+                // Seeds the peer version from the pre-auth ServerInfo probe — see
+                // InstanceRepositoryImpl's KDoc. Same eager `get()` cycle analysis as
+                // networkModule's ApiClientFactory binding: LocalPreferences has no dependency
+                // back on InstanceRepository.
+                persistPeerVersion = get<LocalPreferences>()::setPeerServerVersion,
             )
         }
 

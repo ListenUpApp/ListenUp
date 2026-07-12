@@ -60,12 +60,19 @@ object LocalizationGenerator {
             .replace("%s", "%@")
     }
 
-    /** Escapes a value for inclusion as Android XML string content. */
+    /**
+     * Escapes a value for inclusion as XML string content.
+     *
+     * Only the two characters that are genuinely special in XML element content are entity-escaped
+     * (`&`, `<`). Apostrophes are emitted RAW: this catalog is consumed by compose-resources' XML
+     * parser, not by Android's AAPT. AAPT-style `\'` escaping (which compose-resources does not
+     * unescape) would leak a literal backslash into `stringResource()` output (issue #1079); a bare
+     * `'` is perfectly valid in XML element content.
+     */
     private fun xmlEscape(value: String): String =
         value
             .replace("&", "&amp;")
             .replace("<", "&lt;")
-            .replace("'", "\\'")
 
     /** Dotted JSON path -> Android resource name (snake_case, no dots). */
     private fun snakeKey(dotted: String): String = dotted.replace('.', '_')

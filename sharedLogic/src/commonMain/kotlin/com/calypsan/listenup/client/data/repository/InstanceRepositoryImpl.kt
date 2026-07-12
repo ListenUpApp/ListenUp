@@ -32,11 +32,16 @@ private const val PROBE_COALESCE_WINDOW_MS = 2_000L
  * the post-connect probes.
  *
  * @param persistRemoteUrl Writes the server's advertised remote URL to ServerConfig storage on every successful getServerInfo (null clears it).
+ * @param persistPeerVersion Seeds the peer server's version + API contract version (see
+ * [com.calypsan.listenup.client.domain.repository.LocalPreferences.setPeerServerVersion]) from
+ * every successful [getServerInfo]. This is the pre-auth seam: [ServerInfo] carries the server's
+ * version before any authenticated request exists to carry it on response headers.
  */
 internal class InstanceRepositoryImpl(
     private val getServerUrl: suspend () -> ServerUrl?,
     private val instanceRpcFactory: InstanceRpcFactory,
     private val persistRemoteUrl: suspend (String?) -> Unit,
+    private val persistPeerVersion: suspend (version: String, api: String) -> Unit = { _, _ -> },
 ) : InstanceRepository {
     private var cachedServerInfo: ServerInfo? = null
 
@@ -64,6 +69,7 @@ internal class InstanceRepositoryImpl(
             is AppResult.Success -> {
                 cachedServerInfo = result.data
                 persistRemoteUrl(result.data.remoteUrl)
+                persistPeerVersion(result.data.version, result.data.apiVersion)
                 result
             }
 

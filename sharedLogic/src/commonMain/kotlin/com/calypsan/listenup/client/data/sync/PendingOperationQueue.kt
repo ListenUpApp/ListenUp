@@ -293,9 +293,11 @@ internal class PendingOperationQueue(
      * are disjoint (`failureCount > maxAttempts` vs `<=`), so GC never races dispatch.
      *
      * A [PendingOperationSender] that throws instead of returning
-     * [AppResult.Failure] is a bug in that sender, not a reason to abort the
-     * wave — the op is flagged terminally failed (past [MAX_RETRYABLE_ATTEMPTS])
-     * and the loop continues to the next op.
+     * [AppResult.Failure] is treated as a transient (retryable) failure — never a
+     * reason to abort the wave, and never an instant dead-letter. A raw-proxy
+     * transport fault escapes as an untyped throwable; terminally quarantining it
+     * on the first throw would permanently lose a queued offline write. The op is
+     * retried (bounded by [MAX_RETRYABLE_ATTEMPTS]) and the loop continues.
      */
     suspend fun drain(): DrainOutcome {
         dao.gcDeadLetters(cutoffMillis = nowMillis() - DEAD_LETTER_RETENTION_MILLIS)
@@ -313,15 +315,24 @@ internal class PendingOperationQueue(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    logger.error(e) { "Sender threw for op ${op.clientOpId} (${op.domainName}); flagging terminal" }
+                    // A thrown sender exception is a TRANSIENT (retryable) failure, never an instant
+                    // terminal dead-letter. A raw-proxy transport fault — a dead RpcClient after the
+                    // self-hosted server restarts, a dropped WebSocket — escapes as an untyped throwable
+                    // that ErrorMapper misclassifies as non-retryable, permanently losing a queued
+                    // position/edit on the first blip (a "never lose the user's position" violation).
+                    // Treating a throw as retryable keeps the op queued to retry once the connection
+                    // heals (the firehose reconnect invalidates the dead proxy); a genuinely buggy sender
+                    // burns the bounded retry budget and then dead-letters — the same bounded-waste
+                    // tradeoff a permanently-corrupt payload already accepts.
+                    logger.warn(e) { "Sender threw for op ${op.clientOpId} (${op.domainName}); retrying as transient" }
                     dao.update(
                         entity.copy(
-                            failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                            failureCount = entity.failureCount + 1,
                             lastAttemptAt = nowMillis(),
                             lastError = e::class.simpleName ?: "SenderException",
                         ),
                     )
-                    terminalFailures++
+                    retryableFailures++
                     continue
                 }
             when (result) {

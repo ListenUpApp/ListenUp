@@ -427,6 +427,7 @@ internal val clientSyncModule =
                 // above-cursor rows before the digest pass. Same lazy-SyncEngine resolution as
                 // onCursorStale/onAccessChanged to break the construction cycle.
                 onLibraryDataChanged = { get<SyncEngine>().lifecycleReconcile(force = true) },
+                reportCompat = get<ConnectionHealthStore>()::reportCompat,
             )
         }
 

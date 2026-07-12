@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.connection
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.auth.invalidatesSession
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngineState
@@ -8,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.version.ClientIdentity
+import com.calypsan.listenup.client.domain.version.Semver
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -150,13 +152,28 @@ internal class ConnectionHealthStore(
 
     /**
      * Report a typed failure observed by a headless seam. Cheap and non-suspending — safe to
-     * call redundantly from every failure branch. Session-invalidating errors are forwarded to
-     * the [ErrorBus] exactly once per lapse — but only while currently [AuthState.Authenticated],
-     * so a failure reported before first login (or while already lapsed) never surfaces a
-     * snackbar. Everything else is swallowed. Same guard + dedup discipline as the absorbed
+     * call redundantly from every failure branch. Dispatches on the error's shape, never both:
+     * contract-mismatch evidence ([TransportError.ContractMismatch] / [TransportError.DataMalformed])
+     * routes to [reportCompat] — non-blocking, independent of auth state, since a parse failure
+     * can occur before first login and is never a session failure. Everything else falls through
+     * to the auth path: session-invalidating errors are forwarded to the [ErrorBus] exactly once
+     * per lapse — but only while currently [AuthState.Authenticated], so a failure reported before
+     * first login (or while already lapsed) never surfaces a snackbar. Everything not
+     * session-invalidating is swallowed. Same guard + dedup discipline as the absorbed
      * `ConnectionIssueReporter`.
      */
     fun report(error: AppError) {
+        val compatEvidence =
+            when (error) {
+                is TransportError.ContractMismatch -> error.detail
+                is TransportError.DataMalformed -> error.detail
+                else -> null
+            }
+        if (compatEvidence != null) {
+            reportCompat(compatEvidence)
+            return
+        }
+
         if (authStateFlow.value !is AuthState.Authenticated) return
         if (!error.invalidatesSession()) return
         if (reportedSinceAuthenticated) return
@@ -183,14 +200,6 @@ internal class ConnectionHealthStore(
         if (reachable) lastProbeReachableAt.value = currentEpochMilliseconds()
     }
 
-    /** Persist the peer server's observed version + API contract version. */
-    suspend fun updatePeerVersion(
-        serverVersion: String,
-        serverApi: String,
-    ) {
-        localPreferences.setPeerServerVersion(serverVersion, serverApi)
-    }
-
     /**
      * Dismiss the current Outdated hint for the peer server's currently observed version. A
      * no-op if no peer version has been observed yet.
@@ -213,16 +222,32 @@ internal class ConnectionHealthStore(
 }
 
 /**
- * STUB for this PR: real semver-gap evaluation lands in a follow-up task. For now, only
- * behavioural evidence (a parse failure observed by a headless seam) produces a
- * [ConnectionHealth.Outdated] hint; a bare peer-version mismatch with no behavioural evidence is
- * not yet flagged.
+ * Evaluates whether the observed peer server represents a meaningful version gap worth
+ * surfacing as [ConnectionHealth.Outdated]. Three independent signals, checked in order:
+ * a declared API contract mismatch, behavioural evidence of an unparseable response, and a
+ * major-version semver gap. Minor/patch skew alone is never a signal — it's expected drift
+ * between compatible releases.
  */
-@Suppress("UnusedParameter")
 private fun evaluateVersionGap(
     identity: ClientIdentity,
     serverVersion: String,
     serverApi: String?,
     behaviouralEvidence: Boolean,
-): ConnectionHealth.Outdated? =
-    if (behaviouralEvidence) ConnectionHealth.Outdated(identity.version, serverVersion) else null
+): ConnectionHealth.Outdated? {
+    // Rule 1: API contract mismatch — a declared, unambiguous incompatibility.
+    if (serverApi != null && serverApi != identity.apiVersion) {
+        return ConnectionHealth.Outdated(identity.version, serverVersion)
+    }
+    // Rule 2: behavioural evidence (a 2xx slice we couldn't parse — Phase 3 feeds this).
+    if (behaviouralEvidence) {
+        return ConnectionHealth.Outdated(identity.version, serverVersion)
+    }
+    // Rule 3: a major-version gap. Minor/patch skew is NOT a signal (rule 4 → null).
+    val client = Semver.parseOrNull(identity.version) ?: return null
+    val server = Semver.parseOrNull(serverVersion) ?: return null
+    return if (client.major != server.major) {
+        ConnectionHealth.Outdated(identity.version, serverVersion)
+    } else {
+        null
+    }
+}

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.core.configureLogging
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
+import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
@@ -178,6 +179,8 @@ object KoinHelper {
     fun getAppStartupViewModel(): AppStartupViewModel = resolve(AppStartupViewModel::class)
 
     fun getAuthSession(): AuthSession = resolve(AuthSession::class)
+
+    fun getConnectionHealthViewModel(): ConnectionHealthViewModel = resolve(ConnectionHealthViewModel::class)
 
     fun getServerConfig(): ServerConfig = resolve(ServerConfig::class)
 

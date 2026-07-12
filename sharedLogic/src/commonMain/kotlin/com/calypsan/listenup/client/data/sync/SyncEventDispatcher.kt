@@ -29,6 +29,7 @@ internal class SyncEventDispatcher(
     private val onAccessChanged: suspend (scope: AccessScope?) -> Unit = {},
     private val onUserDeleted: suspend (reason: String?) -> Unit = {},
     private val onLibraryDataChanged: suspend () -> Unit = {},
+    private val reportCompat: (String) -> Unit = {},
 ) {
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
     suspend fun handle(frame: ParsedSseFrame) {
@@ -47,6 +48,7 @@ internal class SyncEventDispatcher(
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncControl frame" }
+                reportCompat("SSE control frame undecodable: ${e.message}")
                 return
             }
         // Refreshed tier: catalog-declared refresh strategies. Engine/lifecycle controls fall through.
@@ -122,6 +124,7 @@ internal class SyncEventDispatcher(
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncEvent for domain '$domainName'" }
+                reportCompat("SSE event undecodable for domain '$domainName': ${e.message}")
                 return
             }
         when (val result = typed.onEvent(event)) {

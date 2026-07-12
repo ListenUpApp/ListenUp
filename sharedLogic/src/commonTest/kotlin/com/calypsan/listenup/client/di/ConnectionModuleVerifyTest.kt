@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.SecureStorage
@@ -29,6 +30,8 @@ import org.koin.test.verify.verify
  *  - [com.calypsan.listenup.client.data.remote.RemoteCache] (via `getAll()`) — every
  *    `RemoteCache` binding is registered across multiple modules; `getAll()` in
  *    `RpcCacheInvalidator` collects them all at runtime without an explicit whitelist here.
+ *  - [LocalPreferences] — owned by `settingsModule`. `InstanceRepository`'s `persistPeerVersion`
+ *    seam persists the peer server's version from the pre-auth `ServerInfo` probe there.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ConnectionModuleVerifyTest :
@@ -43,6 +46,7 @@ class ConnectionModuleVerifyTest :
                         NetworkMonitor::class,
                         ServerDiscoveryService::class,
                         CoroutineScope::class,
+                        LocalPreferences::class,
                     ),
             )
         }

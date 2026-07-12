@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.api.EXPECTED_API_VERSION
 import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.auth.AuthFailureObserver
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.domain.version.ClientIdentity
+import com.calypsan.listenup.client.domain.version.DefaultClientIdentity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -64,12 +64,12 @@ internal val appCoreModule: Module =
             )
         }
 
-        // Interim stub — the real platform actual (reading the app's build version) lands in a
-        // later task. Announces version/API identity to ConnectionHealthStore's compat check.
-        single<ClientIdentity> {
-            object : ClientIdentity {
-                override val version: String = "0.6.0"
-                override val apiVersion: String = EXPECTED_API_VERSION
-            }
-        }
+        // Announces version/API identity to ConnectionHealthStore's compat check. `version` is
+        // build-injected from the repo-root VERSION file (see DefaultClientIdentity).
+        single<ClientIdentity> { DefaultClientIdentity }
+
+        // The client version as a plain String, qualified by name — `:sharedUI` DeviceInfo
+        // builders can't see the internal ClientIdentity type (it's version-exchange plumbing,
+        // not UI-facing API) but can resolve this to populate DeviceInfo.clientVersion.
+        single<String>(qualifier = named("clientVersion")) { get<ClientIdentity>().version }
     }

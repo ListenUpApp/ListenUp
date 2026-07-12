@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
+import com.calypsan.listenup.client.data.remote.model.EnvelopeMismatchException
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -61,6 +62,17 @@ internal object ErrorMapper {
                         TransportError.Server4xx(statusCode = status, debugInfo = exception.message)
                     }
                 }
+            }
+
+            // A well-formed 2xx whose envelope this client can't parse (version/shape skew) is
+            // evidence of a contract mismatch, not an internal fault — surfaced as the
+            // non-blocking "Update available" hint. Checked before the SerializationException arm
+            // below since it is the more specific case.
+            exception is EnvelopeMismatchException -> {
+                TransportError.ContractMismatch(
+                    detail = exception.message ?: "envelope mismatch",
+                    debugInfo = exception.message,
+                )
             }
 
             exception is SerializationException -> {

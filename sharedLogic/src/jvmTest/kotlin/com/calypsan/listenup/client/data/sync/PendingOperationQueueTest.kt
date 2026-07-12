@@ -105,16 +105,18 @@ class PendingOperationQueueTest :
         test("hasQueuedOpFor is false once the op is dead-lettered — the shield lifts so the entity converges") {
             runTest {
                 val db = createInMemoryTestDatabase()
-                // A sender that throws is flagged terminally failed (dead-lettered) on the first drain.
+                // A non-retryable failure dead-letters the op on the first drain. (A *thrown* transport
+                // fault now retries instead of dead-lettering immediately — see the drain's throw-catch —
+                // so it can no longer stand in for a terminal failure here.)
                 val queue =
                     PendingOperationQueue(
                         dao = db.pendingOperationV2Dao(),
-                        sender = PendingOperationSender { error("boom") },
+                        sender = PendingOperationSender { AppResult.Failure(SyncError.NotFound(domain = "tags", entityId = "t1")) },
                         nowMillis = { 1_000L },
                     )
                 queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 queue.hasQueuedOpFor(upsertOnlyChannel.name, "t1") shouldBe true
-                queue.drain() // sender throws → op dead-lettered
+                queue.drain() // non-retryable failure → op dead-lettered
                 queue.hasQueuedOpFor(upsertOnlyChannel.name, "t1") shouldBe false
                 db.close()
             }
@@ -387,27 +389,78 @@ class PendingOperationQueueTest :
             }
         }
 
-        test("a sender that throws is flagged terminally failed and the wave continues") {
+        test("a sender that throws a transient transport fault is retried, not terminally dead-lettered") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                // The dead-proxy fault a raw RPC push throws when the self-hosted server restarts —
+                // kotlinx.rpc surfaces it as IllegalStateException("RpcClient was cancelled"), which
+                // ErrorMapper would misclassify non-retryable. The queue must NOT lose the op.
+                val sender = PendingOperationSender { error("RpcClient was cancelled") }
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = sender,
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(upsertOnlyChannel, "flaky", OpKind.Upsert, "{}", "u1")
+                val outcome = queue.drain()
+                // Treated as a transient (retryable) failure — one attempt burned, op survives.
+                outcome.retryableFailures shouldBe 1
+                outcome.terminalFailures shouldBe 0
+                val stored = db.pendingOperationV2Dao().get(opId)
+                stored?.failureCount shouldBe 1
+                // Still dispatchable — it retries once the connection heals (firehose reconnect drops
+                // the dead proxy), instead of being permanently dead-lettered on the first blip.
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
+                db.close()
+            }
+        }
+
+        test("a sender that throws every wave eventually dead-letters after the bounded retry budget") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val sender = PendingOperationSender { error("persistent sender bug") }
+                var clock = 0L
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = sender,
+                        nowMillis = { clock++ },
+                    )
+                val opId = queue.enqueue(upsertOnlyChannel, "buggy", OpKind.Upsert, "{}", "u1")
+                // Bounded waste: a genuinely broken sender burns MAX_RETRYABLE_ATTEMPTS then quarantines,
+                // the same tradeoff a permanently-corrupt payload already accepts.
+                repeat(MAX_RETRYABLE_ATTEMPTS + 1) { queue.drain() }
+                val stored = db.pendingOperationV2Dao().get(opId)
+                stored shouldNotBe null
+                ((stored?.failureCount ?: 0) > MAX_RETRYABLE_ATTEMPTS) shouldBe true
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly emptyList()
+                db.close()
+            }
+        }
+
+        test("a sender that throws is retried as transient and the wave continues past it") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val sent = mutableListOf<String>()
                 val sender =
                     PendingOperationSender { op ->
-                        if (op.entityId == "poison") error("sender blew up")
+                        if (op.entityId == "flaky") error("sender blew up")
                         sent += op.clientOpId
                         AppResult.Success(Unit)
                     }
                 var clock = 0L
                 val queue = PendingOperationQueue(dao = db.pendingOperationV2Dao(), sender = sender, nowMillis = { clock++ })
-                val poison = queue.enqueue(upsertOnlyChannel, "poison", OpKind.Upsert, "{}", "u1")
+                val flaky = queue.enqueue(upsertOnlyChannel, "flaky", OpKind.Upsert, "{}", "u1")
                 val healthy = queue.enqueue(upsertOnlyChannel, "healthy", OpKind.Upsert, "{}", "u1")
                 val outcome = queue.drain()
+                // The throw doesn't abort the wave — the healthy op still sends.
                 sent shouldContainExactly listOf(healthy)
                 outcome.sent shouldBe 1
-                outcome.terminalFailures shouldBe 1
-                val stored = db.pendingOperationV2Dao().get(poison)
-                stored shouldNotBe null
-                ((stored?.failureCount ?: 0) > 5) shouldBe true
+                // …and the thrower is retried, not terminally dead-lettered.
+                outcome.retryableFailures shouldBe 1
+                outcome.terminalFailures shouldBe 0
+                db.pendingOperationV2Dao().get(flaky)?.failureCount shouldBe 1
                 db.close()
             }
         }

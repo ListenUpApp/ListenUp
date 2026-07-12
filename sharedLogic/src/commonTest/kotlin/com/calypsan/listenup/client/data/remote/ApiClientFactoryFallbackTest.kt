@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.version.FakeClientIdentity
 import com.calypsan.listenup.core.ServerUrl
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -20,7 +21,13 @@ class ApiClientFactoryFallbackTest :
             runTest {
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { serverConfig.switchToFallbackUrl() } returns ServerUrl("https://fallback.example.com")
-                val factory = KtorApiClientFactory(serverConfig, mock<AuthSession>(), { error("token refresh not used") })
+                val factory =
+                    KtorApiClientFactory(
+                        serverConfig,
+                        mock<AuthSession>(),
+                        { error("token refresh not used") },
+                        FakeClientIdentity(),
+                    )
 
                 var attempts = 0
                 val request = HttpRequestBuilder().apply { url("https://primary.example.com/api") }

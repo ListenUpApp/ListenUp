@@ -345,6 +345,7 @@ private fun TransportError.withCorrelationId(id: String?): TransportError =
         is TransportError.Server4xx -> copy(correlationId = id)
         is TransportError.Server5xx -> copy(correlationId = id)
         is TransportError.DataMalformed -> copy(correlationId = id)
+        is TransportError.ContractMismatch -> copy(correlationId = id)
     }
 
 private fun SyncError.toHttpStatus(): HttpStatusCode =

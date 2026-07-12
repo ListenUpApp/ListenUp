@@ -6,6 +6,7 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
@@ -96,6 +97,60 @@ class ConnectionHealthStoreTest :
             }
         }
 
+        test("report(ContractMismatch) routes to compat, never auth") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val errorBus = ErrorBus()
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = errorBus,
+                        clientIdentity = FakeClientIdentity(),
+                        localPreferences = fakeLocalPreferences(),
+                        scope = backgroundScope,
+                    )
+
+                errorBus.errors.test {
+                    store.report(TransportError.ContractMismatch(detail = "envelope v=2"))
+                    expectNoEvents()
+                    cancelAndConsumeRemainingEvents()
+                }
+
+                advanceTimeBy(1)
+                store.state.value.shouldBeInstanceOf<ConnectionHealth.Outdated>()
+            }
+        }
+
+        test("report(DataMalformed) routes to compat, never auth") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val errorBus = ErrorBus()
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = errorBus,
+                        clientIdentity = FakeClientIdentity(),
+                        localPreferences = fakeLocalPreferences(),
+                        scope = backgroundScope,
+                    )
+
+                errorBus.errors.test {
+                    store.report(TransportError.DataMalformed(detail = "bad body"))
+                    expectNoEvents()
+                    cancelAndConsumeRemainingEvents()
+                }
+
+                advanceTimeBy(1)
+                store.state.value.shouldBeInstanceOf<ConnectionHealth.Outdated>()
+            }
+        }
+
         test("precedence Unreachable > SessionExpired > Outdated, resolving as signals clear") {
             runTest {
                 val engineState = SyncEngineState() // starts Disconnected
@@ -160,6 +215,182 @@ class ConnectionHealthStoreTest :
                     awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
 
                     engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("API contract mismatch alone surfaces Outdated") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val peerVersion = MutableStateFlow<String?>(null)
+                val peerApi = MutableStateFlow<String?>(null)
+                val localPreferences =
+                    mock<LocalPreferences> {
+                        every { peerServerVersion } returns peerVersion
+                        every { peerServerApi } returns peerApi
+                        every { outdatedDismissedFor } returns MutableStateFlow(null)
+                    }
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = ErrorBus(),
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
+                        localPreferences = localPreferences,
+                        scope = backgroundScope,
+                    )
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    peerVersion.value = "0.6.0"
+                    peerApi.value = "v2"
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Outdated>()
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("major-version gap surfaces Outdated with no behavioural evidence") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val peerVersion = MutableStateFlow<String?>(null)
+                val localPreferences =
+                    mock<LocalPreferences> {
+                        every { peerServerVersion } returns peerVersion
+                        every { peerServerApi } returns MutableStateFlow(null)
+                        every { outdatedDismissedFor } returns MutableStateFlow(null)
+                    }
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = ErrorBus(),
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
+                        localPreferences = localPreferences,
+                        scope = backgroundScope,
+                    )
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    peerVersion.value = "1.0.0"
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Outdated>()
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("minor/patch skew alone stays Healthy") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val peerVersion = MutableStateFlow<String?>(null)
+                val localPreferences =
+                    mock<LocalPreferences> {
+                        every { peerServerVersion } returns peerVersion
+                        every { peerServerApi } returns MutableStateFlow(null)
+                        every { outdatedDismissedFor } returns MutableStateFlow(null)
+                    }
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = ErrorBus(),
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
+                        localPreferences = localPreferences,
+                        scope = backgroundScope,
+                    )
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    peerVersion.value = "0.9.9"
+                    expectNoEvents()
+
+                    cancelAndConsumeRemainingEvents()
+                }
+
+                store.state.value shouldBe ConnectionHealth.Healthy
+            }
+        }
+
+        test("dismissing the gap for the exact (client, server) pair returns to Healthy") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val peerVersion = MutableStateFlow<String?>("1.0.0")
+                val dismissedFor = MutableStateFlow<Pair<String, String>?>(null)
+                val localPreferences =
+                    mock<LocalPreferences> {
+                        every { peerServerVersion } returns peerVersion
+                        every { peerServerApi } returns MutableStateFlow(null)
+                        every { outdatedDismissedFor } returns dismissedFor
+                    }
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = ErrorBus(),
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
+                        localPreferences = localPreferences,
+                        scope = backgroundScope,
+                    )
+
+                store.state.test {
+                    // Turbine's subscription captures the still-unpumped `Eagerly` seed value
+                    // before the internal derivation coroutine has had a chance to run.
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Outdated>()
+
+                    dismissedFor.value = "0.6.0" to "1.0.0"
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("a server upgrade past the gap re-evaluates to Healthy") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val peerVersion = MutableStateFlow<String?>("1.0.0")
+                val localPreferences =
+                    mock<LocalPreferences> {
+                        every { peerServerVersion } returns peerVersion
+                        every { peerServerApi } returns MutableStateFlow(null)
+                        every { outdatedDismissedFor } returns MutableStateFlow(null)
+                    }
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = ErrorBus(),
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
+                        localPreferences = localPreferences,
+                        scope = backgroundScope,
+                    )
+
+                store.state.test {
+                    // Turbine's subscription captures the still-unpumped `Eagerly` seed value
+                    // before the internal derivation coroutine has had a chance to run.
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Outdated>()
+
+                    peerVersion.value = "0.9.9"
                     awaitItem() shouldBe ConnectionHealth.Healthy
 
                     cancelAndConsumeRemainingEvents()
