@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -167,11 +168,11 @@ private fun CampfireInviteSearchField(
                 unfocusedTextColor = CampfireFlowColors.OnGlass,
                 focusedContainerColor = CampfireFlowColors.Glass.copy(alpha = 0.62f),
                 unfocusedContainerColor = CampfireFlowColors.Glass.copy(alpha = 0.62f),
-                focusedBorderColor = CampfireFlowColors.Coral,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = CampfireFlowColors.GlassBorder,
                 unfocusedPlaceholderColor = CampfireFlowColors.OnGlassFaint,
                 focusedPlaceholderColor = CampfireFlowColors.OnGlassFaint,
-                cursorColor = CampfireFlowColors.CoralBright,
+                cursorColor = MaterialTheme.colorScheme.primary,
             ),
     )
 }
@@ -188,7 +189,7 @@ private fun CampfireInviteBody(
     when (inviteState) {
         CampfireInviteUiState.Idle, CampfireInviteUiState.Loading -> {
             Box(modifier = Modifier.fillMaxWidth().padding(top = 32.dp), contentAlignment = Alignment.TopCenter) {
-                CircularProgressIndicator(color = CampfireFlowColors.CoralBright)
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         }
 
@@ -250,14 +251,14 @@ private fun CampfireInviteUserRow(
                 Modifier
                     .size(26.dp)
                     .clip(CircleShape)
-                    .background(if (isSelected) CampfireFlowColors.Coral else Color.Transparent),
+                    .background(if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent),
             contentAlignment = Alignment.Center,
         ) {
             if (isSelected) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(16.dp),
                 )
             }

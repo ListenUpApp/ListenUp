@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -31,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -193,7 +193,7 @@ internal fun CampfireCreateScreen(
                         Icon(
                             Icons.Default.LocalFireDepartment,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                         )
                     },
                     modifier =
@@ -228,7 +228,7 @@ private fun CampfireBookStrip(book: CampfireFlowBook) {
             Column {
                 Text(
                     text = stringResource(Res.string.campfire_flow_listening_to),
-                    color = CampfireFlowColors.CoralBright,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 10.5.sp,
                     letterSpacing = 1.sp,
@@ -293,9 +293,9 @@ private fun CampfireNameField(
                 unfocusedTextColor = CampfireFlowColors.OnGlass,
                 focusedContainerColor = CampfireFlowColors.Glass.copy(alpha = 0.62f),
                 unfocusedContainerColor = CampfireFlowColors.Glass.copy(alpha = 0.62f),
-                focusedBorderColor = CampfireFlowColors.Coral,
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = CampfireFlowColors.GlassBorder,
-                cursorColor = CampfireFlowColors.CoralBright,
+                cursorColor = MaterialTheme.colorScheme.primary,
             ),
     )
 }

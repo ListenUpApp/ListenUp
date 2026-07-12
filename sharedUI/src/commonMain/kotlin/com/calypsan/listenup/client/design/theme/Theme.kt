@@ -44,6 +44,13 @@ private val ExpressiveShapes =
 val LocalDarkTheme = staticCompositionLocalOf { false }
 
 /**
+ * Composition local exposing whether dynamic color (Material You) is currently enabled, so a
+ * sub-tree that re-themes itself (e.g. the always-dark Campfire flow) can honor the user's setting
+ * rather than forcing dynamic color on.
+ */
+val LocalDynamicColor = staticCompositionLocalOf { true }
+
+/**
  * Platform-specific color scheme selection.
  *
  * On Android 12+: Uses dynamic color from system wallpaper when dynamicColor is true.
@@ -78,7 +85,10 @@ fun ListenUpTheme(
 ) {
     val colorScheme = platformColorScheme(darkTheme, dynamicColor)
 
-    CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
+    CompositionLocalProvider(
+        LocalDarkTheme provides darkTheme,
+        LocalDynamicColor provides dynamicColor,
+    ) {
         MaterialExpressiveTheme(
             colorScheme = colorScheme,
             motionScheme = MotionScheme.expressive(),

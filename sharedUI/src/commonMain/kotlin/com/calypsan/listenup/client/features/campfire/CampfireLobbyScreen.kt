@@ -22,12 +22,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -167,7 +167,7 @@ internal fun CampfireLobbyScreen(
                                 Icon(
                                     Icons.Default.PlayArrow,
                                     contentDescription = null,
-                                    tint = Color.White,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
                                 )
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -199,7 +199,8 @@ private fun LobbyRosterAvatar(
     isHost: Boolean,
     joined: Boolean,
 ) {
-    val ringColor = if (joined) CampfireFlowColors.Coral.copy(alpha = 0.7f) else CampfireFlowColors.OnGlassFaint
+    val ringColor =
+        if (joined) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else CampfireFlowColors.OnGlassFaint
     // Column width tracks the avatar's own diameter so the square avatar is never clamped narrower
     // than it is tall — a non-square box under CircleShape renders as a pill, not a circle.
     Column(
@@ -218,11 +219,11 @@ private fun LobbyRosterAvatar(
                     modifier =
                         Modifier
                             .offset(y = 4.dp)
-                            .background(CampfireFlowColors.Coral, RoundedCornerShape(percent = 50)),
+                            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(percent = 50)),
                 ) {
                     Text(
                         text = stringResource(Res.string.campfire_flow_lobby_host_badge),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 8.5.sp,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
