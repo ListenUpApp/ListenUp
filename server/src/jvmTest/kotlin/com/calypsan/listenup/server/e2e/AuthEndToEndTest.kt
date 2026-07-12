@@ -8,7 +8,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeEmpty
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 
 /**
  * End-to-end auth tests — real `Application.module()` over CIO + real
@@ -65,7 +65,7 @@ class AuthEndToEndTest :
         // ========== Setup ==========
 
         test("setup creates root user and returns a session with non-empty tokens") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
 
                 val result = fix.authRepository.setup(rootCredentials)
@@ -81,7 +81,7 @@ class AuthEndToEndTest :
         }
 
         test("second setup call returns SetupAlreadyComplete via the typed AppResult wire") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
                 bootstrap(fix)
 
@@ -97,7 +97,7 @@ class AuthEndToEndTest :
         // ========== Login ==========
 
         test("login with correct credentials returns a session") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
                 bootstrap(fix)
 
@@ -116,7 +116,7 @@ class AuthEndToEndTest :
         }
 
         test("login with wrong password returns InvalidCredentials") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
                 bootstrap(fix)
 
@@ -133,7 +133,7 @@ class AuthEndToEndTest :
         }
 
         test("login with unknown email returns InvalidCredentials (no info leak)") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
                 bootstrap(fix)
 
@@ -152,7 +152,7 @@ class AuthEndToEndTest :
         // ========== Refresh ==========
 
         test("refreshAccessToken produces a new access token and rotates the refresh token") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
                 bootstrap(fix)
                 val originalRefresh = fix.authSession.getRefreshToken()
@@ -176,7 +176,7 @@ class AuthEndToEndTest :
         }
 
         test("replaying a revoked refresh token returns InvalidRefreshToken") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
                 bootstrap(fix)
                 // First refresh succeeds and rotates the family.
@@ -220,7 +220,7 @@ class AuthEndToEndTest :
         // ========== Logout ==========
 
         test("logout returns Success and prevents further refresh") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
                 bootstrap(fix)
 
@@ -236,7 +236,7 @@ class AuthEndToEndTest :
         // ========== Authed surface without auth ==========
 
         test("logout without ever authenticating returns a typed failure") {
-            runTest {
+            runBlocking {
                 val fix = autoClose(fixture())
                 // Note: fixture doesn't bootstrap. authSession has no tokens.
 
