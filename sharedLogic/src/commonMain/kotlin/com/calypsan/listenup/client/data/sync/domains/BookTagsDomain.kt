@@ -11,7 +11,7 @@ private val logger = KotlinLogging.logger {}
 /**
  * The `book_tags` junction domain (Tags phase — Room v22): composite `(bookId, tagId)`
  * primary key mirrored under the server's synthetic `"$bookId:$tagId"` envelope id.
- * Server-wins apply, soft tombstones, full digest participation, online-only writes.
+ * Server-wins apply, soft tombstones, full digest participation, outbox-backed writes.
  *
  * **Junctions soft-tombstone.** The DAO's `tombstone` keeps the row with `deletedAt`
  * set so [DigestParticipation.Full] still covers it — literally deleting the row
@@ -20,8 +20,13 @@ private val logger = KotlinLogging.logger {}
  * **Re-add semantics.** Re-applying a tag after removal arrives as Created/Updated
  * with `deletedAt = null`; the upsert clears the tombstone.
  *
- * No FK constraints on `book_tags` — sync is responsible for integrity. An own-echo
- * needs no shield: `@Upsert` is idempotent.
+ * **Outbox writes.** Removing a tag from a book writes the junction tombstone
+ * optimistically and queues a durable op on [OutboxChannels.BookTags], keyed by the
+ * same `"$bookId:$tagId"` envelope id; the in-flight shield defers the junction's own
+ * echo until that op drains. Adding a tag stays an online RPC (find-or-create may mint
+ * a new server-side tag id, which can't be mirrored optimistically).
+ *
+ * No FK constraints on `book_tags` — sync is responsible for integrity.
  */
 internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagSyncPayload> {
     val apply = BookTagMirrorApply(database)
@@ -42,7 +47,7 @@ internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagS
         // The DAO advances its own revision on tombstone, so the event revision is dropped (`_`).
         deletes = DeleteSemantics.SoftDelete { id, deletedAt, _ -> apply.tombstoneById(id, deletedAt) },
         digest = fullDigest(database.bookTagDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
+        writes = WriteTier.Outbox(OutboxChannels.BookTags),
     )
 }
 

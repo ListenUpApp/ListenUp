@@ -47,6 +47,7 @@ internal val genreTagModule: Module =
                 channel = rpcChannel(),
                 tagDao = get(),
                 bookTagDao = get(),
+                offlineEditor = get(),
             )
         }
 
@@ -61,6 +62,7 @@ internal val genreTagModule: Module =
                 channel = rpcChannel(),
                 moodDao = get(),
                 bookMoodDao = get(),
+                offlineEditor = get(),
             )
         }
     }

@@ -3,9 +3,11 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomainKey
@@ -53,11 +55,16 @@ import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
+import com.calypsan.listenup.api.dto.BookMoodMutation
 import com.calypsan.listenup.api.dto.BookMutation
+import com.calypsan.listenup.api.dto.BookTagMutation
+import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.TagId
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.binds
@@ -129,6 +136,8 @@ internal val clientSyncModule =
             val playbackChannel = rpcChannel<PlaybackService>()
             val profileChannel = rpcChannel<ProfileService>()
             val userPreferencesChannel = rpcChannel<UserPreferencesService>()
+            val tagChannel = rpcChannel<TagService>()
+            val moodChannel = rpcChannel<MoodService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -183,6 +192,33 @@ internal val clientSyncModule =
                     },
                     outboxBinding(OutboxChannels.Profile) { _, patch ->
                         profileChannel.call { it.updateMyProfile(patch) }
+                    },
+                    // The op's entityId is the tagId; the sender reconstructs the TagId from it.
+                    outboxBinding(OutboxChannels.Tags) { id, mutation ->
+                        when (mutation) {
+                            is TagMutation.Rename -> tagChannel.call { it.renameTag(TagId(id), mutation.newName) }
+                            is TagMutation.Delete -> tagChannel.call { it.deleteTag(TagId(id)) }
+                        }
+                    },
+                    // The op's entityId is the "$bookId:$tagId" envelope; the sender reads the ids from the payload.
+                    outboxBinding(OutboxChannels.BookTags) { _, mutation ->
+                        when (mutation) {
+                            is BookTagMutation.Remove -> {
+                                tagChannel.call { it.removeTagFromBook(BookId(mutation.bookId), TagId(mutation.tagId)) }
+                            }
+                        }
+                    },
+                    outboxBinding(OutboxChannels.BookMoods) { _, mutation ->
+                        when (mutation) {
+                            is BookMoodMutation.Remove -> {
+                                moodChannel.call {
+                                    it.removeMoodFromBook(
+                                        BookId(mutation.bookId),
+                                        MoodId(mutation.moodId),
+                                    )
+                                }
+                            }
+                        }
                     },
                 ),
             )

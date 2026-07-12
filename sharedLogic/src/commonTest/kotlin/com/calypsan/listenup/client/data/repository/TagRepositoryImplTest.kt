@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.local.db.TagEntity
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.mock
@@ -35,7 +36,12 @@ class TagRepositoryImplTest :
             tagDao: TagDao = mock(),
             bookTagDao: BookTagDao = mock(),
             service: TagService = mock(),
-        ) = TagRepositoryImpl(channel = RpcChannel.forTest(service), tagDao = tagDao, bookTagDao = bookTagDao)
+        ) = TagRepositoryImpl(
+            channel = RpcChannel.forTest(service),
+            tagDao = tagDao,
+            bookTagDao = bookTagDao,
+            offlineEditor = noopOfflineEditor(),
+        )
 
         fun tagEntity(
             id: String,

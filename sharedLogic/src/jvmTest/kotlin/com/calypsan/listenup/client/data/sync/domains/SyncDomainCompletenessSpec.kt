@@ -112,9 +112,21 @@ class SyncDomainCompletenessSpec :
                 channels.map { it.name }.filter { it !in mirroredByName }.toSet() shouldBe
                     setOf("profile", "preferences")
 
-                // Frozen posture: exactly these five mirrored domains write through the outbox.
+                // Frozen posture: exactly these mirrored domains write through the outbox. tags,
+                // book_tags, and book_moods joined when their rename/delete/remove surfaces went
+                // offline-first (adding a tag/mood to a book stays online — find-or-create mints a
+                // server-side id that can't be mirrored optimistically).
                 outboxDomains.map { it.key.name }.toSet() shouldBe
-                    setOf("books", "series", "contributors", "playback_positions", "listening_events")
+                    setOf(
+                        "books",
+                        "series",
+                        "contributors",
+                        "playback_positions",
+                        "listening_events",
+                        "tags",
+                        "book_tags",
+                        "book_moods",
+                    )
             } finally {
                 db.close()
             }

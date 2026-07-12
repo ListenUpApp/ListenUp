@@ -19,7 +19,11 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.serializer
 
 // Queue is payload-agnostic (payload arrives pre-encoded); any serializer works.
-private val upsertOnlyChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
+// A synthetic channel whose name is deliberately NOT one of OutboxChannels.all — several tests below
+// assert behaviour for an undeclared domain (e.g. OutcomeUnknown quarantine). Do not reuse a real
+// channel name here (it used to be "tags", which is now a declared idempotent channel).
+private val upsertOnlyChannel =
+    OutboxChannel("undeclared_test_domain", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 
 class PendingOperationQueueTest :
     FunSpec({
@@ -58,7 +62,7 @@ class PendingOperationQueueTest :
                     )
                 shouldThrow<IllegalStateException> {
                     queue.enqueue(upsertOnlyChannel, "t1", OpKind.Create, "{}", "u1")
-                }.message shouldContain "tags"
+                }.message shouldContain upsertOnlyChannel.name
                 db.close()
             }
         }
@@ -74,7 +78,7 @@ class PendingOperationQueueTest :
                     )
                 val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 val row = db.pendingOperationV2Dao().get(opId)!!
-                row.domainName shouldBe "tags"
+                row.domainName shouldBe upsertOnlyChannel.name
                 row.opType shouldBe "upsert"
                 db.close()
             }
@@ -276,8 +280,8 @@ class PendingOperationQueueTest :
                         sender = PendingOperationSender { AppResult.Failure(TransportError.OutcomeUnknown()) },
                         nowMillis = { 1_000L },
                     )
-                // upsertOnlyChannel's domainName ("tags") is not a declared OutboxChannels channel,
-                // so OutboxChannels.isIdempotent("tags") is false → quarantine conservatively.
+                // upsertOnlyChannel's domainName ("undeclared_test_domain") is not a declared
+                // OutboxChannels channel, so OutboxChannels.isIdempotent(...) is false → quarantine.
                 val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 val outcome = queue.drain()
                 val stored = db.pendingOperationV2Dao().get(opId)

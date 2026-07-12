@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain
@@ -82,6 +83,7 @@ private fun withRepo(block: suspend (MoodRepositoryImpl, ListenUpDatabase) -> Un
                     channel = RpcChannel.forTest(mock<MoodService>()),
                     moodDao = db.moodDao(),
                     bookMoodDao = db.bookMoodDao(),
+                    offlineEditor = noopOfflineEditor(),
                 )
             block(repo, db)
         } finally {

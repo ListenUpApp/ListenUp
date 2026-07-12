@@ -123,6 +123,19 @@ internal interface BookTagDao {
     )
 
     /**
+     * Cascade-tombstone every live junction row for [tagId] — the client mirror of the server's
+     * `deleteTag` cascade (soft-delete all `book_tags` for the tag). Advances each row's revision so
+     * the server's own cascade echo (at least one higher) still applies through the revision guard.
+     */
+    @Query(
+        "UPDATE book_tags SET deletedAt = :deletedAt, revision = revision + 1 WHERE tagId = :tagId AND deletedAt IS NULL",
+    )
+    suspend fun tombstoneAllForTag(
+        tagId: String,
+        deletedAt: Long,
+    )
+
+    /**
      * Return the junction row for the given [bookId]/[tagId] pair, or null if absent.
      */
     @Query("SELECT * FROM book_tags WHERE bookId = :bookId AND tagId = :tagId LIMIT 1")

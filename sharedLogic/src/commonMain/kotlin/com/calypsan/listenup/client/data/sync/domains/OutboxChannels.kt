@@ -1,7 +1,10 @@
 package com.calypsan.listenup.client.data.sync.domains
 
+import com.calypsan.listenup.api.dto.BookMoodMutation
 import com.calypsan.listenup.api.dto.BookMutation
+import com.calypsan.listenup.api.dto.BookTagMutation
 import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.dto.SeriesUpdate
@@ -56,9 +59,43 @@ internal object OutboxChannels {
     val Preferences =
         OutboxChannel("preferences", UpdateUserPreferencesRequest.serializer(), setOf(OpKind.Update), idempotent = true)
 
+    // Tag lifecycle: rename (Update) is last-write-wins; delete (Delete) cascades server-side. Both are
+    // idempotent — a re-fire re-applies the same terminal state (a second delete finds the tag already
+    // tombstoned; the optimistic delete + echo have already converged, so at worst a spurious dead-letter).
+    val Tags =
+        OutboxChannel(
+            SyncDomains.TAGS.name,
+            TagMutation.serializer(),
+            setOf(OpKind.Update, OpKind.Delete),
+            idempotent = true,
+        )
+
+    // Junction removals: soft-delete is idempotent server-side (re-removing an already-removed junction
+    // returns Success). Adding a tag/mood to a book stays online — find-or-create may mint a server id.
+    val BookTags =
+        OutboxChannel(SyncDomains.BOOK_TAGS.name, BookTagMutation.serializer(), setOf(OpKind.Delete), idempotent = true)
+    val BookMoods =
+        OutboxChannel(
+            SyncDomains.BOOK_MOODS.name,
+            BookMoodMutation.serializer(),
+            setOf(OpKind.Delete),
+            idempotent = true,
+        )
+
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
-        listOf(Books, Series, Contributors, Positions, ListeningEvents, Profile, Preferences)
+        listOf(
+            Books,
+            Series,
+            Contributors,
+            Positions,
+            ListeningEvents,
+            Profile,
+            Preferences,
+            Tags,
+            BookTags,
+            BookMoods,
+        )
 
     private val byName: Map<String, OutboxChannel<*>> = all.associateBy { it.name }
 

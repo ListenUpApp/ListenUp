@@ -7,9 +7,11 @@ import com.calypsan.listenup.client.data.local.db.TagEntity
 
 /**
  * The `tags` domain: server-authored rows (curators), server-wins apply,
- * soft-delete tombstones, full digest participation, online-only writes.
- * An own-echo needs no shield: the client has no local tag-row write path
- * that would generate echoes.
+ * soft-delete tombstones, full digest participation, outbox-backed writes.
+ * Rename and delete write Room optimistically and queue a durable op on
+ * [OutboxChannels.Tags]; the entity-level in-flight shield defers a tag's own
+ * echo until its queued op drains, so a stale snapshot never reverts the
+ * optimistic edit before the authoritative echo lands.
  */
 internal fun tagsDomain(database: ListenUpDatabase): MirroredDomain<Tag> {
     val apply = TagMirrorApply(database)
@@ -19,7 +21,7 @@ internal fun tagsDomain(database: ListenUpDatabase): MirroredDomain<Tag> {
         conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.tagDao().revisionOf(id) }),
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.tagDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
+        writes = WriteTier.Outbox(OutboxChannels.Tags),
     )
 }
 
