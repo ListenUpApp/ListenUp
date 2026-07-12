@@ -40,7 +40,10 @@ class SuspendCodegenTest :
             generated.shouldContain(
                 "AppResult.Failure(\n            com.calypsan.listenup.api.error.InternalError(",
             )
-            generated.shouldContain("cause = e::class.simpleName")
+            // The wire InternalError must NOT carry the server exception's class name or message —
+            // those routinely embed SQL / paths / hostnames. The full detail stays in the server log.
+            generated.shouldNotContain("e::class.simpleName")
+            generated.shouldNotContain("e.message")
             generated.shouldContain(
                 "private val log: io.github.oshai.kotlinlogging.KLogger = " +
                     "io.github.oshai.kotlinlogging.KotlinLogging.logger(\"rpc.FakeService\")",

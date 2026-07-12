@@ -96,11 +96,12 @@ internal object GuardedClassWriter {
         appendLine(
             "            log.error(e) { \"Uncaught exception in ${service.simpleName}.${method.name} [cid=\$cid]\" }",
         )
+        // Only the correlation id crosses the wire. The exception's class name + message stay in the
+        // server log above (they routinely embed SQL / paths / hostnames); `cause` and `debugInfo`
+        // default to null so no server-internal detail is serialized to the client.
         appendLine("            AppResult.Failure(")
         appendLine("            com.calypsan.listenup.api.error.InternalError(")
         appendLine("                correlationId = cid,")
-        appendLine("                cause = e::class.simpleName,")
-        appendLine("                debugInfo = \"\${e::class.simpleName}: \${e.message}\",")
         appendLine(INDENT_CLOSE_PAREN)
         appendLine(INDENT_CLOSE_PAREN)
         appendLine("        }")
@@ -125,12 +126,13 @@ internal object GuardedClassWriter {
         appendLine(
             "            log.error(e) { \"Uncaught flow exception in ${service.simpleName}.${method.name} [cid=\$cid]\" }",
         )
+        // Only the correlation id crosses the wire. The exception's class name + message stay in the
+        // server log above; `cause` and `debugInfo` default to null so no server-internal detail is
+        // serialized to the client.
         appendLine("            emit(")
         appendLine("            com.calypsan.listenup.api.streaming.RpcEvent.Error(")
         appendLine("                com.calypsan.listenup.api.error.InternalError(")
         appendLine("                    correlationId = cid,")
-        appendLine("                    cause = e::class.simpleName,")
-        appendLine("                    debugInfo = \"\${e::class.simpleName}: \${e.message}\",")
         appendLine("                )")
         appendLine(INDENT_CLOSE_PAREN)
         appendLine(INDENT_CLOSE_PAREN)
