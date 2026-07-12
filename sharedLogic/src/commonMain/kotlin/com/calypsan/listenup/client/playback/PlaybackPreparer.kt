@@ -4,6 +4,8 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
@@ -178,22 +180,30 @@ class PlaybackPreparer internal constructor(
 
         // 5. Build PlaybackTimeline — offline-first via signed RPC URLs
         val domainAudioFiles = audioFileEntities.map { it.toAudioFile() }
-        val timeline = buildTimeline(bookId, domainAudioFiles, serverUrl) ?: return null
+        val buildResult = buildTimeline(bookId, domainAudioFiles, serverUrl) ?: return null
+        val timeline = buildResult.timeline
 
         // Load chapters for this book
         val chapters = loadChapters(bookId)
 
         logger.info { "Built timeline: ${timeline.files.size} files, ${timeline.totalDurationMs}ms total" }
 
-        // 6. Get resume position and speed
+        // 6. Resolve resume position and speed.
+        // Position is sacred: reconcile the local Room row against the server-authoritative
+        // position carried by prepare() (null on the fully-downloaded path). Whichever has the
+        // greater lastPlayedAt wins — the same conflict key the playback-positions sync domain
+        // uses. This closes the crown-jewel race where a device opens a book before its catch-up
+        // drains, resumes from a stale local row, then stamps that stale position lastPlayedAt=now
+        // and permanently clobbers another device's newer progress.
         val savedPosition = progressTracker.getResumePosition(bookId)
+        val resolved = resolveResumePosition(savedPosition, buildResult.serverResumePosition)
 
         val resumePositionMs =
-            if (savedPosition?.isFinished == true) {
+            if (resolved?.isFinished == true) {
                 logger.info { "Book is finished - starting from beginning for re-read" }
                 0L
             } else {
-                savedPosition?.positionMs ?: 0L
+                resolved?.positionMs ?: 0L
             }
 
         val resumeSpeed =
@@ -313,14 +323,22 @@ class PlaybackPreparer internal constructor(
      * Build the [PlaybackTimeline]: resolve each file's local path, fetch signed
      * streaming URLs from the server only when not fully downloaded (offline-first),
      * then assemble the timeline. Returns `null` if the server prepare call fails.
+     *
+     * The result also carries [TimelineBuildResult.serverResumePosition] — the
+     * server-authoritative resume point from the same prepare() call — so the caller
+     * can reconcile it against the local Room row instead of discarding it.
      */
     private suspend fun buildTimeline(
         bookId: BookId,
         domainAudioFiles: List<AudioFile>,
         serverUrl: String,
-    ): PlaybackTimeline? {
+    ): TimelineBuildResult? {
         val localPaths: Map<String, String?> =
             domainAudioFiles.associate { it.id to downloadService.getLocalPath(it.id) }
+
+        // Server-authoritative resume position, populated only when prepare() is called
+        // (streaming path). Null on the fully-downloaded path — resume then resolves from Room alone.
+        var serverResumePosition: PlaybackPositionSyncPayload? = null
 
         val signedUrls: Map<String, String> =
             if (localPaths.values.all { it != null }) {
@@ -341,6 +359,7 @@ class PlaybackPreparer internal constructor(
                 // crossing the Swift Export seam as an opaque KotlinError.
                 when (val result = prepareRepository.prepare(bookId)) {
                     is AppResult.Success -> {
+                        serverResumePosition = result.data.resumePosition
                         result.data.audioFiles.associate { it.fileId to serverUrl + it.url }
                     }
 
@@ -351,21 +370,23 @@ class PlaybackPreparer internal constructor(
                 }
             }
 
-        return PlaybackTimeline.build(
-            bookId = bookId,
-            files =
-                domainAudioFiles.map { file ->
-                    TimelineFileInput(
-                        audioFileId = file.id,
-                        filename = file.filename,
-                        format = file.format,
-                        durationMs = file.duration,
-                        size = file.size,
-                        localPath = localPaths[file.id],
-                        streamingUrl = signedUrls[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
-                    )
-                },
-        )
+        val timeline =
+            PlaybackTimeline.build(
+                bookId = bookId,
+                files =
+                    domainAudioFiles.map { file ->
+                        TimelineFileInput(
+                            audioFileId = file.id,
+                            filename = file.filename,
+                            format = file.format,
+                            durationMs = file.duration,
+                            size = file.size,
+                            localPath = localPaths[file.id],
+                            streamingUrl = signedUrls[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
+                        )
+                    },
+            )
+        return TimelineBuildResult(timeline = timeline, serverResumePosition = serverResumePosition)
     }
 
     /**
@@ -427,6 +448,55 @@ class PlaybackPreparer internal constructor(
         return chapters
     }
 }
+
+/**
+ * [PlaybackPreparer.buildTimeline]'s result: the assembled [PlaybackTimeline] plus the
+ * server-authoritative resume position ([PreparedPlayback.resumePosition]) from the same
+ * `prepare()` call. [serverResumePosition] is null on the fully-downloaded path, where
+ * `prepare()` is skipped and the resume point resolves from the local Room row alone.
+ */
+private data class TimelineBuildResult(
+    val timeline: PlaybackTimeline,
+    val serverResumePosition: PlaybackPositionSyncPayload?,
+)
+
+/**
+ * The resume point resolved across the local Room row and the server-authoritative
+ * position, carrying only what resume needs: [positionMs] and the [isFinished] flag
+ * (finished → start at 0 for re-read).
+ */
+internal data class ResolvedResumePosition(
+    val positionMs: Long,
+    val isFinished: Boolean,
+)
+
+/**
+ * Reconcile the [local] Room resume row against the [server]-authoritative position from
+ * [com.calypsan.listenup.api.PlaybackService.prepare], newer wins by `lastPlayedAt` — the
+ * same conflict key the playback-positions sync domain uses.
+ *
+ * Position is sacred. Device B can open a book before its catch-up drains, so its local
+ * row may be stale relative to the position `prepare()` just returned from the server. If
+ * the stale local row won here, starting playback would stamp it `lastPlayedAt = now`,
+ * making it globally newest and permanently discarding device A's newer progress. Choosing
+ * the fresher source at resume time closes that race.
+ *
+ * Returns null only when both sources are absent (never-played book → resume at 0
+ * upstream). When only one is present it wins by default; ties favour the local row (its
+ * value is at least as fresh and will re-push to the server on the next save).
+ */
+internal fun resolveResumePosition(
+    local: PlaybackPosition?,
+    server: PlaybackPositionSyncPayload?,
+): ResolvedResumePosition? =
+    when {
+        local == null && server == null -> null
+        server == null -> ResolvedResumePosition(local!!.positionMs, local.isFinished)
+        local == null -> ResolvedResumePosition(server.positionMs, server.finished)
+        server.lastPlayedAt > local.effectiveLastPlayedAtMs ->
+            ResolvedResumePosition(server.positionMs, server.finished)
+        else -> ResolvedResumePosition(local.positionMs, local.isFinished)
+    }
 
 // ========== Type Conversions ==========
 
