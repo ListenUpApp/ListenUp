@@ -11,6 +11,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.NonRpcReason
+import com.calypsan.listenup.client.data.remote.NonRpcTransport
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.core.AbsItemId
@@ -47,7 +49,14 @@ private val logger = KotlinLogging.logger {}
  * [observeProgress] unwraps the server-pushed [Flow]<[RpcEvent]<[ImportEvent]>> into a
  * plain [Flow]<[ImportEvent]>: [RpcEvent.Data] values are emitted; [RpcEvent.Error] and
  * [RpcEvent.Complete] are silently dropped (the guard already logs errors server-side).
+ *
+ * Mixed transport: analyze/apply/confirm/list/delete/observe ride the [RpcChannel]; only the binary
+ * [upload] archive transfer goes raw over REST — the reason tagged below.
  */
+@NonRpcTransport(
+    NonRpcReason.BINARY_TRANSFER,
+    justification = "ABS import archive upload streams raw zip bytes; RPC analyze/apply/etc. ride the channel.",
+)
 internal class ImportRepositoryImpl(
     private val channel: RpcChannel<ImportService>,
     private val clientFactory: ApiClientFactory,

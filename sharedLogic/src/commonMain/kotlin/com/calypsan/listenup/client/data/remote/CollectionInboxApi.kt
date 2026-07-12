@@ -39,6 +39,10 @@ internal interface CollectionInboxApiContract {
 }
 
 /** Ktor implementation of [CollectionInboxApiContract] over the 1b admin REST routes. */
+@NonRpcTransport(
+    NonRpcReason.THIRD_PARTY_REST,
+    justification = "Admin inbox triage routes deliberately kept off the @Rpc CollectionService contract, on REST.",
+)
 internal class CollectionInboxApi(
     private val clientFactory: ApiClientFactory,
 ) : CollectionInboxApiContract {

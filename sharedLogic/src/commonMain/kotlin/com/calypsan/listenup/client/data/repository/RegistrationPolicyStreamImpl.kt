@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.NonRpcReason
+import com.calypsan.listenup.client.data.remote.NonRpcTransport
 import com.calypsan.listenup.client.data.sync.DEFAULT_CONNECT_TIMEOUT_MS
 import com.calypsan.listenup.client.data.sync.SseConnection
 import com.calypsan.listenup.client.data.sync.SseEvent
@@ -23,6 +25,10 @@ private val logger = KotlinLogging.logger {}
  * bespoke `retryWhen` that used to live in `AuthSessionStore`. Emits the current [RegistrationPolicy]
  * on connect, then each change. Pre-auth, so it rides the unauthenticated streaming client.
  */
+@NonRpcTransport(
+    NonRpcReason.SERVER_SENT_EVENTS,
+    justification = "Registration-policy push is an HTTP/1.1 SSE stream over the pre-auth streaming client.",
+)
 internal class RegistrationPolicyStreamImpl(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,

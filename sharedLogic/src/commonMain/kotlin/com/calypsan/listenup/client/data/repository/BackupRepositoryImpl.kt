@@ -12,6 +12,8 @@ import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.NonRpcReason
+import com.calypsan.listenup.client.data.remote.NonRpcTransport
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -52,7 +54,14 @@ private const val DOWNLOAD_TIMEOUT_MS = 10L * 60 * 1_000 // large image-bearing 
  * [observeProgress] unwraps the server-pushed [Flow]<[RpcEvent]<[BackupEvent]>> into a
  * plain [Flow]<[BackupEvent]>: [RpcEvent.Data] values are emitted; [RpcEvent.Error] and
  * [RpcEvent.Complete] are silently dropped (the guard already logs errors server-side).
+ *
+ * Mixed transport: list/create/delete/restore/observe ride the [RpcChannel]; only the binary
+ * [uploadBackup]/[downloadBackup] archive transfers go raw over REST — the reason tagged below.
  */
+@NonRpcTransport(
+    NonRpcReason.BINARY_TRANSFER,
+    justification = "Backup archive upload/download stream raw zip bytes; RPC list/create/etc. ride the channel.",
+)
 internal class BackupRepositoryImpl(
     private val channel: RpcChannel<BackupService>,
     private val clientFactory: ApiClientFactory,

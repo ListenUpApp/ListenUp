@@ -13,6 +13,8 @@ import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.NonRpcReason
+import com.calypsan.listenup.client.data.remote.NonRpcTransport
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
@@ -104,7 +106,15 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
  * [PublicProfileEntity.avatarUpdatedAt]. This is the one local write to the otherwise
  * server-synced `public_profiles` table; the eventual SSE echo (higher revision, ServerWins)
  * replaces it without regressing the version. Avatar methods stay online-only.
+ *
+ * Mixed transport: profile text edits and the auto-avatar revert ride the [RpcChannel]; only the
+ * binary avatar upload (delegated to [AvatarUploader]/[avatarUploaderOf]) goes raw over REST — the
+ * reason tagged below.
  */
+@NonRpcTransport(
+    NonRpcReason.BINARY_TRANSFER,
+    justification = "Avatar upload streams raw image bytes via multipart POST; profile edits ride the channel.",
+)
 internal class ProfileEditRepositoryImpl(
     private val userDao: UserDao,
     private val publicProfileDao: PublicProfileDao,

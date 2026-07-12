@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.NonRpcReason
+import com.calypsan.listenup.client.data.remote.NonRpcTransport
 import com.calypsan.listenup.client.data.sync.DEFAULT_CONNECT_TIMEOUT_MS
 import com.calypsan.listenup.client.data.sync.SseConnection
 import com.calypsan.listenup.client.data.sync.SseEvent
@@ -25,7 +27,14 @@ private val logger = KotlinLogging.logger {}
  * user on the pending-approval screen against a briefly-unreachable server never hangs silently),
  * exponential reconnect (so a mid-wait server restart doesn't lose approval events), and
  * spec-tolerant framing. Pre-auth, so it rides the unauthenticated streaming client.
+ *
+ * [fetchStatus] is the never-stranded one-shot REST fallback for the same pre-auth surface (a plain
+ * GET when the stream can't be held); both ride the unauthenticated streaming client, neither is RPC.
  */
+@NonRpcTransport(
+    NonRpcReason.SERVER_SENT_EVENTS,
+    justification = "Registration-status push is an HTTP/1.1 SSE stream (plus a one-shot GET fallback), pre-auth.",
+)
 internal class RegistrationStatusStreamImpl(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
