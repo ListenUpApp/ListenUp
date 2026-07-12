@@ -69,6 +69,11 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         "book_genres" to RemovalDisposition.HARD_CHILD,
         "book_documents" to RemovalDisposition.HARD_CHILD,
         "pending_book_genres" to RemovalDisposition.HARD_CHILD,
+        // Sidecar write-state: server-internal round-trip bookkeeping (FK ON DELETE CASCADE),
+        // rewritten by the SidecarWriter on every curation flush. Under a tombstoned parent the
+        // row is inert (the reader only consults it for hash-skip, and a matching hash on a
+        // still-on-disk file is still the truth); a hard delete removes it via the FK.
+        "sidecar_write_state" to RemovalDisposition.HARD_CHILD,
         // ── User-owned data that survives removal (never-stranded) ──
         "playback_positions" to RemovalDisposition.USER_DATA,
         "book_reads" to RemovalDisposition.USER_DATA,

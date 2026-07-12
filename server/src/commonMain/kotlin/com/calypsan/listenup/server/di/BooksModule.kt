@@ -53,6 +53,7 @@ import com.calypsan.listenup.server.services.OrphanParentPurger
 import com.calypsan.listenup.server.services.PendingGenrePromotion
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.sidecar.SidecarWriter
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.io.files.Path
 import org.koin.core.module.Module
@@ -160,6 +161,7 @@ fun booksModule(
                 coverImageStore = get<CoverImageStore>(),
                 // Nullable — the organize module may not be loaded in minimal test containers.
                 organizeRelocator = getOrNull(),
+                sidecarWriter = getOrNull<SidecarWriter>(),
             )
         }
         single<ContributorService> {

@@ -236,11 +236,14 @@ fun ListenUpDatabase.seedTestLibraryAndFolder(
  *
  * @param libraryId the `books.library_id` value (default `"test-library"`).
  * @param folderId the `books.folder_id` value (default `"test-folder"`).
+ * @param rootRelPath the `books.root_rel_path` value — the book directory relative to the
+ *   folder root (default keeps the historic `"$bookId/book.m4b"` placeholder).
  */
 fun ListenUpDatabase.seedTestBook(
     bookId: String,
     libraryId: String = "test-library",
     folderId: String = "test-folder",
+    rootRelPath: String = "$bookId/book.m4b",
 ) {
     val now = System.currentTimeMillis()
     transaction {
@@ -265,7 +268,7 @@ fun ListenUpDatabase.seedTestBook(
             cover_path = null,
             cover_hash = null,
             user_edited_fields = "",
-            root_rel_path = "$bookId/book.m4b",
+            root_rel_path = rootRelPath,
             inode = null,
             scanned_at = now,
             revision = 1L,

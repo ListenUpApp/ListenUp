@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.metadata.resolveLibraryPrecedence
 import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
+import com.calypsan.listenup.server.scanner.sidecar.ListenUpSidecarReader
 import com.calypsan.listenup.server.scanner.sidecar.NfoParser
 import com.calypsan.listenup.server.scanner.sidecar.OpfParser
 import com.calypsan.listenup.server.scanner.sidecar.ReaderTxtParser
@@ -172,6 +173,7 @@ fun scannerModule(
                                     metadataPrecedence,
                                 ),
                             coverSpool = get(),
+                            listenUpSidecarReader = ListenUpSidecarReader(get()),
                         )
                     val coordinator =
                         ScanCoordinator(

@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.scanner.pipeline.NoRecognizedAudio
 import com.calypsan.listenup.server.scanner.pipeline.Differ
 import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
+import com.calypsan.listenup.server.scanner.sidecar.ListenUpSidecarReader
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.io.isUnder
@@ -82,6 +83,7 @@ internal class Scanner(
     private val clock: () -> Long = { Clock.System.now().toEpochMilliseconds() },
     private val correlationIdFactory: () -> String = { Uuid.random().toString() },
     private val coverSpool: CoverSpool? = null,
+    private val listenUpSidecarReader: ListenUpSidecarReader? = null,
 ) : ScannerResultPort {
     @Volatile
     private var lastResult: ScanResult? = null
@@ -160,6 +162,7 @@ internal class Scanner(
                     parseSubtitle,
                     sidecarParsers,
                     metadataPrecedence,
+                    listenUpSidecarReader = listenUpSidecarReader,
                 )
             val pass =
                 collectAnalyzed(
@@ -281,6 +284,7 @@ internal class Scanner(
                 parseSubtitle,
                 sidecarParsers,
                 metadataPrecedence,
+                listenUpSidecarReader = listenUpSidecarReader,
             )
         // For incremental scans the dirty-check only covers the affected subtree;
         // the untouched books are preserved via previousUntouched below.

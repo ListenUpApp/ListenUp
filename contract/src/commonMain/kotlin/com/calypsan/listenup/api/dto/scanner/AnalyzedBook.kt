@@ -72,6 +72,13 @@ data class AnalyzedBook(
      */
     @SerialName("folderRootPath")
     val folderRootPath: String? = null,
+    /**
+     * Curation provenance re-ingested from an external `listenup.json` sidecar (user-edit
+     * protection set + USER chapters), or null when the book has no external sidecar. The
+     * persist merge applies it additively — see [SidecarCuration].
+     */
+    @SerialName("sidecarCuration")
+    val sidecarCuration: SidecarCuration? = null,
 )
 
 /**

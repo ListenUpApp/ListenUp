@@ -1,9 +1,12 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.SidecarCuration
+import com.calypsan.listenup.api.dto.scanner.SidecarCurationChapter
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
@@ -857,7 +860,7 @@ class BookRepository(
                 // the effective payload carries the restored protected scalars + the unioned set, and
                 // the preserve flags ride into writePayload via the extras.
                 val merge = existing?.let { mergeUserEdits(incoming = payload, existing = it) }
-                val effectivePayload = merge?.payload ?: payload
+                val effectivePayload = (merge?.payload ?: payload).withSidecarCuration(analyzed.sidecarCuration)
                 val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
                 val coverUnchanged =
                     existing?.cover?.source == CoverSource.UPLOADED ||
@@ -1180,7 +1183,7 @@ class BookRepository(
         // onto the effective payload (so a protected-only rescan matches stored and skips), and the
         // contributor/series preserve flags ride into writePayload via the extras.
         val merge = existing?.let { mergeUserEdits(incoming = payload, existing = it) }
-        val effectivePayload = merge?.payload ?: payload
+        val effectivePayload = (merge?.payload ?: payload).withSidecarCuration(analyzed.sidecarCuration)
         val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
         val coverUnchanged =
             existing?.cover?.source == CoverSource.UPLOADED ||
@@ -1282,6 +1285,26 @@ class BookRepository(
             payload = merged,
             preserveContributors = UserEditedField.CONTRIBUTORS in stillProtected,
             preserveSeries = UserEditedField.SERIES in stillProtected,
+        )
+    }
+
+    /**
+     * Applies [curation] — re-ingested from an external `listenup.json` sidecar — onto a
+     * scan payload AFTER [mergeUserEdits] ran. Strictly *additive*: the sidecar's
+     * [SidecarCuration.userEditedFields] union into the payload's set (restoring
+     * rescan-protection after a DB wipe) and its USER chapters, when present, replace the
+     * scan-derived chapter set with `chapterSource = USER` (writePayload's sticky-chapters
+     * guard admits USER-sourced incoming chapters). Running after the merge is load-bearing:
+     * the sidecar's fields must never count as *incoming re-edits*, or a scan could clobber
+     * a stored protected value with a scanner-derived one.
+     */
+    private fun BookSyncPayload.withSidecarCuration(curation: SidecarCuration?): BookSyncPayload {
+        if (curation == null) return this
+        val withProvenance = copy(userEditedFields = userEditedFields + curation.userEditedFields)
+        val userChapters = curation.userChapters ?: return withProvenance
+        return withProvenance.copy(
+            chapters = userChapters.toChapterPayloads(totalDuration),
+            chapterSource = ChapterSource.USER,
         )
     }
 
@@ -1628,4 +1651,21 @@ class BookRepository(
     /** Test-only accessor for the protected [readPayloads]. */
     internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> =
         suspendTransaction(db) { readPayloads(idStrs) }
+}
+
+/**
+ * Converts sidecar-curated chapters (title + startMs only) to persistable chapter rows:
+ * each chapter's duration runs to the next chapter's start, the last to [totalDurationMs].
+ */
+private fun List<SidecarCurationChapter>.toChapterPayloads(totalDurationMs: Long): List<BookChapterPayload> {
+    val sorted = sortedBy { it.startMs }
+    return sorted.mapIndexed { index, chapter ->
+        val end = sorted.getOrNull(index + 1)?.startMs ?: totalDurationMs
+        BookChapterPayload(
+            id = "",
+            title = chapter.title,
+            duration = (end - chapter.startMs).coerceAtLeast(0L),
+            startTime = chapter.startMs,
+        )
+    }
 }

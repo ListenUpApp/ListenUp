@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.TransactionLocal
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.sidecar.SidecarWriter
 import com.calypsan.listenup.server.services.BookWriteExtras
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -95,6 +96,7 @@ internal class BookServiceImpl(
     private val principal: PrincipalProvider,
     private val coverImageStore: CoverImageStore? = null,
     private val organizeRelocator: OrganizeOnEditRelocator? = null,
+    private val sidecarWriter: SidecarWriter? = null,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
@@ -131,6 +133,7 @@ internal class BookServiceImpl(
             principal = principal,
             coverImageStore = coverImageStore,
             organizeRelocator = organizeRelocator,
+            sidecarWriter = sidecarWriter,
         )
 
     override suspend fun searchBooks(
@@ -181,6 +184,9 @@ internal class BookServiceImpl(
                 // A title edit may change the book's canonical folder — let the organizer replan
                 // (debounced no-op when disabled or when the path is unchanged).
                 organizeRelocator?.onBookEdited(id)
+                // Curation changed — schedule the debounced listenup.json write-through
+                // (post-commit: upsert's transaction has already committed by here).
+                sidecarWriter?.markDirty(id.value)
                 AppResult.Success(Unit)
             }
 
@@ -234,6 +240,7 @@ internal class BookServiceImpl(
             is AppResult.Success -> {
                 // The primary author is a canonical-path segment — organizer replan (see updateBook).
                 organizeRelocator?.onBookEdited(id)
+                sidecarWriter?.markDirty(id.value)
                 AppResult.Success(Unit)
             }
 
@@ -274,8 +281,14 @@ internal class BookServiceImpl(
                     current.copy(chapters = payloadChapters, chapterSource = ChapterSource.USER),
                 )
         ) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(res.error)
+            is AppResult.Success -> {
+                sidecarWriter?.markDirty(id.value)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(res.error)
+            }
         }
     }
 
@@ -336,6 +349,7 @@ internal class BookServiceImpl(
             is AppResult.Success -> {
                 // Series name/sequence are canonical-path segments — organizer replan (see updateBook).
                 organizeRelocator?.onBookEdited(id)
+                sidecarWriter?.markDirty(id.value)
                 AppResult.Success(Unit)
             }
 

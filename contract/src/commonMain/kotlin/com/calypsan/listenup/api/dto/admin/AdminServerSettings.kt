@@ -16,6 +16,8 @@ data class AdminServerSettings(
     @SerialName("remoteUrl") val remoteUrl: String?,
     @SerialName("inboxEnabled") val inboxEnabled: Boolean,
     @SerialName("pushNotificationsEnabled") val pushNotificationsEnabled: Boolean = true,
+    /** Whether the server writes `listenup.json` curation sidecars beside books. Default on. */
+    @SerialName("sidecarWritesEnabled") val sidecarWritesEnabled: Boolean = true,
 )
 
 /**
@@ -28,4 +30,6 @@ data class AdminServerSettingsPatch(
     @SerialName("remoteUrl") val remoteUrl: String? = null,
     @SerialName("inboxEnabled") val inboxEnabled: Boolean? = null,
     @SerialName("pushNotificationsEnabled") val pushNotificationsEnabled: Boolean? = null,
+    /** Toggles `listenup.json` curation-sidecar writes. Null leaves the setting unchanged. */
+    @SerialName("sidecarWritesEnabled") val sidecarWritesEnabled: Boolean? = null,
 )
