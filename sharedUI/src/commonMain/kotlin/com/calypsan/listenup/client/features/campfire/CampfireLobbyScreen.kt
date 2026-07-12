@@ -200,9 +200,11 @@ private fun LobbyRosterAvatar(
     joined: Boolean,
 ) {
     val ringColor = if (joined) CampfireFlowColors.Coral.copy(alpha = 0.7f) else CampfireFlowColors.OnGlassFaint
+    // Column width tracks the avatar's own diameter so the square avatar is never clamped narrower
+    // than it is tall — a non-square box under CircleShape renders as a pill, not a circle.
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(62.dp).alpha(if (joined) 1f else 0.55f),
+        modifier = Modifier.width(AvatarSize.Large.dp).alpha(if (joined) 1f else 0.55f),
     ) {
         Box(contentAlignment = Alignment.BottomCenter) {
             UserAvatar(
