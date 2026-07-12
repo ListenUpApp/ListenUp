@@ -151,6 +151,20 @@ class FakePlaybackManager : PlaybackManager {
         currentPositionMsFlow.value = positionMs
     }
 
+    /** Records raw `(index, offset)` calls, then converts via [currentTimelineFlow] like production. */
+    val updatedMediaItemPositions: MutableList<Pair<Int, Long>> = mutableListOf()
+
+    override fun updatePositionFromMediaItem(
+        mediaItemIndex: Int,
+        positionInItemMs: Long,
+    ) {
+        updatedMediaItemPositions += mediaItemIndex to positionInItemMs
+        val bookPositionMs =
+            currentTimelineFlow.value?.toBookPosition(mediaItemIndex, positionInItemMs)
+                ?: positionInItemMs
+        updatePosition(bookPositionMs)
+    }
+
     override fun updateSpeed(speed: Float) {
         updatedSpeeds += speed
         playbackSpeedFlow.value = speed

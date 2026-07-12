@@ -698,6 +698,9 @@ class PlaybackService : MediaLibraryService() {
                         error = classified,
                         player = player!!,
                         currentBookId = currentBookId,
+                        // Book-relative (sum of prior file durations + file offset); never the
+                        // raw file-relative player.currentPosition read inside the handler.
+                        bookPositionMs = getBookRelativePosition(),
                         onShowError = { message ->
                             // Report error to PlaybackManager for UI display
                             playbackManager.reportError(

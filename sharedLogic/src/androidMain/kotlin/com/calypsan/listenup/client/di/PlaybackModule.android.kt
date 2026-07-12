@@ -49,6 +49,12 @@ val androidPlaybackModule: Module =
                 scope = get(),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
                 playbackBandwidthCoordinator = get(),
+                // Android's Media3 `PlaybackService.PlayerListener` already persists
+                // book-relative transitions and records listening spans. Opt this class out
+                // of transition persistence so play/pause is not double-written to the outbox
+                // (the same signals reach here via MediaControllerHolder). Speed-change
+                // persistence still routes through the reporter.
+                persistTransitionsViaReporter = false,
             )
         }
     }

@@ -61,6 +61,19 @@ internal class PlaybackManagerImpl(
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
+    /**
+     * When true, [setPlaybackState] routes Playing/Paused transitions through
+     * [reporter] to persist position and record listening spans. This is the sole
+     * persistence path on Desktop/iOS (driven by [playerObservationJob]).
+     *
+     * Android sets this false: its Media3 `PlaybackService.PlayerListener` already
+     * owns book-relative transition persistence AND listening-event recording, and
+     * those same signals also reach this class via `MediaControllerHolder`. Letting
+     * both persist would double-write the outbox on every play/pause. Android keeps
+     * this class as the UI/StateFlow source of truth only for transitions; it remains
+     * the persistence path for explicit speed changes ([onSpeedChanged]/[onSpeedReset]).
+     */
+    private val persistTransitionsViaReporter: Boolean = true,
 ) : PlaybackManager {
     private val preparer =
         PlaybackPreparer(
@@ -321,22 +334,26 @@ internal class PlaybackManagerImpl(
         when (state) {
             PlaybackState.Playing -> {
                 playbackError.value = null
-                currentBookId.value?.let { activeBookId ->
-                    reporter.onPlaybackStarted(
-                        activeBookId,
-                        currentPositionMs.value,
-                        playbackSpeed.value,
-                    )
+                if (persistTransitionsViaReporter) {
+                    currentBookId.value?.let { activeBookId ->
+                        reporter.onPlaybackStarted(
+                            activeBookId,
+                            currentPositionMs.value,
+                            playbackSpeed.value,
+                        )
+                    }
                 }
             }
 
             PlaybackState.Paused -> {
-                currentBookId.value?.let { activeBookId ->
-                    reporter.onPlaybackPaused(
-                        activeBookId,
-                        currentPositionMs.value,
-                        playbackSpeed.value,
-                    )
+                if (persistTransitionsViaReporter) {
+                    currentBookId.value?.let { activeBookId ->
+                        reporter.onPlaybackPaused(
+                            activeBookId,
+                            currentPositionMs.value,
+                            playbackSpeed.value,
+                        )
+                    }
                 }
             }
 
@@ -352,6 +369,22 @@ internal class PlaybackManagerImpl(
     override fun updatePosition(positionMs: Long) {
         currentPositionMs.value = positionMs
         updateCurrentChapter(positionMs)
+    }
+
+    /**
+     * Convert ExoPlayer per-file coordinates to a book-relative position via the active
+     * [currentTimeline], then delegate to [updatePosition]. See [PlaybackStateWriter] for
+     * why the raw file offset must never be stored directly. Falls back to the raw
+     * [positionInItemMs] when no timeline is active (single-item/degenerate case).
+     */
+    override fun updatePositionFromMediaItem(
+        mediaItemIndex: Int,
+        positionInItemMs: Long,
+    ) {
+        val bookPositionMs =
+            currentTimeline.value?.toBookPosition(mediaItemIndex, positionInItemMs)
+                ?: positionInItemMs
+        updatePosition(bookPositionMs)
     }
 
     /**
