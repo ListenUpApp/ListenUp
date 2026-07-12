@@ -21,8 +21,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
+import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.test.fake.FakePlaybackController
 import com.calypsan.listenup.client.test.fake.FakePlaybackManager
+import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -97,6 +100,36 @@ class CampfireSessionControllerTest :
             scope = scope,
             clock = clock,
         )
+
+        fun stubPrepareResult(bookId: BookId = BookId("book-1")) =
+            PlaybackManager.PrepareResult(
+                timeline =
+                    PlaybackTimeline(
+                        bookId = bookId,
+                        totalDurationMs = 1_800_000L,
+                        files =
+                            listOf(
+                                PlaybackTimeline.FileSegment(
+                                    audioFileId = "af-stub",
+                                    filename = "stub.m4b",
+                                    format = "m4b",
+                                    startOffsetMs = 0L,
+                                    durationMs = 1_800_000L,
+                                    size = 1_000_000L,
+                                    streamingUrl = "https://example.test/stub.m4b",
+                                    localPath = null,
+                                    mediaItemIndex = 0,
+                                ),
+                            ),
+                    ),
+                bookTitle = "Stub Book",
+                bookAuthor = "Stub Author",
+                seriesName = null,
+                coverPath = null,
+                totalChapters = 1,
+                resumePositionMs = 0L,
+                resumeSpeed = 1.0f,
+            )
 
         test("join applies the snapshot anchor to playback and seeds Active state") {
             runTest {
@@ -523,6 +556,71 @@ class CampfireSessionControllerTest :
                 active.phase shouldBe CampfirePhase.LIVE
                 active.startedAtEpochMs shouldBe startedAnchor.capturedAtEpochMs
                 active.anchor shouldBe startedAnchor
+            }
+        }
+
+        test("LOBBY join does not load the campfire book — the fire is not lit yet") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(snapshot(phase = CampfirePhase.LOBBY, anchor = anchor(positionMs = 0L, isPlaying = false)))
+                    }
+                val playbackManager = FakePlaybackManager().apply { stubbedPrepareResult = stubPrepareResult() }
+                val sut = controller(transport, backgroundScope, clock, playbackManager = playbackManager)
+
+                sut.join(sessionId)
+                runCurrent()
+
+                playbackManager.prepareForPlaybackCalls shouldBe emptyList()
+            }
+        }
+
+        test("CampfireStarted loads the campfire book, then applies the play anchor") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(snapshot(phase = CampfirePhase.LOBBY, anchor = anchor(positionMs = 0L, isPlaying = false)))
+                    }
+                val playbackManager = FakePlaybackManager().apply { stubbedPrepareResult = stubPrepareResult() }
+                val playbackController = FakePlaybackController()
+                val sut =
+                    controller(transport, backgroundScope, clock, playbackManager = playbackManager, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+
+                transport.emit(RpcEvent.Data(CampfireFrame.CampfireStarted(anchor = anchor(positionMs = 3_000L, isPlaying = true), byUserId = "host-1")))
+                runCurrent()
+
+                playbackManager.prepareForPlaybackCalls shouldBe listOf(BookId("book-1"))
+                playbackController.startPlaybackCalls.size shouldBe 1
+                playbackController.seekCalls.last() shouldBe 3_000L
+                playbackController.playCount shouldBe 1
+            }
+        }
+
+        test("joining an already-LIVE room loads the book before applying the anchor") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(snapshot(phase = CampfirePhase.LIVE, anchor = anchor(positionMs = 5_000L, isPlaying = true)))
+                    }
+                val playbackManager = FakePlaybackManager().apply { stubbedPrepareResult = stubPrepareResult() }
+                val playbackController = FakePlaybackController()
+                val sut =
+                    controller(transport, backgroundScope, clock, playbackManager = playbackManager, playbackController = playbackController)
+
+                sut.join(sessionId)
+                runCurrent()
+
+                playbackManager.prepareForPlaybackCalls shouldBe listOf(BookId("book-1"))
+                playbackController.startPlaybackCalls.size shouldBe 1
+                playbackController.seekCalls.last() shouldBe 5_000L
             }
         }
 

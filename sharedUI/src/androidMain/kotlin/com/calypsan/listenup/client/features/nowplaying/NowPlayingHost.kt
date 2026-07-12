@@ -33,6 +33,7 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.client.design.LocalDeviceContext
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.features.campfire.CampfireFeedRow
 import com.calypsan.listenup.client.features.campfire.CampfireFlowBook
@@ -57,6 +58,7 @@ import com.calypsan.listenup.client.playback.SleepTimerState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.campfire_control_denied
 import org.jetbrains.compose.resources.getString
+import kotlinx.coroutines.flow.flowOf
 import org.koin.compose.koinInject
 
 /** Height of a standard snackbar for padding calculations */
@@ -425,9 +427,16 @@ private fun rememberCampfireHost(
     playingState: NowPlayingState.Active?,
     snackbarHostState: SnackbarHostState?,
     userRepository: UserRepository = koinInject(),
+    bookRepository: BookRepository = koinInject(),
 ): CampfireHostUi {
     val campfireState by campfireViewModel.state.collectAsStateWithLifecycle()
-    val session = (campfireState as? CampfireScreenUiState.Active)?.takeIf { it.bookId == playingState?.bookId }
+    // The lobby is pre-playback — nothing is loaded until the host lights the fire — so an Active
+    // session in LOBBY must show regardless of what (if anything) is playing. Once LIVE, the campfire
+    // controller has loaded the campfire's book, so the now-playing-book match holds for the room and
+    // keeps the campfire from hijacking the host of an unrelated solo book.
+    val session =
+        (campfireState as? CampfireScreenUiState.Active)
+            ?.takeIf { it.phase == CampfirePhase.LOBBY || it.bookId == playingState?.bookId }
 
     var showInvite by remember { mutableStateOf(false) }
     LaunchedEffect(session == null) {
@@ -440,6 +449,14 @@ private fun rememberCampfireHost(
     val currentUser by userRepository.observeCurrentUser().collectAsStateWithLifecycle(initialValue = null)
     val feed = session?.let { rememberCampfireFeed(it, currentUser?.idString) } ?: emptyList()
 
+    // The lobby has no playback yet, so the book cannot come from playingState — resolve the
+    // campfire's book from its id so the flow (Lobby/Invite/Room) has a title and cover to render.
+    // Once the fire is lit and the campfire's book is playing, the playingState branch below takes over.
+    val sessionBookId = session?.bookId
+    val sessionBook by remember(sessionBookId) {
+        if (sessionBookId != null) bookRepository.observeBookListItems(listOf(sessionBookId)) else flowOf(emptyList())
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+
     val book =
         playingState?.let {
             CampfireFlowBook(
@@ -449,6 +466,18 @@ private fun rememberCampfireHost(
                 coverPath = it.coverPath,
                 coverHash = it.coverHash,
                 coverBlurHash = it.coverBlurHash,
+            )
+        } ?: sessionBook.firstOrNull()?.let { item ->
+            CampfireFlowBook(
+                bookId = item.id.value,
+                title = item.title,
+                subtitle =
+                    item.narrators
+                        .joinToString(", ") { n -> n.name }
+                        .ifBlank { item.authors.joinToString(", ") { a -> a.name } },
+                coverPath = item.coverPath,
+                coverHash = item.coverHash,
+                coverBlurHash = item.coverBlurHash,
             )
         }
 
