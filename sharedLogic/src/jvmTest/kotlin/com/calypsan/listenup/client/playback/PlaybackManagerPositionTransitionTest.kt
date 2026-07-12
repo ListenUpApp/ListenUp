@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
+import com.calypsan.listenup.client.test.fake.FakePlayer
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -251,6 +252,102 @@ class PlaybackManagerPositionTransitionTest :
                             matches<PlaybackUpdate>({ "PlaybackStarted" }) { it is PlaybackUpdate.PlaybackStarted },
                         )
                     }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // F5 — the built-in-player (Desktop) observation path persists periodically.
+        // Desktop has no external periodic persister (Android → PlaybackService 30 s,
+        // iOS → PlayerCoordinator 5 s), so without this a crash mid-session loses the
+        // whole session and the listening span is dropped as zero-duration.
+        // ---------------------------------------------------------------------
+
+        test("built-in-player path persists periodically via the reporter as content advances") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBook(db, fileCount = 1, fileDurationMs = 1_800_000L)
+                    val managerScope = CoroutineScope(coroutineContext + Job())
+                    val positionRepository = defaultPositionRepository()
+                    val progressTracker = buildProgressTracker(scope = managerScope, positionRepository = positionRepository)
+                    val manager =
+                        createManager(
+                            db = db,
+                            scope = managerScope,
+                            progressTracker = progressTracker,
+                            persistTransitionsViaReporter = true,
+                        )
+
+                    val prepared = manager.prepareForPlayback(BookId("book-1"))
+                    checkNotNull(prepared) { "prepareForPlayback must succeed" }
+                    manager.activateBook(BookId("book-1"))
+
+                    val player = FakePlayer()
+                    manager.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
+                    advanceUntilIdle() // player.play() → Playing → isPlaying = true
+
+                    // Advance content past the 10 s persist interval (the built-in player emits this
+                    // continuously; drive it directly).
+                    player.advancePosition(10_000L)
+                    advanceUntilIdle()
+
+                    // The periodic tick persisted the current position via a PeriodicUpdate — the same
+                    // reporter.onPositionUpdate call also advances the listening-span heartbeat.
+                    verifySuspend(VerifyMode.exactly(1)) {
+                        positionRepository.savePlaybackState(
+                            any(),
+                            matches<PlaybackUpdate>({ "PeriodicUpdate(10_000)" }) {
+                                it is PlaybackUpdate.PeriodicUpdate && it.positionMs == 10_000L
+                            },
+                        )
+                    }
+
+                    managerScope.coroutineContext[Job]?.cancel()
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("Android-style instance (persistTransitionsViaReporter=false) does NOT periodically persist") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBook(db, fileCount = 1, fileDurationMs = 1_800_000L)
+                    val managerScope = CoroutineScope(coroutineContext + Job())
+                    val positionRepository = defaultPositionRepository()
+                    val progressTracker = buildProgressTracker(scope = managerScope, positionRepository = positionRepository)
+                    val manager =
+                        createManager(
+                            db = db,
+                            scope = managerScope,
+                            progressTracker = progressTracker,
+                            persistTransitionsViaReporter = false,
+                        )
+
+                    val prepared = manager.prepareForPlayback(BookId("book-1"))
+                    checkNotNull(prepared) { "prepareForPlayback must succeed" }
+                    manager.activateBook(BookId("book-1"))
+
+                    val player = FakePlayer()
+                    manager.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
+                    advanceUntilIdle()
+
+                    player.advancePosition(10_000L)
+                    advanceUntilIdle()
+
+                    // Android owns its own PlaybackService periodic loop — this class must not double-drive.
+                    verifySuspend(VerifyMode.exactly(0)) {
+                        positionRepository.savePlaybackState(
+                            any(),
+                            matches<PlaybackUpdate>({ "PeriodicUpdate" }) { it is PlaybackUpdate.PeriodicUpdate },
+                        )
+                    }
+
+                    managerScope.coroutineContext[Job]?.cancel()
                 }
             } finally {
                 db.close()

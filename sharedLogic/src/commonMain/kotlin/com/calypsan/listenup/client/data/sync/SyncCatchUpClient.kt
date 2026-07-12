@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncPayload
 import com.calypsan.listenup.api.sync.Tombstoned
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.api.result.AppResult
@@ -96,40 +97,85 @@ internal class SyncCatchUpClient(
                         Page.serializer(handler.payloadSerializer),
                         element,
                     )
-                // Apply the whole page in ONE outer transaction. Each handler.onCatchUpItem still
-                // runs its own atomically {} — those nest as savepoints, so per-item failures stay
-                // isolated, but Room's invalidation tracker fires ONCE per page instead of once per
-                // row. On a fresh library that turns ~1000 single-row commits (each re-running the
-                // whole-table observe query → the onboarding GC storm) into a handful of page commits,
-                // and books still stream in page-by-page.
-                val failed =
-                    transactionRunner.atomically {
-                        var failures = 0
-                        for (item in page.items) {
-                            val isTomb = (item as? Tombstoned)?.deletedAt != null
-                            if (handler.onCatchUpItem(item, isTomb) is AppResult.Failure) failures++
-                        }
-                        failures
+                val outcome = applyPage(handler, page, since)
+                if (outcome.failures > 0 && !handler.hasDigestBackstop) {
+                    // Digest OPT-OUT domain (positions): the reconciler never re-pulls it, so the
+                    // cursor is the ONLY redelivery path. Hold it at the last revision applied
+                    // before the first failure — `pullSince(lastSafeRevision)` then redelivers the
+                    // failed item on the next pass. Stop paging: advancing `since` past the hole to
+                    // fetch the next page would strand the failed revision forever.
+                    logger.warn {
+                        "catchUp(${handler.domainName}): ${outcome.failures}/${page.items.size} items failed; " +
+                            "holding cursor at ${outcome.lastSafeRevision} " +
+                            "(no digest backstop, cannot advance past a failed item)"
                     }
-                if (failed > 0) {
-                    // The cursor still advances (idempotent upserts + a later reconcile re-pulls), but
-                    // surface the loss rather than discarding it silently.
-                    logger.warn { "catchUp(${handler.domainName}): $failed/${page.items.size} items failed to apply" }
+                    advanceCursor(handler.domainName, outcome.lastSafeRevision, resetCursor)
+                    break
+                }
+                if (outcome.failures > 0) {
+                    // Digest-participating domain: the cursor still advances (idempotent upserts +
+                    // the next reconcile re-pulls the drifted rows), but surface the loss rather than
+                    // discarding it silently.
+                    logger.warn {
+                        "catchUp(${handler.domainName}): ${outcome.failures}/${page.items.size} items failed to apply"
+                    }
                 }
                 page.nextCursor?.let {
-                    if (resetCursor) {
-                        store.resetCursor(
-                            handler.domainName,
-                            it,
-                        )
-                    } else {
-                        store.setCursor(handler.domainName, it)
-                    }
+                    advanceCursor(handler.domainName, it, resetCursor)
                     since = it
                 }
                 if (!page.hasMore) break
             }
         }
+
+    /** The outcome of applying one catch-up page: how many items failed, and the highest revision applied before the first failure. */
+    private data class PageApplyOutcome(
+        val failures: Int,
+        val lastSafeRevision: Long,
+    )
+
+    /**
+     * Apply every item of [page] in ONE outer transaction. Each `handler.onCatchUpItem` still runs
+     * its own `atomically {}` — those nest as savepoints, so per-item failures stay isolated, but
+     * Room's invalidation tracker fires ONCE per page instead of once per row. On a fresh library
+     * that turns ~1000 single-row commits (each re-running the whole-table observe query → the
+     * onboarding GC storm) into a handful of page commits, and books still stream in page-by-page.
+     *
+     * Items arrive in ascending revision order (the server pages by `revision > since`), so
+     * [PageApplyOutcome.lastSafeRevision] is the highest revision applied with no prior failure —
+     * the exact watermark a digest OPT-OUT domain must hold at to guarantee redelivery.
+     */
+    private suspend fun <T : Any> applyPage(
+        handler: SyncDomainHandler<T>,
+        page: Page<T>,
+        startSince: Long,
+    ): PageApplyOutcome =
+        transactionRunner.atomically {
+            var failures = 0
+            var lastSafeRevision = startSince
+            for (item in page.items) {
+                val isTomb = (item as? Tombstoned)?.deletedAt != null
+                if (handler.onCatchUpItem(item, isTomb) is AppResult.Failure) {
+                    failures++
+                } else if (failures == 0) {
+                    (item as? SyncPayload)?.revision?.let { lastSafeRevision = it }
+                }
+            }
+            PageApplyOutcome(failures, lastSafeRevision)
+        }
+
+    /**
+     * Advance the persisted cursor for [domainName] to [revision]. [resetCursor] forces the advance
+     * (the from-zero re-baseline that may LOWER a stale-high value) instead of the default monotonic
+     * advance used by incremental catch-up.
+     */
+    private suspend fun advanceCursor(
+        domainName: String,
+        revision: Long,
+        resetCursor: Boolean,
+    ) {
+        if (resetCursor) store.resetCursor(domainName, revision) else store.setCursor(domainName, revision)
+    }
 
     /**
      * Page [handler]'s access-filtered catch-up from cursor 0 WITHOUT advancing

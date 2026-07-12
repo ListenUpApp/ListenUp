@@ -30,6 +30,10 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
     override val domainName: String = domain.key.name
     override val payloadSerializer: KSerializer<T> = domain.key.serializer
 
+    // A digest-participating domain self-heals a failed apply on the next reconcile; an OptOut
+    // domain (positions) has no such backstop, so its cursor must never advance past a failed item.
+    override val hasDigestBackstop: Boolean = domain.digest is DigestParticipation.Full
+
     override fun syncId(item: T): String = domain.syncIdOf(item)
 
     init {

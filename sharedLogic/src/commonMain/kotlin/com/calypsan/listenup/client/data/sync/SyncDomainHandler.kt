@@ -23,6 +23,24 @@ internal interface SyncDomainHandler<T : Any> {
     val payloadSerializer: KSerializer<T>
 
     /**
+     * Whether a *failed* apply for this domain is later re-pulled by digest reconciliation.
+     *
+     * `true` (the default, and the case for every digest-participating domain): a missed or
+     * failed apply self-heals — the next reconcile fingerprints the domain, detects the drift,
+     * and re-pulls the row. The cursor-advance sites may therefore advance past a failed item
+     * and let reconcile repair it.
+     *
+     * `false` (digest opt-out domains — `playback_positions`): the server digests by an identity
+     * the client never stores, so the reconciler skips the domain entirely. The per-domain cursor
+     * is then the ONLY redelivery mechanism, so the cursor-advance sites
+     * ([SyncCatchUpClient], [SyncEventDispatcher]) must NOT step the cursor past a revision that
+     * failed to apply — otherwise `pullSince(cursor)` can never redeliver it and the loss is
+     * permanent. Compiled from the descriptor's `DigestParticipation`.
+     */
+    val hasDigestBackstop: Boolean
+        get() = true
+
+    /**
      * The stable sync id for [item] — the same id used on the SSE envelope and as the local
      * row's identity. For most domains this is the payload's `id` field; composite-key domains
      * (e.g. `collection_books`) synthesise it from their parts (`"$collectionId:$bookId"`).

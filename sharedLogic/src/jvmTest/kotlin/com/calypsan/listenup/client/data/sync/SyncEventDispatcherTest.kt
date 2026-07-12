@@ -41,9 +41,11 @@ class SyncEventDispatcherTest :
 
         class ScriptedHandler(
             private val results: ArrayDeque<AppResult<Unit>>,
+            hasBackstop: Boolean = true,
         ) : SyncDomainHandler<Tag> {
             override val domainName = "tags"
             override val payloadSerializer = Tag.serializer()
+            override val hasDigestBackstop = hasBackstop
 
             override fun syncId(item: Tag): String = item.id
 
@@ -474,6 +476,102 @@ class SyncEventDispatcherTest :
                         data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
                     )
                 dispatcher.handle(succeededFrame)
+
+                cursorAdvanced shouldBe ("tags" to 6L)
+            }
+        }
+
+        test("OptOut domain: after a failed apply, a later book's event does NOT advance the cursor past the hole") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                // rev4 applies → cursor 4; rev5 fails → freeze at 4; rev6 (another book) succeeds
+                // but must NOT advance the cursor to 6 — only the cursor can redeliver rev5, and
+                // advancing past it would strand it forever (no digest backstop).
+                val handler =
+                    ScriptedHandler(
+                        ArrayDeque(
+                            listOf(
+                                AppResult.Success(Unit),
+                                AppResult.Failure(SyncError.SyncFailed()),
+                                AppResult.Success(Unit),
+                            ),
+                        ),
+                        hasBackstop = false,
+                    )
+                registry.register(handler)
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
+                    )
+
+                fun frameAt(rev: Long): ParsedSseFrame {
+                    val event =
+                        SyncEvent.Created(
+                            id = "b$rev",
+                            revision = rev,
+                            occurredAt = 100L,
+                            clientOpId = null,
+                            payload = Tag("b$rev", "n", "n", rev, 100L),
+                        )
+                    return ParsedSseFrame(
+                        id = rev,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    )
+                }
+
+                dispatcher.handle(frameAt(4L)) // applies, cursor → 4
+                dispatcher.handle(frameAt(5L)) // fails, freezes at 4
+                dispatcher.handle(frameAt(6L)) // succeeds but frozen — must not advance to 6
+
+                // Held at the last safe revision (4), NOT stepped to 6.
+                cursorAdvanced shouldBe ("tags" to 4L)
+            }
+        }
+
+        test("digest-backed domain: a failed apply does not freeze — a later event still advances (unchanged)") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                val handler =
+                    ScriptedHandler(
+                        ArrayDeque(
+                            listOf(
+                                AppResult.Failure(SyncError.SyncFailed()),
+                                AppResult.Success(Unit),
+                            ),
+                        ),
+                        hasBackstop = true,
+                    )
+                registry.register(handler)
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
+                    )
+
+                fun frameAt(rev: Long): ParsedSseFrame {
+                    val event =
+                        SyncEvent.Created(
+                            id = "b$rev",
+                            revision = rev,
+                            occurredAt = 100L,
+                            clientOpId = null,
+                            payload = Tag("b$rev", "n", "n", rev, 100L),
+                        )
+                    return ParsedSseFrame(
+                        id = rev,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    )
+                }
+
+                dispatcher.handle(frameAt(5L)) // fails — but digest backstop, no freeze
+                dispatcher.handle(frameAt(6L)) // succeeds, advances
 
                 cursorAdvanced shouldBe ("tags" to 6L)
             }

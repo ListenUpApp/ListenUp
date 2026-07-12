@@ -23,6 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 private val logger = KotlinLogging.logger {}
 
@@ -32,6 +33,18 @@ private val logger = KotlinLogging.logger {}
  * release/stop falsely marking a book finished.
  */
 private const val BOOK_FINISHED_THRESHOLD = 0.90f
+
+/**
+ * Content-position delta (ms) between periodic durable persists on the built-in-player
+ * (Desktop) observation path. The built-in player advances [AudioPlayer.positionMs]
+ * continuously while playing, so persisting every time the position has moved this far
+ * bounds crash loss to ~this much content and keeps the listening-span heartbeat alive
+ * (without it `recoverOrphan` would finalize the span at `endedAt == startedAt` and drop
+ * it). 10 s sits between iOS's 5 s and Android's 30 s. Measured in content-position rather
+ * than wall-clock so it is deterministic under virtual-time tests and adds no scheduled
+ * timer task that would trap `advanceUntilIdle()`.
+ */
+private const val POSITION_PERSIST_INTERVAL_MS = 10_000L
 
 /**
  * Default [PlaybackManager] implementation. See the interface KDoc on
@@ -62,16 +75,20 @@ internal class PlaybackManagerImpl(
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
     /**
-     * When true, [setPlaybackState] routes Playing/Paused transitions through
-     * [reporter] to persist position and record listening spans. This is the sole
-     * persistence path on Desktop/iOS (driven by [playerObservationJob]).
+     * When true, this instance is the reporter-based persistence owner: [setPlaybackState]
+     * routes Playing/Paused transitions through [reporter] (position + listening span), and
+     * [playerObservationJob] additionally persists periodically off the position stream (every
+     * [POSITION_PERSIST_INTERVAL_MS] of content). This is the sole persistence path on the
+     * built-in-player wiring (Desktop; iOS drives [reporter] via its own coordinator).
      *
-     * Android sets this false: its Media3 `PlaybackService.PlayerListener` already
-     * owns book-relative transition persistence AND listening-event recording, and
-     * those same signals also reach this class via `MediaControllerHolder`. Letting
-     * both persist would double-write the outbox on every play/pause. Android keeps
-     * this class as the UI/StateFlow source of truth only for transitions; it remains
-     * the persistence path for explicit speed changes ([onSpeedChanged]/[onSpeedReset]).
+     * Android sets this false: its Media3 `PlaybackService.PlayerListener` already owns
+     * book-relative transition persistence, periodic position persistence, AND listening-event
+     * recording, and those same signals also reach this class via `MediaControllerHolder`.
+     * Letting both persist would double-write the outbox. Android keeps this class as the
+     * UI/StateFlow source of truth only; it remains the persistence path for explicit speed
+     * changes ([onSpeedChanged]/[onSpeedReset]). (Android also never invokes the built-in-player
+     * [startPlayback] overload, so [playerObservationJob] does not run there — the flag is a
+     * second, structural guarantee against a double periodic writer.)
      */
     private val persistTransitionsViaReporter: Boolean = true,
 ) : PlaybackManager {
@@ -236,8 +253,29 @@ internal class PlaybackManagerImpl(
         playerObservationJob =
             scope.launch {
                 launch {
+                    // Desktop's built-in-player path has no external periodic persister — Android's
+                    // is `PlaybackService` (30 s), iOS's is `PlayerCoordinator` (5 s), and both reach
+                    // this class through their own seams, NOT through this observation job (which runs
+                    // ONLY on the built-in-player/Desktop path). Without a periodic writer here a
+                    // desktop crash mid-session would lose everything since `onPlaybackStarted`, and
+                    // the listening span's heartbeat would never advance. Persist through [reporter]
+                    // every POSITION_PERSIST_INTERVAL_MS of content movement while playing. Gated by
+                    // [persistTransitionsViaReporter]: this instance is the reporter-persistence owner
+                    // only on the Desktop/iOS-style wiring; Android sets it false so its own loop stays
+                    // the sole periodic writer (no double-drive). Driven off the position stream rather
+                    // than a delay loop, so it schedules no timer task.
+                    var lastPersistedPositionMs = resumePositionMs
                     player.positionMs.collect { position ->
                         updatePosition(position)
+                        if (persistTransitionsViaReporter &&
+                            isPlaying.value &&
+                            abs(position - lastPersistedPositionMs) >= POSITION_PERSIST_INTERVAL_MS
+                        ) {
+                            lastPersistedPositionMs = position
+                            currentBookId.value?.let { activeBookId ->
+                                reporter.onPositionUpdate(activeBookId, position, playbackSpeed.value)
+                            }
+                        }
                     }
                 }
                 launch {

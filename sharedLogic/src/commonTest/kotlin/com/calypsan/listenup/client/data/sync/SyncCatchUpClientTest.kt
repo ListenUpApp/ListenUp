@@ -253,6 +253,129 @@ class SyncCatchUpClientTest :
             }
         }
 
+        // A handler that fails onCatchUpItem for any item whose id is in [failIds]. [hasBackstop]
+        // toggles digest participation — the sole lever the cursor-advance sites read to decide
+        // whether a failed item may be skipped (digest reconcile re-pulls) or must be redelivered
+        // via the cursor (OptOut domain: cursor is the only backstop).
+        fun failingHandler(
+            failIds: Set<String>,
+            hasBackstop: Boolean,
+            requestedSince: MutableList<Long> = mutableListOf(),
+        ): SyncDomainHandler<Tag> =
+            object : SyncDomainHandler<Tag> {
+                override val domainName = "tags"
+                override val payloadSerializer = Tag.serializer()
+                override val hasDigestBackstop = hasBackstop
+
+                override fun syncId(item: Tag): String = item.id
+
+                override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
+
+                override suspend fun onCatchUpItem(
+                    item: Tag,
+                    isTombstone: Boolean,
+                ): AppResult<Unit> =
+                    if (item.id in failIds) {
+                        AppResult.Failure(
+                            com.calypsan.listenup.api.error.SyncError
+                                .SyncFailed(),
+                        )
+                    } else {
+                        AppResult.Success(Unit)
+                    }
+
+                override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>>? = if (hasBackstop) emptyList() else null
+            }
+
+        test("OptOut domain: a failed item holds the cursor at the last safe revision and stops paging") {
+            runTest {
+                val requestedSince = mutableListOf<Long>()
+                // Rev 1 applies, rev 2 fails, rev 3 would apply — for an OptOut domain the cursor
+                // must hold at rev 1 (last success before the hole) so pullSince(1) redelivers rev 2.
+                val httpClient =
+                    mockClient { _, since ->
+                        requestedSince += since ?: -1L
+                        when (since) {
+                            0L -> {
+                                contractJson.encodeToString(
+                                    Page.serializer(Tag.serializer()),
+                                    Page(
+                                        items =
+                                            listOf(
+                                                Tag("a", "alpha", "alpha", 1L, 100L),
+                                                Tag("fail", "beta", "beta", 2L, 200L),
+                                                Tag("c", "gamma", "gamma", 3L, 300L),
+                                            ),
+                                        nextCursor = 3L,
+                                        hasMore = true,
+                                    ),
+                                )
+                            }
+
+                            else -> {
+                                error("OptOut domain must NOT page past the hole (requested since=$since)")
+                            }
+                        }
+                    }
+                val store = SyncCursorStore(InMemorySyncCursorDao())
+                val catchUp =
+                    SyncCatchUpClient(
+                        httpClientProvider = { httpClient },
+                        serverUrlProvider = { "http://test" },
+                        store = store,
+                        transactionRunner = passThroughTransactionRunner(),
+                    )
+
+                catchUp.catchUp(failingHandler(failIds = setOf("fail"), hasBackstop = false))
+
+                // Cursor held at rev 1 (NOT advanced to nextCursor 3), and only page one was fetched.
+                store.getCursor("tags") shouldBe 1L
+                requestedSince shouldContainExactly listOf(0L)
+            }
+        }
+
+        test("digest-participating domain: a failed item still advances the cursor past it (unchanged)") {
+            runTest {
+                val httpClient =
+                    mockClient { _, since ->
+                        when (since) {
+                            0L -> {
+                                contractJson.encodeToString(
+                                    Page.serializer(Tag.serializer()),
+                                    Page(
+                                        items =
+                                            listOf(
+                                                Tag("a", "alpha", "alpha", 1L, 100L),
+                                                Tag("fail", "beta", "beta", 2L, 200L),
+                                                Tag("c", "gamma", "gamma", 3L, 300L),
+                                            ),
+                                        nextCursor = 3L,
+                                        hasMore = false,
+                                    ),
+                                )
+                            }
+
+                            else -> {
+                                error("unexpected since=$since")
+                            }
+                        }
+                    }
+                val store = SyncCursorStore(InMemorySyncCursorDao())
+                val catchUp =
+                    SyncCatchUpClient(
+                        httpClientProvider = { httpClient },
+                        serverUrlProvider = { "http://test" },
+                        store = store,
+                        transactionRunner = passThroughTransactionRunner(),
+                    )
+
+                catchUp.catchUp(failingHandler(failIds = setOf("fail"), hasBackstop = true))
+
+                // Digest backstop present: cursor advances to nextCursor; reconcile re-pulls the drift.
+                store.getCursor("tags") shouldBe 3L
+            }
+        }
+
         test("catchUpAll forwards each domain's typed failure to the report seam and completes every domain") {
             runTest {
                 val unauthorized401Client =
