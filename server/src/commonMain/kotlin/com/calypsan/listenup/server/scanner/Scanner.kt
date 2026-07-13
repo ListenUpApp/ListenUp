@@ -87,7 +87,18 @@ internal class Scanner(
     @Volatile
     private var lastResult: ScanResult? = null
 
+    // Set once the orchestrator rebuilds the bundle (a folder was added/removed). A scan that was
+    // already in flight then walked a stale folder set; publishing its result would let BookPersister
+    // sweep the newly-added folder's books (absent from this scan's seen set). Once superseded, both
+    // emit sites drop the result instead of handing it to the persister (A8).
+    @Volatile
+    private var superseded = false
+
     override fun lastResult(): ScanResult? = lastResult
+
+    override fun markSuperseded() {
+        superseded = true
+    }
 
     suspend fun runFullScan(): ScanResult {
         val correlationId = correlationIdFactory()
@@ -158,9 +169,11 @@ internal class Scanner(
             booksTotal = totalCandidateCount,
         )
 
-        // Build a path-keyed cache from the previous scan so unchanged books can
-        // be reused without re-parsing their audio files.
-        val previousByPath = lastResult?.books.orEmpty().associateBy { it.candidate.rootRelPath }
+        // Group the previous scan's books by owning folder so each folder's fingerprint cache is
+        // keyed within that folder only — a bare-rootRelPath cache aliases a book to a same-relpath
+        // book in ANOTHER folder, reusing the wrong analysis (A11). Each pass below builds its own
+        // path-keyed map from its folder's bucket.
+        val previousByFolder = lastResult?.books.orEmpty().groupBy { it.folderRootPath }
 
         // Analyze each folder with an Analyzer anchored to that folder's root.
         // Aggregated books and errors replace the single-pass result; the Differ
@@ -173,6 +186,10 @@ internal class Scanner(
         var recentBooks: List<ScanBookRef> = emptyList()
 
         for (i in folderRoots.indices) {
+            val previousByPath =
+                previousByFolder[folderRootPaths[i]]
+                    .orEmpty()
+                    .associateBy { it.candidate.rootRelPath }
             val analyzer =
                 Analyzer(
                     folderRoots[i],
@@ -238,9 +255,28 @@ internal class Scanner(
             )
         // Store a stripped copy in lastResult so artwork bytes are not retained between scans.
         lastResult = result.withoutArtwork()
-        // Hand the artwork-bearing result to BookPersister; it emits ScanEvent.Completed once the
-        // books are persisted (see BookPersister.persist). The Scanner must NOT emit Completed here
-        // — that would signal "done" before any book is queryable.
+        return publishFullScanResult(result, correlationId)
+    }
+
+    /**
+     * Hands the full-scan [result] to [BookPersister] via [scanResultBus] — UNLESS this scanner was
+     * superseded by a bundle rebuild (a folder was added/removed) while the scan was in flight. A
+     * superseded scan walked a stale folder set, so its `seenPaths` omit the newly-added folder;
+     * publishing it would let the persister's tombstone sweep wrongly delete that folder's live books
+     * (A8). In that case the result is dropped and the new bundle's next scan reconciles. The Scanner
+     * never emits `ScanEvent.Completed` here — that fires only after the persister has committed.
+     */
+    private suspend fun publishFullScanResult(
+        result: ScanResult,
+        correlationId: String,
+    ): ScanResult {
+        if (superseded) {
+            logger.warn {
+                "scan superseded by a bundle rebuild (folder add/remove) — dropping stale full-scan " +
+                    "result [library=${library.id.value}] corr=$correlationId (sweep suppressed)"
+            }
+            return result
+        }
         scanResultBus.emit(result)
         logger.info {
             "scan walk complete [library=${library.id.value}]: ${formatScanCompleteLog(
@@ -361,6 +397,15 @@ internal class Scanner(
         logger.info {
             "incremental scan complete: library=${library.id.value} root=$bookRoot" +
                 " books=${books.size} changes=${changes.size} errors=${errors.size} in ${durationMs}ms corr=$correlationId"
+        }
+        // A superseded bundle's incremental result is stale too — drop it rather than let its
+        // Removed changes tombstone against a folder set the new bundle has already moved past (A8).
+        if (superseded) {
+            logger.warn {
+                "incremental scan superseded by a bundle rebuild — dropping stale result " +
+                    "[library=${library.id.value}] corr=$correlationId"
+            }
+            return
         }
         // BookPersister emits ScanEvent.Completed after persisting this incremental result.
         scanResultBus.emit(incrementalResult)

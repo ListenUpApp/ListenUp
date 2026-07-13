@@ -579,9 +579,8 @@ class BookRepository(
             return write(existing).map { IngestOutcome(existing, wasNew = false) }
         }
 
-        analyzed.candidate.files
-            .firstOrNull()
-            ?.inode
+        analyzed.candidate
+            .identityInode()
             ?.let { inode ->
                 // The move hint is folder-scoped `(folder_id, inode)` — identity is anchored to the
                 // owning folder. Tradeoff: moving a book directory BETWEEN two folders of the same
@@ -821,12 +820,7 @@ class BookRepository(
         // Bulk existence: one IN-read for natural keys, one for inodes — replacing the per-book
         // findByPath/findByInode read transactions with two reads for the whole scan.
         val byPath = bookFinder.findExistingByPaths(folderId, valid.map { it.candidate.rootRelPath })
-        val inodes =
-            valid.mapNotNull {
-                it.candidate.files
-                    .firstOrNull()
-                    ?.inode
-            }
+        val inodes = valid.mapNotNull { it.candidate.identityInode() }
         val byInode = bookFinder.findExistingByInodes(folderId, inodes)
 
         // Resolve each book's stable BookId in memory from the bulk maps (natural key, then inode,
@@ -840,10 +834,7 @@ class BookRepository(
         val resolved =
             valid.map { analyzed ->
                 val rootRelPath = analyzed.candidate.rootRelPath
-                val inode =
-                    analyzed.candidate.files
-                        .firstOrNull()
-                        ?.inode
+                val inode = analyzed.candidate.identityInode()
                 val existing = byPath[rootRelPath] ?: inode?.let { byInode[it] }
                 Resolved(analyzed, existing ?: BookId(Uuid.random().toString()), isNew = existing == null)
             }
@@ -1274,7 +1265,11 @@ class BookRepository(
             // Genres: a separate, sequential pass over SQLDelight (idempotent, no revision bump).
             // The writer's synchronous junction queries auto-commit and the auto-create upsert runs
             // its own transaction — sequential after the book write, so no SQLITE_BUSY contention.
-            bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now)
+            // Skip when GENRES is user-protected (hand-edited or applied via enrichment): a rescan's
+            // file-derived genres must not silently revert the curated set (A7).
+            if (merge?.preserveGenres != true) {
+                bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now)
+            }
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result
@@ -1290,6 +1285,7 @@ class BookRepository(
         val payload: BookSyncPayload,
         val preserveContributors: Boolean,
         val preserveSeries: Boolean,
+        val preserveGenres: Boolean,
     )
 
     /**
@@ -1323,12 +1319,16 @@ class BookRepository(
                 title = kept(UserEditedField.TITLE, existing.title, incoming.title),
                 subtitle = kept(UserEditedField.SUBTITLE, existing.subtitle, incoming.subtitle),
                 description = kept(UserEditedField.DESCRIPTION, existing.description, incoming.description),
+                publisher = kept(UserEditedField.PUBLISHER, existing.publisher, incoming.publisher),
+                language = kept(UserEditedField.LANGUAGE, existing.language, incoming.language),
+                publishYear = kept(UserEditedField.PUBLISH_YEAR, existing.publishYear, incoming.publishYear),
                 userEditedFields = existing.userEditedFields + incoming.userEditedFields,
             )
         return UserEditMerge(
             payload = merged,
             preserveContributors = UserEditedField.CONTRIBUTORS in stillProtected,
             preserveSeries = UserEditedField.SERIES in stillProtected,
+            preserveGenres = UserEditedField.GENRES in stillProtected,
         )
     }
 

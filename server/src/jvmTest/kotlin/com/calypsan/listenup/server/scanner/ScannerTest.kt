@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -216,6 +217,28 @@ class ScannerTest :
 
                     val result = bus.replayCache.first()
                     result.scope shouldBe ScanScope.Full
+                }
+            }
+        }
+
+        test("a superseded scanner does NOT publish its full-scan result to scanResultBus (A8)") {
+            runTest {
+                audioLibrary {
+                    book("Author/Title") { tracks(count = 1) }
+                }.use { fixture ->
+                    val bus = MutableSharedFlow<ScanResult>(replay = 1)
+                    val (scanner, _) = newScanner(fixture, scanResultBus = bus)
+
+                    // The bundle was rebuilt under this scanner (a folder was added): a scan that was
+                    // already in flight walked a stale folder set. Its Full result must be dropped, or
+                    // BookPersister would sweep the newly-added folder's books.
+                    scanner.markSuperseded()
+                    val result = scanner.runFullScan()
+
+                    // The scan still computes a result (returned to any synchronous caller) …
+                    result.scope shouldBe ScanScope.Full
+                    // … but it must NOT reach the persister bus.
+                    bus.replayCache.shouldBeEmpty()
                 }
             }
         }

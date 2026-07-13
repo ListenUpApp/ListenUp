@@ -70,6 +70,28 @@ class DifferTest :
             }
         }
 
+        test("two folders sharing a rootRelPath don't alias — removing one emits Removed for the right folder") {
+            runTest {
+                // Both folders hold a book at the SAME relative path but with distinct files/inodes.
+                val inFolderA = book("Author/Book", inode = 1).copy(folderRootPath = "/srv/audio/a")
+                val inFolderB = book("Author/Book", inode = 2).copy(folderRootPath = "/srv/audio/b")
+
+                // Rescan sees only folder A's book; folder B's vanished.
+                val events =
+                    differ
+                        .diff(
+                            listOf(inFolderA).asFlow(),
+                            previous = listOf(inFolderA, inFolderB),
+                        ).toList()
+
+                // Folder B's removal must NOT be masked by folder A's same-relpath book, and folder A's
+                // unchanged book must NOT be spuriously reported as Modified (matched to B's twin).
+                val removed = events.single().shouldBeInstanceOf<ChangeEventDto.Removed>()
+                removed.rootRelPath shouldBe "Author/Book"
+                removed.folderRootPath shouldBe "/srv/audio/b"
+            }
+        }
+
         test("a content change at the same path emits Modified") {
             runTest {
                 val before = book("Author/Title", inode = 1, trackCount = 3)

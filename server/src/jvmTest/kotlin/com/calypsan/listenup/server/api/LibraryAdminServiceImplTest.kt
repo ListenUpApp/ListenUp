@@ -555,6 +555,8 @@ private fun fakeBundle(
     val fakeScannerPort =
         object : ScannerResultPort {
             override fun lastResult(): ScanResult? = null
+
+            override fun markSuperseded() = Unit
         }
     val coordinator =
         ScanCoordinator(
@@ -610,6 +612,8 @@ private fun recordingBundle(
     val scanner =
         object : ScannerResultPort {
             override fun lastResult(): ScanResult? = null
+
+            override fun markSuperseded() = Unit
         }
     val coordinator =
         ScanCoordinator(

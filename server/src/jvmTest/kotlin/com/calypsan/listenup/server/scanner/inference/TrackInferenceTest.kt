@@ -95,9 +95,26 @@ class TrackInferenceTest :
                 TrackInfo(trackNumber = 9999, trackSource = TrackNumberSource.FILENAME)
         }
 
-        test("ignores 5-digit numbers (regex bounded 1-4 digits)") {
-            // 12345 contains "1234" as the first 4-digit match
-            TrackInference.infer("12345.mp3", null) shouldBe
-                TrackInfo(trackNumber = 1234, trackSource = TrackNumberSource.FILENAME)
+        test("ignores 5-digit numbers (a long numeric blob is not a track number)") {
+            // A complete 5-digit run is not a track — it is skipped entirely,
+            // not truncated to a 4-digit prefix.
+            TrackInference.infer("12345.mp3", null) shouldBe TrackInfo()
+        }
+
+        test("prefers the last digit run over a leading year-like token") {
+            // "1984 - 12.mp3": leading 1984 is the book's title/year, 12 is the track.
+            TrackInference.infer("1984 - 12.mp3", null) shouldBe
+                TrackInfo(trackNumber = 12, trackSource = TrackNumberSource.FILENAME)
+        }
+
+        test("single leading NN prefix still infers as the track") {
+            // When "NN - Title" is the only digit run, last == first.
+            TrackInference.infer("1984 - 1.mp3", null) shouldBe
+                TrackInfo(trackNumber = 1, trackSource = TrackNumberSource.FILENAME)
+        }
+
+        test("word-number filenames yield no track (handled by natural sort tiebreak)") {
+            TrackInference.infer("Part One.mp3", null) shouldBe TrackInfo()
+            TrackInference.infer("Part Ten.mp3", null) shouldBe TrackInfo()
         }
     })

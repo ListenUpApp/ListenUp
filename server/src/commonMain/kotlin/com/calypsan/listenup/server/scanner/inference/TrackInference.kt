@@ -20,24 +20,31 @@ internal data class TrackInfo(
  * (`getTrackAndDiscNumberFromFilename`).
  *
  * Disc number is sourced from (in priority order):
- *  1. `\b(disc|cd) ?(\d{1,2})\b` matched anywhere in the filename.
+ *  1. `\b(disc|cd) ?(\d{1,3})\b` matched anywhere in the filename.
  *  2. `^(cd|dis[ck])\s*(\d{1,3})$` matched against the parent folder name
  *     (the multi-disc subdirectory convention).
  *
- * Track number is the first 1–4 digit run remaining in the filename after
- * stripping any matched disc prefix. Strict heuristic: ABS additionally
- * strips title/author/series/year text before this match, but this parser
- * skips that — embedded-tag-driven track inference (`TrackNumberSource.METADATA`)
- * is the better fix.
+ * Track number is the **last** complete 1–4 digit run remaining in the
+ * filename after stripping any matched disc prefix. Audiobook filenames
+ * conventionally place the sequence number after the title
+ * (`"1984 - 12.mp3"`, `"Title - 05.mp3"`), so a leading numeric token is
+ * usually a year or title text; taking the last run avoids inferring `1984`
+ * as the track for every file in a book named after a year. When a genuine
+ * `"NN - Title"` prefix is the only run, last == first, so the leading-number
+ * convention still works. A run of 5+ digits is not a track number and is
+ * ignored entirely. ABS additionally strips title/author/series/year text
+ * before this match; embedded-tag inference (`TrackNumberSource.METADATA`) is
+ * the stronger fix and already wins when present.
  */
 internal object TrackInference {
-    private val discInFilename = Regex("""\b(disc|cd) ?(\d{1,2})\b""", RegexOption.IGNORE_CASE)
+    // `\d{1,3}` matches MultiDiscPattern's folder-disc range so 100+-disc sets are handled
+    // consistently whether the disc number is in the filename or the parent folder name.
+    private val discInFilename = Regex("""\b(disc|cd) ?(\d{1,3})\b""", RegexOption.IGNORE_CASE)
 
-    // No `\b` boundaries: filenames like `track01` don't have a word boundary
-    // between `k` and `0`, since both classes are "word" characters. Greedy
-    // `\d{1,4}` matches the longest 1-4 digit run and bounds 5+ digit numbers
-    // (e.g. `12345.mp3` → 1234, leaving `5` unmatched).
-    private val trackPattern = Regex("""(\d{1,4})""")
+    // Complete digit runs (maximal, delimited by non-digits). The consumer
+    // picks the last run of 1-4 digits; a 5+ digit run is skipped, not
+    // truncated, since a long numeric blob is not a track number.
+    private val digitRun = Regex("""\d+""")
 
     fun infer(
         filename: String,
@@ -63,8 +70,12 @@ internal object TrackInference {
             }
         }
 
-        val trackMatch = trackPattern.find(trackHaystack)
-        val trackNumber = trackMatch?.groupValues?.get(1)?.toIntOrNull()
+        val trackNumber =
+            digitRun
+                .findAll(trackHaystack)
+                .map { it.value }
+                .lastOrNull { it.length in 1..4 }
+                ?.toIntOrNull()
         val trackSource = trackNumber?.let { TrackNumberSource.FILENAME }
 
         return TrackInfo(
