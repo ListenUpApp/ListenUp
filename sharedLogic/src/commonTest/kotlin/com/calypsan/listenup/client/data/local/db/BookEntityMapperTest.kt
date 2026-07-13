@@ -219,6 +219,22 @@ class BookEntityMapperTest :
                 .hasScanWarning shouldBe false
         }
 
+        test("toBookEntity carries bookTierLabel and partTierLabel from payload") {
+            val payload = bookPayload().copy(bookTierLabel = "Book", partTierLabel = "Part")
+            val result = mapper.toBookEntity(payload, existing = null)
+
+            result.bookTierLabel shouldBe "Book"
+            result.partTierLabel shouldBe "Part"
+        }
+
+        test("toBookEntity leaves bookTierLabel and partTierLabel null when payload doesn't name the tiers") {
+            val payload = bookPayload()
+            val result = mapper.toBookEntity(payload, existing = null)
+
+            result.bookTierLabel.shouldBeNull()
+            result.partTierLabel.shouldBeNull()
+        }
+
         // --- toDetail mapping ---
 
         fun bookWithContributors(
