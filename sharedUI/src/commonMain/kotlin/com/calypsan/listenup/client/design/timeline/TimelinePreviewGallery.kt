@@ -34,12 +34,16 @@ fun TimelinePreviewGallery() {
             TwoLaneStackSection()
             DenseMarkersSection()
             ZoomedInSection()
+            GhostPreviewSection()
         }
     }
 }
 
 private const val MOCK_DURATION_MS = 3_600_000L // 1 hour
 private const val DEFAULT_STYLE_KEY = "default"
+private const val CHAPTER_1_LABEL = "Chapter 1"
+private const val CHAPTER_2_LABEL = "Chapter 2"
+private const val CHAPTER_3_LABEL = "Chapter 3"
 
 @Composable
 private fun mockStylesResolved(): Map<String, MarkerStyle> =
@@ -77,9 +81,9 @@ private fun SingleLaneSection() {
         remember {
             MockMarkerLane(
                 listOf(
-                    TimeMarker(id = "m1", timeMs = 300_000L, label = "Chapter 1", styleKey = DEFAULT_STYLE_KEY),
-                    TimeMarker(id = "m2", timeMs = 900_000L, label = "Chapter 2", styleKey = DEFAULT_STYLE_KEY),
-                    TimeMarker(id = "m3", timeMs = 1_800_000L, label = "Chapter 3", styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "m1", timeMs = 300_000L, label = CHAPTER_1_LABEL, styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "m2", timeMs = 900_000L, label = CHAPTER_2_LABEL, styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "m3", timeMs = 1_800_000L, label = CHAPTER_3_LABEL, styleKey = DEFAULT_STYLE_KEY),
                 ),
             )
         }
@@ -100,8 +104,8 @@ private fun TwoLaneStackSection() {
         remember {
             MockMarkerLane(
                 listOf(
-                    TimeMarker(id = "c1", timeMs = 300_000L, label = "Chapter 1", styleKey = DEFAULT_STYLE_KEY),
-                    TimeMarker(id = "c2", timeMs = 1_500_000L, label = "Chapter 2", styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "c1", timeMs = 300_000L, label = CHAPTER_1_LABEL, styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "c2", timeMs = 1_500_000L, label = CHAPTER_2_LABEL, styleKey = DEFAULT_STYLE_KEY),
                 ),
             )
         }
@@ -157,8 +161,8 @@ private fun ZoomedInSection() {
         remember {
             MockMarkerLane(
                 listOf(
-                    TimeMarker(id = "z1", timeMs = 300_000L, label = "Chapter 1", styleKey = DEFAULT_STYLE_KEY),
-                    TimeMarker(id = "z2", timeMs = 450_000L, label = "Chapter 2", styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "z1", timeMs = 300_000L, label = CHAPTER_1_LABEL, styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "z2", timeMs = 450_000L, label = CHAPTER_2_LABEL, styleKey = DEFAULT_STYLE_KEY),
                 ),
             )
         }
@@ -171,6 +175,36 @@ private fun ZoomedInSection() {
         onSeek = {},
         styles = mockStylesResolved(),
         state = state,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+    )
+}
+
+@Composable
+private fun GhostPreviewSection() {
+    GalleryLabel("Ghost preview — drift preview, negotiation disabled")
+    val lane =
+        remember {
+            MockMarkerLane(
+                listOf(
+                    TimeMarker(id = "g1", timeMs = 300_000L, label = CHAPTER_1_LABEL, styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "g2", timeMs = 900_000L, label = CHAPTER_2_LABEL, styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "g3", timeMs = 1_500_000L, label = CHAPTER_3_LABEL, styleKey = DEFAULT_STYLE_KEY),
+                ),
+            )
+        }
+    val ghosts =
+        listOf(
+            TimeMarker(id = "g1", timeMs = 330_000L, label = "Chapter 1 (corrected)", styleKey = DEFAULT_STYLE_KEY),
+            TimeMarker(id = "g2", timeMs = 945_000L, label = "Chapter 2 (corrected)", styleKey = DEFAULT_STYLE_KEY),
+            TimeMarker(id = "g3", timeMs = 1_560_000L, label = "Chapter 3 (corrected)", styleKey = DEFAULT_STYLE_KEY),
+        )
+    MarkerLaneTimeline(
+        lanes = listOf(lane),
+        durationMs = MOCK_DURATION_MS,
+        playheadMs = { 0L },
+        onSeek = {},
+        styles = mockStylesResolved(),
+        ghosts = ghosts,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
     )
 }

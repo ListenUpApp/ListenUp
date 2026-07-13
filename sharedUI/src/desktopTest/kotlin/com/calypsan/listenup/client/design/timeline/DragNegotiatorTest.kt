@@ -178,4 +178,14 @@ class DragNegotiatorTest :
             val update = negotiator.dragTo(1_234L, emptyList())
             update?.resisted shouldBe false
         }
+
+        test("a negotiator with no active drag never fires onCommit regardless of dragTo calls") {
+            // Models ghost-preview mode: the composable never calls beginDrag while ghosts != null,
+            // so dragTo is always a no-op — this pins that contract at the negotiator level.
+            val committed = mutableListOf<Pair<String, Long>>()
+            val negotiator = DragNegotiator(FreePlacementPolicy(committed))
+            negotiator.dragTo(5_000L, emptyList()) shouldBe null
+            negotiator.endDrag(5_000L)
+            committed.shouldBeEmpty()
+        }
     })
