@@ -16,7 +16,9 @@ import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -27,6 +29,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -104,6 +107,7 @@ internal class CampfireSessionController(
     private val userRepository: UserRepository,
     private val scope: CoroutineScope,
     private val clock: Clock = Clock.System,
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
 ) {
     /** Current session UI state. See the class KDoc for why this is a plain hot flow, not `stateIn`. */
     val state: StateFlow<CampfireUiState>
@@ -253,8 +257,8 @@ internal class CampfireSessionController(
     fun confirmRejoinSync() {
         val current = state.value as? CampfireUiState.Active ?: return
         val pendingAnchor = current.pendingRejoinSync ?: return
-        applyAnchorToPlayback(pendingAnchor, nowMs())
         state.value = current.copy(pendingRejoinSync = null)
+        scope.launch { applyAnchorToPlayback(pendingAnchor, nowMs()) }
     }
 
     /** Leaves the session: stops the frame stream + drift loop and notifies the server. */
@@ -430,7 +434,7 @@ internal class CampfireSessionController(
                     val expectedPositionMs = current.anchor.posAt(nowMs())
                     val actualPositionMs = playbackManager.currentPositionMs.value
                     if (abs(expectedPositionMs - actualPositionMs) > DRIFT_TOLERANCE_MS) {
-                        playbackController.seekTo(expectedPositionMs)
+                        withContext(mainDispatcher) { playbackController.seekTo(expectedPositionMs) }
                     }
                 }
             }
@@ -461,8 +465,8 @@ internal class CampfireSessionController(
 
             is CampfireFrame.AnchorChanged -> {
                 val isOwnEcho = consumePendingCommand(frame.commandId)
-                if (!isOwnEcho) applyAnchorToPlayback(frame.anchor, nowMs())
                 state.value = current.copy(anchor = frame.anchor)
+                if (!isOwnEcho) scope.launch { applyAnchorToPlayback(frame.anchor, nowMs()) }
             }
 
             is CampfireFrame.MemberJoined -> {
@@ -542,16 +546,18 @@ internal class CampfireSessionController(
         if (playbackManager.currentBookId.value == target) return
         val prepared = playbackManager.prepareForPlayback(target) ?: return
         playbackManager.activateBook(target)
-        playbackController.startPlayback(prepared)
+        withContext(mainDispatcher) { playbackController.startPlayback(prepared) }
     }
 
-    private fun applyAnchorToPlayback(
+    private suspend fun applyAnchorToPlayback(
         anchor: CampfireAnchor,
         nowMs: Long,
     ) {
-        playbackController.seekTo(anchor.posAt(nowMs))
-        if (anchor.isPlaying) playbackController.play() else playbackController.pause()
-        playbackController.setPlaybackSpeed(anchor.speed)
+        withContext(mainDispatcher) {
+            playbackController.seekTo(anchor.posAt(nowMs))
+            if (anchor.isPlaying) playbackController.play() else playbackController.pause()
+            playbackController.setPlaybackSpeed(anchor.speed)
+        }
     }
 
     private fun hasControl(

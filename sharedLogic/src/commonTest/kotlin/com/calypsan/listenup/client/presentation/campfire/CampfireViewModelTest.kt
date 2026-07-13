@@ -93,6 +93,7 @@ class CampfireViewModelTest :
                         userRepository = userRepository,
                         scope = scope.backgroundScope,
                         clock = FixedClock,
+                        mainDispatcher = Dispatchers.Unconfined,
                     )
                 return CampfireViewModel(
                     controller = controller,
