@@ -86,6 +86,7 @@ internal val campfireClientModule: Module =
                 transport = get(),
                 errorBus = get(),
                 userRepository = get(),
+                coordinator = get(),
             )
         }
 
