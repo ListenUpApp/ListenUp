@@ -43,6 +43,17 @@ data class ScanResult(
     val filesWalked: Int,
     val filesSkipped: Int,
     val scope: ScanScope = ScanScope.Full,
+    /**
+     * True when a [ScanScope.Full] scan walked every configured folder root, so its book set is
+     * authoritative for library-wide absence and `BookPersister` may run the tombstone sweep.
+     *
+     * Set `false` when at least one configured root was unreachable or unreadable at scan time
+     * (a dropped NAS/SMB mount, a permission change): that folder walked empty, so the sweep would
+     * wrongly tombstone every live book under it. A non-authoritative full scan skips the sweep
+     * entirely — genuine removals reconcile on the next scan where every root is reachable. Always
+     * `true` for a [ScanScope.Subtree] scan (which never sweeps regardless).
+     */
+    val fullScanAuthoritative: Boolean = true,
 )
 
 /**

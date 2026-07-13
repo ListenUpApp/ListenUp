@@ -65,6 +65,12 @@ private class PreparedBook(
     val genreIds: List<String>,
     val tags: List<String>,
     val extras: BookWriteExtras,
+    /**
+     * The `deleted_at` of the stored row this write is reviving, or null when the book is genuinely
+     * new or already live. Non-null only when re-ingesting a TOMBSTONED book — the write clears its
+     * `deleted_at`, so its cascade-tombstoned junctions must be revived (floored at this value).
+     */
+    val revivedFromDeletedAt: Long?,
 )
 
 /**
@@ -718,6 +724,16 @@ class BookRepository(
                     if (book.tags.isNotEmpty()) writer.writeScanTags(book.bookId, book.tags)
                 }
             }
+
+            // Scan revival cascade (A3): any book in this chunk that revived a tombstoned row must get
+            // its cascade-tombstoned junctions (tags/moods/collection memberships) revived too, floored
+            // at each book's own deleted_at. Grouped by floor so books removed together share one call.
+            // Post-commit, exactly like the tag pass above and the per-book path's cascade.
+            succeeded
+                .filter { it.revivedFromDeletedAt != null }
+                .groupBy({ it.revivedFromDeletedAt!! }, { it.bookId.value })
+                .forEach { (floor, ids) -> reviveBookJunctions(ids, floor) }
+
             onProgress(persisted + failed, failed)
         }
         return PersistResult(persisted = persisted, failed = failed, resolvedIds = resolvedIds)
@@ -895,6 +911,9 @@ class BookRepository(
                             preserveContributors = merge?.preserveContributors == true,
                             preserveSeries = merge?.preserveSeries == true,
                         ),
+                    // Non-null only when reviving a tombstoned row (skip is always false in that case,
+                    // so the write runs and clears deleted_at) — drives the A3 junction-revival cascade.
+                    revivedFromDeletedAt = existing?.deletedAt,
                 )
             }
         return PreparedBatch(prepared = prepared, prepareFailed = invalid.size)
@@ -981,6 +1000,29 @@ class BookRepository(
             if (linkedParents != null) orphanParentPurger.purgeOrphaned(linkedParents)
         }
         return result
+    }
+
+    /**
+     * Revives the junction rows (`book_tags` / `book_moods` / `collection_books`) for [bookIds] that
+     * were tombstoned at or after [cascadeFloor] — the same cascade [reviveByIds] runs for a folder
+     * re-add, reused by the scan revival paths.
+     *
+     * A scan re-ingest of a removed book revives the book ROW ([updateContent] clears `deleted_at`) but
+     * would otherwise leave its cascade-tombstoned junctions dead — so the book returned uncollected
+     * (invisible under the pure-union rule) with the user's tags/moods silently gone. [cascadeFloor] is
+     * the book's own `deleted_at`, so only junctions tombstoned BY that removal return; a membership the
+     * user removed manually earlier (an older tombstone) stays dead. A no-op when [bookIds] is empty;
+     * each repo opens its own transaction (the per-row substrate contract), run after the reviving book
+     * write commits.
+     */
+    private suspend fun reviveBookJunctions(
+        bookIds: List<String>,
+        cascadeFloor: Long,
+    ) {
+        if (bookIds.isEmpty()) return
+        bookTagRepository?.reviveAllForBooks(bookIds, cascadeFloor)
+        bookMoodRepository?.reviveAllForBooks(bookIds, cascadeFloor)
+        collectionBookRepository?.reviveAllForBooks(bookIds, cascadeFloor)
     }
 
     /**
@@ -1223,6 +1265,11 @@ class BookRepository(
                 }
             }
         if (result is AppResult.Success) {
+            // Scan revival cascade (A3): when this write revived a tombstoned row (existing.deletedAt
+            // was set, so the write cleared it via updateContent's deleted_at = NULL), restore the
+            // book's cascade-tombstoned junctions too — floored at its own deleted_at — so a transient
+            // remove→re-add never returns the book uncollected with its tags/moods lost.
+            existing?.deletedAt?.let { floor -> reviveBookJunctions(listOf(bookId.value), floor) }
             val now = clock.now().toEpochMilliseconds()
             // Genres: a separate, sequential pass over SQLDelight (idempotent, no revision bump).
             // The writer's synchronous junction queries auto-commit and the auto-create upsert runs

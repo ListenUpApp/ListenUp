@@ -36,6 +36,7 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = loggerFor<Scanner>()
 
@@ -110,10 +111,30 @@ internal class Scanner(
         // could differ). Parallel to [folderRoots].
         val folderRootPaths = mutableListOf<String>()
         val candidatesPerFolder = mutableListOf<List<CandidateBook>>()
+        // A full scan is authoritative for library-wide absence ONLY if every configured root was
+        // actually walked. An unreachable/unreadable root (a dropped NAS/SMB mount, a permission
+        // change) walks empty — treating that as authoritative would let BookPersister sweep every
+        // live book under it into a tombstone. Track reachability and surface the failure honestly.
+        var fullScanAuthoritative = true
+        val rootErrors = mutableListOf<ScanError>()
 
         for (folder in library.folders) {
             val rootPath = folder.rootPath ?: continue
             val folderRoot = Path(rootPath)
+            // Reachability gate: if the root is not a readable directory right now, skip it, surface a
+            // typed warning, and mark the whole full scan NON-AUTHORITATIVE so the tombstone sweep is
+            // suppressed downstream. This is the disk-reachability analogue of BookPersister's
+            // folder-row sentinel guard. A reachable-but-empty root is NOT flagged — an emptied
+            // library is a legitimate sweep.
+            if (SystemFileSystem.metadataOrNull(folderRoot)?.isDirectory != true) {
+                logger.error {
+                    "scan: configured root '$rootPath' is unreachable or unreadable — skipping it and " +
+                        "marking this scan non-authoritative (tombstone sweep suppressed) corr=$correlationId"
+                }
+                rootErrors += ScanError.LibraryPathNotFound(correlationId = correlationId, path = rootPath)
+                fullScanAuthoritative = false
+                continue
+            }
             val files = Walker().walk(folderRoot).toList()
             val candidates = Grouper().group(files.asFlow()).toList()
             totalFileCount += files.size
@@ -207,11 +228,13 @@ internal class Scanner(
                 rootPath = primaryRootPath,
                 books = allBooks, // artwork-bearing: BookPersister needs these to write covers to disk
                 changes = changes, // artwork-free: Differ used stripped books
-                errors = allErrors,
+                errors = allErrors + rootErrors,
                 durationMs = clock() - started,
                 filesWalked = totalFileCount,
                 filesSkipped = 0,
                 scope = ScanScope.Full,
+                // Non-authoritative when any configured root was unreachable — suppresses the sweep.
+                fullScanAuthoritative = fullScanAuthoritative,
             )
         // Store a stripped copy in lastResult so artwork bytes are not retained between scans.
         lastResult = result.withoutArtwork()
@@ -294,6 +317,7 @@ internal class Scanner(
             partitionBooksUnder(
                 bookRoot,
                 folderRoot,
+                folderRootPath,
                 lastResult?.books.orEmpty(), // already stripped from previous scan
             )
         // Strip artwork from the new books before diffing so both sides are comparable without
@@ -509,13 +533,24 @@ internal class Scanner(
     private fun partitionBooksUnder(
         bookRoot: Path,
         folderRoot: Path,
+        folderRootPath: String,
         books: List<AnalyzedBook>,
     ): Pair<List<AnalyzedBook>, List<AnalyzedBook>> {
         val rootPrefix = bookRoot.relativeTo(folderRoot).replace('\\', '/')
         return books.partition { book ->
+            // A book is "affected" by this incremental only if it belongs to the SAME folder as the
+            // scanned subtree. The previous snapshot spans EVERY folder, and each rootRelPath is
+            // relative to its OWN folder — so a path-prefix match alone (especially the empty prefix
+            // when bookRoot == folderRoot) wrongly claimed every other folder's books as affected,
+            // and the Differ then emitted Removed for them (mass cross-folder tombstoning). Filtering
+            // on the stamped folderRootPath first prevents that. A null folderRootPath (legacy /
+            // unattributed) can't be excluded, so it falls through to the prefix check as before.
+            if (book.folderRootPath != null && book.folderRootPath != folderRootPath) {
+                return@partition false
+            }
             val rel = book.candidate.rootRelPath
             if (rootPrefix.isEmpty()) {
-                true // bookRoot is the folder root → all books in this folder are affected
+                true // bookRoot is the folder root → all of THIS folder's books are affected
             } else {
                 rel == rootPrefix || rel.startsWith("$rootPrefix/")
             }

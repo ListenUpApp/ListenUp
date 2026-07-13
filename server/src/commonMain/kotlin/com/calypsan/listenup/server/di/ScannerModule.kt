@@ -86,14 +86,20 @@ fun scannerModule(
         }
 
         // Scan-result bus: the BookPersister consumes each ScanResult as it arrives.
-        // replay = 0: BookPersister subscribes before any scan starts, so no replay
-        // is needed — and replaying the last artwork-bearing result would re-pin
-        // ~230MB of embedded cover bytes in the SharedFlow's internal buffer between
-        // scans. DROP_OLDEST keeps a fast scan stream from ever blocking the Scanner.
-        // Qualified by name because Koin keys on the erased KClass — an unqualified
-        // MutableSharedFlow<ScanResult> would collide with the ScanEvent bus.
+        // replay = 0: BookPersister subscribes before any scan starts, so no replay is needed — and
+        // replaying the last artwork-bearing result would re-pin ~230MB of embedded cover bytes in the
+        // SharedFlow's internal buffer between scans.
+        //
+        // onBufferOverflow = SUSPEND is load-bearing (finding A4): this seam must be NON-LOSSY. The
+        // persister does heavy per-result DB + cover I/O, so a bulk reorg can queue scan results faster
+        // than it drains. The prior DROP_OLDEST silently EVICTED the oldest outstanding result once more
+        // than the buffer held — its Added/Modified never persisted, its Removed tombstones never applied,
+        // its Completed never fired. SUSPEND back-pressures the scanner instead (the scanner waits for the
+        // persister, which is correct), so no scan result is ever dropped. Qualified by name because Koin
+        // keys on the erased KClass — an unqualified MutableSharedFlow<ScanResult> would collide with the
+        // ScanEvent bus.
         single<MutableSharedFlow<ScanResult>>(EventBusQualifiers.ScanResults) {
-            MutableSharedFlow(replay = 0, extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+            MutableSharedFlow(replay = 0, extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.SUSPEND)
         }
 
         single { AbsMetadataReader(contractJson) }
