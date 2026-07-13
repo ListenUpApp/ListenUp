@@ -122,4 +122,17 @@ class BookResources(
         val parent: BookResources = BookResources(),
         val id: BookId,
     )
+
+    /**
+     * REST mirror of [com.calypsan.listenup.api.BookService.setBookTierLabels] —
+     * `PUT /api/v1/books/{id}/chapter-tiers` renames the book's two chapter-grouping tiers.
+     * Body is a [com.calypsan.listenup.api.dto.TierLabelsInput]. Responds 204 on success,
+     * 404 when no book with the given id exists, 400 when a non-null label fails validation.
+     * Requires JWT authentication.
+     */
+    @Resource("{id}/chapter-tiers")
+    class ChapterTiers(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
+    )
 }
