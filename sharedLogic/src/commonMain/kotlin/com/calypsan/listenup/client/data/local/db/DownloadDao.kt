@@ -6,6 +6,13 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Retry budget for a download. A FAILED row that has burned this many attempts is terminal and is
+ * excluded from the every-startup re-enqueue (B10b) so exhausted downloads stop churning. Kept in
+ * lock-step with the Android `DownloadWorker`'s `MAX_RETRIES`.
+ */
+internal const val MAX_DOWNLOAD_RETRIES = 3
+
 @Dao
 internal interface DownloadDao {
     // Observe
@@ -23,14 +30,22 @@ internal interface DownloadDao {
     suspend fun getByAudioFileId(audioFileId: String): DownloadEntity?
 
     /**
-     * Get all downloads not in COMPLETED, DELETED, or CANCELLED state.
+     * Get all downloads not in COMPLETED, DELETED, or CANCELLED state, EXCLUDING FAILED rows that
+     * have exhausted their retry budget ([maxRetries]).
+     *
      * Used to find stalled/interrupted downloads for resume. CANCELLED is excluded so that
-     * resumeIncompleteDownloads does not silently restart a user-cancelled download on app start.
+     * resumeIncompleteDownloads does not silently restart a user-cancelled download on app start;
+     * exhausted-FAILED is excluded (B10b) so a download that already burned its retries stops
+     * silently re-enqueuing on every launch — the user re-triggers it manually.
      */
     @Query(
-        "SELECT * FROM downloads WHERE state NOT IN ('COMPLETED', 'DELETED', 'CANCELLED') ORDER BY bookId, fileIndex",
+        "SELECT * FROM downloads WHERE state NOT IN ('COMPLETED', 'DELETED', 'CANCELLED') " +
+            "AND NOT (state = 'FAILED' AND retryCount >= :maxRetries) ORDER BY bookId, fileIndex",
     )
-    suspend fun getIncomplete(): List<DownloadEntity>
+    suspend fun getIncompleteWithin(maxRetries: Int): List<DownloadEntity>
+
+    /** [getIncompleteWithin] with the canonical [MAX_DOWNLOAD_RETRIES] budget. */
+    suspend fun getIncomplete(): List<DownloadEntity> = getIncompleteWithin(MAX_DOWNLOAD_RETRIES)
 
     /**
      * Get local path for a completed download.
@@ -52,6 +67,23 @@ internal interface DownloadDao {
         state: DownloadState,
         startedAt: Long? = null,
     )
+
+    /**
+     * Mark a file PAUSED only if it is not already in a terminal state
+     * (CANCELLED / DELETED / COMPLETED).
+     *
+     * Closes the cancel/delete race (B7): a dying worker's late `NonCancellable` cleanup can call
+     * this AFTER the user's CANCELLED (or DELETED) write has landed — the ordering between
+     * WorkManager's `cancelAllWorkByTag().await()` and the worker coroutine's cleanup is undefined.
+     * An unguarded `state = PAUSED` there would clobber the terminal state, and `getIncomplete()`
+     * would silently resurrect a download the user explicitly cancelled or deleted. The `WHERE`
+     * guard makes the terminal write win at the DB layer regardless of scheduling.
+     */
+    @Query(
+        "UPDATE downloads SET state = 'PAUSED' WHERE audioFileId = :audioFileId " +
+            "AND state NOT IN ('CANCELLED', 'DELETED', 'COMPLETED')",
+    )
+    suspend fun markPausedIfNotTerminal(audioFileId: String)
 
     @Query("UPDATE downloads SET state = :newState WHERE bookId = :bookId AND state != :excludeState")
     suspend fun updateStateForBookExcluding(
@@ -135,6 +167,16 @@ internal interface DownloadDao {
     // Delete
     @Query("DELETE FROM downloads WHERE bookId = :bookId")
     suspend fun deleteForBook(bookId: String)
+
+    /**
+     * Delete only the DELETED-tombstone rows for a book.
+     *
+     * Used post-playback-completion to clear the "user explicitly deleted" markers so the book can
+     * auto-download again on a future listen — without touching COMPLETED rows, whose local files
+     * must survive so the offline copy stays playable (never-stranded).
+     */
+    @Query("DELETE FROM downloads WHERE bookId = :bookId AND state = 'DELETED'")
+    suspend fun deleteDeletedRecordsForBook(bookId: String)
 
     @Query("DELETE FROM downloads")
     suspend fun deleteAll()

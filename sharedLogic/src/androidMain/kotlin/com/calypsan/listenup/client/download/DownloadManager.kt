@@ -93,14 +93,26 @@ class DownloadManager internal constructor(
             return AppResult.Failure(DownloadError.DownloadFailed(debugInfo = "No audio files available"))
         }
 
-        // Create download entries for files not already completed
-        val completedIds =
+        // Skip files that are already completed OR have an in-flight row (downloading/queued). A
+        // running download must NOT be re-inserted (REPLACE would reset its bytes to 0) or re-enqueued
+        // (REPLACE work policy would cancel its worker). PlaybackPreparer calls downloadBook on every
+        // prepare of a not-fully-downloaded book, so pressing play mid-download would otherwise stomp
+        // in-flight progress. Mirrors the iOS AppleDownloadService skip-set.
+        val activeIds =
             existing
-                .filter { it.state == DownloadState.COMPLETED }
-                .map { it.audioFileId }
+                .filter {
+                    it.state == DownloadState.COMPLETED ||
+                        it.state == DownloadState.DOWNLOADING ||
+                        it.state == DownloadState.QUEUED
+                }.map { it.audioFileId }
                 .toSet()
 
-        val toDownload = audioFiles.filterNot { it.id in completedIds }
+        val toDownload = audioFiles.filterNot { it.id in activeIds }
+
+        if (toDownload.isEmpty()) {
+            logger.info { "All files already downloading, queued, or completed for ${bookId.value}" }
+            return AppResult.Success(DownloadOutcome.AlreadyDownloaded)
+        }
 
         // Check available storage before queueing downloads
         val requiredBytes = toDownload.sumOf { it.size }
@@ -177,15 +189,30 @@ class DownloadManager internal constructor(
                     .addTag(fileCancelTag(file.id))
                     .build()
 
+            // KEEP (not REPLACE): never displace a worker already running for this file. toDownload
+            // already excludes in-flight rows, so KEEP only ever affects retried FAILED/PAUSED files,
+            // whose prior work has finished and won't block the fresh enqueue.
             workManager.enqueueUniqueWork(
                 fileWorkName(file.id),
-                ExistingWorkPolicy.REPLACE,
+                ExistingWorkPolicy.KEEP,
                 workRequest,
             )
         }
 
         logger.info { "Queued ${toDownload.size} files for download: ${bookId.value}" }
         return AppResult.Success(DownloadOutcome.Started)
+    }
+
+    /**
+     * Wipe every downloaded file and every download record ("Delete All Downloads").
+     *
+     * Reclaims orphaned files/rows that per-book deletion can't reach. A worker that finishes after
+     * this returns can only issue UPDATEs, which no-op against the now-empty table — no row resurrects.
+     */
+    override suspend fun deleteAllDownloads() {
+        fileManager.deleteAllFiles()
+        downloadDao.deleteAll()
+        logger.info { "Deleted all downloads (files + records)" }
     }
 
     /**
@@ -271,8 +298,11 @@ class DownloadManager internal constructor(
 
         for (download in incomplete) {
             // KEEP policy avoids displacing a worker that's already running for this row.
-            // Only PAUSED is reset — DOWNLOADING rows belong to a worker that owns state transitions.
-            if (download.state == DownloadState.PAUSED) {
+            // Reset PAUSED and stale DOWNLOADING rows to QUEUED (B10a): at app startup no worker is
+            // running, so a row left in DOWNLOADING after a crash would show "downloading" forever if
+            // the (re-enqueued) worker is blocked by the wifi constraint. QUEUED reflects the truth
+            // and lets the re-enqueue below drive it. The subsequent worker owns further transitions.
+            if (download.state == DownloadState.PAUSED || download.state == DownloadState.DOWNLOADING) {
                 downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
             }
 

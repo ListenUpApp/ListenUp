@@ -196,7 +196,14 @@ class PlaybackPreparer internal constructor(
         // drains, resumes from a stale local row, then stamps that stale position lastPlayedAt=now
         // and permanently clobbers another device's newer progress.
         val savedPosition = progressTracker.getResumePosition(bookId)
-        val resolved = resolveResumePosition(savedPosition, buildResult.serverResumePosition)
+        // On the fully-downloaded path prepare() is skipped, so buildResult carries no server
+        // position. Fetch the authoritative position directly (best-effort, bounded) so downloaded
+        // books get the same newer-wins reconcile streaming books already get — closing the F1
+        // clobber for the offline case. Any failure (offline / RPC) degrades to the local row.
+        val serverPosition =
+            buildResult.serverResumePosition
+                ?: if (timeline.isFullyDownloaded) fetchAuthoritativePosition(bookId) else null
+        val resolved = resolveResumePosition(savedPosition, serverPosition)
 
         val resumePositionMs =
             if (resolved?.isFinished == true) {
@@ -320,6 +327,30 @@ class PlaybackPreparer internal constructor(
     }
 
     /**
+     * Best-effort, non-blocking fetch of the server-authoritative resume position for the
+     * fully-downloaded path (where [buildTimeline] skips `prepare()` and never sees it).
+     *
+     * Routed through the bounded, self-healing [PlaybackPrepareRepository] so a dead-socket transport
+     * fault surfaces as a typed, time-bounded [AppResult.Failure] rather than an exception. On ANY
+     * failure — offline, RPC error — it returns null so resume resolves from the local Room row
+     * exactly as before: it never blocks or fails playback.
+     */
+    private suspend fun fetchAuthoritativePosition(bookId: BookId): PlaybackPositionSyncPayload? =
+        when (val result = prepareRepository.getPosition(bookId)) {
+            is AppResult.Success -> {
+                result.data
+            }
+
+            is AppResult.Failure -> {
+                logger.debug {
+                    "getPosition failed for downloaded book ${bookId.value} (${result.error.code}); " +
+                        "resuming from the local Room row"
+                }
+                null
+            }
+        }
+
+    /**
      * Build the [PlaybackTimeline]: resolve each file's local path, fetch signed
      * streaming URLs from the server only when not fully downloaded (offline-first),
      * then assemble the timeline. Returns `null` if the server prepare call fails.
@@ -340,20 +371,17 @@ class PlaybackPreparer internal constructor(
         // (streaming path). Null on the fully-downloaded path — resume then resolves from Room alone.
         var serverResumePosition: PlaybackPositionSyncPayload? = null
 
+        val downloadedCount = localPaths.values.count { it != null }
+        val missingCount = localPaths.size - downloadedCount
+
         val signedUrls: Map<String, String> =
-            if (localPaths.values.all { it != null }) {
+            if (missingCount == 0) {
                 emptyMap() // fully downloaded — never touch the server (offline-first)
             } else {
-                // Diagnostic for the "downloaded but won't play offline" corruption edge: if SOME
-                // files are local but not all, a book the UI shows as downloaded still falls to the
-                // streaming path here and fails when offline. Surface it so it isn't a silent mystery.
-                if (localPaths.values.any { it != null }) {
-                    val missing = localPaths.values.count { it == null }
-                    logger.warn {
-                        "Book ${bookId.value}: $missing of ${localPaths.size} audio file(s) have no local path " +
-                            "despite others being downloaded — using streaming (will fail offline). Possible partial/corrupt download."
-                    }
-                }
+                // Some files are missing → we need signed streaming URLs for them. prepare() returns
+                // per-file URLs for the whole book; localPath still wins in playbackUri, so downloaded
+                // files play from disk and only the missing ones stream.
+                //
                 // Routed through the bounded, self-healing engine so a dead-socket transport throw
                 // becomes a typed, time-bounded AppResult.Failure instead of an unguarded exception
                 // crossing the Swift Export seam as an opaque KotlinError.
@@ -364,8 +392,21 @@ class PlaybackPreparer internal constructor(
                     }
 
                     is AppResult.Failure -> {
-                        logger.error { "prepare() failed for ${bookId.value}: ${result.error.message}" }
-                        return null
+                        // prepare() failed — almost always offline. Never-stranded: if SOME files are
+                        // downloaded, build the timeline from the local files so the downloaded portion
+                        // plays offline instead of failing the whole book. The missing files get no URL
+                        // (honest gap — playbackUri "" — not a fake streaming URL that would fail anyway).
+                        if (downloadedCount == 0) {
+                            logger.error {
+                                "prepare() failed for ${bookId.value} and no files are downloaded: ${result.error.message}"
+                            }
+                            return null
+                        }
+                        logger.warn {
+                            "prepare() failed for ${bookId.value} (${result.error.code}); playing $downloadedCount " +
+                                "downloaded file(s) offline, $missingCount unavailable until reconnect."
+                        }
+                        emptyMap()
                     }
                 }
             }

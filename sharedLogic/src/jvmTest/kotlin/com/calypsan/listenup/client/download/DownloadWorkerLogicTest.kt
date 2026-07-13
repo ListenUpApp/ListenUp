@@ -809,6 +809,8 @@ internal class FakePlaybackPrepareRepository(
     private val prepareResult: AppResult<PreparedPlayback>,
 ) : PlaybackPrepareRepository {
     override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> = prepareResult
+
+    override suspend fun getPosition(bookId: BookId) = AppResult.Success(null)
 }
 
 /**

@@ -84,6 +84,7 @@ internal val iosPlaybackModule: Module =
                 tokenProvider = get(),
                 fileManager = get(),
                 prepareRepository = get(),
+                downloadRepository = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 playbackBandwidthCoordinator = get(),
             )

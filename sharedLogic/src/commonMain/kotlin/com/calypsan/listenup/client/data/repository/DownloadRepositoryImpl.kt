@@ -106,9 +106,12 @@ internal class DownloadRepositoryImpl(
             downloadDao.markCompleted(audioFileId, localPath, completedAt)
         }
 
+    // Conditional pause (B7): a late NonCancellable cleanup from a dying worker must NOT clobber a
+    // terminal state (CANCELLED/DELETED/COMPLETED) back to PAUSED. The guarded DAO query makes the
+    // terminal write win at the DB layer regardless of the cancel-vs-cleanup scheduling.
     override suspend fun markPaused(audioFileId: String): AppResult<Unit> =
         suspendRunCatching {
-            downloadDao.updateState(audioFileId, DownloadState.PAUSED)
+            downloadDao.markPausedIfNotTerminal(audioFileId)
         }
 
     override suspend fun markCancelled(audioFileId: String): AppResult<Unit> =
@@ -149,6 +152,10 @@ internal class DownloadRepositoryImpl(
         downloadDao.deleteForBook(bookId)
     }
 
+    override suspend fun deleteDeletedRecordsForBook(bookId: String) {
+        downloadDao.deleteDeletedRecordsForBook(bookId)
+    }
+
     override suspend fun resumeIncompleteDownloads(): AppResult<Unit> =
         suspendRunCatching {
             // Re-enqueue incomplete downloads via the platform enqueuer.
@@ -165,57 +172,82 @@ internal class DownloadRepositoryImpl(
     private fun aggregate(
         bookId: String,
         downloads: List<DownloadEntity>,
-    ): BookDownloadStatus {
-        if (downloads.isEmpty()) {
-            return BookDownloadStatus.NotDownloaded(bookId)
+    ): BookDownloadStatus = aggregateBookDownloadStatus(bookId, downloads)
+}
+
+/**
+ * Reduce a book's per-file [DownloadEntity] rows to an aggregated [BookDownloadStatus].
+ *
+ * Shared across [DownloadRepositoryImpl] and the iOS `AppleDownloadService` so both platforms apply
+ * the identical state machine. `internal` — a reducer, not part of the exported surface.
+ *
+ * **Completeness is measured against every non-tombstone row, not the surviving subset.** A book is
+ * [BookDownloadStatus.Completed] — the only status that reports `isFullyDownloaded` — only when
+ * *all* of its non-DELETED rows are COMPLETED. This closes the "cancelled partial reports Downloaded"
+ * bug: a book with some COMPLETED files and some CANCELLED files is a stopped partial, surfaced as
+ * [BookDownloadStatus.Paused] (whose contract covers "user cancelled or system paused") so the UI
+ * offers resume and availability withholds `canPlay`/emits the offline server warning — never a false
+ * "Downloaded". A book whose rows are *all* cancelled (nothing on disk) collapses to
+ * [BookDownloadStatus.NotDownloaded] so the user can cleanly re-download.
+ */
+internal fun aggregateBookDownloadStatus(
+    bookId: String,
+    downloads: List<DownloadEntity>,
+): BookDownloadStatus {
+    // DELETED rows are tombstones ("explicitly deleted"); they never count toward completeness.
+    val relevant = downloads.filter { it.state != DownloadState.DELETED }
+    if (relevant.isEmpty()) {
+        return BookDownloadStatus.NotDownloaded(bookId)
+    }
+    // Fully cancelled with nothing downloaded → treat as not-downloaded so the user can restart clean.
+    if (relevant.all { it.state == DownloadState.CANCELLED }) {
+        return BookDownloadStatus.NotDownloaded(bookId)
+    }
+    val totalFiles = relevant.size
+    val completedFiles = relevant.count { it.state == DownloadState.COMPLETED }
+    val totalBytes = relevant.sumOf { it.totalBytes }
+    val downloadedBytes = relevant.sumOf { it.downloadedBytes }
+    val hasActive = relevant.any { it.state == DownloadState.DOWNLOADING || it.state == DownloadState.QUEUED }
+    return when {
+        relevant.all { it.state == DownloadState.COMPLETED } -> {
+            BookDownloadStatus.Completed(bookId = bookId, totalBytes = totalBytes)
         }
-        val activeDownloads =
-            downloads.filter {
-                it.state != DownloadState.DELETED && it.state != DownloadState.CANCELLED
-            }
-        if (activeDownloads.isEmpty()) {
-            return BookDownloadStatus.NotDownloaded(bookId)
+
+        relevant.any { it.state == DownloadState.FAILED } -> {
+            BookDownloadStatus.Failed(
+                bookId = bookId,
+                errorMessage =
+                    relevant
+                        .firstOrNull { it.state == DownloadState.FAILED }
+                        ?.errorMessage
+                        ?: "Download failed",
+                partiallyDownloadedFiles = completedFiles,
+            )
         }
-        val totalFiles = activeDownloads.size
-        val completedFiles = activeDownloads.count { it.state == DownloadState.COMPLETED }
-        val totalBytes = activeDownloads.sumOf { it.totalBytes }
-        val downloadedBytes = activeDownloads.sumOf { it.downloadedBytes }
-        return when {
-            activeDownloads.all { it.state == DownloadState.COMPLETED } -> {
-                BookDownloadStatus.Completed(bookId = bookId, totalBytes = totalBytes)
-            }
 
-            activeDownloads.any { it.state == DownloadState.FAILED } -> {
-                BookDownloadStatus.Failed(
-                    bookId = bookId,
-                    errorMessage =
-                        activeDownloads
-                            .firstOrNull { it.state == DownloadState.FAILED }
-                            ?.errorMessage
-                            ?: "Download failed",
-                    partiallyDownloadedFiles = completedFiles,
-                )
-            }
+        hasActive -> {
+            BookDownloadStatus.InProgress(
+                bookId = bookId,
+                totalFiles = totalFiles,
+                downloadingFiles = relevant.count { it.state == DownloadState.DOWNLOADING },
+                completedFiles = completedFiles,
+                totalBytes = totalBytes,
+                downloadedBytes = downloadedBytes,
+            )
+        }
 
-            activeDownloads.all { it.state == DownloadState.PAUSED } -> {
-                BookDownloadStatus.Paused(
-                    bookId = bookId,
-                    pausedFiles = activeDownloads.size,
-                    downloadedBytes = downloadedBytes,
-                    totalBytes = totalBytes,
-                )
-            }
-
-            else -> {
-                BookDownloadStatus.InProgress(
-                    bookId = bookId,
-                    totalFiles = totalFiles,
-                    downloadingFiles = activeDownloads.count { it.state == DownloadState.DOWNLOADING },
-                    completedFiles = completedFiles,
-                    totalBytes = totalBytes,
-                    downloadedBytes = downloadedBytes,
-                )
-            }
+        // Nothing active, not all complete, no failures: a stopped partial (a mix of
+        // PAUSED / CANCELLED / COMPLETED). Surface as Paused so the UI offers resume.
+        else -> {
+            BookDownloadStatus.Paused(
+                bookId = bookId,
+                pausedFiles =
+                    relevant.count {
+                        it.state == DownloadState.PAUSED || it.state == DownloadState.CANCELLED
+                    },
+                downloadedBytes = downloadedBytes,
+                totalBytes = totalBytes,
+            )
         }
     }
 }
