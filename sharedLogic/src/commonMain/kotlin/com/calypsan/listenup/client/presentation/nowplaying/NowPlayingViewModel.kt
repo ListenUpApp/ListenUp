@@ -445,6 +445,13 @@ class NowPlayingViewModel(
      * (role-tagged so the shell picks "end" vs "leave" copy) and does not play; the shell re-drives
      * [playBookConfirmed] after the user exits the campfire. Playing the campfire's own book, or with
      * no campfire live, plays immediately.
+     *
+     * This is the guarded entry point for the app's in-UI "play" affordances (book detail, Home
+     * continue-listening, Library). It is NOT the only way playback can start: the Android
+     * media-session surfaces in `PlaybackService` (Android Auto browse, Assistant voice search,
+     * system playback-resumption) call `PlaybackManager.prepareForPlayback` directly and therefore
+     * bypass this guard — a dialog-based confirm has no UI on those surfaces. Guarding those paths
+     * needs a distinct (dialog-less) resolution and is a tracked follow-up, not part of this cut.
      */
     fun playBook(bookId: BookId) {
         val active = activeCampfire.current.value
