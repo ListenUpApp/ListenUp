@@ -29,12 +29,17 @@ import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
@@ -92,6 +97,7 @@ class CampfireSessionControllerTest :
             selfUserId: String = "self-1",
             playbackManager: FakePlaybackManager = FakePlaybackManager(),
             playbackController: FakePlaybackController = FakePlaybackController(),
+            mainDispatcher: CoroutineDispatcher = Dispatchers.Unconfined,
         ) = CampfireSessionController(
             transport = transport,
             playbackManager = playbackManager,
@@ -99,6 +105,7 @@ class CampfireSessionControllerTest :
             userRepository = FakeUserRepository(selfUserId),
             scope = scope,
             clock = clock,
+            mainDispatcher = mainDispatcher,
         )
 
         fun stubPrepareResult(bookId: BookId = BookId("book-1")) =
@@ -394,8 +401,27 @@ class CampfireSessionControllerTest :
                 playbackController.seekCalls.size shouldBe seekCountAfterDisconnect
 
                 sut.confirmRejoinSync()
+                runCurrent()
                 (sut.state.value as CampfireUiState.Active).pendingRejoinSync shouldBe null
                 playbackController.seekCalls.last() shouldBe 600_000L
+            }
+        }
+
+        test("applies a live anchor to the player through the main dispatcher") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val playbackController = FakePlaybackController()
+                val main = CountingDispatcher(StandardTestDispatcher(testScheduler))
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController, mainDispatcher = main)
+
+                sut.join(sessionId) // snapshot() is LIVE → applies the anchor to the player
+                advanceUntilIdle()
+
+                // the anchor apply happened AND it was dispatched through the injected main dispatcher
+                main.count shouldBeGreaterThan 0
+                playbackController.seekCalls shouldBe listOf(0L)
+                playbackController.pauseCount shouldBe 1
             }
         }
 
@@ -781,6 +807,22 @@ private class VirtualClock(
     private val scheduler: TestCoroutineScheduler,
 ) : Clock {
     override fun now(): Instant = Instant.fromEpochMilliseconds(scheduler.currentTime)
+}
+
+/** Counts every dispatch through [delegate] — proves a call was actually marshalled through the injected main dispatcher. */
+private class CountingDispatcher(
+    private val delegate: CoroutineDispatcher,
+) : CoroutineDispatcher() {
+    var count = 0
+        private set
+
+    override fun dispatch(
+        context: kotlin.coroutines.CoroutineContext,
+        block: Runnable,
+    ) {
+        count++
+        delegate.dispatch(context, block)
+    }
 }
 
 /** In-memory [FakeCampfireTransport] — records every call, replays a hot frame flow for [observeSession]. */

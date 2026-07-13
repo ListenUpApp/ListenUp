@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.nowplaying
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
@@ -443,8 +444,11 @@ class NowPlayingViewModel internal constructor(
      * Plays [bookId], guarding against silently stranding a live campfire (co-listening coexistence
      * spec, B3). If a campfire is live for a *different* book, emits [PlaybackGuardEvent.ConfirmPlayOverCampfire]
      * (role-tagged so the shell picks "end" vs "leave" copy) and does not play; the shell re-drives
-     * [playBookConfirmed] after the user exits the campfire. Playing the campfire's own book, or with
-     * no campfire live, plays immediately.
+     * [playBookConfirmed] after the user exits the campfire. Playing the campfire's own book while it
+     * is still in [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LOBBY] emits
+     * [PlaybackGuardEvent.ReturnToCampfire] instead of starting solo playback (F6 — the fire hasn't
+     * been lit yet, so nobody's playback should start). With the campfire LIVE on the same book, or
+     * with no campfire live at all, plays immediately.
      *
      * This is the guarded entry point for the app's in-UI "play" affordances (book detail, Home
      * continue-listening, Library). It is NOT the only way playback can start: the Android
@@ -455,9 +459,15 @@ class NowPlayingViewModel internal constructor(
      */
     fun playBook(bookId: BookId) {
         val active = activeCampfire.current.value
-        if (active != null && active.bookId != bookId.value) {
-            _playbackGuardEvents.trySend(PlaybackGuardEvent.ConfirmPlayOverCampfire(bookId, active.isHost))
-            return
+        if (active != null) {
+            if (active.bookId != bookId.value) {
+                _playbackGuardEvents.trySend(PlaybackGuardEvent.ConfirmPlayOverCampfire(bookId, active.isHost))
+                return
+            }
+            if (active.phase == CampfirePhase.LOBBY) {
+                _playbackGuardEvents.trySend(PlaybackGuardEvent.ReturnToCampfire)
+                return
+            }
         }
         startPlayback(bookId)
     }
@@ -646,4 +656,11 @@ sealed interface PlaybackGuardEvent {
         val bookId: BookId,
         val isHost: Boolean,
     ) : PlaybackGuardEvent
+
+    /**
+     * The user asked to play the book of a campfire they are already in, while it is still in the
+     * lobby (fire not lit). Rather than start premature solo playback, the shell re-expands the
+     * campfire lobby (co-listening coexistence spec — no playback before the fire is lit).
+     */
+    data object ReturnToCampfire : PlaybackGuardEvent
 }

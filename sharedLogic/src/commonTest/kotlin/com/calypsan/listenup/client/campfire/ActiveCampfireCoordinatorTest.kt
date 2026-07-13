@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.campfire
 
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -12,7 +13,7 @@ class ActiveCampfireCoordinatorTest :
 
         test("set publishes the active campfire, set(null) clears it") {
             val coordinator = ActiveCampfireCoordinator()
-            val active = ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true)
+            val active = ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE)
 
             coordinator.set(active)
             coordinator.current.value shouldBe active

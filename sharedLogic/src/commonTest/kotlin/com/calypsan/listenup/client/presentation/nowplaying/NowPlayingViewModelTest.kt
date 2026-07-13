@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.campfire.ActiveCampfire
@@ -304,11 +305,13 @@ class NowPlayingViewModelTest :
             }
         }
 
-        test("playBook plays directly when the campfire is on the same book") {
+        test("playBook plays directly when the campfire is on the same book and LIVE") {
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-1")
-                fixture.activeCampfire.set(ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true))
+                fixture.activeCampfire.set(
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE),
+                )
                 fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
 
@@ -320,10 +323,36 @@ class NowPlayingViewModelTest :
             }
         }
 
+        test("playBook of the campfire's own book while in LOBBY re-expands, does not play") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.activeCampfire.set(
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LOBBY),
+                )
+
+                val vm = fixture.newVm()
+                vm.playbackGuardEvents.test {
+                    vm.playBook(bookId)
+                    awaitItem() shouldBe PlaybackGuardEvent.ReturnToCampfire
+                }
+                advanceUntilIdle()
+
+                withClue("must NOT activate when the campfire's own book is played from the lobby") {
+                    fixture.fakePm.activatedBookIds.isEmpty() shouldBe true
+                }
+                verifySuspend(VerifyMode.exactly(0)) {
+                    fixture.playbackController.startPlayback(any())
+                }
+            }
+        }
+
         test("playBook on a different book as host emits an end-confirm and does not play") {
             runTest(testDispatcher) {
                 val fixture = TestFixture()
-                fixture.activeCampfire.set(ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true))
+                fixture.activeCampfire.set(
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE),
+                )
 
                 val vm = fixture.newVm()
                 vm.playbackGuardEvents.test {
@@ -344,7 +373,9 @@ class NowPlayingViewModelTest :
         test("playBook on a different book as participant emits a leave-confirm") {
             runTest(testDispatcher) {
                 val fixture = TestFixture()
-                fixture.activeCampfire.set(ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = false))
+                fixture.activeCampfire.set(
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = false, phase = CampfirePhase.LIVE),
+                )
 
                 val vm = fixture.newVm()
                 vm.playbackGuardEvents.test {
@@ -358,7 +389,9 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-2")
-                fixture.activeCampfire.set(ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true))
+                fixture.activeCampfire.set(
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE),
+                )
                 fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
 

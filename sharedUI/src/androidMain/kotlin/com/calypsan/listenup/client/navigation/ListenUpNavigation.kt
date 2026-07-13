@@ -844,18 +844,22 @@ private fun BoxScope.CampfireReturnFab(state: CampfireMinimizeState) {
 /**
  * Confirm dialog for [NowPlayingViewModel.playbackGuardEvents] (B3) — playing a book while a
  * campfire is live for a different book must end/leave the campfire first, never play silently
- * over it.
+ * over it. Also handles [PlaybackGuardEvent.ReturnToCampfire] (F6) — playing the campfire's own
+ * book while it's still in the lobby re-expands the lobby via [onReturnToCampfire] instead of
+ * showing a dialog.
  */
 @Composable
 private fun PlayOverCampfireDialog(
     nowPlayingViewModel: NowPlayingViewModel,
     campfireViewModel: CampfireViewModel,
+    onReturnToCampfire: () -> Unit,
 ) {
     var playOverCampfire by remember { mutableStateOf<PlaybackGuardEvent.ConfirmPlayOverCampfire?>(null) }
     LaunchedEffect(nowPlayingViewModel) {
         nowPlayingViewModel.playbackGuardEvents.collect { event ->
             when (event) {
                 is PlaybackGuardEvent.ConfirmPlayOverCampfire -> playOverCampfire = event
+                PlaybackGuardEvent.ReturnToCampfire -> onReturnToCampfire()
             }
         }
     }
@@ -945,7 +949,11 @@ private fun BoxScope.AuthenticatedNavOverlays(
     )
 
     CampfireReturnFab(campfireMinimize)
-    PlayOverCampfireDialog(nowPlayingViewModel, campfireViewModel)
+    PlayOverCampfireDialog(
+        nowPlayingViewModel = nowPlayingViewModel,
+        campfireViewModel = campfireViewModel,
+        onReturnToCampfire = { campfireMinimize.setMinimized(false) },
+    )
 
     // App-wide snackbar - positioned at bottom, mini player animates up when visible
     SnackbarHost(
