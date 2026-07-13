@@ -55,7 +55,7 @@ class AuthServiceImplTest :
             return AuthServiceImpl(
                 db = db,
                 sessions = sessions,
-                hasher = hasher,
+                hasher = Argon2Limiter(hasher),
                 jwt = jwt,
                 sessionIssuer = SessionIssuer(sessions, jwt, svcClock),
                 clock = svcClock,
@@ -79,7 +79,7 @@ class AuthServiceImplTest :
                 AuthServiceImpl(
                     db = db,
                     sessions = sessions,
-                    hasher = hasher,
+                    hasher = Argon2Limiter(hasher),
                     jwt = jwt,
                     sessionIssuer = SessionIssuer(sessions, jwt, clock),
                     clock = clock,

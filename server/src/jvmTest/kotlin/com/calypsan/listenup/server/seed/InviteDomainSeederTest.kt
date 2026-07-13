@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.JwtConfiguration
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
@@ -73,7 +74,7 @@ private fun makeInviteService(sql: ListenUpDatabase): InviteServiceImpl {
     return InviteServiceImpl(
         db = sql,
         codeGenerator = InviteCodeGenerator(),
-        hasher = PasswordHasher(),
+        hasher = Argon2Limiter(PasswordHasher()),
         sessionIssuer = SessionIssuer(sessions, jwt, clock),
         serverName = "Test Library",
         clock = clock,

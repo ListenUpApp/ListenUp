@@ -32,7 +32,12 @@ class DispatcherCodegenTest :
                 )
             result.exitCode shouldBe KotlinCompilation.ExitCode.OK
             val dispatcher = result.kspGeneratedFile("RpcGuardDispatcher.kt")
+            // Suspend-only service: plain single-arg overload.
             dispatcher.shouldContain("fun guard(impl: fake.Alpha): fake.Alpha = AlphaGuarded(impl)")
-            dispatcher.shouldContain("fun guard(impl: fake.Beta): fake.Beta = BetaGuarded(impl)")
+            // Streaming service: gate-aware overload threading the C2 session-liveness probe.
+            dispatcher.shouldContain(
+                "fun guard(impl: fake.Beta, sessionLiveness: (suspend () -> Boolean)? = null): fake.Beta = " +
+                    "BetaGuarded(impl, sessionLiveness)",
+            )
         }
     })

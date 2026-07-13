@@ -38,8 +38,21 @@ class FlowCodegenTest :
             // A synchronous construction throw must be caught by the same `.catch`: wrap the
             // delegate flow in `flow { emitAll(...) }` so `observe()` throwing while building the
             // flow (require/precondition/DI lookup) is deferred into the collected flow, not escaped.
-            generated.shouldContain("flow { emitAll(delegate.observe()) }.catch { e ->")
+            generated.shouldContain("flow { emitAll(delegate.observe()) }")
+            generated.shouldContain(".catch { e ->")
             generated.shouldNotContain("delegate.observe().catch")
+            // C2: every streaming service carries the session-liveness gate — the guard takes a
+            // nullable liveness predicate and every stream is routed through `.gatedByLiveness(...)`, so a
+            // revoked session's live stream is severed with a terminal RpcEvent.Error.
+            generated.shouldContain("private val sessionLiveness: (suspend () -> Boolean)? = null,")
+            generated.shouldContain(
+                ".gatedByLiveness(sessionLiveness) " +
+                    "{ com.calypsan.listenup.api.error.AuthError.SessionExpired() }",
+            )
+            // The gate is emitted file-private in the streaming guard itself (not shared from
+            // :contract) so no server-infra symbol reaches the client export surface.
+            generated.shouldContain("private fun <T> Flow<RpcEvent<T>>.gatedByLiveness(")
+            generated.shouldContain("private const val STREAM_LIVENESS_POLL_MILLIS = 30000L")
             generated.shouldContain("if (e is kotlinx.coroutines.CancellationException) throw e")
             generated.shouldContain(
                 "emit(\n            com.calypsan.listenup.api.streaming.RpcEvent.Error(",

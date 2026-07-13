@@ -1,5 +1,6 @@
 package com.calypsan.listenup.rpcguard.ksp.codegen
 
+import com.calypsan.listenup.rpcguard.ksp.ReturnShape
 import com.calypsan.listenup.rpcguard.ksp.RpcServiceModel
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
@@ -31,7 +32,18 @@ internal object DispatcherWriter {
             appendLine()
             for (model in models) {
                 val fqn = "${model.packageName}.${model.simpleName}"
-                appendLine("public fun guard(impl: $fqn): $fqn = ${model.simpleName}Guarded(impl)")
+                val hasStreaming = model.methods.any { it.returnShape is ReturnShape.FlowOfRpcEvent }
+                if (hasStreaming) {
+                    // A streaming service's guard carries the C2 session-liveness gate. The param
+                    // defaults to null so existing `guard(impl)` call sites (and unit tests) still
+                    // compile — the mount passes a real liveness predicate to arm the gate.
+                    appendLine(
+                        "public fun guard(impl: $fqn, sessionLiveness: (suspend () -> Boolean)? = null): $fqn = " +
+                            "${model.simpleName}Guarded(impl, sessionLiveness)",
+                    )
+                } else {
+                    appendLine("public fun guard(impl: $fqn): $fqn = ${model.simpleName}Guarded(impl)")
+                }
             }
         }
 }

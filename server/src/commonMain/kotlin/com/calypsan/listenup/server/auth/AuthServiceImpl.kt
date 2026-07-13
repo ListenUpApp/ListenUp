@@ -56,13 +56,24 @@ private val logger = loggerFor<AuthServiceImpl>()
 class AuthServiceImpl(
     internal val db: ListenUpDatabase,
     internal val sessions: SessionService,
-    internal val hasher: PasswordHasher,
+    internal val hasher: Argon2Limiter,
     internal val jwt: JwtConfiguration,
     internal val sessionIssuer: SessionIssuer,
     internal val clock: Clock = Clock.System,
     internal val settings: ServerSettingsRepository,
     internal val principalProvider: PrincipalProvider = PrincipalProvider.None,
     internal val requestUserAgent: String? = null,
+    /**
+     * The caller's remote host, captured at the `/api/rpc/public` mount and threaded in via
+     * [withRemoteHost]. Non-null only on the RPC public path, where [loginRateLimiter] enforces the
+     * per-IP throttle; null on REST (throttled by the Ktor `RateLimit` plugin) and in unit tests.
+     */
+    internal val remoteHost: String? = null,
+    /**
+     * The RPC-path per-IP auth throttle (C3). Non-null in production; null in unit tests and on the
+     * REST path, where the throttle is a no-op (the Ktor `RateLimit` plugin covers REST).
+     */
+    internal val loginRateLimiter: LoginRateLimiter? = null,
     /**
      * Nullable so the auth module can be assembled independently of the shelf
      * module (test environments, phased startup). A null value means starter
@@ -85,6 +96,8 @@ class AuthServiceImpl(
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
+        // Throttle BEFORE any Argon2 work so a brute-force burst can't turn into a CPU/memory DoS.
+        enforceRate(AuthRateBucket.LOGIN)?.let { return AppResult.Failure(it) }
         if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
 
         val normalized = Email.normalize(request.email)
@@ -130,6 +143,7 @@ class AuthServiceImpl(
     }
 
     override suspend fun register(request: RegisterRequest): AppResult<RegisterResult> {
+        enforceRate(AuthRateBucket.REGISTER)?.let { return AppResult.Failure(it) }
         if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
 
         val normalized = Email.normalize(request.email)
@@ -255,6 +269,7 @@ class AuthServiceImpl(
     }
 
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> {
+        enforceRate(AuthRateBucket.REFRESH)?.let { return AppResult.Failure(it) }
         val rotated =
             sessions.rotate(request.refreshToken)
                 ?: return AppResult.Failure(
@@ -318,6 +333,8 @@ class AuthServiceImpl(
             settings = settings,
             principalProvider = provider,
             requestUserAgent = requestUserAgent,
+            remoteHost = remoteHost,
+            loginRateLimiter = loginRateLimiter,
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
@@ -337,12 +354,52 @@ class AuthServiceImpl(
             settings = settings,
             principalProvider = principalProvider,
             requestUserAgent = userAgent,
+            remoteHost = remoteHost,
+            loginRateLimiter = loginRateLimiter,
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
         )
+
+    /**
+     * Bind the caller's [remoteHost] so the RPC public mount's per-IP throttle ([loginRateLimiter])
+     * keys on it. The REST path never calls this — its throttle is the Ktor `RateLimit` plugin.
+     */
+    fun withRemoteHost(remoteHost: String): AuthServiceImpl =
+        AuthServiceImpl(
+            db = db,
+            sessions = sessions,
+            hasher = hasher,
+            jwt = jwt,
+            sessionIssuer = sessionIssuer,
+            clock = clock,
+            settings = settings,
+            principalProvider = principalProvider,
+            requestUserAgent = requestUserAgent,
+            remoteHost = remoteHost,
+            loginRateLimiter = loginRateLimiter,
+            shelfRepository = shelfRepository,
+            publicProfileMaintainer = publicProfileMaintainer,
+            activityRecorder = activityRecorder,
+            defaultGrantIssuer = defaultGrantIssuer,
+            adminUserRosterMaintainer = adminUserRosterMaintainer,
+        )
+
+    /**
+     * Per-IP throttle probe for [bucket]. Returns an [AuthError.RateLimited] to short-circuit the
+     * caller when over the ceiling, or null to proceed. A no-op (null) unless BOTH the remote host
+     * and the limiter are bound — i.e. only on the RPC public mount.
+     */
+    private suspend fun enforceRate(bucket: AuthRateBucket): AuthError? {
+        val host = remoteHost ?: return null
+        val limiter = loginRateLimiter ?: return null
+        return when (val decision = limiter.check(bucket, host)) {
+            RateDecision.Allowed -> null
+            is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
+        }
+    }
 
     /**
      * Best-effort starter-shelf creation — called immediately after a new user row is

@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.invite.InviteDto
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.JwtConfiguration
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
@@ -70,7 +71,7 @@ class InviteServiceRosterPublishTest :
                     InviteServiceImpl(
                         db = sql,
                         codeGenerator = InviteCodeGenerator(),
-                        hasher = PasswordHasher(),
+                        hasher = Argon2Limiter(PasswordHasher()),
                         sessionIssuer = sessionIssuerFor(sql),
                         serverName = "Test Library",
                         clock = fixedClock,

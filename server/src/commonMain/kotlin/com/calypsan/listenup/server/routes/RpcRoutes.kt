@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -47,6 +48,21 @@ internal fun authWallRegression(): UserPrincipal? {
     rpcRoutesLogger.error { AUTH_WALL_REGRESSION_MSG }
     return null
 }
+
+/**
+ * Builds the per-connection liveness predicate a streaming service's guard uses to sever a revoked
+ * stream (C2). It resolves the caller's session id from [provider] (the same lazily-resolved
+ * principal the service is scoped to) and re-checks it against [liveness] on each poll. A stream with
+ * no principal (an auth-wall regression) reads as dead, so it is severed rather than left open. The
+ * guard takes a plain suspend predicate, so no server type crosses onto the client export surface.
+ */
+internal fun streamLiveness(
+    provider: PrincipalProvider,
+    liveness: SessionLiveness,
+): suspend () -> Boolean =
+    {
+        provider.current()?.sessionId?.let { liveness.isLive(it) } ?: false
+    }
 
 /**
  * Runs a service-registration factory [block], converting any construction failure into a
