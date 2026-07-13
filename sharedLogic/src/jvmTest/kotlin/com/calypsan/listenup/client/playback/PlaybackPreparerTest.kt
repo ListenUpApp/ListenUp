@@ -375,6 +375,41 @@ class PlaybackPreparerTest :
             }
         }
 
+        // ── B3: partial download, offline — downloaded files still play (never-stranded) ──
+
+        test("partial download offline — prepare() fails but downloaded files still play") {
+            runTest {
+                // prepare() fails (offline / dead socket) and only file 1 is downloaded.
+                val fakePlaybackService =
+                    FakePlaybackService(
+                        prepareResult = AppResult.Failure(InternalError(debugInfo = "offline")),
+                    )
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
+
+                val downloadService: DownloadService = mock()
+                everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
+                everySuspend { downloadService.getLocalPath(audioFile2) } returns null // missing
+                everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
+                everySuspend { downloadService.downloadBook(any()) } returns
+                    AppResult.Success(DownloadOutcome.AlreadyDownloaded)
+
+                val preparer = buildPreparer(downloadService, fakeFactory)
+                val result = preparer.prepare(bookId)
+
+                // Pre-fix: buildTimeline returned null on the prepare() Failure → whole book unplayable.
+                result.shouldNotBeNull()
+                // prepare() WAS attempted (some files missing) but failed offline.
+                fakePlaybackService.prepareCallCount shouldBe 1
+                // Downloaded file plays from disk...
+                result.timeline.files[0].localPath shouldBe "/local/af-prep-1.mp3"
+                result.timeline.files[0].playbackUri shouldBe "file:///local/af-prep-1.mp3"
+                // ...and the missing file has NO fabricated streaming URL (honest gap, not a blanket
+                // streaming fallback that fails the whole book).
+                result.timeline.files[1].localPath shouldBe null
+                result.timeline.files[1].streamingUrl shouldBe ""
+            }
+        }
+
         // ── test 2: streaming ──────────────────────────────────────────────────────────
 
         test("streaming — prepare() called once; signed URLs are absolute and well-formed") {

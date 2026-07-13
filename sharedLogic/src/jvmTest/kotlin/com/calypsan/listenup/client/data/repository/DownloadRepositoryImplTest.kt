@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -233,6 +234,161 @@ class DownloadRepositoryImplTest :
                         items.first().bookId shouldBe "b2"
                         cancelAndIgnoreRemainingEvents()
                     }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        // ── B2: cancelled partial must NOT report Completed ──────────────────────────────────
+
+        test("observeBookStatus: partial cancel (3 completed + 7 cancelled) is NOT Completed") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = FakeBookRepository(),
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+
+                    val rows =
+                        (1..10).map { i ->
+                            makeDownload(
+                                id = "f$i",
+                                bookId = "b1",
+                                state = if (i <= 3) DownloadState.COMPLETED else DownloadState.CANCELLED,
+                                bytes = 100_000L,
+                            )
+                        }
+                    downloadDao.insertAll(rows)
+
+                    sut.observeBookStatus(BookId("b1")).test {
+                        val status = awaitItem()
+                        // Pre-fix this was BookDownloadStatus.Completed → isFullyDownloaded=true → false
+                        // "Downloaded" that fails offline. It must NOT be Completed.
+                        (status is BookDownloadStatus.Completed) shouldBe false
+                        // It's a stopped partial → Paused (UI offers resume; availability withholds canPlay).
+                        (status is BookDownloadStatus.Paused) shouldBe true
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("observeBookStatus: all files completed IS Completed") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = FakeBookRepository(),
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 1L),
+                            makeDownload(id = "f2", bookId = "b1", state = DownloadState.COMPLETED, bytes = 2L),
+                        ),
+                    )
+
+                    sut.observeBookStatus(BookId("b1")).test {
+                        (awaitItem() is BookDownloadStatus.Completed) shouldBe true
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("observeBookStatus: all files cancelled collapses to NotDownloaded") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = FakeBookRepository(),
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.CANCELLED, bytes = 1L),
+                            makeDownload(id = "f2", bookId = "b1", state = DownloadState.CANCELLED, bytes = 2L),
+                        ),
+                    )
+
+                    sut.observeBookStatus(BookId("b1")).test {
+                        (awaitItem() is BookDownloadStatus.NotDownloaded) shouldBe true
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("observeBookStatus: pure queued reports InProgress (not stomped by the partial-cancel path)") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = FakeBookRepository(),
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.QUEUED, bytes = 1L),
+                            makeDownload(id = "f2", bookId = "b1", state = DownloadState.DOWNLOADING, bytes = 2L),
+                        ),
+                    )
+
+                    sut.observeBookStatus(BookId("b1")).test {
+                        (awaitItem() is BookDownloadStatus.InProgress) shouldBe true
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        // ── B1: finish clears only DELETED tombstones ────────────────────────────────────────
+
+        test("deleteDeletedRecordsForBook removes only DELETED rows, preserving COMPLETED downloads") {
+            val db = createInMemoryTestDatabase()
+            val downloadDao = db.downloadDao()
+            try {
+                runTest {
+                    val sut =
+                        DownloadRepositoryImpl(
+                            downloadDao = downloadDao,
+                            bookRepository = FakeBookRepository(),
+                            enqueuer = FakeDownloadEnqueuer(),
+                        )
+                    downloadDao.insertAll(
+                        listOf(
+                            makeDownload(id = "f1", bookId = "b1", state = DownloadState.COMPLETED, bytes = 100L),
+                            makeDownload(id = "f2", bookId = "b1", state = DownloadState.DELETED, bytes = 200L),
+                        ),
+                    )
+
+                    sut.deleteDeletedRecordsForBook("b1")
+
+                    // COMPLETED download + local path survive so the finished book still plays offline.
+                    sut.getLocalPath("f1") shouldBe "/audio/f1.mp3"
+                    sut.getStateForAudioFile("f2") shouldBe null // DELETED tombstone gone
                 }
             } finally {
                 db.close()

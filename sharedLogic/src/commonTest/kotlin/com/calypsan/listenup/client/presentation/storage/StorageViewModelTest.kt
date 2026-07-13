@@ -124,20 +124,21 @@ class StorageViewModelTest :
             }
         }
 
-        test("confirmClearAll then executeDelete calls deleteDownload once per book") {
+        test("confirmClearAll then executeDelete wipes all downloads in one sweep (reclaims orphans)") {
             runTest {
                 val s1 = DownloadedBookSummary("b1", "B1", "A", null, 10L, 1)
                 val s2 = DownloadedBookSummary("b2", "B2", "A", null, 20L, 1)
                 val (vm, fixture) = buildVm(downloads = listOf(s1, s2))
-                everySuspend { fixture.downloadService.deleteDownload(any()) } returns Unit
+                everySuspend { fixture.downloadService.deleteAllDownloads() } returns Unit
 
                 vm.state.test {
                     skipItems(2)
                     vm.confirmClearAll()
                     vm.executeDelete()
                     advanceUntilIdle()
-                    verifySuspend { fixture.downloadService.deleteDownload(BookId("b1")) }
-                    verifySuspend { fixture.downloadService.deleteDownload(BookId("b2")) }
+                    // Single sweep (files + rows), NOT a per-known-book loop — so orphaned downloads
+                    // whose book left the library are reclaimed too.
+                    verifySuspend { fixture.downloadService.deleteAllDownloads() }
                     cancelAndIgnoreRemainingEvents()
                 }
             }

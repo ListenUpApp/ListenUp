@@ -87,8 +87,15 @@ interface DownloadRepository {
      */
     suspend fun cancelForBook(bookId: BookId): AppResult<Unit>
 
-    /** Delete all download records for a book (used post-playback completion). */
+    /** Delete all download records for a book. */
     suspend fun deleteForBook(bookId: String)
+
+    /**
+     * Delete only the [DownloadStatus.DELETED]-tombstone rows for a book (used post-playback
+     * completion). COMPLETED rows and their local files are preserved so a finished book's offline
+     * copy stays playable — clearing the tombstones only re-enables auto-download on a future listen.
+     */
+    suspend fun deleteDeletedRecordsForBook(bookId: String)
 
     /**
      * App-startup recovery: re-enqueue any incomplete downloads via the platform

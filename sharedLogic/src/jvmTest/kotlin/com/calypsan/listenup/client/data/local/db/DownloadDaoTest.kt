@@ -105,6 +105,38 @@ class DownloadDaoTest :
             }
         }
 
+        test("deleteDeletedRecordsForBook removes only DELETED rows, preserving COMPLETED downloads") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(
+                        listOf(
+                            entity("file-1", bookId = "book-1", state = DownloadState.COMPLETED)
+                                .copy(localPath = "/path/to/file-1"),
+                            entity("file-2", bookId = "book-1", state = DownloadState.DELETED),
+                            entity("file-3", bookId = "book-1", state = DownloadState.QUEUED),
+                            entity("file-4", bookId = "book-2", state = DownloadState.DELETED), // other book
+                        ),
+                    )
+
+                    dao.deleteDeletedRecordsForBook("book-1")
+
+                    val remaining = dao.observeAll().first().associateBy { it.audioFileId }
+                    // Only book-1's DELETED tombstone is gone.
+                    remaining.keys shouldBe setOf("file-1", "file-3", "file-4")
+                    // The COMPLETED download and its local file path survive (offline copy stays playable).
+                    remaining["file-1"]!!.state shouldBe DownloadState.COMPLETED
+                    remaining["file-1"]!!.localPath shouldBe "/path/to/file-1"
+                    dao.getLocalPath("file-1") shouldBe "/path/to/file-1"
+                    // Other book's tombstone is untouched.
+                    remaining["file-4"]!!.state shouldBe DownloadState.DELETED
+                }
+            } finally {
+                db.close()
+            }
+        }
+
         test("hasDeletedRecords returns true if any DELETED row exists for a book") {
             val db = createInMemoryTestDatabase()
             val dao = db.downloadDao()

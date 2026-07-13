@@ -564,6 +564,8 @@ private object ThrowingDownloadRepository : DownloadRepository {
 
     override suspend fun deleteForBook(bookId: String) = TODO("not used in handler test")
 
+    override suspend fun deleteDeletedRecordsForBook(bookId: String) = TODO("not used in handler test")
+
     override suspend fun resumeIncompleteDownloads() = TODO("not used in handler test")
 }
 

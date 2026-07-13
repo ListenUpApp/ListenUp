@@ -136,6 +136,16 @@ internal interface DownloadDao {
     @Query("DELETE FROM downloads WHERE bookId = :bookId")
     suspend fun deleteForBook(bookId: String)
 
+    /**
+     * Delete only the DELETED-tombstone rows for a book.
+     *
+     * Used post-playback-completion to clear the "user explicitly deleted" markers so the book can
+     * auto-download again on a future listen — without touching COMPLETED rows, whose local files
+     * must survive so the offline copy stays playable (never-stranded).
+     */
+    @Query("DELETE FROM downloads WHERE bookId = :bookId AND state = 'DELETED'")
+    suspend fun deleteDeletedRecordsForBook(bookId: String)
+
     @Query("DELETE FROM downloads")
     suspend fun deleteAll()
 }

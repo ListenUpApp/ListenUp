@@ -191,5 +191,7 @@ private object ThrowingDownloadRepository2 : DownloadRepository {
 
     override suspend fun deleteForBook(bookId: String) = TODO("not used")
 
+    override suspend fun deleteDeletedRecordsForBook(bookId: String) = TODO("not used")
+
     override suspend fun resumeIncompleteDownloads() = TODO("not used")
 }

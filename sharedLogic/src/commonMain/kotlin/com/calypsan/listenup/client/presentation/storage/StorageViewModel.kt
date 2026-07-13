@@ -114,9 +114,9 @@ class StorageViewModel(
 
                     is DeleteConfirmation.AllDownloads -> {
                         logger.info { "Clearing all downloads" }
-                        state.value.downloadedBooks.forEach { book ->
-                            downloadService.deleteDownload(BookId(book.bookId))
-                        }
+                        // Wipe files + rows in one sweep so orphaned downloads (whose book is no
+                        // longer in the library, hence absent from downloadedBooks) are reclaimed too.
+                        downloadService.deleteAllDownloads()
                     }
                 }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
