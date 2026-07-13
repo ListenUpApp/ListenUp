@@ -15,7 +15,9 @@ class ReorderableListAdapterAcceptanceTest :
         //    .reorderBooks(id: ReadingOrderId, orderedBookIds: List<BookId>) expects. ────────────
 
         /** Test-only stand-in for the id type `reorderBooks` actually takes (`BookId` in prod). */
-        data class FakeBookId(val value: String)
+        data class FakeBookId(
+            val value: String,
+        )
 
         /**
          * Applies a [ReorderMove] from a flat [ReorderableList] (every [ReorderNode.parentId] is
@@ -47,7 +49,11 @@ class ReorderableListAdapterAcceptanceTest :
         // ── Nested adapter: a reparent ReorderMove -> a changed grouping header. ─────────────────
 
         /** Test-only stand-in for the chapter shape a real adapter maps (`Chapter.partTitle` in prod). */
-        data class FakeChapter(val id: String, val title: String, var partTitle: String?)
+        data class FakeChapter(
+            val id: String,
+            val title: String,
+            var partTitle: String?,
+        )
 
         /**
          * Applies a reparent [ReorderMove] from a nested [ReorderableList] (chapters grouped under
