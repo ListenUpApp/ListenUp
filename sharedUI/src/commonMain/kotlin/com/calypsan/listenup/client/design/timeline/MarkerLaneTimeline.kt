@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.haptics.Haptics
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import kotlin.time.Duration.Companion.milliseconds
@@ -99,7 +99,7 @@ private fun MarkerLaneRow(
     ghosts: List<TimeMarker>?,
 ) {
     val haptics = LocalHaptics.current
-    val markers by lane.markers.collectAsState(initial = emptyList())
+    val markers by lane.markers.collectAsStateWithLifecycle(initialValue = emptyList())
     val negotiator = remember(lane) { DragNegotiator(lane.policy) }
     val dragState = remember(lane) { MarkerDragState() }
 
@@ -111,9 +111,7 @@ private fun MarkerLaneRow(
                 .background(MaterialTheme.colorScheme.surfaceContainer)
                 .onSizeChanged { state.viewportWidthPx = it.width.toFloat() }
                 .negotiatedDrag(lane, ghosts, durationMs, state, markers, negotiator, haptics, dragState)
-                .pointerInput(lane) {
-                    detectTapGestures { /* tap-to-select future hook; no-op for v1 */ }
-                }.doubleTapZoom(lane, durationMs, state)
+                .doubleTapZoom(lane, durationMs, state)
                 .pinchZoom(lane, durationMs, state),
     ) {
         markers.forEach { marker ->

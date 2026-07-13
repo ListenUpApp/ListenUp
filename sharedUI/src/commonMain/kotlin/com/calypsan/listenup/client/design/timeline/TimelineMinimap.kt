@@ -11,13 +11,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private const val MINIMAP_BUCKET_COUNT = 48
 
@@ -36,7 +36,7 @@ fun TimelineMinimap(
 ) {
     val allMarkerTimes =
         lanes.flatMap { lane ->
-            val markers by lane.markers.collectAsState(initial = emptyList())
+            val markers by lane.markers.collectAsStateWithLifecycle(initialValue = emptyList())
             markers.map { it.timeMs }
         }
     val geometry = state.geometryFor(durationMs)
