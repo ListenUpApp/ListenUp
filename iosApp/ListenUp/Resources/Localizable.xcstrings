@@ -5141,6 +5141,116 @@
         }
       }
     },
+    "chapter_editor.drift_add_anchor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add another anchor"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_anchor_snapped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "True start: %1$@"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_anchor_unsnapped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not snapped yet."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_apply": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_bad_anchors_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These anchors can't be applied. Try snapping again."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_entry_point": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct drift…"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play to where a chapter truly starts, then tap Snap. First and last are pre-picked — two anchors handle most drift; add more for tricky sections."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_inverted_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These anchors are out of order — snap them again so true starts follow the same order as the chapters."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_locked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock this chapter's start"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_snap": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snap"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct chapter drift"
+          }
+        }
+      }
+    },
     "chapter_editor.field_start_time": {
       "localizations": {
         "en": {

@@ -1573,6 +1573,17 @@
     "field_start_time_hint": "HH:MM:SS.mmm",
     "snap_to_playhead": "Snap to playhead",
     "chapter_row": "%1$d. %2$s",
-    "preview_show_offline_sheet": "Show offline sheet"
+    "preview_show_offline_sheet": "Show offline sheet",
+    "drift_entry_point": "Correct drift…",
+    "drift_title": "Correct chapter drift",
+    "drift_hint": "Play to where a chapter truly starts, then tap Snap. First and last are pre-picked — two anchors handle most drift; add more for tricky sections.",
+    "drift_snap": "Snap",
+    "drift_anchor_snapped": "True start: %1$s",
+    "drift_anchor_unsnapped": "Not snapped yet.",
+    "drift_locked": "Lock this chapter's start",
+    "drift_add_anchor": "Add another anchor",
+    "drift_inverted_warning": "These anchors are out of order — snap them again so true starts follow the same order as the chapters.",
+    "drift_bad_anchors_warning": "These anchors can't be applied. Try snapping again.",
+    "drift_apply": "Apply"
   }
 }

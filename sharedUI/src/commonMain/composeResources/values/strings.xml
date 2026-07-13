@@ -515,6 +515,17 @@ One beautiful library.</string>
     <string name="chapter_editor_chapter_row">%1$d. %2$s</string>
     <string name="chapter_editor_detail_panel_empty">Select a chapter to edit its title and timing.</string>
     <string name="chapter_editor_detail_panel_title">Chapter details</string>
+    <string name="chapter_editor_drift_add_anchor">Add another anchor</string>
+    <string name="chapter_editor_drift_anchor_snapped">True start: %1$s</string>
+    <string name="chapter_editor_drift_anchor_unsnapped">Not snapped yet.</string>
+    <string name="chapter_editor_drift_apply">Apply</string>
+    <string name="chapter_editor_drift_bad_anchors_warning">These anchors can\'t be applied. Try snapping again.</string>
+    <string name="chapter_editor_drift_entry_point">Correct drift…</string>
+    <string name="chapter_editor_drift_hint">Play to where a chapter truly starts, then tap Snap. First and last are pre-picked — two anchors handle most drift; add more for tricky sections.</string>
+    <string name="chapter_editor_drift_inverted_warning">These anchors are out of order — snap them again so true starts follow the same order as the chapters.</string>
+    <string name="chapter_editor_drift_locked">Lock this chapter\'s start</string>
+    <string name="chapter_editor_drift_snap">Snap</string>
+    <string name="chapter_editor_drift_title">Correct chapter drift</string>
     <string name="chapter_editor_field_start_time">Start time</string>
     <string name="chapter_editor_field_start_time_hint">HH:MM:SS.mmm</string>
     <string name="chapter_editor_field_title">Title</string>

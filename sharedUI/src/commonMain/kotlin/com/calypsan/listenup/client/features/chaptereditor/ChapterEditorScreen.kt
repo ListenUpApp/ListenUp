@@ -95,6 +95,7 @@ import listenup.composeapp.generated.resources.chapter_editor_changed_elsewhere_
 import listenup.composeapp.generated.resources.chapter_editor_changed_elsewhere_refresh
 import listenup.composeapp.generated.resources.chapter_editor_chapter_row
 import listenup.composeapp.generated.resources.chapter_editor_detail_panel_empty
+import listenup.composeapp.generated.resources.chapter_editor_drift_entry_point
 import listenup.composeapp.generated.resources.chapter_editor_lens_structure
 import listenup.composeapp.generated.resources.chapter_editor_lens_timing
 import listenup.composeapp.generated.resources.chapter_editor_preview_show_offline_sheet
@@ -122,6 +123,14 @@ private val DetailPanelWidth = 380.dp
 
 private const val CHAPTER_STYLE_KEY = "chapter"
 private const val FILE_BOUNDARY_STYLE_KEY = "fileBoundary"
+
+/**
+ * [TimeMarker.styleKey][com.calypsan.listenup.client.design.timeline.TimeMarker.styleKey] tag for
+ * [DriftCorrectionSheet]'s ghost-preview markers. `MarkerLaneTimeline`'s ghost renderer currently
+ * hardcodes [MaterialTheme.colorScheme.tertiary] regardless of style lookup, but the entry below
+ * keeps [chapterEditorMarkerStyles] a complete map of every `styleKey` this screen emits.
+ */
+private const val GHOST_STYLE_KEY = "ghost"
 
 /**
  * The unified Structure/Timing chapter editor screen. Stateful entry point — resolves its
@@ -188,6 +197,8 @@ private fun ChapterEditorEditingContent(
     var selectedChapterId by remember { mutableStateOf<String?>(null) }
     var showResetConfirm by remember { mutableStateOf(false) }
     var showOfflineSheet by remember { mutableStateOf(false) }
+    var showDriftSheet by remember { mutableStateOf(false) }
+    var driftGhosts by remember { mutableStateOf<List<TimeMarker>?>(null) }
     var saveFailedError by remember { mutableStateOf<AppError?>(null) }
 
     val snackbarHostState = LocalSnackbarHostState.current
@@ -285,6 +296,8 @@ private fun ChapterEditorEditingContent(
                 selectedChapter = selectedChapter,
                 onSelectChapter = { selectedChapterId = it },
                 playheadMs = playheadMs,
+                driftGhosts = driftGhosts,
+                onCorrectDriftClick = { showDriftSheet = true },
                 modifier = Modifier.weight(1f),
             )
         }
@@ -296,6 +309,17 @@ private fun ChapterEditorEditingContent(
             viewModel = viewModel,
             playheadMs = playheadMs,
             onDismiss = { selectedChapterId = null },
+        )
+    }
+
+    if (showDriftSheet) {
+        DriftCorrectionSheet(
+            draft = state.draft,
+            playheadMs = playheadMs,
+            onApplyDrift = viewModel::applyDrift,
+            onCommitDrift = viewModel::commitDrift,
+            onGhostsChange = { driftGhosts = it },
+            onDismiss = { showDriftSheet = false },
         )
     }
 
@@ -328,6 +352,8 @@ private fun LensBody(
     viewModel: ChapterEditorViewModel,
     selectedChapterId: String?,
     onSelectChapter: (String?) -> Unit,
+    driftGhosts: List<TimeMarker>?,
+    onCorrectDriftClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (lens) {
@@ -338,6 +364,8 @@ private fun LensBody(
                 viewModel = viewModel,
                 selectedChapterId = selectedChapterId,
                 onSelectChapter = onSelectChapter,
+                driftGhosts = driftGhosts,
+                onCorrectDriftClick = onCorrectDriftClick,
                 modifier = modifier,
             )
         }
@@ -372,6 +400,8 @@ private fun ChapterEditorAdaptiveBody(
     selectedChapter: Chapter?,
     onSelectChapter: (String?) -> Unit,
     playheadMs: () -> Long,
+    driftGhosts: List<TimeMarker>?,
+    onCorrectDriftClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (isWide) {
@@ -385,6 +415,8 @@ private fun ChapterEditorAdaptiveBody(
                     viewModel = viewModel,
                     selectedChapterId = selectedChapterId,
                     onSelectChapter = onSelectChapter,
+                    driftGhosts = driftGhosts,
+                    onCorrectDriftClick = onCorrectDriftClick,
                 )
             }
             VerticalDivider(modifier = Modifier.fillMaxHeight())
@@ -405,6 +437,8 @@ private fun ChapterEditorAdaptiveBody(
             viewModel = viewModel,
             selectedChapterId = selectedChapterId,
             onSelectChapter = onSelectChapter,
+            driftGhosts = driftGhosts,
+            onCorrectDriftClick = onCorrectDriftClick,
             modifier = modifier,
         )
     }
@@ -635,6 +669,8 @@ private fun TimingLensContent(
     viewModel: ChapterEditorViewModel,
     selectedChapterId: String?,
     onSelectChapter: (String?) -> Unit,
+    driftGhosts: List<TimeMarker>?,
+    onCorrectDriftClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val bookRepository: BookRepository = koinInject()
@@ -671,12 +707,21 @@ private fun TimingLensContent(
         }
 
     Column(modifier = modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = onCorrectDriftClick) {
+                Text(stringResource(Res.string.chapter_editor_drift_entry_point))
+            }
+        }
         MarkerLaneTimeline(
             lanes = listOf(chapterLane, fileLane),
             durationMs = durationMs,
             playheadMs = playheadMs,
             onSeek = {},
             styles = chapterEditorMarkerStyles(),
+            ghosts = driftGhosts,
             modifier = Modifier.padding(vertical = 8.dp),
         )
         LazyColumn(modifier = Modifier.weight(1f)) {
@@ -697,6 +742,7 @@ private fun chapterEditorMarkerStyles(): Map<String, MarkerStyle> =
     mapOf(
         CHAPTER_STYLE_KEY to MarkerStyle(color = MaterialTheme.colorScheme.primary, shape = CircleShape),
         FILE_BOUNDARY_STYLE_KEY to MarkerStyle(color = MaterialTheme.colorScheme.onSurfaceVariant, shape = CircleShape),
+        GHOST_STYLE_KEY to MarkerStyle(color = MaterialTheme.colorScheme.tertiary, shape = CircleShape),
     )
 
 @Composable
