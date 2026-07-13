@@ -150,6 +150,10 @@ internal fun withTestApplication(
     userScoped: Boolean = false,
     playbackPositions: Boolean = false,
     playbackEvents: Boolean = false,
+    // C2 firehose gate: a controllable session-liveness probe + short poll so a test can revoke a
+    // session mid-stream and assert the firehose severs. Null leaves the gate inert (default).
+    sessionLiveness: com.calypsan.listenup.server.auth.SessionLiveness? = null,
+    livenessPollMillis: Long = 25_000L,
     block: suspend SyncTestScope.() -> Unit,
 ) {
     testApplication {
@@ -253,11 +257,11 @@ internal fun withTestApplication(
             }
             routing {
                 authenticate(JWT_PROVIDER) {
-                    if (heartbeatIntervalMillis != null) {
-                        syncRoutes(heartbeatIntervalMillis = heartbeatIntervalMillis)
-                    } else {
-                        syncRoutes()
-                    }
+                    syncRoutes(
+                        heartbeatIntervalMillis = heartbeatIntervalMillis ?: 25_000L,
+                        sessionLiveness = sessionLiveness,
+                        livenessPollMillis = livenessPollMillis,
+                    )
                     if (playbackService != null) playbackRoutes(playbackService)
                 }
             }

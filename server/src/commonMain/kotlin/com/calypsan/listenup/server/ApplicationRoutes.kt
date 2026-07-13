@@ -33,6 +33,7 @@ import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
+import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.cover.CoverResponder
@@ -142,6 +143,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val publicProfileMaintainer by inject<PublicProfileMaintainer>()
     val sql by inject<ListenUpDatabase>()
     val audioRoleLookup by inject<UserRoleLookup>()
+    val sessionService by inject<SessionService>()
     val rpcServices = rpcServiceBundle()
 
     routing {
@@ -169,7 +171,9 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         registrationPolicyRoutes(registrationPolicyBroadcaster) { serverSettings.registrationPolicy() }
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
-            syncRoutes()
+            // C2: pass the session-liveness probe so a revoked session's LIVE firehose is severed
+            // within ~30s, not just blocked at the next reconnect.
+            syncRoutes(sessionLiveness = sessionService::isLive)
             adminUserRoutes(adminUserService)
             adminInviteRoutes(inviteService)
             libraryAdminRoutes(libraryAdminService)
@@ -204,6 +208,8 @@ internal fun Application.installAppRoutes(homeDir: Path) {
 private fun Application.rpcServiceBundle(): RpcServices =
     RpcServices(
         authService = koinGet<AuthServiceImpl>(),
+        // Session-liveness probe for the C2 streaming gate — the same lookup the JWT auth wall uses.
+        sessionLiveness = koinGet<SessionService>()::isLive,
         instanceService = koinGet<InstanceService>(),
         scannerService = koinGet<ScannerService>(),
         bookService = koinGet<BookService>(),

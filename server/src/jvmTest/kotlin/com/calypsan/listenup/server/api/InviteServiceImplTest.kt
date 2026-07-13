@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.JwtConfiguration
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
@@ -73,7 +74,7 @@ class InviteServiceImplTest :
             InviteServiceImpl(
                 db = sql,
                 codeGenerator = InviteCodeGenerator(),
-                hasher = PasswordHasher(),
+                hasher = Argon2Limiter(PasswordHasher()),
                 sessionIssuer = sessionIssuerFor(sql),
                 serverName = serverName,
                 clock = fixedClock,

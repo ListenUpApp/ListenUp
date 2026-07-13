@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.JwtConfiguration
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
@@ -93,7 +94,7 @@ class DefaultGrantTest :
                 AuthServiceImpl(
                     db = db.sql,
                     sessions = sessions,
-                    hasher = hasher,
+                    hasher = Argon2Limiter(hasher),
                     jwt = jwt,
                     sessionIssuer = sessionIssuer,
                     clock = fixedClock,
@@ -105,7 +106,7 @@ class DefaultGrantTest :
                 InviteServiceImpl(
                     db = db.sql,
                     codeGenerator = InviteCodeGenerator(),
-                    hasher = hasher,
+                    hasher = Argon2Limiter(hasher),
                     sessionIssuer = sessionIssuer,
                     serverName = "Test",
                     clock = fixedClock,

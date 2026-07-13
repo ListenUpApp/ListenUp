@@ -13,8 +13,11 @@ import com.calypsan.listenup.server.api.InstanceServiceImpl
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.AuthServiceImpl
+import com.calypsan.listenup.server.auth.DEFAULT_ARGON2_PARALLELISM
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
+import com.calypsan.listenup.server.auth.LoginRateLimiter
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
@@ -38,6 +41,7 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.ktor.server.config.ApplicationConfig
 import org.koin.core.module.Module
+import org.koin.core.scope.Scope
 import org.koin.dsl.module
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -76,6 +80,10 @@ fun authModule(config: ApplicationConfig): Module {
         single<ListenUpDatabase> { ListenUpDatabase(get<SqlDriver>()) }
 
         single { PasswordHasher() }
+        // C3: bounded-parallelism gate for ALL auth-path Argon2 (login/dummy/register/setup/invite).
+        single { Argon2Limiter(hasher = get<PasswordHasher>(), permits = config.argon2Parallelism()) }
+        // C3: per-IP RPC-path auth throttle — the counterpart to the REST `RateLimit` plugin.
+        single { LoginRateLimiter(clock = get()) }
         single { RefreshTokenGenerator() }
         single {
             RefreshTokenHasher(pepper = secrets.refreshPepper.encodeToByteArray())
@@ -110,24 +118,7 @@ fun authModule(config: ApplicationConfig): Module {
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 
-        // Nullable — booksModule (which binds LibraryRegistry) and syncModule (which binds
-        // CollectionRepository / CollectionGrantRepository) may not be loaded in minimal
-        // test containers. getOrNull() returns null when any dependency is absent.
-        single {
-            val collectionRepository = getOrNull<CollectionRepository>()
-            val grantRepository = getOrNull<CollectionGrantRepository>()
-            val libraryRegistry = getOrNull<LibraryRegistry>()
-            if (collectionRepository != null && grantRepository != null && libraryRegistry != null) {
-                DefaultAllBooksGrantIssuer(
-                    collectionGrantRepository = grantRepository,
-                    collectionRepository = collectionRepository,
-                    libraryRegistry = libraryRegistry,
-                    clock = get(),
-                )
-            } else {
-                null
-            }
-        }
+        single { buildDefaultAllBooksGrantIssuer() }
 
         single {
             AuthServiceImpl(
@@ -138,6 +129,9 @@ fun authModule(config: ApplicationConfig): Module {
                 sessionIssuer = get(),
                 clock = get(),
                 settings = get(),
+                // Per-IP RPC throttle (C3). The per-call remote host is bound at the mount via
+                // withRemoteHost; the singleton carries the limiter but no host (throttle inert).
+                loginRateLimiter = get(),
                 // Nullable — shelf module may not be loaded (e.g. during authModule-only verify tests).
                 // When shelfModule is assembled, ShelfRepository is resolved and starter shelves are created.
                 shelfRepository = getOrNull<ShelfRepository>(),
@@ -213,6 +207,27 @@ private const val REFRESH_TOKEN_TTL_DAYS = 30L
 
 /** Default lost-response reuse-grace window in seconds (C4). Overridable via `auth.refreshReuseGraceSeconds`. */
 private const val DEFAULT_REUSE_GRACE_SECONDS = 60L
+
+/** Concurrent-Argon2 ceiling (C3): `auth.argon2Parallelism` if set, else [DEFAULT_ARGON2_PARALLELISM]. */
+private fun ApplicationConfig.argon2Parallelism(): Int =
+    propertyOrNull("auth.argon2Parallelism")?.getString()?.toIntOrNull() ?: DEFAULT_ARGON2_PARALLELISM
+
+/**
+ * The default ALL_BOOKS grant issuer, or null when its deps are absent. Nullable because booksModule
+ * (LibraryRegistry) and syncModule (Collection[Grant]Repository) may not be loaded in minimal test
+ * containers. Extracted from [authModule] so the module factory stays under the length budget.
+ */
+private fun Scope.buildDefaultAllBooksGrantIssuer(): DefaultAllBooksGrantIssuer? {
+    val collectionRepository = getOrNull<CollectionRepository>() ?: return null
+    val grantRepository = getOrNull<CollectionGrantRepository>() ?: return null
+    val libraryRegistry = getOrNull<LibraryRegistry>() ?: return null
+    return DefaultAllBooksGrantIssuer(
+        collectionGrantRepository = grantRepository,
+        collectionRepository = collectionRepository,
+        libraryRegistry = libraryRegistry,
+        clock = get(),
+    )
+}
 
 private const val DEFAULT_SERVER_NAME = "ListenUp"
 

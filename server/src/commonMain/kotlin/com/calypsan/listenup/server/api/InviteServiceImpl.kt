@@ -15,10 +15,10 @@ import com.calypsan.listenup.api.dto.invite.InviteSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.AuthUser
 import com.calypsan.listenup.server.auth.Email
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
-import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.toColumn
@@ -64,7 +64,7 @@ import kotlin.time.ExperimentalTime
 class InviteServiceImpl(
     private val db: ListenUpDatabase,
     private val codeGenerator: InviteCodeGenerator,
-    private val hasher: PasswordHasher,
+    private val hasher: Argon2Limiter,
     private val sessionIssuer: SessionIssuer,
     private val serverName: String,
     private val clock: Clock = Clock.System,

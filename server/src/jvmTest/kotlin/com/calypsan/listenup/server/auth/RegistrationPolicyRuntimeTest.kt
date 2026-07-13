@@ -54,7 +54,7 @@ private fun makeAuthService(
     return AuthServiceImpl(
         db = db,
         sessions = sessions,
-        hasher = hasher,
+        hasher = Argon2Limiter(hasher),
         jwt = jwt,
         sessionIssuer = SessionIssuer(sessions, jwt, clock),
         clock = clock,

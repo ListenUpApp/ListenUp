@@ -54,6 +54,7 @@ import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
 import io.ktor.server.auth.authenticate
+import io.ktor.server.plugins.origin
 import io.ktor.server.routing.Route
 import kotlinx.rpc.krpc.ktor.server.rpc
 import kotlinx.rpc.krpc.serialization.json.json
@@ -73,7 +74,14 @@ private fun Route.publicRpc(services: RpcServices) {
         // than shipped raw to the client (the scoped/authed registrations get it via registerScoped).
         registerService<PingService> { guardedConstruction { guard(PingServiceImpl()) } }
         registerService<InstanceService> { guardedConstruction { guard(services.instanceService) } }
-        registerService<AuthServicePublic> { guardedConstruction { guard(services.authService as AuthServicePublic) } }
+        // C3: bind the caller's remote host so the per-IP login/register/refresh throttle inside
+        // AuthServiceImpl keys on it — the RPC public mount is otherwise un-rate-limited (many login
+        // messages ride one WebSocket, so throttling the upgrade is useless).
+        registerService<AuthServicePublic> {
+            guardedConstruction {
+                guard(services.authService.withRemoteHost(call.request.origin.remoteHost) as AuthServicePublic)
+            }
+        }
         registerService<InviteServicePublic> {
             guardedConstruction { guard(services.inviteService as InviteServicePublic) }
         }
@@ -85,7 +93,15 @@ private fun Route.authedRpc(services: RpcServices) {
         rpcConfig { serialization { json(contractJson) } }
         // scanFull() is ROOT/ADMIN-gated inside ScannerServiceImpl, so the registration binds
         // the caller's principal like every other authed service.
-        registerScoped<ScannerService> { guard((services.scannerService as ScannerServiceImpl).copyWith(it)) }
+        // Streaming services pass a per-connection liveness predicate so the guard severs a revoked
+        // stream mid-flight (C2). The gate reads the caller's session from the same principal the
+        // service is scoped to and re-checks it against sessionLiveness on a ~30s cadence.
+        registerScoped<ScannerService> {
+            guard(
+                (services.scannerService as ScannerServiceImpl).copyWith(it),
+                streamLiveness(it, services.sessionLiveness),
+            )
+        }
         registerScoped<AuthServiceAuthed> { guard(services.authService.copyWith(it) as AuthServiceAuthed) }
         registerScoped<BookService> { guard((services.bookService as BookServiceImpl).copyWith(it)) }
         registerScoped<ContributorService> {
@@ -127,7 +143,17 @@ private fun Route.authedRpc(services: RpcServices) {
                 (services.userPreferencesService as UserPreferencesServiceImpl).copyWith(it),
             )
         }
-        registerScoped<BackupService> { guard((services.backupService as BackupServiceImpl).copyWith(it)) }
-        registerScoped<ImportService> { guard((services.importService as ImportServiceImpl).copyWith(it)) }
+        registerScoped<BackupService> {
+            guard(
+                (services.backupService as BackupServiceImpl).copyWith(it),
+                streamLiveness(it, services.sessionLiveness),
+            )
+        }
+        registerScoped<ImportService> {
+            guard(
+                (services.importService as ImportServiceImpl).copyWith(it),
+                streamLiveness(it, services.sessionLiveness),
+            )
+        }
     }
 }
