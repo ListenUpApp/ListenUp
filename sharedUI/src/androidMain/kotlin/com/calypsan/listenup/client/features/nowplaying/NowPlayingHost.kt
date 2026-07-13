@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.nowplaying
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -87,6 +88,8 @@ fun NowPlayingHost(
     onNavigateToDocument: (localPath: String) -> Unit,
     viewModel: NowPlayingViewModel,
     campfireViewModel: CampfireViewModel,
+    campfireMinimized: Boolean,
+    onMinimizeCampfire: () -> Unit,
     onBarFootprintChanged: (Dp) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -131,13 +134,23 @@ fun NowPlayingHost(
     val activeState = state as? NowPlayingState.Active
 
     Box(modifier = modifier.fillMaxSize()) {
+        // System back minimizes a foregrounded campfire rather than leaving it (B1). Leave stays an
+        // explicit action inside the room. Only active while the campfire is actually foreground.
+        BackHandler(enabled = campfire.session != null && !campfireMinimized) { onMinimizeCampfire() }
+
         // Full screen (slides up when expanded). Only renders when we have an Active book —
         // expanding into Idle/Error has no meaningful UI. A Campfire session for this book takes
         // over unconditionally (Lobby/Room are the full-screen Campfire experience, task L3) —
         // independent of screenState.isExpanded, since a just-created/joined session should land
         // full-screen immediately rather than waiting for the ordinary mini-player expand gesture.
         AnimatedVisibility(
-            visible = (screenState.isExpanded && activeState != null) || campfire.session != null,
+            visible =
+                campfireFullScreenVisible(
+                    isExpanded = screenState.isExpanded,
+                    hasActiveBook = activeState != null,
+                    hasSession = campfire.session != null,
+                    minimized = campfireMinimized,
+                ),
             enter =
                 slideInVertically(
                     initialOffsetY = { it },

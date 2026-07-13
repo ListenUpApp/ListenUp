@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
@@ -85,6 +86,7 @@ class KoinModuleVerifyTest :
                         DocumentRepository::class,
                         DownloadRepository::class,
                         PlaybackPositionRepository::class,
+                        ActiveCampfireCoordinator::class,
                     ),
             )
         }

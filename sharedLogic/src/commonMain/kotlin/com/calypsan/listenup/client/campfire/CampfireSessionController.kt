@@ -272,6 +272,27 @@ internal class CampfireSessionController(
         if (sessionId != null) transport.leaveSession(sessionId)
     }
 
+    /**
+     * Ends the session for everyone (host-only; the UI gates this behind [CampfireUiState.Active.isHost]).
+     * Twin of [leave] but calls [CampfireTransport.endSession] — used when the host chooses to play a
+     * different book, which tears the campfire down rather than migrating the host (co-listening
+     * coexistence spec, B3). Local state moves to [CampfireUiState.Idle] first so readers observe the
+     * teardown immediately, regardless of the network round-trip.
+     */
+    suspend fun endCampfire() {
+        val sessionId =
+            when (val current = state.value) {
+                is CampfireUiState.Active -> current.sessionId
+                is CampfireUiState.Disconnected -> current.sessionId
+                else -> null
+            }
+        observeJob?.cancel()
+        driftJob?.cancel()
+        pendingCommandIds.value = emptySet()
+        state.value = CampfireUiState.Idle
+        if (sessionId != null) transport.endSession(sessionId)
+    }
+
     /** Resumes room playback (optimistic local apply; denied via [CampfireSessionEvent.ControlDenied] without control). */
     fun play() = sendCommand { commandId -> PlaybackCommand.Play(commandId = commandId) }
 

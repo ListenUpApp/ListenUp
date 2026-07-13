@@ -16,11 +16,15 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -39,6 +43,14 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.campfire_end_to_play_body
+import listenup.composeapp.generated.resources.campfire_end_to_play_confirm
+import listenup.composeapp.generated.resources.campfire_end_to_play_title
+import listenup.composeapp.generated.resources.campfire_leave_to_play_body
+import listenup.composeapp.generated.resources.campfire_leave_to_play_confirm
+import listenup.composeapp.generated.resources.campfire_leave_to_play_title
+import listenup.composeapp.generated.resources.campfire_return
+import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.error_book_not_connected
 import listenup.composeapp.generated.resources.error_book_wrong_server
@@ -75,8 +87,10 @@ import com.calypsan.listenup.client.features.invite.JoinScreen
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingHost
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.presentation.campfire.CampfireScreenUiState
 import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.presentation.nowplaying.PlaybackGuardEvent
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.ConnectionHealthBanner
@@ -793,6 +807,99 @@ private fun authenticatedNavEntries(
 }
 
 /**
+ * Presentation state for the B1 campfire-minimize affordance — held once here since the
+ * full-screen host and the return FAB below both react to it. A dead session resets the flag
+ * so the next campfire always opens foreground.
+ */
+private class CampfireMinimizeState(
+    val sessionActive: Boolean,
+    val minimized: Boolean,
+    val setMinimized: (Boolean) -> Unit,
+)
+
+@Composable
+private fun rememberCampfireMinimizeState(campfireViewModel: CampfireViewModel): CampfireMinimizeState {
+    var minimized by rememberSaveable { mutableStateOf(false) }
+    val campfireState by campfireViewModel.state.collectAsStateWithLifecycle()
+    val sessionActive = campfireState is CampfireScreenUiState.Active
+    LaunchedEffect(sessionActive) {
+        if (!sessionActive) minimized = false
+    }
+    return CampfireMinimizeState(sessionActive, minimized) { minimized = it }
+}
+
+/** Return-to-campfire affordance (B1 non-stranding placeholder; styled ember FAB is deferred). */
+@Composable
+private fun BoxScope.CampfireReturnFab(state: CampfireMinimizeState) {
+    if (state.sessionActive && state.minimized) {
+        FloatingActionButton(
+            onClick = { state.setMinimized(false) },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+        ) {
+            Icon(Icons.Default.LocalFireDepartment, contentDescription = stringResource(Res.string.campfire_return))
+        }
+    }
+}
+
+/**
+ * Confirm dialog for [NowPlayingViewModel.playbackGuardEvents] (B3) — playing a book while a
+ * campfire is live for a different book must end/leave the campfire first, never play silently
+ * over it.
+ */
+@Composable
+private fun PlayOverCampfireDialog(
+    nowPlayingViewModel: NowPlayingViewModel,
+    campfireViewModel: CampfireViewModel,
+) {
+    var playOverCampfire by remember { mutableStateOf<PlaybackGuardEvent.ConfirmPlayOverCampfire?>(null) }
+    LaunchedEffect(nowPlayingViewModel) {
+        nowPlayingViewModel.playbackGuardEvents.collect { event ->
+            when (event) {
+                is PlaybackGuardEvent.ConfirmPlayOverCampfire -> playOverCampfire = event
+            }
+        }
+    }
+    val event = playOverCampfire ?: return
+    AlertDialog(
+        onDismissRequest = { playOverCampfire = null },
+        title = {
+            Text(
+                stringResource(
+                    if (event.isHost) Res.string.campfire_end_to_play_title else Res.string.campfire_leave_to_play_title,
+                ),
+            )
+        },
+        text = {
+            Text(
+                stringResource(
+                    if (event.isHost) Res.string.campfire_end_to_play_body else Res.string.campfire_leave_to_play_body,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (event.isHost) campfireViewModel.endCampfire() else campfireViewModel.leave()
+                nowPlayingViewModel.playBookConfirmed(event.bookId)
+                playOverCampfire = null
+            }) {
+                Text(
+                    stringResource(
+                        if (event.isHost) {
+                            Res.string.campfire_end_to_play_confirm
+                        } else {
+                            Res.string.campfire_leave_to_play_confirm
+                        },
+                    ),
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { playOverCampfire = null }) { Text(stringResource(Res.string.common_cancel)) }
+        },
+    )
+}
+
+/**
  * Overlays rendered inside the authenticated [Box]: the NowPlaying host, the app-wide snackbar,
  * and the single readiness gate that covers non-shell startup states.
  *
@@ -808,6 +915,8 @@ private fun BoxScope.AuthenticatedNavOverlays(
     onRetryLibrarySetupCheck: () -> Unit,
     onBarFootprintChanged: (Dp) -> Unit,
 ) {
+    val campfireMinimize = rememberCampfireMinimizeState(campfireViewModel)
+
     // Now Playing overlay - persistent across all navigation
     // Position adjusts based on whether bottom nav is visible (Shell vs detail screens)
     // Also animates up when snackbar is visible
@@ -830,8 +939,13 @@ private fun BoxScope.AuthenticatedNavOverlays(
         },
         viewModel = nowPlayingViewModel,
         campfireViewModel = campfireViewModel,
+        campfireMinimized = campfireMinimize.minimized,
+        onMinimizeCampfire = { campfireMinimize.setMinimized(true) },
         onBarFootprintChanged = onBarFootprintChanged,
     )
+
+    CampfireReturnFab(campfireMinimize)
+    PlayOverCampfireDialog(nowPlayingViewModel, campfireViewModel)
 
     // App-wide snackbar - positioned at bottom, mini player animates up when visible
     SnackbarHost(

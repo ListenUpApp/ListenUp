@@ -506,6 +506,22 @@ class CampfireSessionControllerTest :
             }
         }
 
+        test("endCampfire stops the session and calls transport.endSession") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+
+                sut.endCampfire()
+                runCurrent()
+
+                sut.state.value shouldBe CampfireUiState.Idle
+                transport.endCalls shouldBe listOf(sessionId)
+            }
+        }
+
         // ── Lobby phase (2026-07-11 amendment) ───────────────────────────────
 
         test("join with a LOBBY snapshot does not touch local playback") {
@@ -772,6 +788,7 @@ private class FakeCampfireTransport : CampfireTransport {
     var joinResult: AppResult<CampfireSnapshot> = AppResult.Failure(CampfireError.CampfireNotFound())
     val joinCalls = mutableListOf<CampfireId>()
     val leaveCalls = mutableListOf<CampfireId>()
+    val endCalls = mutableListOf<CampfireId>()
     val sentCommands = mutableListOf<PlaybackCommand>()
     var sendCommandResult: AppResult<Unit> = AppResult.Success(Unit)
     val sentChat = mutableListOf<String>()
@@ -808,7 +825,10 @@ private class FakeCampfireTransport : CampfireTransport {
         return AppResult.Success(Unit)
     }
 
-    override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
+    override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> {
+        endCalls += sessionId
+        return AppResult.Success(Unit)
+    }
 
     override suspend fun startSession(sessionId: CampfireId): AppResult<Unit> {
         startSessionCalls += sessionId

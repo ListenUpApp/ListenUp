@@ -19,6 +19,8 @@ import com.calypsan.listenup.api.error.CampfireError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.client.campfire.ActiveCampfire
+import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
 import com.calypsan.listenup.client.campfire.CampfireSessionController
 import com.calypsan.listenup.client.campfire.CampfireTransport
 import com.calypsan.listenup.client.domain.model.User
@@ -80,6 +82,7 @@ class CampfireViewModelTest :
             val transport = FakeCampfireTransport()
             val errorBus = ErrorBus()
             val userRepository = FakeUserRepository("self-1")
+            val coordinator = ActiveCampfireCoordinator()
 
             fun build(scope: TestScope): CampfireViewModel {
                 val controller =
@@ -96,6 +99,7 @@ class CampfireViewModelTest :
                     transport = transport,
                     errorBus = errorBus,
                     userRepository = userRepository,
+                    coordinator = coordinator,
                 )
             }
         }
@@ -315,6 +319,73 @@ class CampfireViewModelTest :
                 fixture.transport.leaveCalls shouldBe listOf(sessionId)
             }
         }
+
+        test("publishes ActiveCampfire to the coordinator when the session goes Active") {
+            runTest {
+                val fixture = Fixture()
+                fixture.transport.joinResult = AppResult.Success(snapshot())
+                val viewModel = fixture.build(this)
+                keepStateHot(viewModel)
+
+                viewModel.join(sessionId)
+                advanceUntilIdle()
+
+                fixture.coordinator.current.value shouldBe
+                    ActiveCampfire(sessionId = sessionId, bookId = "book-1", isHost = false)
+            }
+        }
+
+        // Proves the coordinator collector is ALWAYS-ON (viewModelScope), independent of any
+        // WhileSubscribed subscriber to viewModel.state — deliberately NO keepStateHot. This is the
+        // whole point of the seam: the process-singleton NowPlayingViewModel must see liveness even
+        // when no campfire screen is observing the VM's public state.
+        test("publishes to the coordinator with no subscriber to the VM's public state") {
+            runTest {
+                val fixture = Fixture()
+                fixture.transport.joinResult = AppResult.Success(snapshot())
+                val viewModel = fixture.build(this)
+
+                viewModel.join(sessionId)
+                advanceUntilIdle()
+
+                fixture.coordinator.current.value shouldBe
+                    ActiveCampfire(sessionId = sessionId, bookId = "book-1", isHost = false)
+            }
+        }
+
+        test("clears the coordinator when the session leaves") {
+            runTest {
+                val fixture = Fixture()
+                fixture.transport.joinResult = AppResult.Success(snapshot())
+                val viewModel = fixture.build(this)
+                keepStateHot(viewModel)
+
+                viewModel.join(sessionId)
+                advanceUntilIdle()
+
+                viewModel.leave()
+                advanceUntilIdle()
+
+                fixture.coordinator.current.value shouldBe null
+            }
+        }
+
+        test("endCampfire delegates to the controller's endSession") {
+            runTest {
+                val fixture = Fixture()
+                fixture.transport.joinResult = AppResult.Success(snapshot())
+                val viewModel = fixture.build(this)
+                keepStateHot(viewModel)
+
+                viewModel.join(sessionId)
+                advanceUntilIdle()
+
+                viewModel.endCampfire()
+                advanceUntilIdle()
+
+                fixture.transport.endCalls shouldBe listOf(sessionId)
+            }
+        }
     })
 
 /** Fixed [Clock] — this VM's tests don't exercise drift-loop timing, only state mapping/delegation. */
@@ -329,6 +400,7 @@ private class FakeCampfireTransport : CampfireTransport {
     var invitableUsersResult: AppResult<List<CampfireInvitableUser>> = AppResult.Success(emptyList())
     val joinCalls = mutableListOf<CampfireId>()
     val leaveCalls = mutableListOf<CampfireId>()
+    val endCalls = mutableListOf<CampfireId>()
 
     private val frameFlow = MutableSharedFlow<RpcEvent<CampfireFrame>>(extraBufferCapacity = 64)
 
@@ -347,7 +419,10 @@ private class FakeCampfireTransport : CampfireTransport {
         return AppResult.Success(Unit)
     }
 
-    override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
+    override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> {
+        endCalls += sessionId
+        return AppResult.Success(Unit)
+    }
 
     override suspend fun startSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
 

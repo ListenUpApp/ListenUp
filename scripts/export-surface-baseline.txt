@@ -366,6 +366,7 @@ PendingOperationUi
 PendingRegistration
 PlaybackController
 PlaybackDynamics
+PlaybackGuardEvent
 PlaybackManager
 PlaybackMediaItem
 PlaybackPosition
