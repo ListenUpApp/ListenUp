@@ -274,6 +274,7 @@
     "detail_download_failed": "Couldn't start the download. Please try again.",
     "detail_downloaded": "Downloaded",
     "detail_edit_book": "Edit Book",
+    "detail_edit_chapters": "Edit Chapters",
     "detail_find_metadata": "Find Metadata",
     "detail_abridged": "Abridged",
     "detail_mark_as_read": "Mark as Read",

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
@@ -31,6 +32,7 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_collection
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
 import listenup.composeapp.generated.resources.book_detail_campfire_this_book
+import listenup.composeapp.generated.resources.book_detail_edit_chapters
 import listenup.composeapp.generated.resources.campfire_listening_now_count
 import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.book_detail_edit_book
@@ -42,7 +44,7 @@ import listenup.composeapp.generated.resources.common_share
 /**
  * Dropdown menu for book actions.
  * Shows Edit, Find Metadata, Mark as Complete, Mark as Not Started, Add to Shelf.
- * Delete is shown only for admin users.
+ * Edit Chapters, Add to Collection, and Delete are shown only for admin users.
  *
  * @param expanded Whether the menu is currently showing
  * @param onDismiss Called when the menu should be dismissed
@@ -50,6 +52,7 @@ import listenup.composeapp.generated.resources.common_share
  * @param hasProgress Whether the book has any playback progress
  * @param isAdmin Whether the current user is an admin
  * @param onEditClick Called when Edit Book is clicked
+ * @param onEditChaptersClick Called when Edit Chapters is clicked (admin only)
  * @param onFindMetadataClick Called when Find Metadata is clicked
  * @param onMarkCompleteClick Called when Mark as Complete is clicked (shown only when not complete)
  * @param onMarkNotStartedClick Called when Mark as Not Started is clicked (shown when there is progress or it is complete)
@@ -61,7 +64,7 @@ import listenup.composeapp.generated.resources.common_share
  * @param onCampfireClick Called when "Campfire this book" is clicked — opens the create/join flow.
  * @param onDeleteClick Called when Delete Book is clicked (admin only)
  */
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 @Composable
 fun BookActionsMenu(
     expanded: Boolean,
@@ -70,6 +73,7 @@ fun BookActionsMenu(
     hasProgress: Boolean,
     isAdmin: Boolean,
     onEditClick: () -> Unit,
+    onEditChaptersClick: () -> Unit,
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
@@ -107,6 +111,21 @@ fun BookActionsMenu(
             },
             onClick = onFindMetadataClick,
         )
+
+        // Edit Chapters (admin only) — opens the Structure/Timing chapter editor, gated the
+        // same way as Add to Collection below.
+        if (isAdmin) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.book_detail_edit_chapters)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.List,
+                        contentDescription = null,
+                    )
+                },
+                onClick = onEditChaptersClick,
+            )
+        }
 
         HorizontalDivider()
 

@@ -70,6 +70,16 @@ data class BookEdit(
 ) : Route
 
 /**
+ * Chapter editor screen — Structure/Timing unified editing surface for a book's chapters.
+ *
+ * @property bookId The unique ID of the book whose chapters to edit.
+ */
+@Serializable
+data class ChapterEditor(
+    val bookId: String,
+) : Route
+
+/**
  * Match preview screen - preview Audible metadata before applying.
  *
  * Shows side-by-side comparison of current book metadata vs metadata

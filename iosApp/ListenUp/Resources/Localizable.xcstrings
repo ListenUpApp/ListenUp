@@ -3121,6 +3121,16 @@
         }
       }
     },
+    "book.detail_edit_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Chapters"
+          }
+        }
+      }
+    },
     "book.detail_error_title": {
       "localizations": {
         "en": {

@@ -5,11 +5,13 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
+import com.calypsan.listenup.client.features.chaptereditor.ChapterEditorScreen
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
 import com.calypsan.listenup.client.navigation.BrowseFacet
+import com.calypsan.listenup.client.navigation.ChapterEditor
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.DocumentViewer
 import com.calypsan.listenup.client.navigation.MatchPreview
@@ -21,6 +23,7 @@ import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 /** Book navigation entries. */
+@Suppress("LongMethod")
 internal fun EntryProviderScope<NavKey>.bookEntries(
     backStack: NavBackStack<NavKey>,
     campfireViewModel: CampfireViewModel,
@@ -35,6 +38,9 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
             },
             onEditClick = { bookId ->
                 backStack.add(BookEdit(bookId))
+            },
+            onEditChaptersClick = { bookId ->
+                backStack.add(ChapterEditor(bookId))
             },
             onMetadataSearchClick = { bookId ->
                 backStack.add(MetadataSearch(bookId))
@@ -104,6 +110,14 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
             },
             onSaveSuccess = {
                 // Navigate back after successful save
+                backStack.removeAt(backStack.lastIndex)
+            },
+        )
+    }
+    entry<ChapterEditor> { args ->
+        ChapterEditorScreen(
+            bookId = args.bookId,
+            onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
             },
         )

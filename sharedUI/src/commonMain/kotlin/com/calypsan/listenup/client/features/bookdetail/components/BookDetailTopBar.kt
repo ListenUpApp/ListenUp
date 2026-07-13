@@ -39,6 +39,7 @@ fun BookDetailTopBar(
     isAdmin: Boolean,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
+    onEditChaptersClick: () -> Unit,
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
@@ -79,6 +80,10 @@ fun BookDetailTopBar(
                     onEditClick = {
                         showMenu = false
                         onEditClick()
+                    },
+                    onEditChaptersClick = {
+                        showMenu = false
+                        onEditChaptersClick()
                     },
                     onFindMetadataClick = {
                         showMenu = false
