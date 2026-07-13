@@ -16,7 +16,7 @@ fun profileModule(avatarsDir: Path): Module =
         single<ProfileService> {
             ProfileServiceImpl(
                 sql = get<ListenUpDatabase>(),
-                passwordHasher = get(),
+                argon2Limiter = get(),
                 publicProfileMaintainer = get(),
                 imageStore = get(),
                 clock = get(),

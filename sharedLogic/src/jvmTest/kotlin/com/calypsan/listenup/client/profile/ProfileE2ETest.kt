@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.testing.testAuth
 import com.calypsan.listenup.server.api.createProfileService
 import com.calypsan.listenup.server.api.profileServiceScopedTo
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -110,7 +111,7 @@ class ProfileE2ETest :
             val profileService =
                 createProfileService(
                     sql = serverSqlDb,
-                    passwordHasher = PasswordHasher(),
+                    argon2Limiter = Argon2Limiter(PasswordHasher()),
                     publicProfileMaintainer =
                         PublicProfileMaintainer(
                             serverSqlDb,
@@ -167,7 +168,7 @@ class ProfileE2ETest :
             val profileService =
                 createProfileService(
                     sql = serverSqlDb,
-                    passwordHasher = hasher,
+                    argon2Limiter = Argon2Limiter(hasher),
                     publicProfileMaintainer =
                         PublicProfileMaintainer(
                             serverSqlDb,

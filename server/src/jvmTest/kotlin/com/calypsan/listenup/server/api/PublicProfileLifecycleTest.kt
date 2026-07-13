@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
@@ -125,7 +126,7 @@ class PublicProfileLifecycleTest :
                     val svc =
                         ProfileServiceImpl(
                             sql = sql,
-                            passwordHasher = PasswordHasher(),
+                            argon2Limiter = Argon2Limiter(PasswordHasher()),
                             publicProfileMaintainer = maintainer,
                             imageStore = tempAvatarImageStore(),
                         ).copyWith(principalFor("u1"))

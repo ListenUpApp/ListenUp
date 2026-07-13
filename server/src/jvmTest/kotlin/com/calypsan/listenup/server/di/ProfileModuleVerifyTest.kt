@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
@@ -25,7 +26,7 @@ class ProfileModuleVerifyTest :
                             modules(
                                 module {
                                     single<ListenUpDatabase> { sql }
-                                    single { PasswordHasher() }
+                                    single { Argon2Limiter(PasswordHasher()) }
                                     single { sql.noOpPublicProfileMaintainer() }
                                     single<Clock> { Clock.System }
                                 },
