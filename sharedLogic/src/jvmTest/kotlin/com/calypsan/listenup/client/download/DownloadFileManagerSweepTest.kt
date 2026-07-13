@@ -55,6 +55,28 @@ class DownloadFileManagerSweepTest :
             }
         }
 
+        test("sweepOrphanedTempFiles spares an active partial whose audioFileId contains '_' (B10e)") {
+            val tmpRoot = tempDir()
+            try {
+                val fileManager = fileManagerFor(tmpRoot)
+
+                // Active download whose id contains '_'. Pre-fix, substringBefore('_') == "af" — NOT in
+                // the active set {"af_1"} — so this ACTIVE partial was wrongly swept mid-download.
+                val activePath = fileManager.getAudioFilePath("book-1", "af_1", "01.mp3", isTemp = true)
+                val orphanPath = fileManager.getAudioFilePath("book-1", "af_2", "02.mp3", isTemp = true)
+                SystemFileSystem.sink(activePath).use { it }
+                SystemFileSystem.sink(orphanPath).use { it }
+
+                val deleted = fileManager.sweepOrphanedTempFiles(setOf("af_1"))
+
+                deleted shouldBe 1
+                SystemFileSystem.exists(activePath) shouldBe true // spared — Range-resume can continue
+                SystemFileSystem.exists(orphanPath) shouldBe false // genuine orphan swept
+            } finally {
+                tmpRoot.deleteRecursively()
+            }
+        }
+
         test("sweepOrphanedTempFiles returns 0 when no .tmp files exist") {
             val tmpRoot = tempDir()
             try {

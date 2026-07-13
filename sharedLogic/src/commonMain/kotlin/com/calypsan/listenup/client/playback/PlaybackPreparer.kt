@@ -196,7 +196,14 @@ class PlaybackPreparer internal constructor(
         // drains, resumes from a stale local row, then stamps that stale position lastPlayedAt=now
         // and permanently clobbers another device's newer progress.
         val savedPosition = progressTracker.getResumePosition(bookId)
-        val resolved = resolveResumePosition(savedPosition, buildResult.serverResumePosition)
+        // On the fully-downloaded path prepare() is skipped, so buildResult carries no server
+        // position. Fetch the authoritative position directly (best-effort, bounded) so downloaded
+        // books get the same newer-wins reconcile streaming books already get — closing the F1
+        // clobber for the offline case. Any failure (offline / RPC) degrades to the local row.
+        val serverPosition =
+            buildResult.serverResumePosition
+                ?: if (timeline.isFullyDownloaded) fetchAuthoritativePosition(bookId) else null
+        val resolved = resolveResumePosition(savedPosition, serverPosition)
 
         val resumePositionMs =
             if (resolved?.isFinished == true) {
@@ -318,6 +325,30 @@ class PlaybackPreparer internal constructor(
                 "(${totalDuration / MS_PER_SECOND}s / ${totalDuration / MS_PER_MINUTE}min) ==="
         }
     }
+
+    /**
+     * Best-effort, non-blocking fetch of the server-authoritative resume position for the
+     * fully-downloaded path (where [buildTimeline] skips `prepare()` and never sees it).
+     *
+     * Routed through the bounded, self-healing [PlaybackPrepareRepository] so a dead-socket transport
+     * fault surfaces as a typed, time-bounded [AppResult.Failure] rather than an exception. On ANY
+     * failure — offline, RPC error — it returns null so resume resolves from the local Room row
+     * exactly as before: it never blocks or fails playback.
+     */
+    private suspend fun fetchAuthoritativePosition(bookId: BookId): PlaybackPositionSyncPayload? =
+        when (val result = prepareRepository.getPosition(bookId)) {
+            is AppResult.Success -> {
+                result.data
+            }
+
+            is AppResult.Failure -> {
+                logger.debug {
+                    "getPosition failed for downloaded book ${bookId.value} (${result.error.code}); " +
+                        "resuming from the local Room row"
+                }
+                null
+            }
+        }
 
     /**
      * Build the [PlaybackTimeline]: resolve each file's local path, fetch signed

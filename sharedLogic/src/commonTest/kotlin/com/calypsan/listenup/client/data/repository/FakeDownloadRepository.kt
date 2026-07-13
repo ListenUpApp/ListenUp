@@ -30,8 +30,12 @@ import kotlinx.coroutines.flow.update
 internal open class FakeDownloadRepository(
     initial: List<DownloadEntity> = emptyList(),
     private val enqueueFailure: ((BookId) -> AppResult<DownloadOutcome>)? = null,
+    private val markCompletedFailure: DownloadError? = null,
 ) : DownloadRepository {
     private val state = MutableStateFlow(initial.associateBy { it.audioFileId })
+
+    private val terminalStatesForPause =
+        setOf(DownloadState.CANCELLED, DownloadState.DELETED, DownloadState.COMPLETED)
 
     /** All entities currently in the fake (test-only inspection). */
     val entities: List<DownloadEntity> get() = state.value.values.toList()
@@ -88,6 +92,7 @@ internal open class FakeDownloadRepository(
         localPath: String,
         completedAt: Long,
     ): AppResult<Unit> {
+        markCompletedFailure?.let { return AppResult.Failure(it) }
         update(audioFileId) {
             it.copy(
                 state = DownloadState.COMPLETED,
@@ -100,7 +105,10 @@ internal open class FakeDownloadRepository(
     }
 
     override suspend fun markPaused(audioFileId: String): AppResult<Unit> {
-        update(audioFileId) { it.copy(state = DownloadState.PAUSED) }
+        // Mirror the production guarded DAO query (B7): pausing never clobbers a terminal state.
+        update(audioFileId) { current ->
+            if (current.state in terminalStatesForPause) current else current.copy(state = DownloadState.PAUSED)
+        }
         return AppResult.Success(Unit)
     }
 

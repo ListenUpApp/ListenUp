@@ -85,4 +85,6 @@ fun testPlaybackPrepareRepository(
                     resumePosition = null,
                 ),
             )
+
+        override suspend fun getPosition(bookId: BookId) = AppResult.Success(null)
     }

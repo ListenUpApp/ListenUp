@@ -59,6 +59,62 @@ class DownloadDaoTest :
             }
         }
 
+        test("markPausedIfNotTerminal is a no-op on terminal rows but pauses an active row (B7)") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(
+                        listOf(
+                            entity("file-cancelled", state = DownloadState.CANCELLED),
+                            entity("file-deleted", state = DownloadState.DELETED),
+                            entity("file-completed", state = DownloadState.COMPLETED),
+                            entity("file-active", state = DownloadState.DOWNLOADING),
+                        ),
+                    )
+
+                    // A late worker-cleanup pause must NOT clobber a terminal state.
+                    dao.markPausedIfNotTerminal("file-cancelled")
+                    dao.markPausedIfNotTerminal("file-deleted")
+                    dao.markPausedIfNotTerminal("file-completed")
+                    // ...but a genuinely in-flight row still pauses (e.g. auth-failure pause).
+                    dao.markPausedIfNotTerminal("file-active")
+
+                    val byId = dao.observeAll().first().associateBy { it.audioFileId }
+                    byId["file-cancelled"]!!.state shouldBe DownloadState.CANCELLED
+                    byId["file-deleted"]!!.state shouldBe DownloadState.DELETED
+                    byId["file-completed"]!!.state shouldBe DownloadState.COMPLETED
+                    byId["file-active"]!!.state shouldBe DownloadState.PAUSED
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("getIncomplete excludes FAILED rows past the retry budget but keeps retriable ones (B10b)") {
+            val db = createInMemoryTestDatabase()
+            val dao = db.downloadDao()
+            try {
+                runTest {
+                    dao.insertAll(
+                        listOf(
+                            entity("failed-exhausted", state = DownloadState.FAILED).copy(retryCount = 3),
+                            entity("failed-retriable", state = DownloadState.FAILED).copy(retryCount = 1),
+                            entity("queued", state = DownloadState.QUEUED),
+                            entity("downloading", state = DownloadState.DOWNLOADING),
+                        ),
+                    )
+
+                    val incomplete = dao.getIncomplete()
+                    // The exhausted FAILED row no longer churns on every startup; the retriable one still resumes.
+                    incomplete.map { it.audioFileId }.toSet() shouldBe
+                        setOf("failed-retriable", "queued", "downloading")
+                }
+            } finally {
+                db.close()
+            }
+        }
+
         test("getLocalPath returns localPath for COMPLETED rows only") {
             val db = createInMemoryTestDatabase()
             val dao = db.downloadDao()

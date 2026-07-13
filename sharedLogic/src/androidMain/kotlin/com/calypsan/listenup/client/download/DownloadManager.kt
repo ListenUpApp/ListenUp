@@ -298,8 +298,11 @@ class DownloadManager internal constructor(
 
         for (download in incomplete) {
             // KEEP policy avoids displacing a worker that's already running for this row.
-            // Only PAUSED is reset — DOWNLOADING rows belong to a worker that owns state transitions.
-            if (download.state == DownloadState.PAUSED) {
+            // Reset PAUSED and stale DOWNLOADING rows to QUEUED (B10a): at app startup no worker is
+            // running, so a row left in DOWNLOADING after a crash would show "downloading" forever if
+            // the (re-enqueued) worker is blocked by the wifi constraint. QUEUED reflects the truth
+            // and lets the re-enqueue below drive it. The subsequent worker owns further transitions.
+            if (download.state == DownloadState.PAUSED || download.state == DownloadState.DOWNLOADING) {
                 downloadDao.updateState(download.audioFileId, DownloadState.QUEUED)
             }
 

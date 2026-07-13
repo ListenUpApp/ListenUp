@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
+import com.calypsan.listenup.client.playback.PlaybackStateProvider
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,6 +31,11 @@ data class StorageUiState(
     val downloadedBooks: List<DownloadedBookSummary> = emptyList(),
     val deleteConfirmation: DeleteConfirmation? = null,
     val isDeleting: Boolean = false,
+    /**
+     * Set to a book's title when a delete was refused because that book is currently playing
+     * (B9). The UI surfaces a "stop playback first" message; [dismissDeleteBlocked] clears it.
+     */
+    val blockedDeletionTitle: String? = null,
 )
 
 /**
@@ -55,6 +61,7 @@ class StorageViewModel(
     private val downloadService: DownloadService,
     private val storageSpaceProvider: StorageSpaceProvider,
     private val errorBus: ErrorBus,
+    private val playbackStateProvider: PlaybackStateProvider,
 ) : ViewModel() {
     private val internalState = MutableStateFlow(StorageUiState())
 
@@ -99,6 +106,13 @@ class StorageViewModel(
     }
 
     /**
+     * Dismiss the "can't delete the currently-playing book" notice (B9).
+     */
+    fun dismissDeleteBlocked() {
+        internalState.update { it.copy(blockedDeletionTitle = null) }
+    }
+
+    /**
      * Execute the confirmed delete action.
      */
     fun executeDelete() {
@@ -108,8 +122,17 @@ class StorageViewModel(
             try {
                 when (confirmation) {
                     is DeleteConfirmation.SingleBook -> {
+                        val targetBookId = BookId(confirmation.book.bookId)
+                        // Never-stranded guard (B9): deleting the currently-playing book would unlink
+                        // the file:// sources under an active session (platform behaviour on unlinked
+                        // files varies). Refuse and surface a "stop playback first" notice instead.
+                        if (playbackStateProvider.currentBookId.value == targetBookId) {
+                            logger.warn { "Refusing to delete the currently-playing book: ${confirmation.book.title}" }
+                            internalState.update { it.copy(blockedDeletionTitle = confirmation.book.title) }
+                            return@launch
+                        }
                         logger.info { "Deleting download: ${confirmation.book.title}" }
-                        downloadService.deleteDownload(BookId(confirmation.book.bookId))
+                        downloadService.deleteDownload(targetBookId)
                     }
 
                     is DeleteConfirmation.AllDownloads -> {

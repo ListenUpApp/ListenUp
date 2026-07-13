@@ -106,9 +106,12 @@ internal class DownloadRepositoryImpl(
             downloadDao.markCompleted(audioFileId, localPath, completedAt)
         }
 
+    // Conditional pause (B7): a late NonCancellable cleanup from a dying worker must NOT clobber a
+    // terminal state (CANCELLED/DELETED/COMPLETED) back to PAUSED. The guarded DAO query makes the
+    // terminal write win at the DB layer regardless of the cancel-vs-cleanup scheduling.
     override suspend fun markPaused(audioFileId: String): AppResult<Unit> =
         suspendRunCatching {
-            downloadDao.updateState(audioFileId, DownloadState.PAUSED)
+            downloadDao.markPausedIfNotTerminal(audioFileId)
         }
 
     override suspend fun markCancelled(audioFileId: String): AppResult<Unit> =

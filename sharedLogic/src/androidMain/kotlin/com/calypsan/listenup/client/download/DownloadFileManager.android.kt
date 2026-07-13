@@ -102,10 +102,12 @@ actual class DownloadFileManager(
             .walkTopDown()
             .filter { it.isFile && it.name.endsWith(".tmp") }
             .forEach { file ->
-                // Filename format: "${audioFileId}_${filename}.tmp"
-                // The audioFileId is everything before the first '_'.
-                val audioFileId = file.name.substringBefore('_')
-                if (audioFileId !in activeAudioFileIds && file.delete()) deleted++
+                // Filename format: "${audioFileId}_${filename}.tmp". A .tmp is orphaned iff NO active
+                // id is a prefix of its name. Matching the FULL id ("${id}_") — not substring-before-
+                // first-'_' — keeps ids that legitimately contain '_' from being mis-parsed and their
+                // ACTIVE partials wrongly deleted (B10e).
+                val isActive = activeAudioFileIds.any { file.name.startsWith("${it}_") }
+                if (!isActive && file.delete()) deleted++
             }
         return deleted
     }

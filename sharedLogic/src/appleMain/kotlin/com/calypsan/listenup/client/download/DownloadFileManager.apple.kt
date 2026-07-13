@@ -137,9 +137,12 @@ actual class DownloadFileManager {
 
             // relativePath is relative to dirPath; extract just the filename component.
             val filename = relativePath.substringAfterLast('/')
-            // Filename format: "${audioFileId}_${filename}.tmp"
-            val audioFileId = filename.substringBefore('_')
-            if (audioFileId !in activeAudioFileIds) {
+            // Filename format: "${audioFileId}_${filename}.tmp". A .tmp is orphaned iff NO active id
+            // is a prefix of its name. Matching the FULL id ("${id}_") — not substring-before-first-
+            // '_' — keeps ids that legitimately contain '_' from being mis-parsed and their ACTIVE
+            // partials wrongly deleted (B10e).
+            val isActive = activeAudioFileIds.any { filename.startsWith("${it}_") }
+            if (!isActive) {
                 val fullPath = Path(downloadDir, relativePath).toString()
                 if (fileManager.removeItemAtPath(fullPath, error = null)) deleted++
             }

@@ -4,12 +4,15 @@ package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback
+import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
@@ -20,7 +23,10 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.io.buffered
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.write
 import java.io.File
 
 /**
@@ -207,7 +213,208 @@ class DownloadAudioFileTest :
                 tmpRoot.deleteRecursively()
             }
         }
+
+        // ---- B6: server ignores Range on resume (returns 200, not 206) ----
+        // A partial .tmp exists (startByte > 0) so we send a Range header, but the server/proxy
+        // returns 200 with the FULL body. Appending would corrupt the file (400 + 1000 = 1400).
+        // The fix truncates the temp and restarts from byte 0 → final file is exactly the full body.
+        test("resume where server ignores Range (200, not 206) truncates the temp and restarts — no corruption") {
+            val tmpRoot = tempDir()
+            try {
+                val bookId = "book-r6"
+                val audioFileId = "file-r6"
+                val fileManager = fileManagerFor(tmpRoot)
+
+                // Pre-write 400 stale bytes to the temp path so startByte = 400 and a Range header is sent.
+                val tempPath = fileManager.getAudioFilePath(bookId, audioFileId, "file-r6.mp3", isTemp = true)
+                SystemFileSystem.sink(tempPath).buffered().use { it.write(ByteArray(400) { 0x41 }) }
+
+                val fakeRepo =
+                    FakeDownloadRepository(
+                        initial = listOf(downloadEntity(audioFileId = audioFileId, bookId = bookId, totalBytes = 1000L)),
+                    )
+
+                // Server IGNORES the Range: 200 OK + the full 1000-byte body (not 206 partial).
+                val engine =
+                    MockEngine {
+                        respond(
+                            content = ByteArray(1000) { 0x42 },
+                            status = HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentLength, "1000"),
+                        )
+                    }
+
+                val result =
+                    downloadAudioFile(
+                        audioFileId = audioFileId,
+                        bookId = bookId,
+                        filename = "file-r6.mp3",
+                        expectedSize = 1000L,
+                        httpClient = minimalClient(engine),
+                        repository = fakeRepo,
+                        fileManager = fileManager,
+                        prepareRepository = readyPrepareRepo(bookId, audioFileId),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                // Final file is the full body (1000), NOT the corrupt append (1400).
+                val destPath = fileManager.getAudioFilePath(bookId, audioFileId, "file-r6.mp3", isTemp = false)
+                fileManager.getFileSize(destPath.toString()) shouldBe 1000L
+                fakeRepo.entities.single().state shouldBe DownloadState.COMPLETED
+            } finally {
+                tmpRoot.deleteRecursively()
+            }
+        }
+
+        // ---- B6: unknown expectedSize + truncated stream must FAIL (not finalize at bogus 100%) ----
+        // expectedSize = 0 (DownloadWorker's default when metadata size is unknown). The server
+        // advertises Content-Length 1000 but the stream closes after only 500 bytes. Pre-fix this
+        // was markCompleted'd as success; the fix verifies against Content-Length and FAILS.
+        test("expectedSize=0 with a truncated body verified against Content-Length FAILS") {
+            val tmpRoot = tempDir()
+            try {
+                val bookId = "book-r6b"
+                val audioFileId = "file-r6b"
+                val fileManager = fileManagerFor(tmpRoot)
+                val fakeRepo =
+                    FakeDownloadRepository(
+                        initial = listOf(downloadEntity(audioFileId = audioFileId, bookId = bookId, totalBytes = 0L)),
+                    )
+
+                // Content-Length says 1000 but only 500 bytes arrive, then the stream closes cleanly.
+                val engine =
+                    MockEngine {
+                        respond(
+                            content = ByteArray(500) { 0x42 },
+                            status = HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentLength, "1000"),
+                        )
+                    }
+
+                val result =
+                    downloadAudioFile(
+                        audioFileId = audioFileId,
+                        bookId = bookId,
+                        filename = "file-r6b.mp3",
+                        expectedSize = 0L,
+                        httpClient = minimalClient(engine),
+                        repository = fakeRepo,
+                        fileManager = fileManager,
+                        prepareRepository = readyPrepareRepo(bookId, audioFileId),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                fakeRepo.entities.single().state shouldNotBe DownloadState.COMPLETED
+                // The corrupt partial was deleted, not finalized.
+                val destPath = fileManager.getAudioFilePath(bookId, audioFileId, "file-r6b.mp3", isTemp = false)
+                SystemFileSystem.exists(destPath) shouldBe false
+            } finally {
+                tmpRoot.deleteRecursively()
+            }
+        }
+
+        // ---- B6: genuinely unverifiable download (no expectedSize, no Content-Length) FAILS ----
+        test("expectedSize=0 with no Content-Length is unverifiable and FAILS") {
+            val tmpRoot = tempDir()
+            try {
+                val bookId = "book-r6c"
+                val audioFileId = "file-r6c"
+                val fileManager = fileManagerFor(tmpRoot)
+                val fakeRepo =
+                    FakeDownloadRepository(
+                        initial = listOf(downloadEntity(audioFileId = audioFileId, bookId = bookId, totalBytes = 0L)),
+                    )
+
+                // No Content-Length header at all → size is genuinely unverifiable.
+                val engine =
+                    MockEngine {
+                        respond(content = ByteArray(500) { 0x42 }, status = HttpStatusCode.OK)
+                    }
+
+                val result =
+                    downloadAudioFile(
+                        audioFileId = audioFileId,
+                        bookId = bookId,
+                        filename = "file-r6c.mp3",
+                        expectedSize = 0L,
+                        httpClient = minimalClient(engine),
+                        repository = fakeRepo,
+                        fileManager = fileManager,
+                        prepareRepository = readyPrepareRepo(bookId, audioFileId),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+            } finally {
+                tmpRoot.deleteRecursively()
+            }
+        }
+
+        // ---- B10c: markCompleted failing after the file lands surfaces as a FAILURE, not silent success ----
+        test("markCompleted failure after the file lands surfaces as a download failure") {
+            val tmpRoot = tempDir()
+            try {
+                val bookId = "book-r10"
+                val audioFileId = "file-r10"
+                val fileManager = fileManagerFor(tmpRoot)
+                val fakeRepo =
+                    FakeDownloadRepository(
+                        initial = listOf(downloadEntity(audioFileId = audioFileId, bookId = bookId, totalBytes = 1000L)),
+                        markCompletedFailure = DownloadError.DownloadFailed(debugInfo = "DB write failed"),
+                    )
+
+                val engine =
+                    MockEngine {
+                        respond(
+                            content = ByteArray(1000) { 0x42 },
+                            status = HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentLength, "1000"),
+                        )
+                    }
+
+                val result =
+                    downloadAudioFile(
+                        audioFileId = audioFileId,
+                        bookId = bookId,
+                        filename = "file-r10.mp3",
+                        expectedSize = 1000L,
+                        httpClient = minimalClient(engine),
+                        repository = fakeRepo,
+                        fileManager = fileManager,
+                        prepareRepository = readyPrepareRepo(bookId, audioFileId),
+                    )
+
+                // The bytes landed but the DB write failed — honest failure, not a lying success.
+                result.shouldBeInstanceOf<AppResult.Failure>()
+            } finally {
+                tmpRoot.deleteRecursively()
+            }
+        }
     })
+
+// A ready [PlaybackPrepareRepository] that signs a relative download URL for [audioFileId].
+private fun readyPrepareRepo(
+    bookId: String,
+    audioFileId: String,
+): FakePlaybackPrepareRepository =
+    FakePlaybackPrepareRepository(
+        AppResult.Success(
+            PreparedPlayback(
+                bookId = bookId,
+                audioFiles =
+                    listOf(
+                        PreparedAudioFile(
+                            fileId = audioFileId,
+                            index = 0,
+                            url = "/api/v1/audio/$bookId/$audioFileId?u=&exp=&sig=test",
+                            format = "mp3",
+                            durationMs = 1000L,
+                            sizeBytes = 1000L,
+                        ),
+                    ),
+                resumePosition = null,
+            ),
+        ),
+    )
 
 // FakePlaybackPrepareRepository is defined in DownloadWorkerLogicTest.kt
 // (same package, internal visibility) — reused here.
