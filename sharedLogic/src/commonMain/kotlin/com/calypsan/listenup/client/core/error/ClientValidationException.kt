@@ -13,7 +13,7 @@ package com.calypsan.listenup.client.core.error
  * @property field Optional [com.calypsan.listenup.api.error.ValidationError.field] discriminator so
  *   a form can highlight the offending input without substring-matching the message.
  */
-class ClientValidationException(
+internal class ClientValidationException(
     val userMessage: String,
     val field: String? = null,
 ) : IllegalArgumentException(userMessage)
