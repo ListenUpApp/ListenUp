@@ -100,6 +100,34 @@ class TimelineGeometryTest :
             val geo = TimelineGeometry(durationMs = oneHourMs, viewportWidthPx = 0f, zoom = 1f)
             geo.msToPx(1_000L) shouldBe 0f
         }
+
+        test("bucketDensity groups markers into evenly-sized time buckets across the duration") {
+            val geo = TimelineGeometry(durationMs = 100_000L, viewportWidthPx = 1000f, zoom = 1f)
+            val markerTimesMs = listOf(1_000L, 2_000L, 50_000L, 99_000L)
+            val buckets = geo.bucketDensity(markerTimesMs, bucketCount = 10)
+            buckets.size shouldBe 10
+            buckets.sum() shouldBe markerTimesMs.size
+            buckets[0] shouldBe 2 // 1_000 and 2_000 both fall in the first 10_000ms bucket
+        }
+
+        test("bucketDensity on an empty marker list returns all-zero buckets") {
+            val geo = TimelineGeometry(durationMs = 100_000L, viewportWidthPx = 1000f, zoom = 1f)
+            val buckets = geo.bucketDensity(emptyList(), bucketCount = 5)
+            buckets shouldBe listOf(0, 0, 0, 0, 0)
+        }
+
+        test("fineScrubSensitivity scales down as vertical displacement grows") {
+            val nearZero = TimelineGeometry.fineScrubSensitivity(verticalDisplacementPx = 0f)
+            val far = TimelineGeometry.fineScrubSensitivity(verticalDisplacementPx = 300f)
+            nearZero shouldBe 1f
+            (far < nearZero) shouldBe true
+            (far > 0f) shouldBe true // never fully locks, always some movement
+        }
+
+        test("fineScrubSensitivity clamps at a floor so a marker never becomes un-draggable") {
+            val extreme = TimelineGeometry.fineScrubSensitivity(verticalDisplacementPx = 10_000f)
+            (extreme >= TimelineGeometry.MIN_FINE_SCRUB_SENSITIVITY) shouldBe true
+        }
     })
 
 private fun shouldThrowMessage(

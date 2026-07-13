@@ -38,12 +38,13 @@ fun TimelinePreviewGallery() {
     }
 }
 
-private val mockDurationMs = 3_600_000L // 1 hour
+private const val MOCK_DURATION_MS = 3_600_000L // 1 hour
+private const val DEFAULT_STYLE_KEY = "default"
 
 @Composable
 private fun mockStylesResolved(): Map<String, MarkerStyle> =
     mapOf(
-        "default" to MarkerStyle(color = MaterialTheme.colorScheme.primary, shape = CircleShape),
+        DEFAULT_STYLE_KEY to MarkerStyle(color = MaterialTheme.colorScheme.primary, shape = CircleShape),
     )
 
 /** A no-op display-only lane policy — the gallery never negotiates real drags. */
@@ -76,15 +77,15 @@ private fun SingleLaneSection() {
         remember {
             MockMarkerLane(
                 listOf(
-                    TimeMarker(id = "m1", timeMs = 300_000L, label = "Chapter 1", styleKey = "default"),
-                    TimeMarker(id = "m2", timeMs = 900_000L, label = "Chapter 2", styleKey = "default"),
-                    TimeMarker(id = "m3", timeMs = 1_800_000L, label = "Chapter 3", styleKey = "default"),
+                    TimeMarker(id = "m1", timeMs = 300_000L, label = "Chapter 1", styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "m2", timeMs = 900_000L, label = "Chapter 2", styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "m3", timeMs = 1_800_000L, label = "Chapter 3", styleKey = DEFAULT_STYLE_KEY),
                 ),
             )
         }
     MarkerLaneTimeline(
         lanes = listOf(lane),
-        durationMs = mockDurationMs,
+        durationMs = MOCK_DURATION_MS,
         playheadMs = { 900_000L },
         onSeek = {},
         styles = mockStylesResolved(),
@@ -99,8 +100,8 @@ private fun TwoLaneStackSection() {
         remember {
             MockMarkerLane(
                 listOf(
-                    TimeMarker(id = "c1", timeMs = 300_000L, label = "Chapter 1", styleKey = "default"),
-                    TimeMarker(id = "c2", timeMs = 1_500_000L, label = "Chapter 2", styleKey = "default"),
+                    TimeMarker(id = "c1", timeMs = 300_000L, label = "Chapter 1", styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "c2", timeMs = 1_500_000L, label = "Chapter 2", styleKey = DEFAULT_STYLE_KEY),
                 ),
             )
         }
@@ -108,14 +109,14 @@ private fun TwoLaneStackSection() {
         remember {
             MockMarkerLane(
                 listOf(
-                    TimeMarker(id = "f1", timeMs = 0L, label = "File 1", styleKey = "default"),
-                    TimeMarker(id = "f2", timeMs = 1_800_000L, label = "File 2", styleKey = "default"),
+                    TimeMarker(id = "f1", timeMs = 0L, label = "File 1", styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "f2", timeMs = 1_800_000L, label = "File 2", styleKey = DEFAULT_STYLE_KEY),
                 ),
             )
         }
     MarkerLaneTimeline(
         lanes = listOf(chapterLane, fileLane),
-        durationMs = mockDurationMs,
+        durationMs = MOCK_DURATION_MS,
         playheadMs = { 600_000L },
         onSeek = {},
         styles = mockStylesResolved(),
@@ -132,16 +133,16 @@ private fun DenseMarkersSection() {
                 (0 until 25).map { i ->
                     TimeMarker(
                         id = "d$i",
-                        timeMs = (i * (mockDurationMs / 25)),
+                        timeMs = i * (MOCK_DURATION_MS / 25),
                         label = "Marker $i",
-                        styleKey = "default",
+                        styleKey = DEFAULT_STYLE_KEY,
                     )
                 }
             MockMarkerLane(markers)
         }
     MarkerLaneTimeline(
         lanes = listOf(lane),
-        durationMs = mockDurationMs,
+        durationMs = MOCK_DURATION_MS,
         playheadMs = { 0L },
         onSeek = {},
         styles = mockStylesResolved(),
@@ -156,16 +157,16 @@ private fun ZoomedInSection() {
         remember {
             MockMarkerLane(
                 listOf(
-                    TimeMarker(id = "z1", timeMs = 300_000L, label = "Chapter 1", styleKey = "default"),
-                    TimeMarker(id = "z2", timeMs = 450_000L, label = "Chapter 2", styleKey = "default"),
+                    TimeMarker(id = "z1", timeMs = 300_000L, label = "Chapter 1", styleKey = DEFAULT_STYLE_KEY),
+                    TimeMarker(id = "z2", timeMs = 450_000L, label = "Chapter 2", styleKey = DEFAULT_STYLE_KEY),
                 ),
             )
         }
     val state = rememberTimelineState()
-    LaunchedEffect(state) { state.applyGeometry(state.geometryFor(mockDurationMs).copy(zoom = 6f)) }
+    LaunchedEffect(state) { state.applyGeometry(state.geometryFor(MOCK_DURATION_MS).copy(zoom = 6f)) }
     MarkerLaneTimeline(
         lanes = listOf(lane),
-        durationMs = mockDurationMs,
+        durationMs = MOCK_DURATION_MS,
         playheadMs = { 350_000L },
         onSeek = {},
         styles = mockStylesResolved(),

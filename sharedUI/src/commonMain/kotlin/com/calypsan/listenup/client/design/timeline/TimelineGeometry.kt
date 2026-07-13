@@ -60,12 +60,33 @@ data class TimelineGeometry(
         return copy(panMs = (panMs - deltaMs).coerceIn(0L, maxPanMs(durationMs, this)))
     }
 
+    /** Buckets [markerTimesMs] into [bucketCount] evenly-sized time windows — minimap density shading. */
+    fun bucketDensity(
+        markerTimesMs: List<Long>,
+        bucketCount: Int,
+    ): List<Int> {
+        val buckets = MutableList(bucketCount) { 0 }
+        if (durationMs <= 0L) return buckets
+        val bucketWidthMs = durationMs.toDouble() / bucketCount
+        markerTimesMs.forEach { ms ->
+            val idx = (ms / bucketWidthMs).toInt().coerceIn(0, bucketCount - 1)
+            buckets[idx] = buckets[idx] + 1
+        }
+        return buckets
+    }
+
     companion object {
         /** zoom = 1 always fits; no lower bound below "whole book visible". */
         const val MIN_ZOOM = 1f
 
         /** Fine-editing resolution floor: 1 px must never represent less than 50 ms. */
         const val MIN_MS_PER_PX = 50f
+
+        /** Floor for [fineScrubSensitivity] — a marker always retains at least 5% drag sensitivity. */
+        const val MIN_FINE_SCRUB_SENSITIVITY = 0.05f
+
+        /** Sensitivity floor beyond which added vertical displacement stops shrinking it further. */
+        private const val FINE_SCRUB_FLOOR_DISPLACEMENT_PX = 240f
 
         /** The zoom at which [MIN_MS_PER_PX] is reached for this duration/viewport pair. */
         fun maxZoomFor(
@@ -75,6 +96,16 @@ data class TimelineGeometry(
             if (durationMs <= 0L || viewportWidthPx <= 0f) return MIN_ZOOM
             val zoomAtFloor = durationMs / (MIN_MS_PER_PX * viewportWidthPx)
             return zoomAtFloor.coerceAtLeast(MIN_ZOOM)
+        }
+
+        /**
+         * Vertical fine-scrub idiom: the further the drag has moved from the horizontal axis, the
+         * finer (slower) horizontal movement becomes — 1.0 at 0px, decaying to [MIN_FINE_SCRUB_SENSITIVITY]
+         * by [FINE_SCRUB_FLOOR_DISPLACEMENT_PX].
+         */
+        fun fineScrubSensitivity(verticalDisplacementPx: Float): Float {
+            val t = (kotlin.math.abs(verticalDisplacementPx) / FINE_SCRUB_FLOOR_DISPLACEMENT_PX).coerceIn(0f, 1f)
+            return (1f - t * (1f - MIN_FINE_SCRUB_SENSITIVITY)).coerceAtLeast(MIN_FINE_SCRUB_SENSITIVITY)
         }
 
         private fun maxPanMs(
