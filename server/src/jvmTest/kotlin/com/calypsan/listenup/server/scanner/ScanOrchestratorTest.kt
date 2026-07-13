@@ -206,6 +206,34 @@ class ScanOrchestratorTest :
             }
         }
 
+        test("onFolderAdded supersedes the old scanner so an in-flight scan can't sweep the new folder") {
+            runTest {
+                val factory = FakeScannerFactory()
+                val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
+                orchestrator.onLibraryAdded(testLib("lib-1", "/tmp/books"))
+                val firstScanner = factory.scanners.single()
+
+                orchestrator.onFolderAdded(LibraryId("lib-1"), LibraryFolderRef(FolderId("f-extra"), "/tmp/extras"))
+
+                // The pre-swap scanner is superseded; the new one is not.
+                firstScanner.superseded shouldBe true
+                factory.scanners.last().superseded shouldBe false
+            }
+        }
+
+        test("onFolderRemoved supersedes the old scanner so its in-flight scan drops its stale result") {
+            runTest {
+                val factory = FakeScannerFactory()
+                val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
+                orchestrator.onLibraryAdded(testLib("lib-1", "/tmp/books"))
+                val firstScanner = factory.scanners.single()
+
+                orchestrator.onFolderRemoved(FolderId("lib-1-f-0"))
+
+                firstScanner.superseded shouldBe true
+            }
+        }
+
         test("scanFolder finds new folder after onFolderAdded updates the snapshot") {
             runTest {
                 val incrementalPaths = mutableListOf<Path>()
@@ -354,6 +382,9 @@ private class FakeScannerFactory(
     /** The most recently created [ScanCoordinator]. Useful for checking teardown. */
     var lastCoordinator: ScanCoordinator? = null
 
+    /** Every [FakeScanner] this factory has produced, in creation order. */
+    val scanners = mutableListOf<FakeScanner>()
+
     fun create(
         library: Library,
         scope: kotlinx.coroutines.CoroutineScope,
@@ -361,7 +392,7 @@ private class FakeScannerFactory(
         scannersCreated++
         librariesUsedForCreation += library
         val gate = if (gateQueue.isNotEmpty()) gateQueue.removeFirst() else null
-        val scanner = FakeScanner()
+        val scanner = FakeScanner().also { scanners += it }
         val coordinator =
             ScanCoordinator(
                 libraryId = library.id,
@@ -377,9 +408,16 @@ private class FakeScannerFactory(
     }
 }
 
-/** Minimal [ScannerResultPort] fake — always returns null for lastResult. */
+/** Minimal [ScannerResultPort] fake — always returns null for lastResult; records supersession. */
 private class FakeScanner : ScannerResultPort {
+    var superseded = false
+        private set
+
     override fun lastResult(): ScanResult? = null
+
+    override fun markSuperseded() {
+        superseded = true
+    }
 }
 
 private class FakeWatcherSupervisor : WatcherSupervisorPort {

@@ -43,19 +43,22 @@ internal class Differ {
         previous: List<AnalyzedBook>,
     ): Flow<ChangeEventDto> =
         flow {
-            val previousByRoot = previous.associateBy { it.candidate.rootRelPath }
+            // Key path matches by (folderRootPath, rootRelPath), not the bare rootRelPath: two folders
+            // can hold a book at the same relative path, and a bare-path index would alias them —
+            // masking a removal or matching a book to its cross-folder twin until the next full scan.
+            val previousByRoot = previous.associateBy { it.rootKey() }
             val previousByInode = inodeIndexFor(previous)
-            val matchedRoots = mutableSetOf<String>()
+            val matchedKeys = mutableSetOf<Pair<String?, String>>()
 
             current.collect { book ->
-                val match = previousByRoot[book.candidate.rootRelPath] ?: book.findByInode(previousByInode)
+                val match = previousByRoot[book.rootKey()] ?: book.findByInode(previousByInode)
                 val event = changeFor(book, match)
                 if (event != null) emit(event)
-                if (match != null) matchedRoots += match.candidate.rootRelPath
+                if (match != null) matchedKeys += match.rootKey()
             }
 
             previous.forEach { previousBook ->
-                if (previousBook.candidate.rootRelPath !in matchedRoots) {
+                if (previousBook.rootKey() !in matchedKeys) {
                     logger.debug { "book removed: path=${previousBook.candidate.rootRelPath}" }
                     // Carry the vanished book's owning-folder root so the persister tombstones it in
                     // the correct folder — a same-relpath book in another folder must stay untouched.
@@ -113,6 +116,12 @@ internal class Differ {
         }
         return index
     }
+
+    /**
+     * The folder-scoped path identity of a book: `(folderRootPath, rootRelPath)`. Two folders sharing
+     * a relative path stay distinct; a legacy null `folderRootPath` degrades to bare-path keying.
+     */
+    private fun AnalyzedBook.rootKey(): Pair<String?, String> = folderRootPath to candidate.rootRelPath
 
     private fun AnalyzedBook.findByInode(index: Map<Long, AnalyzedBook>): AnalyzedBook? =
         candidate.files.firstNotNullOfOrNull { file ->

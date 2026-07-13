@@ -4,6 +4,8 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -71,7 +73,7 @@ class AnalyzedBookMapper(
         resolvedSeries: List<BookSeriesPayload>,
     ): BookSyncPayload {
         val candidate = analyzed.candidate
-        val inode = candidate.files.firstOrNull()?.inode
+        val inode = candidate.identityInode()
         // Sum the per-track durations (multi-file books); fall back to the book-level
         // embedded duration for single-file books, where TrackEntry.durationMs is null.
         val totalDuration =
@@ -235,3 +237,18 @@ class AnalyzedBookMapper(
             creditedAs = null,
         )
 }
+
+/**
+ * The inode that anchors a book's stable identity across rescans: the first
+ * AUDIO file's inode (the first file that both is audio and has a stable inode).
+ *
+ * Anchoring on audio — rather than `files.first()`, which can be a cover image
+ * that name-sorts ahead of the audio — keeps identity aligned with the
+ * [com.calypsan.listenup.server.scanner.pipeline.Differ]'s audio-inode move
+ * matching. Replacing or adding a non-audio file (a retag writing a fresh cover,
+ * a new `00-intro` sorted first) can no longer flip the anchor inode and re-mint
+ * the book's UUID, which would strand the user's positions, progress, shelves,
+ * and edits on the swept-away old row.
+ */
+internal fun CandidateBook.identityInode(): Long? =
+    files.firstOrNull { it.fileType == FileType.AUDIO && it.inode != null }?.inode

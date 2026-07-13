@@ -672,6 +672,32 @@ class BookPersisterTest :
             }
         }
 
+        test("full scan skips the tombstone sweep when the scan is non-authoritative (an unreachable root walked empty)") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this)
+
+                    // A1: a configured root was unreachable at scan time, so the Scanner marked the full
+                    // scan non-authoritative. Its book set is missing that folder's books entirely —
+                    // sweeping would tombstone every live book under the dropped folder. The sweep must
+                    // be skipped even though scope == Full and every resolved root is a real folder.
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a")),
+                            changes = listOf(ChangeEventDto.Added(analyzedBook("a"))),
+                            scope = ScanScope.Full,
+                            fullScanAuthoritative = false,
+                        ),
+                    )
+
+                    // The book still persists — only the destructive sweep is suppressed.
+                    fake.resolved shouldContainExactly listOf("a")
+                    fake.softDeleteAbsentByPathsCalls.shouldBeEmpty()
+                }
+            }
+        }
+
         test("an escaped exception is contained; the rest still process") {
             withSqlDatabase {
                 runTest {
@@ -892,6 +918,7 @@ internal fun scanResult(
     changes: List<ChangeEventDto>,
     scope: ScanScope,
     rootPath: String = "/lib",
+    fullScanAuthoritative: Boolean = true,
 ): ScanResult =
     ScanResult(
         correlationId = "c",
@@ -903,6 +930,7 @@ internal fun scanResult(
         filesWalked = 0,
         filesSkipped = 0,
         scope = scope,
+        fullScanAuthoritative = fullScanAuthoritative,
     )
 
 /** Builds a minimal [AnalyzedBook] anchored at [rootRelPath] with one audio file. */

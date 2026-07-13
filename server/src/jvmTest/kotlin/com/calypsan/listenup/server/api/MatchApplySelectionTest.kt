@@ -5,6 +5,11 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
+import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.FileEntry
+import com.calypsan.listenup.api.dto.scanner.FileType
+import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
@@ -413,6 +418,49 @@ class MatchApplySelectionTest :
             }
         }
 
+        test("enriched publisher/language/publishYear/genres survive a later rescan (A7)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    sql.seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy")
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+
+                    // Apply provider enrichment: publisher/language/publishYear + Fantasy genre.
+                    a
+                        .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover().copy(genres = setOf("Fantasy")))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    // Rescan the same book (natural-key hit on folder+rootRelPath) with DIFFERENT
+                    // file-derived scalars and genres. Enriched provenance must win.
+                    books.resolveOrInsert(
+                        LibraryId("test-library"),
+                        FolderId("test-folder"),
+                        rescanFor(
+                            rootRelPath = "test/b1",
+                            publisher = "File Publisher",
+                            language = "german",
+                            publishYear = 1900,
+                            genres = listOf("Horror"),
+                        ),
+                    )
+
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.publisher shouldBe "New Publisher"
+                    saved.language shouldBe "english"
+                    saved.publishYear shouldBe 2015
+                    saved.genres.map { it.name } shouldContainExactly listOf("Fantasy")
+                }
+            }
+        }
+
         test("non-empty but unresolvable authorAsins leaves existing authors untouched") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -439,6 +487,39 @@ class MatchApplySelectionTest :
             }
         }
     })
+
+/**
+ * A minimal file-derived [AnalyzedBook] for a rescan of an existing book at [rootRelPath], with
+ * scalar/genre values that deliberately differ from any enrichment already applied — so a test can
+ * assert the enriched values survive the scan (A7).
+ */
+private fun rescanFor(
+    rootRelPath: String,
+    publisher: String?,
+    language: String?,
+    publishYear: Int?,
+    genres: List<String>,
+): AnalyzedBook {
+    val file =
+        FileEntry(
+            relPath = "$rootRelPath/01.m4b",
+            name = "01.m4b",
+            ext = "m4b",
+            size = 1024L,
+            mtimeMs = 0L,
+            inode = rootRelPath.hashCode().toLong(),
+            fileType = FileType.AUDIO,
+        )
+    return AnalyzedBook(
+        candidate = CandidateBook(rootRelPath = rootRelPath, isFile = false, files = listOf(file)),
+        title = "New Title",
+        publisher = publisher,
+        language = language,
+        publishedYear = publishYear,
+        genres = genres,
+        tracks = listOf(TrackEntry(file = file)),
+    )
+}
 
 @Suppress("LongParameterList")
 private fun ListenUpDatabase.seedGenre(

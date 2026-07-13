@@ -175,6 +175,83 @@ class AnalyzerTrackOrderTest :
                 }
             }
         }
+
+        test("untagged year-prefixed files order 1, 2, 10 (not lexicographic 1, 10, 2)") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/1984"
+                    val names = listOf("1984 - 1.mp3", "1984 - 2.mp3", "1984 - 10.mp3")
+                    val entries =
+                        names.map { name ->
+                            val bytes =
+                                buildMp3File {
+                                    id3v2(version = 4) {}
+                                    mpegFrames(durationSeconds = 1)
+                                }
+                            val p = fixture.root.writeAudio("$rel/$name", bytes)
+                            trackEntry("$rel/$name", Files.size(p))
+                        }
+                    // Provide files in a deliberately jumbled order.
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files = listOf(entries[2], entries[0], entries[1]),
+                        )
+
+                    val book =
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.tracks.map { it.file.name } shouldBe
+                        listOf("1984 - 1.mp3", "1984 - 2.mp3", "1984 - 10.mp3")
+                    book.tracks.map { it.trackNumber } shouldBe listOf(1, 2, 10)
+                }
+            }
+        }
+
+        test("a disc-less file sorts after CD1/CD2 disc folders") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Author/Boxset"
+                    // bonus.mp3 lives at the book root (no disc signal); CD1/CD2 files
+                    // carry a folder disc. The bonus file must not jump ahead of disc 1.
+                    val mk = {
+                        buildMp3File {
+                            id3v2(version = 4) {}
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    }
+                    val bonus = fixture.root.writeAudio("$rel/bonus.mp3", mk())
+                    val cd1 = fixture.root.writeAudio("$rel/CD1/01.mp3", mk())
+                    val cd2 = fixture.root.writeAudio("$rel/CD2/01.mp3", mk())
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files =
+                                listOf(
+                                    trackEntry("$rel/bonus.mp3", Files.size(bonus)),
+                                    trackEntry("$rel/CD1/01.mp3", Files.size(cd1)),
+                                    trackEntry("$rel/CD2/01.mp3", Files.size(cd2)),
+                                ),
+                        )
+
+                    val book =
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.tracks.map { it.file.name } shouldBe listOf("01.mp3", "01.mp3", "bonus.mp3")
+                    book.tracks.map { it.discNumber } shouldBe listOf(1, 2, null)
+                }
+            }
+        }
     })
 
 private fun trackEntry(

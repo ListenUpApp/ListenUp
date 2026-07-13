@@ -22,6 +22,14 @@ import kotlinx.io.files.Path
  */
 internal interface ScannerResultPort {
     fun lastResult(): ScanResult?
+
+    /**
+     * Marks this scanner's bundle as superseded by a later one (a folder was added/removed and the
+     * orchestrator rebuilt the bundle). A scan still in flight on the old bundle walked a stale folder
+     * set; once superseded it must NOT publish its result — a stale full-scan result would
+     * tombstone-sweep the newly-added folder's books, which are absent from its seen set (A8).
+     */
+    fun markSuperseded()
 }
 
 private val logger = loggerFor<ScanOrchestrator>()
@@ -105,22 +113,25 @@ internal class ScanOrchestrator(
         libraryId: LibraryId,
         folder: LibraryFolderRef,
     ) {
-        val staleCoordinator =
+        val stale =
             mutex.withLock {
                 val current = bundle
                 if (current != null && current.library.id == libraryId) {
                     val updatedLibrary = current.library.copy(folders = current.library.folders + folder)
+                    // Supersede the old scanner BEFORE swapping so a scan already in flight on it drops
+                    // its stale result instead of sweeping the new folder's books (A8).
+                    current.scanner.markSuperseded()
                     // Rebuild so the Scanner's captured folder list includes the new folder
                     // (a full scan walks the Scanner's roots; a snapshot-only patch wouldn't reach it).
                     bundle = scannerFactory(updatedLibrary)
-                    current.coordinator
+                    current
                 } else {
                     null
                 }
             }
         // Close the old coordinator outside the lock — closes the incremental channel,
         // letting its worker coroutine drain and exit without cancelling the shared scope.
-        staleCoordinator?.close()
+        stale?.coordinator?.close()
         if (watchEnabled) {
             watcherSupervisor.mount(libraryId, folder) { libId, path -> onFileChanged(libId, path) }
         }
@@ -140,20 +151,23 @@ internal class ScanOrchestrator(
      * Called after a successful `removeFolder` admin RPC.
      */
     suspend fun onFolderRemoved(folderId: FolderId) {
-        val staleCoordinator =
+        val stale =
             mutex.withLock {
                 bundle?.let { current ->
                     val updatedLibrary =
                         current.library.copy(
                             folders = current.library.folders.filterNot { it.id == folderId },
                         )
+                    // Supersede the old scanner before swapping so an in-flight scan drops its stale
+                    // result rather than sweeping against a folder set that no longer applies (A8).
+                    current.scanner.markSuperseded()
                     bundle = scannerFactory(updatedLibrary)
-                    current.coordinator
+                    current
                 }
             }
         // Close the old coordinator outside the lock — closes the incremental channel,
         // letting its worker coroutine drain and exit without cancelling the shared scope.
-        staleCoordinator?.close()
+        stale?.coordinator?.close()
         watcherSupervisor.unmount(folderId)
         logger.info { "Folder removed: folder=${folderId.value}" }
     }

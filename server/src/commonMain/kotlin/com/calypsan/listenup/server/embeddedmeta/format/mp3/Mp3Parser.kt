@@ -9,6 +9,7 @@ import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatParser
 import com.calypsan.listenup.server.io.SeekableSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
 
 /**
@@ -83,6 +84,22 @@ internal class Mp3Parser : AudioFormatParser {
                 AudioMetadataError.IoError(
                     pathString = "<source>",
                     ioMessage = e.message ?: "io error",
+                ),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // An unexpected fault in the ID3/MPEG readers (a malformed frame that trips index/format
+            // math) must degrade THIS file to a typed ParseError so the book still ingests with a scan
+            // warning — never let it escape and drop the whole book from the library (A11). The parser
+            // contract already promises a typed failure, not a thrown exception.
+            AppResult.Failure(
+                AudioMetadataError.CorruptHeader(
+                    pathString = "<source>",
+                    format = AudioFormat.Mp3,
+                    offset = 0L,
+                    expected = "readable ID3/MPEG structure",
+                    debugInfo = e.message ?: e::class.simpleName,
                 ),
             )
         }

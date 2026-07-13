@@ -65,6 +65,12 @@ private class PreparedBook(
     val genreIds: List<String>,
     val tags: List<String>,
     val extras: BookWriteExtras,
+    /**
+     * The `deleted_at` of the stored row this write is reviving, or null when the book is genuinely
+     * new or already live. Non-null only when re-ingesting a TOMBSTONED book — the write clears its
+     * `deleted_at`, so its cascade-tombstoned junctions must be revived (floored at this value).
+     */
+    val revivedFromDeletedAt: Long?,
 )
 
 /**
@@ -573,9 +579,8 @@ class BookRepository(
             return write(existing).map { IngestOutcome(existing, wasNew = false) }
         }
 
-        analyzed.candidate.files
-            .firstOrNull()
-            ?.inode
+        analyzed.candidate
+            .identityInode()
             ?.let { inode ->
                 // The move hint is folder-scoped `(folder_id, inode)` — identity is anchored to the
                 // owning folder. Tradeoff: moving a book directory BETWEEN two folders of the same
@@ -718,6 +723,16 @@ class BookRepository(
                     if (book.tags.isNotEmpty()) writer.writeScanTags(book.bookId, book.tags)
                 }
             }
+
+            // Scan revival cascade (A3): any book in this chunk that revived a tombstoned row must get
+            // its cascade-tombstoned junctions (tags/moods/collection memberships) revived too, floored
+            // at each book's own deleted_at. Grouped by floor so books removed together share one call.
+            // Post-commit, exactly like the tag pass above and the per-book path's cascade.
+            succeeded
+                .filter { it.revivedFromDeletedAt != null }
+                .groupBy({ it.revivedFromDeletedAt!! }, { it.bookId.value })
+                .forEach { (floor, ids) -> reviveBookJunctions(ids, floor) }
+
             onProgress(persisted + failed, failed)
         }
         return PersistResult(persisted = persisted, failed = failed, resolvedIds = resolvedIds)
@@ -805,12 +820,7 @@ class BookRepository(
         // Bulk existence: one IN-read for natural keys, one for inodes — replacing the per-book
         // findByPath/findByInode read transactions with two reads for the whole scan.
         val byPath = bookFinder.findExistingByPaths(folderId, valid.map { it.candidate.rootRelPath })
-        val inodes =
-            valid.mapNotNull {
-                it.candidate.files
-                    .firstOrNull()
-                    ?.inode
-            }
+        val inodes = valid.mapNotNull { it.candidate.identityInode() }
         val byInode = bookFinder.findExistingByInodes(folderId, inodes)
 
         // Resolve each book's stable BookId in memory from the bulk maps (natural key, then inode,
@@ -824,10 +834,7 @@ class BookRepository(
         val resolved =
             valid.map { analyzed ->
                 val rootRelPath = analyzed.candidate.rootRelPath
-                val inode =
-                    analyzed.candidate.files
-                        .firstOrNull()
-                        ?.inode
+                val inode = analyzed.candidate.identityInode()
                 val existing = byPath[rootRelPath] ?: inode?.let { byInode[it] }
                 Resolved(analyzed, existing ?: BookId(Uuid.random().toString()), isNew = existing == null)
             }
@@ -895,6 +902,9 @@ class BookRepository(
                             preserveContributors = merge?.preserveContributors == true,
                             preserveSeries = merge?.preserveSeries == true,
                         ),
+                    // Non-null only when reviving a tombstoned row (skip is always false in that case,
+                    // so the write runs and clears deleted_at) — drives the A3 junction-revival cascade.
+                    revivedFromDeletedAt = existing?.deletedAt,
                 )
             }
         return PreparedBatch(prepared = prepared, prepareFailed = invalid.size)
@@ -981,6 +991,29 @@ class BookRepository(
             if (linkedParents != null) orphanParentPurger.purgeOrphaned(linkedParents)
         }
         return result
+    }
+
+    /**
+     * Revives the junction rows (`book_tags` / `book_moods` / `collection_books`) for [bookIds] that
+     * were tombstoned at or after [cascadeFloor] — the same cascade [reviveByIds] runs for a folder
+     * re-add, reused by the scan revival paths.
+     *
+     * A scan re-ingest of a removed book revives the book ROW ([updateContent] clears `deleted_at`) but
+     * would otherwise leave its cascade-tombstoned junctions dead — so the book returned uncollected
+     * (invisible under the pure-union rule) with the user's tags/moods silently gone. [cascadeFloor] is
+     * the book's own `deleted_at`, so only junctions tombstoned BY that removal return; a membership the
+     * user removed manually earlier (an older tombstone) stays dead. A no-op when [bookIds] is empty;
+     * each repo opens its own transaction (the per-row substrate contract), run after the reviving book
+     * write commits.
+     */
+    private suspend fun reviveBookJunctions(
+        bookIds: List<String>,
+        cascadeFloor: Long,
+    ) {
+        if (bookIds.isEmpty()) return
+        bookTagRepository?.reviveAllForBooks(bookIds, cascadeFloor)
+        bookMoodRepository?.reviveAllForBooks(bookIds, cascadeFloor)
+        collectionBookRepository?.reviveAllForBooks(bookIds, cascadeFloor)
     }
 
     /**
@@ -1223,11 +1256,20 @@ class BookRepository(
                 }
             }
         if (result is AppResult.Success) {
+            // Scan revival cascade (A3): when this write revived a tombstoned row (existing.deletedAt
+            // was set, so the write cleared it via updateContent's deleted_at = NULL), restore the
+            // book's cascade-tombstoned junctions too — floored at its own deleted_at — so a transient
+            // remove→re-add never returns the book uncollected with its tags/moods lost.
+            existing?.deletedAt?.let { floor -> reviveBookJunctions(listOf(bookId.value), floor) }
             val now = clock.now().toEpochMilliseconds()
             // Genres: a separate, sequential pass over SQLDelight (idempotent, no revision bump).
             // The writer's synchronous junction queries auto-commit and the auto-create upsert runs
             // its own transaction — sequential after the book write, so no SQLITE_BUSY contention.
-            bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now)
+            // Skip when GENRES is user-protected (hand-edited or applied via enrichment): a rescan's
+            // file-derived genres must not silently revert the curated set (A7).
+            if (merge?.preserveGenres != true) {
+                bookGenreWriter.processGenreStrings(bookId, analyzed.genres, now)
+            }
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result
@@ -1243,6 +1285,7 @@ class BookRepository(
         val payload: BookSyncPayload,
         val preserveContributors: Boolean,
         val preserveSeries: Boolean,
+        val preserveGenres: Boolean,
     )
 
     /**
@@ -1276,12 +1319,16 @@ class BookRepository(
                 title = kept(UserEditedField.TITLE, existing.title, incoming.title),
                 subtitle = kept(UserEditedField.SUBTITLE, existing.subtitle, incoming.subtitle),
                 description = kept(UserEditedField.DESCRIPTION, existing.description, incoming.description),
+                publisher = kept(UserEditedField.PUBLISHER, existing.publisher, incoming.publisher),
+                language = kept(UserEditedField.LANGUAGE, existing.language, incoming.language),
+                publishYear = kept(UserEditedField.PUBLISH_YEAR, existing.publishYear, incoming.publishYear),
                 userEditedFields = existing.userEditedFields + incoming.userEditedFields,
             )
         return UserEditMerge(
             payload = merged,
             preserveContributors = UserEditedField.CONTRIBUTORS in stillProtected,
             preserveSeries = UserEditedField.SERIES in stillProtected,
+            preserveGenres = UserEditedField.GENRES in stillProtected,
         )
     }
 

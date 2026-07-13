@@ -222,6 +222,8 @@ private fun fakeBundle(library: Library): ScannerBundle {
     val fakeScannerPort =
         object : ScannerResultPort {
             override fun lastResult(): ScanResult? = null
+
+            override fun markSuperseded() = Unit
         }
     val coordinator =
         ScanCoordinator(

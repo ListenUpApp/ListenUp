@@ -404,8 +404,21 @@ internal class Analyzer(
             sources = collectSources(shape, parsed, embedded, metadata, sidecar),
             // A ParseError / UnsupportedFormat status means a file the scanner could
             // not fully read. MetadataStatus.Available and a null status (no audio
-            // file, or a clean parse) are not warnings.
-            hasScanWarning = embeddedStatus.isParseFailure(),
+            // file, or a clean parse) are not warnings. On TOP of that, a book that
+            // produced no usable duration (0-length looks normal to clients but can't
+            // be scrubbed) or a multi-file book with a track whose length failed to
+            // parse (a missing middle-file duration shifts every later chapter left —
+            // silent whole-book corruption) is flagged honestly. (A9)
+            hasScanWarning =
+                embeddedStatus.isParseFailure() ||
+                    durationScanWarning(
+                        bookDurationMs = bookDurationMs(tracks, embedded),
+                        trackDurations = tracks.map { it.durationMs },
+                    ) ||
+                    groupingScanWarning(
+                        trackExtensions = tracks.map { it.file.ext },
+                        distinctAlbumTags = distinctAlbumTagCount(perTrackMetadata),
+                    ),
             documents = documentCollector.collect(rootPath, Path(rootPath, candidate.rootRelPath), candidate.files),
         )
     }
@@ -434,7 +447,13 @@ internal class Analyzer(
             return sidecar.toDomainChapters() to BookChapterSource.AbsMetadata
         }
         if (embedded != null && embedded.chapters.isNotEmpty()) {
-            return embedded.chapters to BookChapterSource.Embedded(embedded.chaptersSource)
+            // Clamp against the file's own duration ONLY for a single-file book, where
+            // `embedded.durationMs` is the authoritative end-of-book. For a multi-file book the
+            // primary file's duration is not the book's, so a valid whole-book chapter set would be
+            // wrongly truncated — there we only drop structurally-impossible chapters (null bound).
+            val clampBound = if (tracks.size <= 1) embedded.durationMs else null
+            return clampEmbeddedChapters(embedded.chapters, clampBound) to
+                BookChapterSource.Embedded(embedded.chaptersSource)
         }
         if (tracks.size >= 2) {
             return synthesizeChapters(tracks, perTrackMetadata, bookTitle) to
@@ -674,6 +693,97 @@ private fun List<AbsChapter>.toDomainChapters(): List<Chapter> =
 private fun MetadataStatus?.isParseFailure(): Boolean =
     this is MetadataStatus.UnsupportedFormat || this is MetadataStatus.ParseError
 
+/**
+ * The book's effective total duration: the sum of per-track durations (multi-file books) or, when
+ * those are absent (single-file books leave `TrackEntry.durationMs` null), the book-level embedded
+ * duration. Mirrors `AnalyzedBookMapper`'s `totalDuration` derivation so the warning below reflects
+ * what actually gets persisted.
+ */
+private fun bookDurationMs(
+    tracks: List<TrackEntry>,
+    embedded: EmbeddedAudioMetadata?,
+): Long =
+    tracks
+        .sumOf { it.durationMs ?: 0L }
+        .takeIf { it > 0L }
+        ?: (embedded?.durationMs ?: 0L)
+
+/**
+ * True when a book warrants an operator scan warning for duration integrity: audio files exist but
+ * yielded no usable book duration, or a multi-file book has a track whose duration failed to parse
+ * (a 0-length track shifts every later chapter's offset left — F2-class silent corruption).
+ */
+internal fun durationScanWarning(
+    bookDurationMs: Long,
+    trackDurations: List<Long?>,
+): Boolean {
+    val audioPresent = trackDurations.isNotEmpty()
+    val zeroLengthBook = audioPresent && bookDurationMs <= 0L
+    val missingMultiTrackDuration =
+        trackDurations.size >= 2 && trackDurations.any { (it ?: 0L) <= 0L }
+    return zeroLengthBook || missingMultiTrackDuration
+}
+
+/** The number of distinct non-blank album tags across a multi-file book's per-track metadata. */
+private fun distinctAlbumTagCount(perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>): Int =
+    perTrackMetadata.values
+        .mapNotNull {
+            it
+                ?.tags
+                ?.custom
+                ?.get(AudioTags.ALBUM_KEY)
+                ?.takeUnless(String::isBlank)
+        }.distinct()
+        .size
+
+/**
+ * True when a book's file shape looks wrong even though grouping (ABS convention) still produced one
+ * book — a silent "library looks off" the operator should see (A10). Two heuristics, no grouping
+ * change: mixed audio container formats in one book (e.g. `m4b` + `mp3` concatenated), or more than
+ * one distinct album tag across its files (two books that landed in one folder).
+ */
+internal fun groupingScanWarning(
+    trackExtensions: List<String>,
+    distinctAlbumTags: Int,
+): Boolean {
+    val mixedFormats =
+        trackExtensions
+            .map { it.lowercase() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .size > 1
+    return mixedFormats || distinctAlbumTags > 1
+}
+
+/**
+ * Validates embedded chapter bounds at ingest (A9), re-indexing survivors 1-based and contiguous.
+ *
+ * Always dropped, regardless of [durationMs] — structurally impossible chapters a mistagged file can
+ * carry: a negative start, or an end before its own start.
+ *
+ * Additionally, when [durationMs] is a known positive end-of-book (single-file books, where the
+ * embedded duration is authoritative): a chapter starting at/after EOF is dropped, and a trailing
+ * chapter whose end overruns EOF is clamped back to it. A `null`/`0` bound skips the EOF checks (a
+ * multi-file book, whose primary file's duration is not the book's — clamping there would truncate a
+ * valid whole-book chapter set).
+ */
+internal fun clampEmbeddedChapters(
+    chapters: List<Chapter>,
+    durationMs: Long?,
+): List<Chapter> {
+    val bound = durationMs?.takeIf { it > 0L }
+    return chapters
+        .mapNotNull { chapter ->
+            when {
+                chapter.startMs < 0L -> null
+                chapter.endMs < chapter.startMs -> null
+                bound != null && chapter.startMs >= bound -> null
+                bound != null && chapter.endMs > bound -> chapter.copy(endMs = bound)
+                else -> chapter
+            }
+        }.mapIndexed { i, chapter -> chapter.copy(index = i + 1) }
+}
+
 private fun FolderShape.contributesAnything(): Boolean =
     titleFolder.isNotEmpty() || seriesFolder != null || authorFolder != null
 
@@ -681,12 +791,24 @@ private fun ParsedTitle.hasAnyFilenameAnnotation(): Boolean =
     asin != null || narrators.isNotEmpty() || publishedYear != null ||
         sequence != null || subtitle != null
 
+/**
+ * Playback order for a book's tracks.
+ *
+ *  1. **Disc** — a file with no disc signal sorts *after* every known disc
+ *     (`Int.MAX_VALUE`), so a disc-less bonus/intro file at the book root can't
+ *     jump ahead of `CD1`/`CD2`.
+ *  2. **Track** — a file with no track signal sorts last within its disc.
+ *  3. **Filename** — natural (numeric-aware, case-insensitive) tiebreak, so
+ *     `"1984 - 2.mp3"` precedes `"1984 - 10.mp3"` instead of the UTF-16
+ *     lexicographic order that would place `10` before `2`.
+ *
+ * Tagged files (embedded track/disc) still win — they populate `trackNumber`/
+ * `discNumber` before this comparator runs.
+ */
 private val NATURAL_TRACK_ORDER =
-    compareBy<TrackEntry>(
-        { it.discNumber ?: 0 },
-        { it.trackNumber ?: Int.MAX_VALUE },
-        { it.file.name },
-    )
+    compareBy<TrackEntry> { it.discNumber ?: Int.MAX_VALUE }
+        .thenBy { it.trackNumber ?: Int.MAX_VALUE }
+        .thenBy(NaturalFileNameOrder) { it.file.name }
 
 /**
  * A candidate that contains files but none recognized as audio. It is *not* a book, so it is
