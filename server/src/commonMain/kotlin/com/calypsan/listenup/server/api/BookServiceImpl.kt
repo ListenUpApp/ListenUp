@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.organize.OrganizeOnEditRelocator
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.UserEditedField
+import com.calypsan.listenup.domain.MAX_TIER_LABEL
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
@@ -304,6 +305,34 @@ internal class BookServiceImpl(
         }
         if (chapters.any { it.startTime >= bookDurationMs }) {
             return BookError.InvalidInput(debugInfo = "chapter start beyond book duration")
+        }
+        return null
+    }
+
+    override suspend fun setBookTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        validateTierLabel("bookTierLabel", bookTierLabel)?.let { return AppResult.Failure(it) }
+        validateTierLabel("partTierLabel", partTierLabel)?.let { return AppResult.Failure(it) }
+        val result = repo.setTierLabels(id, bookTierLabel, partTierLabel)
+        if (result is AppResult.Success) {
+            sidecarWriter?.markDirty(id.value)
+        }
+        return result
+    }
+
+    /** Non-blank and `<= MAX_TIER_LABEL` when present. Null = valid (tier left unnamed). */
+    private fun validateTierLabel(
+        field: String,
+        label: String?,
+    ): AppError? {
+        if (label == null) return null
+        if (label.isBlank()) return BookError.InvalidInput(debugInfo = "$field must not be blank")
+        if (label.length > MAX_TIER_LABEL) {
+            return BookError.InvalidInput(debugInfo = "$field must be <= $MAX_TIER_LABEL chars")
         }
         return null
     }

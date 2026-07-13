@@ -282,6 +282,8 @@ class BookRepository(
             documents = emptyList(),
             chapters = emptyList(),
             chapterSource = ChapterSource.EMBEDDED,
+            bookTierLabel = null,
+            partTierLabel = null,
             userEditedFields = emptySet(),
         )
 
@@ -1458,6 +1460,37 @@ class BookRepository(
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
             db.booksQueries.clearManagedCover(revision = rev, updated_at = now, id = idStr)
+            if (db.booksQueries.changes().executeAsOne() == 0L) {
+                AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
+            } else {
+                publishUpdatedAfterCommit(idStr, rev, now)
+                AppResult.Success(Unit)
+            }
+        }
+    }
+
+    /**
+     * Renames the book's chapter-grouping tier vocabulary and bumps the row's revision so the
+     * change propagates. Deliberately bypasses [writePayload]'s full-row scalar upsert — like
+     * [setManagedCover]/[clearManagedCover] — so a rescan (which never sets these two columns)
+     * can never clobber a user-set tier name. Opens its own transaction.
+     */
+    suspend fun setTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit> {
+        val idStr = idAsString(id)
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            db.booksQueries.updateTierLabels(
+                book_tier_label = bookTierLabel,
+                part_tier_label = partTierLabel,
+                revision = rev,
+                updated_at = now,
+                id = idStr,
+            )
             if (db.booksQueries.changes().executeAsOne() == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {

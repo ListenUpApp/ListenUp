@@ -98,6 +98,8 @@ internal fun assembleBookPayload(
         chapterSource =
             ChapterSource.entries.firstOrNull { it.name.equals(bookRow.chapter_source, ignoreCase = true) }
                 ?: ChapterSource.EMBEDDED,
+        bookTierLabel = bookRow.book_tier_label,
+        partTierLabel = bookRow.part_tier_label,
         userEditedFields = bookRow.user_edited_fields.toUserEditedFields(),
         documents = documents,
         revision = bookRow.revision,
