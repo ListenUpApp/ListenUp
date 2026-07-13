@@ -37,6 +37,7 @@ import kotlin.math.abs
  * @param onMove Invoked once per completed, legal, non-no-op drop with the resolved [ReorderMove].
  * @param itemContent Renders a single node's row content given its id. The primitive wraps this
  *   in the drag-gesture surface and lifted-state visuals — content itself carries no drag logic.
+ * @param modifier Applied to the root [Column] that lays the rows out top-to-bottom.
  */
 @Composable
 fun ReorderableList(

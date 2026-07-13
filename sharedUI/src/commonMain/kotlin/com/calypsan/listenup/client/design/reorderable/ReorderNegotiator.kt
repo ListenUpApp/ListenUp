@@ -41,6 +41,9 @@ object ReorderNegotiator {
 
         val currentSiblings = nodes.filter { it.parentId == dragged.parentId && it.id != draggedId }
         val currentIndex = nodes.filter { it.parentId == dragged.parentId }.indexOfFirst { it.id == draggedId }
+        // currentIndex counts the dragged node among its siblings; clampedIndex is measured in the
+        // siblings-WITHOUT-the-dragged coordinate space. coerceIn maps the former into the latter
+        // (a node already last stays last) so the no-op comparison is like-for-like.
         val isNoOp =
             dragged.parentId == newParentId &&
                 clampedIndex == currentIndex.coerceIn(0, currentSiblings.size)
