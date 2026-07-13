@@ -4541,6 +4541,36 @@
         }
       }
     },
+    "campfire.end_to_play_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing another book will end the campfire for everyone. Continue?"
+          }
+        }
+      }
+    },
+    "campfire.end_to_play_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End & play"
+          }
+        }
+      }
+    },
+    "campfire.end_to_play_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End the campfire?"
+          }
+        }
+      }
+    },
     "campfire.entry_point": {
       "localizations": {
         "en": {
@@ -4921,6 +4951,36 @@
         }
       }
     },
+    "campfire.leave_to_play_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing another book will leave the campfire. Continue?"
+          }
+        }
+      }
+    },
+    "campfire.leave_to_play_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave & play"
+          }
+        }
+      }
+    },
+    "campfire.leave_to_play_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave the campfire?"
+          }
+        }
+      }
+    },
     "campfire.listening_now": {
       "localizations": {
         "en": {
@@ -4977,6 +5037,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Catch up with the room"
+          }
+        }
+      }
+    },
+    "campfire.return": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Return to campfire"
           }
         }
       }
