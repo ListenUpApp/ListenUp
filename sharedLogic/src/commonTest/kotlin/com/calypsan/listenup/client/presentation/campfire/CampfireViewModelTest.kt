@@ -331,7 +331,7 @@ class CampfireViewModelTest :
                 advanceUntilIdle()
 
                 fixture.coordinator.current.value shouldBe
-                    ActiveCampfire(sessionId = sessionId, bookId = "book-1", isHost = false)
+                    ActiveCampfire(sessionId = sessionId, bookId = "book-1", isHost = false, phase = CampfirePhase.LIVE)
             }
         }
 
@@ -349,7 +349,7 @@ class CampfireViewModelTest :
                 advanceUntilIdle()
 
                 fixture.coordinator.current.value shouldBe
-                    ActiveCampfire(sessionId = sessionId, bookId = "book-1", isHost = false)
+                    ActiveCampfire(sessionId = sessionId, bookId = "book-1", isHost = false, phase = CampfirePhase.LIVE)
             }
         }
 

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.campfire
 
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -15,11 +16,15 @@ import kotlinx.coroutines.flow.StateFlow
  * @property sessionId The live session's id.
  * @property bookId The book the campfire is on. Playing this same book is never guarded.
  * @property isHost Whether the local user hosts the session — selects the "end" vs "leave" confirm copy.
+ * @property phase Whether the fire has been lit yet. Playing the campfire's own book while still in
+ * [CampfirePhase.LOBBY] re-expands the lobby instead of starting solo playback (F6 — "no playback
+ * before the fire is lit" per PR #1101).
  */
 internal data class ActiveCampfire(
     val sessionId: CampfireId,
     val bookId: String,
     val isHost: Boolean,
+    val phase: CampfirePhase,
 )
 
 /**

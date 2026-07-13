@@ -358,7 +358,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.playback.SessionState" to 3,
             "com.calypsan.listenup.client.playback.SleepTimerMode" to 2,
             "com.calypsan.listenup.client.playback.SleepTimerState" to 3,
-            "com.calypsan.listenup.client.presentation.nowplaying.PlaybackGuardEvent" to 1,
+            "com.calypsan.listenup.client.presentation.nowplaying.PlaybackGuardEvent" to 2,
             "com.calypsan.listenup.client.presentation.admin.ABSImportListUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.AdminBackupUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState" to 3,
