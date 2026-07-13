@@ -321,10 +321,11 @@ private fun CampfireUiState.toScreenState(): CampfireScreenUiState =
     }
 
 private fun CampfireUiState.toActiveCampfire(): ActiveCampfire? =
-    when (this) {
-        is CampfireUiState.Active -> ActiveCampfire(sessionId = sessionId, bookId = bookId, isHost = isHost)
-        // Idle / Joining / Disconnected / Ended → not a guard-worthy live session.
-        else -> null
+    // Only a live/lobby session is guard-worthy; Idle / Joining / Disconnected / Ended → null.
+    if (this is CampfireUiState.Active) {
+        ActiveCampfire(sessionId = sessionId, bookId = bookId, isHost = isHost)
+    } else {
+        null
     }
 
 private fun CampfireSessionEvent.toScreenEvent(): CampfireScreenEvent =
