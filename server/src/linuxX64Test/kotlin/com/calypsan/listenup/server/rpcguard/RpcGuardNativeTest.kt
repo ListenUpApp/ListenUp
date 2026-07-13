@@ -77,7 +77,10 @@ class RpcGuardNativeTest {
                     error.correlationId.shouldNotBeNull()
                     error.message shouldBe "Something went wrong on the server."
                     error.code shouldBe "INTERNAL_ERROR"
-                    error.cause shouldBe "RuntimeException"
+                    // Post-err#3: the wire InternalError carries ONLY the correlation id — the server
+                    // exception's class name + message never ride across (no `cause`, no `debugInfo`).
+                    error.cause shouldBe null
+                    error.debugInfo shouldBe null
                 } finally {
                     rpcClient.close()
                 }

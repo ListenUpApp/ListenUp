@@ -33,6 +33,8 @@ internal object GuardedClassWriter {
             appendLine("import kotlinx.coroutines.CancellationException")
             appendLine("import kotlinx.coroutines.flow.Flow")
             appendLine("import kotlinx.coroutines.flow.catch")
+            appendLine("import kotlinx.coroutines.flow.emitAll")
+            appendLine("import kotlinx.coroutines.flow.flow")
             appendLine("import com.calypsan.listenup.api.result.AppResult")
             appendLine("import com.calypsan.listenup.api.error.InternalError")
             appendLine("import com.calypsan.listenup.api.streaming.RpcEvent")
@@ -89,7 +91,12 @@ internal object GuardedClassWriter {
             """            withMdc("service" to "${service.simpleName}", "method" to "${method.name}", "correlationId" to cid) {""",
         )
         appendLine("                delegate.${method.name}($args)")
-        appendLine("            }")
+        // Stamp the request's correlation id onto a RETURNED domain failure (the escaped-exception
+        // path below already stamps its InternalError) and log a concise, PII-free failure line so
+        // the operator's log links to the cid the client surfaces. Same package → no import.
+        appendLine(
+            """            }.stampAndLogFailure(cid, log, "${service.simpleName}", "${method.name}")""",
+        )
         appendLine("        } catch (e: kotlinx.coroutines.CancellationException) {")
         appendLine("            throw e")
         appendLine("        } catch (e: Throwable) {")
@@ -120,7 +127,11 @@ internal object GuardedClassWriter {
             "kotlinx.coroutines.flow.Flow<" +
                 "com.calypsan.listenup.api.streaming.RpcEvent<$innerRendered>>"
         appendLine("    override fun ${method.name}($params): $returnType =")
-        appendLine("        delegate.${method.name}($args).catch { e ->")
+        // `flow { emitAll(delegate.x()) }` (not `delegate.x().catch {}`): a synchronous throw while
+        // CONSTRUCTING the flow — a require/precondition/DI lookup in the non-suspend factory — would
+        // escape a bare `.catch` (which never attaches), leaking a raw stacktrace to kotlinx.rpc's
+        // default. Wrapping defers construction into the collected flow so the same `.catch` sanitizes it.
+        appendLine("        flow { emitAll(delegate.${method.name}($args)) }.catch { e ->")
         appendLine("            if (e is kotlinx.coroutines.CancellationException) throw e")
         appendLine("            val cid = currentCorrelationId() ?: newCorrelationId()")
         appendLine(

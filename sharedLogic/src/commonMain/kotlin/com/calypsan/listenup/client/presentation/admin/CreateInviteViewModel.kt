@@ -9,10 +9,13 @@ import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * ViewModel for the create invite screen.
@@ -77,8 +80,11 @@ class CreateInviteViewModel(
      * substring). The type-pattern shape below preserves the validation sub-classification
      * (because `ValidationError.message` is per-instance) and replaces the brittle bits.
      */
-    private fun classifyError(error: AppError): CreateInviteErrorType =
-        when (error) {
+    private fun classifyError(error: AppError): CreateInviteErrorType {
+        // debugInfo is per-instance technical detail (and, post-guard, null on the wire for guard
+        // errors). It is for LOGS, never the UI — surface the user-facing `message` constant instead.
+        logger.warn { "Create-invite failed: [${error.code}] cid=${error.correlationId} debug=${error.debugInfo}" }
+        return when (error) {
             is ValidationError -> {
                 if (error.message.contains("Invalid email", ignoreCase = true)) {
                     CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
@@ -91,7 +97,7 @@ class CreateInviteViewModel(
                 if (error.statusCode == HTTP_CONFLICT) {
                     CreateInviteErrorType.EmailInUse
                 } else {
-                    CreateInviteErrorType.ServerError(error.debugInfo ?: error.message)
+                    CreateInviteErrorType.ServerError(error.message)
                 }
             }
 
@@ -100,9 +106,10 @@ class CreateInviteViewModel(
             }
 
             else -> {
-                CreateInviteErrorType.ServerError(error.debugInfo ?: error.message)
+                CreateInviteErrorType.ServerError(error.message)
             }
         }
+    }
 
     companion object {
         private const val HTTP_CONFLICT = 409

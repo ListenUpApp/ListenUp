@@ -69,10 +69,14 @@ actual fun Route.rpcRoutes(services: RpcServices) {
 private fun Route.publicRpc(services: RpcServices) {
     rpc("/api/rpc/public") {
         rpcConfig { serialization { json(contractJson) } }
-        registerService<PingService> { guard(PingServiceImpl()) }
-        registerService<InstanceService> { guard(services.instanceService) }
-        registerService<AuthServicePublic> { guard(services.authService as AuthServicePublic) }
-        registerService<InviteServicePublic> { guard(services.inviteService as InviteServicePublic) }
+        // guardedConstruction wraps the factory bodies so a `as`-cast failure is sanitized rather
+        // than shipped raw to the client (the scoped/authed registrations get it via registerScoped).
+        registerService<PingService> { guardedConstruction { guard(PingServiceImpl()) } }
+        registerService<InstanceService> { guardedConstruction { guard(services.instanceService) } }
+        registerService<AuthServicePublic> { guardedConstruction { guard(services.authService as AuthServicePublic) } }
+        registerService<InviteServicePublic> {
+            guardedConstruction { guard(services.inviteService as InviteServicePublic) }
+        }
     }
 }
 

@@ -59,7 +59,7 @@ class AuthServicePublicGuardedBehaviorTest :
             verifySuspend { delegate.login(sampleLogin) }
         }
 
-        test("typed Failure passes through unchanged") {
+        test("typed Failure passes through with its correlation id stamped") {
             val typed = AuthError.InvalidCredentials()
             val delegate = mock<AuthServicePublic>()
             everySuspend { delegate.login(sampleLogin) } returns AppResult.Failure(typed)
@@ -67,7 +67,17 @@ class AuthServicePublicGuardedBehaviorTest :
 
             runTest {
                 val result = guard.login(sampleLogin)
-                result shouldBe AppResult.Failure(typed)
+                // The guard passes a business failure through with its type/code/message intact, but
+                // stamps the request's correlation id onto it (when null) so the operator's log line
+                // links to the user's error (err #5).
+                val error =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.InvalidCredentials>()
+                error.code shouldBe typed.code
+                error.message shouldBe typed.message
+                error.correlationId shouldNotBe null
             }
         }
 

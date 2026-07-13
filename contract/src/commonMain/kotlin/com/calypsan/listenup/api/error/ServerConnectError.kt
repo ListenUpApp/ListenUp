@@ -88,6 +88,27 @@ sealed interface ServerConnectError : AppError {
     }
 
     /**
+     * The secure channel could not be established: the TLS/SSL handshake failed
+     * or the certificate was rejected. Typically the user pointed an `https`/`wss`
+     * URL at a plaintext server, or the server presents a self-signed certificate.
+     *
+     * Distinct from a non-101 WebSocket upgrade response (proxy 500, etc.): those
+     * mean TLS *succeeded* but the HTTP upgrade was refused, and must NOT be treated
+     * as a scheme mismatch. Verification uses this typed variant — not a message
+     * substring — to decide whether to retry the alternate (http/ws) scheme.
+     */
+    @Serializable
+    @SerialName("ServerConnectError.TlsFailure")
+    data class TlsFailure(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : ServerConnectError {
+        override val message: String = "Couldn't establish a secure connection to the server."
+        override val code: String = "SERVER_CONNECT_TLS_FAILURE"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
      * Discovery cannot proceed because the user denied
      * [android.permission.ACCESS_LOCAL_NETWORK]. Android 17 requires this
      * permission for any mDNS / multicast traffic; without it discovery is

@@ -55,6 +55,10 @@ class SuspendCodegenTest :
             )
             generated.shouldContain("log.error(e) { \"Uncaught exception in FakeService.foo [cid=\$cid]\" }")
             generated.shouldContain("correlationId = cid")
+            // A RETURNED domain failure gets the request cid stamped + a concise PII-free log line.
+            generated.shouldContain(
+                """}.stampAndLogFailure(cid, log, "FakeService", "foo")""",
+            )
             // Micrometer fully removed: the guard logs escapes but records no metric.
             generated.shouldNotContain("RpcGuardMetrics")
             generated.shouldNotContain("recordEscape")

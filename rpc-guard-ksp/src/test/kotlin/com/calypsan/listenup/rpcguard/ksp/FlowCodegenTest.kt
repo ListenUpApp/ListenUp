@@ -35,7 +35,11 @@ class FlowCodegenTest :
             generated.shouldContain(
                 "override fun observe(): kotlinx.coroutines.flow.Flow<com.calypsan.listenup.api.streaming.RpcEvent<kotlin.String>>",
             )
-            generated.shouldContain("delegate.observe().catch { e ->")
+            // A synchronous construction throw must be caught by the same `.catch`: wrap the
+            // delegate flow in `flow { emitAll(...) }` so `observe()` throwing while building the
+            // flow (require/precondition/DI lookup) is deferred into the collected flow, not escaped.
+            generated.shouldContain("flow { emitAll(delegate.observe()) }.catch { e ->")
+            generated.shouldNotContain("delegate.observe().catch")
             generated.shouldContain("if (e is kotlinx.coroutines.CancellationException) throw e")
             generated.shouldContain(
                 "emit(\n            com.calypsan.listenup.api.streaming.RpcEvent.Error(",

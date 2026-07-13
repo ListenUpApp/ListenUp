@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.core.error
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier
@@ -82,6 +83,16 @@ internal object ErrorMapper {
                 )
             }
 
+            // TLS/SSL handshake or certificate failure: the socket connected but the secure channel
+            // couldn't be established — typically an https/wss URL pointed at a plaintext server, or
+            // a self-signed cert. Typed so verification can branch on it (retry the alternate scheme)
+            // WITHOUT substring-matching a message. Placed above the IOException arm because platform
+            // SSL exceptions (SSLException/SSLHandshakeException) are IOExceptions. See [isTlsFailure]
+            // for why WebSocketException is explicitly excluded.
+            isTlsFailure(exception) -> {
+                ServerConnectError.TlsFailure(debugInfo = exception.message)
+            }
+
             exception is IOException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
@@ -115,4 +126,25 @@ internal object ErrorMapper {
                 InternalError(debugInfo = "${exception::class.simpleName}: ${exception.message}")
             }
         }
+
+    /**
+     * True when [exception] (or a cause) is a TLS/SSL handshake or certificate failure.
+     *
+     * Detected by the raw platform exception's CLASS NAME (SSLException / SSLHandshakeException /
+     * SSLPeerUnverifiedException on OkHttp, the Darwin secure-transport equivalents) rather than its
+     * message. Matching a third-party exception TYPE is legitimate — the "never substring-match on
+     * message" rule governs `AppError` bodies, not platform exceptions (see [RpcFailureClassifier]).
+     *
+     * A [WebSocketException] is explicitly excluded: it means TLS SUCCEEDED but the HTTP upgrade
+     * returned a non-101 status (a proxy 500, etc.). Its message contains the word "Handshake", which
+     * an earlier message-substring heuristic misread as an SSL error — the exact bug this replaces.
+     */
+    private fun isTlsFailure(exception: Throwable): Boolean {
+        if (exception is WebSocketException) return false
+        return generateSequence(exception) { it.cause }
+            .mapNotNull { it::class.simpleName }
+            .any { name -> TLS_CLASS_MARKERS.any { marker -> name.contains(marker, ignoreCase = true) } }
+    }
+
+    private val TLS_CLASS_MARKERS = listOf("SSL", "TLS", "Certificate")
 }

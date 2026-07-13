@@ -6,6 +6,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.diagnosticLogLine
 import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -35,7 +36,7 @@ fun GlobalErrorSnackbar(
 ) {
     LaunchedEffect(errorBus) {
         errorBus.errors.collect { error ->
-            logger.warn { "[${error.code}] ${error.message}" }
+            logger.warn { error.diagnosticLogLine() }
             if (error.debugInfo != null) {
                 logger.debug { "Debug: ${error.debugInfo}" }
             }

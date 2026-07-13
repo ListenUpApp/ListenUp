@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
@@ -91,15 +92,16 @@ internal class InstanceRepositoryImpl(
                 }
 
                 is AppResult.Failure -> {
-                    val message =
-                        result.error.debugInfo
-                            .orEmpty()
-                            .lowercase() + result.error.message.lowercase()
-                    val isSslError =
-                        message.contains("ssl") || message.contains("tls") || message.contains("handshake")
+                    // Branch on the TYPED error, not a message/debugInfo substring: a genuine TLS/SSL
+                    // failure (wrong scheme — https/wss at a plaintext server) is classified as
+                    // ServerConnectError.TlsFailure at the ErrorMapper boundary, so retrying the
+                    // alternate (http/ws) candidate can succeed. A non-TLS failure — e.g. a proxy
+                    // answering 500 on the WebSocket upgrade (a WebSocketException → NetworkUnavailable)
+                    // — is NOT a scheme mismatch and must not skip to the next candidate.
+                    val isTlsError = result.error is ServerConnectError.TlsFailure
                     lastFailure = result
-                    if (isSslError && index < urlsToTry.size - 1) {
-                        logger.debug { "SSL error at $currentUrl, trying next candidate" }
+                    if (isTlsError && index < urlsToTry.size - 1) {
+                        logger.debug { "TLS failure at $currentUrl, trying next candidate" }
                         continue
                     }
                     break

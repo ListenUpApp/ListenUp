@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.core.error
 
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.checkIs
@@ -233,4 +234,40 @@ class ErrorMapperTest :
 
             error.shouldBeInstanceOf<AuthError.SessionExpired>()
         }
+
+        // ========== TLS/SSL failure → ServerConnectError.TlsFailure ==========
+
+        test("map SSL handshake exception returns typed TlsFailure, not NetworkUnavailable") {
+            // Classified by CLASS NAME (SSLHandshakeException) — not a message substring. A genuine
+            // TLS failure means the https/wss scheme is wrong (plaintext server), so verification can
+            // retry the http/ws candidate.
+            val exception = SslHandshakeException("Unrecognized SSL message, plaintext connection?")
+            val error = ErrorMapper.map(exception)
+
+            val tls = error.shouldBeInstanceOf<ServerConnectError.TlsFailure>()
+            tls.code shouldBe "SERVER_CONNECT_TLS_FAILURE"
+            tls.debugInfo shouldBe "Unrecognized SSL message, plaintext connection?"
+        }
+
+        test("map SSL failure nested as a cause is still classified as TlsFailure") {
+            val exception = RuntimeException("connect failed", SslHandshakeException("cert rejected"))
+            val error = ErrorMapper.map(exception)
+
+            error.shouldBeInstanceOf<ServerConnectError.TlsFailure>()
+        }
+
+        test("map non-101 WebSocketException (proxy 500) is NOT misread as TlsFailure") {
+            // The message contains the word "Handshake", which the old substring heuristic misread as
+            // an SSL error and skipped to the next URL candidate. WebSocketException means TLS SUCCEEDED
+            // but the HTTP upgrade returned a non-101 status — it must stay NetworkUnavailable.
+            val exception = WebSocketException("Handshake exception, expected status code 101 but was 500")
+            val error = ErrorMapper.map(exception)
+
+            error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+        }
     })
+
+/** A stand-in for the platform SSL/TLS exception whose simple class name carries the "SSL" marker. */
+private class SslHandshakeException(
+    message: String,
+) : IOException(message)
