@@ -15,10 +15,11 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Unit tests for [catchingRpcResult] — the shared boundary that folds a thrown transport
- * fault into a typed [AppResult.Failure]. See its KDoc for the three-way split this pins:
- * a [kotlinx.coroutines.TimeoutCancellationException] (our own bound) is retryable, an
- * [RpcOutcomeUnknownException] (frame sent, response lost) is honest but NON-retryable, and
- * a genuine caller [CancellationException] re-raises rather than becoming a value.
+ * fault into a typed [AppResult.Failure]. See its KDoc for the two-way split this pins:
+ * an [RpcOutcomeUnknownException] (frame sent, response lost) is honest but NON-retryable, and
+ * ANY [CancellationException] — including a `withTimeout` bound firing — re-raises rather than
+ * becoming a value (the engine converts its own request timeout to OutcomeUnknown upstream, so a
+ * cancellation reaching here is a genuine structured-concurrency cancel, never a swallowable fault).
  */
 class RpcCallTest :
     FunSpec({
@@ -42,18 +43,17 @@ class RpcCallTest :
             }
         }
 
-        test("a TimeoutCancellationException still maps to the retryable TransportError.Timeout (distinct from OutcomeUnknown)") {
+        test("a TimeoutCancellationException re-raises as cancellation — the dead retryable-Timeout arm is gone") {
             runTest {
-                val result: AppResult<String> =
-                    catchingRpcResult {
+                // A withTimeout bound firing throws TimeoutCancellationException, a CancellationException
+                // subtype. The removed TCE arm used to fold it to a retryable Timeout that licensed a blind
+                // re-fire of a possibly-sent frame; now it re-raises like any cancellation instead of being
+                // swallowed into a Failure value.
+                shouldThrow<CancellationException> {
+                    catchingRpcResult<String> {
                         withTimeout(1.milliseconds) { awaitCancellation() }
                     }
-
-                result
-                    .shouldBeInstanceOf<AppResult.Failure>()
-                    .error
-                    .shouldBeInstanceOf<TransportError.Timeout>()
-                    .isRetryable shouldBe true
+                }
             }
         }
 

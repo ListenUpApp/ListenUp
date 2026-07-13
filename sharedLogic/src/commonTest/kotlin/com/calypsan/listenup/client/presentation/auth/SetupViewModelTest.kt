@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.client.core.ValidationField
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.User
@@ -128,11 +129,12 @@ class SetupViewModelTest :
             }
         }
 
-        test("ValidationError on first name maps to ValidationError(FIRST_NAME)") {
+        test("ValidationError with field=firstName highlights FIRST_NAME (no message substring match)") {
             runTest(testDispatcher) {
                 val useCase = mock<SetupUseCase>()
+                // Deliberately opaque message — the field discriminator, not the text, drives the highlight.
                 everySuspend { useCase(any(), any(), any(), any()) } returns
-                    AppResult.Failure(ValidationError("First name is required"))
+                    AppResult.Failure(ValidationError("That won't work", field = ValidationField.FIRST_NAME))
                 val vm = newVm(useCase = useCase)
 
                 vm.onSetupSubmit("", "Admin", "root@example.com", "password123", "password123")
@@ -144,11 +146,11 @@ class SetupViewModelTest :
             }
         }
 
-        test("ValidationError on email maps to ValidationError(EMAIL)") {
+        test("ValidationError with field=email highlights EMAIL (no message substring match)") {
             runTest(testDispatcher) {
                 val useCase = mock<SetupUseCase>()
                 everySuspend { useCase(any(), any(), any(), any()) } returns
-                    AppResult.Failure(ValidationError("Please enter a valid email address"))
+                    AppResult.Failure(ValidationError("That won't work", field = ValidationField.EMAIL))
                 val vm = newVm(useCase = useCase)
 
                 vm.onSetupSubmit("Root", "Admin", "invalid", "password123", "password123")

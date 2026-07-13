@@ -37,10 +37,13 @@ import com.calypsan.listenup.client.domain.model.CachedUserProfile
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.koinInject
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Avatar render size variants used across the app.
@@ -146,8 +149,18 @@ internal fun rememberUserAvatarState(
     LaunchedEffect(userId, profile?.avatarType, profile?.updatedAt) {
         if (profile?.avatarType == "image") {
             when (val result = imageRepository.downloadUserAvatar(userId, forceRefresh = false)) {
-                is AppResult.Success -> if (result.data) downloadTick++
-                is AppResult.Failure -> Unit
+                is AppResult.Success -> {
+                    if (result.data) downloadTick++
+                }
+
+                is AppResult.Failure -> {
+                    // Non-fatal: the avatar just keeps showing initials. Log at debug so a genuinely
+                    // stuck download is diagnosable instead of silently swallowed. (AppResult already
+                    // folded the failure; there is no exception/cancellation to re-raise here.)
+                    logger.debug {
+                        "Avatar download for $userId failed: [${result.error.code}] ${result.error.debugInfo}"
+                    }
+                }
             }
         }
     }

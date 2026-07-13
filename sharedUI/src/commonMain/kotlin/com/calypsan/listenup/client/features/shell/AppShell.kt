@@ -218,6 +218,9 @@ fun AppShell(
     // Global error snackbar — collects from ErrorBus and displays
     GlobalErrorSnackbar(
         snackbarHostState = snackbarHostState,
+        // The shell can only genuinely retry a dropped realtime connection today; gate the Retry
+        // affordance to exactly that so no other error shows a button that does nothing.
+        canRetry = { it is SyncError.RealtimeDisconnected },
         onRetry = { error ->
             if (error is SyncError.RealtimeDisconnected) {
                 scope.launch { syncRepository.connectRealtime() }

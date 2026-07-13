@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
+import com.calypsan.listenup.client.core.ValidationField
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.model.toDomain
@@ -77,20 +78,23 @@ open class SetupUseCase(
     ): AppResult.Failure? =
         when {
             firstName.isBlank() -> {
-                AppResult.Failure(ValidationError("First name is required"))
+                AppResult.Failure(ValidationError("First name is required", field = ValidationField.FIRST_NAME))
             }
 
             lastName.isBlank() -> {
-                AppResult.Failure(ValidationError("Last name is required"))
+                AppResult.Failure(ValidationError("Last name is required", field = ValidationField.LAST_NAME))
             }
 
             !isValidEmail(email) -> {
-                AppResult.Failure(ValidationError("Please enter a valid email address"))
+                AppResult.Failure(ValidationError("Please enter a valid email address", field = ValidationField.EMAIL))
             }
 
             password.length < PASSWORD_MIN -> {
                 AppResult.Failure(
-                    ValidationError("Password must be at least $PASSWORD_MIN characters"),
+                    ValidationError(
+                        "Password must be at least $PASSWORD_MIN characters",
+                        field = ValidationField.PASSWORD,
+                    ),
                 )
             }
 

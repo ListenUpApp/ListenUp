@@ -17,14 +17,11 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.Instant
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * Implementation of PlaybackPositionRepository using Room.
@@ -123,10 +120,17 @@ internal class PlaybackPositionRepositoryImpl(
     ): AppResult<Unit> =
         suspendRunCatching {
             mutexFor(bookId).withLock {
-                transactionRunner.atomically {
-                    handle(bookId, update)
-                }
-                enqueueIfPositionMoving(bookId, update)
+                // The Room merge AND the outbox enqueue commit in ONE transaction — all-or-nothing.
+                // A crash between them can no longer leave the newest position local-only (catch-up
+                // is inbound-only and NewerWins shields the local row, so a lost enqueue would never
+                // reach the server). The drain SIGNAL is deferred to after commit: ticking it inside
+                // the transaction races the drain collector against pre-commit state (see OfflineEditor).
+                val enqueued =
+                    transactionRunner.atomically {
+                        handle(bookId, update)
+                        enqueueIfPositionMoving(bookId, update)
+                    }
+                if (enqueued) pendingQueue.signalEnqueued()
             }
         }
 
@@ -158,12 +162,19 @@ internal class PlaybackPositionRepositoryImpl(
     // ----- Outbox enqueue -------------------------------------------------------------------
 
     /**
-     * Enqueues a [RecordPositionRequest] for the position-moving [PlaybackUpdate] variants.
+     * Enqueues a [RecordPositionRequest] for the position-moving [PlaybackUpdate] variants,
+     * returning `true` when an op was enqueued so the caller can tick the drain signal once the
+     * enclosing transaction commits.
+     *
+     * Runs INSIDE the caller's transaction (atomic with the Room merge). The row snapshot it reads
+     * (`dao.get`) therefore sees the just-written state within the same transaction, and a failed
+     * enqueue rolls the whole save back rather than being swallowed — the OfflineEditor pattern.
+     * The next position tick re-saves and re-enqueues, so a rolled-back save is never a lost update.
      *
      * [CrossDeviceSync] is excluded: it is incoming server state, so pushing it back would
      * create an echo loop.
      *
-     * No sign-in user means no server to push to — silently skipped.
+     * No sign-in user means no server to push to — silently skipped (returns `false`).
      *
      * Non-terminal variants carry the row's current `isFinished` onto the wire — a
      * periodic/seek write must never un-finish a finished book on the server. Unfinishing
@@ -172,8 +183,8 @@ internal class PlaybackPositionRepositoryImpl(
     private suspend fun enqueueIfPositionMoving(
         bookId: BookId,
         update: PlaybackUpdate,
-    ) {
-        val userId = authSession.getUserId() ?: return
+    ): Boolean {
+        val userId = authSession.getUserId() ?: return false
         val now = currentEpochMilliseconds()
         // Post-transaction snapshot of the row handle() just wrote. Non-terminal variants
         // carry its isFinished onto the wire — a periodic/seek write must never un-finish a
@@ -272,7 +283,7 @@ internal class PlaybackPositionRepositoryImpl(
 
                 // Inbound reconciliation only — pushing it back would create an echo loop.
                 is PlaybackUpdate.CrossDeviceSync -> {
-                    return
+                    return false
                 }
 
                 // User-command resets: enqueue the post-reset row so the discard/restart
@@ -283,7 +294,7 @@ internal class PlaybackPositionRepositoryImpl(
                 PlaybackUpdate.DiscardProgress,
                 PlaybackUpdate.Restart,
                 -> {
-                    if (entity == null) return
+                    if (entity == null) return false
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = entity.positionMs,
@@ -295,23 +306,19 @@ internal class PlaybackPositionRepositoryImpl(
                 }
             }
 
-        try {
-            pendingQueue.enqueue(
-                channel = OutboxChannels.Positions,
-                entityId = bookId.value,
-                op = OpKind.Upsert,
-                payload = contractJson.encodeToString(RecordPositionRequest.serializer(), request),
-                ownerUserId = userId,
-                coalesce = true,
-            )
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // Queue write failure is non-fatal: the position is already saved locally.
-            // The next position write will enqueue, and the missing op will be reconciled
-            // by the catch-up on the next connection.
-            logger.warn(e) { "Failed to enqueue position write for ${bookId.value} — will retry on next write" }
-        }
+        // signal = false: the row write stays in the transaction, but the drain signal must fire
+        // only AFTER commit (savePlaybackState calls signalEnqueued). No swallow: a failed enqueue
+        // propagates, rolling back the atomically {} block so no half-saved state can persist.
+        pendingQueue.enqueue(
+            channel = OutboxChannels.Positions,
+            entityId = bookId.value,
+            op = OpKind.Upsert,
+            payload = contractJson.encodeToString(RecordPositionRequest.serializer(), request),
+            ownerUserId = userId,
+            coalesce = true,
+            signal = false,
+        )
+        return true
     }
 
     // ----- Per-variant handlers -------------------------------------------------------------

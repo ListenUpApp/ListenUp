@@ -59,12 +59,12 @@ class CreateInviteViewModelTest :
         test("createInvite validates invalid email") {
             runTest {
                 val createInviteUseCase: CreateInviteUseCase = mock()
-                // The VM sub-classifies a ValidationError by its body-level message; "Invalid email"
-                // routes to the EMAIL field highlight.
+                // The VM sub-classifies a ValidationError by its typed `field` discriminator, not the
+                // message text — so an opaque message still routes to the EMAIL field highlight.
                 everySuspend { createInviteUseCase(any(), any(), any()) } returns
                     AppResult.Failure(
                         com.calypsan.listenup.api.error
-                            .ValidationError(message = "Invalid email"),
+                            .ValidationError(message = "That won't work", field = "email"),
                     )
                 val viewModel = CreateInviteViewModel(createInviteUseCase)
 

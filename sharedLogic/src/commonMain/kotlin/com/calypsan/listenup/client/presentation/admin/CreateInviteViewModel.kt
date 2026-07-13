@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.core.ValidationField
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -77,8 +78,9 @@ class CreateInviteViewModel(
      * (constructor-supplied message text travels through verbatim) but silently fell
      * through for "already exists" / "conflict" (server 409 → `TransportError.Server4xx`
      * has body-level message `"Request rejected by server (HTTP 409)."` — no "conflict"
-     * substring). The type-pattern shape below preserves the validation sub-classification
-     * (because `ValidationError.message` is per-instance) and replaces the brittle bits.
+     * substring). The type-pattern shape below preserves the validation sub-classification via the
+     * typed [ValidationError.field] discriminator (never a message substring) and replaces the
+     * brittle bits.
      */
     private fun classifyError(error: AppError): CreateInviteErrorType {
         // debugInfo is per-instance technical detail (and, post-guard, null on the wire for guard
@@ -86,7 +88,7 @@ class CreateInviteViewModel(
         logger.warn { "Create-invite failed: [${error.code}] cid=${error.correlationId} debug=${error.debugInfo}" }
         return when (error) {
             is ValidationError -> {
-                if (error.message.contains("Invalid email", ignoreCase = true)) {
+                if (error.field == ValidationField.EMAIL) {
                     CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
                 } else {
                     CreateInviteErrorType.ServerError(error.message)

@@ -77,6 +77,7 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
 import com.calypsan.listenup.client.share.ShareLinkCodec
 import com.calypsan.listenup.client.share.ShareTarget
@@ -158,7 +159,7 @@ fun BookDetailScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = s.message,
+                            text = s.error.localized(),
                             color = MaterialTheme.colorScheme.error,
                         )
                     }

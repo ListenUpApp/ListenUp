@@ -307,7 +307,7 @@ final class BookDetailObserver {
             showServerWarning = r.showServerWarning
         case .error(let e):
             isLoading = false
-            error = e.message
+            error = e.error.message
         case .unknown:
             Log.error("Unexpected BookDetailUiState case")
             isLoading = false

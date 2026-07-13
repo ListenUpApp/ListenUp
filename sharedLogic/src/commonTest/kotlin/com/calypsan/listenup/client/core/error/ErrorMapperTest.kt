@@ -108,25 +108,28 @@ class ErrorMapperTest :
             networkUnavailable.isRetryable shouldBe true
         }
 
-        // ========== IllegalArgumentException → ValidationError ==========
+        // ========== ClientValidationException → ValidationError ==========
 
-        test("map IllegalArgumentException returns ValidationError preserving message") {
-            val exception = IllegalArgumentException("Bad argument")
+        test("map ClientValidationException returns ValidationError carrying userMessage + field") {
+            val exception = ClientValidationException("Please enter a valid email address", field = "email")
             val error = ErrorMapper.map(exception)
 
             val validationError = error.shouldBeInstanceOf<ValidationError>()
-            validationError.message shouldBe "Bad argument"
+            validationError.message shouldBe "Please enter a valid email address"
+            validationError.field shouldBe "email"
             validationError.code shouldBe "VALIDATION_ERROR"
-            validationError.debugInfo shouldBe "Bad argument"
             validationError.isRetryable shouldBe false
         }
 
-        test("map IllegalArgumentException with null message uses fallback") {
-            val exception = IllegalArgumentException()
+        test("map bare IllegalArgumentException does NOT leak its raw message as a user ValidationError") {
+            // A library `require(...)` throws IllegalArgumentException("Failed requirement.") — an
+            // internal fault. It must map to the sanitized InternalError, never a user-facing
+            // ValidationError echoing the raw require text as if it were the user's input problem.
+            val exception = IllegalArgumentException("Failed requirement.")
             val error = ErrorMapper.map(exception)
 
-            val validationError = error.shouldBeInstanceOf<ValidationError>()
-            validationError.message shouldBe "Invalid input."
+            error.shouldBeInstanceOf<InternalError>()
+            error.message shouldBe "Something went wrong on the server."
         }
 
         // ========== Unknown / catch-all → InternalError ==========

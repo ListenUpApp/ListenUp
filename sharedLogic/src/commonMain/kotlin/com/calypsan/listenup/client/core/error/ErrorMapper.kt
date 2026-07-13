@@ -115,9 +115,14 @@ internal object ErrorMapper {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
 
-            exception is IllegalArgumentException -> {
+            // ONLY a dedicated client-validation exception earns the user-facing ValidationError.
+            // A bare IllegalArgumentException (a library `require`, a mapper bug — message
+            // "Failed requirement.") is an internal fault and must NOT be shown to the user as their
+            // input problem; it falls through to the sanitized InternalError below.
+            exception is ClientValidationException -> {
                 ValidationError(
-                    message = exception.message ?: "Invalid input.",
+                    message = exception.userMessage,
+                    field = exception.field,
                     debugInfo = exception.message,
                 )
             }

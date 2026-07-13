@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.ValidationField
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,17 +78,16 @@ class SetupViewModel(
 }
 
 /**
- * Best-effort heuristic to map a generic [ValidationError] message back to
- * the form field it referred to. The use case emits readable messages
- * ("First name is required", "Please enter a valid email address", …) so
- * this is enough for highlighting the right input. If the contract grows a
- * structured field-validation type later, swap this for a direct lookup.
+ * Map a [ValidationError] to the form field it referred to via the typed
+ * [ValidationError.field] discriminator — no substring-matching on the
+ * user-facing [ValidationError.message] (which a server reword would silently
+ * break). Falls back to [SetupField.EMAIL] when the error carries no field.
  */
 private fun ValidationError.field(): SetupField =
-    when {
-        message.contains("first", ignoreCase = true) -> SetupField.FIRST_NAME
-        message.contains("last", ignoreCase = true) -> SetupField.LAST_NAME
-        message.contains("email", ignoreCase = true) -> SetupField.EMAIL
-        message.contains("password", ignoreCase = true) -> SetupField.PASSWORD
+    when (field) {
+        ValidationField.FIRST_NAME -> SetupField.FIRST_NAME
+        ValidationField.LAST_NAME -> SetupField.LAST_NAME
+        ValidationField.EMAIL -> SetupField.EMAIL
+        ValidationField.PASSWORD -> SetupField.PASSWORD
         else -> SetupField.EMAIL
     }
