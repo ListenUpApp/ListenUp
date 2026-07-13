@@ -56,7 +56,9 @@ CREATE TABLE books (
     created_at       INTEGER NOT NULL,
     updated_at       INTEGER NOT NULL,
     deleted_at       INTEGER,
-    client_op_id     TEXT
+    client_op_id     TEXT,
+    book_tier_label  TEXT,
+    part_tier_label  TEXT
 );
 
 CREATE UNIQUE INDEX idx_book_natural_key ON books(folder_id, root_rel_path);
@@ -264,6 +266,17 @@ SELECT total_duration FROM books WHERE id = :id AND deleted_at IS NULL;
 -- land here via BookRepository.writePayload).
 updateChapterSource:
 UPDATE books SET chapter_source = :chapter_source WHERE id = :id;
+
+-- Renames the book's chapter-grouping tier vocabulary with a revision bump — the
+-- BookServiceImpl.setBookTierLabels write path. Deliberately NOT part of updateContent /
+-- updateContentPreserveCover / insert: those run on every scan/rescan upsert, and this pair of
+-- columns must never be touched by one — the same sticky-by-omission trick already used for
+-- cover_source via updateManagedCover/clearManagedCover.
+updateTierLabels:
+UPDATE books
+SET book_tier_label = :book_tier_label, part_tier_label = :part_tier_label,
+    revision = :revision, updated_at = :updated_at
+WHERE id = :id;
 
 -- Rows affected by the most recent statement on this connection — lets the repo
 -- distinguish a 0-row update (NotFound) from a successful one.
