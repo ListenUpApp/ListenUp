@@ -126,7 +126,7 @@ class BookServiceImplSetTierLabelsTest :
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     val error = failure.error.shouldBeInstanceOf<SyncError.NotFound>()
-                    (error.entityId) shouldBe "does-not-exist"
+                    error.entityId shouldBe "does-not-exist"
                 }
             }
         }
