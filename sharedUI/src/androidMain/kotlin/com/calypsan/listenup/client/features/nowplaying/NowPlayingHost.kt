@@ -173,6 +173,7 @@ fun NowPlayingHost(
             NowPlayingFullScreenContent(
                 campfire = campfire,
                 campfireViewModel = campfireViewModel,
+                campfireMinimized = campfireMinimized,
                 activeState = activeState,
                 isTv = isTv,
                 hasPdf = firstPdfDocId != null,
@@ -270,6 +271,7 @@ fun NowPlayingHost(
 private fun NowPlayingFullScreenContent(
     campfire: CampfireHostUi,
     campfireViewModel: CampfireViewModel,
+    campfireMinimized: Boolean,
     activeState: NowPlayingState.Active?,
     isTv: Boolean,
     hasPdf: Boolean,
@@ -281,10 +283,10 @@ private fun NowPlayingFullScreenContent(
 ) {
     val session = campfire.session
     val book = campfire.book
-    if (session != null && book != null) {
+    if (campfireFlowShown(hasSession = session != null, hasBook = book != null, minimized = campfireMinimized)) {
         CampfireLobbyOrRoomContent(
-            session = session,
-            book = book,
+            session = session!!,
+            book = book!!,
             campfire = campfire,
             campfireViewModel = campfireViewModel,
             activeState = activeState,

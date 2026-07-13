@@ -14,3 +14,15 @@ fun campfireFullScreenVisible(
     hasSession: Boolean,
     minimized: Boolean,
 ): Boolean = (isExpanded && hasActiveBook) || (hasSession && !minimized)
+
+/**
+ * Whether the full-screen campfire flow (lobby/room) — as opposed to the solo player — should fill
+ * the visible container. A minimized campfire yields the solo player instead: tapping the mini-bar
+ * (which expands the container) while minimized must NOT drop the user into the room with the
+ * collapse gesture disabled (co-listening coexistence spec, B1 — Never Stranded).
+ */
+fun campfireFlowShown(
+    hasSession: Boolean,
+    hasBook: Boolean,
+    minimized: Boolean,
+): Boolean = hasSession && hasBook && !minimized
