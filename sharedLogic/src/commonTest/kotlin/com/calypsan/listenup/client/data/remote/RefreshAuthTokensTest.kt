@@ -15,7 +15,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
-import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
@@ -53,7 +52,7 @@ private fun fakeContractSession(
  * `refreshTokens { }` block and `AuthRepository.refreshAccessToken()`.
  *
  * Coverage matrix:
- *  - Success → tokens persisted to [AuthSession], BearerTokens returned for the retry.
+ *  - Success → BearerTokens returned for the retry (persistence is the single-flight refresh's job, C1).
  *  - Failure(InvalidRefreshToken) and Failure(SessionExpired) → auth state cleared.
  *  - Failure(NetworkUnavailable) and other transient errors → auth state preserved.
  *  - CancellationException → re-thrown per coroutines convention.
@@ -62,25 +61,18 @@ private fun fakeContractSession(
 class RefreshAuthTokensTest :
     FunSpec({
 
-        test("Success persists rotated tokens and returns BearerTokens") {
+        test("Success returns BearerTokens without re-persisting (persistence is the single-flight's job, C1)") {
             runTest {
+                // saveAuthTokens is NOT stubbed — Mokkery throws if the bridge tries to persist, which
+                // it must not: the rotated pair is already persisted inside AuthRepository's single-flight.
                 val authSession = mock<AuthSession>()
                 val session = fakeContractSession()
-                everySuspend { authSession.saveAuthTokens(any(), any(), any(), any()) } returns Unit
 
                 val tokens = refreshAuthTokens(authSession) { AppResult.Success(session) }
 
                 tokens.shouldNotBeNull()
                 tokens.accessToken shouldBe "fresh-access"
                 tokens.refreshToken shouldBe "fresh-refresh"
-                verifySuspend {
-                    authSession.saveAuthTokens(
-                        access = AccessToken("fresh-access"),
-                        refresh = RefreshToken("fresh-refresh"),
-                        sessionId = "session-1",
-                        userId = "user-1",
-                    )
-                }
             }
         }
 

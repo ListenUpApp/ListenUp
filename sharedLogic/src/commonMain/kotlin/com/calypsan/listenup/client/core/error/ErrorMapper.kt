@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
+import com.calypsan.listenup.client.data.remote.TransientAuthRefreshException
 import com.calypsan.listenup.client.data.remote.model.EnvelopeMismatchException
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
@@ -29,6 +30,14 @@ import kotlinx.serialization.SerializationException
 internal object ErrorMapper {
     fun map(exception: Throwable): AppError =
         when {
+            // A transient refresh failure during a 401-heal (C5): the refresh outcome was network /
+            // timeout / 5xx, NOT a server-confirmed dead token. Surface a RETRYABLE transport error and
+            // keep the session — a network blip must never log the user out. Checked FIRST so the
+            // wrapped handshake-401 cause it carries can't be misread as SessionExpired below.
+            exception is TransientAuthRefreshException -> {
+                TransportError.NetworkUnavailable(debugInfo = exception.message)
+            }
+
             // A handshake-401 WebSocketException is a stale-session signal from the `/api/rpc/authed`
             // upgrade. After RpcProxyCache's one bounded token-refresh + retry, a SECOND 401 reaches
             // here — surface it typed as SessionExpired so the global auth observer drives to login,

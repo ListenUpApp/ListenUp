@@ -2,9 +2,15 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.dto.auth.AccessToken
+import com.calypsan.listenup.api.dto.auth.AuthSession as ContractAuthSession
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
+import com.calypsan.listenup.api.dto.auth.User
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -114,6 +120,7 @@ class AuthRepositoryImplTest :
                     AppResult.Failure(AuthError.SessionExpired())
                 }
                 val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.currentAuthEpoch() } returns 0L
                 everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
 
                 val repo =
@@ -136,6 +143,53 @@ class AuthRepositoryImplTest :
             }
         }
 
+        test("a successful refresh persists the rotated tokens inside the single-flight, epoch-guarded (C1/C8)") {
+            runTest {
+                val session =
+                    ContractAuthSession(
+                        accessToken = AccessToken("fresh-access"),
+                        accessTokenExpiresAt = 0L,
+                        refreshToken = RefreshToken("fresh-refresh"),
+                        refreshTokenExpiresAt = 0L,
+                        sessionId = SessionId("session-1"),
+                        user =
+                            User(
+                                id = UserId("user-1"),
+                                email = "alice@example.com",
+                                displayName = "Alice",
+                                role = UserRole.MEMBER,
+                                status = UserStatus.ACTIVE,
+                                createdAt = 0L,
+                            ),
+                    )
+                val public = mock<AuthServicePublic>()
+                everySuspend { public.refreshSession(any()) } returns AppResult.Success(session)
+                val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.currentAuthEpoch() } returns 7L
+                everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
+                everySuspend { authSession.saveAuthTokens(any(), any(), any(), any(), any()) } returns Unit
+                val repo =
+                    AuthRepositoryImpl(
+                        authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
+                        authSession = authSession,
+                    )
+
+                repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
+
+                // Persisted inside refreshAccessToken with the epoch captured at its start (C1/C8).
+                verifySuspend {
+                    authSession.saveAuthTokens(
+                        access = AccessToken("fresh-access"),
+                        refresh = RefreshToken("fresh-refresh"),
+                        sessionId = "session-1",
+                        userId = "user-1",
+                        ifEpoch = 7L,
+                    )
+                }
+            }
+        }
+
         test("a leader whose token read throws wakes coalesced followers with a Failure (never hangs)") {
             runTest {
                 // The leader's getRefreshToken() throws a non-cancellation fault AFTER a follower has
@@ -144,6 +198,7 @@ class AuthRepositoryImplTest :
                 // must ALWAYS complete its deferred.
                 val readGate = CompletableDeferred<Unit>()
                 val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.currentAuthEpoch() } returns 0L
                 everySuspend { authSession.getRefreshToken() } calls {
                     readGate.await()
                     throw RuntimeException("secure storage read failed")
@@ -176,6 +231,7 @@ class AuthRepositoryImplTest :
                 everySuspend { public.refreshSession(any()) } throws
                     WebSocketException("Handshake exception, expected status code 101 but was 401")
                 val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.currentAuthEpoch() } returns 0L
                 everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
                 val repo =
                     AuthRepositoryImpl(
@@ -197,6 +253,7 @@ class AuthRepositoryImplTest :
                 everySuspend { public.refreshSession(any()) } throws
                     kotlinx.io.IOException("connection refused")
                 val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.currentAuthEpoch() } returns 0L
                 everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
                 val repo =
                     AuthRepositoryImpl(

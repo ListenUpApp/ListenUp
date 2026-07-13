@@ -515,8 +515,9 @@ internal expect fun createUnauthenticatedStreamingHttpClient(
  * Bridges the bearer plugin's `refreshTokens { }` block to
  * `AuthRepository.refreshAccessToken()`.
  *
- *  - Success → persist the rotated pair into [AuthSession] (so the next `loadTokens`
- *    sees the fresh values) and return them as [BearerTokens] for the immediate retry.
+ *  - Success → the rotated pair was ALREADY persisted inside the single-flight refresh (C1); just
+ *    return it as [BearerTokens] for the immediate retry. Persisting here again would be redundant and
+ *    reopen the stale-token window this bridge used to own.
  *  - `Failure(SessionExpired | InvalidRefreshToken)` → the refresh token is dead; soft-clear the
  *    session credentials so state lands in `AuthState.SessionLapsed` (shell stays mounted,
  *    banner offers sign-in) instead of the login wall.
@@ -534,12 +535,6 @@ internal suspend fun refreshAuthTokens(
         when (val result = refreshAccessToken()) {
             is AppResult.Success -> {
                 val session = result.data
-                authSession.saveAuthTokens(
-                    access = session.accessToken,
-                    refresh = session.refreshToken,
-                    sessionId = session.sessionId.value,
-                    userId = session.user.id.value,
-                )
                 BearerTokens(
                     accessToken = session.accessToken.value,
                     refreshToken = session.refreshToken.value,

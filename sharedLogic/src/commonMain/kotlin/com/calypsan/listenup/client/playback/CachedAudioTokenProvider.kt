@@ -13,7 +13,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlin.concurrent.Volatile
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
@@ -68,7 +74,11 @@ class CachedAudioTokenProvider(
     private val refreshMutex = Mutex()
 
     init {
-        scope.launch { refreshToken() }
+        // Do NOT rotate on every construction (C11): a stored access token that is still comfortably
+        // fresh is served as-is, so a construction-time refresh can't needlessly burn a refresh-token
+        // rotation nor race the Ktor bearer plugin's own refresh. Only refresh when the stored token
+        // is missing, undecodable, or already inside the proactive horizon.
+        scope.launch { if (!primeFromFreshStoredToken()) refreshToken() }
         scope.launch {
             while (isActive) {
                 delay(PROACTIVE_CHECK_CADENCE)
@@ -113,13 +123,9 @@ class CachedAudioTokenProvider(
         refreshMutex.withLock {
             when (val result = authRepository.refreshAccessToken()) {
                 is AppResult.Success -> {
+                    // Persistence already happened inside the single-flight refresh (C1); here we only
+                    // update this provider's in-memory cache so getToken() serves the fresh token.
                     val session = result.data
-                    authSession.saveAuthTokens(
-                        access = session.accessToken,
-                        refresh = session.refreshToken,
-                        sessionId = session.sessionId.value,
-                        userId = session.user.id.value,
-                    )
                     cachedToken = session.accessToken
                     tokenExpiresAt = session.accessTokenExpiresAt
                     logger.info { "Token refreshed successfully" }
@@ -155,7 +161,45 @@ class CachedAudioTokenProvider(
 
     private fun now(): Long = clock.now().toEpochMilliseconds()
 
+    /**
+     * Loads a stored access token into the cache WITHOUT a network refresh when it is a decodable
+     * JWT still comfortably outside [PROACTIVE_REFRESH_HORIZON]. @return true when it did (so the
+     * caller skips the construction-time refresh); false when there is no usable-and-fresh token and
+     * a real refresh is warranted.
+     */
+    private suspend fun primeFromFreshStoredToken(): Boolean {
+        val stored = authSession.getAccessToken() ?: return false
+        val expiry = jwtExpiryMillis(stored.value) ?: return false
+        if (expiry - now() <= PROACTIVE_REFRESH_HORIZON.inWholeMilliseconds) return false
+        cachedToken = stored
+        tokenExpiresAt = expiry
+        return true
+    }
+
+    /**
+     * Best-effort read of a JWT's `exp` claim (seconds → epoch millis). Returns null for anything not
+     * a well-formed JWT with a numeric `exp` — the caller then falls back to a refresh, so a malformed
+     * or opaque token can never be trusted as fresh.
+     */
+    @OptIn(ExperimentalEncodingApi::class)
+    private fun jwtExpiryMillis(token: String): Long? =
+        runCatching {
+            val payload = token.split('.').getOrNull(1) ?: return null
+            val decoded =
+                Base64.UrlSafe
+                    .withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
+                    .decode(payload)
+                    .decodeToString()
+            Json
+                .parseToJsonElement(decoded)
+                .jsonObject["exp"]
+                ?.jsonPrimitive
+                ?.longOrNull
+                ?.let { it * MILLIS_PER_SECOND }
+        }.getOrNull()
+
     companion object {
         private val STORED_TOKEN_GRACE = 50.minutes
+        private const val MILLIS_PER_SECOND = 1_000L
     }
 }

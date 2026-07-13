@@ -119,6 +119,12 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // in this internal marker so streaming/resubscribe can tell a consumer-side abort apart
             // from an upstream transport fault. It never escapes the file — both catch clauses unwrap
             // it and re-raise its cause. A control-flow signal, not a swallowed failure.
-            !line.contains("throw DownstreamEmitException(")
+            !line.contains("throw DownstreamEmitException(") &&
+            // transient-auth-refresh signal (C5): RpcProxyCache throws this when a 401-heal refresh
+            // fails TRANSIENTLY (network/timeout/5xx), so the boundary folds it to a RETRYABLE
+            // TransportError and KEEPS the session instead of misreading a network blip as logout.
+            // Same category as RpcOutcomeUnknownException — a typed transport signal, not a swallowed
+            // failure.
+            !line.contains("throw TransientAuthRefreshException(")
     }
 }

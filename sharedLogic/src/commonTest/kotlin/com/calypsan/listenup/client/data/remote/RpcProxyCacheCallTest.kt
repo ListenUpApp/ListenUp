@@ -54,9 +54,9 @@ class RpcProxyCacheCallTest :
             var count = 0
                 private set
 
-            override suspend fun refreshAndRebuild(): Boolean {
+            override suspend fun refreshAndRebuild(): AuthRecoveryOutcome {
                 count++
-                return true
+                return AuthRecoveryOutcome.Refreshed
             }
         }
 
@@ -273,16 +273,16 @@ class RpcProxyCacheCallTest :
             }
         }
 
-        test("a handshake 401 whose token refresh fails surfaces SessionExpired without a doomed retry") {
+        test("a handshake 401 whose refresh is server-confirmed invalid surfaces SessionExpired without a doomed retry") {
             runTest {
-                // Refresh fails (tokens cleared) → retrying the handshake would just 401 again.
+                // Refresh is server-confirmed dead (tokens cleared) → retrying the handshake would just 401 again.
                 val failingRecovery =
                     object : RpcAuthRecovery {
                         var count = 0
 
-                        override suspend fun refreshAndRebuild(): Boolean {
+                        override suspend fun refreshAndRebuild(): AuthRecoveryOutcome {
                             count++
-                            return false
+                            return AuthRecoveryOutcome.SessionInvalid
                         }
                     }
                 val (cache, connects) =
@@ -304,6 +304,40 @@ class RpcProxyCacheCallTest :
                     .shouldBeInstanceOf<AuthError.SessionExpired>()
                 failingRecovery.count shouldBe 1
                 connects() shouldBe 1 // no retry — the second behavior is never reached
+            }
+        }
+
+        test("a handshake 401 whose refresh fails TRANSIENTLY keeps the session and surfaces a retryable error (C5)") {
+            runTest {
+                // A network blip during the 401-heal is NOT session death — the session must survive.
+                val transientRecovery =
+                    object : RpcAuthRecovery {
+                        var count = 0
+
+                        override suspend fun refreshAndRebuild(): AuthRecoveryOutcome {
+                            count++
+                            return AuthRecoveryOutcome.Transient
+                        }
+                    }
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                { throw WebSocketException("expected status code 101 but was 401") },
+                                { "must-not-run" },
+                            ),
+                        ),
+                        authRecovery = transientRecovery,
+                    )
+
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
+
+                val error = result.shouldBeInstanceOf<AppResult.Failure>().error
+                // Retryable transport error — NOT SessionExpired, so the app stays signed in.
+                error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                error.isRetryable shouldBe true
+                transientRecovery.count shouldBe 1
+                connects() shouldBe 1 // no retry against the same dead socket
             }
         }
 

@@ -45,6 +45,30 @@ private fun createTestServerInfo(
 
 private fun createMockStorage(): SecureStorage = mock<SecureStorage>()
 
+/** In-memory [SecureStorage] that records the order of writes — for the C8 epoch + C9 order tests. */
+private class RecordingStorage : SecureStorage {
+    val data = mutableMapOf<String, String>()
+    val saveOrder = mutableListOf<String>()
+
+    override suspend fun save(
+        key: String,
+        value: String,
+    ) {
+        saveOrder += key
+        data[key] = value
+    }
+
+    override suspend fun read(key: String): String? = data[key]
+
+    override suspend fun delete(key: String) {
+        data.remove(key)
+    }
+
+    override suspend fun clear() {
+        data.clear()
+    }
+}
+
 private fun createMockServerConfig(): ServerConfig = mock<ServerConfig>()
 
 private fun createMockInstanceRepository(): InstanceRepository = mock<InstanceRepository>()
@@ -101,6 +125,55 @@ class AuthSessionStoreTest :
                 val state = store.authState.value.shouldBeInstanceOf<AuthState.Authenticated>()
                 state.userId.value shouldBe "user001"
                 state.sessionId.value shouldBe "session789"
+            }
+        }
+
+        test("saveAuthTokens writes refresh/session/user BEFORE access so no reader pairs new access with stale refresh (C9)") {
+            runTest {
+                val storage = RecordingStorage()
+                val store = createStore(storage = storage)
+
+                store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "s", "u")
+
+                val accessIdx = storage.saveOrder.indexOf("access_token")
+                accessIdx shouldBe storage.saveOrder.size - 1 // access lands last
+                (storage.saveOrder.indexOf("refresh_token") < accessIdx) shouldBe true
+                (storage.saveOrder.indexOf("session_id") < accessIdx) shouldBe true
+                (storage.saveOrder.indexOf("user_id") < accessIdx) shouldBe true
+            }
+        }
+
+        test("a stale-epoch saveAuthTokens no-ops after a logout bumped the epoch — no resurrection (C8)") {
+            runTest {
+                val storage = RecordingStorage()
+                val store = createStore(storage = storage)
+                store.saveAuthTokens(AccessToken("a0"), RefreshToken("r0"), "s0", "u0")
+                val epoch = store.currentAuthEpoch()
+
+                // Logout wipes credentials and advances the epoch.
+                store.clearAuthTokens()
+                storage.data["access_token"] shouldBe null
+
+                // A late refresh captured the OLD epoch and tries to persist — must be ignored.
+                store.saveAuthTokens(AccessToken("a1"), RefreshToken("r1"), "s1", "u1", ifEpoch = epoch)
+
+                storage.data["access_token"] shouldBe null
+                storage.data["refresh_token"] shouldBe null
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+            }
+        }
+
+        test("a current-epoch saveAuthTokens applies (the normal single-flight refresh path, C1/C8)") {
+            runTest {
+                val storage = RecordingStorage()
+                val store = createStore(storage = storage)
+                store.saveAuthTokens(AccessToken("a0"), RefreshToken("r0"), "s0", "u0")
+                val epoch = store.currentAuthEpoch()
+
+                store.saveAuthTokens(AccessToken("a1"), RefreshToken("r1"), "s1", "u1", ifEpoch = epoch)
+
+                storage.data["access_token"] shouldBe "a1"
+                storage.data["refresh_token"] shouldBe "r1"
             }
         }
 

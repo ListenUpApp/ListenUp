@@ -64,6 +64,10 @@ internal class AuthRepositoryImpl(
      *
      * The refresh RPC rides [authPublicChannel] (recovery = None): the refresh call is
      * itself what a 401 recovery invokes, so it must never be able to trigger one.
+     *
+     * Persistence (C1) is done HERE, inside the single-flight and BEFORE leadership is released, so no
+     * later caller can present a stale refresh token after rotation. The auth epoch captured at the
+     * start guards it (C8): a logout that intervened makes the persist a no-op via [AuthSession.saveAuthTokens].
      */
     override suspend fun refreshAccessToken(): AppResult<AuthSession> {
         val leader = CompletableDeferred<AppResult<AuthSession>>()
@@ -72,6 +76,7 @@ internal class AuthRepositoryImpl(
         if (existing !== leader) return existing.await()
 
         return try {
+            val epoch = authSession.currentAuthEpoch()
             val token = authSession.getRefreshToken()
             val result =
                 if (token == null) {
@@ -79,6 +84,16 @@ internal class AuthRepositoryImpl(
                 } else {
                     authPublicChannel.call { it.refreshSession(RefreshRequest(token)) }
                 }
+            if (result is AppResult.Success) {
+                val session = result.data
+                authSession.saveAuthTokens(
+                    access = session.accessToken,
+                    refresh = session.refreshToken,
+                    sessionId = session.sessionId.value,
+                    userId = session.user.id.value,
+                    ifEpoch = epoch,
+                )
+            }
             leader.complete(result)
             result
         } catch (e: CancellationException) {

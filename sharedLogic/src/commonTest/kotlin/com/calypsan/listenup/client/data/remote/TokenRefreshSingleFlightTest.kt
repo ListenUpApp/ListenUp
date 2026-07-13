@@ -58,11 +58,14 @@ private class FakeAuthSession : AuthSession {
 
     override val authState: StateFlow<AuthState> get() = throw NotImplementedError()
 
+    override suspend fun currentAuthEpoch(): Long = 0L
+
     override suspend fun saveAuthTokens(
         access: AccessToken,
         refresh: RefreshToken,
         sessionId: String,
         userId: String,
+        ifEpoch: Long?,
     ) {
         this.access = access
         this.refresh = refresh
