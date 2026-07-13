@@ -27,6 +27,7 @@ internal val playbackPresentationModule =
                 documentRepository = get(),
                 downloadRepository = get(),
                 playbackPositionRepository = get(),
+                activeCampfire = get(),
             )
         }
     }

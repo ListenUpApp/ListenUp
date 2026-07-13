@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -84,6 +85,7 @@ class NowPlayingViewModel(
     private val documentRepository: DocumentRepository,
     private val downloadRepository: DownloadRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
+    private val activeCampfire: ActiveCampfireCoordinator,
 ) : ViewModel() {
     private companion object {
         const val FADE_DURATION_MS = 3000L
@@ -101,6 +103,11 @@ class NowPlayingViewModel(
 
     /** One-shot navigation events — the host collects these to trigger platform navigation. */
     val navActions: Flow<NowPlayingNavAction> = _navActions.receiveAsFlow()
+
+    private val _playbackGuardEvents = Channel<PlaybackGuardEvent>(Channel.BUFFERED)
+
+    /** One-shot playback-guard events — the shell collects these to raise the campfire confirm dialog (B3). */
+    val playbackGuardEvents: Flow<PlaybackGuardEvent> = _playbackGuardEvents.receiveAsFlow()
 
     /**
      * The id of the first PDF document for the currently-playing book, or null when the book has
@@ -432,7 +439,26 @@ class NowPlayingViewModel(
 
     // === Playback actions ===
 
+    /**
+     * Plays [bookId], guarding against silently stranding a live campfire (co-listening coexistence
+     * spec, B3). If a campfire is live for a *different* book, emits [PlaybackGuardEvent.ConfirmPlayOverCampfire]
+     * (role-tagged so the shell picks "end" vs "leave" copy) and does not play; the shell re-drives
+     * [playBookConfirmed] after the user exits the campfire. Playing the campfire's own book, or with
+     * no campfire live, plays immediately.
+     */
     fun playBook(bookId: BookId) {
+        val active = activeCampfire.current.value
+        if (active != null && active.bookId != bookId.value) {
+            _playbackGuardEvents.trySend(PlaybackGuardEvent.ConfirmPlayOverCampfire(bookId, active.isHost))
+            return
+        }
+        startPlayback(bookId)
+    }
+
+    /** Plays [bookId] unconditionally — the shell's continuation after the campfire confirm (B3). */
+    fun playBookConfirmed(bookId: BookId) = startPlayback(bookId)
+
+    private fun startPlayback(bookId: BookId) {
         viewModelScope.launch {
             val result = playbackManager.prepareForPlayback(bookId)
             if (result == null) {
@@ -597,4 +623,20 @@ sealed interface NowPlayingNavAction {
     data class OpenDocumentViewer(
         val localPath: String,
     ) : NowPlayingNavAction
+}
+
+/**
+ * One-shot playback-guard event: the user asked to play a book while a *different* book's campfire is
+ * live (co-listening coexistence spec, B3). The shell shows a confirm dialog — host copy ends the
+ * campfire, participant copy leaves it — then calls [NowPlayingViewModel.playBookConfirmed] on confirm.
+ */
+sealed interface PlaybackGuardEvent {
+    /**
+     * @property bookId The book the user asked to play.
+     * @property isHost Whether the local user hosts the live campfire — selects "end" vs "leave" copy.
+     */
+    data class ConfirmPlayOverCampfire(
+        val bookId: BookId,
+        val isHost: Boolean,
+    ) : PlaybackGuardEvent
 }

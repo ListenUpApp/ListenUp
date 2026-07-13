@@ -1,7 +1,10 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.campfire.ActiveCampfire
+import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
@@ -72,6 +75,7 @@ class NowPlayingViewModelTest :
             val networkMonitor: NetworkMonitor = mock()
             val documentRepository: DocumentRepository = mock()
             val sleepTimerManager: SleepTimerManager = SleepTimerManager(CoroutineScope(Job()))
+            val activeCampfire = ActiveCampfireCoordinator()
 
             init {
                 // Default: networkMonitor.isOnline() returns true. Tests override to false where needed.
@@ -108,6 +112,7 @@ class NowPlayingViewModelTest :
                     playbackPositionRepository =
                         com.calypsan.listenup.client.test.fake
                             .FakePlaybackPositionRepository(),
+                    activeCampfire = activeCampfire,
                 )
         }
 
@@ -279,6 +284,89 @@ class NowPlayingViewModelTest :
                 verifySuspend(VerifyMode.exactly(0)) {
                     fixture.playbackController.startPlayback(any())
                 }
+            }
+        }
+
+        // ========== playBook campfire play-guard (B3) ==========
+
+        test("playBook plays directly when no campfire is live") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
+
+                val vm = fixture.newVm()
+                vm.playBook(bookId)
+                advanceUntilIdle()
+
+                fixture.fakePm.activatedBookIds shouldBe listOf(bookId)
+            }
+        }
+
+        test("playBook plays directly when the campfire is on the same book") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.activeCampfire.set(ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true))
+                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
+
+                val vm = fixture.newVm()
+                vm.playBook(bookId)
+                advanceUntilIdle()
+
+                fixture.fakePm.activatedBookIds shouldBe listOf(bookId)
+            }
+        }
+
+        test("playBook on a different book as host emits an end-confirm and does not play") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                fixture.activeCampfire.set(ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true))
+
+                val vm = fixture.newVm()
+                vm.playbackGuardEvents.test {
+                    vm.playBook(BookId("book-2"))
+                    awaitItem() shouldBe PlaybackGuardEvent.ConfirmPlayOverCampfire(BookId("book-2"), isHost = true)
+                }
+                advanceUntilIdle()
+
+                withClue("must NOT activate when guarded by a different book's campfire") {
+                    fixture.fakePm.activatedBookIds.isEmpty() shouldBe true
+                }
+                verifySuspend(VerifyMode.exactly(0)) {
+                    fixture.playbackController.startPlayback(any())
+                }
+            }
+        }
+
+        test("playBook on a different book as participant emits a leave-confirm") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                fixture.activeCampfire.set(ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = false))
+
+                val vm = fixture.newVm()
+                vm.playbackGuardEvents.test {
+                    vm.playBook(BookId("book-2"))
+                    awaitItem() shouldBe PlaybackGuardEvent.ConfirmPlayOverCampfire(BookId("book-2"), isHost = false)
+                }
+            }
+        }
+
+        test("playBookConfirmed plays unconditionally even while a campfire is live") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-2")
+                fixture.activeCampfire.set(ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true))
+                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
+
+                val vm = fixture.newVm()
+                vm.playBookConfirmed(bookId)
+                advanceUntilIdle()
+
+                fixture.fakePm.activatedBookIds shouldBe listOf(bookId)
             }
         }
 
