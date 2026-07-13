@@ -15,13 +15,14 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v1** — a pre-1.0 baseline that squashed the accumulated migration chain
- * (no beta DBs existed to migrate, so the collapse is purely mechanical). There is no
- * migration chain: the pre-launch policy `fallbackToDestructiveMigration(true)` on each
+ * Schema is at **v2** — a pre-1.0 baseline (v1 squashed the accumulated migration chain) plus
+ * the `tentative_span.processId` column added for orphan-span process identity. There is still
+ * no migration chain: the pre-launch policy `fallbackToDestructiveMigration(true)` on each
  * platform `DatabaseModule` nukes and recreates the local DB on any schema change (data
- * re-syncs from the server), which is acceptable pre-release. Before launch, flip the
- * fallback to `false` and begin a real migration chain in `data/local/migrations/`; the
- * `@Database.exportSchema` on-disk JSON (`schemas/…/1.json`) is the authoritative baseline.
+ * re-syncs from the server), which is acceptable pre-release — so a version bump needs no
+ * hand-written [androidx.room.migration.Migration]. Before launch, flip the fallback to `false`
+ * and begin a real migration chain in `data/local/migrations/`; the `@Database.exportSchema`
+ * on-disk JSON (`schemas/…/2.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -63,7 +64,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(

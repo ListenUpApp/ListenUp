@@ -18,6 +18,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -369,6 +370,135 @@ class ListeningEventRecorderTest :
                 }
             }
         }
+
+        // ── F6: process identity — onPlay recovers a prior-process orphan, never overwrites it ──
+
+        test("onPlay recovers a prior-process orphan instead of overwriting it; new live span is separate") {
+            runTest {
+                var now = 1_000L
+                withFixture(nowMillisProvider = { now }, processId = "process-current") { recorder, db, enqueuedOps ->
+                    // Seed an orphan from a PRIOR process launch — yesterday's OS-killed ~2 h listen.
+                    db.tentativeSpanDao().upsertSingleton(
+                        TentativeSpanEntity(
+                            id = "orphan-prior",
+                            userId = USER_ID,
+                            bookId = BOOK_ID,
+                            startPositionMs = 100_000L,
+                            currentPositionMs = 7_300_000L,
+                            startedAt = 500_000L,
+                            lastHeartbeatAt = 7_700_000L,
+                            playbackSpeed = 1.0f,
+                            tz = "America/New_York",
+                            deviceLabel = "Yesterday Device",
+                            processId = "process-prior",
+                        ),
+                    )
+
+                    // Today: cold start, user immediately hits play while catch-up is still paging.
+                    now = 8_000_000L
+                    recorder.onPlay(BOOK_ID, positionMs = 50_000L, SPEED)
+
+                    // The prior session's ~2 h span was RECOVERED (finalized), not lost/overwritten.
+                    val events = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
+                    events.size shouldBe 1
+                    events[0].id shouldBe "orphan-prior"
+                    events[0].startPositionMs shouldBe 100_000L
+                    events[0].endPositionMs shouldBe 7_300_000L // orphan.currentPositionMs
+                    events[0].endedAt shouldBe 7_700_000L // orphan.lastHeartbeatAt
+                    enqueuedOps.size shouldBe 1
+                    enqueuedOps[0].entityId shouldBe "orphan-prior"
+
+                    // A fresh live span for today's session exists, stamped with the CURRENT process.
+                    val span = db.tentativeSpanDao().get()
+                    span.shouldNotBeNull()
+                    span.id shouldNotBe "orphan-prior"
+                    span.processId shouldBe "process-current"
+                    span.startPositionMs shouldBe 50_000L
+                    span.currentPositionMs shouldBe 50_000L
+                }
+            }
+        }
+
+        // ── F6: recoverOrphan must never finalize the current process's live span ────────────────
+
+        test("recoverOrphan does not finalize the current process's live span") {
+            runTest {
+                var now = 1_000L
+                withFixture(nowMillisProvider = { now }, processId = "process-current") { recorder, db, enqueuedOps ->
+                    // THIS process opens a live span and extends it.
+                    recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
+                    now = 31_000L
+                    recorder.onPeriodicTick(5_000L)
+
+                    // A late startup recovery fires while this process is mid-listen (the race the
+                    // reorder + process identity guards against).
+                    recorder.recoverOrphan()
+
+                    // The live span is untouched — not finalized, truncated, or deleted.
+                    val span = db.tentativeSpanDao().get()
+                    span.shouldNotBeNull()
+                    span.processId shouldBe "process-current"
+                    span.currentPositionMs shouldBe 5_000L
+                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
+                    enqueuedOps.size shouldBe 0
+                }
+            }
+        }
+
+        // ── F8: a seek splits the span so a jumped-over range isn't fabricated as listened ───────
+
+        test("onSeek splits the span so a jumped-over range is not counted as listened content") {
+            runTest {
+                var now = 1_000L
+                withFixture(nowMillisProvider = { now }) { recorder, db, enqueuedOps ->
+                    recorder.onPlay(BOOK_ID, positionMs = 600_000L, SPEED) // 0:10:00
+                    now = 121_000L
+                    recorder.onPeriodicTick(720_000L) // 0:12:00
+                    now = 122_000L
+                    recorder.onSeek(positionBeforeSeek = 720_000L, positionAfterSeek = 18_000_000L) // → 5:00:00
+                    now = 242_000L
+                    recorder.onPause(positionMs = 18_120_000L) // 5:02:00
+
+                    val events = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
+                    events.size shouldBe 2
+
+                    // Pre-seek span 0:10:00 → 0:12:00 — NOT inflated across the jump.
+                    val first = events.first { it.startPositionMs == 600_000L }
+                    first.endPositionMs shouldBe 720_000L
+
+                    // Post-seek span 5:00:00 → 5:02:00.
+                    val second = events.first { it.startPositionMs == 18_000_000L }
+                    second.endPositionMs shouldBe 18_120_000L
+
+                    // The jumped-over range (0:12:00 .. 5:00:00) is covered by NEITHER span.
+                    events.none { it.startPositionMs < 18_000_000L && it.endPositionMs > 720_000L } shouldBe true
+
+                    enqueuedOps.size shouldBe 2
+                }
+            }
+        }
+
+        // ── F8: a reverse seek must never produce an inverted span ───────────────────────────────
+
+        test("onSeek clamps a stale-backward before-position so the pre-seek span is never inverted") {
+            runTest {
+                var now = 1_000L
+                withFixture(nowMillisProvider = { now }) { recorder, db, _ ->
+                    recorder.onPlay(BOOK_ID, positionMs = 720_000L, SPEED) // span starts at 0:12:00
+                    now = 2_000L
+                    // A backward seek reported with a before-position BEHIND the span's own start.
+                    // Pre-fix this finalized endPositionMs=700_000 < startPositionMs=720_000 — an
+                    // inverted span with undefined server handling.
+                    recorder.onSeek(positionBeforeSeek = 700_000L, positionAfterSeek = 60_000L)
+
+                    val events = db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID)
+                    events.size shouldBe 1
+                    val span = events[0]
+                    (span.endPositionMs >= span.startPositionMs) shouldBe true
+                    span.endPositionMs shouldBe 720_000L // clamped up to the span's start
+                }
+            }
+        }
     })
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────
@@ -393,6 +523,7 @@ private suspend fun withFixture(
 private suspend fun withFixture(
     nowMillisProvider: () -> Long,
     failEnqueue: Boolean = false,
+    processId: String = "process-fixture-default",
     block: suspend (
         ListeningEventRecorder,
         com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
@@ -424,6 +555,7 @@ private suspend fun withFixture(
                 },
                 currentUserId = { USER_ID },
                 deviceInfo = DeviceInfoProvider { DeviceInfo(deviceName = DEVICE_LABEL) },
+                processId = processId,
                 clock =
                     object : Clock {
                         override fun now(): Instant = Instant.fromEpochMilliseconds(nowMillisProvider())

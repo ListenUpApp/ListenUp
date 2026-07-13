@@ -564,15 +564,21 @@ class PlaybackService : MediaLibraryService() {
             serviceScope.launch {
                 while (isActive) {
                     delay(POSITION_UPDATE_INTERVAL)
-                    val player = player ?: break
+                    // Gate + read off the ACTIVE session player — the cast player while casting, the
+                    // local ExoPlayer otherwise. The local player is paused during a cast (its audio
+                    // focus is released), so gating on player.isPlaying froze all periodic persistence
+                    // for the whole cast session: position stopped propagating to other devices and a
+                    // battery-death mid-cast lost the session + dropped the span. getBookRelativePosition()
+                    // already reads the session player, so only the gate had to follow it here.
+                    val sessionPlayer = mediaLibrarySession?.player ?: player ?: break
                     val bookId = currentBookId ?: break
 
-                    if (player.isPlaying) {
+                    if (sessionPlayer.isPlaying) {
                         val positionMs = getBookRelativePosition()
                         progressTracker.onPositionUpdate(
                             bookId = bookId,
                             positionMs = positionMs,
-                            speed = player.playbackParameters.speed,
+                            speed = sessionPlayer.playbackParameters.speed,
                         )
                         listeningEventRecorder.onPeriodicTick(positionMs = positionMs)
                     }
@@ -656,6 +662,14 @@ class PlaybackService : MediaLibraryService() {
                         )
                     }
                 }
+            } else if (casting) {
+                // The local player just paused because we handed off to the cast player (it releases
+                // local audio focus). This is NOT a real pause: the cast player is still playing. Do
+                // NOT stop the periodic loop (it now gates on the session/cast player and must keep
+                // persisting cast progress), do NOT finalize the span, and do NOT arm an idle timer
+                // (already suppressed by the casting guard). The session's real pause/finalize is
+                // handled when it stops on the cast device or on handoff back to local.
+                logger.debug { "Local player paused for cast handoff — keeping periodic recording alive" }
             } else {
                 stopPositionUpdates()
 
@@ -722,6 +736,38 @@ class PlaybackService : MediaLibraryService() {
             reason: Int,
         ) {
             logger.debug { "Media item transition: ${mediaItem?.mediaId}, reason: $reason" }
+        }
+
+        /**
+         * A user seek splits the listening span: finalize the pre-seek span at the old book-relative
+         * position and open a fresh one at the new position (see [ListeningEventRecorder.onSeek]).
+         * Without this a seek would leave the open span to be extended across the jump on the next
+         * heartbeat, fabricating content coverage (e.g. a seek from 0:12:00 to 5:00:00 would count
+         * the whole ~5 h as listened) that corrupts the books-finished / coverage-derived stats.
+         *
+         * Only [Player.DISCONTINUITY_REASON_SEEK] discontinuities are user seeks; auto transitions
+         * and period boundaries are ignored. Positions are converted to book-relative via the active
+         * [PlaybackManager.currentTimeline]; the raw file-relative [Player.PositionInfo.positionMs]
+         * would misplace the split on a multi-file book.
+         */
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int,
+        ) {
+            if (reason != Player.DISCONTINUITY_REASON_SEEK) return
+            currentBookId ?: return
+            val timeline = playbackManager.currentTimeline.value
+            val beforeMs =
+                timeline?.toBookPosition(oldPosition.mediaItemIndex, oldPosition.positionMs)
+                    ?: oldPosition.positionMs
+            val afterMs =
+                timeline?.toBookPosition(newPosition.mediaItemIndex, newPosition.positionMs)
+                    ?: newPosition.positionMs
+            logger.debug { "Seek discontinuity: $beforeMs -> $afterMs (book-relative)" }
+            serviceScope.launch {
+                listeningEventRecorder.onSeek(positionBeforeSeek = beforeMs, positionAfterSeek = afterMs)
+            }
         }
     }
 

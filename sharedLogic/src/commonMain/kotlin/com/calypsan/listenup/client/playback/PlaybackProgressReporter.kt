@@ -30,9 +30,10 @@ private val logger = KotlinLogging.logger {}
  * [PlaybackManagerImpl] via `MediaControllerHolder` — do not record a second time.
  *
  * **Trigger set.** Mirrors what Android records today: open on play/resume, advance on each
- * heartbeat tick, finalize on pause and on book finish. Speed-change and seek do not split
- * spans (matching Android) — the span keeps its opening speed, which is metadata only; stats
- * derive listening time from wall-clock and content from positions, both accurate regardless.
+ * heartbeat tick, finalize on pause and on book finish, and **split the span on a seek** (see
+ * [onSeek]) so a jumped-over range is never counted as listened content. Speed-change does not
+ * split the span — the span keeps its opening speed, which is metadata only; stats derive
+ * listening time from wall-clock and content from positions, both accurate regardless.
  *
  * @property progressTracker Position-persistence collaborator; always driven.
  * @property recorder Listening-event recorder; `null` on Android, non-null on
@@ -75,6 +76,23 @@ class PlaybackProgressReporter(
     ) {
         progressTracker.onPositionUpdate(bookId, positionMs, speed)
         record { it.onPeriodicTick(positionMs) }
+    }
+
+    /**
+     * User seeked within the book: persist the post-seek position and SPLIT the listening span so
+     * the jumped-over range is not counted as listened content. Finalizes the pre-seek span at
+     * [beforeMs] and opens a fresh one at [afterMs] (see [ListeningEventRecorder.onSeek]). Without
+     * this, a seek routed through [onPositionUpdate] would inflate a single span to span the jump,
+     * fabricating content coverage that corrupts the books-finished / coverage-derived stats.
+     */
+    fun onSeek(
+        bookId: BookId,
+        beforeMs: Long,
+        afterMs: Long,
+        speed: Float,
+    ) {
+        progressTracker.onPositionUpdate(bookId, afterMs, speed)
+        record { it.onSeek(positionBeforeSeek = beforeMs, positionAfterSeek = afterMs) }
     }
 
     /** User changed playback speed for this book. Speed is not span-split (see class KDoc). */

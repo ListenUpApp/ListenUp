@@ -236,6 +236,31 @@ internal class SyncRepositoryImpl(
             listeningEventDao.reassignBlankUserId(userId).let { repaired ->
                 if (repaired > 0) logger.info { "Repaired $repaired listening_events rows with a blank userId" }
             }
+            // Recover any orphan span BEFORE starting the engine. Recovery needs only the local DB,
+            // not sync — and running it first closes the race where the user hits play (onPlay) while
+            // catch-up is still paging: a late recovery would otherwise finalize the fresh LIVE span
+            // at its opening heartbeat. Process-identity in the recorder makes recovery finalize only
+            // spans from a PRIOR process, so this is safe even if it interleaves with a live session.
+            val shouldRecover =
+                orphanRecoveryMutex.withLock {
+                    if (orphanRecovered) {
+                        false
+                    } else {
+                        orphanRecovered = true
+                        true
+                    }
+                }
+            if (shouldRecover) {
+                try {
+                    listeningEventRecorder.recoverOrphan()
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Orphan recovery failure is non-fatal — log and continue.
+                    // The orphan will remain and may be recovered on the next startup.
+                    logger.warn(e) { "Orphan span recovery failed — will retry on next startup" }
+                }
+            }
             syncEngine.start(userId)
             startScanProgressObserver()
             // Self-heal: an install whose library is already in Room but whose search index was
@@ -257,26 +282,6 @@ internal class SyncRepositoryImpl(
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Cover-presence self-heal failed; will retry on next startup" }
-            }
-            val shouldRecover =
-                orphanRecoveryMutex.withLock {
-                    if (orphanRecovered) {
-                        false
-                    } else {
-                        orphanRecovered = true
-                        true
-                    }
-                }
-            if (shouldRecover) {
-                try {
-                    listeningEventRecorder.recoverOrphan()
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Orphan recovery failure is non-fatal — log and continue.
-                    // The orphan will remain and may be recovered on the next startup.
-                    logger.warn(e) { "Orphan span recovery failed — will retry on next startup" }
-                }
             }
         }
 
