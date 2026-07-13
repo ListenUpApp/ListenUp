@@ -4,6 +4,20 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
 /**
+ * True when [id] is safe to use as an import directory-name segment: non-blank, and free of path
+ * separators (`/`, `\`) and `..` traversal sequences. Server-minted import ids are always safe, but
+ * the RPC surface accepts a client-supplied [com.calypsan.listenup.core.ImportId], so every
+ * id-taking [com.calypsan.listenup.server.api.ImportServiceImpl] method validates before any
+ * filesystem access — mirroring [com.calypsan.listenup.server.backup.isSafeBackupId].
+ */
+fun isSafeImportId(id: String): Boolean {
+    if (id.isBlank()) return false
+    if (id.contains('/') || id.contains('\\')) return false
+    if (id.contains("..")) return false
+    return true
+}
+
+/**
  * All filesystem locations the ABS-import domain uses, rooted at `$LISTENUP_HOME/imports/`.
  *
  * Import jobs are **filesystem-truth**: there is no database table. Each staged import lives in

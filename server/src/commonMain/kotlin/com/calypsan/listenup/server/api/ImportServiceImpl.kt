@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.absimport.ImportAnalyzer
 import com.calypsan.listenup.server.absimport.ImportApplier
 import com.calypsan.listenup.server.absimport.ImportStore
 import com.calypsan.listenup.server.absimport.MappingValidator
+import com.calypsan.listenup.server.absimport.isSafeImportId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -51,6 +52,7 @@ class ImportServiceImpl(
 
     override suspend fun analyze(importId: ImportId): AppResult<ImportAnalysis> {
         requireAdmin()?.let { return it }
+        rejectUnsafeId(importId)?.let { return it }
         return analyzer.analyze(importId) { eventBus.tryEmit(it) }
     }
 
@@ -60,6 +62,7 @@ class ImportServiceImpl(
         bookOverrides: Map<AbsItemId, BookId?>,
     ): AppResult<Unit> {
         requireAdmin()?.let { return it }
+        rejectUnsafeId(importId)?.let { return it }
         if (store.getImport(importId) == null) {
             return AppResult.Failure(ImportError.ImportNotFound())
         }
@@ -70,6 +73,7 @@ class ImportServiceImpl(
 
     override suspend fun apply(importId: ImportId): AppResult<ImportResult> {
         requireAdmin()?.let { return it }
+        rejectUnsafeId(importId)?.let { return it }
         return applier.apply(importId) { eventBus.tryEmit(it) }
     }
 
@@ -80,12 +84,14 @@ class ImportServiceImpl(
 
     override suspend fun getImport(importId: ImportId): AppResult<ImportSummary> {
         requireAdmin()?.let { return it }
+        rejectUnsafeId(importId)?.let { return it }
         return store.getImport(importId)?.let { AppResult.Success(it) }
             ?: AppResult.Failure(ImportError.ImportNotFound())
     }
 
     override suspend fun deleteImport(importId: ImportId): AppResult<Unit> {
         requireAdmin()?.let { return it }
+        rejectUnsafeId(importId)?.let { return it }
         return if (store.deleteImport(importId)) {
             AppResult.Success(Unit)
         } else {
@@ -109,6 +115,14 @@ class ImportServiceImpl(
         }
 
     // ── Private helpers ─────────────────────────────────────────────────────────
+
+    /**
+     * null = safe id; an [ImportError.ImportNotFound] Failure for a client-supplied id that could
+     * escape the imports directory (path separators / `..`). Reported as not-found so a traversal
+     * probe learns nothing. Mirrors the backup surface's `isSafeBackupId` guard.
+     */
+    private fun rejectUnsafeId(importId: ImportId): AppResult.Failure? =
+        if (isSafeImportId(importId.value)) null else AppResult.Failure(ImportError.ImportNotFound())
 
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
     private fun requireAdmin(): AppResult.Failure? {
