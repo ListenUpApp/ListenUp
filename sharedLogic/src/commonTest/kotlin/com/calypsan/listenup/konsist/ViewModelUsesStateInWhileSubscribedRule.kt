@@ -64,6 +64,11 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 // By-design: same imperative command-pipeline shape (edit buffer -> preview ->
                 // save-and-run, driven by user actions + run progress events).
                 "OrganizeSettingsViewModel",
+                // By-design: chapter-editor draft VM — an in-memory draft mutated by user edits
+                // (retime/add/remove/reparent) with an undo stack, only SEEDED from the repo flows
+                // (not projected). stateIn(WhileSubscribed) can't model an imperatively-mutated
+                // draft; MutableStateFlow with explicit transitions is correct.
+                "ChapterEditorViewModel",
             )
 
         test("every UiState-exposing ViewModel uses stateIn(WhileSubscribed) (excluding legacy backlog)") {
