@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
@@ -42,11 +44,17 @@ val androidPlaybackModule: Module =
                 tokenProvider = get(),
                 deviceContext = get(),
                 downloadService = get(),
-                playbackRpcFactory = get(),
-                bookRpcFactory = get(),
+                prepareRepository = get(),
+                channel = rpcChannel<BookService>(),
                 scope = get(),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
                 playbackBandwidthCoordinator = get(),
+                // Android's Media3 `PlaybackService.PlayerListener` already persists
+                // book-relative transitions and records listening spans. Opt this class out
+                // of transition persistence so play/pause is not double-written to the outbox
+                // (the same signals reach here via MediaControllerHolder). Speed-change
+                // persistence still routes through the reporter.
+                persistTransitionsViaReporter = false,
             )
         }
     }

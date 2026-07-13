@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.KtorShelfRpcFactory
-import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
+import com.calypsan.listenup.api.ShelfService
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.ShelfRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
@@ -12,7 +12,6 @@ import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseC
 import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import org.koin.core.module.Module
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
@@ -28,21 +27,19 @@ import org.koin.dsl.module
  */
 internal val shelfModule: Module =
     module {
-        // ShelfRpcFactory — kotlinx.rpc proxy for ShelfService (Room reads; RPC mutations).
-        single<ShelfRpcFactory> {
-            KtorShelfRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-                authRecovery = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // ShelfService RPC channel — kotlinx.rpc dispatch for the shelf mutation and
+        // discovery surface. Own-shelf reads come from Room (via ShelfDao); only mutations
+        // and discovery need an RPC channel. Authed (self-healing) by default.
+        rpcChannel<ShelfService>()
 
         // ShelfRepository for personal curation shelves (SOLID: interface in domain, impl in data)
         single<ShelfRepository> {
             ShelfRepositoryImpl(
                 dao = get(),
+                shelfBookDao = get(),
                 userDao = get(),
-                rpcFactory = get(),
+                channel = rpcChannel(),
+                offlineEditor = get(),
             )
         }
 

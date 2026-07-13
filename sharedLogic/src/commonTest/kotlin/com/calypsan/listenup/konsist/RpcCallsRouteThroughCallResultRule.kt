@@ -5,7 +5,7 @@ import io.kotest.matchers.shouldBe
 
 /**
  * Repository RPC calls route through the factory's bounded, self-healing `callResult`
- * (which delegates to [com.calypsan.listenup.client.data.remote.RpcProxyCache.rpcCall]) — never a
+ * (which delegates to [com.calypsan.listenup.client.data.remote.RpcProxyCache.call]) — never a
  * hand-rolled `try/catch` that folds a raw `service.method()` result itself.
  *
  * The bounded engine is the whole point of the seam: a transport death heals invisibly (one bounded
@@ -46,26 +46,11 @@ class RpcCallsRouteThroughCallResultRule :
 
 /**
  * Repository impls that still hand-roll the `WireAppResult` fold instead of routing through the
- * factory's `callResult`. Each migrates when its domain is re-touched; removing a file from this set
- * is the explicit signal that its migration has shipped. Adding a new entry should never be
- * necessary — new repos call `factory.callResult { it.method() }` from day one.
- *
- * Legitimately-excluded shapes stay here on purpose, not as debt:
- * - **Long-running RPCs** (`BackupRepositoryImpl`, `ImportRepositoryImpl`) — backup/restore/import
- *   run far past `callResult`'s 15s bound; they need bespoke timeouts, so they own their fold.
- * - **`BookRepositoryImpl` / `MetadataRepositoryImpl`** — mixed read/write surfaces whose fold is
- *   entangled with cover/metadata handling; migrate as a deliberate slice, not a mechanical swap.
+ * channel's `call`. This set is now **empty** — every repository RPC dispatch routes through
+ * [com.calypsan.listenup.client.data.remote.RpcChannel.call], so the migration this ratchet tracked
+ * is complete. The rule logic stays live: an empty allowlist means any NEW hand-rolled repo (one
+ * that re-introduces the `WireAppResult` alias) fails the build immediately. Adding an entry back
+ * should never be necessary.
  */
 private val RESIDUAL_HANDROLLED_RPC_ALLOWLIST: Set<String> =
-    setOf(
-        "/data/repository/BackupRepositoryImpl.kt",
-        "/data/repository/BookEditRepositoryImpl.kt",
-        "/data/repository/BookRepositoryImpl.kt",
-        "/data/repository/ContributorEditRepositoryImpl.kt",
-        "/data/repository/ImportRepositoryImpl.kt",
-        "/data/repository/MetadataRepositoryImpl.kt",
-        "/data/repository/MoodRepositoryImpl.kt",
-        "/data/repository/ProfileEditRepositoryImpl.kt",
-        "/data/repository/SeriesEditRepositoryImpl.kt",
-        "/data/repository/TagRepositoryImpl.kt",
-    )
+    emptySet()

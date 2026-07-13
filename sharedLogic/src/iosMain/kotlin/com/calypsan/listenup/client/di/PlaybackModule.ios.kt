@@ -1,10 +1,12 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.download.AppleDownloadEnqueuer
@@ -81,7 +83,7 @@ internal val iosPlaybackModule: Module =
                 serverConfig = get(),
                 tokenProvider = get(),
                 fileManager = get(),
-                playbackRpcFactory = get(),
+                prepareRepository = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 playbackBandwidthCoordinator = get(),
             )
@@ -135,8 +137,8 @@ internal val iosPlaybackModule: Module =
                 tokenProvider = get(),
                 deviceContext = get(),
                 downloadService = get(),
-                playbackRpcFactory = get(),
-                bookRpcFactory = get(),
+                prepareRepository = get(),
+                channel = rpcChannel<BookService>(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )

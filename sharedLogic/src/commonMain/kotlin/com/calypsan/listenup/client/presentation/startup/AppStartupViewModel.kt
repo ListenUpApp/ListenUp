@@ -7,8 +7,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrDefault
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.client.core.suspendRunCatching
-import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
@@ -86,9 +87,9 @@ data class AppStartupState(
  * [UserRepository.refreshCurrentUser]; profile facets (displayName, tagline, avatar)
  * arrive through the `public_profiles` sync stream, so no separate profile refresh runs here.
  */
-class AppStartupViewModel(
+class AppStartupViewModel internal constructor(
     private val userRepository: UserRepository,
-    private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
+    private val libraryAdminChannel: RpcChannel<LibraryAdminService>,
     private val authSession: AuthSession,
     private val syncRepository: SyncRepository,
 ) : ViewModel() {
@@ -301,7 +302,7 @@ class AppStartupViewModel(
 
                         if (user?.isAdmin == true) {
                             applyAdminSetupCheckResult(
-                                libraryAdminRpcFactory.get().getSetupStatus(),
+                                libraryAdminChannel.call(idempotent = true) { it.getSetupStatus() },
                             )
                         } else {
                             logger.info {

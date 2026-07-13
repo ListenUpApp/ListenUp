@@ -1,38 +1,21 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.ServerUrl
-import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.core.currentEpochMilliseconds
-import com.calypsan.listenup.api.result.flatMap
-import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
-import com.calypsan.listenup.client.data.remote.dataOrFailure
-import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
-import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.data.remote.toWebSocketScheme
-import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.VerifiedServer
 import com.calypsan.listenup.api.result.AppResult as RpcResult
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.request.get
-import io.ktor.serialization.kotlinx.json.json
 import kotlin.coroutines.cancellation.CancellationException
 
 private val logger = KotlinLogging.logger {}
-
-private const val REQUEST_TIMEOUT_MS = 30_000L
-private const val CONNECT_TIMEOUT_MS = 10_000L
-private const val SOCKET_TIMEOUT_MS = 30_000L
 
 // Window within which a repeat probe of the SAME ws URL reuses the prior success instead of opening a
 // fresh kRPC WebSocket. Picker-select fires two probes ~100ms apart — findReachableUrl, then
@@ -42,16 +25,12 @@ private const val SOCKET_TIMEOUT_MS = 30_000L
 private const val PROBE_COALESCE_WINDOW_MS = 2_000L
 
 /**
- * [InstanceRepository] split across two transports:
- *  - **Verification + the screen-one [getServerInfo] probe** go over the
- *    [InstanceService] kotlinx.rpc proxy ([InstanceRpcFactory]). Verification is
- *    pre-authentication — there is no saved URL yet — so the factory connects to
- *    an **explicit** candidate URL rather than reading `ServerConfig`.
- *  - **[getInstance]** stays on the legacy REST `ApiResponse<Instance>` path,
- *    retained for admin/settings consumers that read the richer [Instance]
- *    (notably `remoteUrl`) until a dedicated admin GET surface exists.
- *
- * [getServerUrl] supplies the already-saved URL for the post-connect probes.
+ * [InstanceRepository] backed entirely by the [InstanceService] kotlinx.rpc proxy
+ * ([InstanceRpcFactory]). Verification and the screen-one [getServerInfo] probe
+ * ride the public RPC mount. Verification is pre-authentication — there is no
+ * saved URL yet — so the factory connects to an **explicit** candidate URL rather
+ * than reading `ServerConfig`; [getServerUrl] supplies the already-saved URL for
+ * the post-connect probes.
  *
  * @param persistRemoteUrl Writes the server's advertised remote URL to ServerConfig storage on every successful getServerInfo (null clears it).
  * @param persistPeerVersion Seeds the peer server's version + API contract version (see
@@ -113,15 +92,16 @@ internal class InstanceRepositoryImpl(
                 }
 
                 is AppResult.Failure -> {
-                    val message =
-                        result.error.debugInfo
-                            .orEmpty()
-                            .lowercase() + result.error.message.lowercase()
-                    val isSslError =
-                        message.contains("ssl") || message.contains("tls") || message.contains("handshake")
+                    // Branch on the TYPED error, not a message/debugInfo substring: a genuine TLS/SSL
+                    // failure (wrong scheme — https/wss at a plaintext server) is classified as
+                    // ServerConnectError.TlsFailure at the ErrorMapper boundary, so retrying the
+                    // alternate (http/ws) candidate can succeed. A non-TLS failure — e.g. a proxy
+                    // answering 500 on the WebSocket upgrade (a WebSocketException → NetworkUnavailable)
+                    // — is NOT a scheme mismatch and must not skip to the next candidate.
+                    val isTlsError = result.error is ServerConnectError.TlsFailure
                     lastFailure = result
-                    if (isSslError && index < urlsToTry.size - 1) {
-                        logger.debug { "SSL error at $currentUrl, trying next candidate" }
+                    if (isTlsError && index < urlsToTry.size - 1) {
+                        logger.debug { "TLS failure at $currentUrl, trying next candidate" }
                         continue
                     }
                     break
@@ -209,60 +189,6 @@ internal class InstanceRepositoryImpl(
                 listOf("http://$url", "https://$url")
             } else {
                 listOf("https://$url", "http://$url")
-            }
-        }
-
-    // ── Legacy REST path (admin/settings only) ──────────────────────────────
-    // Retained verbatim until the admin surface exposes the richer Instance
-    // fields (e.g. remoteUrl) over a dedicated GET. New code uses getServerInfo().
-
-    private var cachedInstance: Instance? = null
-
-    override suspend fun getInstance(forceRefresh: Boolean): AppResult<Instance> {
-        cachedInstance?.takeIf { !forceRefresh }?.let { return AppResult.Success(it) }
-
-        val serverUrl = getServerUrl()
-        if (serverUrl == null) {
-            logger.warn { "Cannot fetch instance: server URL not configured" }
-            return AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "Server URL not configured"))
-        }
-
-        logger.debug { "Fetching instance from ${serverUrl.value}/api/v1/instance" }
-
-        val result =
-            suspendRunCatching {
-                val client = createRestClient(serverUrl)
-                try {
-                    val response: ApiResponse<Instance> = client.get("/api/v1/instance").body()
-                    response.dataOrFailure("Failed to fetch instance")
-                } finally {
-                    client.close()
-                }
-            }.flatMap { it }
-
-        if (result is AppResult.Success) {
-            cachedInstance = result.data
-        }
-
-        return result
-    }
-
-    private fun createRestClient(serverUrl: ServerUrl): HttpClient =
-        HttpClient {
-            installListenUpErrorHandling()
-
-            install(ContentNegotiation) {
-                json(appJson)
-            }
-
-            install(HttpTimeout) {
-                requestTimeoutMillis = REQUEST_TIMEOUT_MS
-                connectTimeoutMillis = CONNECT_TIMEOUT_MS
-                socketTimeoutMillis = SOCKET_TIMEOUT_MS
-            }
-
-            defaultRequest {
-                url(serverUrl.value)
             }
         }
 }

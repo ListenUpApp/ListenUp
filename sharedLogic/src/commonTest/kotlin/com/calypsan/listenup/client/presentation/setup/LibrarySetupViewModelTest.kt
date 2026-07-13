@@ -8,7 +8,8 @@ import com.calypsan.listenup.api.dto.LibraryFolder
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -41,7 +42,7 @@ import kotlinx.coroutines.test.resetMain
  *   then emits [LibrarySetupNavAction.Finished]
  * - [completeSetup] with no selected paths sets an error and does not finish
  *
- * Uses Mokkery to mock [LibraryAdminRpcFactory] returning a [LibraryAdminService] stub.
+ * Dispatches through a [RpcChannel.forTest] over a Mokkery [LibraryAdminService] stub.
  * [ErrorBus] is a final class — tests observe its [ErrorBus.errors] flow directly.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -63,11 +64,6 @@ class LibrarySetupViewModelTest :
             mock<LibraryAdminService> {
                 // Default: scanLibrary is a no-op success unless a test overrides it.
                 everySuspend { scanLibrary() } returns AppResult.Success(Unit)
-            }
-
-        fun makeFactory(service: LibraryAdminService): LibraryAdminRpcFactory =
-            mock<LibraryAdminRpcFactory>().also {
-                everySuspend { it.get() } returns service
             }
 
         fun makeLibraryFolder(
@@ -103,7 +99,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false))
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.state.value.isCheckingStatus shouldBe false
@@ -119,7 +115,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.browseFilesystem(any()) } returns
                     AppResult.Success(emptyList())
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.state.value.needsSetup shouldBe true
@@ -134,7 +130,7 @@ class LibrarySetupViewModelTest :
                 val error = InternalError()
                 everySuspend { service.getSetupStatus() } returns AppResult.Failure(error)
 
-                val vm = LibrarySetupViewModel(makeFactory(service), errorBus, CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), errorBus, CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.state.value.isCheckingStatus shouldBe false
@@ -157,7 +153,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.browseFilesystem("/data") } returns
                     AppResult.Success(entries)
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.loadDirectory("/data")
@@ -177,7 +173,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.browseFilesystem("/") } returns
                     AppResult.Success(emptyList())
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.loadDirectory("/")
@@ -196,7 +192,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.browseFilesystem("/data/audiobooks") } returns
                     AppResult.Success(emptyList())
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.loadDirectory("/data/audiobooks")
@@ -215,7 +211,7 @@ class LibrarySetupViewModelTest :
                     AppResult.Success(SetupStatus(needsSetup = false))
                 everySuspend { service.browseFilesystem(any()) } returns AppResult.Failure(error)
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
                 vm.loadDirectory("/data")
                 advanceUntilIdle()
@@ -237,7 +233,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.scanLibrary() } returns AppResult.Success(Unit)
 
                 val appScope = CoroutineScope(testDispatcher)
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), appScope)
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), appScope)
                 advanceUntilIdle()
 
                 vm.selectPath("/audio/a")
@@ -262,7 +258,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false))
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.navActions.test {
@@ -284,7 +280,7 @@ class LibrarySetupViewModelTest :
                     AppResult.Success(SetupStatus(needsSetup = false))
                 everySuspend { service.addFolder(any()) } returns AppResult.Failure(error)
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
                 vm.selectPath("/audio/a")
 
@@ -308,7 +304,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false))
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.togglePath("/data/audiobooks")
@@ -323,7 +319,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false))
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.togglePath("/data/audiobooks")
@@ -339,7 +335,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false))
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.selectPath("/audio/a")
@@ -355,7 +351,7 @@ class LibrarySetupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = false))
 
-                val vm = LibrarySetupViewModel(makeFactory(service), ErrorBus(), CoroutineScope(testDispatcher))
+                val vm = LibrarySetupViewModel(RpcChannel.forTest(service), ErrorBus(), CoroutineScope(testDispatcher))
                 advanceUntilIdle()
 
                 vm.selectPath("/audio/a")

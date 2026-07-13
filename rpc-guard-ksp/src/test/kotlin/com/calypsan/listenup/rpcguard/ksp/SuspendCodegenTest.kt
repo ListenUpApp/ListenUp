@@ -40,7 +40,10 @@ class SuspendCodegenTest :
             generated.shouldContain(
                 "AppResult.Failure(\n            com.calypsan.listenup.api.error.InternalError(",
             )
-            generated.shouldContain("cause = e::class.simpleName")
+            // The wire InternalError must NOT carry the server exception's class name or message —
+            // those routinely embed SQL / paths / hostnames. The full detail stays in the server log.
+            generated.shouldNotContain("e::class.simpleName")
+            generated.shouldNotContain("e.message")
             generated.shouldContain(
                 "private val log: io.github.oshai.kotlinlogging.KLogger = " +
                     "io.github.oshai.kotlinlogging.KotlinLogging.logger(\"rpc.FakeService\")",
@@ -52,6 +55,10 @@ class SuspendCodegenTest :
             )
             generated.shouldContain("log.error(e) { \"Uncaught exception in FakeService.foo [cid=\$cid]\" }")
             generated.shouldContain("correlationId = cid")
+            // A RETURNED domain failure gets the request cid stamped + a concise PII-free log line.
+            generated.shouldContain(
+                """}.stampAndLogFailure(cid, log, "FakeService", "foo")""",
+            )
             // Micrometer fully removed: the guard logs escapes but records no metric.
             generated.shouldNotContain("RpcGuardMetrics")
             generated.shouldNotContain("recordEscape")

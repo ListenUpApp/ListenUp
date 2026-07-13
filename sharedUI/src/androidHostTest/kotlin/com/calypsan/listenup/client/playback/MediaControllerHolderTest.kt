@@ -128,6 +128,15 @@ private class FakePlaybackStateWriter : PlaybackStateWriter {
         positionHistory += positionMs
     }
 
+    val mediaItemPositionHistory = mutableListOf<Pair<Int, Long>>()
+
+    override fun updatePositionFromMediaItem(
+        mediaItemIndex: Int,
+        positionInItemMs: Long,
+    ) {
+        mediaItemPositionHistory += mediaItemIndex to positionInItemMs
+    }
+
     override fun updateSpeed(speed: Float) {
         speedHistory += speed
     }

@@ -150,20 +150,17 @@ class TokenRefreshSingleFlightTest :
                 val public = mock<AuthServicePublic>()
                 everySuspend { public.refreshSession(any()) } calls {
                     refreshRpcCalls.update { it + 1 }
-                    staleServed.first { it >= PARALLEL_CALLERS }
+                    // Release after the FIRST 401 (not all PARALLEL_CALLERS): gating on the full count
+                    // deadlocks when a late caller blocks awaiting this same refresh deferred before it
+                    // ever sends its request, so its 401 never arrives and the count never reaches N.
+                    staleServed.first { it >= 1 }
                     AppResult.Success(freshContractSession())
                 }
 
                 val repo =
                     AuthRepositoryImpl(
-                        rpc =
-                            object : AuthRpcFactory {
-                                override suspend fun publicService(): AuthServicePublic = public
-
-                                override suspend fun authedService(): AuthServiceAuthed = throw NotImplementedError()
-
-                                override suspend fun invalidate() = Unit
-                            },
+                        authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                     )
 
@@ -209,8 +206,8 @@ class TokenRefreshSingleFlightTest :
 
                 // Every caller completed with the retried, freshly-authed request.
                 responses.forEach { it.status shouldBe HttpStatusCode.OK }
-                // Each caller 401'd exactly once before the rotation landed.
-                staleServed.value shouldBe PARALLEL_CALLERS
+                // At least one caller 401'd and triggered the single rotation; the rest coalesced onto it or retried through it.
+                (staleServed.value >= 1) shouldBe true
                 // THE invariant: exactly one rotation despite five concurrent triggers.
                 refreshRpcCalls.value shouldBe 1
                 // The rotated pair is what's persisted.

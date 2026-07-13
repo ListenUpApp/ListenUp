@@ -19,6 +19,13 @@ class TransportErrorTest :
             err.isRetryable shouldBe true
         }
 
+        test("OutcomeUnknown is NOT auto-retryable — the mutation may have already committed") {
+            val err = TransportError.OutcomeUnknown()
+            err.message shouldBe "The request may not have completed. Check before retrying."
+            err.code shouldBe "TRANSPORT_OUTCOME_UNKNOWN"
+            err.isRetryable shouldBe false
+        }
+
         test("Server5xx carries the status code and is auto-retryable") {
             val err = TransportError.Server5xx(statusCode = 503)
             err.statusCode shouldBe 503

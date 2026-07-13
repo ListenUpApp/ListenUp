@@ -8,10 +8,8 @@ import com.calypsan.listenup.client.data.repository.ServerRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerRepository
-import com.calypsan.listenup.client.domain.usecase.GetInstanceUseCase
 import com.calypsan.listenup.core.ServerUrl
 import org.koin.core.module.Module
-import org.koin.core.module.dsl.factoryOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -20,7 +18,7 @@ private const val APP_SCOPE = "appScope"
 
 /**
  * Connection-coordination bindings — [InstanceRepository], [ServerRepository],
- * [GetInstanceUseCase], the [RpcCacheInvalidator] sweep, and the [ConnectionCoordinator]
+ * the [RpcCacheInvalidator] sweep, and the [ConnectionCoordinator]
  * that wires them all together at startup.
  */
 internal val connectionModule: Module =
@@ -55,8 +53,6 @@ internal val connectionModule: Module =
         single<ServerRepository> {
             ServerRepositoryImpl(discoveryService = get())
         }
-
-        factoryOf(::GetInstanceUseCase)
 
         // Aggregates every RemoteCache (RPC factories + the shared ApiClientFactory)
         // so logout / user-switch / server-URL change can drop them all in one sweep.

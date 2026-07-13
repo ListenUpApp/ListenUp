@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.ValidationField
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,8 +70,8 @@ private fun AppError.toLoginErrorType(): LoginErrorType =
     }
 
 private fun ValidationError.field(): LoginField =
-    when {
-        message.contains("email", ignoreCase = true) -> LoginField.EMAIL
-        message.contains("password", ignoreCase = true) -> LoginField.PASSWORD
+    when (field) {
+        ValidationField.PASSWORD -> LoginField.PASSWORD
+        ValidationField.EMAIL -> LoginField.EMAIL
         else -> LoginField.EMAIL
     }

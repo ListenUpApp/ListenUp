@@ -42,7 +42,7 @@ class DownloadAudioFileTest :
                 val signedUrl = "/api/v1/audio/$bookId/$audioFileId?u=&exp=&sig=test"
 
                 val fakeRpcFactory =
-                    FakePlaybackRpcFactory(
+                    FakePlaybackPrepareRepository(
                         AppResult.Success(
                             PreparedPlayback(
                                 bookId = bookId,
@@ -89,7 +89,7 @@ class DownloadAudioFileTest :
                     httpClient = minimalClient(engine),
                     repository = fakeRepo,
                     fileManager = fileManagerFor(tmpRoot),
-                    playbackRpcFactory = fakeRpcFactory,
+                    prepareRepository = fakeRpcFactory,
                 )
 
                 // The download must have hit the signed relative URL — not a bare /api/v1/books/ path.
@@ -109,7 +109,7 @@ class DownloadAudioFileTest :
                 val bookId = "book-2"
 
                 val fakeRpcFactory =
-                    FakePlaybackRpcFactory(
+                    FakePlaybackPrepareRepository(
                         AppResult.Failure(
                             TransportError.NetworkUnavailable(debugInfo = "simulated network failure"),
                         ),
@@ -138,7 +138,7 @@ class DownloadAudioFileTest :
                         httpClient = minimalClient(engine),
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackRpcFactory = fakeRpcFactory,
+                        prepareRepository = fakeRpcFactory,
                     )
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
@@ -156,7 +156,7 @@ class DownloadAudioFileTest :
                 val bookId = "book-3"
 
                 val fakeRpcFactory =
-                    FakePlaybackRpcFactory(
+                    FakePlaybackPrepareRepository(
                         AppResult.Success(
                             PreparedPlayback(
                                 bookId = bookId,
@@ -199,7 +199,7 @@ class DownloadAudioFileTest :
                         httpClient = minimalClient(engine),
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackRpcFactory = fakeRpcFactory,
+                        prepareRepository = fakeRpcFactory,
                     )
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
@@ -209,7 +209,7 @@ class DownloadAudioFileTest :
         }
     })
 
-// FakePlaybackRpcFactory and FakePlaybackService are defined in DownloadWorkerLogicTest.kt
+// FakePlaybackPrepareRepository is defined in DownloadWorkerLogicTest.kt
 // (same package, internal visibility) — reused here.
 
 // ---- Helpers ----

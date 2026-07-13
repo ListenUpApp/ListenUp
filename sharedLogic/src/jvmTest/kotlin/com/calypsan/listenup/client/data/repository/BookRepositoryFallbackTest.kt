@@ -8,6 +8,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -156,8 +158,7 @@ private fun withTestRepo(
     val db = createInMemoryTestDatabase()
     try {
         val service: BookService = mock()
-        val rpcFactory: com.calypsan.listenup.client.data.remote.BookRpcFactory = mock()
-        everySuspend { rpcFactory.bookService() } returns service
+        val channel = RpcChannel.forTest(service)
 
         val networkMonitor: NetworkMonitor = mock()
         every { networkMonitor.isOnline() } returns online
@@ -192,7 +193,7 @@ private fun withTestRepo(
                 imageStorage = imageStorage,
                 joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
                 networkMonitor = networkMonitor,
-                bookRpcFactory = rpcFactory,
+                channel = channel,
                 bookSyncDomainHandler = syncHandler,
             )
 

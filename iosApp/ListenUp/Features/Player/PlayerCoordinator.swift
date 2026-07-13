@@ -444,11 +444,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     /// Seek to a whole-book position in milliseconds.
     func seekTo(positionMs: Int64) {
+        // Capture the pre-seek position BEFORE issuing the seek so the span split gets a correct
+        // "before" edge. The async engine seek hasn't moved the tracker yet at this point.
+        let beforeMs = bookPositionMs
         Task { await engine.seek(toMs: positionMs) }
         // Report against the *loaded* book only — during `.preparing` the incoming book isn't
         // loaded yet, and reporting a seek for it would corrupt its untouched resume position.
         if let id = phase.playingState?.bookId {
-            progress.onPositionUpdate(bookId: id, positionMs: positionMs, speed: playbackSpeed)
+            // Split the listening span (finalize pre-seek at `beforeMs`, reopen at `positionMs`) so
+            // the jumped-over range isn't fabricated as listened content. This also persists the new
+            // position — routing the seek through `onPositionUpdate` (which extends the open span
+            // across the jump) is exactly the stats-corrupting bug this replaces.
+            progress.onSeek(bookId: id, beforeMs: beforeMs, afterMs: positionMs, speed: playbackSpeed)
             lastReportedPositionMs = positionMs
         }
         updateNowPlaying()

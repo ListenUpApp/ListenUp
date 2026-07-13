@@ -456,4 +456,15 @@ internal data class TentativeSpanEntity(
     val tz: String,
     /** Human-readable device label (null on older clients). */
     val deviceLabel: String?,
+    /**
+     * Identity of the app-process launch that opened this span (an in-memory UUID minted once
+     * per process). It is how orphan recovery tells a span left behind by a PRIOR process
+     * (crash / OS-kill) apart from the CURRENT process's live span: recovery finalizes only
+     * spans whose id differs from the running process's, and a fresh play never overwrites an
+     * unfinalized span from a different process without recovering it first. Empty string is the
+     * legacy/unknown value and is always treated as a recoverable orphan (it never equals a live
+     * process id).
+     */
+    @ColumnInfo(defaultValue = "")
+    val processId: String = "",
 )

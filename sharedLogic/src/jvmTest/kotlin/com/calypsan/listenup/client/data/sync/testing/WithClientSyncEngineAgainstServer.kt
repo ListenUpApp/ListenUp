@@ -5,32 +5,34 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.catchingRpcResult
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.api.dto.ContributorMutation
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
-import com.calypsan.listenup.client.data.remote.GenreRpcFactory
-import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
-import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.api.dto.SeriesMutation
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.BookMutationLocalApply
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.SeriesRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.OutboxOpSender
+import com.calypsan.listenup.client.data.sync.orSuccessIfNotFound
 import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -43,13 +45,25 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.client.domain.repository.ContributorRepository as ClientContributorRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientGenreRepository
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository as ClientSeriesRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.mock
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.api.BookAccessPolicy
@@ -60,6 +74,7 @@ import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.api.contributorServiceScopedTo
 import com.calypsan.listenup.server.api.createContributorService
 import com.calypsan.listenup.server.api.createGenreService
+import com.calypsan.listenup.server.api.createSearchService
 import com.calypsan.listenup.server.api.createSeriesService
 import com.calypsan.listenup.server.api.genreServiceScopedTo
 import com.calypsan.listenup.server.api.seriesServiceScopedTo
@@ -215,6 +230,8 @@ internal data class ClientEngineScope(
     val bookEditRepository: BookEditRepository,
     val contributorEditRepository: ContributorEditRepository,
     val seriesEditRepository: SeriesEditRepository,
+    val contributorSearchRepository: ClientContributorRepository,
+    val seriesSearchRepository: ClientSeriesRepository,
     val genreRepository: ClientGenreRepository,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
@@ -299,6 +316,10 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )
+        // The unified server-search e2e (contributor/series autocomplete via SearchService) needs a
+        // `SearchService` over the same server scaffolding. Left unscoped — the ROOT test principal
+        // bypasses the access policy.
+        val searchService: SearchService = createSearchService(sqlDb = serverSqlDb, driver = serverDriver)
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
@@ -372,6 +393,9 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                     ?: error("authed RPC mount reached without a principal")
                             guard(genreServiceScopedTo(genreService, PrincipalProvider { p }))
                         }
+                        // SearchService is unscoped in the harness (ROOT bypasses the access policy),
+                        // so it mounts without per-request principal scoping.
+                        registerService<SearchService> { guard(searchService) }
                     }
                 }
             }
@@ -385,26 +409,74 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 install(ContentNegotiation) { json(contractJson) }
                 install(SSE)
                 // Tier 3 e2e: installKrpc() adds WebSockets + kotlinx.rpc plumbing
-                // so the harness's BookRpcFactory can open `.rpc("/api/rpc/authed")`
+                // so the harness's RPC channels can open `.rpc("/api/rpc/authed")`
                 // against the same in-process server. The relative-URL pattern
                 // matches the existing SSE/REST clients above.
                 installKrpc()
             }
-        val testBookRpcFactory = TestBookRpcFactory(testClient)
-        val testContributorRpcFactory = TestContributorRpcFactory(testClient)
-        val genreRepository: ClientGenreRepository =
-            GenreRepositoryImpl(
-                dao = clientDb.genreDao(),
-                rpcFactory = TestGenreRpcFactory(testClient),
-            )
+        // Real kotlinx.rpc BookService proxy over the in-process server, wrapped in a
+        // no-reconnect test channel — backs BookEditRepositoryImpl and the books outbox
+        // sender below (client → RPC → server → SSE → Room round trip).
+        val bookServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<BookService>()
+        val bookChannel = RpcChannel.forTest(bookServiceProxy)
+        // Real kotlinx.rpc ContributorService proxy over the in-process server, wrapped in a
+        // no-reconnect test channel — backs ContributorEditRepositoryImpl and the contributor
+        // outbox sender below (client → RPC → server → SSE → Room round trip).
+        val contributorServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<ContributorService>()
+        val contributorChannel = RpcChannel.forTest(contributorServiceProxy)
+        // Real kotlinx.rpc SearchService proxy over the in-process server, wrapped in a no-reconnect
+        // test channel — backs the contributor/series search repos' never-stranded server search
+        // (client repo → RPC → server SearchService → SearchResults).
+        val searchServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<SearchService>()
+        val searchChannel = RpcChannel.forTest(searchServiceProxy)
+        // Real kotlinx.rpc ProfileService / UserPreferencesService proxies over the in-process
+        // server, wrapped in no-reconnect test channels — back the profile/preferences outbox
+        // senders below. No harness test mounts these services server-side yet; the channels exist
+        // so a future e2e test's queued op has a sender to resolve against, like every other domain.
+        val profileServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<ProfileService>()
+        val profileChannel = RpcChannel.forTest(profileServiceProxy)
+        val userPreferencesServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<UserPreferencesService>()
+        val userPreferencesChannel = RpcChannel.forTest(userPreferencesServiceProxy)
+        // Real kotlinx.rpc GenreService proxy over the in-process server, wrapped in a
+        // no-reconnect test channel via RpcChannel.forTest — a single cached proxy over a
+        // real socket to the in-process server, matching the sibling Test*RpcFactory idiom.
+        val genreServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<GenreService>()
+        // Real kotlinx.rpc CollectionService proxy over the in-process server, wrapped in a
+        // no-reconnect test channel — backs BookEditRepositoryImpl.setBookCollections here.
+        val collectionServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<CollectionService>()
+        val collectionChannel = RpcChannel.forTest(collectionServiceProxy)
 
         try {
             val registry = ClientSyncDomainRegistry()
             val recording = RecordingTagSyncDomainHandler(registry)
-            // Real Books, Contributor, and Series handlers registered into the SAME
-            // registry — the client dispatcher routes domain SSE frames here, applying
-            // them into the client Room DB exactly as production does.
-            registerClientSyncHandlers(clientDb, registry)
             val state = SyncEngineState()
             val store = SyncCursorStore(clientDb.syncCursorDao())
             // Wire real senders for `playback_positions` and `listening_events` so the
@@ -413,7 +485,15 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // with no HTTP/RPC round-trip.
             val playbackSender = DirectPlaybackPositionSender(serverRepos.playbackPositionRepo)
             val listeningEventSender = DirectListeningEventSender(serverRepos.listeningEventRepo)
-            val testSeriesRpcFactory = TestSeriesRpcFactory(testClient)
+            // Real kotlinx.rpc SeriesService proxy over the in-process server, wrapped in a
+            // no-reconnect test channel — backs SeriesEditRepositoryImpl and the series outbox
+            // sender below (client → RPC → server → SSE → Room round trip).
+            val seriesServiceProxy =
+                testClient
+                    .rpc("ws://localhost/api/rpc/authed") {
+                        rpcConfig { serialization { krpcJson(contractJson) } }
+                    }.withService<SeriesService>()
+            val seriesChannel = RpcChannel.forTest(seriesServiceProxy)
             val queue =
                 PendingOperationQueue(
                     dao = clientDb.pendingOperationV2Dao(),
@@ -423,19 +503,77 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 OutboxChannels.Positions.name to playbackSender,
                                 OutboxChannels.ListeningEvents.name to listeningEventSender,
                                 OutboxChannels.Books.name to
-                                    OutboxOpSender(OutboxChannels.Books) { id, patch ->
-                                        testBookRpcFactory.bookService().updateBook(BookId(id), patch)
+                                    OutboxOpSender(OutboxChannels.Books) { id, mutation ->
+                                        val bookId = BookId(id)
+                                        when (mutation) {
+                                            is BookMutation.Update -> {
+                                                bookChannel.call { it.updateBook(bookId, mutation.patch) }
+                                            }
+
+                                            is BookMutation.SetContributors -> {
+                                                bookChannel.call {
+                                                    it.setBookContributors(
+                                                        bookId,
+                                                        mutation.contributors,
+                                                    )
+                                                }
+                                            }
+
+                                            is BookMutation.SetSeries -> {
+                                                bookChannel.call { it.setBookSeries(bookId, mutation.series) }
+                                            }
+
+                                            is BookMutation.SetGenres -> {
+                                                bookChannel.call { it.setBookGenres(bookId, mutation.genres) }
+                                            }
+
+                                            is BookMutation.SetChapters -> {
+                                                bookChannel.call { it.setBookChapters(bookId, mutation.chapters) }
+                                            }
+
+                                            is BookMutation.SetCollections -> {
+                                                collectionChannel.call {
+                                                    it.setBookCollections(
+                                                        bookId,
+                                                        mutation.collectionIds.map(::CollectionId),
+                                                    )
+                                                }
+                                            }
+
+                                            is BookMutation.DeleteCover -> {
+                                                bookChannel.call { it.deleteBookCover(bookId) }
+                                            }
+                                        }
                                     },
                                 OutboxChannels.Series.name to
-                                    OutboxOpSender(OutboxChannels.Series) { id, patch ->
-                                        testSeriesRpcFactory.seriesService().updateSeries(SeriesId(id), patch)
+                                    OutboxOpSender(OutboxChannels.Series) { id, mutation ->
+                                        when (mutation) {
+                                            is SeriesMutation.Update -> {
+                                                seriesChannel.call { it.updateSeries(SeriesId(id), mutation.patch) }
+                                            }
+
+                                            is SeriesMutation.Delete -> {
+                                                seriesChannel
+                                                    .call { it.deleteSeries(SeriesId(id)) }
+                                                    .orSuccessIfNotFound()
+                                            }
+                                        }
                                     },
                                 OutboxChannels.Contributors.name to
-                                    OutboxOpSender(OutboxChannels.Contributors) { id, patch ->
-                                        testContributorRpcFactory.contributorService().updateContributor(
-                                            ContributorId(id),
-                                            patch,
-                                        )
+                                    OutboxOpSender(OutboxChannels.Contributors) { id, mutation ->
+                                        when (mutation) {
+                                            is ContributorMutation.Update -> {
+                                                contributorChannel.call {
+                                                    it.updateContributor(ContributorId(id), mutation.patch)
+                                                }
+                                            }
+
+                                            is ContributorMutation.Delete -> {
+                                                contributorChannel
+                                                    .call { it.deleteContributor(ContributorId(id)) }
+                                                    .orSuccessIfNotFound()
+                                            }
+                                        }
                                     },
                                 // No harness test yet drains a "preferences" op end-to-end (the
                                 // RPC route isn't mounted server-side above); the entry exists so a
@@ -443,7 +581,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 // mirroring the Books/Series/Contributor registrations.
                                 OutboxChannels.Preferences.name to
                                     OutboxOpSender(OutboxChannels.Preferences) { _, patch ->
-                                        TestUserPreferencesRpcFactory(testClient).get().updateMyPreferences(patch)
+                                        userPreferencesChannel.call { it.updateMyPreferences(patch) }
                                     },
                                 // No harness test yet drains a "profile" op end-to-end (the RPC
                                 // route isn't mounted server-side above, and no ProfileEditRepository
@@ -452,11 +590,17 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 // Preferences registration above.
                                 OutboxChannels.Profile.name to
                                     OutboxOpSender(OutboxChannels.Profile) { _, patch ->
-                                        TestProfileRpcFactory(testClient).get().updateMyProfile(patch)
+                                        profileChannel.call { it.updateMyProfile(patch) }
                                     },
                             ),
                         ),
                 )
+
+            // Real Books, Contributor, and Series handlers registered into the SAME registry — the
+            // client dispatcher routes domain SSE frames here, applying them into the client Room DB
+            // exactly as production does. Registered AFTER the queue so the anti-flicker shield can
+            // consult the real outbox: an in-flight local edit shields its entity's inbound echoes.
+            registerClientSyncHandlers(clientDb, registry, queue)
 
             val offlineEditor =
                 OfflineEditor(
@@ -465,15 +609,32 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     authSession = FakeAuthSession(),
                 )
 
+            // Offline-first genre update/delete write to client Room and enqueue a "genres" op.
+            val genreRepository: ClientGenreRepository =
+                GenreRepositoryImpl(
+                    dao = clientDb.genreDao(),
+                    channel = RpcChannel.forTest(genreServiceProxy),
+                    offlineEditor = offlineEditor,
+                )
+
             // Offline-first book edits write to client Room and enqueue a "books" op;
             // the engine drains it through the OutboxOpSender above to the in-process
             // server, whose SSE echo reconciles client Room via the books sync handler.
             val bookEditRepository: BookEditRepository =
                 BookEditRepositoryImpl(
-                    bookRpcFactory = testBookRpcFactory,
-                    collectionRpcFactory = TestCollectionRpcFactory(testClient),
-                    bookDao = clientDb.bookDao(),
                     offlineEditor = offlineEditor,
+                    localApply =
+                        BookMutationLocalApply(
+                            bookDao = clientDb.bookDao(),
+                            bookContributorDao = clientDb.bookContributorDao(),
+                            contributorDao = clientDb.contributorDao(),
+                            bookSeriesDao = clientDb.bookSeriesDao(),
+                            seriesDao = clientDb.seriesDao(),
+                            genreDao = clientDb.genreDao(),
+                            chapterDao = clientDb.chapterDao(),
+                            collectionBookDao = clientDb.collectionBookDao(),
+                        ),
+                    bookDao = clientDb.bookDao(),
                 )
 
             // Offline-first series edits write to client Room and enqueue a "series" op;
@@ -481,7 +642,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // server, whose SSE echo reconciles client Room via the series composed handler.
             val seriesEditRepository: SeriesEditRepository =
                 SeriesEditRepositoryImpl(
-                    seriesRpcFactory = testSeriesRpcFactory,
+                    channel = seriesChannel,
                     seriesDao = clientDb.seriesDao(),
                     offlineEditor = offlineEditor,
                 )
@@ -492,9 +653,43 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // the contributors sync domain.
             val contributorEditRepository: ContributorEditRepository =
                 ContributorEditRepositoryImpl(
-                    contributorRpcFactory = testContributorRpcFactory,
+                    channel = contributorChannel,
                     contributorDao = clientDb.contributorDao(),
                     offlineEditor = offlineEditor,
+                )
+
+            // Always-online NetworkMonitor so the search repos take the server (RPC) path rather
+            // than the local-FTS fallback — the whole point of the unified-search e2e.
+            val alwaysOnline = mock<NetworkMonitor> { every { isOnline() } returns true }
+
+            // Read-side contributor/series repositories backed by the SAME clientDb + real RPC
+            // channels. `searchContributors` / `searchSeries` route through `searchChannel` to the
+            // in-process server's SearchService — the client→RPC→server search round trip. Their
+            // cache-miss write-through handlers use a throwaway registry (search never touches them).
+            val contributorSearchRepository: ClientContributorRepository =
+                ContributorRepositoryImpl(
+                    contributorDao = clientDb.contributorDao(),
+                    bookDao = clientDb.bookDao(),
+                    searchDao = clientDb.searchDao(),
+                    networkMonitor = alwaysOnline,
+                    imageStorage = stubImageStorage(),
+                    channel = contributorChannel,
+                    searchChannel = searchChannel,
+                    contributorSyncHandler =
+                        contributorsDomain(clientDb, stubImageStorage())
+                            .toHandler(RoomTransactionRunner(clientDb), ClientSyncDomainRegistry()),
+                )
+            val seriesSearchRepository: ClientSeriesRepository =
+                SeriesRepositoryImpl(
+                    seriesDao = clientDb.seriesDao(),
+                    bookDao = clientDb.bookDao(),
+                    searchDao = clientDb.searchDao(),
+                    networkMonitor = alwaysOnline,
+                    imageStorage = stubImageStorage(),
+                    channel = seriesChannel,
+                    searchChannel = searchChannel,
+                    seriesSyncHandler =
+                        seriesDomain(clientDb).toHandler(RoomTransactionRunner(clientDb), ClientSyncDomainRegistry()),
                 )
 
             val catchUp =
@@ -525,7 +720,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             val dispatcher =
                 SyncEventDispatcher(
                     registry = registry,
-                    queue = queue,
                     state = state,
                     cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                     onCursorStale = {
@@ -570,6 +764,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     bookEditRepository = bookEditRepository,
                     contributorEditRepository = contributorEditRepository,
                     seriesEditRepository = seriesEditRepository,
+                    contributorSearchRepository = contributorSearchRepository,
+                    seriesSearchRepository = seriesSearchRepository,
                     genreRepository = genreRepository,
                     state = state,
                     dispatcher = dispatcher,
@@ -621,12 +817,16 @@ private data class ServerRepositories(
 private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
     registry: ClientSyncDomainRegistry,
+    queue: PendingOperationQueue,
 ) {
     registerTestSyncDomains(
         db = clientDb,
         registry = registry,
         authSession = FakeAuthSession(),
         exclude = setOf(SyncDomains.TAGS.name),
+        // The anti-flicker shield consults the real outbox — the same wiring production does via
+        // Koin — so the e2e proves an in-flight local edit is not clobbered by a stale echo.
+        inFlightOutbox = OutboxInFlightQuery(queue::hasQueuedOpFor),
     )
 }
 
@@ -825,224 +1025,4 @@ internal class DirectListeningEventSender(
             is com.calypsan.listenup.api.result.AppResult.Failure -> AppResult.Failure(wireResult.error)
         }
     }
-}
-
-/**
- * Test-only [BookRpcFactory] that opens a kotlinx.rpc [BookService] proxy against the
- * harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors production [com.calypsan.listenup.client.data.remote.KtorBookRpcFactory]:
- * the proxy is cached after first use; the underlying [HttpClient] is the same one
- * the SSE/REST surfaces use (`installKrpc()` enables the RPC plumbing). Tests get
- * a real RPC round-trip over the testApplication's in-memory transport, exercising
- * `BookServiceImpl` and the KSP-generated `BookServiceGuarded` decorator end-to-end.
- */
-internal class TestBookRpcFactory(
-    private val httpClient: HttpClient,
-) : BookRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: BookService? = null
-
-    override suspend fun bookService(): BookService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): BookService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<BookService>()
-}
-
-/**
- * Test-only [ContributorRpcFactory] that opens a kotlinx.rpc [ContributorService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestBookRpcFactory] exactly, substituting [ContributorService] for
- * [BookService]. Used by the Books-C1 `ContributorDeleteCascadeE2ETest` to exercise
- * the client → RPC → server → SSE → Room round trip for the contributor delete cascade.
- */
-internal class TestContributorRpcFactory(
-    private val httpClient: HttpClient,
-) : ContributorRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: ContributorService? = null
-
-    override suspend fun contributorService(): ContributorService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): ContributorService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<ContributorService>()
-}
-
-/**
- * Test-only [SeriesRpcFactory] that opens a kotlinx.rpc [SeriesService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestBookRpcFactory] / [TestContributorRpcFactory] exactly, substituting
- * [SeriesService]. Used by the Books-C2 `SeriesMergeE2ETest` to exercise the
- * client → RPC → server → SSE → Room round trip for the series merge cascade.
- */
-internal class TestSeriesRpcFactory(
-    private val httpClient: HttpClient,
-) : SeriesRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: SeriesService? = null
-
-    override suspend fun seriesService(): SeriesService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): SeriesService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<SeriesService>()
-}
-
-/**
- * Test-only [UserPreferencesRpcFactory] that opens a kotlinx.rpc [UserPreferencesService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestSeriesRpcFactory] / [TestContributorRpcFactory] exactly, substituting
- * [UserPreferencesService]. No harness test mounts the service server-side yet (see the
- * `OutboxChannels.Preferences` `byDomain` registration above) — this factory exists so a future
- * e2e test for the preferences offline-edit push can resolve a sender the same way every other
- * domain does.
- */
-internal class TestUserPreferencesRpcFactory(
-    private val httpClient: HttpClient,
-) : UserPreferencesRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: UserPreferencesService? = null
-
-    override suspend fun get(): UserPreferencesService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): UserPreferencesService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<UserPreferencesService>()
-}
-
-/**
- * Test-only [ProfileRpcFactory] that opens a kotlinx.rpc [ProfileService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestUserPreferencesRpcFactory] exactly, substituting [ProfileService]. No harness
- * test mounts the service server-side yet (see the `OutboxChannels.Profile` `byDomain`
- * registration above) — this factory exists so a future e2e test for the profile offline-edit
- * push can resolve a sender the same way every other domain does.
- */
-internal class TestProfileRpcFactory(
-    private val httpClient: HttpClient,
-) : ProfileRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: ProfileService? = null
-
-    override suspend fun get(): ProfileService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): ProfileService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<ProfileService>()
-}
-
-/**
- * Test-only [CollectionRpcFactory] that opens a kotlinx.rpc [CollectionService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestBookRpcFactory] exactly, substituting [CollectionService]. Backs
- * [BookEditRepositoryImpl.setBookCollections] in the end-to-end harness.
- */
-internal class TestCollectionRpcFactory(
-    private val httpClient: HttpClient,
-) : CollectionRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: CollectionService? = null
-
-    override suspend fun get(): CollectionService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun <T> callResult(
-        block: suspend (CollectionService) -> com.calypsan.listenup.api.result.AppResult<T>,
-    ): com.calypsan.listenup.api.result.AppResult<T> =
-        com.calypsan.listenup.client.data.remote
-            .catchingRpcResult { block(get()) }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): CollectionService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<CollectionService>()
-}
-
-/**
- * Test-only [GenreRpcFactory] that opens a kotlinx.rpc [GenreService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- * Mirrors [TestSeriesRpcFactory] / [TestContributorRpcFactory] exactly.
- */
-internal class TestGenreRpcFactory(
-    private val httpClient: HttpClient,
-) : GenreRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: GenreService? = null
-
-    override suspend fun <T> callResult(block: suspend (GenreService) -> AppResult<T>): AppResult<T> =
-        catchingRpcResult { block(genreService()) }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun genreService(): GenreService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    private suspend fun connect(): GenreService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<GenreService>()
 }

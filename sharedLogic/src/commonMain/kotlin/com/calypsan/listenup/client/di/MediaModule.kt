@@ -94,7 +94,7 @@ internal val mediaModule: Module =
                 apiClientFactory = get(),
                 repository = get(),
                 fileManager = get(),
-                playbackRpcFactory = get(),
+                prepareRepository = get(),
                 playbackBandwidthCoordinator = get(),
             )
         }

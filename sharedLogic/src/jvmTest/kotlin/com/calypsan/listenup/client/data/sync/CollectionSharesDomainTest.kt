@@ -29,7 +29,7 @@ class CollectionSharesDomainTest :
         test("collection_shares Created event upserts the row with permission roundtrip") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(createdShare(sharePayload("s1", "c1", permission = SharePermission.Write)), isOwnEcho = false)
+                    .onEvent(createdShare(sharePayload("s1", "c1", permission = SharePermission.Write)))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.collectionShareDao().getById("s1")
                 row shouldNotBe null
@@ -43,16 +43,16 @@ class CollectionSharesDomainTest :
 
         test("collection_shares Read permission roundtrips to 'read' string") {
             withHandler { handler, db ->
-                handler.onEvent(createdShare(sharePayload("s1", "c1", permission = SharePermission.Read)), isOwnEcho = false)
+                handler.onEvent(createdShare(sharePayload("s1", "c1", permission = SharePermission.Read)))
                 db.collectionShareDao().getById("s1")!!.permission shouldBe "read"
             }
         }
 
         test("collection_shares Deleted event soft-deletes (revokes) the row") {
             withHandler { handler, db ->
-                handler.onEvent(createdShare(sharePayload("s1", "c1")), isOwnEcho = false)
+                handler.onEvent(createdShare(sharePayload("s1", "c1")))
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
+                    .onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.collectionShareDao().getById("s1") shouldBe null
             }
@@ -60,8 +60,8 @@ class CollectionSharesDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(createdShare(sharePayload("s1", "c1")), isOwnEcho = false)
-                handler.onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
+                handler.onEvent(createdShare(sharePayload("s1", "c1")))
+                handler.onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L))
                 db.collectionShareDao().getById("s1") shouldBe null
                 db.collectionShareDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "s1"
             }

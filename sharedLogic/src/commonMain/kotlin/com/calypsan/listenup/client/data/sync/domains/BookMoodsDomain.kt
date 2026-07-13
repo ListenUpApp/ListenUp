@@ -11,14 +11,19 @@ private val logger = KotlinLogging.logger {}
 /**
  * The `book_moods` junction domain: composite `(bookId, moodId)` primary key mirrored
  * under the server's synthetic `"$bookId:$moodId"` envelope id. Server-wins apply,
- * soft tombstones, full digest participation, online-only writes. Structurally
+ * soft tombstones, full digest participation, outbox-backed writes. Structurally
  * identical to [bookTagsDomain] — the same junction rules apply: the DAO tombstone
  * keeps the row (advancing its own revision, ignoring the event's revision) so digest
  * reconciliation stays faithful, and re-adds arrive as Created/Updated with
  * `deletedAt = null`.
  *
- * No FK constraints on `book_moods` — sync is responsible for integrity. `isOwnEcho`
- * needs no shield: `@Upsert` is idempotent.
+ * **Outbox writes.** Removing a mood from a book writes the junction tombstone
+ * optimistically and queues a durable op on [OutboxChannels.BookMoods], keyed by the
+ * same `"$bookId:$moodId"` envelope id; the in-flight shield defers the junction's own
+ * echo until that op drains. Adding a mood stays an online RPC (find-or-create may mint
+ * a new server-side mood id).
+ *
+ * No FK constraints on `book_moods` — sync is responsible for integrity.
  */
 internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoodSyncPayload> {
     val apply = BookMoodMirrorApply(database)
@@ -39,7 +44,7 @@ internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoo
         // The DAO advances its own revision on tombstone, so the event revision is dropped (`_`).
         deletes = DeleteSemantics.SoftDelete { id, deletedAt, _ -> apply.tombstoneById(id, deletedAt) },
         digest = fullDigest(database.bookMoodDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
+        writes = WriteTier.Outbox(OutboxChannels.BookMoods),
     )
 }
 

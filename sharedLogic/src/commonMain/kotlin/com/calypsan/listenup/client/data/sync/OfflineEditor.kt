@@ -32,6 +32,13 @@ internal class OfflineEditor(
      * transaction: a crash between the two leaves no half-synced state. [op] must be
      * declared by the channel (`check`ed at the queue — a programming error, not a
      * runtime mystery).
+     *
+     * The outbox row write stays INSIDE the transaction (atomic with the optimistic Room
+     * merge), but the enqueue SIGNAL is ticked only AFTER the transaction commits. Ticking it
+     * inside the transaction (as a bare [PendingOperationQueue.enqueue] does) races the drain
+     * collector: it could wake, read pre-commit state that can't yet see the new row, find
+     * nothing, and strand the op until the next unrelated trigger. Passing `signal = false`
+     * and calling [PendingOperationQueue.signalEnqueued] post-commit closes that window.
      */
     suspend fun <T : Any> edit(
         channel: OutboxChannel<T>,
@@ -52,8 +59,9 @@ internal class OfflineEditor(
                     op = op,
                     payload = contractJson.encodeToString(channel.serializer, patch),
                     ownerUserId = ownerUserId,
+                    signal = false,
                 )
             }
-        }.map { }
+        }.map { pendingQueue.signalEnqueued() }
     }
 }

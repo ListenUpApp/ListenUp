@@ -7,7 +7,8 @@ import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.BackupRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import dev.mokkery.MockMode
 import dev.mokkery.mock
@@ -41,9 +42,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlinx.io.files.Path as IoPath
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.test.runTest
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -59,7 +57,7 @@ import kotlinx.rpc.withService
  *
  * This is the regression guard for the bug Tasks 1–2 fixed: the admin backup
  * ViewModels used to call a dead REST route that 404'd. The repository now goes
- * through the [BackupService] RPC proxy on `/api/rpc/authed` — the same seam the
+ * through the [BackupService] RPC channel on `/api/rpc/authed` — the same seam the
  * ViewModels consume. These tests prove the route is *reachable* and returns a
  * domain-typed [AppResult] rather than a transport 404.
  *
@@ -68,8 +66,9 @@ import kotlinx.rpc.withService
  *    mints a `UserRole.ROOT` principal — so the service's admin gate passes.
  *  - The route binds the principal via `copyWith` and wraps with the KSP-generated
  *    [guard] decorator, exactly as production `RpcRoutes.kt` does.
- *  - A test [BackupRpcFactory] opens the proxy against the harness's in-process
- *    `ws://localhost/api/rpc/authed`, and [BackupRepositoryImpl] is driven through it.
+ *  - [backupServiceProxy] opens the proxy against the harness's in-process
+ *    `ws://localhost/api/rpc/authed`, wrapped in [RpcChannel.forTest], and
+ *    [BackupRepositoryImpl] is driven through it.
  *
  * The server-side [BackupServiceImpl] is built over a real [BackupArchive] +
  * [BackupPaths] + [RestoreOrchestrator] in a temp home dir — the same wiring as the
@@ -148,42 +147,50 @@ class BackupRpcE2ETest :
                     }
 
                     val rpcClient = createClient { installKrpc() }
-                    val repository = BackupRepositoryImpl(TestBackupRpcFactory(rpcClient), clientFactory = mock(MockMode.autofill))
 
-                    runTest {
-                        // list on a fresh server → Success(emptyList), NOT a transport 404.
-                        val initial =
-                            repository
-                                .listBackups()
-                                .shouldBeInstanceOf<AppResult.Success<List<BackupSummary>>>()
-                                .data
-                        initial.shouldBeEmpty()
+                    // Drive the flow directly in the testApplication suspend scope — do NOT wrap in
+                    // runTest. The channel's `call` bounds each RPC with `withTimeout`; under runTest's
+                    // virtual clock the scheduler auto-advances past that bound while the real socket
+                    // I/O is still in flight, tripping a spurious TransportError.OutcomeUnknown. The plain
+                    // suspend scope uses real time, so the bound never fires. (See sibling E2E tests.)
+                    val repository =
+                        BackupRepositoryImpl(
+                            channel = RpcChannel.forTest(rpcClient.backupServiceProxy()),
+                            clientFactory = mock(MockMode.autofill),
+                        )
 
-                        // create → Success(BackupSummary).
-                        val created =
-                            repository
-                                .createBackup(includeImages = false)
-                                .shouldBeInstanceOf<AppResult.Success<BackupSummary>>()
-                                .data
-                        created.includesImages shouldBe false
+                    // list on a fresh server → Success(emptyList), NOT a transport 404.
+                    val initial =
+                        repository
+                            .listBackups()
+                            .shouldBeInstanceOf<AppResult.Success<List<BackupSummary>>>()
+                            .data
+                    initial.shouldBeEmpty()
 
-                        // list now contains the created backup.
-                        val afterCreate =
-                            repository
-                                .listBackups()
-                                .shouldBeInstanceOf<AppResult.Success<List<BackupSummary>>>()
-                                .data
-                        afterCreate.map { it.id } shouldContain created.id
+                    // create → Success(BackupSummary).
+                    val created =
+                        repository
+                            .createBackup(includeImages = false)
+                            .shouldBeInstanceOf<AppResult.Success<BackupSummary>>()
+                            .data
+                    created.includesImages shouldBe false
 
-                        // delete → Success, and it's gone from a subsequent list.
-                        repository.deleteBackup(created.id).shouldBeInstanceOf<AppResult.Success<Unit>>()
-                        val afterDelete =
-                            repository
-                                .listBackups()
-                                .shouldBeInstanceOf<AppResult.Success<List<BackupSummary>>>()
-                                .data
-                        afterDelete.map { it.id } shouldNotContain created.id
-                    }
+                    // list now contains the created backup.
+                    val afterCreate =
+                        repository
+                            .listBackups()
+                            .shouldBeInstanceOf<AppResult.Success<List<BackupSummary>>>()
+                            .data
+                    afterCreate.map { it.id } shouldContain created.id
+
+                    // delete → Success, and it's gone from a subsequent list.
+                    repository.deleteBackup(created.id).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    val afterDelete =
+                        repository
+                            .listBackups()
+                            .shouldBeInstanceOf<AppResult.Success<List<BackupSummary>>>()
+                            .data
+                    afterDelete.map { it.id } shouldNotContain created.id
                 }
             } finally {
                 handle.close()
@@ -214,35 +221,40 @@ class BackupRpcE2ETest :
                     }
 
                     val rpcClient = createClient { installKrpc() }
-                    val repository = BackupRepositoryImpl(TestBackupRpcFactory(rpcClient), clientFactory = mock(MockMode.autofill))
 
-                    runTest {
-                        val created =
-                            repository
-                                .createBackup(includeImages = false)
-                                .shouldBeInstanceOf<AppResult.Success<BackupSummary>>()
-                                .data
+                    // Drive directly in the testApplication suspend scope — NOT runTest; the channel's
+                    // `withTimeout` bound would trip under runTest's virtual clock (see first test).
+                    val repository =
+                        BackupRepositoryImpl(
+                            channel = RpcChannel.forTest(rpcClient.backupServiceProxy()),
+                            clientFactory = mock(MockMode.autofill),
+                        )
 
-                        // Restore swaps the DB in-process. The POINT of this assertion is that the
-                        // RPC route is reachable and returns a domain-typed AppResult — Success or a
-                        // typed BackupError — and never a transport 404 (TransportError). The
-                        // RestoreOrchestrator operates on the server fixture's own DatabaseHandle,
-                        // independent of the RPC transport (auth is the test provider, no shared DB),
-                        // so a successful in-process restore here does not destabilize the harness.
-                        val result = repository.restoreBackup(created.id)
-                        when (result) {
-                            is AppResult.Success -> {
-                                result.data.shouldBeInstanceOf<RestoreResult>()
-                                result.data.restoredFrom shouldBe created.id
-                                result.data.includedImages shouldBe false
-                            }
+                    val created =
+                        repository
+                            .createBackup(includeImages = false)
+                            .shouldBeInstanceOf<AppResult.Success<BackupSummary>>()
+                            .data
 
-                            is AppResult.Failure -> {
-                                // A typed BackupError is acceptable (proves the route was reached and
-                                // the domain produced a typed failure). A TransportError would mean the
-                                // call never hit the service — that is the bug this test guards against.
-                                result.error.shouldNotBeTransport()
-                            }
+                    // Restore swaps the DB in-process. The POINT of this assertion is that the
+                    // RPC route is reachable and returns a domain-typed AppResult — Success or a
+                    // typed BackupError — and never a transport 404 (TransportError). The
+                    // RestoreOrchestrator operates on the server fixture's own DatabaseHandle,
+                    // independent of the RPC transport (auth is the test provider, no shared DB),
+                    // so a successful in-process restore here does not destabilize the harness.
+                    val result = repository.restoreBackup(created.id)
+                    when (result) {
+                        is AppResult.Success -> {
+                            result.data.shouldBeInstanceOf<RestoreResult>()
+                            result.data.restoredFrom shouldBe created.id
+                            result.data.includedImages shouldBe false
+                        }
+
+                        is AppResult.Failure -> {
+                            // A typed BackupError is acceptable (proves the route was reached and
+                            // the domain produced a typed failure). A TransportError would mean the
+                            // call never hit the service — that is the bug this test guards against.
+                            result.error.shouldNotBeTransport()
                         }
                     }
                 }
@@ -258,31 +270,11 @@ private fun com.calypsan.listenup.api.error.AppError.shouldNotBeTransport() {
 }
 
 /**
- * Test-only [BackupRpcFactory] that opens a [BackupService] proxy against the harness's
- * in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors the production [com.calypsan.listenup.client.data.remote.KtorBackupRpcFactory]
- * connect path, but against the test [HttpClient] supplied via `createClient { installKrpc() }`.
- * The proxy is cached after first use.
+ * Opens a [BackupService] proxy against the harness's in-process `testApplication` at
+ * `ws://localhost/api/rpc/authed`, wrapped by [RpcChannel.forTest] so the repository drives the
+ * real fold semantics over a real socket. No reconnect layer — these tests don't exercise it.
  */
-private class TestBackupRpcFactory(
-    private val httpClient: HttpClient,
-) : BackupRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: BackupService? = null
-
-    override suspend fun get(): BackupService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): BackupService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<BackupService>()
-}
+private suspend fun HttpClient.backupServiceProxy(): BackupService =
+    rpc("ws://localhost/api/rpc/authed") {
+        rpcConfig { serialization { krpcJson(contractJson) } }
+    }.withService<BackupService>()

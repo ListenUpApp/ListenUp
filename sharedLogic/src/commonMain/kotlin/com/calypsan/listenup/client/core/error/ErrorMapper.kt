@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.core.error
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier
@@ -12,6 +13,7 @@ import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
+import io.ktor.client.plugins.websocket.WebSocketException
 import io.ktor.http.HttpStatusCode
 import kotlinx.io.IOException
 import kotlinx.serialization.SerializationException
@@ -81,6 +83,16 @@ internal object ErrorMapper {
                 )
             }
 
+            // TLS/SSL handshake or certificate failure: the socket connected but the secure channel
+            // couldn't be established — typically an https/wss URL pointed at a plaintext server, or
+            // a self-signed cert. Typed so verification can branch on it (retry the alternate scheme)
+            // WITHOUT substring-matching a message. Placed above the IOException arm because platform
+            // SSL exceptions (SSLException/SSLHandshakeException) are IOExceptions. See [isTlsFailure]
+            // for why WebSocketException is explicitly excluded.
+            isTlsFailure(exception) -> {
+                ServerConnectError.TlsFailure(debugInfo = exception.message)
+            }
+
             exception is IOException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
@@ -92,9 +104,25 @@ internal object ErrorMapper {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
 
-            exception is IllegalArgumentException -> {
+            // A dead/cancelled RpcClient ("RpcClient was cancelled") or a generic non-401 WebSocket
+            // failure is a PRE-delivery transport fault: by the time it reaches here, RpcProxyCache has
+            // already split out the post-delivery "outcome unknown" case (RpcOutcomeUnknownException),
+            // so the frame never landed. Surface it as a retryable NetworkUnavailable — honest and
+            // never-stranded — instead of a scary InternalError. Ordered AFTER the isWsHandshake401 arm
+            // above so a 401 handshake still maps to SessionExpired.
+            RpcFailureClassifier.isDeadRpcClient(exception) ||
+                exception is WebSocketException -> {
+                TransportError.NetworkUnavailable(debugInfo = exception.message)
+            }
+
+            // ONLY a dedicated client-validation exception earns the user-facing ValidationError.
+            // A bare IllegalArgumentException (a library `require`, a mapper bug — message
+            // "Failed requirement.") is an internal fault and must NOT be shown to the user as their
+            // input problem; it falls through to the sanitized InternalError below.
+            exception is ClientValidationException -> {
                 ValidationError(
-                    message = exception.message ?: "Invalid input.",
+                    message = exception.userMessage,
+                    field = exception.field,
                     debugInfo = exception.message,
                 )
             }
@@ -103,4 +131,25 @@ internal object ErrorMapper {
                 InternalError(debugInfo = "${exception::class.simpleName}: ${exception.message}")
             }
         }
+
+    /**
+     * True when [exception] (or a cause) is a TLS/SSL handshake or certificate failure.
+     *
+     * Detected by the raw platform exception's CLASS NAME (SSLException / SSLHandshakeException /
+     * SSLPeerUnverifiedException on OkHttp, the Darwin secure-transport equivalents) rather than its
+     * message. Matching a third-party exception TYPE is legitimate — the "never substring-match on
+     * message" rule governs `AppError` bodies, not platform exceptions (see [RpcFailureClassifier]).
+     *
+     * A [WebSocketException] is explicitly excluded: it means TLS SUCCEEDED but the HTTP upgrade
+     * returned a non-101 status (a proxy 500, etc.). Its message contains the word "Handshake", which
+     * an earlier message-substring heuristic misread as an SSL error — the exact bug this replaces.
+     */
+    private fun isTlsFailure(exception: Throwable): Boolean {
+        if (exception is WebSocketException) return false
+        return generateSequence(exception) { it.cause }
+            .mapNotNull { it::class.simpleName }
+            .any { name -> TLS_CLASS_MARKERS.any { marker -> name.contains(marker, ignoreCase = true) } }
+    }
+
+    private val TLS_CLASS_MARKERS = listOf("SSL", "TLS", "Certificate")
 }

@@ -9,7 +9,9 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -158,7 +160,7 @@ private suspend fun awaitClientBook(
  * offline and the never-stranded RPC fallback is never reached.
  */
 private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
-    val rpcFactory: BookRpcFactory = mock()
+    val channel = RpcChannel.forTest(mock<BookService>())
     val networkMonitor: NetworkMonitor = mock()
     every { networkMonitor.isOnline() } returns false
     val imageStorage: ImageStorage = mock()
@@ -187,7 +189,7 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
         imageStorage = imageStorage,
         joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = networkMonitor,
-        bookRpcFactory = rpcFactory,
+        channel = channel,
         bookSyncDomainHandler = syncHandler,
     )
 }

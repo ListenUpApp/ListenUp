@@ -27,7 +27,7 @@ class ShelfBooksDomainTest :
         test("shelf_books Created event inserts the junction row") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(createdJunction(junctionPayload("s1", "b1", sortOrder = 0, revision = 1L)), isOwnEcho = false)
+                    .onEvent(createdJunction(junctionPayload("s1", "b1", sortOrder = 0, revision = 1L)))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.shelfBookDao().findById("s1:b1")
                 row shouldNotBe null
@@ -43,7 +43,6 @@ class ShelfBooksDomainTest :
             withHandler { handler, db ->
                 handler.onEvent(
                     createdJunction(junctionPayload("s1", "b1", deletedAt = 500L, revision = 2L)),
-                    isOwnEcho = false,
                 )
                 handler.onEvent(
                     SyncEvent.Updated(
@@ -53,7 +52,6 @@ class ShelfBooksDomainTest :
                         clientOpId = null,
                         payload = junctionPayload("s1", "b1", revision = 3L, deletedAt = null),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.shelfBookDao().findById("s1:b1")!!
                 row.deletedAt shouldBe null
@@ -63,9 +61,9 @@ class ShelfBooksDomainTest :
 
         test("shelf_books Deleted event tombstones via synthetic id") {
             withHandler { handler, db ->
-                handler.onEvent(createdJunction(junctionPayload("s1", "b1", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(createdJunction(junctionPayload("s1", "b1", revision = 1L)))
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "s1:b1", revision = 2L, occurredAt = 800L), isOwnEcho = false)
+                    .onEvent(SyncEvent.Deleted(id = "s1:b1", revision = 2L, occurredAt = 800L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.shelfBookDao().findById("s1:b1")!!
                 row.deletedAt shouldBe 800L
@@ -75,8 +73,8 @@ class ShelfBooksDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(createdJunction(junctionPayload("s1", "b1", revision = 1L)), isOwnEcho = false)
-                handler.onEvent(SyncEvent.Deleted(id = "s1:b1", revision = 2L, occurredAt = 800L), isOwnEcho = false)
+                handler.onEvent(createdJunction(junctionPayload("s1", "b1", revision = 1L)))
+                handler.onEvent(SyncEvent.Deleted(id = "s1:b1", revision = 2L, occurredAt = 800L))
                 // observeShelfBooks filters tombstones — invisible to reads
                 db
                     .shelfBookDao()

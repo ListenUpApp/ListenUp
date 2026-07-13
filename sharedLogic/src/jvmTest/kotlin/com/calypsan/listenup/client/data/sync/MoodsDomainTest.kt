@@ -28,7 +28,7 @@ class MoodsDomainTest :
         test("Created event inserts the mood row into Room") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(moodPayload("m1", "Feel-Good", "feel-good")), isOwnEcho = false)
+                    .onEvent(created(moodPayload("m1", "Feel-Good", "feel-good")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.moodDao().getById("m1")
                 row shouldNotBe null
@@ -41,7 +41,7 @@ class MoodsDomainTest :
 
         test("Updated event overwrites the existing mood row") {
             withHandler { handler, db ->
-                handler.onEvent(created(moodPayload("m1", "Feel-Good", "feel-good", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(moodPayload("m1", "Feel-Good", "feel-good", revision = 1L)))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "m1",
@@ -50,7 +50,6 @@ class MoodsDomainTest :
                         clientOpId = null,
                         payload = moodPayload("m1", "Uplifting", "feel-good", revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.moodDao().getById("m1")!!
                 row.name shouldBe "Uplifting"
@@ -61,11 +60,10 @@ class MoodsDomainTest :
 
         test("Deleted event soft-deletes the mood row") {
             withHandler { handler, db ->
-                handler.onEvent(created(moodPayload("m1", "Feel-Good", "feel-good")), isOwnEcho = false)
+                handler.onEvent(created(moodPayload("m1", "Feel-Good", "feel-good")))
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "m1", revision = 2L, occurredAt = 500L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.moodDao().getById("m1") shouldBe null
             }
@@ -73,10 +71,9 @@ class MoodsDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(moodPayload("m1", "Feel-Good", "feel-good")), isOwnEcho = false)
+                handler.onEvent(created(moodPayload("m1", "Feel-Good", "feel-good")))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "m1", revision = 2L, occurredAt = 500L),
-                    isOwnEcho = false,
                 )
                 db.moodDao().getById("m1") shouldBe null
                 db.moodDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "m1"

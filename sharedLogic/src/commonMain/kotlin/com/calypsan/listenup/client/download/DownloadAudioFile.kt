@@ -7,8 +7,8 @@ import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -66,7 +66,7 @@ internal suspend fun downloadAudioFile(
     httpClient: HttpClient,
     repository: DownloadRepository,
     fileManager: DownloadFileManager,
-    playbackRpcFactory: PlaybackRpcFactory,
+    prepareRepository: PlaybackPrepareRepository,
     isStopped: () -> Boolean = { false },
     setProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
     yieldToPlayback: suspend () -> Unit = {},
@@ -80,7 +80,7 @@ internal suspend fun downloadAudioFile(
                 resolveDownloadUrl(
                     bookId = bookId,
                     audioFileId = audioFileId,
-                    playbackRpcFactory = playbackRpcFactory,
+                    prepareRepository = prepareRepository,
                 )
             val url = resolved.url
 
@@ -202,9 +202,9 @@ internal suspend fun downloadAudioFile(
 private suspend fun resolveDownloadUrl(
     bookId: String,
     audioFileId: String,
-    playbackRpcFactory: PlaybackRpcFactory,
+    prepareRepository: PlaybackPrepareRepository,
 ): ResolveResult.Ready =
-    when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, playbackRpcFactory)) {
+    when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, prepareRepository)) {
         is AppResult.Success -> {
             ResolveResult.Ready(resolved.data)
         }

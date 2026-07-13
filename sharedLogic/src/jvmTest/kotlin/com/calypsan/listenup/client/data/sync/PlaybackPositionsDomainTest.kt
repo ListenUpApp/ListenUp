@@ -23,7 +23,7 @@ class PlaybackPositionsDomainTest :
         test("a Created event for a book with no local row inserts the position") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(payload("pos-1", "book-1", positionMs = 10_000L)), isOwnEcho = false)
+                    .onEvent(created(payload("pos-1", "book-1", positionMs = 10_000L)))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.playbackPositionDao().get(BookId("book-1"))
                 row shouldNotBe null
@@ -35,7 +35,7 @@ class PlaybackPositionsDomainTest :
         test("an Updated event for a book with no local row inserts the position") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(updated(payload("pos-1", "book-1", positionMs = 20_000L, revision = 3L)), isOwnEcho = false)
+                    .onEvent(updated(payload("pos-1", "book-1", positionMs = 20_000L, revision = 3L)))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.playbackPositionDao().get(BookId("book-1"))
                 row shouldNotBe null
@@ -59,7 +59,6 @@ class PlaybackPositionsDomainTest :
                 // Apply an event whose lastPlayedAt is older — must be a no-op
                 handler.onEvent(
                     updated(payload("pos-1", "book-1", positionMs = 1_000L, lastPlayedAt = 1000L, revision = 6L)),
-                    isOwnEcho = false,
                 )
 
                 val row = db.playbackPositionDao().get(BookId("book-1"))!!
@@ -82,7 +81,6 @@ class PlaybackPositionsDomainTest :
                 // lastPlayedAt equal — >= test makes this a no-op too (prevents echo flicker)
                 handler.onEvent(
                     updated(payload("pos-1", "book-1", positionMs = 50_000L, lastPlayedAt = 2000L, revision = 6L)),
-                    isOwnEcho = false,
                 )
 
                 val row = db.playbackPositionDao().get(BookId("book-1"))!!
@@ -103,7 +101,6 @@ class PlaybackPositionsDomainTest :
 
                 handler.onEvent(
                     updated(payload("pos-1", "book-1", positionMs = 88_000L, lastPlayedAt = 5000L, revision = 7L)),
-                    isOwnEcho = false,
                 )
 
                 val row = db.playbackPositionDao().get(BookId("book-1"))!!
@@ -140,7 +137,6 @@ class PlaybackPositionsDomainTest :
                             revision = 10L,
                         ),
                     ),
-                    isOwnEcho = false,
                 )
 
                 val row = db.playbackPositionDao().get(BookId("book-1"))!!
@@ -157,7 +153,7 @@ class PlaybackPositionsDomainTest :
 
         test("onCatchUpItem with isTombstone soft-deletes the position") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("pos-1", "book-1")), isOwnEcho = false)
+                handler.onEvent(created(payload("pos-1", "book-1")))
                 handler
                     .onCatchUpItem(
                         payload("pos-1", "book-1", deletedAt = 123L, revision = 9L),

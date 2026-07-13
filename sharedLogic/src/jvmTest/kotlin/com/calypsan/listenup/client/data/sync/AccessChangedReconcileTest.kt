@@ -784,7 +784,6 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
             val dispatcher =
                 SyncEventDispatcher(
                     registry = registry,
-                    queue = queue,
                     state = state,
                     cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                 )

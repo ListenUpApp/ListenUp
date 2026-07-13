@@ -12,7 +12,8 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.BackupRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.core.FileSource
@@ -82,15 +83,6 @@ class BackupRepositoryImplTest :
                 schemaMigratedTo = "1",
             )
 
-        /** Minimal factory that always returns the supplied [BackupService] mock. */
-        class FakeBackupRpcFactory(
-            private val service: BackupService,
-        ) : BackupRpcFactory {
-            override suspend fun get(): BackupService = service
-
-            override suspend fun invalidate() = Unit
-        }
-
         /**
          * Minimal [ApiClientFactory] whose [getClient] returns a [HttpClient] backed by the
          * supplied [MockEngine]. All other methods are not needed for the upload path.
@@ -143,7 +135,7 @@ class BackupRepositoryImplTest :
 
         fun buildRepo(service: BackupService): BackupRepositoryImpl =
             BackupRepositoryImpl(
-                rpcFactory = FakeBackupRpcFactory(service),
+                channel = RpcChannel.forTest(service),
                 clientFactory = mock(MockMode.autofill),
             )
 
@@ -152,7 +144,7 @@ class BackupRepositoryImplTest :
             engine: MockEngine,
         ): BackupRepositoryImpl =
             BackupRepositoryImpl(
-                rpcFactory = FakeBackupRpcFactory(service),
+                channel = RpcChannel.forTest(service),
                 clientFactory = FakeApiClientFactory(engine),
             )
 
@@ -161,7 +153,7 @@ class BackupRepositoryImplTest :
             engine: MockEngine,
         ): BackupRepositoryImpl =
             BackupRepositoryImpl(
-                rpcFactory = FakeBackupRpcFactory(service),
+                channel = RpcChannel.forTest(service),
                 clientFactory = FakeApiClientFactoryWithTimeout(engine),
             )
 

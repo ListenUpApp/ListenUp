@@ -29,7 +29,7 @@ import kotlinx.serialization.builtins.serializer
 
 // "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
 // un-mirrored domain, matching the queue's payload-agnostic contract.
-private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 
 private const val TIMEOUT_SECONDS = 5L
 private const val RETRY_TIMEOUT_SECONDS = 10L
@@ -207,11 +207,12 @@ class PendingQueueDrainSchedulingTest :
             }
         }
 
-        test("drain is rescheduled after retry backoff when a send fails retryably") {
+        test("drain is rescheduled after retry backoff when a server-answered retryable send fails (Server5xx)") {
             runBlocking {
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 val db = createInMemoryTestDatabase()
                 try {
+                    val serverErrorStatus = 503
                     val attempts = AtomicInteger(0)
                     val attemptIds = mutableListOf<String>()
                     val attemptsMutex = kotlinx.coroutines.sync.Mutex()
@@ -225,7 +226,8 @@ class PendingQueueDrainSchedulingTest :
                                 attemptsMutex.unlock()
                             }
                             if (n == 1) {
-                                AppResult.Failure(TransportError.NetworkUnavailable())
+                                // Server ANSWERED with a transient 5xx — this earns the engine's backoff timer.
+                                AppResult.Failure(TransportError.Server5xx(statusCode = serverErrorStatus))
                             } else {
                                 AppResult.Success(Unit)
                             }
@@ -259,6 +261,70 @@ class PendingQueueDrainSchedulingTest :
                     // the DB. Closing the DB while a runDrain is mid-transaction
                     // crashes the native SQLite driver (SIGSEGV inside
                     // sqlite3Close).
+                    scope.cancel()
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
+                    db.close()
+                }
+            }
+        }
+
+        test("an unreachable-failure wave parks (no fixed-1s busy-loop); a Connected edge re-drives and delivers") {
+            runBlocking {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val db = createInMemoryTestDatabase()
+                try {
+                    val reachable =
+                        java.util.concurrent.atomic
+                            .AtomicBoolean(false)
+                    val attempts = AtomicInteger(0)
+                    val sender =
+                        PendingOperationSender { _ ->
+                            attempts.incrementAndGet()
+                            if (reachable.get()) {
+                                AppResult.Success(Unit)
+                            } else {
+                                // Server briefly unreachable (e.g. a restart): no verdict → park, never burn budget.
+                                AppResult.Failure(TransportError.NetworkUnavailable())
+                            }
+                        }
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = sender,
+                        )
+                    val state = SyncEngineState()
+                    val sse = FakeSseClient(state)
+                    // Tiny backoff so that IF the engine wrongly scheduled a timer retry, attempts would
+                    // climb fast within the observation window — making the "parked, not looped" assertion sharp.
+                    val engine = buildEngine(db, queue, state, sse, scope, retryBackoffMillis = 20L)
+
+                    // Enqueued before start, so only the connection-up trigger drains it (one wave).
+                    val opId = queue.enqueue(tagsChannel, "t-park", OpKind.Upsert, "{}", "u1")
+                    engine.start(currentUserId = "u1")
+
+                    // The connection-up wave attempts once and parks.
+                    withTimeout(TIMEOUT_SECONDS.seconds) {
+                        while (attempts.get() < 1) delay(POLL_DELAY_MILLIS)
+                    }
+                    // Parked: no busy-loop. Across many backoff windows the count must NOT climb.
+                    delay(POLL_DELAY_MILLIS * 10)
+                    attempts.get() shouldBe 1
+                    db.pendingOperationV2Dao().get(opId)?.failureCount shouldBe 0
+
+                    // Server returns; a reconnect (Disconnected→Connected edge) re-drives drain and delivers.
+                    // The delay between the two transitions lets the collector observe the intermediate
+                    // Disconnected value (StateFlow conflates back-to-back emissions) — the same real time
+                    // gap a genuine server-restart reconnect has.
+                    reachable.set(true)
+                    state.setConnection(ConnectionState.Disconnected(reason = "server restart"))
+                    delay(POLL_DELAY_MILLIS * 3)
+                    state.setConnection(ConnectionState.Connected(lastEventId = null))
+                    withTimeout(TIMEOUT_SECONDS.seconds) {
+                        while (db.pendingOperationV2Dao().get(opId) != null) delay(POLL_DELAY_MILLIS)
+                    }
+                    db.pendingOperationV2Dao().get(opId) shouldBe null
+                } finally {
                     scope.cancel()
                     scope.coroutineContext.job.children
                         .forEach { it.join() }
@@ -406,7 +472,6 @@ private fun buildEngine(
     val dispatcher =
         SyncEventDispatcher(
             registry = registry,
-            queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
         )
@@ -484,7 +549,6 @@ private object NoopTagHandler : SyncDomainHandler<Tag> {
 
     override suspend fun onEvent(
         event: com.calypsan.listenup.api.sync.SyncEvent<Tag>,
-        isOwnEcho: Boolean,
     ): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun onCatchUpItem(
@@ -518,6 +582,12 @@ private class CountingDao(
     }
 
     override suspend fun countDispatchable(maxAttempts: Int) = delegate.countDispatchable(maxAttempts)
+
+    override suspend fun hasQueuedOp(
+        domainName: String,
+        entityId: String,
+        maxAttempts: Int,
+    ) = delegate.hasQueuedOp(domainName, entityId, maxAttempts)
 
     override suspend fun deleteQueuedOps(
         domainName: String,

@@ -68,6 +68,13 @@ data class ValidationError(
     override val message: String,
     override val correlationId: String? = null,
     override val debugInfo: String? = null,
+    /**
+     * Names the input field this error refers to (e.g. `"email"`, `"password"`) so a form can
+     * highlight the right input without substring-matching the per-instance [message] — a match
+     * that silently breaks the moment the message is reworded. Null when the error is not tied to
+     * a single named field. New, nullable, and defaulted so it stays wire-backward-compatible.
+     */
+    val field: String? = null,
 ) : AppError {
     override val code: String = "VALIDATION_ERROR"
     override val isRetryable: Boolean = false

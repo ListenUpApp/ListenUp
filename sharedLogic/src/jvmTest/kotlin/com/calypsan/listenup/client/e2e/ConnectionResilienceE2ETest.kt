@@ -16,7 +16,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.request.get
 import io.ktor.client.statement.request
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 
 /**
  * End-to-end proof of the version-exchange loop (Phase 2b Task 14) against the REAL `:server`,
@@ -42,7 +42,7 @@ class ConnectionResilienceE2ETest :
     FunSpec({
 
         test("the real client and server exchange version headers, and the client persists the peer version") {
-            runTest {
+            runBlocking {
                 val fixture = autoClose(DiWiredClientFixture.start())
                 val koin = fixture.koin.koin
                 val localPreferences = koin.get<LocalPreferences>()
@@ -80,7 +80,7 @@ class ConnectionResilienceE2ETest :
         }
 
         test("a real authenticated RPC round trip also carries and persists the peer server version") {
-            runTest {
+            runBlocking {
                 val fixture = autoClose(DiWiredClientFixture.start())
                 val koin = fixture.koin.koin
 

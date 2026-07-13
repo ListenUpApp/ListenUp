@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
@@ -10,11 +12,15 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.io.IOException
 
 // ─── Fakes ────────────────────────────────────────────────────────────────────
 
@@ -110,25 +116,17 @@ private class FakeAdminUserService : AdminUserService {
     }
 }
 
-private class FakeAdminUserRpcFactory(
-    private val service: FakeAdminUserService,
-) : AdminUserRpcFactory {
-    override suspend fun get(): AdminUserService = service
-
-    override suspend fun invalidate() = Unit
-}
-
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 class AdminRepositoryImplUserTest :
     FunSpec({
 
-        fun buildRepo(service: FakeAdminUserService): AdminRepositoryImpl =
+        fun buildRepo(service: AdminUserService): AdminRepositoryImpl =
             AdminRepositoryImpl(
-                adminUserRpc = FakeAdminUserRpcFactory(service),
-                adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
-                inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
-                libraryAdminRpc = mock(),
+                adminUserChannel = RpcChannel.forTest(service),
+                adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
+                inviteAdminChannel = RpcChannel.forTest(mock<com.calypsan.listenup.api.InviteService>()),
+                libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                 serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
                 adminUserRosterDao = mock(),
             )
@@ -252,37 +250,20 @@ class AdminRepositoryImplUserTest :
             result shouldBe AppResult.Success(RegistrationPolicy.OPEN)
         }
 
-        test("a transport exception becomes AppResult.Failure and invalidates the RPC caches (self-heal #619)") {
-            val throwingFactory =
-                object : AdminUserRpcFactory {
-                    override suspend fun get(): AdminUserService = throw IllegalStateException("simulated WS 401")
-
-                    override suspend fun invalidate() = Unit
+        test("a transport throw becomes a typed AppResult.Failure (channel self-heals; no global invalidation)") {
+            // The migrated AdminUserService rides an RpcChannel: a transport fault folds to a TYPED
+            // TransportError via ErrorMapper, and the channel heals its OWN connection — there is no
+            // global RpcCacheInvalidator sweep on this path anymore (self-heal #619 lives in the engine).
+            val throwing =
+                object : AdminUserService by mock<AdminUserService>() {
+                    override suspend fun listUsers(): AppResult<List<User>> = throw IOException("simulated WS drop")
                 }
-            var invalidations = 0
-            val repo =
-                AdminRepositoryImpl(
-                    adminUserRpc = throwingFactory,
-                    adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
-                    inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
-                    libraryAdminRpc = mock(),
-                    serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
-                    adminUserRosterDao = mock(),
-                    rpcCacheInvalidator =
-                        object : com.calypsan.listenup.client.data.remote.RpcCacheInvalidator {
-                            override suspend fun invalidateAll() {
-                                invalidations++
-                            }
 
-                            override suspend fun invalidateRequestCaches() {
-                                invalidations++
-                            }
-                        },
-                )
-
-            (repo.getUsers() is AppResult.Failure) shouldBe true
-            // The dead cached proxy is dropped so the next call rebinds to a live connection.
-            invalidations shouldBe 1
+            buildRepo(throwing)
+                .getUsers()
+                .shouldBeInstanceOf<AppResult.Failure>()
+                .error
+                .shouldBeInstanceOf<TransportError.NetworkUnavailable>()
         }
 
         test("setRegistrationPolicy(OPEN) sets policy OPEN") {
@@ -309,23 +290,16 @@ class AdminRepositoryImplUserTest :
             service.lastSetPolicy shouldBe RegistrationPolicy.CLOSED
         }
 
-        test("setRegistrationPolicy returns Failure (never throws) when the RPC transport throws") {
-            val throwingFactory =
-                object : AdminUserRpcFactory {
-                    override suspend fun get(): AdminUserService = throw RuntimeException("WS 401")
-
-                    override suspend fun invalidate() = Unit
+        test("setRegistrationPolicy returns a typed Failure (never throws) when the RPC transport throws") {
+            val throwing =
+                object : AdminUserService by mock<AdminUserService>() {
+                    override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> = throw IOException("WS drop")
                 }
-            val repo =
-                AdminRepositoryImpl(
-                    adminUserRpc = throwingFactory,
-                    adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
-                    inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
-                    libraryAdminRpc = mock(),
-                    serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
-                    adminUserRosterDao = mock(),
-                )
-            val result = repo.setRegistrationPolicy(RegistrationPolicy.OPEN)
-            (result is AppResult.Failure) shouldBe true
+
+            buildRepo(throwing)
+                .setRegistrationPolicy(RegistrationPolicy.OPEN)
+                .shouldBeInstanceOf<AppResult.Failure>()
+                .error
+                .shouldBeInstanceOf<TransportError.NetworkUnavailable>()
         }
     })

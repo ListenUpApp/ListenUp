@@ -103,6 +103,24 @@ internal class SyncEngine(
     // queue's SQL filter responsibility.
     private val drainMutex = Mutex()
 
+    // The ONE shared choke point for cursor-advancing catch-up + digest reconcile — the same
+    // "single dispatch seam" move the RpcChannel seam made for RPC. Every reconcile/catch-up entry
+    // point ([runStart], [lifecycleReconcile], [handleCursorStale], [forceReconcile]) drives
+    // [CatchUp.catchUpAll] and/or [SyncReconciler.reconcileAll], both of which page the server and
+    // rewrite [SyncCursorStore]. Before this guard each entry point owned a SEPARATE mutex (or none),
+    // so two could page CONCURRENTLY — e.g. a scan-completion handleCursorStale racing a foreground
+    // lifecycleReconcile: the overlapping-page-decode storm the cursorStale coalescer exists to
+    // prevent, re-opened by the second entry point, with interleaving setCursor writes. Serializing
+    // every catchUpAll/reconcileAll execution behind this one mutex makes concurrent paging
+    // UNREPRESENTABLE. It wraps ONLY the paging call itself (never SSE connect/disconnect or other
+    // orchestration), and is never acquired while any other engine mutex is held — the caller-level
+    // coalescers ([cursorStaleMutex], [lifecycleReconcileMutex]) and [startMutex] all release their
+    // bookkeeping lock BEFORE the pass runs, so there is no lock-order inversion with this guard or
+    // with [drainMutex] (which the drain path holds independently and which never pages catch-up).
+    // Each caller's DISTINCT surrounding behavior (cursorStale's coalescing + await, lifecycle's
+    // debounce + digest, start's ordering) is preserved above this seam; only the paging serializes.
+    private val catchUpMutex = Mutex()
+
     // Serializes the start/stop handshake so concurrent re-entries (e.g.
     // MainActivity.onResume firing twice in quick succession → two
     // syncRepository.connectRealtime() → two engine.start()) can't race two
@@ -257,8 +275,9 @@ internal class SyncEngine(
     private suspend fun runStart(currentUserId: String) {
         // Step 1: queue ownership.
         queue.clearForUserChange(currentUserId)
-        // Step 2: catch-up across all registered domains.
-        catchUp.catchUpAll(registry)
+        // Step 2: catch-up across all registered domains, behind the shared catch-up guard so a
+        // lifecycle/cursorStale trigger racing startup can't page concurrently.
+        catchUpMutex.withLock { catchUp.catchUpAll(registry) }
         // Step 3: seed SSE resume cursor.
         sseClient.seedLastEventId(store.highestCursor())
         // Step 4: collect frames before connecting so immediate frames are not dropped.
@@ -286,8 +305,9 @@ internal class SyncEngine(
         sseClient.connect()
         // Step 8: digest reconciliation — compare local domain digests against the
         // server's and re-pull any domain that has drifted. Runs after SSE connect
-        // so the live tail is already in place; reconcileAll() is non-throwing.
-        reconciler.reconcileAll()
+        // so the live tail is already in place; reconcileAll() is non-throwing. Behind the shared
+        // catch-up guard: its digest repair pages the server and rewrites the cursor store too.
+        catchUpMutex.withLock { reconciler.reconcileAll() }
         // All steps succeeded — flag the user's setup complete so a subsequent
         // start() for the same user is a no-op. If any step above threw, this
         // line is never reached, the flag stays false, and start() retries.
@@ -364,7 +384,9 @@ internal class SyncEngine(
      * same digest re-pull that [start] performs as its final step.
      */
     suspend fun forceReconcile() {
-        reconciler.reconcileAll()
+        // Behind the shared catch-up guard so a post-restore reconcile can't page concurrently with
+        // an in-flight lifecycle/cursorStale/start catch-up (both rewrite the cursor store).
+        catchUpMutex.withLock { reconciler.reconcileAll() }
     }
 
     /**
@@ -462,7 +484,7 @@ internal class SyncEngine(
 
     /** One lifecycle reconcile pass: forward catch-up → digest reconcile → refreshed-tier recovery. */
     private suspend fun runLifecycleReconcilePass() {
-        when (val result = catchUp.catchUpAll(registry)) {
+        when (val result = catchUpMutex.withLock { catchUp.catchUpAll(registry) }) {
             is AppResult.Success -> {}
 
             is AppResult.Failure -> {
@@ -472,8 +494,9 @@ internal class SyncEngine(
                 reportConnectionIssue(result.error)
             }
         }
-        // reconcileAll is non-throwing; the router guards each refresh individually.
-        reconciler.reconcileAll()
+        // reconcileAll is non-throwing; the router guards each refresh individually. Behind the
+        // shared catch-up guard: its digest repair pages the server and rewrites the cursor store.
+        catchUpMutex.withLock { reconciler.reconcileAll() }
         // Re-run every refreshed domain's declared refresh so a dropped refresh trigger (presence, server-info,
         // preferences) self-heals on this lifecycle edge — derived from the catalog, not hand-dispatched.
         refreshedRouter.refreshAll()
@@ -573,7 +596,7 @@ internal class SyncEngine(
     private suspend fun runCursorStaleRecovery() {
         logger.info { "CursorStale recovery — disconnect → catchUp → reseed → reconnect" }
         sseClient.disconnect()
-        when (val result = catchUp.catchUpAll(registry)) {
+        when (val result = catchUpMutex.withLock { catchUp.catchUpAll(registry) }) {
             is AppResult.Success -> {}
 
             is AppResult.Failure -> {
@@ -982,10 +1005,15 @@ internal class SyncEngine(
      * dispatchable ops remain beyond this wave's own retryable failures.
      *
      * Each wave runs under [drainMutex] so concurrent triggers (connect-up,
-     * enqueue, retry) coalesce. If the loop exits with retryable failures still
-     * outstanding, schedule a backoff-delayed re-drain — that's the engine's
-     * retry timer. Non-retryable failures stay flagged past
-     * `MAX_RETRYABLE_ATTEMPTS` and are silently skipped on subsequent waves.
+     * enqueue, retry) coalesce. Retry scheduling is budget-aware:
+     *  - **Server-answered retryable failures** (5xx, [DrainOutcome.hasRetryableFailures]) schedule
+     *    a backoff-delayed re-drain — the server is up but erroring transiently, so a bounded timer
+     *    retry is right.
+     *  - **Parked failures** (unreachable / idempotent lost-response) do NOT schedule the timer. A
+     *    fixed-1s busy-loop against a down server would burn nothing (budget is preserved) but spin
+     *    pointlessly; instead the op parks and the connection-up / reachability edge
+     *    ([ensureDrainScheduling]'s Connected trigger) re-drives drain the instant the server is back.
+     *  Non-retryable failures stay flagged past `MAX_RETRYABLE_ATTEMPTS` and are silently skipped.
      */
     private suspend fun runDrain() {
         while (true) {
@@ -1003,9 +1031,22 @@ internal class SyncEngine(
                         return
                     }
                 }
+            // Reconcile-on-drain-success: an entity whose optimistic write was INCOMPLETE (e.g. a
+            // new-by-name contributor that couldn't be linked offline) stayed stale because the
+            // entity-level anti-flicker shield DROPPED the server echo while this op was in flight,
+            // and the op is now gone. Targeted-fetch just-sent entities so the current server state
+            // lands promptly instead of waiting for the next lifecycle digest. Deliberately AFTER the
+            // drainMutex block: fetchTransient serializes on catchUpMutex (a leaf lock), which must
+            // never be acquired while drainMutex is held (non-inversion).
+            reconcileSentEntities(outcome.sentEntities)
             val madeProgress = outcome.sent > 0 || outcome.terminalFailures > 0
-            val backlogBeyondThisWavesFailures = outcome.remainingDispatchable > outcome.retryableFailures
+            // Both this wave's server-answered retries AND its parked ops remain dispatchable (still
+            // failureCount <= MAX), so subtract both to decide whether genuinely fresh backlog remains.
+            val thisWavesUnsentButDispatchable = outcome.retryableFailures + outcome.parkedFailures
+            val backlogBeyondThisWavesFailures = outcome.remainingDispatchable > thisWavesUnsentButDispatchable
             if (madeProgress && backlogBeyondThisWavesFailures) continue
+            // Only server-answered retryable failures earn the backoff timer. Parked ops wait for the
+            // reachability edge — busy-looping them against an unreachable server is wasted work.
             if (outcome.hasRetryableFailures) {
                 scope.launch {
                     delay(retryBackoffMillis)
@@ -1013,6 +1054,46 @@ internal class SyncEngine(
                 }
             }
             return
+        }
+    }
+
+    /**
+     * Targeted-reconcile the entities an outbox drain wave just sent, so a server echo the in-flight
+     * anti-flicker shield dropped lands promptly instead of waiting for the next lifecycle digest.
+     *
+     * Bounded to ONE targeted fetch per (mirrored) domain per wave: the sent refs are grouped by
+     * domain and fetched by their id list via the existing [CatchUp.fetchTransient] `?ids=` path —
+     * the same primitive the `AccessChanged` delta uses, so the fetch inherits the domain handler's
+     * revision guard and in-flight shield. A client-only channel (`profile`/`preferences`) has no
+     * registered [SyncDomainHandler], so it is skipped gracefully — its inbound echo already rides a
+     * different surface (the `public_profiles` mirror / the `PreferencesChanged` refreshed domain).
+     *
+     * Runs under the shared [catchUpMutex] so it serializes with catch-up/reconcile paging (never
+     * concurrent), and NOT under [drainMutex] (released by the caller before this runs) so there is
+     * no lock-order inversion. Best-effort: a failed fetch logs and moves on — the digest reconcile
+     * is the convergence backstop.
+     */
+    private suspend fun reconcileSentEntities(sentEntities: List<SentEntityRef>) {
+        if (sentEntities.isEmpty()) return
+        for ((domainName, refs) in sentEntities.groupBy { it.domainName }) {
+            val handler = registry.lookup(domainName)
+            if (handler == null) {
+                logger.debug {
+                    "reconcile-on-drain: '$domainName' has no sync handler (client-only channel); skipping targeted fetch"
+                }
+                continue
+            }
+            val ids = refs.map { it.entityId }.distinct()
+
+            @Suppress("UNCHECKED_CAST")
+            val typed = handler as SyncDomainHandler<Any>
+            val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, TargetedFetch.ByIds(ids)) }
+            if (result is AppResult.Failure) {
+                logger.warn {
+                    "reconcile-on-drain fetch failed for '$domainName' (${ids.size} id(s)): ${result.error.code}; " +
+                        "digest reconcile is the backstop"
+                }
+            }
         }
     }
 

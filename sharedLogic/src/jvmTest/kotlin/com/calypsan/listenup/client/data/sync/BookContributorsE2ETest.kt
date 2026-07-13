@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.sync.testing.withClientSyncEngineAgainstServer
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -11,10 +13,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.withTimeout
 
-private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
 private const val NEW_AUTHOR_NAME = "Brand New Author"
 
 /**
@@ -46,61 +45,58 @@ class BookContributorsE2ETest :
                 "contributor.Created + book.Updated via SSE into client Room",
         ) {
             withClientSyncEngineAgainstServer {
-                // Seed a book with no contributors. Start the engine first so the
-                // seed arrives through the live SSE tail — same pattern as BookEditE2ETest.
-                engine.start(currentUserId = "u1")
+                // Seed a book with no contributors, applied to client Room via the real dispatcher —
+                // the deterministic-frame pattern of BookEchoShieldE2ETest, so the in-flight window
+                // isn't racing the engine's reactive drain.
                 serverBookRepository.upsert(bookFixture(id = "contrib-b1", title = "Seed Book"))
-                withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
-                    while (clientDatabase.bookDao().getById(BookId("contrib-b1")) == null) {
-                        // Poll until the SSE tail has applied the seed row.
-                    }
-                }
-                // Pre-condition: no contributors linked to the book yet.
+                dispatcher.handle(booksFrame(bookFixture(id = "contrib-b1", title = "Seed Book"), revision = 1))
                 clientDatabase.contributorDao().getByBookId("contrib-b1") shouldHaveSize 0
 
-                // Issue the contributor-set over the real kotlinx.rpc transport with
-                // id = null so the server's `resolveOrCreate` path fires and creates
-                // a brand-new contributor row.
-                val result =
-                    bookEditRepository.setBookContributors(
+                // Offline-first edit with id = null so the server's `resolveOrCreate` path fires. The
+                // new contributor's id is minted server-side, so it CANNOT be linked optimistically —
+                // this is the one edit whose result the optimistic write can't mirror; it converges via
+                // the book's own echo once the op drains.
+                bookEditRepository
+                    .setBookContributors(
                         BookId("contrib-b1"),
-                        listOf(
-                            BookContributorInput(
-                                id = null,
-                                name = NEW_AUTHOR_NAME,
-                                role = "author",
-                                position = 0,
-                            ),
-                        ),
-                    )
-                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                        listOf(BookContributorInput(id = null, name = NEW_AUTHOR_NAME, role = "author", position = 0)),
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                // The INNER JOIN witness: getByBookId only returns the joined
-                // contributor when BOTH the `contributors` Created event AND the
-                // `books` Updated event have been applied — the contributor row
-                // must exist AND the junction row must exist. A single poll covers
-                // both SSE deliveries.
-                withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
-                    while (clientDatabase.contributorDao().getByBookId("contrib-b1").isEmpty()) {
-                        // SSE delivery latency is non-deterministic; poll the real query.
-                    }
-                }
-
-                val linked = clientDatabase.contributorDao().getByBookId("contrib-b1")
-                linked shouldHaveSize 1
-                linked.single().name shouldBe NEW_AUTHOR_NAME
-
-                // Dual assertion against the server side: the upserted book row's
-                // payload should now carry exactly the same auto-resolved contributor,
-                // proving the server end of the round trip is the one driving Room.
+                // Drain the op for real: client → kotlinx.rpc → server → resolveOrCreate + book upsert.
+                queue.drain()
                 val serverBook = serverBookRepository.findById(BookId("contrib-b1"))
                 checkNotNull(serverBook) { "server-side book row missing after setBookContributors" }
                 serverBook.contributors shouldHaveSize 1
                 serverBook.contributors.single().name shouldBe NEW_AUTHOR_NAME
-                serverBook.contributors.single().id shouldBe linked.single().id.value
+
+                // The op has drained (shield lifted); the book's authoritative echo now applies and the
+                // junction (plus a bootstrap contributor stub) lands in client Room — full convergence.
+                dispatcher.handle(booksFrame(serverBook.copy(revision = 2, updatedAt = 200L), revision = 2))
+
+                val linked = clientDatabase.contributorDao().getByBookId("contrib-b1")
+                linked shouldHaveSize 1
+                linked.single().name shouldBe NEW_AUTHOR_NAME
+                linked.single().id.value shouldBe serverBook.contributors.single().id
             }
         }
     })
+
+/** Encode [payload] (stamped at [revision]) as a `books` Updated SSE frame the dispatcher can apply. */
+private fun booksFrame(
+    payload: BookSyncPayload,
+    revision: Long,
+): ParsedSseFrame {
+    val stamped = payload.copy(revision = revision, updatedAt = revision * 100L)
+    return ParsedSseFrame(
+        id = revision,
+        event = "books",
+        data =
+            contractJson.encodeToString(
+                SyncEvent.serializer(BookSyncPayload.serializer()),
+                SyncEvent.Updated(id = stamped.id, revision = revision, occurredAt = stamped.updatedAt, payload = stamped),
+            ),
+    )
+}
 
 private fun bookFixture(
     id: String,

@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -47,6 +48,9 @@ private val logger = KotlinLogging.logger {}
  *
  * @property listeningEventDao DAO for the `listening_events` table.
  * @property tentativeSpanDao DAO for the single-row `tentative_span` table.
+ * @property transactionRunner Runs the finalize writes (event upsert + enqueue + tentative
+ *   delete) in one all-or-nothing transaction, so a failed enqueue rolls back the delete and
+ *   the tentative span survives as the recovery breadcrumb for [recoverOrphan].
  * @property enqueue Suspend function that persists a pending op for the finalized span.
  * @property currentUserId Returns the signed-in user's ID, or null if unauthenticated.
  *   A null result causes all write operations to no-op silently — no pending write without
@@ -54,6 +58,12 @@ private val logger = KotlinLogging.logger {}
  * @property deviceInfo Single source of the running device's identity; the persisted
  *   `device_label` is derived from it (user-facing name preferred, else hardware model).
  *   A null derived value is acceptable (the column is advisory).
+ * @property processId Identity of the current app-process launch — an in-memory UUID minted
+ *   once per process (the DI [single][org.koin.core.module.Module] is memoized, so the default
+ *   [Uuid.random] is evaluated exactly once per running app). Every span this recorder opens is
+ *   stamped with it, and [recoverOrphan] / [onPlay] compare against it to tell the current
+ *   process's live span apart from an orphan left by a prior process. Injected for deterministic
+ *   testing.
  * @property clock Injected for deterministic testing. Defaults to [Clock.System].
  * @property timeZone Injected for deterministic testing. Defaults to
  *   [TimeZone.currentSystemDefault].
@@ -61,17 +71,28 @@ private val logger = KotlinLogging.logger {}
 class ListeningEventRecorder internal constructor(
     private val listeningEventDao: ListeningEventDao,
     private val tentativeSpanDao: TentativeSpanDao,
+    private val transactionRunner: TransactionRunner,
     private val enqueue: suspend (entityId: String, payload: String, ownerUserId: String) -> Unit,
     private val currentUserId: suspend () -> String?,
     private val deviceInfo: DeviceInfoProvider,
+    private val processId: String = Uuid.random().toString(),
     private val clock: Clock = Clock.System,
     private val timeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
 ) {
     /**
-     * Opens a new tentative span at [positionMs] with [playbackSpeed]. If a span is already
-     * open it is replaced — [onSpeedChange] / [onSeek] / [onMediaItemTransition] each
-     * finalize the existing span before calling [onPlay], so a raw [onPlay] with an open span
-     * means unexpected state; replacing is safe and keeps the table's single-row invariant.
+     * Opens a new tentative span at [positionMs] with [playbackSpeed], stamped with this
+     * process's [processId].
+     *
+     * **Never destroys a prior process's orphan.** If a span from a DIFFERENT process launch is
+     * still open (a crash / OS-kill left it behind and startup [recoverOrphan] has not run yet —
+     * e.g. the user hit play while catch-up was still paging), it is recovered (finalized) FIRST,
+     * then the new span is opened. Only if that recovery could not clear the row (its finalize
+     * rolled back) do we bail without opening a new span, so the orphan survives as the recovery
+     * breadcrumb rather than being clobbered by the single-row table's replace semantics.
+     *
+     * A span from the SAME process is unexpected on a raw [onPlay] ([onSpeedChange] / [onSeek] /
+     * [onMediaItemTransition] each finalize first), so replacing it is safe and keeps the
+     * single-row invariant.
      */
     suspend fun onPlay(
         bookId: String,
@@ -83,6 +104,23 @@ class ListeningEventRecorder internal constructor(
                 logger.debug { "[ListeningEventRecorder] onPlay skipped — no authenticated user" }
                 return
             }
+        val existing = tentativeSpanDao.get()
+        if (existing != null && existing.processId != processId) {
+            logger.info {
+                "[ListeningEventRecorder] onPlay found an orphan span from a prior process " +
+                    "(book=${existing.bookId}) — recovering it before opening the new span"
+            }
+            finalizeCurrentSpan(endPositionMs = existing.currentPositionMs, endedAt = existing.lastHeartbeatAt)
+            // If the orphan's finalize rolled back (e.g. a failed enqueue), the row survives.
+            // Never overwrite it — bail so startup recoverOrphan re-promotes it next launch.
+            if (tentativeSpanDao.get() != null) {
+                logger.warn {
+                    "[ListeningEventRecorder] Prior-process orphan did not clear during onPlay — " +
+                        "leaving it intact for recovery, new span not opened"
+                }
+                return
+            }
+        }
         val nowMs = clock.now().toEpochMilliseconds()
         tentativeSpanDao.upsertSingleton(
             TentativeSpanEntity(
@@ -96,6 +134,7 @@ class ListeningEventRecorder internal constructor(
                 playbackSpeed = playbackSpeed,
                 tz = timeZone().id,
                 deviceLabel = deviceInfo.current().let { it.deviceName ?: it.deviceModel },
+                processId = processId,
             ),
         )
     }
@@ -141,8 +180,16 @@ class ListeningEventRecorder internal constructor(
     }
 
     /**
-     * Finalizes the current span at [positionBeforeSeek] (the listener's last known position
-     * before the jump), then opens a new span at [positionAfterSeek]. No-op if no span is open.
+     * Splits the span on a seek: finalizes the current span at [positionBeforeSeek] (the
+     * listener's last known position before the jump), then opens a fresh span at
+     * [positionAfterSeek]. This is what keeps a jumped-over range out of the finalized span's
+     * content coverage — without it a seek would silently inflate one span to span the jump
+     * (e.g. 0:12:00 → 5:02:00 after a seek to 5:00:00), fabricating coverage that corrupts the
+     * books-finished / coverage-derived stats. No-op if no span is open.
+     *
+     * The pre-seek end is clamped to the span's own start so a backward seek reported with a
+     * stale before-position can never produce an inverted span (`endPositionMs < startPositionMs`),
+     * which the server has no defined handling for.
      */
     suspend fun onSeek(
         positionBeforeSeek: Long,
@@ -150,7 +197,8 @@ class ListeningEventRecorder internal constructor(
     ) {
         val existing = tentativeSpanDao.get() ?: return
         val nowMs = clock.now().toEpochMilliseconds()
-        finalizeCurrentSpan(endPositionMs = positionBeforeSeek, endedAt = nowMs)
+        val endPositionMs = maxOf(positionBeforeSeek, existing.startPositionMs)
+        finalizeCurrentSpan(endPositionMs = endPositionMs, endedAt = nowMs)
         onPlay(existing.bookId, positionAfterSeek, existing.playbackSpeed)
     }
 
@@ -174,10 +222,22 @@ class ListeningEventRecorder internal constructor(
      * [TentativeSpanEntity.lastHeartbeatAt] as the end timestamp. Loss is bounded to one
      * heartbeat interval (30 s in normal operation). No-op if no orphan exists.
      *
+     * **Never finalizes the current process's live span.** A span whose [TentativeSpanEntity.processId]
+     * equals this process's [processId] belongs to the running session — finalizing it would truncate
+     * a live listen at its opening heartbeat and delete the tentative row, so the rest of the session
+     * would go unrecorded. Only a span from a DIFFERENT (prior) process launch is a real orphan.
+     *
      * Call once at startup after the database is open and before playback resumes.
      */
     suspend fun recoverOrphan() {
         val orphan = tentativeSpanDao.get() ?: return
+        if (orphan.processId == processId) {
+            logger.debug {
+                "[ListeningEventRecorder] Skipping recovery — span for book=${orphan.bookId} belongs to " +
+                    "the current process (it is live, not an orphan)"
+            }
+            return
+        }
         logger.info {
             "[ListeningEventRecorder] Recovering orphan span for book=${orphan.bookId}, " +
                 "startPos=${orphan.startPositionMs}, lastHeartbeat=${orphan.lastHeartbeatAt}"
@@ -196,16 +256,14 @@ class ListeningEventRecorder internal constructor(
      * time (play+pause within the same millisecond). The tentative is deleted and no event is
      * written — avoids polluting the events table with accidental double-taps.
      *
-     * Note on atomicity: the three writes (upsert event, enqueue op, delete tentative) are NOT
-     * wrapped in a Room transaction. An orphan recovery run on the next launch handles any of the
-     * three intermediate states safely:
-     * - If the event upsert succeeded but enqueue / delete failed, the orphan is re-promoted on
-     *   the next launch. The event write is insert-if-absent (see [finalizeCurrentSpan]), so a
-     *   re-promotion never clobbers an already-synced/tombstoned row; only the enqueue + delete
-     *   are retried.
-     * - If all three succeed, there is no orphan row to recover.
-     * Full transactionality would require [com.calypsan.listenup.client.data.local.db.TransactionRunner]
-     * involvement and cross-DAO scope — the recovery path is the designed safety net.
+     * **Atomicity.** The three writes (upsert event, enqueue op, delete tentative) run inside a
+     * single [transactionRunner] transaction — they are all same-database Room DAO writes, so
+     * they commit or roll back as a unit. A failed enqueue rolls back BOTH the event upsert and
+     * the tentative delete, so the tentative span survives as the ONLY breadcrumb [recoverOrphan]
+     * can re-promote from on the next launch. Without this, a swallowed enqueue failure would
+     * delete that breadcrumb and strand the event at `revision = 0` locally forever. The event
+     * write stays insert-if-absent so a re-promoted orphan never clobbers an already-synced or
+     * tombstoned row. Serialization runs before the transaction to keep the SQLite write lock short.
      */
     private suspend fun finalizeCurrentSpan(
         endPositionMs: Long,
@@ -235,45 +293,44 @@ class ListeningEventRecorder internal constructor(
                 revision = 0L,
                 deletedAt = null,
             )
-        // Insert-if-absent. A re-promoted orphan whose event row already exists must
-        // NOT be clobbered: the row may have synced (revision advanced) and even been
-        // tombstoned server-side since. Writing a fresh revision=0/deletedAt=null row
-        // would resurrect/regress it. Only write the event the first time; the enqueue
-        // + tentative-delete below still run so a stalled recovery completes.
-        if (listeningEventDao.getById(entity.id) == null) {
-            listeningEventDao.upsert(entity)
-        }
 
-        val request =
-            RecordListeningEventRequest(
-                id = entity.id,
-                bookId = entity.bookId,
-                startPositionMs = entity.startPositionMs,
-                endPositionMs = entity.endPositionMs,
-                startedAt = entity.startedAt,
-                endedAt = entity.endedAt,
-                playbackSpeed = entity.playbackSpeed,
-                tz = entity.tz,
-                deviceLabel = entity.deviceLabel,
+        val payload =
+            contractJson.encodeToString(
+                RecordListeningEventRequest.serializer(),
+                RecordListeningEventRequest(
+                    id = entity.id,
+                    bookId = entity.bookId,
+                    startPositionMs = entity.startPositionMs,
+                    endPositionMs = entity.endPositionMs,
+                    startedAt = entity.startedAt,
+                    endedAt = entity.endedAt,
+                    playbackSpeed = entity.playbackSpeed,
+                    tz = entity.tz,
+                    deviceLabel = entity.deviceLabel,
+                ),
             )
 
         try {
-            enqueue(
-                entity.id,
-                contractJson.encodeToString(RecordListeningEventRequest.serializer(), request),
-                tentative.userId,
-            )
+            transactionRunner.atomically {
+                // Insert-if-absent. A re-promoted orphan whose event row already exists must
+                // NOT be clobbered: the row may have synced (revision advanced) and even been
+                // tombstoned server-side since. Writing a fresh revision=0/deletedAt=null row
+                // would resurrect/regress it.
+                if (listeningEventDao.getById(entity.id) == null) {
+                    listeningEventDao.upsert(entity)
+                }
+                enqueue(entity.id, payload, tentative.userId)
+                tentativeSpanDao.delete()
+            }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
-            // Queue write failure is non-fatal: the event is already in Room. The orphan
-            // recovery path on next launch will re-enqueue if needed.
+            // The transaction rolled back: no event row, and the tentative span survives.
+            // recoverOrphan() on the next launch re-promotes it, so the span is never lost.
             logger.warn(e) {
-                "[ListeningEventRecorder] Failed to enqueue listening event ${entity.id} — " +
-                    "event is persisted locally and will be re-enqueued on next launch"
+                "[ListeningEventRecorder] Failed to finalize listening event ${entity.id} — " +
+                    "tentative span preserved for recovery on next launch"
             }
         }
-
-        tentativeSpanDao.delete()
     }
 }

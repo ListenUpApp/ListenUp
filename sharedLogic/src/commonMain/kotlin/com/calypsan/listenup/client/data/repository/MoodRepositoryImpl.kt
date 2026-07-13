@@ -1,17 +1,21 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
-import com.calypsan.listenup.api.result.map as wireMap
+import com.calypsan.listenup.api.MoodService
+import com.calypsan.listenup.api.dto.BookMoodMutation
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
-import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.local.db.BookMoodDao
+import com.calypsan.listenup.client.data.local.db.BookMoodEntity
 import com.calypsan.listenup.client.data.local.db.MoodDao
-import com.calypsan.listenup.client.data.remote.MoodRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.repository.MoodRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -24,18 +28,27 @@ import kotlinx.coroutines.flow.map
  * [com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain], so the
  * UI reacts without explicit network polling.
  *
- * **Mutation** (RPC-backed): `addMoodToBook`, `removeMoodFromBook` delegate to the
- * [MoodRpcFactory] WebSocket proxy. There are no optimistic Room writes — the SSE echo
- * from the server is the single write path back into Room, keeping state consistent
- * across devices.
+ * **Mutation**: `removeMoodFromBook` is offline-first — it tombstones the junction in Room
+ * optimistically and enqueues a durable op (via [OfflineEditor.edit]) on the `book_moods` channel,
+ * keyed by the `"$bookId:$moodId"` envelope id, so an edit made offline persists and replays on
+ * reconnect rather than failing with a [com.calypsan.listenup.api.error.ServerConnectError]; the
+ * in-flight shield defers the junction's own echo until the op drains, then it reconciles through
+ * [com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain]. `addMoodToBook` is offline-first
+ * when a same-name mood already exists in Room (its slug equals the server's `normalize(name)`, so
+ * find-or-create resolves to that same id — the junction is mirrored and a durable
+ * [BookMoodMutation.Add] enqueued); a genuinely-new mood mints its id/slug server-side and stays
+ * online, dispatching through the [RpcChannel] for [MoodService].
  *
- * Wire [WireAppResult] values returned by the RPC service are converted to the client-layer
- * [AppResult] at this boundary, following the same pattern as [TagRepositoryImpl].
+ * @property channel the [RpcChannel] the online mutation surface dispatches through; the channel
+ *   folds the RPC outcome into an [AppResult] (throw → typed `Failure`, business `Failure` passthrough).
+ * @property offlineEditor the seam that composes the optimistic Room merge and the durable outbox
+ *   enqueue into a single transaction for `removeMoodFromBook`.
  */
 internal class MoodRepositoryImpl(
-    private val moodRpcFactory: MoodRpcFactory,
+    private val channel: RpcChannel<MoodService>,
     private val moodDao: MoodDao,
     private val bookMoodDao: BookMoodDao,
+    private val offlineEditor: OfflineEditor,
 ) : MoodRepository {
     // ── Observation (Room-backed) ─────────────────────────────────────────────
 
@@ -52,41 +65,70 @@ internal class MoodRepositoryImpl(
 
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 
+    /**
+     * Adding a mood to a book is find-or-create by slug server-side, so its offline-first eligibility
+     * turns on whether the target mood already exists locally:
+     * - **Name hit** (a live mood with [name] already in Room, case-insensitive): its slug equals the
+     *   server's `normalize(name)`, so find-or-create for the same `name` resolves to THIS mood id — a
+     *   false hit is impossible (two moods can't share a slug). So it's offline-first: upsert the
+     *   `(bookId, moodId)` junction optimistically (revision-0, clearing any tombstone for re-add
+     *   semantics) and enqueue a durable [BookMoodMutation.Add] on the `book_moods` channel, keyed by
+     *   the same `"$bookId:$moodId"` envelope id the junction's mirror row uses so the in-flight shield
+     *   and reconcile-on-drain align. The known mood is returned immediately.
+     * - **Miss** (no same-name mood locally): a brand-new mood's id/slug are minted server-side and
+     *   unknown until the echo, so it stays ONLINE via the [RpcChannel]. This also covers the rare case
+     *   where the server would slug-match a *differently-named* existing mood; the echo reconciles Room.
+     *
+     * The client deliberately does NOT normalize slugs itself — the server's normalizer is a JVM-only
+     * expect/actual, so name-match is the safe cross-platform proxy for the find-or-create identity.
+     */
     override suspend fun addMoodToBook(
         bookId: String,
         name: String,
-    ): AppResult<Mood> =
-        rpcCall {
-            moodRpcFactory.get().addMoodToBook(BookId(bookId), name).wireMap { it.toDomain() }
-        }
+    ): AppResult<Mood> {
+        val existing = moodDao.findByName(name) ?: return onlineAddMoodToBook(bookId, name)
+        return offlineEditor
+            .edit(
+                OutboxChannels.BookMoods,
+                "$bookId:${existing.id}",
+                BookMoodMutation.Add(bookId = bookId, moodId = existing.id, name = name),
+                op = OpKind.Create,
+            ) {
+                bookMoodDao.upsert(
+                    BookMoodEntity(
+                        bookId = bookId,
+                        moodId = existing.id,
+                        createdAt = currentEpochMilliseconds(),
+                        revision = 0,
+                        deletedAt = null,
+                    ),
+                )
+            }.map { existing.toDomain() }
+    }
 
+    /** The online find-or-create fallback for a brand-new mood; the echo reconciles Room. */
+    private suspend fun onlineAddMoodToBook(
+        bookId: String,
+        name: String,
+    ): AppResult<Mood> = channel.call { it.addMoodToBook(BookId(bookId), name) }.map { it.toDomain() }
+
+    /**
+     * Offline-first: tombstone the junction optimistically and enqueue a durable op on the
+     * `book_moods` channel, keyed by the same `"$bookId:$moodId"` envelope id the junction's mirror
+     * row uses so the in-flight shield and reconcile-on-drain align. Removal is idempotent server-side.
+     */
     override suspend fun removeMoodFromBook(
         bookId: String,
         moodId: String,
-    ): AppResult<Unit> = rpcCallUnit { moodRpcFactory.get().removeMoodFromBook(BookId(bookId), MoodId(moodId)) }
-
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    /**
-     * Run an RPC call that returns a data value, converting [WireAppResult] → [AppResult].
-     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure].
-     */
-    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
-        try {
-            when (val result = block()) {
-                is WireAppResult.Success -> AppResult.Success(result.data)
-                is WireAppResult.Failure -> AppResult.Failure(result.error)
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            AppResult.Failure(ErrorMapper.map(e))
+    ): AppResult<Unit> =
+        offlineEditor.edit(
+            OutboxChannels.BookMoods,
+            "$bookId:$moodId",
+            BookMoodMutation.Remove(bookId = bookId, moodId = moodId),
+            op = OpKind.Delete,
+        ) {
+            bookMoodDao.tombstone(bookId = bookId, moodId = moodId, deletedAt = currentEpochMilliseconds())
         }
-
-    /**
-     * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
-     */
-    private suspend fun rpcCallUnit(block: suspend () -> WireAppResult<Unit>): AppResult<Unit> = rpcCall(block)
 }
 
 // ── Mapping ───────────────────────────────────────────────────────────────────

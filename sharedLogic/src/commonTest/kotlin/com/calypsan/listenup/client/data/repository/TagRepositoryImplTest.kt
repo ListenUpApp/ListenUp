@@ -3,9 +3,12 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.client.data.local.db.BookTagDao
 import com.calypsan.listenup.client.data.local.db.BookTagEntity
 import com.calypsan.listenup.client.data.local.db.TagDao
+import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.client.data.local.db.TagEntity
-import com.calypsan.listenup.client.data.remote.TagRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.mock
@@ -21,10 +24,10 @@ import kotlinx.coroutines.test.runTest
 /**
  * Unit tests for [TagRepositoryImpl] — Room-observation layer.
  *
- * Mutation methods (addTagToBook, removeTagFromBook, renameTag, deleteTag) require
- * a live [TagRpcFactory] proxy and are covered by end-to-end jvmTest integration
- * tests instead. This file focuses on the Room observation layer, which is fully
- * testable with mocks.
+ * Mutation methods (addTagToBook, removeTagFromBook, renameTag, deleteTag) dispatch
+ * through the [RpcChannel] for [TagService] and are covered by end-to-end jvmTest
+ * integration tests instead. This file focuses on the Room observation layer, which is
+ * fully testable with mocks.
  */
 class TagRepositoryImplTest :
     FunSpec({
@@ -32,8 +35,13 @@ class TagRepositoryImplTest :
         fun repo(
             tagDao: TagDao = mock(),
             bookTagDao: BookTagDao = mock(),
-            rpcFactory: TagRpcFactory = mock(),
-        ) = TagRepositoryImpl(tagRpcFactory = rpcFactory, tagDao = tagDao, bookTagDao = bookTagDao)
+            service: TagService = mock(),
+        ) = TagRepositoryImpl(
+            channel = RpcChannel.forTest(service),
+            tagDao = tagDao,
+            bookTagDao = bookTagDao,
+            offlineEditor = noopOfflineEditor(),
+        )
 
         fun tagEntity(
             id: String,

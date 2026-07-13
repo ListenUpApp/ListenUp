@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.settings
 
+import com.calypsan.listenup.api.error.AppError
+
 /**
  * A device row in the Devices screen — display-resolved from a server `SessionSummary`.
  *
@@ -35,8 +37,8 @@ sealed interface DevicesUiState {
         val signingOut: Set<String> = emptySet(),
     ) : DevicesUiState
 
-    /** Terminal state when the session load fails. */
+    /** Terminal state when the session load fails; carries the typed [error] for the UI to localize. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : DevicesUiState
 }

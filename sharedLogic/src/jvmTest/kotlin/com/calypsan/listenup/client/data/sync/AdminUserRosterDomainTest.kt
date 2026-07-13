@@ -22,7 +22,7 @@ class AdminUserRosterDomainTest :
         test("Created event upserts a new admin_user_roster row matching the payload") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(payload("user-1")), isOwnEcho = false)
+                    .onEvent(created(payload("user-1")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val row =
@@ -43,12 +43,11 @@ class AdminUserRosterDomainTest :
 
         test("Updated event for an existing user REPLACES the local row entirely (server wins)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-1", role = "user", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-1", role = "user", revision = 1L)))
 
                 handler
                     .onEvent(
                         updated(payload("user-1", role = "admin", canShare = false, revision = 2L)),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val row =
@@ -81,7 +80,7 @@ class AdminUserRosterDomainTest :
 
         test("onCatchUpItem for an existing row also replaces it (server wins)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-3", status = "pending_approval", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-3", status = "pending_approval", revision = 1L)))
                 handler.onCatchUpItem(payload("user-3", status = "active", revision = 3L), isTombstone = false)
 
                 val row =
@@ -97,12 +96,11 @@ class AdminUserRosterDomainTest :
 
         test("Deleted event soft-deletes the row so observeAll no longer returns it") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-deleted", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-deleted", revision = 1L)))
 
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "user-deleted", revision = 2L, occurredAt = 999_000L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val liveRows = db.adminUserRosterDao().observeAll().first()
@@ -112,10 +110,9 @@ class AdminUserRosterDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-deleted", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-deleted", revision = 1L)))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "user-deleted", revision = 2L, occurredAt = 999_000L),
-                    isOwnEcho = false,
                 )
                 // observeAll filters tombstones — invisible to reads
                 db
@@ -132,7 +129,7 @@ class AdminUserRosterDomainTest :
 
         test("onCatchUpItem with isTombstone=true soft-deletes the row") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-4", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-4", revision = 1L)))
 
                 handler
                     .onCatchUpItem(

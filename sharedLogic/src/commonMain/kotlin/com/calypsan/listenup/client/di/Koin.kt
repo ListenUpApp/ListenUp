@@ -26,14 +26,6 @@ internal expect val platformDeviceModule: Module
 // top-level `val networkModule` name collision between this file and that file.
 
 /**
- * Platform-specific base URL for the API.
- * - Android emulator: 10.0.2.2 (maps to host's localhost)
- * - iOS simulator: localhost/127.0.0.1
- * - Physical devices: Use your computer's LAN IP
- */
-expect fun getBaseUrl(): String
-
-/**
  * All shared modules that should be loaded in both Android and iOS.
  *
  * Internal because the list is `List<Module>` — exposing Koin's `Module` type on the public

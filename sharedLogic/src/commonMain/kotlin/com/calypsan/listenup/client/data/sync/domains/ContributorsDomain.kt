@@ -21,7 +21,7 @@ import com.calypsan.listenup.core.Timestamp
  * **Aliases (Books-C2).** The wire list is server-authoritative (merge/unmerge);
  * mirrored with delete-then-insert replace inside the surrounding transaction.
  *
- * `isOwnEcho` needs no shield: clients have no direct alias-write path.
+ * An own-echo needs no shield: clients have no direct alias-write path.
  */
 internal fun contributorsDomain(
     database: ListenUpDatabase,

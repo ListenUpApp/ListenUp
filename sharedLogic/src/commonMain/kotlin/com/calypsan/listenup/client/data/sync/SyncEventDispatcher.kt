@@ -14,7 +14,6 @@ private val logger = KotlinLogging.logger {}
 /**
  * Routes parsed SSE frames to the right handler. The single seam where:
  *  - typed event payloads are decoded using the handler's `KSerializer<T>`,
- *  - `clientOpId` echoes are matched against the pending queue (and acked),
  *  - control events are recognised: refresh controls run their catalog-declared refresh
  *    strategy via [refreshedRouter]; engine/lifecycle controls (`CursorStale`,
  *    `StreamError`, `AccessChanged`, `UserDeleted`, `LibraryDataChanged`) fire their callbacks,
@@ -23,7 +22,6 @@ private val logger = KotlinLogging.logger {}
  */
 internal class SyncEventDispatcher(
     private val registry: ClientSyncDomainRegistry,
-    private val queue: PendingOperationQueue,
     private val state: SyncEngineState,
     private val cursorAdvance: suspend (domainName: String, revision: Long) -> Unit,
     private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
@@ -33,6 +31,17 @@ internal class SyncEventDispatcher(
     private val onLibraryDataChanged: suspend () -> Unit = {},
     private val reportCompat: (String) -> Unit = {},
 ) {
+    /**
+     * Digest OPT-OUT domains (positions) whose live cursor advancement is frozen because an apply
+     * failed. For a domain with no digest backstop the cursor is the ONLY redelivery path, so once
+     * a hole opens we must not let a *later* event (a different book at a higher revision) step the
+     * cursor past the failed revision — that would strand it forever. Frozen entries stay put for
+     * the session; the next catch-up re-pulls from the held cursor and heals the hole (its own
+     * `setCursor` then advances the real cursor, which is monotonic, so the freeze never regresses
+     * it). SSE frames are processed by a single collector, so a plain set needs no synchronisation.
+     */
+    private val frozenOptOutDomains = mutableSetOf<String>()
+
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
     suspend fun handle(frame: ParsedSseFrame) {
         when (frame.event) {
@@ -129,10 +138,20 @@ internal class SyncEventDispatcher(
                 reportCompat("SSE event undecodable for domain '$domainName': ${e.message}")
                 return
             }
-        val isOwnEcho = event.clientOpId?.let { queue.containsAndAck(it) } ?: false
-        when (val result = typed.onEvent(event, isOwnEcho)) {
+        when (val result = typed.onEvent(event)) {
             is AppResult.Success -> {
-                frame.id?.let { rev -> cursorAdvance(domainName, rev) }
+                // A frozen OptOut domain must not advance the cursor past its held (pre-hole)
+                // watermark: doing so on this later event would strand the earlier failed
+                // revision that only the cursor can redeliver. Digest-backed domains always
+                // advance (a missed apply self-heals on the next reconcile).
+                if (typed.hasDigestBackstop || domainName !in frozenOptOutDomains) {
+                    frame.id?.let { rev -> cursorAdvance(domainName, rev) }
+                } else {
+                    logger.debug {
+                        "[$domainName] cursor frozen (no digest backstop, prior apply failed); " +
+                            "not advancing to ${frame.id} — catch-up will re-pull and heal"
+                    }
+                }
             }
 
             is AppResult.Failure -> {
@@ -141,9 +160,16 @@ internal class SyncEventDispatcher(
                 // entity's canonical state. Applies are idempotent upserts, so redelivery is
                 // safe. The ack above is deliberately NOT rolled back — the server confirmed
                 // the op; catch-up re-applies the canonical state without echo shielding.
+                if (!typed.hasDigestBackstop) {
+                    // No reconcile backstop: freeze cursor advancement at the last successfully
+                    // applied revision (SSE frames are revision-ordered, so the cursor already
+                    // sits just below this hole). Only catch-up re-pull can advance past it now.
+                    frozenOptOutDomains += domainName
+                }
                 logger.warn {
                     "Apply failed for domain '$domainName' (revision=${frame.id}): " +
-                        "${result.error.code}; cursor not advanced"
+                        "${result.error.code}; cursor not advanced" +
+                        if (!typed.hasDigestBackstop) " (frozen: no digest backstop)" else ""
                 }
                 state.recordError(result.error)
             }

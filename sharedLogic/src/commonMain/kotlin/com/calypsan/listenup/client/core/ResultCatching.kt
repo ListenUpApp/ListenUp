@@ -26,14 +26,3 @@ suspend inline fun <T> suspendRunCatching(crossinline block: suspend () -> T): A
         Failure(e)
     }
 }
-
-/** Non-suspending equivalent of [suspendRunCatching]. Routes throwables through [ErrorMapper]. */
-@OptIn(ExperimentalContracts::class)
-internal inline fun <T> runCatching(block: () -> T): AppResult<T> {
-    contract { callsInPlace(block, InvocationKind.AT_MOST_ONCE) }
-    return try {
-        AppResult.Success(block())
-    } catch (e: Exception) {
-        Failure(e)
-    }
-}

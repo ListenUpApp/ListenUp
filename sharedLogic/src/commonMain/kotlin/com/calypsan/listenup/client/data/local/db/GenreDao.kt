@@ -135,6 +135,15 @@ internal interface GenreDao {
     )
 
     /**
+     * Count the live (non-tombstoned) direct children of [parentId] — the client mirror of the
+     * server's `deleteGenre` precondition (a genre with live descendants can't be deleted). The
+     * offline-first delete pre-validates this rule before writing/enqueuing so an offline delete of a
+     * non-leaf genre fails the same way an online one would, with no optimistic write to roll back.
+     */
+    @Query("SELECT COUNT(*) FROM genres WHERE parentId = :parentId AND deletedAt IS NULL")
+    suspend fun liveChildCount(parentId: String): Int
+
+    /**
      * Hard-delete a genre by ID. Used for testing and full re-sync scenarios
      * only — production sync uses [softDelete].
      *
@@ -258,6 +267,17 @@ internal interface GenreDao {
      */
     @Query("SELECT bookId FROM book_genres WHERE genreId = :genreId")
     suspend fun getBookIdsForGenre(genreId: String): List<BookId>
+
+    /**
+     * Cascade-remove every `book_genres` link for [genreId] — the client mirror of the server's
+     * `deleteGenre` cascade (which hard-deletes the junction rows, then re-derives each affected
+     * book's genre list). Unlike `book_tags`/`book_series`, this junction carries no soft-delete
+     * columns, so a hard delete is the faithful mirror; the authoritative genre list re-arrives on
+     * each affected book's `book.Updated` echo. Keeps the optimistic delete honest: a soft-deleted
+     * genre would otherwise still show on a book, since [getGenresForBook] does not filter tombstones.
+     */
+    @Query("DELETE FROM book_genres WHERE genreId = :genreId")
+    suspend fun deleteAllBookGenresForGenre(genreId: String)
 
     /**
      * Replace all genres for a book atomically.

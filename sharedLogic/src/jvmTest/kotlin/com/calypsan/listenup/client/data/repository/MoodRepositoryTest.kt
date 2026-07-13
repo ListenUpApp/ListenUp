@@ -4,8 +4,11 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.Mood as WireMood
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.remote.MoodRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain
 import com.calypsan.listenup.client.data.sync.domains.moodsDomain
@@ -75,12 +78,12 @@ private fun withRepo(block: suspend (MoodRepositoryImpl, ListenUpDatabase) -> Un
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            val moodRpcFactory: MoodRpcFactory = mock()
             val repo =
                 MoodRepositoryImpl(
-                    moodRpcFactory = moodRpcFactory,
+                    channel = RpcChannel.forTest(mock<MoodService>()),
                     moodDao = db.moodDao(),
                     bookMoodDao = db.bookMoodDao(),
+                    offlineEditor = noopOfflineEditor(),
                 )
             block(repo, db)
         } finally {

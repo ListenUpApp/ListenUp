@@ -1,19 +1,12 @@
 package com.calypsan.listenup.client.playback
 
-import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback as ContractPreparedPlayback
-import com.calypsan.listenup.api.dto.RecordListeningEventRequest
-import com.calypsan.listenup.api.dto.RecordPositionRequest
-import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
-import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.test.fake.FakeProgressTracker
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -65,52 +58,31 @@ fun defaultPositionRepository(): PlaybackPositionRepository {
 }
 
 /**
- * Builds a [PlaybackRpcFactory] stub that returns a [ContractPreparedPlayback] with signed
- * streaming URLs for [audioFileIds]. Suitable for tests that exercise the streaming path
- * but do not need to assert on the specific signed-URL content.
+ * Builds a [PlaybackPrepareRepository] stub that returns a [ContractPreparedPlayback] with signed
+ * streaming URLs for [audioFileIds]. Suitable for tests that exercise the streaming path but do not
+ * need to assert on the specific signed-URL content.
  */
-fun testPlaybackRpcFactory(
+fun testPlaybackPrepareRepository(
     vararg audioFileIds: String,
     bookId: String = "book-1",
-): PlaybackRpcFactory {
-    val service: PlaybackService =
-        object : PlaybackService {
-            override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> =
-                AppResult.Success(
-                    ContractPreparedPlayback(
-                        bookId = bookId.value,
-                        audioFiles =
-                            audioFileIds.mapIndexed { idx, fileId ->
-                                PreparedAudioFile(
-                                    fileId = fileId,
-                                    index = idx,
-                                    url = "/api/v1/audio/${bookId.value}/$fileId?u=&exp=&sig=",
-                                    format = "m4b",
-                                    durationMs = 1_800_000L,
-                                    sizeBytes = 45_000_000L,
-                                )
-                            },
-                        resumePosition = null,
-                    ),
-                )
-
-            override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> =
-                AppResult.Failure(InternalError(debugInfo = "stub"))
-
-            override suspend fun recordPosition(
-                request: RecordPositionRequest,
-            ): AppResult<PlaybackPositionSyncPayload> = AppResult.Failure(InternalError(debugInfo = "stub"))
-
-            override suspend fun getStats(): AppResult<UserStatsSyncPayload?> =
-                AppResult.Failure(InternalError(debugInfo = "stub"))
-
-            override suspend fun recordListeningEvent(
-                request: RecordListeningEventRequest,
-            ): AppResult<ListeningEventSyncPayload> = AppResult.Failure(InternalError(debugInfo = "stub"))
-        }
-    return object : PlaybackRpcFactory {
-        override suspend fun playbackService(): PlaybackService = service
-
-        override suspend fun invalidate() = Unit
+): PlaybackPrepareRepository =
+    object : PlaybackPrepareRepository {
+        override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> =
+            AppResult.Success(
+                ContractPreparedPlayback(
+                    bookId = bookId.value,
+                    audioFiles =
+                        audioFileIds.mapIndexed { idx, fileId ->
+                            PreparedAudioFile(
+                                fileId = fileId,
+                                index = idx,
+                                url = "/api/v1/audio/${bookId.value}/$fileId?u=&exp=&sig=",
+                                format = "m4b",
+                                durationMs = 1_800_000L,
+                                sizeBytes = 45_000_000L,
+                            )
+                        },
+                    resumePosition = null,
+                ),
+            )
     }
-}

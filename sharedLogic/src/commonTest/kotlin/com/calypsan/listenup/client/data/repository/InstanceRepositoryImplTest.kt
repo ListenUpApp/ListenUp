@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ServerConnectError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.ServerUrl
@@ -64,6 +66,66 @@ class InstanceRepositoryImplTest :
             data.verifiedUrl shouldBe "https://library.example.com"
             // The factory is connected over the ws-scheme equivalent.
             factory.lastWsUrl shouldBe "wss://library.example.com"
+        }
+
+        /** Returns a canned result per ws URL, recording the order of attempts. */
+        class UrlKeyedRpcFactory(
+            private val results: Map<String, RpcResult<ServerInfo>>,
+        ) : InstanceRpcFactory {
+            val attempted = mutableListOf<String>()
+
+            override suspend fun getServerInfo(wsBaseUrl: String): RpcResult<ServerInfo> {
+                attempted += wsBaseUrl
+                return results[wsBaseUrl] ?: RpcResult.Failure(TransportError.NetworkUnavailable())
+            }
+        }
+
+        test("verifyServer falls back to the alternate scheme on a typed TLS failure") {
+            // https/wss candidate fails with a genuine TLS failure (plaintext server) → verification
+            // retries the http/ws candidate, which succeeds.
+            val factory =
+                UrlKeyedRpcFactory(
+                    mapOf(
+                        "wss://library.example.com" to RpcResult.Failure(ServerConnectError.TlsFailure()),
+                        "ws://library.example.com" to RpcResult.Success(serverInfo),
+                    ),
+                )
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { null },
+                    instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
+                )
+
+            val result = repository.verifyServer("library.example.com")
+
+            val verified = result.shouldBeInstanceOf<AppResult.Success<*>>()
+            (verified.data as com.calypsan.listenup.client.domain.repository.VerifiedServer)
+                .verifiedUrl shouldBe "http://library.example.com"
+            factory.attempted shouldBe listOf("wss://library.example.com", "ws://library.example.com")
+        }
+
+        test("verifyServer does NOT fall back on a non-TLS failure (proxy 500 upgrade)") {
+            // A WebSocketException-500 maps to NetworkUnavailable, NOT TlsFailure — it is not a scheme
+            // mismatch, so verification must stop at the first candidate rather than probing http/ws.
+            val factory =
+                UrlKeyedRpcFactory(
+                    mapOf(
+                        "wss://library.example.com" to RpcResult.Failure(TransportError.NetworkUnavailable()),
+                        "ws://library.example.com" to RpcResult.Success(serverInfo),
+                    ),
+                )
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { null },
+                    instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
+                )
+
+            val result = repository.verifyServer("library.example.com")
+
+            result.shouldBeInstanceOf<AppResult.Failure>()
+            factory.attempted shouldBe listOf("wss://library.example.com")
         }
 
         test("getServerInfo returns failure without touching the factory when no URL is configured") {

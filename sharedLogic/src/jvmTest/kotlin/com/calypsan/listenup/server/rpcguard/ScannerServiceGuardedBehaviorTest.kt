@@ -37,7 +37,10 @@ class ScannerServiceGuardedBehaviorTest :
                     val errorEvent = awaitItem()
                     errorEvent.shouldBeInstanceOf<RpcEvent.Error>()
                     val internalError = errorEvent.error.shouldBeInstanceOf<InternalError>()
-                    internalError.cause shouldBe "RuntimeException"
+                    // The server exception's class name and message must NOT cross the wire — the
+                    // full detail stays in the server log, keyed by the correlation id.
+                    internalError.cause shouldBe null
+                    internalError.debugInfo shouldBe null
                     awaitComplete()
                 }
             }

@@ -2,8 +2,8 @@ package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -25,7 +25,7 @@ internal class AudioFileDownloaderImpl(
     private val apiClientFactory: ApiClientFactory,
     private val repository: DownloadRepository,
     private val fileManager: DownloadFileManager,
-    private val playbackRpcFactory: PlaybackRpcFactory,
+    private val prepareRepository: PlaybackPrepareRepository,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
     private val maxYield: Duration = 30.seconds,
 ) : AudioFileDownloader {
@@ -45,7 +45,7 @@ internal class AudioFileDownloaderImpl(
             httpClient = apiClientFactory.getClient(),
             repository = repository,
             fileManager = fileManager,
-            playbackRpcFactory = playbackRpcFactory,
+            prepareRepository = prepareRepository,
             isStopped = isStopped,
             setProgress = setProgress,
             yieldToPlayback = ::yieldToPlayback,

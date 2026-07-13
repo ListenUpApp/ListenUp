@@ -79,17 +79,22 @@ class RpcGuardEndToEndTest :
                 // Assert: typed Failure with InternalError — not a raw exception.
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 val internalError = failure.error.shouldBeInstanceOf<InternalError>()
-                internalError.cause shouldBe "NullPointerException"
+                // The server exception's class name and message must NOT cross the wire — they can
+                // embed SQL / paths / hostnames. The full detail stays in the server log, keyed by cid.
+                internalError.cause shouldBe null
+                internalError.debugInfo shouldBe null
                 // correlationId must be UUID-shaped (36 chars with hyphens).
                 val cid = internalError.correlationId ?: ""
                 cid.length shouldBe 36
 
-                // Critical invariant: the serialized wire payload contains no
-                // stacktrace markers. A stacktrace would contain " at " (frame
-                // separators) or "java.base" (JDK module paths).
+                // Critical invariant: the serialized wire payload leaks no server-internal detail —
+                // no exception class name, no message, and no stacktrace markers (" at " frame
+                // separators or "java.base" JDK module paths).
                 val encoded = contractJson.encodeToString(AppError.serializer(), internalError)
                 encoded.shouldNotContain(" at ")
                 encoded.shouldNotContain("java.base")
+                encoded.shouldNotContain("NullPointerException")
+                encoded.shouldNotContain("e2e-test")
             }
         }
     })

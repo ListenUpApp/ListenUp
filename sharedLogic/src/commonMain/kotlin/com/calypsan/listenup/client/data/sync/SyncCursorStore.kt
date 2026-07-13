@@ -16,7 +16,26 @@ internal class SyncCursorStore(
 ) {
     suspend fun getCursor(domainName: String): Long? = dao.getCursor(domainName)
 
+    /**
+     * Advance the cursor for [domainName] to [revision], monotonically: a lower value is
+     * ignored so the cursor never regresses. Buffered pre-disconnect frames can be applied
+     * after a catch-up already advanced the cursor further; without the `MAX` guard that
+     * later, lower write would rewind the cursor and force a redundant re-catch-up.
+     */
     suspend fun setCursor(
+        domainName: String,
+        revision: Long,
+    ) {
+        dao.setCursorMonotonic(domainName = domainName, revision = revision)
+    }
+
+    /**
+     * Force the cursor for [domainName] to exactly [revision], bypassing the monotonic guard —
+     * used by the from-zero re-baseline (`catchUpFromZero`), which deliberately re-establishes the
+     * cursor from server truth and must be able to LOWER a stale-high local value. This is the only
+     * sanctioned regression path; the incremental/SSE path always goes through [setCursor].
+     */
+    suspend fun resetCursor(
         domainName: String,
         revision: Long,
     ) {

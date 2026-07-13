@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.di
 
 import android.content.Context
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -12,6 +11,7 @@ import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -54,7 +54,7 @@ class PlaybackModuleVerifyTest :
                         DeviceContext::class,
                         ImageStorage::class,
                         PlaybackManager::class,
-                        PlaybackRpcFactory::class,
+                        PlaybackPrepareRepository::class,
                         ContributorRepository::class,
                         SeriesRepository::class,
                     ),

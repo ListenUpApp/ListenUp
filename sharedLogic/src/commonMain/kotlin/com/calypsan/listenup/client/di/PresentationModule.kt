@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
@@ -93,7 +95,7 @@ internal val authPresentationModule =
         // LibrarySetupViewModel for initial library configuration
         factory {
             com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel(
-                libraryAdminRpcFactory = get(),
+                libraryAdminChannel = rpcChannel<LibraryAdminService>(),
                 errorBus = get(),
                 // App-lifetime scope: the initial scan triggered after onboarding adds its
                 // folders must outlive this wizard (torn down when onboarding finishes and we
@@ -554,7 +556,7 @@ internal val startupPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.startup.AppStartupViewModel(
                 userRepository = get(),
-                libraryAdminRpcFactory = get(),
+                libraryAdminChannel = rpcChannel<LibraryAdminService>(),
                 authSession = get(),
                 syncRepository = get(),
             )

@@ -36,6 +36,29 @@ internal interface ShelfBookDao {
     @Query("SELECT * FROM shelf_books WHERE id = :id LIMIT 1")
     suspend fun findById(id: String): ShelfBookEntity?
 
+    /**
+     * The highest [sortOrder][ShelfBookEntity.sortOrder] among the shelf's live junction rows, or
+     * null when the shelf has no live members. Used by the offline-first `addBookToShelf` optimistic
+     * write to append the new book at the end of the current sort order (mirroring the server).
+     */
+    @Query("SELECT MAX(sortOrder) FROM shelf_books WHERE shelfId = :shelfId AND deletedAt IS NULL")
+    suspend fun maxSortOrderForShelf(shelfId: String): Int?
+
+    /**
+     * Cascade-tombstone every live junction row for [shelfId] — the client mirror of the server's
+     * `deleteShelf` cascade (soft-delete all `shelf_books` for the shelf). Advances each row's
+     * revision so the server's own cascade echo (at least one higher) still applies through the
+     * revision guard. Mirrors [BookTagDao.tombstoneAllForTag].
+     */
+    @Query(
+        "UPDATE shelf_books SET deletedAt = :deletedAt, revision = revision + 1, updatedAt = :deletedAt " +
+            "WHERE shelfId = :shelfId AND deletedAt IS NULL",
+    )
+    suspend fun tombstoneAllForShelf(
+        shelfId: String,
+        deletedAt: Long,
+    )
+
     /** Observe the live (non-tombstoned) book ids for a shelf, in sort order. */
     @Query(
         "SELECT bookId FROM shelf_books WHERE shelfId = :shelfId AND deletedAt IS NULL ORDER BY sortOrder ASC",

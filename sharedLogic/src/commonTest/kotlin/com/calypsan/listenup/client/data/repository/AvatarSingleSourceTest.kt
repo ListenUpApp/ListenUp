@@ -13,7 +13,8 @@ import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -89,11 +90,10 @@ class AvatarSingleSourceTest :
                 },
         ): ProfileEditRepositoryImpl {
             val userDao = mock<UserDao> { everySuspend { getCurrentUser() } returns selfEntity }
-            val rpcFactory = mock<ProfileRpcFactory> { everySuspend { get() } returns service }
             return ProfileEditRepositoryImpl(
                 userDao = userDao,
                 publicProfileDao = dao,
-                profileRpcFactory = rpcFactory,
+                channel = RpcChannel.forTest(service),
                 avatarUploader = { _, _ -> uploadResult },
                 imageStorage = imageStorage,
                 offlineEditor = unusedOfflineEditor(),

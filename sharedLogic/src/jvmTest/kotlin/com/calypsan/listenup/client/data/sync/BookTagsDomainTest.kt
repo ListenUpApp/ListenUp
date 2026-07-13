@@ -26,7 +26,7 @@ class BookTagsDomainTest :
         test("Created event inserts the junction row") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(junctionPayload("b1", "t1", createdAt = 100L, revision = 1L)), isOwnEcho = false)
+                    .onEvent(created(junctionPayload("b1", "t1", createdAt = 100L, revision = 1L)))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.bookTagDao().findByKey("b1", "t1")
                 row shouldNotBe null
@@ -41,7 +41,7 @@ class BookTagsDomainTest :
         test("Updated event upserts the junction row (re-add semantics)") {
             withHandler { handler, db ->
                 // Insert tombstoned row
-                handler.onEvent(created(junctionPayload("b1", "t1", deletedAt = 500L, revision = 2L)), isOwnEcho = false)
+                handler.onEvent(created(junctionPayload("b1", "t1", deletedAt = 500L, revision = 2L)))
                 // Re-add: server emits Updated with deletedAt = null
                 handler.onEvent(
                     SyncEvent.Updated(
@@ -51,7 +51,6 @@ class BookTagsDomainTest :
                         clientOpId = null,
                         payload = junctionPayload("b1", "t1", revision = 3L, deletedAt = null),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.bookTagDao().findByKey("b1", "t1")!!
                 row.deletedAt shouldBe null
@@ -61,11 +60,10 @@ class BookTagsDomainTest :
 
         test("Deleted event tombstones the junction row via synthetic id") {
             withHandler { handler, db ->
-                handler.onEvent(created(junctionPayload("b1", "t1", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(junctionPayload("b1", "t1", revision = 1L)))
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "b1:t1", revision = 2L, occurredAt = 800L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.bookTagDao().findByKey("b1", "t1")!!
                 row.deletedAt shouldBe 800L
@@ -74,10 +72,9 @@ class BookTagsDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(junctionPayload("b1", "t1", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(junctionPayload("b1", "t1", revision = 1L)))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "b1:t1", revision = 2L, occurredAt = 800L),
-                    isOwnEcho = false,
                 )
                 // observeForBook filters tombstones — invisible to reads
                 db
@@ -98,7 +95,6 @@ class BookTagsDomainTest :
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "invalid-no-colon", revision = 1L, occurredAt = 100L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }

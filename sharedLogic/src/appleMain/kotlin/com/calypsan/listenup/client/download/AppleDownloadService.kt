@@ -14,8 +14,8 @@ import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
@@ -91,7 +91,7 @@ class AppleDownloadService internal constructor(
     private val serverConfig: ServerConfig,
     private val tokenProvider: AudioTokenProvider,
     private val fileManager: DownloadFileManager,
-    private val playbackRpcFactory: PlaybackRpcFactory,
+    private val prepareRepository: PlaybackPrepareRepository,
     private val scope: CoroutineScope,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
 ) : DownloadService {
@@ -245,7 +245,7 @@ class AppleDownloadService internal constructor(
         // hardcoded /api/v1/books/{bookId}/audio/{fileId} route no longer exists and 404s. The signed
         // URL is RELATIVE, so prepend the server URL (NSURLSession has no base URL).
         val signedRelativeUrl =
-            when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, playbackRpcFactory)) {
+            when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, prepareRepository)) {
                 is AppResult.Success -> {
                     resolved.data
                 }

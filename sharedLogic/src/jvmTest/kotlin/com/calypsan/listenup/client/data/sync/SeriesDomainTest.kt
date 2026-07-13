@@ -29,7 +29,7 @@ class SeriesDomainTest :
         test("a Created event inserts the series row") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(payload("s1", "The Stormlight Archive")), isOwnEcho = false)
+                    .onEvent(created(payload("s1", "The Stormlight Archive")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.seriesDao().getById("s1")
                 row shouldNotBe null
@@ -59,7 +59,6 @@ class SeriesDomainTest :
                         clientOpId = null,
                         payload = payload("s1", "New Name", revision = 4),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.seriesDao().getById("s1")!!
                 row.name shouldBe "New Name"
@@ -72,10 +71,9 @@ class SeriesDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("s1", "The Stormlight Archive")), isOwnEcho = false)
+                handler.onEvent(created(payload("s1", "The Stormlight Archive")))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L),
-                    isOwnEcho = false,
                 )
                 // observeById filters tombstones — invisible to reads
                 db.seriesDao().observeById("s1").first() shouldBe null
@@ -88,7 +86,7 @@ class SeriesDomainTest :
 
         test("onCatchUpItem with isTombstone soft-deletes the series") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("s1", "The Stormlight Archive")), isOwnEcho = false)
+                handler.onEvent(created(payload("s1", "The Stormlight Archive")))
                 handler
                     .onCatchUpItem(payload("s1", "The Stormlight Archive", deletedAt = 100L), isTombstone = true)
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()

@@ -27,7 +27,9 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.matcher.matches
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.mock
 import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
@@ -99,8 +101,8 @@ class PlaybackManagerSpeedTest :
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                playbackRpcFactory = testPlaybackRpcFactory("af-0"),
-                bookRpcFactory = mock<BookRpcFactory>(),
+                prepareRepository = testPlaybackPrepareRepository("af-0"),
+                channel = RpcChannel.forTest(mock<BookService>()),
                 scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
                 playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),

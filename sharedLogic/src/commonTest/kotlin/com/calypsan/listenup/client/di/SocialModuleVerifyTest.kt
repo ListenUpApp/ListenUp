@@ -5,7 +5,6 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -29,7 +28,7 @@ import org.koin.test.verify.verify
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [PresenceRefreshSignal] — owned by `clientSyncModule`.
  *  - [OfflineEditor] — owned by `clientSyncModule`.
- *  - [AuthRpcFactory] — owned by `clientAuthModule`.
+ *  - The `AuthServiceAuthed` RPC channel — owned by `clientAuthModule`.
  *  - [PlaybackPositionRepository] — owned by `listeningModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
@@ -47,7 +46,6 @@ class SocialModuleVerifyTest :
                         ImageStorage::class,
                         PresenceRefreshSignal::class,
                         OfflineEditor::class,
-                        AuthRpcFactory::class,
                         PlaybackPositionRepository::class,
                         ApiClientFactory::class,
                         ServerConfig::class,

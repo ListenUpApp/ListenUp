@@ -7,6 +7,8 @@ import com.calypsan.listenup.client.data.local.db.BookDocumentDao
 import com.calypsan.listenup.client.data.local.db.BookDocumentEntity
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.NonRpcReason
+import com.calypsan.listenup.client.data.remote.NonRpcTransport
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.core.BookId
@@ -28,6 +30,10 @@ private const val DOCUMENT_REQUEST_TIMEOUT_MS = 120_000L
  *   `GET /api/v1/books/{bookId}/documents/{docId}` via the authenticated Ktor client,
  *   writes the bytes to the cache, and returns the path.
  */
+@NonRpcTransport(
+    NonRpcReason.BINARY_TRANSFER,
+    justification = "Document fetch streams raw file bytes into the local cache — no JSON-RPC frame.",
+)
 internal class DocumentRepositoryImpl(
     private val documentDao: BookDocumentDao,
     private val storage: DocumentStorage,

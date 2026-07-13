@@ -1,9 +1,10 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.failureOf
 import com.calypsan.listenup.client.checkIs
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.core.ContributorId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -13,102 +14,59 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.api.result.failureOf
 
 /**
  * Tests for DeleteContributorUseCase.
  *
- * Tests cover:
- * - Successful deletion
- * - Repository error propagation
+ * The use case now dispatches through the RPC-backed [ContributorEditRepository] — mutation
+ * belongs on the edit repo per the observe/edit split, and [ContributorEditRepositoryImpl]'s
+ * `deleteContributor` is a pure `channel.call { it.deleteContributor(id) }` RPC dispatcher. The
+ * client→RPC→server round trip for that path is covered end-to-end by
+ * `ContributorDeleteCascadeE2ETest`; here we pin that the use case delegates to the edit repo
+ * with the id wrapped into a typed [ContributorId], and that failures propagate untouched.
  */
 class DeleteContributorUseCaseTest :
     FunSpec({
 
-        // ========== Test Fixtures ==========
-
-        class TestFixture {
-            val contributorRepository: ContributorRepository = mock()
-
-            fun build(): DeleteContributorUseCase =
-                DeleteContributorUseCase(
-                    contributorRepository = contributorRepository,
-                )
-        }
-
-        fun createFixture(): TestFixture {
-            val fixture = TestFixture()
-            // Default: successful deletion
-            everySuspend { fixture.contributorRepository.deleteContributor(any()) } returns AppResult.Success(Unit)
-            return fixture
-        }
-
-        // ========== Success Tests ==========
-
-        test("delete contributor returns success") {
+        test("delete contributor delegates to the edit repo with the wrapped ContributorId") {
             runTest {
-                // Given
-                val fixture = createFixture()
-                val useCase = fixture.build()
+                val editRepository: ContributorEditRepository = mock()
+                everySuspend { editRepository.deleteContributor(any()) } returns AppResult.Success(Unit)
+                val useCase = DeleteContributorUseCase(contributorEditRepository = editRepository)
 
-                // When
-                val result = useCase(contributorId = "contributor-123")
+                val result = useCase(contributorId = "contributor-456")
 
-                // Then
                 checkIs<AppResult.Success<Unit>>(result)
+                verifySuspend { editRepository.deleteContributor(ContributorId("contributor-456")) }
             }
         }
 
-        test("delete contributor calls repository with correct ID") {
+        test("delete contributor returns failure when the edit repo fails") {
             runTest {
-                // Given
-                val fixture = createFixture()
-                val useCase = fixture.build()
+                val editRepository: ContributorEditRepository = mock()
+                everySuspend { editRepository.deleteContributor(any()) } returns failureOf("Contributor not found")
+                val useCase = DeleteContributorUseCase(contributorEditRepository = editRepository)
 
-                // When
-                useCase(contributorId = "contributor-456")
-
-                // Then
-                verifySuspend { fixture.contributorRepository.deleteContributor("contributor-456") }
-            }
-        }
-
-        // ========== Error Handling Tests ==========
-
-        test("delete contributor returns failure when repository fails") {
-            runTest {
-                // Given
-                val fixture = createFixture()
-                everySuspend { fixture.contributorRepository.deleteContributor(any()) } returns
-                    failureOf("Contributor not found")
-                val useCase = fixture.build()
-
-                // When
                 val result = useCase(contributorId = "contributor-123")
 
-                // Then
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.message shouldBe "Contributor not found"
             }
         }
 
-        test("delete contributor propagates repository exception") {
+        test("delete contributor propagates a typed AppError from the edit repo") {
             runTest {
-                // Given
-                val fixture = createFixture()
-                // Body-level message convention: pass a typed AppError so the
-                // user-facing message survives delegation.
-                everySuspend { fixture.contributorRepository.deleteContributor(any()) } returns
+                val editRepository: ContributorEditRepository = mock()
+                // Body-level message convention: pass a typed AppError so the user-facing message survives.
+                everySuspend { editRepository.deleteContributor(any()) } returns
                     AppResult.Failure(
                         com.calypsan.listenup.api.error
                             .ValidationError(message = "Network error"),
                     )
-                val useCase = fixture.build()
+                val useCase = DeleteContributorUseCase(contributorEditRepository = editRepository)
 
-                // When
                 val result = useCase(contributorId = "contributor-123")
 
-                // Then
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.message shouldBe "Network error"
             }

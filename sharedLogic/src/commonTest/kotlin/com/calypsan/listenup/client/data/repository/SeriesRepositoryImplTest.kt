@@ -12,14 +12,18 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.api.SearchService
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
-import com.calypsan.listenup.client.data.remote.SeriesApiContract
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.SeriesWithBooks as SeriesWithBooksRelation
 import dev.mokkery.MockMode
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -59,10 +63,10 @@ class SeriesRepositoryImplTest :
                 seriesDao = dao,
                 bookDao = mock<BookDao>(MockMode.autoUnit),
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
-                api = mock<SeriesApiContract>(),
                 networkMonitor = networkMonitor,
                 imageStorage = mock<ImageStorage>(),
-                rpcFactory = mock<SeriesRpcFactory>(MockMode.autoUnit),
+                channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
+                searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                 seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
@@ -96,10 +100,10 @@ class SeriesRepositoryImplTest :
                 seriesDao = seriesDao,
                 bookDao = bookDao,
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
-                api = mock<SeriesApiContract>(),
                 networkMonitor = networkMonitor,
                 imageStorage = imageStorage,
-                rpcFactory = mock<SeriesRpcFactory>(MockMode.autoUnit),
+                channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
+                searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                 seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
@@ -304,6 +308,53 @@ class SeriesRepositoryImplTest :
 
                 // Then
                 verify { dao.observeById("target-id") }
+            }
+        }
+
+        test("observeById swallows a sync-handler write failure so the observing flow survives (never stranded)") {
+            runTest {
+                // The on-demand cache fill succeeds at the RPC leg, but the Room write-through throws.
+                // That must NOT propagate into the observing flow and kill the screen's collector — the
+                // observer keeps emitting null rather than crashing.
+                val payload =
+                    SeriesSyncPayload(
+                        id = "series-x",
+                        name = "X",
+                        sortName = null,
+                        revision = 1L,
+                        updatedAt = 0L,
+                        createdAt = 0L,
+                        deletedAt = null,
+                    )
+                val service = mock<SeriesService>(MockMode.autoUnit)
+                everySuspend { service.getSeries(any()) } returns AppResult.Success(payload)
+                val handler = mock<SyncDomainHandler<SeriesSyncPayload>>()
+                everySuspend { handler.onCatchUpItem(any(), any()) } calls {
+                    throw RuntimeException("Room write blew up")
+                }
+
+                val dao = createMockDao()
+                every { dao.observeById("series-x") } returns flowOf(null)
+                val networkMonitor = mock<NetworkMonitor>()
+                every { networkMonitor.isOnline() } returns true
+
+                val repository =
+                    SeriesRepositoryImpl(
+                        seriesDao = dao,
+                        bookDao = mock<BookDao>(MockMode.autoUnit),
+                        searchDao = mock<SearchDao>(MockMode.autoUnit),
+                        networkMonitor = networkMonitor,
+                        imageStorage = mock<ImageStorage>(),
+                        channel = RpcChannel.forTest(service),
+                        searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
+                        seriesSyncHandler = handler,
+                    )
+
+                // The write-through was exercised (and threw) but the flow still emitted null cleanly.
+                val result = repository.observeById("series-x").first()
+
+                result shouldBe null
+                verifySuspend { handler.onCatchUpItem(any(), any()) }
             }
         }
 

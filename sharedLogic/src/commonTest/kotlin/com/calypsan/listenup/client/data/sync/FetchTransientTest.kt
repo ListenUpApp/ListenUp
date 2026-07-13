@@ -67,7 +67,6 @@ class FetchTransientTest :
 
                 override suspend fun onEvent(
                     event: SyncEvent<Tag>,
-                    isOwnEcho: Boolean,
                 ): AppResult<Unit> = AppResult.Success(Unit)
 
                 override suspend fun onCatchUpItem(
@@ -148,6 +147,14 @@ private class InMemoryCursorDao : SyncCursorDao {
 
     override suspend fun setCursor(entity: SyncCursorEntity) {
         cursors[entity.domainName] = entity.revision
+    }
+
+    override suspend fun setCursorMonotonic(
+        domainName: String,
+        revision: Long,
+    ) {
+        val current = cursors[domainName]
+        if (current == null || revision > current) cursors[domainName] = revision
     }
 
     override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }

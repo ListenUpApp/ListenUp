@@ -9,8 +9,11 @@ import com.calypsan.listenup.api.result.AppResult
  *
  * A domain with no registered sender is a programmer error: an op was enqueued for a
  * domain that has no push implementation. The failure is surfaced as a
- * non-retryable [SyncError.SyncFailed] so the op leaps past [MAX_RETRYABLE_ATTEMPTS]
- * and stops blocking the queue rather than retrying indefinitely.
+ * [SyncError.SyncFailed], which is retryable by contract (`isRetryable = true`) — so the
+ * op BURNS its full retry budget ([MAX_RETRYABLE_ATTEMPTS] attempts) before dead-lettering,
+ * exactly as [OutboxOpSender] documents for a corrupt payload. That waste is bounded and
+ * never reached in practice: [outboxSender]'s completeness `require` makes a no-sender op
+ * unconstructible in the production graph.
  */
 internal class DomainPendingOperationSender(
     private val byDomain: Map<String, PendingOperationSender>,

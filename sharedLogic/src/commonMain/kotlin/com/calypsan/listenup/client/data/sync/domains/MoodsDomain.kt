@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.data.local.db.MoodEntity
 /**
  * The `moods` domain: server-authored rows (curators), server-wins apply,
  * soft-delete tombstones, full digest participation, online-only writes.
- * Structurally identical to [tagsDomain]; `isOwnEcho` needs no shield — the
+ * Structurally identical to [tagsDomain]; An own-echo needs no shield — the
  * client has no local mood-row write path.
  */
 internal fun moodsDomain(database: ListenUpDatabase): MirroredDomain<Mood> {

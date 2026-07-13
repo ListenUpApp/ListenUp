@@ -21,7 +21,7 @@ import kotlinx.io.RawSink
  * hot state with `.stateIn(scope)` as needed.
  *
  * Implementations back this contract with the [com.calypsan.listenup.api.BackupService]
- * RPC proxy via [com.calypsan.listenup.client.data.remote.BackupRpcFactory].
+ * RPC channel ([com.calypsan.listenup.client.data.remote.RpcChannel]).
  */
 interface BackupRepository {
     /**

@@ -55,7 +55,7 @@ class DevicesViewModel(
             }
 
             is AppResult.Failure -> {
-                DevicesUiState.Error(result.error.message)
+                DevicesUiState.Error(result.error)
             }
         }
 

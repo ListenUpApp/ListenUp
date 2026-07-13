@@ -59,6 +59,16 @@ internal interface MoodDao {
     suspend fun findBySlug(slug: String): MoodEntity?
 
     /**
+     * Retrieve a single non-tombstoned mood whose display name matches [name] case-insensitively, or
+     * null if none. Powers the offline-first add-to-book path: a same-name mood's slug equals the
+     * server's `normalize(name)`, so its id is exactly what find-or-create would resolve to. Slug is
+     * unique, so at most one live mood can match; the `id ASC LIMIT 1` tie-break is a deterministic
+     * belt-and-braces guard against a transient duplicate mid-sync.
+     */
+    @Query("SELECT * FROM moods WHERE name = :name COLLATE NOCASE AND deletedAt IS NULL ORDER BY id ASC LIMIT 1")
+    suspend fun findByName(name: String): MoodEntity?
+
+    /**
      * Observe all non-tombstoned moods ordered by name ascending.
      */
     @Query("SELECT * FROM moods WHERE deletedAt IS NULL ORDER BY name ASC")

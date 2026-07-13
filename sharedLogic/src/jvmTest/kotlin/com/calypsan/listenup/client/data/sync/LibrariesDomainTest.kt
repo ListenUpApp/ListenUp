@@ -21,7 +21,7 @@ class LibrariesDomainTest :
         test("a Created event inserts the library row") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(payload("lib1", "My Library")), isOwnEcho = false)
+                    .onEvent(created(payload("lib1", "My Library")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.libraryDao().findById("lib1")
                 row shouldNotBe null
@@ -33,7 +33,7 @@ class LibrariesDomainTest :
 
         test("an Updated event overwrites the library row") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("lib1", "Old Name")), isOwnEcho = false)
+                handler.onEvent(created(payload("lib1", "Old Name")))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "lib1",
@@ -42,7 +42,6 @@ class LibrariesDomainTest :
                         clientOpId = null,
                         payload = payload("lib1", "New Name", revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.libraryDao().findById("lib1")!!
                 row.name shouldBe "New Name"
@@ -52,11 +51,10 @@ class LibrariesDomainTest :
 
         test("a Deleted event soft-deletes the library row") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("lib1", "My Library")), isOwnEcho = false)
+                handler.onEvent(created(payload("lib1", "My Library")))
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "lib1", revision = 5L, occurredAt = 999L, clientOpId = null),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.libraryDao().findById("lib1") shouldBe null
                 // findAll includes tombstones
@@ -68,10 +66,9 @@ class LibrariesDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("lib1", "My Library")), isOwnEcho = false)
+                handler.onEvent(created(payload("lib1", "My Library")))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "lib1", revision = 5L, occurredAt = 999L, clientOpId = null),
-                    isOwnEcho = false,
                 )
                 db.libraryDao().findById("lib1") shouldBe null
                 db.libraryDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "lib1"

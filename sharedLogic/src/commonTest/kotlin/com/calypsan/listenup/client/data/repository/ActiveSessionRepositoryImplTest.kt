@@ -9,7 +9,8 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
-import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.PRESENCE_POLL_INTERVAL_MS
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.model.ActiveSession
@@ -53,13 +54,6 @@ class ActiveSessionRepositoryImplTest :
             startedAtMs = startedAtMs,
         )
 
-        fun fakeRpc(service: SocialService): SocialRpcFactory =
-            object : SocialRpcFactory {
-                override suspend fun get(): SocialService = service
-
-                override suspend fun invalidate() = Unit
-            }
-
         fun bookDaoReturning(vararg summaries: BookSummary): BookDao {
             val dao = mock<BookDao>(MockMode.autoUnit)
             val byId = summaries.associateBy { it.id }
@@ -77,13 +71,13 @@ class ActiveSessionRepositoryImplTest :
         }
 
         fun repo(
-            rpc: SocialRpcFactory,
+            channel: RpcChannel<SocialService>,
             bookDao: BookDao,
             dao: CachedActiveSessionDao,
             presence: PresenceRefreshSignal = PresenceRefreshSignal(),
             images: ImageStorage = imageStorage(),
         ) = ActiveSessionRepositoryImpl(
-            socialRpc = rpc,
+            channel = channel,
             bookDao = bookDao,
             imageStorage = images,
             presence = presence,
@@ -108,7 +102,7 @@ class ActiveSessionRepositoryImplTest :
                         ),
                     )
 
-                repo(fakeRpc(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         val s = awaitNonEmpty().first()
@@ -140,7 +134,7 @@ class ActiveSessionRepositoryImplTest :
                         BookSummary(id = "present", title = "Present", coverBlurHash = null, coverHash = null, authorName = null),
                     )
 
-                repo(fakeRpc(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         val sessions = awaitNonEmpty()
@@ -169,7 +163,7 @@ class ActiveSessionRepositoryImplTest :
                     )
                 val presence = PresenceRefreshSignal()
 
-                repo(fakeRpc(service), bookDao, FakeCachedActiveSessionDao(), presence = presence)
+                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao(), presence = presence)
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().size shouldBe 1
@@ -198,7 +192,7 @@ class ActiveSessionRepositoryImplTest :
                         BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
                     )
 
-                repo(fakeRpc(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().size shouldBe 1
@@ -222,7 +216,7 @@ class ActiveSessionRepositoryImplTest :
                         BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
                     )
 
-                repo(fakeRpc(service), bookDao, FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().size shouldBe 1
@@ -251,7 +245,7 @@ class ActiveSessionRepositoryImplTest :
                     )
                 val presence = PresenceRefreshSignal()
 
-                repo(fakeRpc(service), bookDao, FakeCachedActiveSessionDao(), presence = presence)
+                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao(), presence = presence)
                     .observeActiveSessions("u1")
                     .test {
                         awaitNonEmpty().size shouldBe 1
@@ -270,7 +264,7 @@ class ActiveSessionRepositoryImplTest :
                             AppResult.Failure(TransportError.NetworkUnavailable())
                     }
 
-                repo(fakeRpc(service), bookDaoReturning(), FakeCachedActiveSessionDao())
+                repo(RpcChannel.forTest(service), bookDaoReturning(), FakeCachedActiveSessionDao())
                     .observeActiveSessions("u1")
                     .test {
                         awaitItem().shouldBeEmpty()

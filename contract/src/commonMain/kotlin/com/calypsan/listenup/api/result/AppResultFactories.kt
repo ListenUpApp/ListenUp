@@ -21,8 +21,16 @@ fun failureOf(
     debugInfo: String? = null,
 ): AppResult.Failure = AppResult.Failure(ValidationError(message = message, debugInfo = debugInfo))
 
-/** Construct an [AppResult.Failure] carrying a [ValidationError] for validation failures. */
-fun validationError(message: String): AppResult.Failure = AppResult.Failure(ValidationError(message = message))
+/**
+ * Construct an [AppResult.Failure] carrying a [ValidationError] for validation failures.
+ *
+ * [field] names the input the error refers to (see [ValidationError.field]) so callers can
+ * highlight the right form field without substring-matching the message.
+ */
+fun validationError(
+    message: String,
+    field: String? = null,
+): AppResult.Failure = AppResult.Failure(ValidationError(message = message, field = field))
 
 /** Construct an [AppResult.Failure] carrying a [ValidationError] for "resource not found". */
 fun notFoundError(message: String = "Resource not found"): AppResult.Failure =

@@ -25,7 +25,7 @@ class GenresDomainTest :
         test("Created event inserts the genre row with hierarchy fields") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(genrePayload("g1", "Fantasy", "fantasy")), isOwnEcho = false)
+                    .onEvent(created(genrePayload("g1", "Fantasy", "fantasy")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.genreDao().getById("g1")
                 row shouldNotBe null
@@ -40,7 +40,7 @@ class GenresDomainTest :
 
         test("Updated event overwrites the existing genre row") {
             withHandler { handler, db ->
-                handler.onEvent(created(genrePayload("g1", "Fantasy", "fantasy")), isOwnEcho = false)
+                handler.onEvent(created(genrePayload("g1", "Fantasy", "fantasy")))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "g1",
@@ -49,7 +49,6 @@ class GenresDomainTest :
                         clientOpId = null,
                         payload = genrePayload("g1", "High Fantasy", "fantasy", revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.genreDao().getById("g1")!!
                 row.name shouldBe "High Fantasy"
@@ -59,11 +58,10 @@ class GenresDomainTest :
 
         test("Deleted event soft-deletes the genre row") {
             withHandler { handler, db ->
-                handler.onEvent(created(genrePayload("g1", "Fantasy", "fantasy")), isOwnEcho = false)
+                handler.onEvent(created(genrePayload("g1", "Fantasy", "fantasy")))
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "g1", revision = 2L, occurredAt = 500L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.genreDao().getById("g1") shouldBe null
             }
@@ -71,10 +69,9 @@ class GenresDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(genrePayload("g1", "Fantasy", "fantasy")), isOwnEcho = false)
+                handler.onEvent(created(genrePayload("g1", "Fantasy", "fantasy")))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "g1", revision = 2L, occurredAt = 500L),
-                    isOwnEcho = false,
                 )
                 db.genreDao().getById("g1") shouldBe null
                 db.genreDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "g1"

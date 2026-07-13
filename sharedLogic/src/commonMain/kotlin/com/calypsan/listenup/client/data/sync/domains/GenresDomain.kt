@@ -8,8 +8,13 @@ import com.calypsan.listenup.core.Timestamp
 
 /**
  * The `genres` domain: server-authored hierarchy (admin RPC writes), server-wins
- * apply, soft-delete tombstones, full digest participation, online-only writes.
- * `isOwnEcho` needs no shield: the client has no local genre-row write path.
+ * apply, soft-delete tombstones, full digest participation, outbox-backed writes.
+ *
+ * **Outbox writes.** Update and delete write Room optimistically and queue a durable op on
+ * [OutboxChannels.Genres] keyed by the genre id; the entity-level in-flight shield defers a
+ * genre's own echo until its op drains, so a stale snapshot never reverts the optimistic edit
+ * before the authoritative echo lands. Creating a genre (server-minted id/slug), a subtree move
+ * (path/depth recompute across descendants), and a merge (server-side relink) all stay online RPCs.
  */
 internal fun genresDomain(database: ListenUpDatabase): MirroredDomain<GenreSyncPayload> {
     val apply = GenreMirrorApply(database)
@@ -19,7 +24,7 @@ internal fun genresDomain(database: ListenUpDatabase): MirroredDomain<GenreSyncP
         conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.genreDao().revisionOf(id) }),
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.genreDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
+        writes = WriteTier.Outbox(OutboxChannels.Genres),
     )
 }
 
