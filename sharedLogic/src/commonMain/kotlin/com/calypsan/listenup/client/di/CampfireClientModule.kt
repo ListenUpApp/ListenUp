@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
 import com.calypsan.listenup.client.campfire.CampfireDiscoveryRepository
 import com.calypsan.listenup.client.campfire.CampfireRpcTransport
 import com.calypsan.listenup.client.campfire.CampfireSessionController
@@ -60,6 +61,9 @@ internal val campfireClientModule: Module =
                 refreshSignal = get(),
             )
         }
+
+        // ActiveCampfireCoordinator — process-scope liveness seam read by NowPlayingViewModel (B3).
+        single { ActiveCampfireCoordinator() }
 
         // CampfireSessionController — one per joined session (NOT a singleton). The UI/ViewModel
         // creates one via get() on join and retains it for the session's duration, calling
