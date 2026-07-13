@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.domain.TierLabels
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -135,6 +136,8 @@ class FakeBookRepository : BookRepository {
     override suspend fun getChapters(bookId: String): List<Chapter> = chapters[bookId] ?: emptyList()
 
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(chapters[bookId].orEmpty())
+
+    override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = flowOf(TierLabels(null, null))
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(true)
 

@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.domain.TierLabels
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -139,6 +140,11 @@ internal class BookRepositoryImpl(
         chapterDao
             .observeChaptersForBook(BookId(bookId))
             .map { rows -> rows.map { it.toDomain() } }
+
+    override fun observeBookTierLabels(bookId: String): Flow<TierLabels> =
+        bookDao
+            .observeTierLabels(BookId(bookId))
+            .map { row -> TierLabels(bookTierLabel = row?.bookTierLabel, partTierLabel = row?.partTierLabel) }
 
     private fun ChapterEntity.toDomain(): Chapter =
         Chapter(
