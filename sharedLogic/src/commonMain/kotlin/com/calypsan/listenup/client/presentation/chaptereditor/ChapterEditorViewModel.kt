@@ -78,8 +78,11 @@ class ChapterEditorViewModel(
             ) { chapters, tierLabels -> chapters to tierLabels }
                 .collect { (chapters, tierLabels) ->
                     when (val current = state.value) {
-                        is ChapterEditorUiState.Loading -> seedFrom(chapters, tierLabels)
-                        is ChapterEditorUiState.Editing ->
+                        is ChapterEditorUiState.Loading -> {
+                            seedFrom(chapters, tierLabels)
+                        }
+
+                        is ChapterEditorUiState.Editing -> {
                             if (current.isDirty) {
                                 // Never-stranded: an incoming sync frame must never silently
                                 // discard in-progress user work — just flag it as stale.
@@ -87,8 +90,11 @@ class ChapterEditorViewModel(
                             } else {
                                 seedFrom(chapters, tierLabels)
                             }
+                        }
 
-                        is ChapterEditorUiState.Error -> Unit
+                        is ChapterEditorUiState.Error -> {
+                            Unit
+                        }
                     }
                 }
         }
