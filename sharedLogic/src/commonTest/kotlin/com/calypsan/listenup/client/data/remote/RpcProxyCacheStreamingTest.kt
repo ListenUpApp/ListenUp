@@ -49,9 +49,9 @@ class RpcProxyCacheStreamingTest :
             var count = 0
                 private set
 
-            override suspend fun refreshAndRebuild(): Boolean {
+            override suspend fun refreshAndRebuild(): AuthRecoveryOutcome {
                 count++
-                return true
+                return AuthRecoveryOutcome.Refreshed
             }
         }
 

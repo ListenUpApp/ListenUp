@@ -3,6 +3,9 @@ package com.calypsan.listenup.core
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.engine.spec.tempdir
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import java.io.File
 
@@ -199,6 +202,22 @@ class JvmSecureStorageTest :
 
                 newStorage.read("key") shouldBe "value"
                 newFile.exists() shouldBe true
+            }
+        }
+
+        test("concurrent saves of distinct keys never lose an update (RMW is serialized)") {
+            runTest {
+                val storage = JvmSecureStorage(newStorageFile())
+                val keys = (0 until 64).map { "key-$it" }
+
+                // Fan out real-thread writers at the same target file. An unsynchronized
+                // load-modify-save loses updates when two writers read the same snapshot; a
+                // Mutex-serialized RMW + atomic rename keeps every key.
+                coroutineScope {
+                    keys.forEach { k -> launch(Dispatchers.Default) { storage.save(k, "v-$k") } }
+                }
+
+                keys.forEach { k -> storage.read(k) shouldBe "v-$k" }
             }
         }
 

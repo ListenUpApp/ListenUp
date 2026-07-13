@@ -91,11 +91,16 @@ class AuthServiceImpl(
         val user =
             suspendTransaction(db) {
                 db.usersQueries.selectByEmailNormalized(normalized).executeAsOneOrNull()
-            }?.toAuthUser() ?: return AppResult.Failure(AuthError.InvalidCredentials())
+            }?.toAuthUser()
 
-        // A soft-deleted account must be indistinguishable from a nonexistent one:
-        // same InvalidCredentials, so admin deletion is final and existence doesn't leak.
-        if (user.deletedAt != null) return AppResult.Failure(AuthError.InvalidCredentials())
+        // A soft-deleted account must be indistinguishable from a nonexistent one, and a
+        // nonexistent one from a wrong password. Skipping Argon2 on the unknown/deleted path
+        // would leak account existence via response time (Argon2 is the dominant cost), so run a
+        // throwaway hash of the same input to equalize timing before failing (C12).
+        if (user == null || user.deletedAt != null) {
+            hasher.hash(request.password)
+            return AppResult.Failure(AuthError.InvalidCredentials())
+        }
 
         if (!hasher.verify(request.password, user.passwordHash)) {
             return AppResult.Failure(AuthError.InvalidCredentials())
@@ -220,7 +225,21 @@ class AuthServiceImpl(
                 status = UserStatusColumn.ACTIVE,
                 now = now,
             )
-        suspendTransaction(db) { insert(user) }
+        // Re-check emptiness INSIDE the insert transaction (C6). The pre-check above is a cheap
+        // fast-fail (no Argon2 once setup is done); Argon2 then widens a TOCTOU window during which a
+        // second concurrent setupRoot could also observe an empty table. SQLite serializes writers,
+        // so re-reading hasAnyUser within the write transaction makes the loser observe the winner's
+        // ROOT row and abort — never a second ROOT.
+        val inserted =
+            suspendTransaction(db) {
+                if (db.usersQueries.hasAnyUser().executeAsOne()) {
+                    false
+                } else {
+                    insert(user)
+                    true
+                }
+            }
+        if (!inserted) return AppResult.Failure(AuthError.SetupAlreadyComplete())
         createStarterShelfBestEffort(user.id)
         adminUserRosterMaintainer?.refreshBestEffort(user.id)
         publicProfileMaintainer?.refreshBestEffort(user.id)

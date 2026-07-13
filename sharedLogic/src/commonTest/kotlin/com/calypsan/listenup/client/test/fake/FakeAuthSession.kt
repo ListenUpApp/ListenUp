@@ -37,11 +37,14 @@ class FakeAuthSession(
 
     private val getUserIdResult: String? = userId
 
+    override suspend fun currentAuthEpoch(): Long = 0L
+
     override suspend fun saveAuthTokens(
         access: AccessToken,
         refresh: RefreshToken,
         sessionId: String,
         userId: String,
+        ifEpoch: Long?,
     ) = Unit
 
     override suspend fun getAccessToken(): AccessToken? = null

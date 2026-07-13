@@ -30,6 +30,8 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -51,7 +53,7 @@ import kotlin.time.Instant
 class CachedAudioTokenProviderTest :
     FunSpec({
 
-        test("init refresh success caches the token and persists it") {
+        test("init refresh success caches the token (persistence is the repository's job now)") {
             runTest {
                 val clock = VirtualClock(testScheduler)
                 val repo =
@@ -65,7 +67,9 @@ class CachedAudioTokenProviderTest :
 
                 provider.getToken() shouldBe "t1"
                 repo.calls shouldBe 1
-                storage.saved shouldBe listOf(AccessToken("t1"))
+                // Persistence now happens inside AuthRepository.refreshAccessToken's single-flight (C1),
+                // not in the provider — so the provider no longer writes tokens to storage itself.
+                storage.saved shouldBe emptyList()
             }
         }
 
@@ -243,7 +247,55 @@ class CachedAudioTokenProviderTest :
                 provider.getToken() shouldBe "t2"
             }
         }
+
+        test("init does NOT refresh when a stored JWT is comfortably fresh (C11)") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val repo =
+                    FakeAudioAuthRepository {
+                        AppResult.Success(contractSession("refreshed", clock.now().toEpochMilliseconds() + 60.minutes.inWholeMilliseconds))
+                    }
+                // exp an hour out — well beyond the 10-minute proactive horizon.
+                val storedJwt = jwtWithExp((clock.now().toEpochMilliseconds() + 60.minutes.inWholeMilliseconds) / 1000)
+                val storage = FakeStorageAuthSession(stored = AccessToken(storedJwt))
+                val provider = CachedAudioTokenProvider(storage, repo, backgroundScope, clock)
+
+                testScheduler.runCurrent()
+
+                // No construction-time rotation; the fresh stored token is served as-is.
+                repo.calls shouldBe 0
+                provider.getToken() shouldBe storedJwt
+            }
+        }
+
+        test("init DOES refresh when the stored JWT is inside the refresh horizon (C11)") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val repo =
+                    FakeAudioAuthRepository {
+                        AppResult.Success(contractSession("t1", clock.now().toEpochMilliseconds() + 60.minutes.inWholeMilliseconds))
+                    }
+                // exp only a minute out — inside the horizon, so a refresh is warranted.
+                val storedJwt = jwtWithExp((clock.now().toEpochMilliseconds() + 60.seconds.inWholeMilliseconds) / 1000)
+                val storage = FakeStorageAuthSession(stored = AccessToken(storedJwt))
+                val provider = CachedAudioTokenProvider(storage, repo, backgroundScope, clock)
+
+                testScheduler.runCurrent()
+
+                repo.calls shouldBe 1
+                provider.getToken() shouldBe "t1"
+            }
+        }
     })
+
+/** Builds an (unsigned) JWT whose payload carries the given `exp` (epoch seconds). */
+@OptIn(ExperimentalEncodingApi::class)
+private fun jwtWithExp(expSeconds: Long): String {
+    val enc = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT)
+    val header = enc.encode("""{"alg":"HS256","typ":"JWT"}""".encodeToByteArray())
+    val payload = enc.encode("""{"exp":$expSeconds,"sub":"user-1"}""".encodeToByteArray())
+    return "$header.$payload.sig"
+}
 
 /** Bridges [kotlin.time.Clock] to the test scheduler's virtual time. */
 private class VirtualClock(
@@ -263,11 +315,14 @@ private class FakeStorageAuthSession(
 
     override val authState: StateFlow<AuthState> get() = throw NotImplementedError()
 
+    override suspend fun currentAuthEpoch(): Long = 0L
+
     override suspend fun saveAuthTokens(
         access: AccessToken,
         refresh: RefreshToken,
         sessionId: String,
         userId: String,
+        ifEpoch: Long?,
     ) {
         saved.add(access)
         stored = access

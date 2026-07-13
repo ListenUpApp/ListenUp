@@ -178,8 +178,25 @@ internal class RpcProxyCache<T : Any>(
             } catch (e: Throwable) {
                 if (e.isCallerCancellation()) throw e
                 invalidate(first.generation)
-                if (!canResubscribeStream(e, emitted)) surfaceStreamFailure(e)
-                resubscribe(subscribe)
+                when {
+                    // A handshake 401 before the first emit heals per the C5 outcome: refresh + resubscribe,
+                    // keep-session-retryable on a transient refresh failure, or lapse on a confirmed-dead token.
+                    !emitted && isWsHandshake401(e) -> {
+                        when (authRecovery.refreshAndRebuild()) {
+                            AuthRecoveryOutcome.Refreshed -> resubscribe(subscribe)
+                            AuthRecoveryOutcome.Transient -> throw TransientAuthRefreshException(e)
+                            AuthRecoveryOutcome.SessionInvalid -> throw e
+                        }
+                    }
+
+                    canResubscribeStream(e, emitted) -> {
+                        resubscribe(subscribe)
+                    }
+
+                    else -> {
+                        surfaceStreamFailure(e)
+                    }
+                }
             }
         }
 
@@ -209,19 +226,14 @@ internal class RpcProxyCache<T : Any>(
 
     /**
      * Whether a from-below streaming failure can be retried on a fresh lease: only when nothing was
-     * emitted yet AND the fault is provably pre-delivery (a refreshable handshake 401, a pre-delivery
-     * transport failure, or a dead-client ISE). Everything else is [surfaceStreamFailure]d.
+     * emitted yet AND the fault is provably pre-delivery (a pre-delivery transport failure or a
+     * dead-client ISE). The handshake-401 case is handled separately at the call site (it must branch
+     * on the C5 recovery outcome); everything else is [surfaceStreamFailure]d.
      */
-    private suspend fun canResubscribeStream(
+    private fun canResubscribeStream(
         e: Throwable,
         emitted: Boolean,
-    ): Boolean =
-        !emitted &&
-            when {
-                isWsHandshake401(e) -> authRecovery.refreshAndRebuild()
-                isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> true
-                else -> false
-            }
+    ): Boolean = !emitted && (isPreDeliveryTransportFailure(e) || isDeadRpcClient(e))
 
     /**
      * Turn a non-resubscribable streaming failure into the right thrown signal — always throws.
@@ -320,13 +332,27 @@ internal class RpcProxyCache<T : Any>(
         block: suspend (T) -> R,
     ): R {
         logger.info { "RPC handshake 401; refreshing token before retry" }
-        val refreshed = authRecovery.refreshAndRebuild()
+        val outcome = authRecovery.refreshAndRebuild()
         invalidate(leasedGeneration)
-        if (!refreshed) {
-            logger.warn { "Token refresh failed; surfacing the 401 instead of retrying" }
-            throw e
+        return when (outcome) {
+            AuthRecoveryOutcome.Refreshed -> {
+                retryOnce(timeout, block)
+            }
+
+            // C5: a transient refresh failure (network/timeout/5xx) is NOT session death — surface a
+            // retryable TransportError and KEEP the session, instead of re-raising the 401 (which maps
+            // to SessionExpired → logout). A network blip must never log the user out.
+            AuthRecoveryOutcome.Transient -> {
+                logger.warn { "Refresh transiently failed during 401-heal; keeping session (retryable)" }
+                throw TransientAuthRefreshException(e)
+            }
+
+            // Server-confirmed invalid refresh token — surface the 401 so the session lapses.
+            AuthRecoveryOutcome.SessionInvalid -> {
+                logger.warn { "Refresh token server-confirmed invalid; surfacing the 401 (session lapse)" }
+                throw e
+            }
         }
-        return retryOnce(timeout, block)
     }
 
     /**

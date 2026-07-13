@@ -1102,11 +1102,14 @@ private class StubAuthSession : com.calypsan.listenup.client.domain.repository.A
 
     override suspend fun getUserId(): String? = "u1"
 
+    override suspend fun currentAuthEpoch(): Long = 0L
+
     override suspend fun saveAuthTokens(
         access: com.calypsan.listenup.api.dto.auth.AccessToken,
         refresh: com.calypsan.listenup.api.dto.auth.RefreshToken,
         sessionId: String,
         userId: String,
+        ifEpoch: Long?,
     ) = Unit
 
     override suspend fun updateAccessToken(token: com.calypsan.listenup.api.dto.auth.AccessToken) = Unit

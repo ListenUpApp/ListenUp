@@ -470,11 +470,14 @@ private fun seedBook(id: String): BookEntity =
 private class FakeAuthSession(
     override val authState: StateFlow<AuthState>,
 ) : AuthSession {
+    override suspend fun currentAuthEpoch(): Long = 0L
+
     override suspend fun saveAuthTokens(
         access: AccessToken,
         refresh: RefreshToken,
         sessionId: String,
         userId: String,
+        ifEpoch: Long?,
     ) = Unit
 
     override suspend fun getAccessToken(): AccessToken? = null

@@ -281,6 +281,7 @@ class ListeningEventRepository(
                 updated_at = now,
                 client_op_id = clientOpId,
                 id = value.id,
+                user_id = userId,
             )
         } else {
             db.listeningEventsQueries.insert(
