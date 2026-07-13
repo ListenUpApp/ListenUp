@@ -94,6 +94,11 @@ internal data class BookEntity(
     val isbn: String? = null, // ISBN for metadata lookup
     val asin: String? = null, // Amazon ASIN for metadata lookup
     val abridged: Boolean = false, // Whether this is an abridged version
+    // The book's own renamable chapter-grouping tier vocabulary (Chapter Structure/Timing arc,
+    // Plan A) — e.g. "Book"/"Part" or "Era"/"Sequence". Null = tier unnamed. Mirrored from
+    // BookSyncPayload.bookTierLabel / .partTierLabel on every sync apply.
+    val bookTierLabel: String? = null,
+    val partTierLabel: String? = null,
     // Books-A sync substrate
     val revision: Long = 0, // Monotonic server revision, advanced on every committed change
     val deletedAt: Long? = null, // Epoch ms tombstone; null when the book is live
