@@ -75,7 +75,7 @@ private val logger = KotlinLogging.logger {}
  * the narrow [Suppress] (replaces the former file-level suppression).
  */
 @Suppress("TooManyFunctions")
-class NowPlayingViewModel(
+class NowPlayingViewModel internal constructor(
     private val playbackManager: PlaybackManager,
     private val bookRepository: BookRepository,
     private val sleepTimerManager: SleepTimerManager,

@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
  * @property bookId The book the campfire is on. Playing this same book is never guarded.
  * @property isHost Whether the local user hosts the session — selects the "end" vs "leave" confirm copy.
  */
-data class ActiveCampfire(
+internal data class ActiveCampfire(
     val sessionId: CampfireId,
     val bookId: String,
     val isHost: Boolean,
@@ -30,7 +30,7 @@ data class ActiveCampfire(
  * coexistence spec, B3). The per-session `CampfireViewModel` is the sole writer — it mirrors its
  * controller's hot state into [set]; readers observe [current]. Registered as a Koin `single`.
  */
-class ActiveCampfireCoordinator {
+internal class ActiveCampfireCoordinator {
     /** The live campfire, or `null` when no session is active. */
     val current: StateFlow<ActiveCampfire?>
         field = MutableStateFlow<ActiveCampfire?>(null)
