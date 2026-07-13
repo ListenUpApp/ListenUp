@@ -41,6 +41,7 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
 /**
@@ -81,11 +82,17 @@ fun authModule(config: ApplicationConfig): Module {
         }
 
         single {
+            // Lost-response reuse-grace window (C4). Configurable so an operator can tune it and so
+            // integration tests can pin the family-revoke path with a real Clock.System by setting 0.
+            val graceSeconds =
+                config.propertyOrNull("auth.refreshReuseGraceSeconds")?.getString()?.toLong()
+                    ?: DEFAULT_REUSE_GRACE_SECONDS
             SessionService(
                 db = get<ListenUpDatabase>(),
                 tokenHasher = get(),
                 tokenGenerator = get(),
                 refreshTtl = REFRESH_TOKEN_TTL_DAYS.days,
+                reuseGracePeriod = graceSeconds.seconds,
                 clock = get(),
             )
         }
@@ -203,6 +210,9 @@ fun authModule(config: ApplicationConfig): Module {
 }
 
 private const val REFRESH_TOKEN_TTL_DAYS = 30L
+
+/** Default lost-response reuse-grace window in seconds (C4). Overridable via `auth.refreshReuseGraceSeconds`. */
+private const val DEFAULT_REUSE_GRACE_SECONDS = 60L
 
 private const val DEFAULT_SERVER_NAME = "ListenUp"
 

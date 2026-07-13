@@ -58,6 +58,11 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 "jwt.secret" to "x".repeat(32),
                 "jwt.issuer" to "listenup",
                 "jwt.audience" to "listenup-client",
+                // Disable the lost-response reuse-grace window so integration tests can pin the
+                // family-revoke path against a real Clock.System (an immediate replay would otherwise
+                // fall inside the grace window and rotate again). Unit tests exercise the grace
+                // behaviour directly with a controllable clock.
+                "auth.refreshReuseGraceSeconds" to "0",
                 // No test should bind multicast sockets or run an mDNS receive loop — pure overhead
                 // and a source of cross-test load that flakes the firehose timeout budget.
                 "mdns.enabled" to "false",

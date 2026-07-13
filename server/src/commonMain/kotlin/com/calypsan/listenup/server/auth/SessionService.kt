@@ -13,6 +13,7 @@ import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
 /** Result of creating a new session — the raw refresh token is only returned here. */
@@ -48,6 +49,15 @@ class SessionService(
     private val tokenHasher: RefreshTokenHasher,
     private val tokenGenerator: RefreshTokenGenerator,
     private val refreshTtl: Duration = DEFAULT_REFRESH_TTL,
+    /**
+     * Lost-response grace window (C4). A refresh token whose rotation completed on the server but
+     * whose response never reached the client leaves the client holding the pre-rotation token. When
+     * the client retries, the server sees that token in `previous_hash` and would normally read it as
+     * a stolen-token replay and revoke the whole family — a dropped packet forcing a logout. Within
+     * this window of the last rotation we instead treat the retry as benign: rotate again on the same
+     * family and hand back a usable token. Genuine reuse after the window still hard-revokes.
+     */
+    private val reuseGracePeriod: Duration = DEFAULT_REUSE_GRACE,
     private val clock: Clock = Clock.System,
 ) {
     suspend fun createSession(
@@ -122,14 +132,40 @@ class SessionService(
                 )
             }
 
-            // Pass 2: previous-hash match → replay; revoke the family.
+            // Pass 2: previous-hash match. This is either a lost-response retry (benign) or a
+            // stolen-token replay (attack). The reuse-grace window (C4) distinguishes them: a live
+            // session whose last rotation was within the window is a dropped-response retry — rotate
+            // again on the same family without revoking. Anything else is a genuine replay → revoke.
             val replay =
                 db.sessionsQueries
                     .selectByPreviousHash(previous_hash = incomingHash)
                     .executeAsOneOrNull()
-            if (replay != null) {
-                db.sessionsQueries.revokeFamily(revoked_at = now, family_id = replay.family_id)
+                    ?: return@suspendTransaction null // unknown token — nothing to rotate or revoke.
+
+            val withinGrace =
+                replay.revoked_at == null &&
+                    replay.expires_at > now &&
+                    now - replay.last_used_at <= reuseGracePeriod.inWholeMilliseconds
+            if (withinGrace) {
+                // Re-rotate on the same lineage. previous_hash stays keyed on the incoming token so
+                // the window remains anchored to it; a late replay of the same token past the window
+                // still lands in the revoke branch below.
+                db.sessionsQueries.rotate(
+                    previous_hash = incomingHash,
+                    refresh_token_hash = newHash,
+                    last_used_at = now,
+                    expires_at = newExpires,
+                    id = replay.id,
+                )
+                return@suspendTransaction RotatedSession(
+                    sessionId = SessionId(replay.id),
+                    userId = UserId(replay.user_id),
+                    refreshToken = RefreshToken(newRaw),
+                    expiresAt = newExpires,
+                )
             }
+
+            db.sessionsQueries.revokeFamily(revoked_at = now, family_id = replay.family_id)
             null
         }
     }
@@ -212,5 +248,6 @@ class SessionService(
 
     companion object {
         private val DEFAULT_REFRESH_TTL: Duration = 30.days
+        private val DEFAULT_REUSE_GRACE: Duration = 60.seconds
     }
 }

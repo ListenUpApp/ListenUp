@@ -83,6 +83,9 @@ internal class AuthEndToEndFixture private constructor(
                             "jwt.audience" to "listenup-client",
                             "registration.policy" to "OPEN",
                             "mdns.enabled" to "false",
+                            // Disable the lost-response reuse-grace window (C4) so the immediate-replay
+                            // family-revoke path is exercised against a real Clock.System.
+                            "auth.refreshReuseGraceSeconds" to "0",
                         )
                 }
 

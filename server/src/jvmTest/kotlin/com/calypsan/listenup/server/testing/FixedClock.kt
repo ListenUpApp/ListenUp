@@ -12,3 +12,10 @@ class FixedClock(
 ) : Clock {
     override fun now(): Instant = fixed
 }
+
+/** An advanceable [kotlin.time.Clock] for exercising time-window behaviour (e.g. the refresh reuse-grace). */
+class MutableClock(
+    var instant: Instant,
+) : Clock {
+    override fun now(): Instant = instant
+}

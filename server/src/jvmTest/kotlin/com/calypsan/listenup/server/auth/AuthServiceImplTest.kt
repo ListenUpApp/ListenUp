@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.migratedTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -30,7 +31,9 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -39,20 +42,23 @@ class AuthServiceImplTest :
         val pepper = "x".repeat(32).toByteArray()
         val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
 
-        fun newSvc(policy: RegistrationPolicy = RegistrationPolicy.OPEN): AuthServiceImpl {
+        fun newSvc(
+            policy: RegistrationPolicy = RegistrationPolicy.OPEN,
+            svcClock: Clock = clock,
+        ): AuthServiceImpl {
             val db = migratedTestDatabase().db
             val hasher = PasswordHasher()
             val sessions =
-                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
-            val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = svcClock)
+            val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, svcClock)
             val settings = ServerSettingsRepository(db, default = policy)
             return AuthServiceImpl(
                 db = db,
                 sessions = sessions,
                 hasher = hasher,
                 jwt = jwt,
-                sessionIssuer = SessionIssuer(sessions, jwt, clock),
-                clock = clock,
+                sessionIssuer = SessionIssuer(sessions, jwt, svcClock),
+                clock = svcClock,
                 settings = settings,
             )
         }
@@ -323,8 +329,9 @@ class AuthServiceImplTest :
             }
         }
 
-        test("refreshSession on a replayed token errors InvalidRefreshToken (familyRevoked=true)") {
-            val svc = newSvc()
+        test("refreshSession replaying a token AFTER the grace window errors InvalidRefreshToken (familyRevoked=true)") {
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc = newSvc(svcClock = mutClock)
             runTest {
                 svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
                 val first =
@@ -336,11 +343,37 @@ class AuthServiceImplTest :
 
                 svc.refreshSession(RefreshRequest(original)).shouldSucceed()
 
+                // Past the lost-response grace window, replaying the original token is an
+                // unambiguous reuse attack → family revoke.
+                mutClock.instant = mutClock.instant + 61.seconds
                 val err =
                     svc
                         .refreshSession(RefreshRequest(original))
                         .shouldFail<AuthError.InvalidRefreshToken>()
                 err.familyRevoked shouldBe true
+            }
+        }
+
+        test("refreshSession replaying a token WITHIN the grace window rotates again (lost-response retry, C4)") {
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc = newSvc(svcClock = mutClock)
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                val first =
+                    svc
+                        .register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
+                        .shouldSucceed()
+                        .shouldBeInstanceOf<RegisterResult.Authenticated>()
+                val original = first.session.refreshToken
+
+                val firstRotation = svc.refreshSession(RefreshRequest(original)).shouldSucceed()
+
+                // The client never saw firstRotation's response and re-presents the original token a
+                // moment later — a dropped-response retry, not an attack.
+                mutClock.instant = mutClock.instant + 30.seconds
+                val retry = svc.refreshSession(RefreshRequest(original)).shouldSucceed()
+                retry.sessionId shouldBe firstRotation.sessionId
+                retry.refreshToken shouldNotBe firstRotation.refreshToken
             }
         }
 
