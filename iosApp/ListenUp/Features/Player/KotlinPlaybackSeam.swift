@@ -50,6 +50,7 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
 /// The reporter fans each signal out to position persistence *and* (on iOS, where a
 /// recorder is bound) listening-event recording — so iOS listening history reaches the
 /// server. See `PlaybackProgressReporter` in `:sharedLogic`.
+@MainActor
 struct KotlinProgressReporting: PlaybackProgressReporting {
     let reporter: PlaybackProgressReporter
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {

@@ -32,21 +32,28 @@ func awaitUntil(
     }
 }
 
-/// Deterministically advance the main actor until `condition` holds (or `maxHops` is reached), by
-/// yielding cooperatively instead of sleeping on the wall clock. The player's state transitions are
-/// all delivered on the main actor — the `play(bookId:)` prepare task and the `FlowBridge`
-/// engine-event collector — so pumping the actor drives them with **no real-time dependency**.
+/// Causally await a coordinator `@Observable` condition — suspends until the tracked state
+/// actually mutates, resuming the instant it does, with no hop ceiling and no wall-clock poll.
 ///
-/// Prefer this over `awaitUntil` for waits on main-actor-delivered coordinator state: under a
-/// starved CI executor `awaitUntil`'s real-time poll can miss its window and hang to a 25s kill
-/// (issue #1077), whereas this returns as soon as the work drains — and if the transition never
-/// happens it fails fast (the caller's `#expect`) instead of hanging.
+/// This replaced a fixed cooperative-hop poll that lost a real CI race. The buffering→playing
+/// promotion (and, via the `prepare` path, the load-failure `.error` transition) is driven by
+/// work that is NOT purely main-actor: `FlowBridge`'s `for await … in engine.events` drives
+/// `AsyncStream.Iterator.next()` — a `nonisolated async` call that parks on the generic executor
+/// (SE-0338) — and the prepare/cover fakes are likewise `nonisolated async`. On a CPU-starved CI
+/// runner (parallel simulator clones) those off-main resumptions land on the wall clock *after* a
+/// fixed hop budget has drained, so the poll exited with the condition still false and the
+/// assertion failed (no hang, ~normal duration). Observation waits for the real mutation however
+/// long it takes — it can't lose that race — while still surfacing a genuinely-absent mutation via
+/// the test's execution-time allowance rather than a silent early pass.
+///
+/// (Prefer the fakes' `AsyncGate` waits where a fake can signal causally; use this for a
+/// coordinator `@Observable` transition no fake owns, e.g. the engine-event-driven phase promotion.)
 @MainActor
-func pumpUntil(maxHops: Int = 5000, _ condition: () -> Bool) async {
-    var hops = 0
-    while !condition(), hops < maxHops {
-        await Task.yield()
-        hops += 1
+func awaitObservation(_ condition: @escaping @MainActor () -> Bool) async {
+    while !condition() {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            withObservationTracking { _ = condition() } onChange: { continuation.resume() }
+        }
     }
 }
 

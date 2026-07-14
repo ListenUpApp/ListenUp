@@ -109,7 +109,7 @@ struct PlayerSwitchPathTests {
         #expect(!coordinator.isPlaying)
 
         engine.emit(.statusChanged(.ready))   // the first real "playing" event
-        await pumpUntil { coordinator.isPlaying }
+        await awaitObservation { coordinator.isPlaying }
         #expect(coordinator.isPlaying)
         #expect(!coordinator.isBuffering)
     }
@@ -141,7 +141,7 @@ struct PlayerSwitchPathTests {
         let (coordinator, engine, _) = makeCoordinator()
         await engine.setLoadShouldFail(true)
         coordinator.play(bookId: "book1")
-        await pumpUntil { if case .error = coordinator.phase { return true }; return false }
+        await awaitObservation { if case .error = coordinator.phase { return true }; return false }
 
         #expect(coordinator.isVisible)
         #expect(coordinator.isErrored)
@@ -154,7 +154,7 @@ struct PlayerSwitchPathTests {
         let (coordinator, engine, _) = makeCoordinator()
         await engine.setLoadShouldFail(true)
         coordinator.play(bookId: "book1")
-        await pumpUntil { if case .error = coordinator.phase { return true }; return false }
+        await awaitObservation { if case .error = coordinator.phase { return true }; return false }
         #expect(coordinator.isVisible)   // errored → still visible (for the inline retry)
 
         coordinator.dismissError()
@@ -173,7 +173,7 @@ struct PlayerSwitchPathTests {
         await engine.setLoadShouldFail(true)
 
         coordinator.play(bookId: "book1")
-        await pumpUntil {
+        await awaitObservation {
             if case .error = coordinator.phase { return true }
             return false
         }
@@ -185,7 +185,7 @@ struct PlayerSwitchPathTests {
         await engine.setLoadShouldFail(false)
         coordinator.togglePlayback()   // retry
         await progress.waitForStarted(bookId: "book1")
-        await pumpUntil { coordinator.isPlaying }
+        await awaitObservation { coordinator.isPlaying }
         #expect(coordinator.isPlaying)
     }
 }
