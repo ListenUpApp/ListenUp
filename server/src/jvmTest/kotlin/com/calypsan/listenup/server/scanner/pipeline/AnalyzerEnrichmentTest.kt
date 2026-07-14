@@ -6,7 +6,8 @@ import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
-import com.calypsan.listenup.api.dto.scanner.MetadataSource
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
@@ -79,7 +80,7 @@ class AnalyzerEnrichmentTest :
                     book.embedded.shouldNotBeNull()
                     book.embedded?.format shouldBe AudioFormat.Mp3
                     book.embedded?.tags?.title shouldBe "Words of Radiance"
-                    book.sources shouldContain MetadataSource.AUDIO_METATAGS
+                    book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.EMBEDDED
                 }
             }
         }
@@ -191,8 +192,9 @@ class AnalyzerEnrichmentTest :
 
                     book.title shouldBe "Sidecar Title"
                     book.embedded?.tags?.title shouldBe "Embedded Title"
-                    book.sources shouldContain MetadataSource.ABS_METADATA
-                    book.sources shouldContain MetadataSource.AUDIO_METATAGS
+                    // Winner-based provenance: metadata.json wins the title over the embedded tag (the
+                    // embedded value is still preserved on `book.embedded` as raw signal, asserted above).
+                    book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.ABS_METADATA
                 }
             }
         }
@@ -409,7 +411,8 @@ class AnalyzerEnrichmentTest :
                     book.embedded shouldBe null
                     val status = book.embeddedStatus.shouldBeInstanceOf<MetadataStatus.UnsupportedFormat>()
                     status.format shouldBe null // unrecognised magic bytes
-                    book.sources shouldContain MetadataSource.FOLDER_STRUCTURE
+                    // The folder-leaf title resolves via the title parser (FILENAME tier).
+                    book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.FILENAME
                 }
             }
         }

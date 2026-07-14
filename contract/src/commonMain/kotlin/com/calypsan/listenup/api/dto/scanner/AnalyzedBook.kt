@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.dto.scanner
 
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import kotlinx.serialization.SerialName
@@ -19,10 +21,10 @@ import kotlinx.serialization.Serializable
  *     Fields like real `durationMs`, `chapters`, and embedded `artwork`
  *     bytes are unique to this source — discarding them after merge would
  *     lose information no other source carries authoritatively.
- *  3. **Provenance** — [sources] records which [MetadataSource]s
- *     contributed at least one field; [embeddedStatus] records the parser
- *     outcome for the primary audio file (success, unsupported format, or
- *     typed parse error).
+ *  3. **Provenance** — [fieldProvenance] records, per resolved [BookField], the
+ *     scan-tier source that won that field (folder/filename/sidecar/embedded/
+ *     metadata.json); [embeddedStatus] records the parser outcome for the primary
+ *     audio file (success, unsupported format, or typed parse error).
  *
  * Consumers reading the resolved view stay simple. Consumers needing
  * authoritative duration, chapter list, or artwork bytes read [embedded]
@@ -54,7 +56,14 @@ data class AnalyzedBook(
     val chaptersSource: BookChapterSource = BookChapterSource.None,
     val embedded: EmbeddedAudioMetadata? = null,
     val embeddedStatus: MetadataStatus? = null,
-    val sources: Set<MetadataSource> = emptySet(),
+    /**
+     * Per-field scan provenance: for each resolved [BookField] the scanner derived a value for, the
+     * winning scan-tier source (all entries are tier 0 — [com.calypsan.listenup.api.metadata.FieldSourceKind.isScan]).
+     * Ties are already broken by the library's `MetadataPrecedence` order at resolution time. Rides to
+     * [com.calypsan.listenup.api.sync.BookSyncPayload.fieldProvenance] so a later enrichment/edit can be
+     * tier-compared against the scan value.
+     */
+    val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
     /**
      * True when this book's embedded-metadata parse failed — its primary audio file is
      * corrupt or an unsupported format. The book is still produced (from folder/sidecar/

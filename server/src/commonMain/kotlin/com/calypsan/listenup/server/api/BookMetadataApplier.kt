@@ -7,13 +7,16 @@ import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.CoverSource
-import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -104,9 +107,14 @@ internal class BookMetadataApplier(
                     asin = asin,
                     contributors = mergeContributors(existing.contributors, match, selection),
                     series = mergeSeries(existing.series, match, selection),
-                    // Stamp provenance for every field this apply overwrites so a later rescan
-                    // preserves the enriched value instead of reverting it to file-derived data (A7).
-                    userEditedFields = existing.userEditedFields + enrichedFields(selection),
+                    // Stamp ENRICHMENT provenance for every field this apply overwrites so a later
+                    // rescan preserves the enriched value instead of reverting it to file-derived data
+                    // (A7 — done honestly now: the field records ENRICHMENT/provider, not a fake USER).
+                    fieldProvenance =
+                        existing.fieldProvenance.stampEnrichment(
+                            enrichedFields(selection),
+                            metadataProvider.source.name.lowercase(),
+                        ),
                 )
 
             val upsertResult = bookRepository.upsert(updated, clientOpId = null)
@@ -128,24 +136,26 @@ internal class BookMetadataApplier(
     }
 
     /**
-     * The provenance bits to stamp for an apply: every field this [selection] overwrites is marked
-     * rescan-protected so a later scan preserves the enriched value. Contributors/series are marked
-     * only when their ASIN set is non-empty (an empty set leaves the role untouched — see
-     * [mergeContributors]/[mergeSeries]); genres only when non-empty.
+     * The fields this apply overwrites — every one is stamped [FieldSourceKind.ENRICHMENT] so a later
+     * scan preserves the enriched value. This is also the *consented* set: an interactive apply is
+     * selection-as-consent (a ticked field overrides even a USER pin because the apply writes directly,
+     * unconditionally). Contributors are stamped per role only when that role's ASIN set is non-empty
+     * (an empty set leaves the role untouched — see [mergeContributors]/[mergeSeries]); series/genres
+     * only when non-empty. (Background/auto enrichment, when it lands, is the caller that would narrow
+     * this consent set so USER/ENRICHMENT fields are skipped by default.)
      */
-    private fun enrichedFields(selection: MetadataApplySelection): Set<UserEditedField> =
+    private fun enrichedFields(selection: MetadataApplySelection): Set<BookField> =
         buildSet {
-            if (selection.title) add(UserEditedField.TITLE)
-            if (selection.subtitle) add(UserEditedField.SUBTITLE)
-            if (selection.description) add(UserEditedField.DESCRIPTION)
-            if (selection.publisher) add(UserEditedField.PUBLISHER)
-            if (selection.language) add(UserEditedField.LANGUAGE)
-            if (selection.releaseDate) add(UserEditedField.PUBLISH_YEAR)
-            if (selection.authorAsins.isNotEmpty() || selection.narratorAsins.isNotEmpty()) {
-                add(UserEditedField.CONTRIBUTORS)
-            }
-            if (selection.seriesAsins.isNotEmpty()) add(UserEditedField.SERIES)
-            if (selection.genres.isNotEmpty()) add(UserEditedField.GENRES)
+            if (selection.title) add(BookField.TITLE)
+            if (selection.subtitle) add(BookField.SUBTITLE)
+            if (selection.description) add(BookField.DESCRIPTION)
+            if (selection.publisher) add(BookField.PUBLISHER)
+            if (selection.language) add(BookField.LANGUAGE)
+            if (selection.releaseDate) add(BookField.PUBLISH_YEAR)
+            if (selection.authorAsins.isNotEmpty()) add(BookField.AUTHORS)
+            if (selection.narratorAsins.isNotEmpty()) add(BookField.NARRATORS)
+            if (selection.seriesAsins.isNotEmpty()) add(BookField.SERIES)
+            if (selection.genres.isNotEmpty()) add(BookField.GENRES)
         }
 
     /** Release year overwrites only when selected and parseable, else keeps [current]. */
@@ -335,6 +345,21 @@ internal class BookMetadataApplier(
 
     /** Parses the leading 4-digit year from an Audible release-date string (`"2015-06-02"` → `2015`). */
     private fun parseYear(releaseDate: String?): Int? = releaseDate?.take(YEAR_DIGITS)?.toIntOrNull()
+
+    /**
+     * Overlays [FieldSourceKind.ENRICHMENT] provenance (with the applying [provider]) for [fields] onto
+     * this map, stamped at the current wall clock. Out-ranks a scan, so a rescan preserves the enriched
+     * value; the max-tier union in `BookRepository` makes it sticky.
+     */
+    private fun Map<BookField, FieldProvenance>.stampEnrichment(
+        fields: Set<BookField>,
+        provider: String,
+    ): Map<BookField, FieldProvenance> {
+        if (fields.isEmpty()) return this
+        val now = currentEpochMilliseconds()
+        return this +
+            fields.associateWith { FieldProvenance(FieldSourceKind.ENRICHMENT, provider = provider, at = now) }
+    }
 
     private companion object {
         const val YEAR_DIGITS = 4

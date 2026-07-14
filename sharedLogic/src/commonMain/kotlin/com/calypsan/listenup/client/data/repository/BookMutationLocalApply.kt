@@ -6,7 +6,9 @@ import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
-import com.calypsan.listenup.api.sync.UserEditedField
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
 import com.calypsan.listenup.client.data.local.db.BookContributorDao
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -73,8 +75,8 @@ internal class BookMutationLocalApply(
     }
 
     /**
-     * Merge the PATCH into the book row — non-null scalars replace, null leaves untouched — and union
-     * the rescan-protected [UserEditedField] set, matching `BookServiceImpl.applyPatch` so the local
+     * Merge the PATCH into the book row — non-null scalars replace, null leaves untouched — and stamp
+     * USER provenance on the edited fields, matching `BookServiceImpl.applyPatch` so the local
      * provenance is correct offline and before the SSE echo.
      */
     private suspend fun applyUpdate(
@@ -94,7 +96,7 @@ internal class BookMutationLocalApply(
                 isbn = patch.isbn ?: existing.isbn,
                 asin = patch.asin ?: existing.asin,
                 abridged = patch.abridged ?: existing.abridged,
-                userEditedFields = existing.userEditedFields + patch.editedFields(),
+                fieldProvenance = existing.fieldProvenance.stampUser(patch.editedFields()),
             ),
         )
     }
@@ -275,15 +277,25 @@ private fun formatSequence(position: Double): String =
     if (position % 1.0 == 0.0) position.toLong().toString() else position.toString()
 
 /**
- * The rescan-protected fields this patch edits — a non-null scalar means the user set it.
+ * The scalar [BookField]s this patch edits — a non-null scalar means the user set it.
  *
  * Mirrors `BookServiceImpl.applyPatch` so the client's optimistic provenance matches what the server
- * records. Only [UserEditedField] scalars are mapped here; contributor and series provenance is set by
- * their own mutations.
+ * records. Only scalars are mapped here; contributor and series provenance is set by their own mutations.
  */
-private fun BookUpdate.editedFields(): Set<UserEditedField> =
+private fun BookUpdate.editedFields(): Set<BookField> =
     buildSet {
-        if (title != null) add(UserEditedField.TITLE)
-        if (subtitle != null) add(UserEditedField.SUBTITLE)
-        if (description != null) add(UserEditedField.DESCRIPTION)
+        if (title != null) add(BookField.TITLE)
+        if (subtitle != null) add(BookField.SUBTITLE)
+        if (description != null) add(BookField.DESCRIPTION)
     }
+
+/**
+ * Overlays [FieldSourceKind.USER] provenance for [fields] onto this map, stamped now — the client's
+ * optimistic mirror of the server's user stamp. The server value overwrites it on echo, so the exact
+ * timestamp is not load-bearing.
+ */
+private fun Map<BookField, FieldProvenance>.stampUser(fields: Set<BookField>): Map<BookField, FieldProvenance> {
+    if (fields.isEmpty()) return this
+    val now = currentEpochMilliseconds()
+    return this + fields.associateWith { FieldProvenance(FieldSourceKind.USER, at = now) }
+}

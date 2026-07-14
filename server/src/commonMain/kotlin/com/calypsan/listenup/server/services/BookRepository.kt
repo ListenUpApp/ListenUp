@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -10,7 +11,6 @@ import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -279,7 +279,6 @@ class BookRepository(
             documents = emptyList(),
             chapters = emptyList(),
             chapterSource = ChapterSource.EMBEDDED,
-            userEditedFields = emptySet(),
         )
 
     /**
@@ -312,12 +311,13 @@ class BookRepository(
         val extras = BookWriteExtras.current()
         val managedCover = extras?.managedCover
 
-        // Per-field user-edit provenance (rescan data-safety). The scan paths' merge has already
-        // restored any protected scalar field (title/subtitle/description) onto `value` and folded the
-        // union into `value.userEditedFields`; this serializes that set into the row. The collection
-        // preserve flags ride in via the extras (the merged payload can't carry the incoming-vs-existing
-        // distinction the skip-the-replace decision needs), defaulting false for every non-scan path.
-        val userEditedFieldsColumn = value.userEditedFields.toUserEditedFieldsColumn()
+        // Per-field provenance (rescan data-safety). The scan paths' merge has already restored any
+        // protected scalar field (title/subtitle/description) onto `value` and folded the per-field
+        // max-tier union into `value.fieldProvenance`; this serializes that map into the row. The
+        // collection preserve flags ride in via the extras (the merged payload can't carry the
+        // incoming-vs-existing distinction the skip-the-replace decision needs), defaulting false for
+        // every non-scan path.
+        val fieldProvenanceColumn = value.fieldProvenance.toFieldProvenanceColumn()
         val preserveContributors = extras?.preserveContributors == true
         val preserveSeries = extras?.preserveSeries == true
 
@@ -364,7 +364,7 @@ class BookRepository(
                     explicit = value.explicit.toDbLong(),
                     has_scan_warning = value.hasScanWarning.toDbLong(),
                     total_duration = value.totalDuration,
-                    user_edited_fields = userEditedFieldsColumn,
+                    field_provenance = fieldProvenanceColumn,
                     root_rel_path = value.rootRelPath,
                     inode = value.inode,
                     scanned_at = value.scannedAt,
@@ -392,7 +392,7 @@ class BookRepository(
                     cover_source = cover.source,
                     cover_path = cover.path,
                     cover_hash = cover.hash,
-                    user_edited_fields = userEditedFieldsColumn,
+                    field_provenance = fieldProvenanceColumn,
                     root_rel_path = value.rootRelPath,
                     inode = value.inode,
                     scanned_at = value.scannedAt,
@@ -428,7 +428,7 @@ class BookRepository(
                 cover_source = cover.source,
                 cover_path = cover.path,
                 cover_hash = cover.hash,
-                user_edited_fields = userEditedFieldsColumn,
+                field_provenance = fieldProvenanceColumn,
                 root_rel_path = value.rootRelPath,
                 inode = value.inode,
                 scanned_at = value.scannedAt,
@@ -462,9 +462,9 @@ class BookRepository(
 
     /**
      * Replaces a book's child-collection rows after the parent upsert, honouring the per-field
-     * user-edit provenance preserve flags: a `CONTRIBUTORS`/`SERIES`/chapters edit the stored book
-     * carries (and this write isn't itself re-editing) keeps its rows — the collection analogue of the
-     * scalar preserve in [mergeUserEdits]. Audio files, documents, and the FTS row always refresh.
+     * provenance preserve flags: a contributors/series/chapters edit the stored book carries (and this
+     * write isn't itself re-editing) keeps its rows — the collection analogue of the scalar preserve in
+     * [mergeByProvenance]. Audio files, documents, and the FTS row always refresh.
      */
     private fun replaceBookChildren(
         value: BookSyncPayload,
@@ -860,10 +860,10 @@ class BookRepository(
                     )
 
                 val existing = existingById[bookId.value]
-                // Merge per-field user-edit provenance BEFORE the skip check (see [mergeUserEdits]):
-                // the effective payload carries the restored protected scalars + the unioned set, and
+                // Merge per-field provenance BEFORE the skip check (see [mergeByProvenance]): the
+                // effective payload carries the restored higher-tier scalars + the max-tier union, and
                 // the preserve flags ride into writePayload via the extras.
-                val merge = existing?.let { mergeUserEdits(incoming = payload, existing = it) }
+                val merge = existing?.let { mergeByProvenance(incoming = payload, existing = it) }
                 val effectivePayload = merge?.payload ?: payload
                 val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
                 val coverUnchanged =
@@ -1212,7 +1212,7 @@ class BookRepository(
         // Merge per-field user-edit provenance BEFORE the skip check: protected scalars are restored
         // onto the effective payload (so a protected-only rescan matches stored and skips), and the
         // contributor/series preserve flags ride into writePayload via the extras.
-        val merge = existing?.let { mergeUserEdits(incoming = payload, existing = it) }
+        val merge = existing?.let { mergeByProvenance(incoming = payload, existing = it) }
         val effectivePayload = merge?.payload ?: payload
         val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
         val coverUnchanged =
@@ -1276,12 +1276,12 @@ class BookRepository(
     }
 
     /**
-     * The outcome of merging an incoming write against the stored book's per-field user-edit
-     * provenance: the [payload] to persist (protected scalar fields restored to their stored values,
-     * [BookSyncPayload.userEditedFields] carrying the union) plus the contributor/series preserve
-     * flags [writePayload] honours via the [BookWriteExtras].
+     * The outcome of merging a scan write against the stored book's per-field provenance: the
+     * [payload] to persist (higher-tier scalar fields restored to their stored values,
+     * [BookSyncPayload.fieldProvenance] carrying the per-field max-tier union) plus the
+     * contributor/series preserve flags [writePayload] honours via the [BookWriteExtras].
      */
-    private class UserEditMerge(
+    private class ProvenanceMerge(
         val payload: BookSyncPayload,
         val preserveContributors: Boolean,
         val preserveSeries: Boolean,
@@ -1289,46 +1289,64 @@ class BookRepository(
     )
 
     /**
-     * Merges an [incoming] write against the [existing] stored aggregate so a user's hand-edits
-     * survive a rescan (per-field user-edit provenance — the generalization of the sticky-chapters /
-     * sticky-uploaded-cover guards to the five edit-protected metadata fields).
+     * Merges an [incoming] SCAN write against the [existing] stored aggregate so a user's hand-edits
+     * and a provider's enrichment survive a rescan — the field-level generalization of the
+     * sticky-chapters / sticky-uploaded-cover guards.
      *
-     * For every field the user has edited but THIS write isn't itself re-editing —
-     * `existing.userEditedFields − incoming.userEditedFields` — the stored value wins: scalar fields
-     * (title/subtitle/description) are restored onto the returned [UserEditMerge.payload]; the
-     * contributor/series collections are flagged so [writePayload] skips their replace. The persisted
-     * [BookSyncPayload.userEditedFields] is the union, so protection is sticky — a scan (empty set)
-     * never removes it, while a genuine user edit both writes the new value AND keeps the field
-     * protected. Computing the merge BEFORE the [matchesStoredContent] skip check is load-bearing: a
-     * rescan that only "disagrees" on a protected scalar then matches stored and naturally skips, with
-     * no revision bump or firehose event — no separate provenance branch in [matchesStoredContent].
+     * **THE ONE WRITE RULE.** A write may replace a field's value iff its tier `>=` the stored
+     * provenance's tier (scan `0` < enrichment `1` < user `2`). This is the scan path, so every
+     * incoming field's authority is [FieldSourceKind.FOLDER]'s tier `0`. A field is therefore
+     * *preserved* (stored wins) exactly when its stored provenance tier is `> 0` — i.e. it was
+     * enriched or hand-edited. For those fields the scalar value is restored onto the returned
+     * [ProvenanceMerge.payload]; the contributor/series/genre collections are flagged so [writePayload]
+     * skips their replace.
+     *
+     * The persisted [BookSyncPayload.fieldProvenance] is the per-field max-tier union: enrichment/user
+     * entries stay sticky, scan-won fields take the incoming scan provenance, and a field the rescan no
+     * longer derives drops out (its value cleared, its provenance with it). Computing the merge BEFORE
+     * the [matchesStoredContent] skip check is load-bearing: a rescan that only "disagrees" on a
+     * protected scalar then matches stored and naturally skips, with no revision bump or firehose event.
      */
-    private fun mergeUserEdits(
+    private fun mergeByProvenance(
         incoming: BookSyncPayload,
         existing: BookSyncPayload,
-    ): UserEditMerge {
-        val stillProtected = existing.userEditedFields - incoming.userEditedFields
+    ): ProvenanceMerge {
+        // A scan write's authority is tier 0 for every field, so a stored field is protected iff its
+        // recorded tier is above scan (enrichment or user). Never sticky within the scan tier itself.
+        fun protected(field: BookField): Boolean = (existing.fieldProvenance[field]?.tier ?: 0) > 0
 
         fun <T> kept(
-            field: UserEditedField,
+            field: BookField,
             stored: T,
             scanned: T,
-        ): T = if (field in stillProtected) stored else scanned
+        ): T = if (protected(field)) stored else scanned
+
+        // Per-field max-tier union: start from the scan-derived (tier-0) entries this write produced,
+        // then overlay every stored entry that out-ranks a scan (enrichment/user), keeping it sticky.
+        val mergedProvenance =
+            buildMap {
+                putAll(incoming.fieldProvenance)
+                existing.fieldProvenance.forEach { (field, prov) -> if (prov.tier > 0) put(field, prov) }
+            }
+
         val merged =
             incoming.copy(
-                title = kept(UserEditedField.TITLE, existing.title, incoming.title),
-                subtitle = kept(UserEditedField.SUBTITLE, existing.subtitle, incoming.subtitle),
-                description = kept(UserEditedField.DESCRIPTION, existing.description, incoming.description),
-                publisher = kept(UserEditedField.PUBLISHER, existing.publisher, incoming.publisher),
-                language = kept(UserEditedField.LANGUAGE, existing.language, incoming.language),
-                publishYear = kept(UserEditedField.PUBLISH_YEAR, existing.publishYear, incoming.publishYear),
-                userEditedFields = existing.userEditedFields + incoming.userEditedFields,
+                title = kept(BookField.TITLE, existing.title, incoming.title),
+                subtitle = kept(BookField.SUBTITLE, existing.subtitle, incoming.subtitle),
+                description = kept(BookField.DESCRIPTION, existing.description, incoming.description),
+                publisher = kept(BookField.PUBLISHER, existing.publisher, incoming.publisher),
+                language = kept(BookField.LANGUAGE, existing.language, incoming.language),
+                publishYear = kept(BookField.PUBLISH_YEAR, existing.publishYear, incoming.publishYear),
+                fieldProvenance = mergedProvenance,
             )
-        return UserEditMerge(
+        return ProvenanceMerge(
             payload = merged,
-            preserveContributors = UserEditedField.CONTRIBUTORS in stillProtected,
-            preserveSeries = UserEditedField.SERIES in stillProtected,
-            preserveGenres = UserEditedField.GENRES in stillProtected,
+            // Contributors are a single whole-list replace covering both roles, so either author or
+            // narrator provenance out-ranking a scan pins the list (behaviour-identical to the old
+            // coarse CONTRIBUTORS flag).
+            preserveContributors = protected(BookField.AUTHORS) || protected(BookField.NARRATORS),
+            preserveSeries = protected(BookField.SERIES),
+            preserveGenres = protected(BookField.GENRES),
         )
     }
 
@@ -1339,6 +1357,11 @@ class BookRepository(
      * = 0, scannedAt = now), its `null` cover, and its empty `genres` to the stored values before
      * comparing, so the result reflects only real content changes. Audio-file and chapter rows drop
      * their `id` (server-generated UUID at rest, `""` from the mapper) before comparing.
+     *
+     * `fieldProvenance` is normalized away too: it is derived metadata *about* the values, not content.
+     * A scan re-authors its tier-0 entries with a fresh `at` on every pass, so leaving it in the
+     * equality would make every idempotent rescan look "changed" and bump the revision. Ignoring it
+     * means an idempotent rescan skips (and the stored provenance stays stable, untouched by the skip).
      */
     private fun BookSyncPayload.matchesStoredContent(stored: BookSyncPayload): Boolean {
         val normalized =
@@ -1350,6 +1373,7 @@ class BookRepository(
                 deletedAt = stored.deletedAt,
                 cover = stored.cover,
                 genres = stored.genres,
+                fieldProvenance = stored.fieldProvenance,
                 audioFiles = audioFiles.map { it.copy(id = "") },
                 chapters = chapters.map { it.copy(id = "") },
             )

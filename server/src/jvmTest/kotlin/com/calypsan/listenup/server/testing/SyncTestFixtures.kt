@@ -264,7 +264,7 @@ fun ListenUpDatabase.seedTestBook(
             cover_source = null,
             cover_path = null,
             cover_hash = null,
-            user_edited_fields = "",
+            field_provenance = "{}",
             root_rel_path = "$bookId/book.m4b",
             inode = null,
             scanned_at = now,
