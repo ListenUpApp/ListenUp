@@ -19,7 +19,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
  *
  * The wire [SharePermission] enum is persisted as its stable lowercase string
  * (`"read"` / `"write"`) via [permissionWireValue], matching the column contract on
- * [CollectionShareEntity.permission]. `isOwnEcho` needs no shield: `@Upsert` is
+ * [CollectionShareEntity.permission]. An own-echo needs no shield: `@Upsert` is
  * idempotent.
  */
 internal fun collectionSharesDomain(database: ListenUpDatabase): MirroredDomain<CollectionShareSyncPayload> {

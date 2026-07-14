@@ -431,6 +431,21 @@ internal class SearchServiceImpl(
 }
 
 /**
+ * Constructs a [SearchService] backed by [SearchServiceImpl]. Public so cross-module test
+ * harnesses (e.g. `:sharedLogic:jvmTest`'s `WithClientSyncEngineAgainstServer`) can build the
+ * unified search service without depending on the Koin graph or piercing the `internal` access
+ * on [SearchServiceImpl]. Production wiring continues to construct the impl directly inside the
+ * books Koin module.
+ *
+ * The service is left unscoped ([PrincipalProvider.None]) — the harness's ROOT test principal
+ * bypasses the access policy, so no per-request scoping is required.
+ */
+fun createSearchService(
+    sqlDb: ListenUpDatabase,
+    driver: SqlDriver,
+): SearchService = SearchServiceImpl(db = sqlDb, driver = driver)
+
+/**
  * Runs [sql] (with engine-neutral [args] in `?` order) over the driver and maps every row through
  * [rowMapper]. Called inside an open [suspendTransaction], so the raw query runs on the
  * surrounding transaction's connection. Bind indices are 0-based (the SQLDelight JDBC convention).

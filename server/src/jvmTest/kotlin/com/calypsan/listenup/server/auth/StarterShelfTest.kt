@@ -45,7 +45,7 @@ class StarterShelfTest :
                 AuthServiceImpl(
                     db = db,
                     sessions = sessions,
-                    hasher = hasher,
+                    hasher = Argon2Limiter(hasher),
                     jwt = jwt,
                     sessionIssuer = SessionIssuer(sessions, jwt, clock),
                     clock = clock,
@@ -102,7 +102,7 @@ class StarterShelfTest :
                 AuthServiceImpl(
                     db = db,
                     sessions = sessions,
-                    hasher = hasher,
+                    hasher = Argon2Limiter(hasher),
                     jwt = jwt,
                     sessionIssuer = SessionIssuer(sessions, jwt, clock),
                     clock = clock,
@@ -132,7 +132,7 @@ class StarterShelfTest :
                 AuthServiceImpl(
                     db = db,
                     sessions = sessions,
-                    hasher = hasher,
+                    hasher = Argon2Limiter(hasher),
                     jwt = jwt,
                     sessionIssuer = SessionIssuer(sessions, jwt, clock),
                     clock = clock,

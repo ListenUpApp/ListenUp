@@ -25,7 +25,7 @@ private const val TIMEOUT_SECONDS = 5L
 
 // "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
 // un-mirrored domain, matching the queue's payload-agnostic contract.
-private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 
 /**
  * Verifies `SyncEngine` forwards `PendingOperationQueue.observeQueueDepth()` and
@@ -147,7 +147,6 @@ private fun buildEngine(
     val dispatcher =
         SyncEventDispatcher(
             registry = registry,
-            queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
         )

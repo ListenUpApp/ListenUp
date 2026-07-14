@@ -59,10 +59,9 @@ class ClientSyncEngineE2ETest :
                     tagRepo.upsert(Tag(id = "t4", name = "delta", slug = "delta", revision = 0L, updatedAt = 0L))
                     val sseEvent =
                         withTimeout(OPERATION_TIMEOUT_SECONDS.seconds) {
-                            recording.observed.first { it.first.id == "t4" }
+                            recording.observed.first { it.id == "t4" }
                         }
-                    sseEvent.first.id shouldBe "t4"
-                    sseEvent.second shouldBe false // not an echo of any pending op
+                    sseEvent.id shouldBe "t4"
                 } finally {
                     collectorScope.cancel()
                 }
@@ -80,7 +79,7 @@ class ClientSyncEngineE2ETest :
                 }
                 tagRepo.upsert(Tag(id = "t2", name = "beta", slug = "beta", revision = 0L, updatedAt = 0L))
                 withTimeout(OPERATION_TIMEOUT_SECONDS.seconds) {
-                    recording.observed.first { it.first.id == "t2" }
+                    recording.observed.first { it.id == "t2" }
                 }
 
                 // Disconnect SSE. Server-side write happens while disconnected.

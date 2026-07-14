@@ -30,8 +30,12 @@ import kotlinx.coroutines.flow.update
 internal open class FakeDownloadRepository(
     initial: List<DownloadEntity> = emptyList(),
     private val enqueueFailure: ((BookId) -> AppResult<DownloadOutcome>)? = null,
+    private val markCompletedFailure: DownloadError? = null,
 ) : DownloadRepository {
     private val state = MutableStateFlow(initial.associateBy { it.audioFileId })
+
+    private val terminalStatesForPause =
+        setOf(DownloadState.CANCELLED, DownloadState.DELETED, DownloadState.COMPLETED)
 
     /** All entities currently in the fake (test-only inspection). */
     val entities: List<DownloadEntity> get() = state.value.values.toList()
@@ -88,6 +92,7 @@ internal open class FakeDownloadRepository(
         localPath: String,
         completedAt: Long,
     ): AppResult<Unit> {
+        markCompletedFailure?.let { return AppResult.Failure(it) }
         update(audioFileId) {
             it.copy(
                 state = DownloadState.COMPLETED,
@@ -100,7 +105,10 @@ internal open class FakeDownloadRepository(
     }
 
     override suspend fun markPaused(audioFileId: String): AppResult<Unit> {
-        update(audioFileId) { it.copy(state = DownloadState.PAUSED) }
+        // Mirror the production guarded DAO query (B7): pausing never clobbers a terminal state.
+        update(audioFileId) { current ->
+            if (current.state in terminalStatesForPause) current else current.copy(state = DownloadState.PAUSED)
+        }
         return AppResult.Success(Unit)
     }
 
@@ -138,6 +146,12 @@ internal open class FakeDownloadRepository(
         state.update { current -> current.filterValues { it.bookId != bookId } }
     }
 
+    override suspend fun deleteDeletedRecordsForBook(bookId: String) {
+        state.update { current ->
+            current.filterValues { it.bookId != bookId || it.state != DownloadState.DELETED }
+        }
+    }
+
     override suspend fun resumeIncompleteDownloads(): AppResult<Unit> = AppResult.Success(Unit)
 
     // --- Test helpers ---
@@ -157,54 +171,9 @@ internal open class FakeDownloadRepository(
         }
     }
 
+    // Delegates to the production reducer so the fake and DownloadRepositoryImpl stay in lock-step.
     private fun aggregate(
         bookId: String,
         downloads: List<DownloadEntity>,
-    ): BookDownloadStatus {
-        if (downloads.isEmpty()) return BookDownloadStatus.NotDownloaded(bookId)
-        val activeDownloads =
-            downloads.filter {
-                it.state != DownloadState.DELETED && it.state != DownloadState.CANCELLED
-            }
-        if (activeDownloads.isEmpty()) return BookDownloadStatus.NotDownloaded(bookId)
-        val totalFiles = activeDownloads.size
-        val completedFiles = activeDownloads.count { it.state == DownloadState.COMPLETED }
-        val totalBytes = activeDownloads.sumOf { it.totalBytes }
-        val downloadedBytes = activeDownloads.sumOf { it.downloadedBytes }
-        return when {
-            activeDownloads.all { it.state == DownloadState.COMPLETED } -> {
-                BookDownloadStatus.Completed(bookId = bookId, totalBytes = totalBytes)
-            }
-
-            activeDownloads.any { it.state == DownloadState.FAILED } -> {
-                BookDownloadStatus.Failed(
-                    bookId = bookId,
-                    errorMessage =
-                        activeDownloads.firstOrNull { it.state == DownloadState.FAILED }?.errorMessage
-                            ?: "Download failed",
-                    partiallyDownloadedFiles = completedFiles,
-                )
-            }
-
-            activeDownloads.all { it.state == DownloadState.PAUSED } -> {
-                BookDownloadStatus.Paused(
-                    bookId = bookId,
-                    pausedFiles = activeDownloads.size,
-                    downloadedBytes = downloadedBytes,
-                    totalBytes = totalBytes,
-                )
-            }
-
-            else -> {
-                BookDownloadStatus.InProgress(
-                    bookId = bookId,
-                    totalFiles = totalFiles,
-                    downloadingFiles = activeDownloads.count { it.state == DownloadState.DOWNLOADING },
-                    completedFiles = completedFiles,
-                    totalBytes = totalBytes,
-                    downloadedBytes = downloadedBytes,
-                )
-            }
-        }
-    }
+    ): BookDownloadStatus = aggregateBookDownloadStatus(bookId, downloads)
 }

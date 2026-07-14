@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.client.data.remote.KtorSeriesRpcFactory
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesRepositoryImpl
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
@@ -24,7 +24,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.SeriesDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.SearchDao] — `persistenceModule`
- *  - [com.calypsan.listenup.client.data.remote.SeriesApiContract] — `networkModule`
+ *  - the [com.calypsan.listenup.api.SearchService] `RpcChannel` — `searchModule`
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - [com.calypsan.listenup.client.data.sync.domains.seriesDomain] — `clientSyncModule`
@@ -33,14 +33,9 @@ import org.koin.dsl.module
  */
 internal val seriesModule: Module =
     module {
-        // SeriesRpcFactory - kotlinx.rpc proxy for SeriesService (cache-miss fetch).
-        // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).
-        single<SeriesRpcFactory> {
-            KtorSeriesRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // SeriesService RPC channel — kotlinx.rpc dispatch for SeriesService (cache-miss fetch and
+        // series edits). Authed (self-healing) by default; joins the RpcCacheInvalidator sweep.
+        rpcChannel<SeriesService>()
 
         // SeriesRepository for domain-layer series queries including search
         single<com.calypsan.listenup.client.domain.repository.SeriesRepository> {
@@ -48,10 +43,11 @@ internal val seriesModule: Module =
                 seriesDao = get(),
                 bookDao = get(),
                 searchDao = get(),
-                api = get(),
                 networkMonitor = get(),
                 imageStorage = get(),
-                rpcFactory = get(),
+                channel = rpcChannel(),
+                // SearchService channel owned by searchModule — powers server series autocomplete.
+                searchChannel = rpcChannel(),
                 seriesSyncHandler =
                     get<SyncDomainHandler<SeriesSyncPayload>>(named(SyncDomains.SERIES.name)),
             )
@@ -60,7 +56,7 @@ internal val seriesModule: Module =
         // SeriesEditRepository — offline-first via OfflineEditor (Books-C1, Offline-Edit-Sync Phase 2).
         single<SeriesEditRepository> {
             SeriesEditRepositoryImpl(
-                seriesRpcFactory = get(),
+                channel = rpcChannel(),
                 seriesDao = get(),
                 offlineEditor = get(),
             )

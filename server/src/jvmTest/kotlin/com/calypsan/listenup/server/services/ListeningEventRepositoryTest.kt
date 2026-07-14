@@ -67,6 +67,38 @@ class ListeningEventRepositoryTest :
             }
         }
 
+        test("a re-upsert of another user's event id cannot stomp that row (cross-user authz)") {
+            withSqlDatabase {
+                val repo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    // Victim userB owns the event.
+                    val victim =
+                        (
+                            repo.upsert(
+                                listeningEventPayload("shared-id", "book-b", startPositionMs = 1_000L),
+                                clientOpId = "op-B",
+                                userId = "userB",
+                            ) as AppResult.Success
+                        ).data
+
+                    // Attacker userA replays the SAME id with attacker-controlled fields.
+                    repo.upsert(
+                        listeningEventPayload("shared-id", "book-a", startPositionMs = 55_555L),
+                        clientOpId = "op-A",
+                        userId = "userA",
+                    )
+
+                    // userB's row is untouched — same owner, domain fields, and sync columns.
+                    val row = sql.listeningEventsQueries.selectById("shared-id").executeAsOne()
+                    row.user_id shouldBe "userB"
+                    row.book_id shouldBe "book-b"
+                    row.start_position_ms shouldBe 1_000L
+                    row.client_op_id shouldBe "op-B"
+                    row.revision shouldBe victim.revision
+                }
+            }
+        }
+
         test("pullSince(userId = u1) returns only u1's events") {
             withSqlDatabase {
                 val repo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())

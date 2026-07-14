@@ -5,6 +5,8 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.domains.NoOutboxInFlight
+import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
 import com.calypsan.listenup.client.data.sync.domains.SyncDomainCatalog
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.sync.domains.toHandler
@@ -33,6 +35,7 @@ internal fun registerTestSyncDomains(
     transactionRunner: TransactionRunner = RoomTransactionRunner(db),
     authSession: AuthSession = FakeAuthSession(userId = "test-user"),
     exclude: Set<String> = emptySet(),
+    inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
 ): SyncDomainCatalog {
     val catalog =
         syncDomainCatalog(
@@ -48,7 +51,7 @@ internal fun registerTestSyncDomains(
         )
     catalog.mirrored
         .filterNot { it.key.name in exclude }
-        .forEach { it.toHandler(transactionRunner, registry) }
+        .forEach { it.toHandler(transactionRunner, registry, inFlightOutbox) }
     return catalog
 }
 

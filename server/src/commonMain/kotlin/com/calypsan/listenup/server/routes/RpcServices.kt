@@ -29,6 +29,7 @@ import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
+import com.calypsan.listenup.server.auth.SessionLiveness
 
 /**
  * The service implementations the kRPC mount registers, bundled so [rpcRoutes] takes a single
@@ -36,6 +37,8 @@ import com.calypsan.listenup.server.auth.AuthServiceImpl
  */
 data class RpcServices(
     val authService: AuthServiceImpl,
+    /** Session-liveness probe used by streaming guards to sever a revoked stream mid-flight (C2). */
+    val sessionLiveness: SessionLiveness,
     val instanceService: InstanceService,
     val scannerService: ScannerService,
     val bookService: BookService,

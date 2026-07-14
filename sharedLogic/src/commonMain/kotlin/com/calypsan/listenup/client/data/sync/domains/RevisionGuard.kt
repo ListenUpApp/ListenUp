@@ -15,9 +15,9 @@ package com.calypsan.listenup.client.data.sync.domains
  * Skipping equals would make that drift permanent.
  *
  * The guard is declared as part of the [ConflictPolicy] it belongs to
- * ([ConflictPolicy.ServerWins] / [ConflictPolicy.EchoShielded]) — the only
- * policies that compare revisions — so a policy that doesn't do revision
- * comparison (AppendOnly, NewerWins) structurally cannot carry one.
+ * ([ConflictPolicy.ServerWins]) — the only policy that compares revisions —
+ * so a policy that doesn't do revision comparison (AppendOnly, NewerWins)
+ * structurally cannot carry one.
  *
  * [localRevision] receives the sync id (the SSE envelope id — composite-key
  * domains parse their `"a:b"` synthetic form) and returns the local row's

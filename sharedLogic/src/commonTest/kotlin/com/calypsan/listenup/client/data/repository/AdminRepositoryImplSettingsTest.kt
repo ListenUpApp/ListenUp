@@ -1,13 +1,20 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.AdminSettingsService
+import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.InviteService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.io.IOException
 
 private class FakeAdminSettingsService : AdminSettingsService {
     var stored = AdminServerSettings("ListenUp", null, inboxEnabled = false, pushNotificationsEnabled = true)
@@ -28,22 +35,14 @@ private class FakeAdminSettingsService : AdminSettingsService {
     }
 }
 
-private class FakeAdminSettingsRpcFactory(
-    private val s: AdminSettingsService,
-) : AdminSettingsRpcFactory {
-    override suspend fun get() = s
-
-    override suspend fun invalidate() = Unit
-}
-
 class AdminRepositoryImplSettingsTest :
     FunSpec({
         fun repo(svc: AdminSettingsService) =
             AdminRepositoryImpl(
-                adminUserRpc = mock(),
-                adminSettingsRpc = FakeAdminSettingsRpcFactory(svc),
-                inviteRpc = mock(),
-                libraryAdminRpc = mock(),
+                adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
+                adminSettingsChannel = RpcChannel.forTest(svc),
+                inviteAdminChannel = RpcChannel.forTest(mock<InviteService>()),
+                libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                 serverConfig = mock(),
                 adminUserRosterDao = mock(),
             )
@@ -80,14 +79,19 @@ class AdminRepositoryImplSettingsTest :
             svc.lastPatch?.pushNotificationsEnabled shouldBe false
         }
 
-        test("a transport throw becomes Failure, not a throw") {
+        test("a transport throw becomes a typed Failure, not a throw") {
+            // The service throw is a transport-level fault; the channel folds it through ErrorMapper into
+            // a TYPED TransportError (an IOException → NetworkUnavailable), not a blanket InternalError.
             val throwing =
-                object : AdminSettingsRpcFactory {
-                    override suspend fun get(): AdminSettingsService = throw RuntimeException("WS 401")
+                object : AdminSettingsService {
+                    override suspend fun getServerSettings(): AppResult<AdminServerSettings> = throw IOException("network down")
 
-                    override suspend fun invalidate() = Unit
+                    override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> = throw IOException("network down")
                 }
-            val r = AdminRepositoryImpl(mock(), throwing, mock(), mock(), mock(), mock()).getServerSettings()
-            (r is AppResult.Failure) shouldBe true
+            repo(throwing)
+                .getServerSettings()
+                .shouldBeInstanceOf<AppResult.Failure>()
+                .error
+                .shouldBeInstanceOf<TransportError.NetworkUnavailable>()
         }
     })

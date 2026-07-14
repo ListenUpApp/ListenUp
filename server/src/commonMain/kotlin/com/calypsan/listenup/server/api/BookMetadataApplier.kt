@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -103,6 +104,9 @@ internal class BookMetadataApplier(
                     asin = asin,
                     contributors = mergeContributors(existing.contributors, match, selection),
                     series = mergeSeries(existing.series, match, selection),
+                    // Stamp provenance for every field this apply overwrites so a later rescan
+                    // preserves the enriched value instead of reverting it to file-derived data (A7).
+                    userEditedFields = existing.userEditedFields + enrichedFields(selection),
                 )
 
             val upsertResult = bookRepository.upsert(updated, clientOpId = null)
@@ -122,6 +126,27 @@ internal class BookMetadataApplier(
             AppResult.Success(Unit)
         }
     }
+
+    /**
+     * The provenance bits to stamp for an apply: every field this [selection] overwrites is marked
+     * rescan-protected so a later scan preserves the enriched value. Contributors/series are marked
+     * only when their ASIN set is non-empty (an empty set leaves the role untouched — see
+     * [mergeContributors]/[mergeSeries]); genres only when non-empty.
+     */
+    private fun enrichedFields(selection: MetadataApplySelection): Set<UserEditedField> =
+        buildSet {
+            if (selection.title) add(UserEditedField.TITLE)
+            if (selection.subtitle) add(UserEditedField.SUBTITLE)
+            if (selection.description) add(UserEditedField.DESCRIPTION)
+            if (selection.publisher) add(UserEditedField.PUBLISHER)
+            if (selection.language) add(UserEditedField.LANGUAGE)
+            if (selection.releaseDate) add(UserEditedField.PUBLISH_YEAR)
+            if (selection.authorAsins.isNotEmpty() || selection.narratorAsins.isNotEmpty()) {
+                add(UserEditedField.CONTRIBUTORS)
+            }
+            if (selection.seriesAsins.isNotEmpty()) add(UserEditedField.SERIES)
+            if (selection.genres.isNotEmpty()) add(UserEditedField.GENRES)
+        }
 
     /** Release year overwrites only when selected and parseable, else keeps [current]. */
     private fun selectedPublishYear(

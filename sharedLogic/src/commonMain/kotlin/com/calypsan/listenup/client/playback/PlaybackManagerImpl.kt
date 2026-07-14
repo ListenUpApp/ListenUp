@@ -1,18 +1,19 @@
 
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.download.DownloadService
@@ -22,6 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 private val logger = KotlinLogging.logger {}
 
@@ -31,6 +33,18 @@ private val logger = KotlinLogging.logger {}
  * release/stop falsely marking a book finished.
  */
 private const val BOOK_FINISHED_THRESHOLD = 0.90f
+
+/**
+ * Content-position delta (ms) between periodic durable persists on the built-in-player
+ * (Desktop) observation path. The built-in player advances [AudioPlayer.positionMs]
+ * continuously while playing, so persisting every time the position has moved this far
+ * bounds crash loss to ~this much content and keeps the listening-span heartbeat alive
+ * (without it `recoverOrphan` would finalize the span at `endedAt == startedAt` and drop
+ * it). 10 s sits between iOS's 5 s and Android's 30 s. Measured in content-position rather
+ * than wall-clock so it is deterministic under virtual-time tests and adds no scheduled
+ * timer task that would trap `advanceUntilIdle()`.
+ */
+private const val POSITION_PERSIST_INTERVAL_MS = 10_000L
 
 /**
  * Default [PlaybackManager] implementation. See the interface KDoc on
@@ -55,10 +69,28 @@ internal class PlaybackManagerImpl(
     private val tokenProvider: AudioTokenProvider,
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
-    private val playbackRpcFactory: PlaybackRpcFactory,
-    private val bookRpcFactory: BookRpcFactory,
+    private val prepareRepository: PlaybackPrepareRepository,
+    private val channel: RpcChannel<BookService>,
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
+    private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
+    /**
+     * When true, this instance is the reporter-based persistence owner: [setPlaybackState]
+     * routes Playing/Paused transitions through [reporter] (position + listening span), and
+     * [playerObservationJob] additionally persists periodically off the position stream (every
+     * [POSITION_PERSIST_INTERVAL_MS] of content). This is the sole persistence path on the
+     * built-in-player wiring (Desktop; iOS drives [reporter] via its own coordinator).
+     *
+     * Android sets this false: its Media3 `PlaybackService.PlayerListener` already owns
+     * book-relative transition persistence, periodic position persistence, AND listening-event
+     * recording, and those same signals also reach this class via `MediaControllerHolder`.
+     * Letting both persist would double-write the outbox. Android keeps this class as the
+     * UI/StateFlow source of truth only; it remains the persistence path for explicit speed
+     * changes ([onSpeedChanged]/[onSpeedReset]). (Android also never invokes the built-in-player
+     * [startPlayback] overload, so [playerObservationJob] does not run there — the flag is a
+     * second, structural guarantee against a double periodic writer.)
+     */
+    private val persistTransitionsViaReporter: Boolean = true,
 ) : PlaybackManager {
     private val preparer =
         PlaybackPreparer(
@@ -72,8 +104,8 @@ internal class PlaybackManagerImpl(
             tokenProvider = tokenProvider,
             deviceContext = deviceContext,
             downloadService = downloadService,
-            playbackRpcFactory = playbackRpcFactory,
-            bookRpcFactory = bookRpcFactory,
+            prepareRepository = prepareRepository,
+            channel = channel,
             scope = scope,
             bookSyncDomainHandler = bookSyncDomainHandler,
         )
@@ -221,8 +253,29 @@ internal class PlaybackManagerImpl(
         playerObservationJob =
             scope.launch {
                 launch {
+                    // Desktop's built-in-player path has no external periodic persister — Android's
+                    // is `PlaybackService` (30 s), iOS's is `PlayerCoordinator` (5 s), and both reach
+                    // this class through their own seams, NOT through this observation job (which runs
+                    // ONLY on the built-in-player/Desktop path). Without a periodic writer here a
+                    // desktop crash mid-session would lose everything since `onPlaybackStarted`, and
+                    // the listening span's heartbeat would never advance. Persist through [reporter]
+                    // every POSITION_PERSIST_INTERVAL_MS of content movement while playing. Gated by
+                    // [persistTransitionsViaReporter]: this instance is the reporter-persistence owner
+                    // only on the Desktop/iOS-style wiring; Android sets it false so its own loop stays
+                    // the sole periodic writer (no double-drive). Driven off the position stream rather
+                    // than a delay loop, so it schedules no timer task.
+                    var lastPersistedPositionMs = resumePositionMs
                     player.positionMs.collect { position ->
                         updatePosition(position)
+                        if (persistTransitionsViaReporter &&
+                            isPlaying.value &&
+                            abs(position - lastPersistedPositionMs) >= POSITION_PERSIST_INTERVAL_MS
+                        ) {
+                            lastPersistedPositionMs = position
+                            currentBookId.value?.let { activeBookId ->
+                                reporter.onPositionUpdate(activeBookId, position, playbackSpeed.value)
+                            }
+                        }
                     }
                 }
                 launch {
@@ -296,6 +349,10 @@ internal class PlaybackManagerImpl(
      */
     override fun setBuffering(buffering: Boolean) {
         isBuffering.value = buffering
+        // Feed the "playback preempts downloads" signal: yield bandwidth only when a
+        // NOT-fully-downloaded book is buffering — a local book needs no help, a stream does.
+        val streaming = currentTimeline.value?.isFullyDownloaded != true
+        playbackBandwidthCoordinator.setStreamingBuffering(buffering && streaming)
     }
 
     /**
@@ -315,22 +372,26 @@ internal class PlaybackManagerImpl(
         when (state) {
             PlaybackState.Playing -> {
                 playbackError.value = null
-                currentBookId.value?.let { activeBookId ->
-                    reporter.onPlaybackStarted(
-                        activeBookId,
-                        currentPositionMs.value,
-                        playbackSpeed.value,
-                    )
+                if (persistTransitionsViaReporter) {
+                    currentBookId.value?.let { activeBookId ->
+                        reporter.onPlaybackStarted(
+                            activeBookId,
+                            currentPositionMs.value,
+                            playbackSpeed.value,
+                        )
+                    }
                 }
             }
 
             PlaybackState.Paused -> {
-                currentBookId.value?.let { activeBookId ->
-                    reporter.onPlaybackPaused(
-                        activeBookId,
-                        currentPositionMs.value,
-                        playbackSpeed.value,
-                    )
+                if (persistTransitionsViaReporter) {
+                    currentBookId.value?.let { activeBookId ->
+                        reporter.onPlaybackPaused(
+                            activeBookId,
+                            currentPositionMs.value,
+                            playbackSpeed.value,
+                        )
+                    }
                 }
             }
 
@@ -346,6 +407,22 @@ internal class PlaybackManagerImpl(
     override fun updatePosition(positionMs: Long) {
         currentPositionMs.value = positionMs
         updateCurrentChapter(positionMs)
+    }
+
+    /**
+     * Convert ExoPlayer per-file coordinates to a book-relative position via the active
+     * [currentTimeline], then delegate to [updatePosition]. See [PlaybackStateWriter] for
+     * why the raw file offset must never be stored directly. Falls back to the raw
+     * [positionInItemMs] when no timeline is active (single-item/degenerate case).
+     */
+    override fun updatePositionFromMediaItem(
+        mediaItemIndex: Int,
+        positionInItemMs: Long,
+    ) {
+        val bookPositionMs =
+            currentTimeline.value?.toBookPosition(mediaItemIndex, positionInItemMs)
+                ?: positionInItemMs
+        updatePosition(bookPositionMs)
     }
 
     /**
@@ -403,6 +480,10 @@ internal class PlaybackManagerImpl(
         playbackSpeed.value = 1.0f
         playbackError.value = null
         isBuffering.value = false
+        // Release the download-yield signal on teardown too — this path clears `isBuffering`
+        // directly (not via `setBuffering`), so tell the coordinator explicitly or a clear while
+        // buffering could leave downloads yielded until some later state change.
+        playbackBandwidthCoordinator.setStreamingBuffering(false)
         playbackState.value = PlaybackState.Idle
     }
 

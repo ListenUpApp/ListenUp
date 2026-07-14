@@ -348,12 +348,24 @@ class BookPersister internal constructor(
         if (toPersist > 0 && lastTickAt != toPersist) emitPersistProgress(toPersist)
 
         if (result.scope is ScanScope.Full) {
-            // Sentinel guard: if ANY walked root failed to resolve to a live folder (folder soft-deleted
-            // mid-scan, or a stale bundle path), its books carry the "unknown" sentinel folder_id and are
-            // absent from every real folder's seen set — the sweep would then tombstone that folder's live
-            // books (the original library-wide corruption). Skip the sweep entirely and log loudly; the
-            // next clean Full scan reconciles genuine removals once every root resolves.
-            if (folderIdByRoot.values.any { it == UNKNOWN_FOLDER_ID }) {
+            // Reachability guard (A1): if the Scanner couldn't walk every configured root (a dropped
+            // NAS/SMB mount, a permission change), that folder walked empty and its live books are
+            // absent from the seen set — sweeping would tombstone every one of them. The Scanner marked
+            // the scan non-authoritative; skip the sweep entirely and log loudly. The next scan where
+            // every root is reachable reconciles genuine removals. This is the disk-reachability
+            // counterpart to the folder-row sentinel guard below.
+            if (!result.fullScanAuthoritative) {
+                log.error {
+                    "Skipping full-scan tombstone sweep for library ${libraryId.value}: the scan was " +
+                        "non-authoritative (a configured root was unreachable/unreadable and walked empty) " +
+                        "— sweeping would wrongly tombstone that folder's live books."
+                }
+            } else if (folderIdByRoot.values.any { it == UNKNOWN_FOLDER_ID }) {
+                // Sentinel guard: if ANY walked root failed to resolve to a live folder (folder soft-deleted
+                // mid-scan, or a stale bundle path), its books carry the "unknown" sentinel folder_id and are
+                // absent from every real folder's seen set — the sweep would then tombstone that folder's live
+                // books (the original library-wide corruption). Skip the sweep entirely and log loudly; the
+                // next clean Full scan reconciles genuine removals once every root resolves.
                 log.error {
                     "Skipping full-scan tombstone sweep for library ${libraryId.value}: a walked root did " +
                         "not resolve to a live folder (sentinel folder_id present) — sweeping would wrongly " +

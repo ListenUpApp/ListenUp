@@ -14,8 +14,10 @@ import com.calypsan.listenup.api.error.CampfireError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
-import com.calypsan.listenup.client.data.remote.CampfireRpcFactory
-import com.calypsan.listenup.client.data.remote.catchingRpcResult
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.RpcDispatch
+import com.calypsan.listenup.client.data.remote.RpcPolicy
+import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -24,36 +26,18 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 
 /**
- * Fake [CampfireRpcFactory] that routes [CampfireRpcFactory.callResult] through the REAL
- * boundary [catchingRpcResult] — matches the
- * [com.calypsan.listenup.client.data.repository.PushRepositoryImplTest] precedent, so these
- * tests exercise the same throw→Failure / cancellation-rethrow semantics the production
- * [com.calypsan.listenup.client.data.remote.RpcProxyCache] engine provides, without a live
- * WebSocket.
- */
-private class FakeCampfireRpcFactory(
-    private val service: CampfireService,
-) : CampfireRpcFactory {
-    var invalidateCalls = 0
-
-    override suspend fun get(): CampfireService = service
-
-    override suspend fun <T> callResult(block: suspend (CampfireService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(service) }
-
-    override suspend fun invalidate() {
-        invalidateCalls += 1
-    }
-}
-
-/**
  * Unit tests for [CampfireRpcTransport] — a thin mapping/delegation layer over
- * [CampfireService]. The Konsist rule `RpcFactoriesDelegateToRpcProxyCacheRule` is the
- * structural test for [KtorCampfireRpcFactory]'s own compliance; these tests cover the
- * transport's forwarding + [CampfireTransport.observeSession] passthrough behavior.
+ * [CampfireService], dispatched through `RpcChannel.forTest` so throws fold through the
+ * REAL channel boundary (throw→typed-Failure, cancellation re-raise) without a live
+ * WebSocket. These tests cover the transport's forwarding +
+ * [CampfireTransport.observeSession] passthrough behavior.
  */
 class CampfireRpcTransportTest :
     FunSpec({
@@ -87,7 +71,7 @@ class CampfireRpcTransportTest :
                     mock<CampfireService> {
                         everySuspend { createSession("book-1", settings) } returns AppResult.Success(snapshot)
                     }
-                val transport = CampfireRpcTransport(FakeCampfireRpcFactory(service))
+                val transport = CampfireRpcTransport(RpcChannel.forTest(service))
 
                 val result = transport.createSession("book-1", settings)
 
@@ -105,7 +89,7 @@ class CampfireRpcTransportTest :
                     mock<CampfireService> {
                         everySuspend { sendCommand(CampfireId("cf-1"), command) } returns failure
                     }
-                val transport = CampfireRpcTransport(FakeCampfireRpcFactory(service))
+                val transport = CampfireRpcTransport(RpcChannel.forTest(service))
 
                 val result = transport.sendCommand(CampfireId("cf-1"), command)
 
@@ -119,7 +103,7 @@ class CampfireRpcTransportTest :
                     mock<CampfireService> {
                         everySuspend { listOpenSessions() } returns AppResult.Success(emptyList())
                     }
-                val transport = CampfireRpcTransport(FakeCampfireRpcFactory(service))
+                val transport = CampfireRpcTransport(RpcChannel.forTest(service))
 
                 val result = transport.listOpenSessions()
 
@@ -131,12 +115,28 @@ class CampfireRpcTransportTest :
         test("refreshConnection invalidates the cached RPC proxy so the next use reconnects") {
             runTest {
                 val service = mock<CampfireService>()
-                val factory = FakeCampfireRpcFactory(service)
-                val transport = CampfireRpcTransport(factory)
+                var invalidateCalls = 0
+                val dispatch =
+                    object : RpcDispatch<CampfireService> {
+                        override suspend fun <R> call(
+                            timeout: kotlin.time.Duration,
+                            idempotent: Boolean,
+                            block: suspend (CampfireService) -> R,
+                        ): R = block(service)
+
+                        override fun <R> streaming(
+                            subscribe: suspend (CampfireService) -> Flow<R>,
+                        ): Flow<R> = flow { emitAll(subscribe(service)) }
+
+                        override suspend fun invalidate() {
+                            invalidateCalls += 1
+                        }
+                    }
+                val transport = CampfireRpcTransport(RpcChannel(dispatch, RpcPolicy.Authed))
 
                 transport.refreshConnection()
 
-                factory.invalidateCalls shouldBe 1
+                invalidateCalls shouldBe 1
             }
         }
 
@@ -147,7 +147,7 @@ class CampfireRpcTransportTest :
                     mock<CampfireService> {
                         every { observeSession(CampfireId("cf-1")) } returns hotFlow
                     }
-                val transport = CampfireRpcTransport(FakeCampfireRpcFactory(service))
+                val transport = CampfireRpcTransport(RpcChannel.forTest(service))
 
                 transport.observeSession(CampfireId("cf-1")).test {
                     val hostChanged = RpcEvent.Data(CampfireFrame.HostChanged("user-2"))

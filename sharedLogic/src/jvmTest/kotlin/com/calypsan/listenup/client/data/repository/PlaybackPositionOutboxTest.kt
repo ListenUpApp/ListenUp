@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
@@ -11,8 +12,14 @@ import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.BookId
+import dev.mokkery.MockMode
+import dev.mokkery.answering.throws
+import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.first
@@ -64,6 +71,75 @@ class PlaybackPositionOutboxTest :
             ops.single().domainName shouldBe "playback_positions"
             ops.single().opType shouldBe "upsert"
             return contractJson.decodeFromString(RecordPositionRequest.serializer(), ops.single().payload)
+        }
+
+        // A repo whose outbox enqueue always throws — the DAO insert blows up mid-transaction.
+        fun failingEnqueueRepoAgainst(db: ListenUpDatabase): PlaybackPositionRepositoryImpl {
+            val throwingDao =
+                mock<PendingOperationV2Dao>(MockMode.autofill) {
+                    everySuspend { insert(any()) } throws RuntimeException("outbox insert boom")
+                }
+            return PlaybackPositionRepositoryImpl(
+                dao = db.playbackPositionDao(),
+                transactionRunner = RoomTransactionRunner(db),
+                pendingQueue = PendingOperationQueue(dao = throwingDao, sender = { AppResult.Success(Unit) }),
+                authSession = FakeAuthSession(userId = "u1"),
+            )
+        }
+
+        // F11: the Room merge and the outbox enqueue must commit atomically. Both these tests would
+        // fail if the enqueue were a separate post-commit step (a crash between them would strand
+        // the newest position local-only — catch-up is inbound-only and NewerWins shields the row).
+
+        test("position write and outbox enqueue are atomic — a failed enqueue rolls back the local write") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = failingEnqueueRepoAgainst(db)
+                    val bookId = BookId("b1")
+                    // Seed a known row (positionMs=90_000). The Position handler updates it in-txn, then
+                    // the enqueue throws — proving atomicity requires the UPDATE to be undone.
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 5_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+
+                    // The whole transaction rolled back: the row keeps its pre-update position and no op queued.
+                    db
+                        .playbackPositionDao()
+                        .get(bookId)
+                        .shouldNotBeNull()
+                        .positionMs shouldBe 90_000L
+                    db.pendingOperationV2Dao().observePending().first() shouldHaveSize 0
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("a successful save persists BOTH the local position row and the queued op") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 5_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    db
+                        .playbackPositionDao()
+                        .get(bookId)
+                        .shouldNotBeNull()
+                        .positionMs shouldBe 5_000L
+                    db.pendingOperationV2Dao().observePending().first() shouldHaveSize 1
+                } finally {
+                    db.close()
+                }
+            }
         }
 
         test("discardProgress enqueues an upsert of the reset position") {

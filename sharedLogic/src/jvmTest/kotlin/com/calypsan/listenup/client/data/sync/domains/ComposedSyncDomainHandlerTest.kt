@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -51,11 +52,8 @@ private fun key() = SyncDomainKey("test_tags", Tag.serializer())
 /** [ConflictPolicy.ServerWins] whose revision guard's local lookup always returns [local]. */
 private fun serverWins(local: Long? = null) = ConflictPolicy.ServerWins<Tag>(RevisionGuard { local })
 
-/** [ConflictPolicy.EchoShielded] with a revision guard whose local lookup always returns [local]. */
-private fun echoShielded(
-    local: Long? = null,
-    onOwnEcho: suspend (id: String, payload: Tag) -> Boolean,
-) = ConflictPolicy.EchoShielded(onOwnEcho = onOwnEcho, revisionGuard = RevisionGuard { local })
+/** An [OutboxInFlightQuery] that reports every entity as having a queued local op. */
+private val alwaysInFlight = OutboxInFlightQuery { _, _ -> true }
 
 private fun domain(
     apply: RecordingApply,
@@ -90,9 +88,8 @@ class ComposedSyncDomainHandlerTest :
             val handler = domain(apply).toHandler(runner, ClientSyncDomainRegistry())
             handler.onEvent(
                 SyncEvent.Created(id = "t1", revision = 5L, occurredAt = 1L, payload = tag()),
-                isOwnEcho = false,
             )
-            handler.onEvent(updated(tag(revision = 6L)), isOwnEcho = false)
+            handler.onEvent(updated(tag(revision = 6L)))
             apply.upserts.map { it.revision } shouldContainExactly listOf(5L, 6L)
         }
 
@@ -109,11 +106,11 @@ class ComposedSyncDomainHandlerTest :
                         ),
                 ).toHandler(runner, ClientSyncDomainRegistry())
 
-            handler.onEvent(updated(tag()), isOwnEcho = false) // incoming 100 <= local 200
+            handler.onEvent(updated(tag())) // incoming 100 <= local 200
             apply.upserts.shouldBeEmpty()
 
             localStamp = 50L
-            handler.onEvent(updated(tag()), isOwnEcho = false) // incoming 100 > local 50
+            handler.onEvent(updated(tag())) // incoming 100 > local 50
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
         }
 
@@ -128,7 +125,7 @@ class ComposedSyncDomainHandlerTest :
                             existingStamp = { 100L }, // equal to tag().updatedAt
                         ),
                 ).toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(updated(tag()), isOwnEcho = false)
+            handler.onEvent(updated(tag()))
             apply.upserts.shouldBeEmpty()
         }
 
@@ -143,73 +140,63 @@ class ComposedSyncDomainHandlerTest :
                             existingStamp = { null },
                         ),
                 ).toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(updated(tag()), isOwnEcho = false)
+            handler.onEvent(updated(tag()))
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
         }
 
-        test("EchoShielded consumes an own echo when the shield handles it") {
+        test("an inbound event is shielded while a local op for the entity is in flight") {
             val apply = RecordingApply()
-            val shielded = mutableListOf<String>()
             val handler =
-                domain(
-                    apply,
-                    conflict =
-                        echoShielded { id, _ ->
-                            shielded += id
-                            true
-                        },
-                ).toHandler(runner, ClientSyncDomainRegistry())
+                domain(apply).toHandler(runner, ClientSyncDomainRegistry(), inFlightOutbox = alwaysInFlight)
+            handler.onEvent(updated(tag()))
+            apply.upserts.shouldBeEmpty()
+        }
 
-            handler.onEvent(updated(tag()), isOwnEcho = true)
-            shielded shouldContainExactly listOf("t1")
+        test("an inbound event applies when no local op is in flight") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply).toHandler(runner, ClientSyncDomainRegistry(), inFlightOutbox = NoOutboxInFlight)
+            handler.onEvent(updated(tag()))
+            apply.upserts.map { it.id } shouldContainExactly listOf("t1")
+        }
+
+        test("the shield lifts once the op drains, and the next inbound event converges") {
+            val apply = RecordingApply()
+            var inFlight = true
+            val handler =
+                domain(apply).toHandler(
+                    runner,
+                    ClientSyncDomainRegistry(),
+                    inFlightOutbox = OutboxInFlightQuery { _, _ -> inFlight },
+                )
+            handler.onEvent(updated(tag(revision = 5L))) // shielded
             apply.upserts.shouldBeEmpty()
 
-            handler.onEvent(updated(tag()), isOwnEcho = false) // remote write applies fully
-            apply.upserts.map { it.id } shouldContainExactly listOf("t1")
+            inFlight = false
+            handler.onEvent(updated(tag(revision = 6L))) // op drained → applies
+            apply.upserts.map { it.revision } shouldContainExactly listOf(6L)
         }
 
-        test("EchoShielded falls through to a full apply when the shield declines") {
+        test("a catch-up item is shielded while a local op for the entity is in flight") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, conflict = echoShielded { _, _ -> false })
-                    .toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(updated(tag()), isOwnEcho = true)
-            apply.upserts.map { it.id } shouldContainExactly listOf("t1")
+                domain(apply).toHandler(runner, ClientSyncDomainRegistry(), inFlightOutbox = alwaysInFlight)
+            handler.onCatchUpItem(tag(), isTombstone = false)
+            apply.upserts.shouldBeEmpty()
         }
 
-        test("EchoShielded never intercepts Deleted — an own-echo delete still tombstones") {
+        test("EchoShielded never intercepts Deleted — a delete for an in-flight entity still tombstones") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, conflict = echoShielded { _, _ -> true })
-                    .toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 7L, occurredAt = 99L), isOwnEcho = true)
+                domain(apply).toHandler(runner, ClientSyncDomainRegistry(), inFlightOutbox = alwaysInFlight)
+            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 7L, occurredAt = 99L))
             apply.tombstonesById shouldContainExactly listOf(Triple("t1", 99L, 7L))
-        }
-
-        test("EchoShielded intercepts Created echoes like Updated echoes") {
-            val apply = RecordingApply()
-            val shielded = mutableListOf<String>()
-            val handler =
-                domain(
-                    apply,
-                    conflict =
-                        echoShielded { id, _ ->
-                            shielded += id
-                            true
-                        },
-                ).toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(
-                SyncEvent.Created(id = "t1", revision = 5L, occurredAt = 1L, payload = tag()),
-                isOwnEcho = true,
-            )
-            shielded shouldContainExactly listOf("t1")
-            apply.upserts.shouldBeEmpty()
         }
 
         test("SoftDelete routes SSE Deleted to tombstoneById") {
             val apply = RecordingApply()
             val handler = domain(apply).toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 7L, occurredAt = 99L), isOwnEcho = false)
+            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 7L, occurredAt = 99L))
             apply.tombstonesById shouldContainExactly listOf(Triple("t1", 99L, 7L))
         }
 
@@ -218,7 +205,7 @@ class ComposedSyncDomainHandlerTest :
             val handler =
                 domain(apply, deletes = DeleteSemantics.CatchUpOnly("server id is not a local key"))
                     .toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 7L, occurredAt = 99L), isOwnEcho = false)
+            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 7L, occurredAt = 99L))
             apply.tombstonesById.shouldBeEmpty()
         }
 
@@ -229,11 +216,9 @@ class ComposedSyncDomainHandlerTest :
             apply.tombstonesFromItem.map { it.id } shouldContainExactly listOf("t1")
         }
 
-        test("catch-up items apply through the conflict policy with no echo") {
+        test("catch-up items apply through the conflict policy when no op is in flight") {
             val apply = RecordingApply()
-            val handler =
-                domain(apply, conflict = echoShielded { _, _ -> true })
-                    .toHandler(runner, ClientSyncDomainRegistry())
+            val handler = domain(apply).toHandler(runner, ClientSyncDomainRegistry())
             handler.onCatchUpItem(tag(), isTombstone = false)
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
         }
@@ -271,6 +256,22 @@ class ComposedSyncDomainHandlerTest :
 
             val plain = domain(RecordingApply()).toHandler(runner, ClientSyncDomainRegistry())
             (plain is AccessFilteredSyncHandler) shouldBe false
+        }
+
+        test("an access-gated handler still shields an in-flight entity's inbound event") {
+            val apply = RecordingApply()
+            val handler =
+                domain(
+                    apply,
+                    accessGate =
+                        AccessGate(
+                            liveIds = { emptyList() },
+                            tombstoneByIds = { _, _ -> },
+                            delta = AccessDeltaPolicy.LiveTailOnly("test gate"),
+                        ),
+                ).toHandler(runner, ClientSyncDomainRegistry(), inFlightOutbox = alwaysInFlight)
+            handler.onEvent(updated(tag()))
+            apply.upserts.shouldBeEmpty()
         }
 
         test("revisionGuard skips a stale catch-up item (incoming < local)") {
@@ -332,7 +333,7 @@ class ComposedSyncDomainHandlerTest :
             val handler =
                 domain(apply, conflict = serverWins(local = 10L))
                     .toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = false)
+            handler.onEvent(updated(tag(revision = 5L)))
             apply.upserts.shouldBeEmpty()
         }
 
@@ -341,24 +342,26 @@ class ComposedSyncDomainHandlerTest :
             val handler =
                 domain(apply, conflict = serverWins(local = 10L))
                     .toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 5L, occurredAt = 99L), isOwnEcho = false)
+            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 5L, occurredAt = 99L))
             apply.tombstonesById.shouldBeEmpty()
         }
 
-        test("revisionGuard runs before the EchoShielded shield — a stale own echo does not invoke it") {
+        test("the revision guard runs before the in-flight shield — a stale frame is skipped without consulting the outbox") {
             val apply = RecordingApply()
-            val shielded = mutableListOf<String>()
+            var shieldConsulted = false
             val handler =
-                domain(
-                    apply,
-                    conflict =
-                        echoShielded(local = 10L) { id, _ ->
-                            shielded += id
-                            true
-                        },
-                ).toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = true)
-            shielded.shouldBeEmpty()
+                domain(apply, conflict = serverWins(local = 10L))
+                    .toHandler(
+                        runner,
+                        ClientSyncDomainRegistry(),
+                        inFlightOutbox =
+                            OutboxInFlightQuery { _, _ ->
+                                shieldConsulted = true
+                                true
+                            },
+                    )
+            handler.onEvent(updated(tag(revision = 5L)))
+            shieldConsulted.shouldBeFalse()
             apply.upserts.shouldBeEmpty()
         }
 
@@ -367,7 +370,7 @@ class ComposedSyncDomainHandlerTest :
             val handler =
                 domain(apply, conflict = ConflictPolicy.AppendOnly())
                     .toHandler(runner, ClientSyncDomainRegistry())
-            handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = false)
+            handler.onEvent(updated(tag(revision = 5L)))
             apply.upserts.map { it.revision } shouldContainExactly listOf(5L)
         }
     })

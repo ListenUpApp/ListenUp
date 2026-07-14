@@ -66,6 +66,18 @@ interface DownloadService {
     suspend fun deleteDownload(bookId: BookId)
 
     /**
+     * Delete every downloaded file and every download record in one sweep ("Delete All Downloads").
+     *
+     * Unlike iterating [deleteDownload] over the books known to the library, this reclaims *orphaned*
+     * files and rows too — downloads whose book is no longer in the local library would otherwise be
+     * invisible and unreclaimable. Platform impls wipe the audiobooks directory and the downloads
+     * table; the default no-ops (desktop has no downloads).
+     */
+    suspend fun deleteAllDownloads() {
+        // Default no-op — platforms without a download backend (desktop) have nothing to reclaim.
+    }
+
+    /**
      * Observe download status for a book as a Flow.
      */
     fun observeBookStatus(bookId: BookId): Flow<BookDownloadStatus>

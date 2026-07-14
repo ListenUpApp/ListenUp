@@ -29,7 +29,7 @@ private const val SECOND_REVISION = 2L
 
 // "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
 // un-mirrored domain, matching the queue's payload-agnostic contract.
-private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 private const val FIRST_UPDATED_AT = 100L
 private const val SECOND_UPDATED_AT = 200L
 
@@ -49,7 +49,6 @@ class SyncEngineLifecycleTest :
 
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
-                            isOwnEcho: Boolean,
                         ): AppResult<Unit> {
                             sequence += "sse:${event.id}"
                             return AppResult.Success(Unit)
@@ -85,7 +84,6 @@ class SyncEngineLifecycleTest :
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = registry,
-                        queue = queue,
                         state = state,
                         cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                     )
@@ -140,7 +138,6 @@ class SyncEngineLifecycleTest :
                         dispatcher =
                             SyncEventDispatcher(
                                 registry = registry,
-                                queue = queue,
                                 state = state,
                                 cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                             ),
@@ -166,11 +163,8 @@ class SyncEngineLifecycleTest :
 
                         override fun syncId(item: Tag): String = item.id
 
-                        override suspend fun onEvent(
-                            event: SyncEvent<Tag>,
-                            isOwnEcho: Boolean,
-                        ): AppResult<Unit> {
-                            sequence += "sse:${event.id}:$isOwnEcho"
+                        override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> {
+                            sequence += "sse:${event.id}"
                             return AppResult.Success(Unit)
                         }
 
@@ -205,7 +199,6 @@ class SyncEngineLifecycleTest :
                         dispatcher =
                             SyncEventDispatcher(
                                 registry = registry,
-                                queue = queue,
                                 state = state,
                                 cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                             ),
@@ -234,7 +227,7 @@ class SyncEngineLifecycleTest :
                 )
                 advanceUntilIdle()
 
-                sequence shouldContainExactly listOf("sse:t3:false")
+                sequence shouldContainExactly listOf("sse:t3")
                 store.highestCursor() shouldBe 3L
 
                 engine.stopAndJoin()
@@ -256,7 +249,6 @@ class SyncEngineLifecycleTest :
 
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
-                            isOwnEcho: Boolean,
                         ): AppResult<Unit> {
                             dispatchStarted.complete(Unit)
                             kotlinx.coroutines.awaitCancellation()
@@ -294,7 +286,6 @@ class SyncEngineLifecycleTest :
                         dispatcher =
                             SyncEventDispatcher(
                                 registry = registry,
-                                queue = queue,
                                 state = state,
                                 cursorAdvance = { _, _ -> },
                             ),

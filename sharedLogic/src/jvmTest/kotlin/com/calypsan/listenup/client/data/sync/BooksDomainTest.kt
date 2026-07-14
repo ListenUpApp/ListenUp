@@ -24,6 +24,8 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
+import com.calypsan.listenup.client.data.sync.domains.NoOutboxInFlight
+import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -53,13 +55,13 @@ class BooksDomainTest :
             withTestHandler { handler, db ->
                 val initial = bookPayload(id = "b1", chapters = (1..10).map { chapter(it) })
                 handler
-                    .onEvent(created(initial), isOwnEcho = false)
+                    .onEvent(created(initial))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.chapterDao().getChaptersForBook(BookId("b1")).size shouldBe 10
 
                 val updated = initial.copy(revision = 2, chapters = (1..3).map { chapter(it) })
                 handler
-                    .onEvent(updatedEvent(updated), isOwnEcho = false)
+                    .onEvent(updatedEvent(updated))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 db.chapterDao().getChaptersForBook(BookId("b1")).size shouldBe 3
@@ -73,7 +75,7 @@ class BooksDomainTest :
                         userEditedFields = setOf(UserEditedField.TITLE, UserEditedField.CONTRIBUTORS),
                     )
                 handler
-                    .onEvent(created(payload), isOwnEcho = false)
+                    .onEvent(created(payload))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 db.bookDao().getById(BookId("b1"))?.userEditedFields shouldBe
@@ -84,7 +86,7 @@ class BooksDomainTest :
         test("a scanner payload with no provenance persists an empty userEditedFields set") {
             withTestHandler { handler, db ->
                 handler
-                    .onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                    .onEvent(created(bookPayload(id = "b1")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 db.bookDao().getById(BookId("b1"))?.userEditedFields shouldBe emptySet()
@@ -115,7 +117,7 @@ class BooksDomainTest :
                             ),
                     )
                 handler
-                    .onEvent(created(payload), isOwnEcho = false)
+                    .onEvent(created(payload))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val row = db.audioFileDao().getForBook("b1").single()
@@ -131,13 +133,13 @@ class BooksDomainTest :
             withTestHandler { handler, db ->
                 val initial = bookPayload(id = "b1", documents = (1..4).map { document(it) })
                 handler
-                    .onEvent(created(initial), isOwnEcho = false)
+                    .onEvent(created(initial))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.bookDocumentDao().getForBook("b1").size shouldBe 4
 
                 val updated = initial.copy(revision = 2, documents = (1..2).map { document(it) })
                 handler
-                    .onEvent(updatedEvent(updated), isOwnEcho = false)
+                    .onEvent(updatedEvent(updated))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val docs = db.bookDocumentDao().getForBook("b1")
@@ -151,14 +153,13 @@ class BooksDomainTest :
         test("rescan that rotates a document id GCs the orphaned cache file for the old id (#699)") {
             withGcHandler { handler, _, storage ->
                 handler
-                    .onEvent(created(bookPayload(id = "b1", documents = listOf(document(1)))), isOwnEcho = false)
+                    .onEvent(created(bookPayload(id = "b1", documents = listOf(document(1)))))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 // Server mints a fresh UUID on rescan: doc1 -> doc2 for the same file.
                 handler
                     .onEvent(
                         updatedEvent(bookPayload(id = "b1", revision = 2, documents = listOf(document(2)))),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 // The stranded old-id cache file is collected; the new current row is not.
@@ -169,21 +170,24 @@ class BooksDomainTest :
         test("rescan that keeps the same document ids touches no cache files (#699)") {
             withGcHandler { handler, _, storage ->
                 handler
-                    .onEvent(created(bookPayload(id = "b1", documents = listOf(document(1)))), isOwnEcho = false)
+                    .onEvent(created(bookPayload(id = "b1", documents = listOf(document(1)))))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 handler
                     .onEvent(
                         updatedEvent(bookPayload(id = "b1", revision = 2, documents = listOf(document(1)))),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 storage.deletedKeys shouldBe emptyList()
             }
         }
 
-        test("isOwnEcho updates only revision and updatedAt, leaves child rows untouched") {
-            withTestHandler { handler, db ->
-                val echoedUpdatedAt = 200L
+        test("an inbound snapshot is shielded while a local edit for the book is in flight, then applies once it drains") {
+            // The anti-flicker shield: a still-queued local `books` op means the optimistic edit is
+            // in flight, so a (possibly stale) inbound snapshot must NOT clobber the local row. Once
+            // the op drains, the shield lifts and the snapshot applies — the book converges.
+            var opInFlight = false
+            val shield = OutboxInFlightQuery { domain, id -> opInFlight && domain == "books" && id == "b1" }
+            withTestHandler(inFlightOutbox = shield) { handler, db ->
                 val initialChapters = (1..5).map { chapter(it) }
                 val initial =
                     bookPayload(
@@ -193,27 +197,36 @@ class BooksDomainTest :
                         updatedAt = 100L,
                         chapters = initialChapters,
                     )
-                handler.onEvent(created(initial), isOwnEcho = false)
+                handler.onEvent(created(initial))
 
-                val echoed =
+                // The user's edit is now in flight.
+                opInFlight = true
+
+                // A stale echo arrives while the edit is still queued — it must be shielded, leaving
+                // the whole optimistic row (title, revision, child rows) untouched.
+                val stale =
                     initial.copy(
-                        title = "Mutated Title",
+                        title = "Stale Server Title",
                         revision = 2,
-                        updatedAt = echoedUpdatedAt,
-                        chapters = listOf(chapter(99)), // different child list
+                        updatedAt = 200L,
+                        chapters = listOf(chapter(99)),
                     )
-                handler.onEvent(updatedEvent(echoed), isOwnEcho = true)
+                handler.onEvent(updatedEvent(stale))
 
-                val row = db.bookDao().getById(BookId("b1"))
-                row shouldNotBe null
-                row!!.title shouldBe "Way of Kings"
-                row.revision shouldBe 2L
-                row.updatedAt shouldBe Timestamp(echoedUpdatedAt)
+                val shielded = db.bookDao().getById(BookId("b1"))
+                shielded shouldNotBe null
+                shielded!!.title shouldBe "Way of Kings"
+                shielded.revision shouldBe 1L
+                db.chapterDao().getChaptersForBook(BookId("b1")).size shouldBe 5
 
-                // Child rows must not have been replaced — echo fast-path skips child writes.
-                val chapters = db.chapterDao().getChaptersForBook(BookId("b1"))
-                chapters.size shouldBe 5
-                chapters.map { it.id.value }.sorted() shouldBe initialChapters.map { it.id }.sorted()
+                // The op drains: the shield lifts and the next inbound snapshot applies fully.
+                opInFlight = false
+                handler.onEvent(updatedEvent(stale.copy(revision = 3, title = "Converged Title")))
+
+                val converged = db.bookDao().getById(BookId("b1"))
+                converged!!.title shouldBe "Converged Title"
+                converged.revision shouldBe 3L
+                db.chapterDao().getChaptersForBook(BookId("b1")).size shouldBe 1
             }
         }
 
@@ -227,7 +240,7 @@ class BooksDomainTest :
                         id = "b1",
                         contributors = listOf(contrib(id = "c1", name = "Stale Embedded Name")),
                     )
-                handler.onEvent(created(payload), isOwnEcho = false)
+                handler.onEvent(created(payload))
 
                 // The contributor domain owns this row — the book payload's
                 // embedded name must NOT overwrite it.
@@ -244,7 +257,7 @@ class BooksDomainTest :
                         id = "b1",
                         contributors = listOf(contrib(id = "c9", name = "Newly Seen Author")),
                     )
-                handler.onEvent(created(payload), isOwnEcho = false)
+                handler.onEvent(created(payload))
 
                 val stub = db.contributorDao().getById("c9")
                 stub shouldNotBe null
@@ -256,7 +269,7 @@ class BooksDomainTest :
         test("onCatchUpItem with isTombstone soft-deletes the book") {
             withTestHandler { handler, db ->
                 val initial = bookPayload(id = "b1")
-                handler.onEvent(created(initial), isOwnEcho = false)
+                handler.onEvent(created(initial))
 
                 handler
                     .onCatchUpItem(initial.copy(deletedAt = 100L), isTombstone = true)
@@ -269,10 +282,9 @@ class BooksDomainTest :
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withTestHandler { handler, db ->
                 val initial = bookPayload(id = "b1")
-                handler.onEvent(created(initial), isOwnEcho = false)
+                handler.onEvent(created(initial))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "b1", revision = 2L, occurredAt = 200L, clientOpId = null),
-                    isOwnEcho = false,
                 )
                 // getAllLive filters tombstones — invisible to reads
                 db.bookDao().getAllLive().none { it.id == BookId("b1") } shouldBe true
@@ -285,15 +297,14 @@ class BooksDomainTest :
 
         test("book tombstone deletes the book's cached readership rows") {
             withTestHandler { handler, db ->
-                handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
-                handler.onEvent(created(bookPayload(id = "b2")), isOwnEcho = false)
+                handler.onEvent(created(bookPayload(id = "b1")))
+                handler.onEvent(created(bookPayload(id = "b2")))
                 db.bookReadershipDao().upsertAll(
                     listOf(readershipRow("b1", "u1"), readershipRow("b2", "u1")),
                 )
 
                 handler.onEvent(
                     SyncEvent.Deleted(id = "b1", revision = 2L, occurredAt = 200L, clientOpId = null),
-                    isOwnEcho = false,
                 )
 
                 db
@@ -307,7 +318,7 @@ class BooksDomainTest :
 
         test("tombstone sweep also removes orphaned readership rows") {
             withTestHandler { handler, db ->
-                handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                handler.onEvent(created(bookPayload(id = "b1")))
                 // 'ghost' has no books row at all — a pre-existing orphan the sweep self-heals.
                 db.bookReadershipDao().upsertAll(
                     listOf(readershipRow("b1", "u1"), readershipRow("ghost", "u1")),
@@ -315,7 +326,6 @@ class BooksDomainTest :
 
                 handler.onEvent(
                     SyncEvent.Deleted(id = "b1", revision = 2L, occurredAt = 200L, clientOpId = null),
-                    isOwnEcho = false,
                 )
 
                 db
@@ -359,7 +369,7 @@ class BooksDomainTest :
                         booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
                             .toHandler(transactionRunner = throwingRunner, registry = ClientSyncDomainRegistry())
 
-                    val result = handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                    val result = handler.onEvent(created(bookPayload(id = "b1")))
 
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<SyncError.SyncFailed>()
@@ -383,7 +393,7 @@ class BooksDomainTest :
 
                     var threw: Throwable? = null
                     try {
-                        handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                        handler.onEvent(created(bookPayload(id = "b1")))
                     } catch (e: CancellationException) {
                         threw = e
                     }
@@ -410,13 +420,68 @@ class BooksDomainTest :
 
                     handler.onEvent(
                         created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
-                        isOwnEcho = false,
                     )
                     handler.onEvent(
                         updatedEvent(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h2"))),
-                        isOwnEcho = false,
                     )
 
+                    verifySuspend(VerifyMode.exactly(1)) { imageStorage.deleteCover(BookId("b1")) }
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        // A4: the cover-file delete must land POST-COMMIT. If a later child apply throws and the
+        // aggregate transaction rolls back, Room keeps the OLD coverHash — deleting the file mid-tx
+        // would strand the book with no file and no hash change to re-trigger the download.
+        test("a rolled-back cover-hash change does NOT delete the file; a committed one DOES (A4)") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
+                    val real = RoomTransactionRunner(db)
+                    var failNext = false
+                    // Runs the apply inside a REAL transaction, then throws before commit when armed —
+                    // reproducing a child apply that fails after the cover-hash change was detected.
+                    val runner =
+                        object : TransactionRunner {
+                            override suspend fun <R> atomically(block: suspend () -> R): R =
+                                real.atomically {
+                                    val r = block()
+                                    if (failNext) error("simulated child-apply failure — roll back")
+                                    r
+                                }
+                        }
+                    val handler =
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = imageStorage)
+                            .toHandler(transactionRunner = runner, registry = ClientSyncDomainRegistry())
+
+                    // Commit a book with cover h1.
+                    handler.onEvent(
+                        created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
+                    )
+
+                    // A cover-hash change (h1 -> h2) whose transaction rolls back.
+                    failNext = true
+                    handler
+                        .onEvent(
+                            updatedEvent(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h2"))),
+                        ).shouldBeInstanceOf<AppResult.Failure>()
+
+                    // Rollback: Room still holds h1, and the file was NOT deleted.
+                    db.bookDao().getById(BookId("b1"))?.coverHash shouldBe "h1"
+                    verifySuspend(VerifyMode.not) { imageStorage.deleteCover(any()) }
+
+                    // The same change again, now committing: the deferred delete runs post-commit.
+                    failNext = false
+                    handler
+                        .onEvent(
+                            updatedEvent(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h2"))),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    db.bookDao().getById(BookId("b1"))?.coverHash shouldBe "h2"
                     verifySuspend(VerifyMode.exactly(1)) { imageStorage.deleteCover(BookId("b1")) }
                 } finally {
                     db.close()
@@ -436,14 +501,12 @@ class BooksDomainTest :
 
                     handler.onEvent(
                         created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
-                        isOwnEcho = false,
                     )
                     // Same cover hash, different title — a real update that must NOT touch the cover file.
                     handler.onEvent(
                         updatedEvent(
                             bookPayload(id = "b1").copy(title = "Renamed", cover = CoverPayload(CoverSource.ENRICHED, "h1")),
                         ),
-                        isOwnEcho = false,
                     )
 
                     verifySuspend(VerifyMode.not) { imageStorage.deleteCover(any()) }
@@ -459,18 +522,24 @@ class BooksDomainTest :
  * [RoomTransactionRunner], runs [block] inside [runTest], and closes the database
  * afterwards. Each invocation is fully isolated.
  */
-private fun withTestHandler(block: suspend (SyncDomainHandler<BookSyncPayload>, ListenUpDatabase) -> Unit) =
-    runTest {
-        val db = createInMemoryTestDatabase()
-        try {
-            val handler =
-                booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
-                    .toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
-            block(handler, db)
-        } finally {
-            db.close()
-        }
+private fun withTestHandler(
+    inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
+    block: suspend (SyncDomainHandler<BookSyncPayload>, ListenUpDatabase) -> Unit,
+) = runTest {
+    val db = createInMemoryTestDatabase()
+    try {
+        val handler =
+            booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                .toHandler(
+                    transactionRunner = RoomTransactionRunner(db),
+                    registry = ClientSyncDomainRegistry(),
+                    inFlightOutbox = inFlightOutbox,
+                )
+        block(handler, db)
+    } finally {
+        db.close()
     }
+}
 
 /**
  * Like [withTestHandler] but injects a [RecordingDocumentStorage] so document-cache GC

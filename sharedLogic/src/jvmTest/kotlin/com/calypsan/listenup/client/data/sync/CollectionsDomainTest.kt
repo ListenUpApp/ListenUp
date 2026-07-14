@@ -26,7 +26,7 @@ class CollectionsDomainTest :
         test("collection Created event upserts the row into Room") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(createdCollection(collectionPayload("c1", name = "Favourites")), isOwnEcho = false)
+                    .onEvent(createdCollection(collectionPayload("c1", name = "Favourites")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.collectionDao().getById("c1")
                 row shouldNotBe null
@@ -40,7 +40,7 @@ class CollectionsDomainTest :
 
         test("collection Updated event overwrites the existing row") {
             withHandler { handler, db ->
-                handler.onEvent(createdCollection(collectionPayload("c1", name = "Favourites")), isOwnEcho = false)
+                handler.onEvent(createdCollection(collectionPayload("c1", name = "Favourites")))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "c1",
@@ -49,7 +49,6 @@ class CollectionsDomainTest :
                         clientOpId = null,
                         payload = collectionPayload("c1", name = "Top Picks", revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.collectionDao().getById("c1")!!
                 row.name shouldBe "Top Picks"
@@ -59,9 +58,9 @@ class CollectionsDomainTest :
 
         test("collection Deleted event soft-deletes the row") {
             withHandler { handler, db ->
-                handler.onEvent(createdCollection(collectionPayload("c1")), isOwnEcho = false)
+                handler.onEvent(createdCollection(collectionPayload("c1")))
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "c1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
+                    .onEvent(SyncEvent.Deleted(id = "c1", revision = 2L, occurredAt = 500L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.collectionDao().getById("c1") shouldBe null
             }
@@ -69,8 +68,8 @@ class CollectionsDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(createdCollection(collectionPayload("c1")), isOwnEcho = false)
-                handler.onEvent(SyncEvent.Deleted(id = "c1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
+                handler.onEvent(createdCollection(collectionPayload("c1")))
+                handler.onEvent(SyncEvent.Deleted(id = "c1", revision = 2L, occurredAt = 500L))
                 db.collectionDao().getById("c1") shouldBe null
                 db.collectionDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "c1"
             }

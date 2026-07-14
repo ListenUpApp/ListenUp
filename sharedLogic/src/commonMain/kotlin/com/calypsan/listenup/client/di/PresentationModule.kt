@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
@@ -93,7 +95,7 @@ internal val authPresentationModule =
         // LibrarySetupViewModel for initial library configuration
         factory {
             com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel(
-                libraryAdminRpcFactory = get(),
+                libraryAdminChannel = rpcChannel<LibraryAdminService>(),
                 errorBus = get(),
                 // App-lifetime scope: the initial scan triggered after onboarding adds its
                 // folders must outlive this wizard (torn down when onboarding finishes and we
@@ -543,8 +545,8 @@ internal val settingsPresentationModule =
         factory { DevicesViewModel(authRepository = get()) }
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.
         factory { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get()) }
-        // Shell connection-health banner VM (Phase 1: session-lapse projection of AuthState).
-        factory { ConnectionHealthViewModel(authSession = get()) }
+        // Shell connection-health banner VM, projecting ConnectionHealthStore.state.
+        factory { ConnectionHealthViewModel(healthStore = get(), serverReachability = get()) }
         // StorageViewModel for storage management screen
         factory<StorageSpaceProvider> { DownloadFileManagerStorageAdapter(get<DownloadFileManager>()) }
         factory {
@@ -553,6 +555,9 @@ internal val settingsPresentationModule =
                 downloadService = get(),
                 storageSpaceProvider = get(),
                 errorBus = get(),
+                // The concrete PlaybackManager implements PlaybackStateProvider (same narrowing as
+                // AuthModule's LogoutUseCase wiring) — used to refuse deleting the playing book (B9).
+                playbackStateProvider = get<com.calypsan.listenup.client.playback.PlaybackManager>(),
             )
         }
     }
@@ -565,7 +570,7 @@ internal val startupPresentationModule =
         factory {
             com.calypsan.listenup.client.presentation.startup.AppStartupViewModel(
                 userRepository = get(),
-                libraryAdminRpcFactory = get(),
+                libraryAdminChannel = rpcChannel<LibraryAdminService>(),
                 authSession = get(),
                 syncRepository = get(),
             )

@@ -59,12 +59,12 @@ class CreateInviteViewModelTest :
         test("createInvite validates invalid email") {
             runTest {
                 val createInviteUseCase: CreateInviteUseCase = mock()
-                // The VM sub-classifies a ValidationError by its body-level message; "Invalid email"
-                // routes to the EMAIL field highlight.
+                // The VM sub-classifies a ValidationError by its typed `field` discriminator, not the
+                // message text — so an opaque message still routes to the EMAIL field highlight.
                 everySuspend { createInviteUseCase(any(), any(), any()) } returns
                     AppResult.Failure(
                         com.calypsan.listenup.api.error
-                            .ValidationError(message = "Invalid email"),
+                            .ValidationError(message = "That won't work", field = "email"),
                     )
                 val viewModel = CreateInviteViewModel(createInviteUseCase)
 
@@ -135,6 +135,28 @@ class CreateInviteViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<CreateInviteUiState.Ready>()
                 val status = ready.status.shouldBeInstanceOf<CreateInviteStatus.Error>()
                 checkIs<CreateInviteErrorType.NetworkError>(status.type)
+            }
+        }
+
+        test("server error surfaces the user-facing message, never debugInfo") {
+            runTest {
+                val createInviteUseCase: CreateInviteUseCase = mock()
+                // debugInfo carries per-instance technical detail (and is null-on-wire for guard
+                // errors post-#3). The UI must render the constant `message`, never `debugInfo`.
+                val serverError =
+                    com.calypsan.listenup.api.error.TransportError
+                        .Server5xx(statusCode = 500, debugInfo = "SECRET stacktrace /var/lib NPE at Foo.kt:42")
+                everySuspend { createInviteUseCase(any(), any(), any()) } returns AppResult.Failure(serverError)
+                val viewModel = CreateInviteViewModel(createInviteUseCase)
+
+                viewModel.createInvite(email = "test@example.com", role = "user", expiresInDays = 7)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<CreateInviteUiState.Ready>()
+                val status = ready.status.shouldBeInstanceOf<CreateInviteStatus.Error>()
+                val type = status.type.shouldBeInstanceOf<CreateInviteErrorType.ServerError>()
+                type.detail shouldBe serverError.message
+                (type.detail?.contains("SECRET") == true) shouldBe false
             }
         }
 

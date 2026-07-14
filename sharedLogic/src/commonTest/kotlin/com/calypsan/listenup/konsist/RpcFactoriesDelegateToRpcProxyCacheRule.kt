@@ -2,7 +2,6 @@ package com.calypsan.listenup.konsist
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldNotBeEmpty
 
 /**
  * The RPC-factory connection lifecycle (Mutex caching, invalidation, URL/scheme
@@ -10,6 +9,12 @@ import io.kotest.matchers.collections.shouldNotBeEmpty
  * A hand-rolled Ktor*RpcFactory body would reintroduce the 22-file copy-paste this
  * generalization removed. KtorInstanceRpcFactory is allowlisted: it is a transient
  * pre-auth probe with timeout semantics, deliberately cacheless.
+ *
+ * As of W8a the last real post-login factory ([RpcProxyCache]-delegating `KtorPlaybackRpcFactory`)
+ * is retired in favour of `rpcChannel<PlaybackService>()`, so the non-allowlisted factory set is now
+ * empty — the pattern is gone, not merely tamed. This rule stays live as a **reintroduction ratchet**:
+ * the moment anyone adds a new `Ktor*RpcFactory` that owns connection state of its own, it fails.
+ * Raw-proxy construction itself is pinned separately by `RawProxyConstructionIsChannelOnlyRule`.
  */
 class RpcFactoriesDelegateToRpcProxyCacheRule :
     FunSpec({
@@ -20,8 +25,6 @@ class RpcFactoriesDelegateToRpcProxyCacheRule :
                     .classes()
                     .filter { it.name.startsWith("Ktor") && it.name.endsWith("RpcFactory") }
                     .filterNot { it.name in allowlist }
-
-            factories.shouldNotBeEmpty()
 
             val offenders =
                 factories

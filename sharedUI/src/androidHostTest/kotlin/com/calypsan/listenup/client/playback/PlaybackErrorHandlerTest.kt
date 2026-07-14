@@ -218,6 +218,10 @@ class PlaybackErrorHandlerTest {
                     error = PlaybackErrorHandler.ClassifiedError.Network("net"),
                     player = player,
                     currentBookId = BookId("book1"),
+                    // Book-relative position (file 8 offset 12min): deliberately different from
+                    // the FILE-relative player.currentPosition (8_000) to prove the handler
+                    // persists the book-relative value passed in, not player.currentPosition.
+                    bookPositionMs = 9_012_000L,
                     onShowError = { errors += it },
                 )
 
@@ -226,6 +230,10 @@ class PlaybackErrorHandlerTest {
             withClue("No user-visible error for transient network issues") { errors.isEmpty() shouldBe true }
             withClue("Position saved once before handling") { tracker.savePlaybackStateCalls.size shouldBe 1 }
             tracker.savePlaybackStateCalls.first().first shouldBe BookId("book1")
+            withClue("Saved position must be the BOOK-relative value, not player.currentPosition (8_000)") {
+                val saved = tracker.savePlaybackStateCalls.first().second
+                saved.shouldBeInstanceOf<PlaybackUpdate.PeriodicUpdate>().positionMs shouldBe 9_012_000L
+            }
         }
     }
 
@@ -238,6 +246,7 @@ class PlaybackErrorHandlerTest {
                 error = PlaybackErrorHandler.ClassifiedError.Network("net"),
                 player = FakeExoPlayer(),
                 currentBookId = null,
+                bookPositionMs = 0L,
                 onShowError = {},
             )
 
@@ -259,6 +268,8 @@ class PlaybackErrorHandlerTest {
                     error = PlaybackErrorHandler.ClassifiedError.NotFound("404"),
                     player = player,
                     currentBookId = BookId("book2"),
+                    // Book-relative, distinct from the file-relative player position (4_500).
+                    bookPositionMs = 5_400_000L,
                     onShowError = { errors += it },
                 )
 
@@ -268,6 +279,10 @@ class PlaybackErrorHandlerTest {
             withClue("Error message is non-blank") { errors.first().isNotBlank() shouldBe true }
             tracker.savePlaybackStateCalls.size shouldBe 1
             tracker.savePlaybackStateCalls.first().first shouldBe BookId("book2")
+            withClue("Saved position must be the BOOK-relative value, not player.currentPosition (4_500)") {
+                val saved = tracker.savePlaybackStateCalls.first().second
+                saved.shouldBeInstanceOf<PlaybackUpdate.PeriodicUpdate>().positionMs shouldBe 5_400_000L
+            }
         }
     }
 
@@ -284,6 +299,7 @@ class PlaybackErrorHandlerTest {
                     error = PlaybackErrorHandler.ClassifiedError.Codec("codec"),
                     player = player,
                     currentBookId = null,
+                    bookPositionMs = 0L,
                     onShowError = { errors += it },
                 )
 
@@ -307,6 +323,10 @@ class PlaybackErrorHandlerTest {
                     error = PlaybackErrorHandler.ClassifiedError.Stuck("stuck"),
                     player = player,
                     currentBookId = BookId("book3"),
+                    // Book-relative save value; the Stuck recovery seek still uses the
+                    // FILE-relative player coordinates (index 2, 12_000) — that is correct,
+                    // it re-seeks within the same media item.
+                    bookPositionMs = 3_612_000L,
                     onShowError = { errors += it },
                 )
 
@@ -316,7 +336,13 @@ class PlaybackErrorHandlerTest {
             withClue("play() called once") { player.playCount shouldBe 1 }
             withClue("seekTo called once (position > 0)") { player.seekCalls.size shouldBe 1 }
             withClue("seekTo uses saved mediaItemIndex") { player.seekCalls.first().first shouldBe 2 }
-            withClue("seekTo uses saved position") { player.seekCalls.first().second shouldBe 12_000L }
+            withClue("seekTo uses FILE-relative player position for in-item recovery") {
+                player.seekCalls.first().second shouldBe 12_000L
+            }
+            withClue("Saved position is the BOOK-relative value, not player.currentPosition (12_000)") {
+                val saved = tracker.savePlaybackStateCalls.first().second
+                saved.shouldBeInstanceOf<PlaybackUpdate.PeriodicUpdate>().positionMs shouldBe 3_612_000L
+            }
             withClue("No user error shown for stuck recovery attempt") { errors.isEmpty() shouldBe true }
             tracker.savePlaybackStateCalls.size shouldBe 1
         }
@@ -331,6 +357,7 @@ class PlaybackErrorHandlerTest {
                 error = PlaybackErrorHandler.ClassifiedError.Stuck("stuck at zero"),
                 player = player,
                 currentBookId = null,
+                bookPositionMs = 0L,
                 onShowError = {},
             )
 
@@ -352,6 +379,7 @@ class PlaybackErrorHandlerTest {
                     error = PlaybackErrorHandler.ClassifiedError.Unknown(RuntimeException("unexpected")),
                     player = player,
                     currentBookId = BookId("book4"),
+                    bookPositionMs = 3_003_000L,
                     onShowError = { errors += it },
                 )
 
@@ -535,6 +563,8 @@ private object ThrowingDownloadRepository : DownloadRepository {
     override suspend fun cancelForBook(bookId: BookId) = TODO("not used in handler test")
 
     override suspend fun deleteForBook(bookId: String) = TODO("not used in handler test")
+
+    override suspend fun deleteDeletedRecordsForBook(bookId: String) = TODO("not used in handler test")
 
     override suspend fun resumeIncompleteDownloads() = TODO("not used in handler test")
 }
@@ -1072,11 +1102,14 @@ private class StubAuthSession : com.calypsan.listenup.client.domain.repository.A
 
     override suspend fun getUserId(): String? = "u1"
 
+    override suspend fun currentAuthEpoch(): Long = 0L
+
     override suspend fun saveAuthTokens(
         access: com.calypsan.listenup.api.dto.auth.AccessToken,
         refresh: com.calypsan.listenup.api.dto.auth.RefreshToken,
         sessionId: String,
         userId: String,
+        ifEpoch: Long?,
     ) = Unit
 
     override suspend fun updateAccessToken(token: com.calypsan.listenup.api.dto.auth.AccessToken) = Unit

@@ -391,6 +391,8 @@ private fun noOpOrchestrator(): ScanOrchestrator =
                 scanner =
                     object : ScannerResultPort {
                         override fun lastResult(): ScanResult? = null
+
+                        override fun markSuperseded() = Unit
                     },
                 coordinator = coordinator,
             )

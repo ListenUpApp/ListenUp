@@ -137,7 +137,7 @@ class ContributorUnmergeE2ETest :
                 // lazily right here — a *cold* handshake. Under CI contention that handshake
                 // intermittently fails ("Handshake exception, expected status code 101 but was
                 // 401") *before* the request reaches `ContributorService`, surfacing as an
-                // AppResult.Failure (see ContributorEditRepositoryImpl.rpcCall's catch). The
+                // AppResult.Failure (see the channel's catchingRpcResult fold). The
                 // unmerge never executed, so re-firing is safe: a failed handshake leaves no
                 // server-side state to collide with. (The test auth provider authenticates every
                 // request unconditionally, so the 401 is transport-layer, never a real auth

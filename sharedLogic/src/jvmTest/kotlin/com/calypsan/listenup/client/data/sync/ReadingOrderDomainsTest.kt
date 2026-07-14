@@ -37,7 +37,7 @@ class ReadingOrderDomainsTest :
             withDb { db ->
                 val handler = readingOrdersDomain(db).handler(db)
                 handler
-                    .onEvent(created(orderPayload("ro1", attribution = "u/Argent", revision = 1L)), isOwnEcho = false)
+                    .onEvent(created(orderPayload("ro1", attribution = "u/Argent", revision = 1L)))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.readingOrderDao().getById("ro1")
                 row shouldNotBe null
@@ -49,9 +49,9 @@ class ReadingOrderDomainsTest :
         test("reading_orders Deleted event tombstones the row") {
             withDb { db ->
                 val handler = readingOrdersDomain(db).handler(db)
-                handler.onEvent(created(orderPayload("ro1", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(orderPayload("ro1", revision = 1L)))
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "ro1", revision = 2L, occurredAt = 800L), isOwnEcho = false)
+                    .onEvent(SyncEvent.Deleted(id = "ro1", revision = 2L, occurredAt = 800L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.readingOrderDao().getById("ro1") shouldBe null
                 db.readingOrderDao().revisionOf("ro1") shouldBe 2L
@@ -76,7 +76,7 @@ class ReadingOrderDomainsTest :
             withDb { db ->
                 val handler = readingOrderBooksDomain(db).handler(db)
                 handler
-                    .onEvent(created(junctionPayload("ro1", "b1", sortOrder = 7, revision = 1L)), isOwnEcho = false)
+                    .onEvent(created(junctionPayload("ro1", "b1", sortOrder = 7, revision = 1L)))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.readingOrderBookDao().findById("ro1:b1")
                 row shouldNotBe null
@@ -90,7 +90,6 @@ class ReadingOrderDomainsTest :
                 val handler = readingOrderBooksDomain(db).handler(db)
                 handler.onEvent(
                     created(junctionPayload("ro1", "b1", deletedAt = 500L, revision = 2L)),
-                    isOwnEcho = false,
                 )
                 handler.onEvent(
                     SyncEvent.Updated(
@@ -100,7 +99,6 @@ class ReadingOrderDomainsTest :
                         clientOpId = null,
                         payload = junctionPayload("ro1", "b1", revision = 3L, deletedAt = null),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.readingOrderBookDao().findById("ro1:b1")!!
                 row.deletedAt shouldBe null
@@ -111,9 +109,9 @@ class ReadingOrderDomainsTest :
         test("reading_order_books Deleted event tombstones and drops out of reads + digest") {
             withDb { db ->
                 val handler = readingOrderBooksDomain(db).handler(db)
-                handler.onEvent(created(junctionPayload("ro1", "b1", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(junctionPayload("ro1", "b1", revision = 1L)))
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "ro1:b1", revision = 2L, occurredAt = 800L), isOwnEcho = false)
+                    .onEvent(SyncEvent.Deleted(id = "ro1:b1", revision = 2L, occurredAt = 800L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db
                     .readingOrderBookDao()
@@ -143,7 +141,6 @@ class ReadingOrderDomainsTest :
                 handler
                     .onEvent(
                         created(followPayload("u1:series-1", "series-1", activeReadingOrderId = "ro1", revision = 1L)),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.readingOrderFollowDao().observeActiveReadingOrderId("series-1").first() shouldBe "ro1"
             }
@@ -154,7 +151,6 @@ class ReadingOrderDomainsTest :
                 val handler = readingOrderFollowsDomain(db).handler(db)
                 handler.onEvent(
                     created(followPayload("u1:series-1", "series-1", activeReadingOrderId = "ro1", revision = 1L)),
-                    isOwnEcho = false,
                 )
                 handler.onEvent(
                     SyncEvent.Updated(
@@ -164,7 +160,6 @@ class ReadingOrderDomainsTest :
                         clientOpId = null,
                         payload = followPayload("u1:series-1", "series-1", activeReadingOrderId = null, revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 db.readingOrderFollowDao().observeActiveReadingOrderId("series-1").first() shouldBe null
                 db.readingOrderFollowDao().findById("u1:series-1")!!.revision shouldBe 2L

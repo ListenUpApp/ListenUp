@@ -20,7 +20,7 @@ import kotlinx.serialization.builtins.serializer
 
 // "tags" is not a real outbox channel — a minimal local fixture stands in for a
 // hypothetical un-mirrored domain so operationTypeFor's OTHER fallback stays testable.
-private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Update))
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Update), idempotent = true)
 
 /**
  * Tests for [PendingOperationRepositoryImpl] — the read-model over the live

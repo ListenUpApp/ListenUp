@@ -299,16 +299,17 @@ open class ProgressTracker(
         scope.launch {
             logger.info { "Book finished: ${bookId.value}, finalPosition=$finalPositionMs" }
 
-            // Clear any DELETED download records so future playback will auto-download again
-            // This means that the next time a user wants to listen to the same book. We assume
-            // They want the default behavior again (stream + download)
+            // Clear only DELETED tombstones so a re-listen auto-downloads again (default stream +
+            // download behavior). COMPLETED rows and their local files MUST survive — wiping them
+            // here would orphan the multi-GB files on disk and force every future play to stream,
+            // failing offline. This is the "finishing a book destroys its offline copy" fix.
             try {
-                downloadRepository.deleteForBook(bookId.value)
-                logger.debug { "Cleared download records for finished book: ${bookId.value}" }
+                downloadRepository.deleteDeletedRecordsForBook(bookId.value)
+                logger.debug { "Cleared DELETED download tombstones for finished book: ${bookId.value}" }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
             } catch (e: Exception) {
-                logger.warn { "Failed to delete download records for ${bookId.value} (non-fatal): ${e.message}" }
+                logger.warn { "Failed to clear download tombstones for ${bookId.value} (non-fatal): ${e.message}" }
             }
 
             // Mark book as complete

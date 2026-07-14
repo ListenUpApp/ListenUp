@@ -2,9 +2,12 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
-import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
+import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.ConnectionState
@@ -89,6 +92,7 @@ class OrphanRecoveryRaceTest :
                         ListeningEventRecorder(
                             listeningEventDao = db.listeningEventDao(),
                             tentativeSpanDao = countingSpanDao,
+                            transactionRunner = RoomTransactionRunner(db),
                             enqueue = { _, _, _ -> },
                             currentUserId = { "user-test" },
                             deviceInfo = DeviceInfoProvider { error("device info not used in this test") },
@@ -100,7 +104,7 @@ class OrphanRecoveryRaceTest :
                             everySuspend { rebuildIfEmpty() } returns Unit
                             everySuspend { rebuildAll() } returns Unit
                         }
-                    val scannerRpcFactory = mock<ScannerRpcFactory>()
+                    val scannerChannel = RpcChannel.forTest(mock<ScannerService>())
 
                     val repo =
                         SyncRepositoryImpl(
@@ -108,7 +112,7 @@ class OrphanRecoveryRaceTest :
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,
-                            scannerRpcFactory = scannerRpcFactory,
+                            scannerChannel = scannerChannel,
                             bookDao = db.bookDao(),
                             libraryDao = db.libraryDao(),
                             listeningEventDao = db.listeningEventDao(),
@@ -158,6 +162,7 @@ class OrphanRecoveryRaceTest :
                         ListeningEventRecorder(
                             listeningEventDao = db.listeningEventDao(),
                             tentativeSpanDao = countingSpanDao,
+                            transactionRunner = RoomTransactionRunner(db),
                             enqueue = { _, _, _ -> },
                             currentUserId = { "user-test" },
                             deviceInfo = DeviceInfoProvider { error("device info not used in this test") },
@@ -169,7 +174,7 @@ class OrphanRecoveryRaceTest :
                             everySuspend { rebuildIfEmpty() } returns Unit
                             everySuspend { rebuildAll() } returns Unit
                         }
-                    val scannerRpcFactory = mock<ScannerRpcFactory>()
+                    val scannerChannel = RpcChannel.forTest(mock<ScannerService>())
 
                     val repo =
                         SyncRepositoryImpl(
@@ -177,7 +182,7 @@ class OrphanRecoveryRaceTest :
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,
-                            scannerRpcFactory = scannerRpcFactory,
+                            scannerChannel = scannerChannel,
                             bookDao = db.bookDao(),
                             libraryDao = db.libraryDao(),
                             listeningEventDao = db.listeningEventDao(),
@@ -290,7 +295,6 @@ private fun buildOrphanTestEngine(
     val dispatcher =
         SyncEventDispatcher(
             registry = registry,
-            queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
         )

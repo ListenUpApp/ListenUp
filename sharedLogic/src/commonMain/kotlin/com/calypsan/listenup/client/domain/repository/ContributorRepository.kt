@@ -2,7 +2,6 @@
 
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
@@ -142,17 +141,6 @@ interface ContributorRepository {
      * @param contributor The contributor to save
      */
     suspend fun upsertContributor(contributor: Contributor)
-
-    /**
-     * Delete a contributor.
-     *
-     * Soft-deletes the contributor on the server. The contributor will be
-     * removed from the local database on the next sync.
-     *
-     * @param contributorId Contributor ID to delete
-     * @return Success or failure result
-     */
-    suspend fun deleteContributor(contributorId: String): AppResult<Unit>
 }
 
 /**

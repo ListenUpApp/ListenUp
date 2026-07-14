@@ -28,6 +28,21 @@ class SyncCursorStoreTest :
             }
         }
 
+        test("setCursor is monotonic — a lower revision never rewinds the stored cursor") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val store = SyncCursorStore(db.syncCursorDao())
+                store.setCursor("tags", 5L)
+                // A buffered pre-disconnect frame lands after a catch-up already advanced further.
+                store.setCursor("tags", 3L)
+                store.getCursor("tags") shouldBe 5L
+                // A genuinely-higher revision still advances.
+                store.setCursor("tags", 8L)
+                store.getCursor("tags") shouldBe 8L
+                db.close()
+            }
+        }
+
         test("highestCursor returns max across all domains, or null when empty") {
             runTest {
                 val db = createInMemoryTestDatabase()

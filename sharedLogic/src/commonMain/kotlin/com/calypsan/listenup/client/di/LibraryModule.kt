@@ -1,9 +1,8 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.KtorScannerRpcFactory
-import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorUserPreferencesRpcFactory
-import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.UserPreferencesService
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.HomeRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LibraryRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PendingOperationRepositoryImpl
@@ -22,7 +21,6 @@ import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 private const val APP_SCOPE = "appScope"
@@ -52,13 +50,9 @@ private const val APP_SCOPE = "appScope"
  */
 internal val libraryModule: Module =
     module {
-        // UserPreferencesRpcFactory — kotlinx.rpc proxy for UserPreferencesService.
-        single<UserPreferencesRpcFactory> {
-            KtorUserPreferencesRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // UserPreferencesService RPC channel — kotlinx.rpc dispatch for UserPreferencesService
+        // (preferences read/update). Authed (self-healing) by default; joins the RpcCacheInvalidator sweep.
+        rpcChannel<UserPreferencesService>()
 
         single {
             LibraryResetHelperImpl(
@@ -68,14 +62,9 @@ internal val libraryModule: Module =
             )
         } bind LibraryResetHelper::class
 
-        // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (authed mount):
-        // live scan-progress stream that drives the scan UI + post-scan reconcile.
-        single<ScannerRpcFactory> {
-            KtorScannerRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // ScannerService RPC channel (authed mount): live scan-progress stream that drives the
+        // scan UI + post-scan reconcile.
+        rpcChannel<ScannerService>()
 
         // HomeRepository for Home screen data (local-first)
         single<HomeRepository> {
@@ -92,7 +81,7 @@ internal val libraryModule: Module =
                 syncEngineState = get(),
                 authSession = get(),
                 listeningEventRecorder = get(),
-                scannerRpcFactory = get(),
+                scannerChannel = rpcChannel(),
                 bookDao = get(),
                 libraryDao = get(),
                 listeningEventDao = get(),
@@ -109,7 +98,7 @@ internal val libraryModule: Module =
         // UserPreferencesRepository for syncing user preferences across devices (offline-first via Room)
         single<UserPreferencesRepository> {
             UserPreferencesRepositoryImpl(
-                rpcFactory = get(),
+                channel = rpcChannel(),
                 dao = get(),
                 authSession = get(),
                 offlineEditor = get(),

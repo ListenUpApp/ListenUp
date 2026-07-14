@@ -9,7 +9,8 @@ import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.ImportRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
 import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.core.ImportId
@@ -41,8 +42,6 @@ import java.nio.file.Files
 import java.sql.DriverManager
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -61,8 +60,9 @@ import kotlinx.rpc.withService
  *
  * Harness: the full server [module] boots via [testApplication] with an isolated
  * in-memory SQLite config (same pattern as
- * [com.calypsan.listenup.client.di.e2e.DiWiredClientFixture]). A [TestImportRpcFactory]
- * opens the [ImportService] proxy against `ws://localhost/api/rpc/authed`. A Mokkery
+ * [com.calypsan.listenup.client.di.e2e.DiWiredClientFixture]). [importServiceProxy]
+ * opens the [ImportService] proxy against `ws://localhost/api/rpc/authed`, wrapped in
+ * [RpcChannel.forTest]. A Mokkery
  * mock of [ApiClientFactory] is configured so that [ApiClientFactory.getClient] returns
  * the test application's [HttpClient] — this means [ImportRepositoryImpl.upload] runs
  * the REAL production `submitFormWithBinaryData` code path against the in-process server,
@@ -129,7 +129,6 @@ class ImportRpcE2ETest :
                         }
 
                     val rpcClient = createClient { installKrpc() }
-                    val rpcFactory = TestImportRpcFactory(rpcClient, accessToken)
 
                     // Wire up the production ImportRepositoryImpl with a Mokkery mock of
                     // ApiClientFactory. getClient() returns authedRestClient (testApplication's
@@ -141,7 +140,7 @@ class ImportRpcE2ETest :
                         }
                     val repository =
                         ImportRepositoryImpl(
-                            rpcFactory = rpcFactory,
+                            channel = RpcChannel.forTest(rpcClient.importServiceProxy(accessToken)),
                             clientFactory = clientFactory,
                         )
 
@@ -190,36 +189,16 @@ class ImportRpcE2ETest :
 // ── test doubles ─────────────────────────────────────────────────────────────
 
 /**
- * Test-only [ImportRpcFactory] that opens an [ImportService] proxy against
- * `ws://localhost/api/rpc/authed` on the in-process [testApplication].
- *
- * Mirrors [TestBackupRpcFactory] — the canonical test-double pattern for admin
- * RPC factories in this package. The [accessToken] is a real JWT minted by the
- * server's `/api/v1/auth/setup` route so the bearer-gated RPC surface authenticates.
+ * Opens an [ImportService] proxy against `ws://localhost/api/rpc/authed` on the in-process
+ * [testApplication], wrapped by [RpcChannel.forTest] so the repository drives the real fold
+ * semantics over a real socket. The [accessToken] is a real JWT minted by the server's
+ * `/api/v1/auth/setup` route so the bearer-gated RPC surface authenticates.
  */
-private class TestImportRpcFactory(
-    private val rpcHttpClient: HttpClient,
-    private val accessToken: String,
-) : ImportRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: ImportService? = null
-
-    override suspend fun get(): ImportService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): ImportService =
-        rpcHttpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-                bearerAuth(accessToken)
-            }.withService<ImportService>()
-}
+private suspend fun HttpClient.importServiceProxy(accessToken: String): ImportService =
+    rpc("ws://localhost/api/rpc/authed") {
+        rpcConfig { serialization { krpcJson(contractJson) } }
+        bearerAuth(accessToken)
+    }.withService<ImportService>()
 
 // ── fixture helpers ───────────────────────────────────────────────────────────
 

@@ -9,8 +9,13 @@ import com.calypsan.listenup.client.data.local.db.ShelfEntity
  * The `shelves` domain: user-scoped own-data — the server already scopes pull and
  * firehose queries to the caller's rows, so no [AccessGate] is declared (the genres
  * precedent). Server-wins apply (idempotent upsert absorbs own echoes), soft-delete
- * tombstones, full digest, online-only writes. `bookCount` is JOIN-derived and never
+ * tombstones, full digest, outbox-backed writes. `bookCount` is JOIN-derived and never
  * stored, so drift is impossible by construction.
+ *
+ * **Outbox writes.** Update and delete write Room optimistically and queue a durable op on
+ * [OutboxChannels.Shelves] keyed by the shelf id; the entity-level in-flight shield defers a
+ * shelf's own echo until its op drains, so a stale snapshot never reverts the optimistic edit
+ * before the authoritative echo lands. Creating a shelf stays an online RPC (server-minted id).
  */
 internal fun shelvesDomain(database: ListenUpDatabase): MirroredDomain<ShelfSyncPayload> {
     val apply = ShelfMirrorApply(database)
@@ -20,7 +25,7 @@ internal fun shelvesDomain(database: ListenUpDatabase): MirroredDomain<ShelfSync
         conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.shelfDao().revisionOf(id) }),
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.shelfDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
+        writes = WriteTier.Outbox(OutboxChannels.Shelves),
     )
 }
 

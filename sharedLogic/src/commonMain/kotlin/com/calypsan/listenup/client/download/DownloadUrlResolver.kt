@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.download
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -30,9 +30,9 @@ private val logger = KotlinLogging.logger {}
 internal suspend fun resolveSignedDownloadUrl(
     bookId: String,
     audioFileId: String,
-    playbackRpcFactory: PlaybackRpcFactory,
+    prepareRepository: PlaybackPrepareRepository,
 ): AppResult<String> =
-    when (val rpcResult = playbackRpcFactory.playbackService().prepare(BookId(bookId))) {
+    when (val rpcResult = prepareRepository.prepare(BookId(bookId))) {
         is AppResult.Failure -> {
             logger.warn { "prepare() failed for book=$bookId audioFile=$audioFileId: ${rpcResult.error.message}" }
             rpcResult

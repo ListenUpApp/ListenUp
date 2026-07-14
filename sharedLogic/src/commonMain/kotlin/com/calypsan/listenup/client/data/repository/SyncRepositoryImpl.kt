@@ -12,7 +12,8 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.dao.LibraryDao
-import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
+import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.EngineSnapshot
@@ -60,7 +61,7 @@ internal class SyncRepositoryImpl(
     private val syncEngineState: SyncEngineState,
     private val authSession: AuthSession,
     private val listeningEventRecorder: ListeningEventRecorder,
-    private val scannerRpcFactory: ScannerRpcFactory,
+    private val scannerChannel: RpcChannel<ScannerService>,
     private val bookDao: BookDao,
     private val libraryDao: LibraryDao,
     private val listeningEventDao: ListeningEventDao,
@@ -235,6 +236,31 @@ internal class SyncRepositoryImpl(
             listeningEventDao.reassignBlankUserId(userId).let { repaired ->
                 if (repaired > 0) logger.info { "Repaired $repaired listening_events rows with a blank userId" }
             }
+            // Recover any orphan span BEFORE starting the engine. Recovery needs only the local DB,
+            // not sync — and running it first closes the race where the user hits play (onPlay) while
+            // catch-up is still paging: a late recovery would otherwise finalize the fresh LIVE span
+            // at its opening heartbeat. Process-identity in the recorder makes recovery finalize only
+            // spans from a PRIOR process, so this is safe even if it interleaves with a live session.
+            val shouldRecover =
+                orphanRecoveryMutex.withLock {
+                    if (orphanRecovered) {
+                        false
+                    } else {
+                        orphanRecovered = true
+                        true
+                    }
+                }
+            if (shouldRecover) {
+                try {
+                    listeningEventRecorder.recoverOrphan()
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Orphan recovery failure is non-fatal — log and continue.
+                    // The orphan will remain and may be recovered on the next startup.
+                    logger.warn(e) { "Orphan span recovery failed — will retry on next startup" }
+                }
+            }
             syncEngine.start(userId)
             startScanProgressObserver()
             // Self-heal: an install whose library is already in Room but whose search index was
@@ -256,26 +282,6 @@ internal class SyncRepositoryImpl(
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Cover-presence self-heal failed; will retry on next startup" }
-            }
-            val shouldRecover =
-                orphanRecoveryMutex.withLock {
-                    if (orphanRecovered) {
-                        false
-                    } else {
-                        orphanRecovered = true
-                        true
-                    }
-                }
-            if (shouldRecover) {
-                try {
-                    listeningEventRecorder.recoverOrphan()
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Orphan recovery failure is non-fatal — log and continue.
-                    // The orphan will remain and may be recovered on the next startup.
-                    logger.warn(e) { "Orphan span recovery failed — will retry on next startup" }
-                }
             }
         }
 
@@ -348,9 +354,8 @@ internal class SyncRepositoryImpl(
     /** Collects one subscription to the scan-progress stream until it errors or completes. */
     private suspend fun collectScanProgressUntilStreamEnds() {
         try {
-            scannerRpcFactory
-                .get()
-                .observeProgress()
+            scannerChannel
+                .stream { it.observeProgress() }
                 .collect { rpcEvent ->
                     val event = (rpcEvent as? RpcEvent.Data)?.value ?: return@collect
                     applyScanEvent(
@@ -390,17 +395,19 @@ internal class SyncRepositoryImpl(
 
     /**
      * Probe the server's authoritative last-scan result to confirm the initial population finished.
-     * The RPC proxy throws (e.g. `WebSocketException`) on transport failure; treat any such failure
-     * as "not finished" so recovery keeps the gate up and re-subscribes rather than latching early.
+     * The channel folds any transport fault into an [AppResult.Failure]; treat any such failure as
+     * "not finished" so recovery keeps the gate up and re-subscribes rather than latching early.
      */
     private suspend fun isInitialScanFinishedOnServer(): Boolean =
-        try {
-            scannerRpcFactory.get().lastScanResult() is AppResult.Success
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "lastScanResult probe failed during scan recovery" }
-            false
+        when (val result = scannerChannel.call(idempotent = true) { it.lastScanResult() }) {
+            is AppResult.Success -> {
+                true
+            }
+
+            is AppResult.Failure -> {
+                logger.warn { "lastScanResult probe failed during scan recovery: ${result.error.code}" }
+                false
+            }
         }
 
     /** Never-stranded reset: a dropped progress stream must not leave the shell blocked. */

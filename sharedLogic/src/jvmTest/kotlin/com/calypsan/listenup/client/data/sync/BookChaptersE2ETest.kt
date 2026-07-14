@@ -14,6 +14,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 
 private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
@@ -76,21 +77,24 @@ class BookChaptersE2ETest :
                     )
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                // Poll the client Room DB until the SSE-driven Book Updated event has
-                // been applied by BookMirrorApply — the chapter rows exist only
-                // once the handler has processed the event.
+                // Offline-first: the edit wrote chapters into Room optimistically and enqueued a
+                // durable `books` op. Await the server round-trip — the engine drains the op over RPC,
+                // proving the write actually reached the server. A yielding delay is load-bearing: the
+                // drain runs on the same Dispatchers.Default pool the test polls on, so a tight
+                // busy-spin would starve it (mirrors SetBookCollectionsReconcileE2ETest).
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
-                    while (clientDatabase.chapterDao().getChaptersForBook(BookId("chapters-b1")).isEmpty()) {
-                        // SSE delivery latency is non-deterministic; poll the real query.
+                    while (serverBookRepository.findById(BookId("chapters-b1"))?.chapters?.size != 2) {
+                        delay(50)
                     }
                 }
 
+                // The optimistic Room write mirrors what the SSE echo reconciles — chapters are present.
                 val chapterEntities = clientDatabase.chapterDao().getChaptersForBook(BookId("chapters-b1"))
                 chapterEntities shouldHaveSize 2
                 chapterEntities[0].title shouldBe "Prologue"
                 chapterEntities[1].title shouldBe "Act One"
 
-                // Header fields must survive the full server→sync→Room round trip.
+                // Header fields must survive the full round trip into Room.
                 chapterEntities[0].partTitle shouldBe "Part One"
                 chapterEntities[0].bookTitle shouldBe "Book I"
                 chapterEntities[1].partTitle shouldBe null
@@ -123,9 +127,7 @@ class BookChaptersE2ETest :
                     .single()
                     .chapters shouldHaveSize 2
 
-                // Dual assertion against the server side: the book's SSE payload
-                // should carry the same chapters, proving the server end of the
-                // round trip is the one driving Room.
+                // Dual assertion against the server side: the drained op set the same chapters.
                 val serverBook = serverBookRepository.findById(BookId("chapters-b1"))
                 checkNotNull(serverBook) { "server-side book row missing after setBookChapters" }
                 serverBook.chapters shouldHaveSize 2

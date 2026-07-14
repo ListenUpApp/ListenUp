@@ -46,6 +46,30 @@ internal interface PendingOperationV2Dao {
     @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount <= :maxAttempts")
     suspend fun countDispatchable(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Int
 
+    /**
+     * True when a still-dispatchable (within retry budget) op exists for (domainName, entityId).
+     * Backs the anti-flicker in-flight shield: an inbound echo/catch-up for an entity with a queued
+     * local edit is skipped so the optimistic state survives until the edit's own echo lands.
+     *
+     * Dead letters (`failureCount > maxAttempts`) are EXCLUDED, so a terminally-failed op stops
+     * counting as in-flight — the shield lifts and the entity converges to server truth.
+     */
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM pending_operation
+             WHERE domainName = :domainName
+               AND entityId = :entityId
+               AND failureCount <= :maxAttempts
+        )
+        """,
+    )
+    suspend fun hasQueuedOp(
+        domainName: String,
+        entityId: String,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): Boolean
+
     /** Live queue depth: ops still eligible for dispatch. Dead letters are counted separately. */
     @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount <= :maxAttempts")
     fun observeQueueDepth(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>

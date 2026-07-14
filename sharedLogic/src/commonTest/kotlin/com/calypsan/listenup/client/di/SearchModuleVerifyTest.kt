@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
@@ -16,7 +17,8 @@ import org.koin.test.verify.verify
  * covered by a `module.verify()` test in commonTest. The whitelist enumerates dependencies
  * the search bindings pull in but other modules own:
  *
- *  - [ApiClientFactory] — owned by `networkModule`.
+ *  - [ApiClientFactory] — owned by `networkModule` (pulled in by the SearchService channel).
+ *  - [ServerConfig] — owned by `settingsModule` (pulled in by the SearchService channel).
  *  - [SearchDao] — owned by `persistenceModule`.
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [BookDao] — owned by `persistenceModule`.
@@ -38,6 +40,7 @@ class SearchModuleVerifyTest :
                         ContributorDao::class,
                         SeriesDao::class,
                         ApiClientFactory::class,
+                        ServerConfig::class,
                         TransactionRunner::class,
                     ),
             )

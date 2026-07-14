@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -30,10 +32,11 @@ class UserPreferencesOfflineTest :
                 val authSession = FakeAuthSession(userId = "u1")
                 val offlineEditor = OfflineEditor(pendingQueue = queue, transactionRunner = txRunner, authSession = authSession)
 
-                // The RPC factory is a bare mock: if the repo tries to push inline, the call throws.
+                // The channel wraps a bare mock service: if the repo tries to push inline, the
+                // unstubbed call folds to a Failure and the Success assertion below would fail.
                 val repo =
                     UserPreferencesRepositoryImpl(
-                        rpcFactory = mock<UserPreferencesRpcFactory>(),
+                        channel = RpcChannel.forTest(mock<UserPreferencesService>()),
                         dao = db.userPreferencesDao(),
                         authSession = authSession,
                         offlineEditor = offlineEditor,

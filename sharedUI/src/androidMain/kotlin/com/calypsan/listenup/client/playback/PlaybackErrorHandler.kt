@@ -116,12 +116,16 @@ class PlaybackErrorHandler(
         error: ClassifiedError,
         player: ExoPlayer,
         currentBookId: BookId?,
+        bookPositionMs: Long,
         onShowError: (String) -> Unit,
     ): Boolean {
-        // ALWAYS save position first - position is sacred
+        // ALWAYS save position first - position is sacred.
+        // The caller passes a BOOK-relative position (PlaybackService.getBookRelativePosition()).
+        // Reading player.currentPosition here would save a FILE-relative offset — for a
+        // multi-file book in a late file that persists a ~9h regression as the newest position.
         currentBookId?.let { bookId ->
-            progressTracker.savePositionNow(bookId, player.currentPosition)
-            logger.debug { "Position saved before error handling: ${player.currentPosition}" }
+            progressTracker.savePositionNow(bookId, bookPositionMs)
+            logger.debug { "Position saved before error handling: $bookPositionMs" }
         }
 
         return when (error) {

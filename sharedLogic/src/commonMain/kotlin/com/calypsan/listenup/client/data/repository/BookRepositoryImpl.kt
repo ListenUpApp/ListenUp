@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.IODispatcher
@@ -16,7 +17,7 @@ import com.calypsan.listenup.client.data.local.db.coverPathFor
 import com.calypsan.listenup.client.data.local.db.toAudioFile
 import com.calypsan.listenup.client.data.local.db.toDetail
 import com.calypsan.listenup.client.data.local.db.toListItem
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.core.isFirstInSeries
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -30,10 +31,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.TagRepository
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
-import com.calypsan.listenup.api.result.getOrNull as wireResultOrNull
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
@@ -43,6 +41,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Cohesive bundle of the Flow sources joined into a book's detail view by
@@ -96,8 +95,8 @@ internal data class BookDetailJoinSources(
  * @property joinSources The genre/tag/mood Flow sources composed into the
  *   book-detail views — see [BookDetailJoinSources].
  * @property networkMonitor Snapshot online check gating the RPC fallbacks.
- * @property bookRpcFactory Supplies the [com.calypsan.listenup.api.BookService]
- *   RPC proxy for on-demand fetch and server-side search.
+ * @property channel [RpcChannel] over [com.calypsan.listenup.api.BookService] for
+ *   on-demand fetch and server-side search (bounded, self-healing).
  * @property bookSyncDomainHandler Owns the atomic aggregate write-through used
  *   to cache an on-demand-fetched book into Room.
  */
@@ -110,7 +109,7 @@ internal class BookRepositoryImpl(
     private val imageStorage: ImageStorage,
     private val joinSources: BookDetailJoinSources,
     private val networkMonitor: NetworkMonitor,
-    private val bookRpcFactory: BookRpcFactory,
+    private val channel: RpcChannel<BookService>,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
 ) : com.calypsan.listenup.client.domain.repository.BookRepository,
     BookIngestPort {
@@ -269,24 +268,32 @@ internal class BookRepositoryImpl(
     }
 
     /**
-     * One-shot on-demand fetch for a cache-missing book. Resolves the [BookService]
-     * proxy, fetches the aggregate, and writes it through Room via the shared sync
-     * handler. Any failure is logged and swallowed — the observer keeps emitting
-     * `null` rather than crashing ("Never Stranded"). [CancellationException] is
-     * re-thrown to preserve structured concurrency.
+     * One-shot on-demand fetch for a cache-missing book. Dispatches through the
+     * [channel] (which folds transport faults to a typed [AppResult.Failure] and
+     * re-raises [kotlin.coroutines.cancellation.CancellationException], so structured
+     * concurrency is preserved without a manual catch), and writes a returned aggregate
+     * through Room via the shared sync handler. A [AppResult.Failure] is logged and left
+     * as a cache miss — the observer keeps emitting `null` rather than crashing
+     * ("Never Stranded").
      */
     private suspend fun fetchAndCacheBook(bookId: BookId) {
-        try {
-            val payload = bookRpcFactory.bookService().getBook(bookId).wireResultOrNull()
-            if (payload != null) {
-                bookSyncDomainHandler.onCatchUpItem(payload, isTombstone = false)
-            } else {
-                logger.debug { "getBook returned no book for $bookId — leaving cache miss" }
+        when (val result = channel.call(idempotent = true) { it.getBook(bookId) }) {
+            is AppResult.Success -> {
+                // Never-stranded: a Room write-through failure must NOT propagate into the observing
+                // flow and kill the screen's collector. Swallow-and-log; the observer keeps emitting
+                // null. Cooperative cancellation still propagates.
+                try {
+                    bookSyncDomainHandler.onCatchUpItem(result.data, isTombstone = false)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    logger.warn(e) { "On-demand getBook write-through failed for $bookId — leaving cache miss" }
+                }
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "On-demand getBook failed for $bookId, staying with cache miss" }
+
+            is AppResult.Failure -> {
+                logger.warn { "On-demand getBook failed for $bookId (${result.error.code}) — leaving cache miss" }
+            }
         }
     }
 
@@ -326,27 +333,21 @@ internal class BookRepositoryImpl(
         }
 
     /**
-     * Run the server FTS search and hydrate from Room in rank order. Any failure —
-     * thrown or surfaced via [AppResult.Failure] — falls back to [searchLocal].
-     * [CancellationException] is re-thrown to preserve structured concurrency.
+     * Run the server FTS search and hydrate from Room in rank order. A server failure —
+     * transport fault or business [AppResult.Failure] — folds through the [channel] to a
+     * [AppResult.Failure] and falls back to [searchLocal]. A genuine caller cancellation
+     * re-raises untouched, preserving structured concurrency.
      */
     private suspend fun searchServerOrLocal(query: String): List<BookListItem> =
-        try {
-            when (val result = bookRpcFactory.bookService().searchBooks(query, limit = SEARCH_LIMIT)) {
-                is WireAppResult.Success -> {
-                    hydrateRanked(result.data)
-                }
-
-                is WireAppResult.Failure -> {
-                    logger.warn { "Server book search failed (${result.error.code}), falling back to local FTS" }
-                    searchLocal(query)
-                }
+        when (val result = channel.call(idempotent = true) { it.searchBooks(query, limit = SEARCH_LIMIT) }) {
+            is AppResult.Success -> {
+                hydrateRanked(result.data)
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Server book search threw, falling back to local FTS" }
-            searchLocal(query)
+
+            is AppResult.Failure -> {
+                logger.warn { "Server book search failed (${result.error.code}), falling back to local FTS" }
+                searchLocal(query)
+            }
         }
 
     /**

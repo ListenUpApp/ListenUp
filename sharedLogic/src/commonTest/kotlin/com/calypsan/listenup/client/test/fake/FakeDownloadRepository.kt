@@ -80,5 +80,7 @@ class FakeDownloadRepository(
 
     override suspend fun deleteForBook(bookId: String) = Unit
 
+    override suspend fun deleteDeletedRecordsForBook(bookId: String) = Unit
+
     override suspend fun resumeIncompleteDownloads(): AppResult<Unit> = AppResult.Success(Unit)
 }

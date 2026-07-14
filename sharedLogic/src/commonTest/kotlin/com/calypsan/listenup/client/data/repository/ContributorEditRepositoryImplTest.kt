@@ -8,14 +8,14 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.ContributorId
 import dev.mokkery.answering.calls
-import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -30,13 +30,14 @@ import kotlinx.coroutines.test.runTest
  *
  * A contributor merge does O(books) work server-side and has been seen to hang indefinitely under
  * real-transport conditions (the RPC response never arrives), leaving the edit screen spinning
- * forever. The repository caps the wait so the UI gets a retryable error instead.
+ * forever. The repository caps the wait so the UI gets an honest, non-retryable OutcomeUnknown error
+ * instead — the merge frame was sent, so it may have committed and must NOT be blindly retried.
  */
 class ContributorEditRepositoryImplTest :
     FunSpec({
-        test("mergeContributor surfaces a retryable Timeout failure when the RPC never returns") {
+        test("mergeContributor surfaces a non-retryable OutcomeUnknown failure when the RPC never returns") {
             runTest {
-                // A merge RPC that never completes (far longer than the repository's internal cap).
+                // A merge RPC that never completes (far longer than the channel's 30s cap).
                 val service =
                     mock<ContributorService> {
                         everySuspend { mergeContributors(any(), any()) } calls {
@@ -44,14 +45,10 @@ class ContributorEditRepositoryImplTest :
                             AppResult.Success(Unit)
                         }
                     }
-                val factory =
-                    mock<ContributorRpcFactory> {
-                        everySuspend { contributorService() } returns service
-                    }
 
                 val repo =
                     ContributorEditRepositoryImpl(
-                        contributorRpcFactory = factory,
+                        channel = RpcChannel.forTest(service),
                         contributorDao = mock<ContributorDao>(),
                         offlineEditor =
                             OfflineEditor(
@@ -73,7 +70,7 @@ class ContributorEditRepositoryImplTest :
                 result
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
-                    .shouldBeInstanceOf<TransportError.Timeout>()
+                    .shouldBeInstanceOf<TransportError.OutcomeUnknown>()
             }
         }
     })

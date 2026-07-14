@@ -240,7 +240,6 @@ GenreShare
 GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
-GetInstanceUseCase
 HomeRepository
 HomeStatsUiState
 HomeStatsViewModel
@@ -267,8 +266,6 @@ ImportStatus
 ImportSummary
 InboxBookItem
 InboxRepository
-Instance
-InstanceId
 InstanceRepository
 InviteInfo
 InvitePreview
@@ -286,8 +283,6 @@ LeaderboardSnapshot
 LeaderboardUiState
 LeaderboardViewModel
 Library
-LibraryAdminRpcFactory
-LibraryAdminService
 LibraryCounts
 LibraryFolder
 LibraryFolderRef
@@ -364,6 +359,7 @@ PendingOperationStatus
 PendingOperationType
 PendingOperationUi
 PendingRegistration
+PlaybackBandwidthCoordinator
 PlaybackController
 PlaybackDynamics
 PlaybackGuardEvent
@@ -373,10 +369,9 @@ PlaybackPosition
 PlaybackPositionRepository
 PlaybackPreferences
 PlaybackPreparer
+PlaybackPrepareRepository
 PlaybackProgress
 PlaybackProgressReporter
-PlaybackRpcFactory
-PlaybackService
 PlaybackState
 PlaybackStateProvider
 PlaybackStateWriter
@@ -404,8 +399,6 @@ ReadingOrderListViewModel
 ReadingOrderRepository
 RecentlyAddedUiBook
 RecentlyAddedUiState
-RecordListeningEventRequest
-RecordPositionRequest
 RefreshToken
 RegisterRequest
 RegisterUiState

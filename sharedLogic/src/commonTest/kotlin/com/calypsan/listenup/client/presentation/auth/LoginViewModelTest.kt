@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.client.core.ValidationField
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
@@ -116,11 +117,12 @@ class LoginViewModelTest :
             }
         }
 
-        test("ValidationError on email maps to ValidationError(EMAIL)") {
+        test("ValidationError with field=email highlights EMAIL (no message substring match)") {
             runTest(testDispatcher) {
                 val useCase = mock<LoginUseCase>()
+                // Opaque message — the typed field, not the text, drives the highlight.
                 everySuspend { useCase(any(), any()) } returns
-                    AppResult.Failure(ValidationError("Please enter a valid email address"))
+                    AppResult.Failure(ValidationError("That won't work", field = ValidationField.EMAIL))
                 val vm = LoginViewModel(useCase)
 
                 vm.onLoginSubmit("invalid", "password123")
@@ -132,11 +134,11 @@ class LoginViewModelTest :
             }
         }
 
-        test("ValidationError on password maps to ValidationError(PASSWORD)") {
+        test("ValidationError with field=password highlights PASSWORD (no message substring match)") {
             runTest(testDispatcher) {
                 val useCase = mock<LoginUseCase>()
                 everySuspend { useCase(any(), any()) } returns
-                    AppResult.Failure(ValidationError("Password must be at least 8 characters"))
+                    AppResult.Failure(ValidationError("That won't work", field = ValidationField.PASSWORD))
                 val vm = LoginViewModel(useCase)
 
                 vm.onLoginSubmit("alice@example.com", "short")

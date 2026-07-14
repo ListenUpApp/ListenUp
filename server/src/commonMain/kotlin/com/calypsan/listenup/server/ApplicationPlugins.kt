@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.plugins.installAutoHeadResponse
 import com.calypsan.listenup.server.plugins.installCallId
 import com.calypsan.listenup.server.plugins.installCallLogging
 import com.calypsan.listenup.server.plugins.installRateLimiting
+import com.calypsan.listenup.server.plugins.installVersionHeaders
 import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import io.ktor.serialization.kotlinx.json.json
@@ -139,13 +140,15 @@ internal fun Application.installDependencies(
 
 /**
  * Installs the request-pipeline plugins that depend on Koin being wired: correlation-id + logging,
- * rate limiting, and the [com.calypsan.listenup.api.error.AppError] status-page mapper. Sequenced
- * after [install] of Koin in [module] because each reads a Koin-provided collaborator.
+ * rate limiting, version-header exchange, and the [com.calypsan.listenup.api.error.AppError]
+ * status-page mapper. Sequenced after [install] of Koin in [module] because each reads a
+ * Koin-provided collaborator.
  */
 internal fun Application.installRequestPipeline() {
     installCallId()
     installCallLogging()
     installRateLimiting()
+    installVersionHeaders()
     installAppErrorStatusPages()
 }
 

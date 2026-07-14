@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.presentation.bookdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
@@ -286,7 +288,7 @@ class BookDetailViewModel(
                     bookAvailability.observe(BookId(bookId)),
                 ) { detail, availability ->
                     if (detail == null) {
-                        BookDetailUiState.Error("Book not found")
+                        BookDetailUiState.Error(BookError.NotFound())
                     } else {
                         buildReady(detail, domainChapters, position).copy(
                             downloadStatus = availability.downloadStatus,
@@ -787,9 +789,9 @@ sealed interface BookDetailUiState {
         val isWaitingForWifi: Boolean = false,
     ) : BookDetailUiState
 
-    /** Load failure (e.g., "Book not found"). */
+    /** Load failure (e.g. the book is not in the local library); carries the typed [error] to localize. */
     data class Error(
-        val message: String,
+        val error: AppError,
     ) : BookDetailUiState
 }
 

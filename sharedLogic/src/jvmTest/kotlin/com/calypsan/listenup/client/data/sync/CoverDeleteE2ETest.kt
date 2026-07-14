@@ -14,6 +14,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 
 private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
@@ -63,26 +64,28 @@ class CoverDeleteE2ETest :
                     }
                 }
 
-                // Issue the delete over the real kotlinx.rpc transport.
+                // Issue the delete. Offline-first: the cover pointer is cleared in Room optimistically
+                // and a durable `books` op is enqueued.
                 val result = bookEditRepository.deleteBookCover(BookId(BOOK_ID))
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                // SSE delivers the updated payload (cover = null); the sync handler writes
-                // coverHash = null into Room via BookEntityMapper.toBookEntity.
+                // Await the server round-trip — the engine drains the op over RPC, nulling the cover
+                // server-side. A yielding delay keeps the drain coroutine (same Dispatchers.Default
+                // pool) from being starved by a tight busy-spin.
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
-                    while (clientDatabase.bookDao().getById(BookId(BOOK_ID))?.coverHash != null) {
-                        // Poll the real query — SSE delivery latency is non-deterministic.
+                    while (serverBookRepository.findById(BookId(BOOK_ID))?.cover != null) {
+                        delay(50)
                     }
                 }
+
+                // The optimistic Room write cleared the local cover pointer; the SSE echo confirms it.
                 clientDatabase
                     .bookDao()
                     .getById(BookId(BOOK_ID))
                     ?.coverHash
                     .shouldBeNull()
 
-                // Dual assertion against the server side: the upserted book row's payload
-                // now carries a null cover, proving the server end of the round trip is the
-                // one driving Room — not a stale local write.
+                // Dual assertion against the server side: the drained op nulled the cover.
                 val serverBook = serverBookRepository.findById(BookId(BOOK_ID)).shouldNotBeNull()
                 serverBook.cover.shouldBeNull()
                 // Sanity: the book row itself still exists — delete-cover is not delete-book.

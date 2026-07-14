@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.Flow
  * [OrganizeRunEvent.Completed].
  *
  * Implementations back this contract with the [com.calypsan.listenup.api.OrganizeService]
- * RPC proxy via [com.calypsan.listenup.client.data.remote.OrganizeRpcFactory].
+ * [com.calypsan.listenup.client.data.remote.RpcChannel].
  */
 interface OrganizeRepository {
     /** The persisted organizer settings, or defaults when never configured. */

@@ -218,9 +218,9 @@ class ProfileE2ETest :
  * Test-only factory that opens a [ProfileService] proxy against the harness's in-process
  * `testApplication` at `ws://localhost/api/rpc/authed`.
  *
- * Mirrors [com.calypsan.listenup.client.data.sync.testing.TestBookRpcFactory]: the proxy
- * is cached after first use; the underlying [io.ktor.client.HttpClient] is the same one
- * supplied by the test via `createClient { installKrpc() }`.
+ * Mirrors the sibling harness proxy helpers: the proxy is cached after first use; the
+ * underlying [io.ktor.client.HttpClient] is the same one supplied by the test via
+ * `createClient { installKrpc() }`.
  */
 private class TestProfileRpcFactory(
     private val httpClient: io.ktor.client.HttpClient,

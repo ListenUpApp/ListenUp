@@ -32,6 +32,24 @@ func awaitUntil(
     }
 }
 
+/// Deterministically advance the main actor until `condition` holds (or `maxHops` is reached), by
+/// yielding cooperatively instead of sleeping on the wall clock. The player's state transitions are
+/// all delivered on the main actor — the `play(bookId:)` prepare task and the `FlowBridge`
+/// engine-event collector — so pumping the actor drives them with **no real-time dependency**.
+///
+/// Prefer this over `awaitUntil` for waits on main-actor-delivered coordinator state: under a
+/// starved CI executor `awaitUntil`'s real-time poll can miss its window and hang to a 25s kill
+/// (issue #1077), whereas this returns as soon as the work drains — and if the transition never
+/// happens it fails fast (the caller's `#expect`) instead of hanging.
+@MainActor
+func pumpUntil(maxHops: Int = 5000, _ condition: () -> Bool) async {
+    var hops = 0
+    while !condition(), hops < maxHops {
+        await Task.yield()
+        hops += 1
+    }
+}
+
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {
     private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
@@ -437,15 +455,16 @@ struct SkipIntervalTests {
         engine.emit(.position(ms: 60000, rate: 0.0))
         await awaitUntil { coordinator.bookPositionMs == 60000 }
 
-        // 60 s + 30 s default forward = 90 s.
+        // 60 s + 30 s default forward = 90 s. A skip is a seek, so it splits the span (onSeek),
+        // not a plain position update.
         coordinator.skipForward()
-        await progress.waitForPositionUpdate(bookId: "book1", positionMs: 90000)
-        #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 90000 })
+        await progress.waitForSeek(bookId: "book1", afterMs: 90000)
+        #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 90000 })
 
         // 60 s − 10 s default backward = 50 s (distinct from the forward interval).
         coordinator.skipBackward()
-        await progress.waitForPositionUpdate(bookId: "book1", positionMs: 50000)
-        #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 50000 })
+        await progress.waitForSeek(bookId: "book1", afterMs: 50000)
+        #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 50000 })
     }
 
     /// The provider's seeded values flow into the coordinator's observable surface.
@@ -494,8 +513,8 @@ struct SkipIntervalTests {
         engine.emit(.position(ms: 60000, rate: 0.0))
         await awaitUntil { coordinator.bookPositionMs == 60000 }
         coordinator.skipForward()
-        await progress.waitForPositionUpdate(bookId: "book1", positionMs: 105_000)
-        #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 105_000 })
+        await progress.waitForSeek(bookId: "book1", afterMs: 105_000)
+        #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 105_000 })
     }
 }
 
@@ -518,10 +537,12 @@ struct SeekPersistenceTests {
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
 
+        // A seek splits the listening span; the reporter's onSeek both persists the new position
+        // and records the split (before → after).
         coordinator.seekTo(positionMs: 30000)
-        await progress.waitForPositionUpdate(bookId: "book1", positionMs: 30000)
+        await progress.waitForSeek(bookId: "book1", afterMs: 30000)
 
-        #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 30000 })
+        #expect(progress.seeks.contains { $0.0 == "book1" && $0.2 == 30000 })
     }
 }
 

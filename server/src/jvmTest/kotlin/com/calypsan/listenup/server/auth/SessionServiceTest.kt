@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.auth
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.migratedTestDatabase
 import com.calypsan.listenup.server.testing.seedTestUser
 import io.kotest.core.spec.style.FunSpec
@@ -13,6 +14,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlin.time.ExperimentalTime
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class SessionServiceTest :
@@ -70,16 +72,19 @@ class SessionServiceTest :
             rotated shouldBe null
         }
 
-        test("rotate replaying the previous token revokes the entire family") {
+        test("rotate replaying the previous token AFTER the grace window revokes the entire family") {
             val db = freshDb()
             db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
             val svc =
-                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
 
             val issued = svc.createSession(UserId("u-1"))
             val firstRotation = svc.rotate(issued.refreshToken).shouldNotBeNull()
 
-            // Adversary replays the original (now-stale) refresh token.
+            // Adversary replays the original (now-stale) refresh token WELL beyond the lost-response
+            // grace window — an unambiguous reuse attack.
+            mutClock.instant = mutClock.instant + 61.seconds
             val replay = svc.rotate(issued.refreshToken)
             replay shouldBe null
 
@@ -91,6 +96,61 @@ class SessionServiceTest :
             // After family revoke, even the *current* good token can't rotate the
             // session — the row is revoked.
             svc.rotate(firstRotation.refreshToken) shouldBe null
+        }
+
+        test("a replay WITHIN the grace window rotates again and never revokes the family (C4)") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc =
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+
+            val issued = svc.createSession(UserId("u-1"))
+            val firstRotation = svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            // The client never received firstRotation's response and re-presents the ORIGINAL token
+            // a moment later — a lost-response retry, not an attack.
+            mutClock.instant = mutClock.instant + 30.seconds
+            val retry = svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            // It rotates AGAIN — a usable fresh token — rather than family-revoking.
+            retry.sessionId shouldBe issued.sessionId
+            retry.userId shouldBe UserId("u-1")
+            retry.refreshToken shouldNotBe firstRotation.refreshToken
+            retry.refreshToken shouldNotBe issued.refreshToken
+
+            // The session stays live throughout.
+            db.sessionsQueries
+                .selectById(issued.sessionId.value)
+                .executeAsOne()
+                .revoked_at shouldBe null
+            svc.isLive(issued.sessionId) shouldBe true
+
+            // The freshly-minted token works on the next rotation (the client recovered cleanly).
+            svc.rotate(retry.refreshToken).shouldNotBeNull()
+        }
+
+        test("a replay within grace is idempotent-safe but a LATE replay of the same token still revokes") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc =
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+
+            val issued = svc.createSession(UserId("u-1"))
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            // A grace retry keeps the family alive.
+            mutClock.instant = mutClock.instant + 10.seconds
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            // The same original token surfacing long after the window is an attack → family revoke.
+            mutClock.instant = mutClock.instant + 61.seconds
+            svc.rotate(issued.refreshToken) shouldBe null
+            db.sessionsQueries
+                .selectById(issued.sessionId.value)
+                .executeAsOne()
+                .revoked_at shouldNotBe null
         }
 
         test("revoke marks the session row revoked; revokeAll does the same for every active session") {

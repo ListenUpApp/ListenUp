@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
@@ -81,7 +82,7 @@ class DefaultGrantSelfHealTest :
                 AuthServiceImpl(
                     db = db.sql,
                     sessions = sessions,
-                    hasher = hasher,
+                    hasher = Argon2Limiter(hasher),
                     jwt = jwt,
                     sessionIssuer = sessionIssuer,
                     clock = fixedClock,

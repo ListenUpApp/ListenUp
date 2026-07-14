@@ -22,7 +22,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
@@ -60,7 +59,7 @@ class AuthServicePublicGuardedBehaviorTest :
             verifySuspend { delegate.login(sampleLogin) }
         }
 
-        test("typed Failure passes through unchanged") {
+        test("typed Failure passes through with its correlation id stamped") {
             val typed = AuthError.InvalidCredentials()
             val delegate = mock<AuthServicePublic>()
             everySuspend { delegate.login(sampleLogin) } returns AppResult.Failure(typed)
@@ -68,11 +67,21 @@ class AuthServicePublicGuardedBehaviorTest :
 
             runTest {
                 val result = guard.login(sampleLogin)
-                result shouldBe AppResult.Failure(typed)
+                // The guard passes a business failure through with its type/code/message intact, but
+                // stamps the request's correlation id onto it (when null) so the operator's log line
+                // links to the user's error (err #5).
+                val error =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<AuthError.InvalidCredentials>()
+                error.code shouldBe typed.code
+                error.message shouldBe typed.message
+                error.correlationId shouldNotBe null
             }
         }
 
-        test("escaped RuntimeException becomes AppResult.Failure(InternalError) with cause set") {
+        test("escaped RuntimeException becomes a sanitized AppResult.Failure(InternalError)") {
             val delegate = mock<AuthServicePublic>()
             everySuspend { delegate.login(sampleLogin) } throws RuntimeException("boom")
             val guard = AuthServicePublicGuarded(delegate)
@@ -82,10 +91,13 @@ class AuthServicePublicGuardedBehaviorTest :
                 result.shouldBeInstanceOf<AppResult.Failure>()
                 val err = result.error
                 err.shouldBeInstanceOf<InternalError>()
-                err.cause shouldBe "RuntimeException"
+                // Correlation id links the user's error to the server log line that holds the detail.
                 err.correlationId shouldNotBe null
                 err.correlationId!!.length shouldBe 36
-                err.debugInfo!! shouldContain "boom"
+                // The server exception's class name and message must NOT cross the wire — they can
+                // embed SQL / paths / hostnames. Only the correlation id and the constant message ship.
+                err.cause shouldBe null
+                err.debugInfo shouldBe null
             }
         }
 

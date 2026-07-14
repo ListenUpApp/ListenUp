@@ -1,11 +1,8 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
-import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
@@ -22,7 +19,6 @@ import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.module.Module
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
@@ -39,31 +35,19 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - [com.calypsan.listenup.client.data.sync.PresenceRefreshSignal] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
- *  - [com.calypsan.listenup.client.data.remote.AuthRpcFactory] — `clientAuthModule`
+ *  - The `AuthServiceAuthed` RPC channel — `clientAuthModule` (resolved via `rpcChannel<AuthServiceAuthed>()`)
  *  - [com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository] — `listeningModule`
  */
 internal val socialModule: Module =
     module {
-        // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
-        single<SocialRpcFactory> {
-            KtorSocialRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // SocialService RPC channel — kotlinx.rpc dispatch for SocialService (Room reads; RPC
+        // reads for presence/readership). Authed (self-healing) by default; joins the
+        // RpcCacheInvalidator sweep.
+        rpcChannel<SocialService>()
 
-        // ActivityRpcFactory — kotlinx.rpc proxy for ActivityService (the social activity feed).
-        single<ActivityRpcFactory> {
-            KtorActivityRpcFactory(apiClientFactory = get(), serverConfig = get())
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
-        // ProfileRpcFactory — kotlinx.rpc proxy for ProfileService (RPC mutations).
-        single<ProfileRpcFactory> {
-            KtorProfileRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // ProfileService RPC channel — kotlinx.rpc dispatch for ProfileService (profile
+        // read/update mutations). Authed (self-healing) by default; joins the RpcCacheInvalidator sweep.
+        rpcChannel<ProfileService>()
 
         // ProfileEditRepository for profile editing operations: name/tagline offline-first via
         // OfflineEditor, password + avatar stay online (RPC-dispatched mutations).
@@ -71,16 +55,18 @@ internal val socialModule: Module =
             ProfileEditRepositoryImpl(
                 userDao = get(),
                 publicProfileDao = get(),
-                profileRpcFactory = get(),
+                channel = rpcChannel(),
                 avatarUploader = avatarUploaderOf(get()),
                 imageStorage = get(),
                 offlineEditor = get(),
             )
         }
 
-        // UserRepository for current user profile data (SOLID: interface in domain, impl in data)
+        // UserRepository for current user profile data (SOLID: interface in domain, impl in data).
+        // Refreshes the current user over the bearer-gated AuthServiceAuthed channel owned by
+        // clientAuthModule.
         single<UserRepository> {
-            UserRepositoryImpl(userDao = get(), authRpcFactory = get())
+            UserRepositoryImpl(userDao = get(), authedChannel = rpcChannel())
         }
 
         // UserProfileRepository resolves EVERY user's avatar profile (self + others) from the
@@ -104,7 +90,7 @@ internal val socialModule: Module =
         // re-fetched on every PresenceRefreshSignal ping (server nudge or firehose reconnect).
         single<ActiveSessionRepository> {
             ActiveSessionRepositoryImpl(
-                socialRpc = get(),
+                channel = rpcChannel(),
                 bookDao = get(),
                 imageStorage = get(),
                 presence = get(),
@@ -117,7 +103,7 @@ internal val socialModule: Module =
         // re-fetched on every PresenceRefreshSignal ping.
         single<BookReadersRepository> {
             BookReadersRepositoryImpl(
-                socialRpc = get(),
+                channel = rpcChannel(),
                 presence = get(),
                 userRepository = get(),
                 readershipDao = get(),

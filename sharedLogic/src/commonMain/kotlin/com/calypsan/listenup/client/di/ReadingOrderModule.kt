@@ -1,12 +1,11 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.KtorReadingOrderRpcFactory
-import com.calypsan.listenup.client.data.remote.ReadingOrderRpcFactory
+import com.calypsan.listenup.api.ReadingOrderService
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.ReadingOrderRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.ReadingOrderRepository
 import com.calypsan.listenup.client.presentation.readingorder.ReadingOrderListViewModel
 import org.koin.core.module.Module
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
@@ -27,15 +26,9 @@ import org.koin.dsl.module
  */
 internal val readingOrderModule: Module =
     module {
-        // ReadingOrderRpcFactory — kotlinx.rpc proxy for ReadingOrderService
+        // ReadingOrderService RPC channel — kotlinx.rpc dispatch for reading orders
         // (Room reads; RPC create/delete/discovery + outbox replay target).
-        single<ReadingOrderRpcFactory> {
-            KtorReadingOrderRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-                authRecovery = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        rpcChannel<ReadingOrderService>()
 
         // ReadingOrderRepository — offline-first mutations via OfflineEditor
         // (SOLID: interface in domain, impl in data).
@@ -45,7 +38,7 @@ internal val readingOrderModule: Module =
                 bookDao = get(),
                 followDao = get(),
                 userDao = get(),
-                rpcFactory = get(),
+                channel = rpcChannel(),
                 offlineEditor = get(),
                 authSession = get(),
             )

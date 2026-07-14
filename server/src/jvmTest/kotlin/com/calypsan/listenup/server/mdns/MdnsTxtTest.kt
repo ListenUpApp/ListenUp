@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.mdns
 
+import com.calypsan.listenup.server.api.ServerIdentity
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.maps.shouldContain
 import io.kotest.matchers.maps.shouldNotContainKey
@@ -11,8 +12,8 @@ class MdnsTxtTest :
             val txt = buildMdnsTxt(instanceId = "abc", serverName = "Simon's Library", remoteUrl = null)
             txt shouldContain ("id" to "abc")
             txt shouldContain ("name" to "Simon's Library")
-            txt shouldContain ("version" to "0.0.1")
-            txt shouldContain ("api" to "v1")
+            txt shouldContain ("version" to ServerIdentity.VERSION)
+            txt shouldContain ("api" to ServerIdentity.API_VERSION)
         }
         test("remote= present when a remote URL is configured") {
             val txt = buildMdnsTxt("abc", "ListenUp", "https://listen.example.com")

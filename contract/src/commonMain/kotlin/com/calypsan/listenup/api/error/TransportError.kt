@@ -37,6 +37,24 @@ sealed interface TransportError : AppError {
     }
 
     /**
+     * The request frame was delivered but its outcome was never observed — the connection dropped
+     * while awaiting the response, so the server may have committed the operation. Never blindly
+     * retryable: re-firing a non-idempotent mutation could double-apply it. Consumers that KNOW their
+     * operation is idempotent (the outbox's declared-idempotent channels) may re-classify at their
+     * own policy boundary.
+     */
+    @Serializable
+    @SerialName("TransportError.OutcomeUnknown")
+    data class OutcomeUnknown(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : TransportError {
+        override val message: String = "The request may not have completed. Check before retrying."
+        override val code: String = "TRANSPORT_OUTCOME_UNKNOWN"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
      * Server returned a 4xx response that doesn't map to a typed domain error.
      *
      * Typed cases (401/403 auth, 429 rate-limit) should already be unwrapped by
@@ -86,6 +104,24 @@ sealed interface TransportError : AppError {
     ) : TransportError {
         override val message: String = "Server response was malformed."
         override val code: String = "TRANSPORT_DATA_MALFORMED"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * A well-formed 2xx response whose body this client cannot parse (envelope-version skew or a
+     * shape mismatch) — evidence the app and server contract versions have diverged. NON-BLOCKING:
+     * surfaced as the "Update available" hint, never as an auth failure. [detail] is the technical
+     * per-instance context (not user-facing).
+     */
+    @Serializable
+    @SerialName("TransportError.ContractMismatch")
+    data class ContractMismatch(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+        val detail: String,
+    ) : TransportError {
+        override val message: String = "The app and server versions don't match."
+        override val code: String = "TRANSPORT_CONTRACT_MISMATCH"
         override val isRetryable: Boolean = false
     }
 }

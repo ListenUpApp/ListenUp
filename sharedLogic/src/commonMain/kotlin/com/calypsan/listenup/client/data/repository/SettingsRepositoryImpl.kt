@@ -76,6 +76,15 @@ internal class SettingsRepositoryImpl(
     override val hapticFeedbackEnabled: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
+    override val peerServerVersion: StateFlow<String?>
+        field = MutableStateFlow(null)
+
+    override val peerServerApi: StateFlow<String?>
+        field = MutableStateFlow(null)
+
+    override val outdatedDismissedFor: StateFlow<Pair<String, String>?>
+        field = MutableStateFlow(null)
+
     companion object {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_REMOTE_URL = "server_remote_url"
@@ -111,6 +120,11 @@ internal class SettingsRepositoryImpl(
         private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
         private const val KEY_AUTO_REMOVE_FINISHED = "auto_remove_finished"
         private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
+
+        // Connection health (peer version + outdated-hint dismissal)
+        private const val KEY_PEER_SERVER_VERSION = "peer_server_version"
+        private const val KEY_PEER_SERVER_API = "peer_server_api"
+        private const val KEY_OUTDATED_DISMISSED = "outdated_dismissed"
 
         // Default values
         const val DEFAULT_PLAYBACK_SPEED = 1.0f
@@ -392,6 +406,17 @@ internal class SettingsRepositoryImpl(
             secureStorage.read(KEY_AUTO_REMOVE_FINISHED)?.toBooleanStrictOrNull() ?: false
         hapticFeedbackEnabled.value =
             secureStorage.read(KEY_HAPTIC_FEEDBACK)?.toBooleanStrictOrNull() ?: true
+        peerServerVersion.value = secureStorage.read(KEY_PEER_SERVER_VERSION)
+        peerServerApi.value = secureStorage.read(KEY_PEER_SERVER_API)
+        outdatedDismissedFor.value =
+            secureStorage.read(KEY_OUTDATED_DISMISSED)?.let { raw ->
+                if (raw.contains("|")) {
+                    val (clientVersion, serverVersion) = raw.split("|", limit = 2)
+                    clientVersion to serverVersion
+                } else {
+                    null
+                }
+            }
     }
 
     override suspend fun setThemeMode(mode: ThemeMode) {
@@ -422,5 +447,24 @@ internal class SettingsRepositoryImpl(
     override suspend fun setHapticFeedbackEnabled(enabled: Boolean) {
         secureStorage.save(KEY_HAPTIC_FEEDBACK, enabled.toString())
         hapticFeedbackEnabled.value = enabled
+    }
+
+    override suspend fun setPeerServerVersion(
+        version: String,
+        api: String,
+    ) {
+        secureStorage.save(KEY_PEER_SERVER_VERSION, version)
+        secureStorage.save(KEY_PEER_SERVER_API, api)
+        peerServerVersion.value = version
+        peerServerApi.value = api
+    }
+
+    override suspend fun setOutdatedDismissedFor(pair: Pair<String, String>?) {
+        if (pair != null) {
+            secureStorage.save(KEY_OUTDATED_DISMISSED, "${pair.first}|${pair.second}")
+        } else {
+            secureStorage.delete(KEY_OUTDATED_DISMISSED)
+        }
+        outdatedDismissedFor.value = pair
     }
 }

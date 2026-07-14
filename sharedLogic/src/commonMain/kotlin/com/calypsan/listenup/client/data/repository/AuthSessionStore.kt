@@ -14,19 +14,17 @@ import com.calypsan.listenup.client.domain.repository.PendingRegistration
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.time.TimeSource
 import com.calypsan.listenup.client.domain.model.AuthState as DomainAuthState
 
@@ -55,6 +53,15 @@ internal class AuthSessionStore(
     override val authState: StateFlow<DomainAuthState>
         field = MutableStateFlow<DomainAuthState>(DomainAuthState.Initializing)
 
+    /**
+     * Serializes the auth-epoch check/bump with the credential writes it guards, so the epoch a
+     * refresh captured can't change between [saveAuthTokens]'s guard read and its writes (C8/C9).
+     */
+    private val credentialMutex = Mutex()
+    private var authEpoch: Long = 0
+
+    override suspend fun currentAuthEpoch(): Long = credentialMutex.withLock { authEpoch }
+
     init {
         observeRegistrationPolicy()
     }
@@ -75,21 +82,14 @@ internal class AuthSessionStore(
                 .map { it is DomainAuthState.NeedsLogin }
                 .distinctUntilChanged()
                 .flatMapLatest { onLoginScreen ->
-                    if (onLoginScreen) resilientPolicyStream() else emptyFlow()
+                    // The SseConnection engine behind streamPolicy() owns reconnect (bounded connect +
+                    // exponential backoff), so a dropped stream self-heals — no bespoke retryWhen here.
+                    if (onLoginScreen) policyStream.streamPolicy() else emptyFlow()
                 }.collect { policy ->
                     applyOpenRegistration(policy != RegistrationPolicy.CLOSED)
                 }
         }
     }
-
-    /** The policy SSE, reconnecting with a fixed backoff on any non-cancellation failure. */
-    private fun resilientPolicyStream(): Flow<RegistrationPolicy> =
-        policyStream.streamPolicy().retryWhen { cause, _ ->
-            if (cause is CancellationException) throw cause
-            logger.warn(cause) { "registration-policy stream dropped; reconnecting" }
-            delay(POLICY_STREAM_RETRY_MILLIS)
-            true
-        }
 
     /** Persists the cached flag and, when still on the login screen, flips the live auth state. */
     private suspend fun applyOpenRegistration(open: Boolean) {
@@ -105,13 +105,27 @@ internal class AuthSessionStore(
         refresh: RefreshToken,
         sessionId: String,
         userId: String,
+        ifEpoch: Long?,
     ) {
-        secureStorage.save(KEY_ACCESS_TOKEN, access.value)
-        secureStorage.save(KEY_REFRESH_TOKEN, refresh.value)
-        secureStorage.save(KEY_SESSION_ID, sessionId)
-        secureStorage.save(KEY_USER_ID, userId)
+        credentialMutex.withLock {
+            // Epoch guard (C8): a refresh that captured an epoch which a logout has since bumped must
+            // NOT resurrect the signed-out session. Login/register/setup pass null → unconditional.
+            if (ifEpoch != null && ifEpoch != authEpoch) {
+                logger.info {
+                    "saveAuthTokens skipped: auth epoch advanced ($ifEpoch → $authEpoch) — session ended mid-refresh"
+                }
+                return
+            }
+            // Write order (C9): refresh → session → user → access. The access token is the readiness
+            // signal a concurrent reader keys on, so it lands LAST — never a new access token paired
+            // with a stale refresh token.
+            secureStorage.save(KEY_REFRESH_TOKEN, refresh.value)
+            secureStorage.save(KEY_SESSION_ID, sessionId)
+            secureStorage.save(KEY_USER_ID, userId)
+            secureStorage.save(KEY_ACCESS_TOKEN, access.value)
 
-        authState.value = DomainAuthState.Authenticated(UserId(userId), SessionId(sessionId))
+            authState.value = DomainAuthState.Authenticated(UserId(userId), SessionId(sessionId))
+        }
     }
 
     override suspend fun getAccessToken(): AccessToken? = secureStorage.read(KEY_ACCESS_TOKEN)?.let { AccessToken(it) }
@@ -134,6 +148,12 @@ internal class AuthSessionStore(
      * through [clearSessionCredentials] instead, which keeps the user id and never walls.
      */
     override suspend fun clearAuthTokens() {
+        credentialMutex.withLock { clearAuthTokensLocked() }
+    }
+
+    /** Full credential wipe under the [credentialMutex]. Bumps the auth epoch so an in-flight refresh can't resurrect. */
+    private suspend fun clearAuthTokensLocked() {
+        authEpoch++
         secureStorage.delete(KEY_ACCESS_TOKEN)
         secureStorage.delete(KEY_REFRESH_TOKEN)
         secureStorage.delete(KEY_SESSION_ID)
@@ -143,18 +163,24 @@ internal class AuthSessionStore(
     }
 
     override suspend fun clearSessionCredentials() {
-        val userId = getUserId()
-        if (userId == null) {
-            // No persisted identity to lapse into (fresh install / already signed out) —
-            // fall back to the full clear rather than invent a SessionLapsed without a user.
-            clearAuthTokens()
-            return
-        }
-        secureStorage.delete(KEY_ACCESS_TOKEN)
-        secureStorage.delete(KEY_REFRESH_TOKEN)
-        secureStorage.delete(KEY_SESSION_ID)
+        credentialMutex.withLock {
+            // Bump the epoch first: a concurrent late refresh that already captured the old epoch must
+            // not re-persist over this lapse (C8). [clearAuthTokensLocked] bumps it too; guard against
+            // double-invalidation by reading userId under the same lock.
+            val userId = getUserId()
+            if (userId == null) {
+                // No persisted identity to lapse into (fresh install / already signed out) —
+                // fall back to the full clear rather than invent a SessionLapsed without a user.
+                clearAuthTokensLocked()
+                return
+            }
+            authEpoch++
+            secureStorage.delete(KEY_ACCESS_TOKEN)
+            secureStorage.delete(KEY_REFRESH_TOKEN)
+            secureStorage.delete(KEY_SESSION_ID)
 
-        authState.value = DomainAuthState.SessionLapsed(UserId(userId))
+            authState.value = DomainAuthState.SessionLapsed(UserId(userId))
+        }
     }
 
     override suspend fun isAuthenticated(): Boolean = getAccessToken() != null
@@ -314,7 +340,5 @@ internal class AuthSessionStore(
         const val KEY_SETUP_REQUIRED = "setup_required"
         const val KEY_PENDING_USER_ID = "pending_user_id"
         const val KEY_PENDING_EMAIL = "pending_email"
-
-        const val POLICY_STREAM_RETRY_MILLIS = 5_000L
     }
 }

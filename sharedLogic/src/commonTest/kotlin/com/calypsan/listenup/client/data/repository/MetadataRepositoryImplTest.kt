@@ -10,7 +10,8 @@ import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
-import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -43,13 +44,7 @@ import kotlinx.coroutines.CancellationException
 class MetadataRepositoryImplTest :
     FunSpec({
 
-        fun buildRepo(
-            service: MetadataLookupService,
-            factory: MetadataLookupRpcFactory =
-                mock<MetadataLookupRpcFactory>().also {
-                    everySuspend { it.metadataLookupService() } returns service
-                },
-        ): MetadataRepositoryImpl = MetadataRepositoryImpl(factory)
+        fun buildRepo(service: MetadataLookupService): MetadataRepositoryImpl = MetadataRepositoryImpl(RpcChannel.forTest(service))
 
         // ── Wrapper canary — searchBooks ──────────────────────────────────────────
 

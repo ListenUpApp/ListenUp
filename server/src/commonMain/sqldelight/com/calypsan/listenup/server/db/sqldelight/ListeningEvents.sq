@@ -79,11 +79,13 @@ VALUES (
     :playback_speed, :tz, :device_label, :revision, :created_at, :updated_at, :deleted_at, :client_op_id
 );
 
--- Append-only re-upsert: advance only the sync-discipline columns, never the domain fields.
+-- Append-only re-upsert: advance only the sync-discipline columns, never the domain fields. Scoped
+-- by user_id so one user replaying another user's event id can never touch that row (cross-user
+-- authz): the id is a global PK but ownership is per-user.
 updateSyncColumns:
 UPDATE listening_events
 SET revision = :revision, updated_at = :updated_at, client_op_id = :client_op_id
-WHERE id = :id;
+WHERE id = :id AND user_id = :user_id;
 
 -- Stats support: a user's non-deleted events ordered by ended_at ascending (backfill walk).
 selectForUserOrderedByEndedAt:

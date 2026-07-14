@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.stableAvatarColorHex
@@ -9,7 +10,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
-import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.refreshTriggers
 import com.calypsan.listenup.client.domain.model.ActiveSession
@@ -41,7 +42,7 @@ private val logger = KotlinLogging.logger {}
  * time-sensitive, each cached row keeps an `observedAt` for a UI staleness affordance. The avatar
  * background colour is derived from the user id via [stableAvatarColorHex]; the wire DTO carries none.
  *
- * @property socialRpc Supplies the [com.calypsan.listenup.api.SocialService] RPC proxy.
+ * @property channel Dispatches the [com.calypsan.listenup.api.SocialService] presence RPC.
  * @property bookDao Local library reads for enriching each session's book fields.
  * @property imageStorage Resolves the local cover path when a cover is cached.
  * @property presence Pings whenever presence may have changed, driving a background refresh.
@@ -49,7 +50,7 @@ private val logger = KotlinLogging.logger {}
  * @property clock Supplies `observedAt` for each cached row; injected for tests.
  */
 internal class ActiveSessionRepositoryImpl(
-    private val socialRpc: SocialRpcFactory,
+    private val channel: RpcChannel<SocialService>,
     private val bookDao: BookDao,
     private val imageStorage: ImageStorage,
     private val presence: PresenceRefreshSignal,
@@ -76,7 +77,7 @@ internal class ActiveSessionRepositoryImpl(
     /** Re-fetch the presence roster and replace the cache; leave it intact on failure. */
     private suspend fun refresh() {
         try {
-            when (val result = socialRpc.get().currentlyListening()) {
+            when (val result = channel.call(idempotent = true) { it.currentlyListening() }) {
                 is AppResult.Success -> {
                     val observedAt = clock.now().toEpochMilliseconds()
                     cachedSessionDao.replaceAll(result.data.map { it.toEntity(observedAt) })
@@ -89,7 +90,7 @@ internal class ActiveSessionRepositoryImpl(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            // Never-Stranded: an RPC fault or transient error must not clear the cache or kill the flow.
+            // Never-Stranded: a storage fault during the cache write must not clear the cache or kill the flow.
             logger.warn(e) { "currently-listening refresh failed; keeping cache" }
         }
     }

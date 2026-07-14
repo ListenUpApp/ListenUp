@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
@@ -11,6 +12,7 @@ import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.plugins.isClientDisconnect
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.ktor.http.ContentType
@@ -25,6 +27,7 @@ import io.ktor.sse.ServerSentEvent
 import kotlin.uuid.Uuid
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.isActive
@@ -36,6 +39,11 @@ private val log = KotlinLogging.logger("com.calypsan.listenup.server.sync.SyncFi
 // SSE `event:` line for out-of-band SyncControl frames (CursorStale, StreamError).
 // Distinct from the per-domain `event: <domainName>` lines used for SyncEvent payloads.
 private const val SSE_EVENT_CONTROL = "control"
+
+// Cadence for the firehose session-liveness re-check (C2). The JWT auth wall only verifies liveness
+// at the SSE UPGRADE, so once a firehose is live, revoking the session leaves it streaming until the
+// socket drops; this poll severs a revoked connection within ~30s. Tests pass a shorter interval.
+private const val SSE_LIVENESS_POLL_MILLIS = 30_000L
 
 // The access-gated domains: their catch-up + digest are scoped through BookAccessPolicy.
 // Every other domain passes a null filter (unchanged behaviour).
@@ -244,7 +252,14 @@ internal fun activitiesAccessFilter(
  * milliseconds (25s by default) to prevent NAT/load-balancer drops on idle
  * connections. Tests pass a much shorter interval to keep the suite fast.
  */
-fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
+fun Route.syncRoutes(
+    heartbeatIntervalMillis: Long = 25_000L,
+    // Session-liveness probe for the C2 firehose gate. Null (the default) leaves the gate inert — the
+    // JWT auth wall still verifies liveness at the UPGRADE; production passes the real probe so a
+    // revoked session's LIVE firehose is severed too. Tests pair it with a short [livenessPollMillis].
+    sessionLiveness: SessionLiveness? = null,
+    livenessPollMillis: Long = SSE_LIVENESS_POLL_MILLIS,
+) {
     val bus by inject<ChangeBus>()
     val registry by inject<SyncRegistry>()
     val bookAccessPolicy by inject<BookAccessPolicy>()
@@ -253,7 +268,9 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
     // a thunk, not the resolved instance: the firehose touches it only when it must gate a
     // books content event, so harnesses that never drive the books domain through the
     // firehose (e.g. the cross-module sync-engine E2E) need not register a BookAccessPolicy.
-    sse("/api/v1/sync/events") { streamFirehose(bus, { bookAccessPolicy }, heartbeatIntervalMillis) }
+    sse("/api/v1/sync/events") {
+        streamFirehose(bus, { bookAccessPolicy }, sessionLiveness, heartbeatIntervalMillis, livenessPollMillis)
+    }
 
     get("/api/v1/sync/{domain}") {
         val principal =
@@ -379,7 +396,9 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
 private suspend fun ServerSSESession.streamFirehose(
     bus: ChangeBus,
     bookAccessPolicy: () -> BookAccessPolicy,
+    sessionLiveness: SessionLiveness?,
     heartbeatIntervalMillis: Long,
+    livenessPollMillis: Long,
 ) {
     // The route group is mounted inside authenticate(JWT_PROVIDER), so a principal
     // is always present in production. The null guard is defence-in-depth — without
@@ -442,48 +461,28 @@ private suspend fun ServerSSESession.streamFirehose(
         }
 
     try {
-        bus
-            .subscribe()
-            // Skip events the client already received. With replay=256, a reconnecting
-            // client would otherwise see events from the replay cache that it already
-            // processed in a previous session.
-            .filter { it.event.revision > (lastEventId ?: 0L) }
-            .collect { busEvent ->
-                // Per-user scoping: a BusEvent carrying a userId belongs to a
-                // user-scoped domain — deliver it only to that user. A null userId
-                // is a global-domain event, delivered to every subscriber.
-                if (busEvent.userId != null && busEvent.userId != userId) return@collect
-                // Access gating: a live content event the subscriber may not see is dropped
-                // before send. ROOT/ADMIN and tombstones bypass — see [isBookEventHidden] /
-                // [isCollectionEventHidden].
-                val gatedReason =
-                    when {
-                        isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
-                        isActivityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "activity"
-                        isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
-                        isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
-                        isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
-                        else -> null
+        coroutineScope {
+            val streamJob = launch { collectFirehoseEvents(bus, bookAccessPolicy, userId, role, lastEventId) }
+            // C2: re-check the caller's session on a cadence and sever the LIVE firehose the moment
+            // it's revoked. The JWT wall only checks at UPGRADE, so without this a revoked device keeps
+            // receiving the sync tail until the socket drops. Inert when sessionLiveness is null.
+            val livenessJob =
+                sessionLiveness?.let { liveness ->
+                    launch {
+                        while (true) {
+                            delay(livenessPollMillis)
+                            if (!liveness.isLive(principal.sessionId)) {
+                                log.info { "sync stream severed: session revoked userId=$userId" }
+                                sendSessionRevoked()
+                                streamJob.cancel()
+                                return@launch
+                            }
+                        }
                     }
-                if (gatedReason != null) {
-                    log.trace {
-                        "sse gated: domain=${busEvent.repo.domainName} " +
-                            "event=${busEvent.event::class.simpleName} userId=$userId reason=$gatedReason"
-                    }
-                    return@collect
                 }
-                // Type-bound: repo and event match by construction, so the repo's
-                // serializer is guaranteed to fit the event's payload type.
-                log.trace {
-                    "sse emit: domain=${busEvent.repo.domainName} " +
-                        "event=${busEvent.event::class.simpleName} revision=${busEvent.event.revision}"
-                }
-                send(
-                    id = busEvent.event.revision.toString(),
-                    event = busEvent.repo.domainName,
-                    data = busEvent.repo.encodeSyncEventAsJson(busEvent.event),
-                )
-            }
+            streamJob.join()
+            livenessJob?.cancel()
+        }
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
@@ -500,6 +499,63 @@ private suspend fun ServerSSESession.streamFirehose(
         controlJob.cancel()
         log.info { "sync stream closed: userId=$userId" }
     }
+}
+
+/**
+ * Subscribes to the change bus and streams the [busEvent]s `(userId, role)` is entitled to see —
+ * the firehose's core delivery loop. Extracted from [streamFirehose] so the C2 liveness gate and the
+ * keepalive/control side-jobs don't inflate that function's cognitive complexity. Skips events at or
+ * below [lastEventId] (already-delivered replay), events for other users, and access-gated content.
+ */
+private suspend fun ServerSSESession.collectFirehoseEvents(
+    bus: ChangeBus,
+    bookAccessPolicy: () -> BookAccessPolicy,
+    userId: String,
+    role: UserRole,
+    lastEventId: Long?,
+) {
+    bus
+        .subscribe()
+        // Skip events the client already received. With replay=256, a reconnecting
+        // client would otherwise see events from the replay cache that it already
+        // processed in a previous session.
+        .filter { it.event.revision > (lastEventId ?: 0L) }
+        .collect { busEvent ->
+            // Per-user scoping: a BusEvent carrying a userId belongs to a
+            // user-scoped domain — deliver it only to that user. A null userId
+            // is a global-domain event, delivered to every subscriber.
+            if (busEvent.userId != null && busEvent.userId != userId) return@collect
+            // Access gating: a live content event the subscriber may not see is dropped
+            // before send. ROOT/ADMIN and tombstones bypass — see [isBookEventHidden] /
+            // [isCollectionEventHidden].
+            val gatedReason =
+                when {
+                    isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
+                    isActivityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "activity"
+                    isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
+                    isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
+                    isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
+                    else -> null
+                }
+            if (gatedReason != null) {
+                log.trace {
+                    "sse gated: domain=${busEvent.repo.domainName} " +
+                        "event=${busEvent.event::class.simpleName} userId=$userId reason=$gatedReason"
+                }
+                return@collect
+            }
+            // Type-bound: repo and event match by construction, so the repo's
+            // serializer is guaranteed to fit the event's payload type.
+            log.trace {
+                "sse emit: domain=${busEvent.repo.domainName} " +
+                    "event=${busEvent.event::class.simpleName} revision=${busEvent.event.revision}"
+            }
+            send(
+                id = busEvent.event.revision.toString(),
+                event = busEvent.repo.domainName,
+                data = busEvent.repo.encodeSyncEventAsJson(busEvent.event),
+            )
+        }
 }
 
 /**
@@ -704,6 +760,30 @@ private fun sharePayloadOf(event: SyncEvent<*>): CollectionShareSyncPayload? =
         is SyncEvent.Updated<*> -> event.payload as CollectionShareSyncPayload
         is SyncEvent.Deleted -> null
     }
+
+/**
+ * Best-effort terminal frame telling the client its session was revoked/expired mid-stream (C2). The
+ * client treats [SyncControl.StreamError] as "reconnect and try again"; the reconnect's UPGRADE hits
+ * the JWT auth wall, which now finds the session dead and returns 401 — so the device is severed and
+ * the client surfaces a genuine re-auth. Wrapped in try/catch because a revoked client may already be
+ * gone. [AuthError.SessionExpired] covers the revoked case too (expiry or revocation).
+ */
+private suspend fun ServerSSESession.sendSessionRevoked() {
+    try {
+        send(
+            data =
+                contractJson.encodeToString(
+                    SyncControl.serializer(),
+                    SyncControl.StreamError(error = AuthError.SessionExpired()),
+                ),
+            event = SSE_EVENT_CONTROL,
+        )
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        log.debug(e) { "failed to deliver SSE session-revoked frame" }
+    }
+}
 
 /** Emits a [SyncControl.CursorStale] control frame on the firehose. */
 private suspend fun ServerSSESession.sendCursorStale(lastKnownRevision: Long) {

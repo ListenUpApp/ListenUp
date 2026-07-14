@@ -6,22 +6,14 @@ import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.sync.domains.OpKind
-import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.preferencesDomain
 import com.calypsan.listenup.client.data.sync.domains.presenceDomain
 import com.calypsan.listenup.client.data.sync.domains.serverInfoDomain
-import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.builtins.serializer
-
-// "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
-// un-mirrored domain, matching the queue's payload-agnostic contract.
-private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
 
 class SyncEventDispatcherTest :
     FunSpec({
@@ -32,13 +24,10 @@ class SyncEventDispatcherTest :
 
             override fun syncId(item: Tag): String = item.id
 
-            val seen = mutableListOf<Pair<SyncEvent<Tag>, Boolean>>()
+            val seen = mutableListOf<SyncEvent<Tag>>()
 
-            override suspend fun onEvent(
-                event: SyncEvent<Tag>,
-                isOwnEcho: Boolean,
-            ): AppResult<Unit> {
-                seen += event to isOwnEcho
+            override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> {
+                seen += event
                 return AppResult.Success(Unit)
             }
 
@@ -52,16 +41,15 @@ class SyncEventDispatcherTest :
 
         class ScriptedHandler(
             private val results: ArrayDeque<AppResult<Unit>>,
+            hasBackstop: Boolean = true,
         ) : SyncDomainHandler<Tag> {
             override val domainName = "tags"
             override val payloadSerializer = Tag.serializer()
+            override val hasDigestBackstop = hasBackstop
 
             override fun syncId(item: Tag): String = item.id
 
-            override suspend fun onEvent(
-                event: SyncEvent<Tag>,
-                isOwnEcho: Boolean,
-            ): AppResult<Unit> = results.removeFirst()
+            override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> = results.removeFirst()
 
             override suspend fun onCatchUpItem(
                 item: Tag,
@@ -71,25 +59,17 @@ class SyncEventDispatcherTest :
             override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
         }
 
-        test("data event for known domain dispatches with isOwnEcho = false when no matching pending op") {
+        test("data event for a known domain is routed to its handler and advances the cursor") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 val registry = ClientSyncDomainRegistry()
                 val handler = RecordingHandler()
                 registry.register(handler)
-                val queue =
-                    PendingOperationQueue(
-                        dao = db.pendingOperationV2Dao(),
-                        sender = PendingOperationSender { AppResult.Success(Unit) },
-                    )
                 var cursorAdvanced: Pair<String, Long>? = null
-                val cursorAdvance: suspend (String, Long) -> Unit = { d, r -> cursorAdvanced = d to r }
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = registry,
-                        queue = queue,
                         state = SyncEngineState(),
-                        cursorAdvance = cursorAdvance,
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
                     )
 
                 val revision = 5L
@@ -111,93 +91,33 @@ class SyncEventDispatcherTest :
                 dispatcher.handle(frame)
 
                 handler.seen shouldHaveSize 1
-                handler.seen[0].second shouldBe false
+                handler.seen[0].id shouldBe "t1"
                 cursorAdvanced shouldBe ("tags" to revision)
-                db.close()
-            }
-        }
-
-        test("data event with clientOpId matching a pending op dispatches with isOwnEcho = true and acks") {
-            runTest {
-                val db = createInMemoryTestDatabase()
-                val registry = ClientSyncDomainRegistry()
-                val handler = RecordingHandler()
-                registry.register(handler)
-                val queue =
-                    PendingOperationQueue(
-                        dao = db.pendingOperationV2Dao(),
-                        sender = PendingOperationSender { AppResult.Success(Unit) },
-                    )
-                val opId = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
-                val dispatcher =
-                    SyncEventDispatcher(
-                        registry = registry,
-                        queue = queue,
-                        state = SyncEngineState(),
-                        cursorAdvance = { _, _ -> },
-                    )
-
-                val revision = 6L
-                val occurredAt = 200L
-                val event =
-                    SyncEvent.Updated(
-                        id = "t1",
-                        revision = revision,
-                        occurredAt = occurredAt,
-                        clientOpId = opId,
-                        payload = Tag("t1", "alpha", "alpha", revision, occurredAt),
-                    )
-                val frame =
-                    ParsedSseFrame(
-                        id = revision,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
-                    )
-                dispatcher.handle(frame)
-
-                handler.seen shouldHaveSize 1
-                handler.seen[0].second shouldBe true
-                db.pendingOperationV2Dao().get(opId) shouldBe null
-                db.close()
             }
         }
 
         test("event for unknown domain logs warning, doesn't throw, doesn't advance cursor") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 val registry = ClientSyncDomainRegistry()
-                val state = SyncEngineState()
                 var advanced = false
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = registry,
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
-                        state = state,
+                        state = SyncEngineState(),
                         cursorAdvance = { _, _ -> advanced = true },
                     )
                 val frame = ParsedSseFrame(id = 1L, event = "books", data = "{}")
                 dispatcher.handle(frame) // no throw
                 advanced shouldBe false
-                db.close()
             }
         }
 
         test("control: SyncControl.CursorStale triggers the recovery callback") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 var recoveryTriggered = false
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
                         onCursorStale = { recoveryTriggered = true },
@@ -211,13 +131,11 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 recoveryTriggered shouldBe true
-                db.close()
             }
         }
 
         test("control: ServerInfoChanged runs the refreshed-domain refetch strategy") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 var refetched = false
                 val router =
                     RefreshedDomainRouter(
@@ -226,11 +144,6 @@ class SyncEventDispatcherTest :
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
                         refreshedRouter = router,
@@ -243,13 +156,11 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 refetched shouldBe true
-                db.close()
             }
         }
 
         test("control: PreferencesChanged runs the refreshed-domain refetch strategy") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 var refetched = false
                 val router =
                     RefreshedDomainRouter(
@@ -258,11 +169,6 @@ class SyncEventDispatcherTest :
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
                         refreshedRouter = router,
@@ -275,13 +181,11 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 refetched shouldBe true
-                db.close()
             }
         }
 
         test("control: ActiveSessionsChanged runs the refreshed-domain ping strategy") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 var pinged = false
                 val router =
                     RefreshedDomainRouter(
@@ -290,11 +194,6 @@ class SyncEventDispatcherTest :
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
                         refreshedRouter = router,
@@ -311,13 +210,11 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 pinged shouldBe true
-                db.close()
             }
         }
 
         test("control: ActivityChanged is unclaimed and handled generically (activities now sync as a data domain)") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 // A router with a DIFFERENT refresh entry: activities are no longer a refresh trigger, so an
                 // ActivityChanged frame must NOT trigger any refresh strategy and must not crash.
                 var otherPinged = false
@@ -328,11 +225,6 @@ class SyncEventDispatcherTest :
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
                         refreshedRouter = router,
@@ -346,22 +238,15 @@ class SyncEventDispatcherTest :
                 // Completes without throwing; no unrelated refresh fires.
                 dispatcher.handle(frame)
                 otherPinged shouldBe false
-                db.close()
             }
         }
 
         test("control: SyncControl.LibraryDataChanged invokes onLibraryDataChanged") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 var reconciled = false
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
                         onLibraryDataChanged = { reconciled = true },
@@ -374,22 +259,15 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 reconciled shouldBe true
-                db.close()
             }
         }
 
         test("control: SyncControl.UserDeleted invokes onUserDeleted with the reason") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 var deletedReason: String? = "UNSET"
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
                         onUserDeleted = { reason -> deletedReason = reason },
@@ -403,22 +281,15 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 deletedReason shouldBe "removed by admin"
-                db.close()
             }
         }
 
         test("control: SyncControl.StreamError records error in state") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 val state = SyncEngineState()
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
-                        queue =
-                            PendingOperationQueue(
-                                dao = db.pendingOperationV2Dao(),
-                                sender = PendingOperationSender { AppResult.Success(Unit) },
-                            ),
                         state = state,
                         cursorAdvance = { _, _ -> },
                     )
@@ -431,26 +302,18 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 state.value.recentErrorCount shouldBe 1
-                db.close()
             }
         }
 
         test("data event whose apply fails does not advance the cursor") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 val registry = ClientSyncDomainRegistry()
                 val handler = ScriptedHandler(ArrayDeque(listOf(AppResult.Failure(SyncError.SyncFailed()))))
                 registry.register(handler)
-                val queue =
-                    PendingOperationQueue(
-                        dao = db.pendingOperationV2Dao(),
-                        sender = PendingOperationSender { AppResult.Success(Unit) },
-                    )
                 var cursorAdvanced: Pair<String, Long>? = null
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = registry,
-                        queue = queue,
                         state = SyncEngineState(),
                         cursorAdvance = { d, r -> cursorAdvanced = d to r },
                     )
@@ -474,26 +337,18 @@ class SyncEventDispatcherTest :
                 dispatcher.handle(frame)
 
                 cursorAdvanced shouldBe null
-                db.close()
             }
         }
 
         test("data event whose apply fails records the error in SyncEngineState") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 val registry = ClientSyncDomainRegistry()
                 val handler = ScriptedHandler(ArrayDeque(listOf(AppResult.Failure(SyncError.SyncFailed()))))
                 registry.register(handler)
-                val queue =
-                    PendingOperationQueue(
-                        dao = db.pendingOperationV2Dao(),
-                        sender = PendingOperationSender { AppResult.Success(Unit) },
-                    )
                 val state = SyncEngineState()
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = registry,
-                        queue = queue,
                         state = state,
                         cursorAdvance = { _, _ -> },
                     )
@@ -517,13 +372,59 @@ class SyncEventDispatcherTest :
                 dispatcher.handle(frame)
 
                 state.value.recentErrorCount shouldBe 1
-                db.close()
+            }
+        }
+
+        test("control: malformed frame reports contract-mismatch evidence, doesn't throw, doesn't advance cursor") {
+            runTest {
+                var advanced = false
+                val compatReports = mutableListOf<String>()
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = ClientSyncDomainRegistry(),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> advanced = true },
+                        reportCompat = { compatReports += it },
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = 1L,
+                        event = "control",
+                        data = "{not valid json for SyncControl}",
+                    )
+                dispatcher.handle(frame) // no throw
+                compatReports shouldHaveSize 1
+                advanced shouldBe false
+            }
+        }
+
+        test("data event: malformed frame reports contract-mismatch evidence, doesn't throw, doesn't advance cursor") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                registry.register(RecordingHandler())
+                var advanced = false
+                val compatReports = mutableListOf<String>()
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> advanced = true },
+                        reportCompat = { compatReports += it },
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = 1L,
+                        event = "tags",
+                        data = "{not valid json for a Tag SyncEvent}",
+                    )
+                dispatcher.handle(frame) // no throw
+                compatReports shouldHaveSize 1
+                advanced shouldBe false
             }
         }
 
         test("a failed apply does not stall the stream — a later successful event still advances the cursor") {
             runTest {
-                val db = createInMemoryTestDatabase()
                 val registry = ClientSyncDomainRegistry()
                 val handler =
                     ScriptedHandler(
@@ -535,16 +436,10 @@ class SyncEventDispatcherTest :
                         ),
                     )
                 registry.register(handler)
-                val queue =
-                    PendingOperationQueue(
-                        dao = db.pendingOperationV2Dao(),
-                        sender = PendingOperationSender { AppResult.Success(Unit) },
-                    )
                 var cursorAdvanced: Pair<String, Long>? = null
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = registry,
-                        queue = queue,
                         state = SyncEngineState(),
                         cursorAdvance = { d, r -> cursorAdvanced = d to r },
                     )
@@ -583,7 +478,102 @@ class SyncEventDispatcherTest :
                 dispatcher.handle(succeededFrame)
 
                 cursorAdvanced shouldBe ("tags" to 6L)
-                db.close()
+            }
+        }
+
+        test("OptOut domain: after a failed apply, a later book's event does NOT advance the cursor past the hole") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                // rev4 applies → cursor 4; rev5 fails → freeze at 4; rev6 (another book) succeeds
+                // but must NOT advance the cursor to 6 — only the cursor can redeliver rev5, and
+                // advancing past it would strand it forever (no digest backstop).
+                val handler =
+                    ScriptedHandler(
+                        ArrayDeque(
+                            listOf(
+                                AppResult.Success(Unit),
+                                AppResult.Failure(SyncError.SyncFailed()),
+                                AppResult.Success(Unit),
+                            ),
+                        ),
+                        hasBackstop = false,
+                    )
+                registry.register(handler)
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
+                    )
+
+                fun frameAt(rev: Long): ParsedSseFrame {
+                    val event =
+                        SyncEvent.Created(
+                            id = "b$rev",
+                            revision = rev,
+                            occurredAt = 100L,
+                            clientOpId = null,
+                            payload = Tag("b$rev", "n", "n", rev, 100L),
+                        )
+                    return ParsedSseFrame(
+                        id = rev,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    )
+                }
+
+                dispatcher.handle(frameAt(4L)) // applies, cursor → 4
+                dispatcher.handle(frameAt(5L)) // fails, freezes at 4
+                dispatcher.handle(frameAt(6L)) // succeeds but frozen — must not advance to 6
+
+                // Held at the last safe revision (4), NOT stepped to 6.
+                cursorAdvanced shouldBe ("tags" to 4L)
+            }
+        }
+
+        test("digest-backed domain: a failed apply does not freeze — a later event still advances (unchanged)") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                val handler =
+                    ScriptedHandler(
+                        ArrayDeque(
+                            listOf(
+                                AppResult.Failure(SyncError.SyncFailed()),
+                                AppResult.Success(Unit),
+                            ),
+                        ),
+                        hasBackstop = true,
+                    )
+                registry.register(handler)
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
+                    )
+
+                fun frameAt(rev: Long): ParsedSseFrame {
+                    val event =
+                        SyncEvent.Created(
+                            id = "b$rev",
+                            revision = rev,
+                            occurredAt = 100L,
+                            clientOpId = null,
+                            payload = Tag("b$rev", "n", "n", rev, 100L),
+                        )
+                    return ParsedSseFrame(
+                        id = rev,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    )
+                }
+
+                dispatcher.handle(frameAt(5L)) // fails — but digest backstop, no freeze
+                dispatcher.handle(frameAt(6L)) // succeeds, advances
+
+                cursorAdvanced shouldBe ("tags" to 6L)
             }
         }
     })

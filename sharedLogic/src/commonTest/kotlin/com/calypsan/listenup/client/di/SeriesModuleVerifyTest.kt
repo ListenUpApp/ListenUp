@@ -4,7 +4,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.SeriesApiContract
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
@@ -25,7 +25,7 @@ import org.koin.test.verify.verify
  *  - [SeriesDao] — owned by `persistenceModule`.
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [SearchDao] — owned by `persistenceModule`.
- *  - [SeriesApiContract] — owned by `networkModule`.
+ *  - the [RpcChannel] for `SearchService` — owned by `searchModule`.
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [SyncDomainHandler] (series) — owned by `clientSyncModule`.
@@ -43,7 +43,7 @@ class SeriesModuleVerifyTest :
                         SeriesDao::class,
                         BookDao::class,
                         SearchDao::class,
-                        SeriesApiContract::class,
+                        RpcChannel::class,
                         NetworkMonitor::class,
                         ImageStorage::class,
                         SyncDomainHandler::class,

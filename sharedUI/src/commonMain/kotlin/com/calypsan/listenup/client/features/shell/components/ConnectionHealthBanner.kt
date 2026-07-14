@@ -9,6 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -23,36 +25,116 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_dismiss
+import listenup.composeapp.generated.resources.common_retry
+import listenup.composeapp.generated.resources.shell_offline_body
+import listenup.composeapp.generated.resources.shell_offline_title
 import listenup.composeapp.generated.resources.shell_session_lapsed_body
 import listenup.composeapp.generated.resources.shell_session_lapsed_sign_in
 import listenup.composeapp.generated.resources.shell_session_lapsed_title
+import listenup.composeapp.generated.resources.shell_update_available_body
+import listenup.composeapp.generated.resources.shell_update_available_title
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Shell-level connection-health banner. Phase 1 renders only the session-lapse case:
- * "Signed out — sign in to sync" plus a Sign-in action and a dismiss affordance.
+ * Shell-level connection-health banner. Renders one pill per non-[ConnectionHealthUi.Hidden]
+ * state: session-lapse ("Signed out — sign in to sync" + Sign-in), unreachable-server
+ * ("Offline" + Retry), and contract-version-skew ("Update available" + Dismiss).
  *
  * Hard rules (spec §10): never modal, never blocks navigation/playback/browse; no
  * auto-navigation on state entry — the only navigation is the user tapping Sign in.
- * Dismissal is UI-local and resets when the state next changes (`remember(state)`).
- * Visual language follows the book-detail OfflineBanner (error-container pill).
+ * Dismissal is UI-local and resets when the state next changes (`remember(state)`); the
+ * [ConnectionHealthUi.Outdated] case additionally offers a persisted dismissal via [onDismiss].
+ * Visual language follows the book-detail OfflineBanner (color-container pill).
  */
 @Composable
 fun ConnectionHealthBanner(
     state: ConnectionHealthUi,
     onSignIn: () -> Unit,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var dismissed by remember(state) { mutableStateOf(false) }
-    if (state !is ConnectionHealthUi.SessionExpired || dismissed) return
+    if (dismissed) return
 
-    val container = MaterialTheme.colorScheme.errorContainer
-    val onContainer = MaterialTheme.colorScheme.onErrorContainer
+    when (state) {
+        ConnectionHealthUi.Hidden -> {
+            return
+        }
+
+        ConnectionHealthUi.SessionExpired -> {
+            BannerPill(
+                modifier = modifier,
+                container = MaterialTheme.colorScheme.errorContainer,
+                onContainer = MaterialTheme.colorScheme.onErrorContainer,
+                icon = Icons.Default.AccountCircle,
+                title = stringResource(Res.string.shell_session_lapsed_title),
+                body = stringResource(Res.string.shell_session_lapsed_body),
+                actionLabel = stringResource(Res.string.shell_session_lapsed_sign_in),
+                onAction = onSignIn,
+                onClose = { dismissed = true },
+            )
+        }
+
+        is ConnectionHealthUi.Unreachable -> {
+            BannerPill(
+                modifier = modifier,
+                container = MaterialTheme.colorScheme.secondaryContainer,
+                onContainer = MaterialTheme.colorScheme.onSecondaryContainer,
+                icon = Icons.Default.WifiOff,
+                title = stringResource(Res.string.shell_offline_title),
+                body = stringResource(Res.string.shell_offline_body),
+                actionLabel = stringResource(Res.string.common_retry),
+                onAction = onRetry,
+                onClose = { dismissed = true },
+            )
+        }
+
+        is ConnectionHealthUi.Outdated -> {
+            BannerPill(
+                modifier = modifier,
+                container = MaterialTheme.colorScheme.tertiaryContainer,
+                onContainer = MaterialTheme.colorScheme.onTertiaryContainer,
+                icon = Icons.Default.Info,
+                title = stringResource(Res.string.shell_update_available_title),
+                body =
+                    stringResource(
+                        Res.string.shell_update_available_body,
+                        state.clientVersion,
+                        state.serverVersion,
+                    ),
+                actionLabel = stringResource(Res.string.common_dismiss),
+                onAction = onDismiss,
+                onClose = null,
+            )
+        }
+    }
+}
+
+/**
+ * Shared pill scaffold for [ConnectionHealthBanner]'s visible states: a rounded [Surface] with a
+ * leading icon, title/body text column, a primary action [Button], and an optional trailing
+ * dismiss [IconButton] ([onClose] is `null` when the primary action already is the dismissal).
+ */
+@Composable
+private fun BannerPill(
+    container: Color,
+    onContainer: Color,
+    icon: ImageVector,
+    title: String,
+    body: String,
+    actionLabel: String,
+    onAction: () -> Unit,
+    onClose: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -65,39 +147,41 @@ fun ConnectionHealthBanner(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = Icons.Default.AccountCircle,
+                imageVector = icon,
                 contentDescription = null,
                 tint = onContainer,
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(Res.string.shell_session_lapsed_title),
+                    text = title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = onContainer,
                 )
                 Text(
-                    text = stringResource(Res.string.shell_session_lapsed_body),
+                    text = body,
                     style = MaterialTheme.typography.bodySmall,
                     color = onContainer.copy(alpha = 0.85f),
                 )
             }
             Button(
-                onClick = onSignIn,
+                onClick = onAction,
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = onContainer,
                         contentColor = container,
                     ),
             ) {
-                Text(stringResource(Res.string.shell_session_lapsed_sign_in))
+                Text(actionLabel)
             }
-            IconButton(onClick = { dismissed = true }) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(Res.string.common_dismiss),
-                    tint = onContainer,
-                )
+            if (onClose != null) {
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(Res.string.common_dismiss),
+                        tint = onContainer,
+                    )
+                }
             }
         }
     }

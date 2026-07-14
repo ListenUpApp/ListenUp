@@ -12,8 +12,9 @@ import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.CollectionWithBookCount
 import com.calypsan.listenup.client.data.local.db.CollectionDao
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.client.data.remote.catchingRpcResult
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.CollectionId
 import dev.mokkery.MockMode
@@ -33,27 +34,12 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Fake [CollectionRpcFactory] routing [callResult] through the REAL boundary [catchingRpcResult],
- * so repository tests exercise the same throw→Failure semantics the production
- * [com.calypsan.listenup.client.data.remote.RpcProxyCache] engine provides — without a live socket.
- */
-private class FakeCollectionRpcFactory(
-    private val service: CollectionService,
-) : CollectionRpcFactory {
-    override suspend fun get(): CollectionService = service
-
-    override suspend fun <T> callResult(block: suspend (CollectionService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(service) }
-
-    override suspend fun invalidate() {}
-}
-
-/**
  * Unit tests for [CollectionRepositoryImpl] — Room reads + RPC-dispatched writes.
  *
  * Observation maps Room projections to domain (including JOIN-derived `bookCount`);
- * writes dispatch to a faked [CollectionService] and bridge the contract-layer
- * `WireAppResult` to the client [AppResult]. No optimistic Room writes — Room updates
- * arrive via the sync handler on SSE.
+ * the still-online `create` dispatches to a faked [CollectionService] and bridges the
+ * contract-layer `WireAppResult` to the client [AppResult]. The offline-first surfaces
+ * (`rename`, `delete`, `addBook`, `removeBook`) are covered by [CollectionRepositoryOfflineTest].
  */
 class CollectionRepositoryImplTest :
     FunSpec({
@@ -65,7 +51,7 @@ class CollectionRepositoryImplTest :
             shareDao: CollectionShareDao = mock(),
             service: CollectionService = mock(),
         ): CollectionRepositoryImpl =
-            CollectionRepositoryImpl(collectionDao, bookDao, shareDao, FakeCollectionRpcFactory(service))
+            CollectionRepositoryImpl(collectionDao, bookDao, shareDao, RpcChannel.forTest(service), noopOfflineEditor())
 
         fun entity(
             id: String,
@@ -156,14 +142,6 @@ class CollectionRepositoryImplTest :
                 val result = repo(service = service).create("lib1", "Dup")
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error.message shouldBe "duplicate"
-            }
-        }
-
-        test("delete dispatches to the service") {
-            runTest {
-                val service = mock<CollectionService>()
-                everySuspend { service.deleteCollection(CollectionId("c1")) } returns WireAppResult.Success(Unit)
-                repo(service = service).delete("c1").shouldBeInstanceOf<AppResult.Success<*>>()
             }
         }
 

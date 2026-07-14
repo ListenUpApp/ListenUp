@@ -3,7 +3,6 @@ package com.calypsan.listenup.server.e2e
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.VerifiedServer
 
@@ -19,9 +18,6 @@ internal class StubInstanceRepository : InstanceRepository {
 
     override suspend fun getServerInfo(forceRefresh: Boolean): AppResult<ServerInfo> =
         AppResult.Failure(InternalError(debugInfo = "server info not used in F12"))
-
-    override suspend fun getInstance(forceRefresh: Boolean): AppResult<Instance> =
-        AppResult.Failure(InternalError(debugInfo = "instance lookup not used in F12"))
 
     override suspend fun verifyServer(baseUrl: String): AppResult<VerifiedServer> =
         AppResult.Failure(InternalError(debugInfo = "instance verify not used in F12"))

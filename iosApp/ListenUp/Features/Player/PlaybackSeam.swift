@@ -67,6 +67,8 @@ protocol PlaybackProgressReporting: Sendable {
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float)
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float)
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float)
+    /// A seek splits the listening span so the jumped-over range isn't counted as listened.
+    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float)
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float)
     func onBookFinished(bookId: String, finalPositionMs: Int64)
     /// Blocking critical save — used on pause, seek, and app backgrounding.

@@ -7,61 +7,8 @@ import AVFoundation
 typealias PlaybackManagerChapterInfo =
     _ExportedKotlinPackages_com_calypsan_listenup_client_playback_PlaybackManager_ChapterInfo
 
-/// Pure decision for an audio-session interruption — testable without notifications.
-enum InterruptionPolicy {
-    enum Action: Equatable { case pause, resume, none }
-    static func action(type: AVAudioSession.InterruptionType, shouldResume: Bool) -> Action {
-        switch type {
-        case .began: return .pause
-        case .ended: return shouldResume ? .resume : .none
-        @unknown default: return .none
-        }
-    }
-}
-
-/// Pure decision for an audio-route change — testable without notifications.
-enum RouteChangePolicy {
-    /// Pause only when the previous output device went away (headphones/AirPods
-    /// unplugged) — otherwise audio would blast out of the speaker (charter rule 13).
-    static func shouldPause(reason: AVAudioSession.RouteChangeReason) -> Bool {
-        reason == .oldDeviceUnavailable
-    }
-}
-
-/// Pure decision: should backgrounding to `newPhase` trigger a position save?
-/// Only the genuine `.background` transition should — `.inactive` fires constantly
-/// (Control Center, banners, app switcher) and would redundantly re-save (charter rule 13).
-enum ScenePhasePolicy {
-    static func shouldSavePosition(on newPhase: ScenePhase) -> Bool {
-        newPhase == .background
-    }
-}
-
-/// Pure predicate for the load-generation guard — a book-switch epoch check, testable
-/// without a coordinator. Each `play(bookId:)` bumps the coordinator's generation; an
-/// in-flight prepare captures the generation it started under and bails after every
-/// `await` if a newer switch has superseded it, so a slow prepare for book A can never
-/// stomp the state of a book B the user has since switched to (RC-4).
-enum LoadGeneration {
-    static func isSuperseded(taskGeneration: Int, current: Int) -> Bool {
-        taskGeneration != current
-    }
-}
-
-/// Pure chapter math — resolves a whole-book position to a chapter index.
-/// Split out so it is testable without a coordinator.
-enum ChapterMath {
-    /// The index of the chapter containing `positionMs`, or `nil` for an empty
-    /// list. A position past the last chapter clamps to the last index.
-    static func index(forPositionMs positionMs: Int64, in chapters: [Chapter]) -> Int? {
-        guard !chapters.isEmpty else { return nil }
-        for (index, chapter) in chapters.enumerated()
-        where positionMs < chapter.startTime + chapter.duration {
-            return index
-        }
-        return chapters.count - 1
-    }
-}
+// The pure decision helpers (InterruptionPolicy, RouteChangePolicy, ScenePhasePolicy,
+// LoadGeneration, ChapterMath) live in PlayerPolicies.swift.
 
 /// The iOS player orchestrator (Option B). Owns `PlayerPhase` and the player-core
 /// components, maps the KMP seam, and exposes the flat `@Observable` surface the
@@ -72,7 +19,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Runtime phase
 
-    private(set) var phase: PlayerPhase = .idle
+    private(set) var phase: PlayerPhase = .idle {
+        didSet { updateBandwidthSignal() }
+    }
 
     // MARK: - Preserved UI surface — visibility & playback flags (derived from phase)
 
@@ -247,6 +196,12 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// never overridden (Apple's "was playing when interrupted" contract).
     private var pausedByInterruption = false
     private static let positionReportIntervalMs: Int64 = 5000
+    /// Feeds the shared "playback preempts downloads" signal. Optional so unit tests can construct
+    /// the coordinator without a Kotlin coordinator.
+    private let bandwidthCoordinator: PlaybackBandwidthCoordinator?
+    /// Whether the currently-loaded book streams (has a non-local file) — gates the yield signal so
+    /// a fully-downloaded book (no bandwidth contention) never asks downloads to back off.
+    private var isCurrentBookStreaming = false
 
     // MARK: - Init
 
@@ -258,7 +213,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         coverProvider: BookCoverProviding,
         documentProvider: BookDocumentProviding = NoDocumentProviding(),
         skipIntervals: SkipIntervalProviding? = nil,
-        fadeStepDelay: Duration = .milliseconds(250)
+        fadeStepDelay: Duration = .milliseconds(250),
+        bandwidthCoordinator: PlaybackBandwidthCoordinator? = nil
     ) {
         self.preparer = preparer
         self.progress = progress
@@ -268,6 +224,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         self.documentProvider = documentProvider
         self.skipIntervals = skipIntervals
         self.fadeStepDelay = fadeStepDelay
+        self.bandwidthCoordinator = bandwidthCoordinator
         system.attach(handler: self)
         system.updateSkipIntervals(forwardSeconds: skipForwardSec, backwardSeconds: skipBackwardSec)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
@@ -289,7 +246,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
             engine: AudioEngine(),
             coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository),
             documentProvider: KotlinBookDocumentProviding(repository: deps.documentRepository),
-            skipIntervals: KotlinSkipIntervalProviding(preferences: deps.playbackPreferences)
+            skipIntervals: KotlinSkipIntervalProviding(preferences: deps.playbackPreferences),
+            bandwidthCoordinator: deps.playbackBandwidthCoordinator
         )
     }
 
@@ -406,6 +364,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         let generation = loadGeneration
         // Gate engine events for the whole switch→load window (see `isEngineLoading`).
         isEngineLoading = true
+        // Not known to stream until prepare resolves the timeline — conservative so a switch never
+        // asks downloads to yield for a book that turns out to be fully local.
+        isCurrentBookStreaming = false
 
         // Save the outgoing book's place before we retarget — a switch must not lose it.
         // Only silence the engine when there *was* an outgoing loaded book: an unconditional
@@ -483,11 +444,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     /// Seek to a whole-book position in milliseconds.
     func seekTo(positionMs: Int64) {
+        // Capture the pre-seek position BEFORE issuing the seek so the span split gets a correct
+        // "before" edge. The async engine seek hasn't moved the tracker yet at this point.
+        let beforeMs = bookPositionMs
         Task { await engine.seek(toMs: positionMs) }
         // Report against the *loaded* book only — during `.preparing` the incoming book isn't
         // loaded yet, and reporting a seek for it would corrupt its untouched resume position.
         if let id = phase.playingState?.bookId {
-            progress.onPositionUpdate(bookId: id, positionMs: positionMs, speed: playbackSpeed)
+            // Split the listening span (finalize pre-seek at `beforeMs`, reopen at `positionMs`) so
+            // the jumped-over range isn't fabricated as listened content. This also persists the new
+            // position — routing the seek through `onPositionUpdate` (which extends the open span
+            // across the jump) is exactly the stats-corrupting bug this replaces.
+            progress.onSeek(bookId: id, beforeMs: beforeMs, afterMs: positionMs, speed: playbackSpeed)
             lastReportedPositionMs = positionMs
         }
         updateNowPlaying()
@@ -562,6 +530,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
         prepareTask?.cancel()
         loadGeneration &+= 1
         isEngineLoading = false
+        // Return to idle so the `phase` didSet releases the download-yield signal — otherwise a
+        // stop while `.buffering` would leave a streaming book "buffering" forever and pin
+        // `shouldYield` true, suspending iOS downloads indefinitely.
+        phase = .idle
         bridge.cancelAll()
         positionTracker.reset()
         await engine.deactivateSession()
@@ -616,6 +588,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         // load, so this early `.buffering` never absorbs the outgoing book's or the muted preroll's
         // events. The first real `timeControlStatus == .playing` (after the gate lifts) promotes it
         // to `.playing`.
+        // A book streams if any file has no local path — set BEFORE the phase change so the
+        // `phase` didSet's bandwidth signal sees the right streaming-ness for this book.
+        isCurrentBookStreaming = prepared.timeline.files.contains { $0.localPath == nil }
         phase = .buffering(PlayingState(bookId: bookId, durationMs: prepared.timeline.totalDurationMs))
         lastSyncedChapterIndex = chapterIndex
         updateNowPlaying()
@@ -763,6 +738,20 @@ final class PlayerCoordinator: RemoteCommandHandler {
             sleepTimerMode = isEndOfChapter ? "endOfChapter" : "duration"
             sleepTimerLabel = label
         }
+    }
+
+    // MARK: - Playback-preempts-downloads signal
+
+    /// Tell the shared coordinator whether a STREAMING book is currently buffering, so background
+    /// downloads yield only during the stalls that matter (a local book never asks them to). Driven
+    /// by the `phase` didSet — `.preparing`/`.buffering` mean "loading/stalled".
+    private func updateBandwidthSignal() {
+        let buffering: Bool
+        switch phase {
+        case .preparing, .buffering: buffering = true
+        case .idle, .playing, .paused, .error: buffering = false
+        }
+        bandwidthCoordinator?.setStreamingBuffering(active: buffering && isCurrentBookStreaming)
     }
 
     // MARK: - System integration

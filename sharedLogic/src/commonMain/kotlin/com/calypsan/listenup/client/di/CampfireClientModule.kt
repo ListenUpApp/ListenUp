@@ -5,16 +5,14 @@ import com.calypsan.listenup.client.campfire.CampfireDiscoveryRepository
 import com.calypsan.listenup.client.campfire.CampfireRpcTransport
 import com.calypsan.listenup.client.campfire.CampfireSessionController
 import com.calypsan.listenup.client.campfire.CampfireTransport
-import com.calypsan.listenup.client.data.remote.CampfireRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorCampfireRpcFactory
-import com.calypsan.listenup.client.data.remote.RemoteCache
+import com.calypsan.listenup.api.CampfireService
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.sync.CampfireRefreshSignal
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.presentation.campfire.CampfireBookPickerViewModel
 import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /** Koin qualifier for the application-lifetime `CoroutineScope` — see `appCoreModule`. */
@@ -38,18 +36,12 @@ private const val APP_SCOPE = "appScope"
  */
 internal val campfireClientModule: Module =
     module {
-        // CampfireRpcFactory — kotlinx.rpc proxy for CampfireService (authed mount only).
-        single<CampfireRpcFactory> {
-            KtorCampfireRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-                authRecovery = get(),
-            )
-        } binds arrayOf(RemoteCache::class)
+        // CampfireService RPC channel — kotlinx.rpc dispatch for co-listening (authed mount only).
+        rpcChannel<CampfireService>()
 
         // CampfireTransport — the session controller's swappable transport seam.
         single<CampfireTransport> {
-            CampfireRpcTransport(rpcFactory = get())
+            CampfireRpcTransport(channel = rpcChannel())
         }
 
         // CampfireDiscoveryRepository — in-memory (no Room) discovery mirror for the book-detail

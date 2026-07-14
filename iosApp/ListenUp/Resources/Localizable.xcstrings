@@ -14551,6 +14551,26 @@
         }
       }
     },
+    "shell.offline_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloads still play. We'll reconnect automatically."
+          }
+        }
+      }
+    },
+    "shell.offline_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offline"
+          }
+        }
+      }
+    },
     "shell.pendingcount_pending": {
       "localizations": {
         "en": {
@@ -14657,6 +14677,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "The server's library has changed. You have unsaved changes that will be lost. "
+          }
+        }
+      }
+    },
+    "shell.update_available_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App %1$@ / server %2$@. Some features may not sync."
+          }
+        }
+      }
+    },
+    "shell.update_available_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update available"
           }
         }
       }

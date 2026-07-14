@@ -37,18 +37,4 @@ internal sealed interface ConflictPolicy<T : Any> {
         val incomingStamp: (T) -> Long,
         val existingStamp: suspend (payload: T) -> Long?,
     ) : ConflictPolicy<T>
-
-    /**
-     * Echo-shielded server-wins: on an own echo, [onOwnEcho] advances sync metadata
-     * only (revision/updatedAt) and returns true — repainting fields the user just
-     * wrote would flicker the UI. Returning false falls through to a full apply
-     * (e.g. an echo for a row not yet mirrored locally). (books)
-     *
-     * Carries the same [revisionGuard] as [ServerWins]: it is a revision-comparing
-     * policy, so the guard rides with it.
-     */
-    class EchoShielded<T : Any>(
-        val onOwnEcho: suspend (id: String, payload: T) -> Boolean,
-        val revisionGuard: RevisionGuard,
-    ) : ConflictPolicy<T>
 }

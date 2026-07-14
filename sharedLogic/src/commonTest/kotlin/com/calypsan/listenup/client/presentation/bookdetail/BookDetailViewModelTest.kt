@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
@@ -252,7 +253,7 @@ class BookDetailViewModelTest :
 
                     // Then
                     val error = states.expectMostRecentItem() as BookDetailUiState.Error
-                    error.message shouldBe "Book not found"
+                    error.error.shouldBeInstanceOf<BookError.NotFound>()
                     states.cancel()
                 }
             }

@@ -22,7 +22,6 @@ class SyncDomainHandlerContractTest :
 
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
-                            isOwnEcho: Boolean,
                         ): AppResult<Unit> = AppResult.Success(Unit)
 
                         override suspend fun onCatchUpItem(
@@ -41,7 +40,7 @@ class SyncDomainHandlerContractTest :
                         clientOpId = null,
                         payload = Tag(id = "t1", name = "alpha", slug = "alpha", revision = 1L, updatedAt = 100L),
                     )
-                val result = handler.onEvent(event, isOwnEcho = false)
+                val result = handler.onEvent(event)
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }
@@ -58,7 +57,6 @@ class SyncDomainHandlerContractTest :
 
                         override suspend fun onEvent(
                             event: SyncEvent<Tag>,
-                            isOwnEcho: Boolean,
                         ): AppResult<Unit> = AppResult.Success(Unit)
 
                         override suspend fun onCatchUpItem(

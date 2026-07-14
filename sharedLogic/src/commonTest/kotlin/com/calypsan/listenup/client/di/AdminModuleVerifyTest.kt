@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
@@ -16,7 +15,7 @@ import org.koin.test.verify.verify
  *  - [ApiClientFactory] — owned by `networkModule`.
  *  - [ServerConfig] — owned by `settingsModule`.
  *  - [ErrorBus] — owned by `appCoreModule`.
- *  - [InviteRpcFactory] — owned by `clientAuthModule`.
+ *  - The authed `InviteService` RPC channel — owned by `clientAuthModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class AdminModuleVerifyTest :
@@ -27,7 +26,6 @@ class AdminModuleVerifyTest :
                 extraTypes =
                     listOf(
                         ErrorBus::class,
-                        InviteRpcFactory::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
                     ),

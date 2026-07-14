@@ -102,6 +102,7 @@ final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendabl
     private(set) var startedCalls: [(String, Int64, Float)] = []
     private(set) var pausedCalls: [(String, Int64, Float)] = []
     private(set) var positionUpdates: [(String, Int64, Float)] = []
+    private(set) var seeks: [(String, Int64, Int64, Float)] = []
     private(set) var speedChanges: [(String, Int64, Float)] = []
     private(set) var finished: [(String, Int64)] = []
     private(set) var savedNow: [(String, Int64)] = []
@@ -118,6 +119,9 @@ final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendabl
     }
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
         positionUpdates.append((bookId, positionMs, speed)); gate.signal()
+    }
+    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float) {
+        seeks.append((bookId, beforeMs, afterMs, speed)); gate.signal()
     }
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
         speedChanges.append((bookId, positionMs, newSpeed)); gate.signal()
@@ -145,6 +149,13 @@ final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendabl
     func waitForPositionUpdate(bookId: String, positionMs: Int64) async {
         await gate.wait { [weak self] in
             self?.positionUpdates.contains { $0.0 == bookId && $0.1 == positionMs } ?? false
+        }
+    }
+
+    /// Suspend until a seek for `bookId` landing at `afterMs` has been recorded.
+    func waitForSeek(bookId: String, afterMs: Int64) async {
+        await gate.wait { [weak self] in
+            self?.seeks.contains { $0.0 == bookId && $0.2 == afterMs } ?? false
         }
     }
 }

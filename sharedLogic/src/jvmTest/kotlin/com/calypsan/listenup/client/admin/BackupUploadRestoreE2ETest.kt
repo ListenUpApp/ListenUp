@@ -8,7 +8,8 @@ import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.BackupRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.core.FileSource
 import com.calypsan.listenup.server.backup.BackupArchive
@@ -41,8 +42,6 @@ import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteReadChannel
 import java.nio.file.Files
 import kotlinx.io.files.Path as IoPath
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -70,8 +69,9 @@ import kotlinx.rpc.withService
  *    returns a domain-typed [RestoreResult] (not a transport 404).
  *
  * Harness: the full server [module] boots via [testApplication] with an isolated in-memory
- * SQLite config (same pattern as [ImportRpcE2ETest]). A [TestBackupUploadRpcFactory] opens
- * the [BackupService] RPC proxy against the in-process server. A Mokkery mock of
+ * SQLite config (same pattern as [ImportRpcE2ETest]). [backupServiceProxy] opens the
+ * [BackupService] RPC proxy against the in-process server, wrapped in [RpcChannel.forTest].
+ * A Mokkery mock of
  * [ApiClientFactory] is configured so [BackupRepositoryImpl.uploadBackup] runs the REAL
  * production `submitFormWithBinaryData` code path against the in-process server.
  *
@@ -124,13 +124,16 @@ class BackupUploadRestoreE2ETest :
                         }
 
                     val rpcClient = createClient { installKrpc() }
-                    val rpcFactory = TestBackupUploadRpcFactory(rpcClient, accessToken)
 
                     val clientFactory =
                         mock<ApiClientFactory> {
                             everySuspend { getClient() } returns authedRestClient
                         }
-                    val repository = BackupRepositoryImpl(rpcFactory = rpcFactory, clientFactory = clientFactory)
+                    val repository =
+                        BackupRepositoryImpl(
+                            channel = RpcChannel.forTest(rpcClient.backupServiceProxy(accessToken)),
+                            clientFactory = clientFactory,
+                        )
 
                     // Build a "foreign" .listenup.zip — a valid archive produced by a separate
                     // BackupArchive instance in its own temp dir, disconnected from the server's
@@ -186,36 +189,16 @@ class BackupUploadRestoreE2ETest :
 // ── test doubles ─────────────────────────────────────────────────────────────
 
 /**
- * Test-only [BackupRpcFactory] that opens a [BackupService] proxy against
- * `ws://localhost/api/rpc/authed` on the in-process [testApplication].
- *
- * Mirrors [TestBackupRpcFactory] from [BackupRpcE2ETest], but here the [accessToken]
- * is a real JWT minted by the server's `/api/v1/auth/setup` route (the full [module]
- * is booted), so the bearer-gated RPC surface authenticates correctly.
+ * Opens a [BackupService] proxy against `ws://localhost/api/rpc/authed` on the in-process
+ * [testApplication], wrapped by [RpcChannel.forTest]. Here [accessToken] is a real JWT minted
+ * by the server's `/api/v1/auth/setup` route (the full [module] is booted), so the bearer-gated
+ * RPC surface authenticates correctly.
  */
-private class TestBackupUploadRpcFactory(
-    private val rpcHttpClient: HttpClient,
-    private val accessToken: String,
-) : BackupRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: BackupService? = null
-
-    override suspend fun get(): BackupService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): BackupService =
-        rpcHttpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-                bearerAuth(accessToken)
-            }.withService<BackupService>()
-}
+private suspend fun HttpClient.backupServiceProxy(accessToken: String): BackupService =
+    rpc("ws://localhost/api/rpc/authed") {
+        rpcConfig { serialization { krpcJson(contractJson) } }
+        bearerAuth(accessToken)
+    }.withService<BackupService>()
 
 // ── fixture helpers ───────────────────────────────────────────────────────────
 

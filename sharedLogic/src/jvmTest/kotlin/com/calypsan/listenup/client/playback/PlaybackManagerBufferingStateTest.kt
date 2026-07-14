@@ -19,12 +19,15 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
 import com.calypsan.listenup.client.test.fake.FakePlayer
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.mock
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
@@ -51,6 +54,7 @@ class PlaybackManagerBufferingStateTest :
             db: ListenUpDatabase,
             scope: CoroutineScope = CoroutineScope(Job()),
             progressTracker: ProgressTracker = buildProgressTracker(scope = scope),
+            bandwidthCoordinator: PlaybackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
         ): PlaybackManager {
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
@@ -81,10 +85,11 @@ class PlaybackManagerBufferingStateTest :
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                playbackRpcFactory = testPlaybackRpcFactory("af-0"),
-                bookRpcFactory = mock<BookRpcFactory>(),
+                prepareRepository = testPlaybackPrepareRepository("af-0"),
+                channel = RpcChannel.forTest(mock<BookService>()),
                 scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                playbackBandwidthCoordinator = bandwidthCoordinator,
             )
         }
 
@@ -140,6 +145,26 @@ class PlaybackManagerBufferingStateTest :
 
                     sut.setBuffering(false)
                     sut.isBuffering.value shouldBe false
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("setBuffering forwards streaming-buffering to the bandwidth coordinator") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val recorder = FakePlaybackBandwidthCoordinator()
+                    val sut = createPlaybackManager(db, bandwidthCoordinator = recorder)
+
+                    // No fully-downloaded timeline in scope → a buffering book is treated as a
+                    // stream, so downloads are asked to yield; clearing buffering releases them.
+                    sut.setBuffering(true)
+                    recorder.calls.last() shouldBe true
+
+                    sut.setBuffering(false)
+                    recorder.calls.last() shouldBe false
                 }
             } finally {
                 db.close()

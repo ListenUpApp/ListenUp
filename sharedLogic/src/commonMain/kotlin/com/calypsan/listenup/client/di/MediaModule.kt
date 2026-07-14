@@ -94,7 +94,16 @@ internal val mediaModule: Module =
                 apiClientFactory = get(),
                 repository = get(),
                 fileManager = get(),
-                playbackRpcFactory = get(),
+                prepareRepository = get(),
+                playbackBandwidthCoordinator = get(),
+            )
+        }
+
+        // PlaybackBandwidthCoordinator — the "playback preempts downloads" signal. The active
+        // player feeds streaming-buffering state; the download paths observe `shouldYield`.
+        single<com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator> {
+            com.calypsan.listenup.client.playback.DefaultPlaybackBandwidthCoordinator(
+                scope = get(qualifier = named(APP_SCOPE)),
             )
         }
 

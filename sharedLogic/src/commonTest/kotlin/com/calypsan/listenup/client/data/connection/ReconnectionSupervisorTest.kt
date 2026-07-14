@@ -376,4 +376,93 @@ class ReconnectionSupervisorTest :
             verify(exactly(0)) { sseClient.reconnectNow() } // but never amplified the 401 loop
             verifySuspend(exactly(0)) { authSession.clearAuthTokens() } // same instance — no wall
         }
+
+        test("probe success reports reachable to the health store") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState() // Disconnected — recovery loop runs
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
+                    everySuspend { getConnectedServerId() } returns "inst-1"
+                }
+            val sseClient =
+                mock<SseClient> {
+                    every { reconnectNow() } returns Unit
+                }
+            val authSession =
+                mock<AuthSession> {
+                    every { authState } returns
+                        MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                    everySuspend { clearAuthTokens() } returns Unit
+                }
+            val reported = mutableListOf<Boolean>()
+            val supervisor =
+                ReconnectionSupervisor(
+                    engineState = engineState,
+                    instanceRepository = instance,
+                    serverConfig = serverConfig,
+                    sseClient = sseClient,
+                    authSession = authSession,
+                    errorBus = ErrorBus(),
+                    reevaluate = { },
+                    scope = scope,
+                    probeIntervalMillis = interval,
+                    reportProbe = { reported.add(it) },
+                )
+
+            supervisor.start()
+            scope.testScheduler.runCurrent() // one probe succeeds
+            engineState.setConnection(ConnectionState.Connected(lastEventId = 1L)) // end the loop
+            scope.testScheduler.advanceUntilIdle()
+
+            reported shouldContain true
+        }
+
+        test("probe failure reports unreachable to the health store") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState()
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } returns
+                        AppResult.Failure(TransportError.NetworkUnavailable())
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
+                    everySuspend { getConnectedServerId() } returns "inst-1"
+                }
+            val sseClient =
+                mock<SseClient> {
+                    every { reconnectNow() } returns Unit
+                }
+            val authSession =
+                mock<AuthSession> {
+                    everySuspend { clearAuthTokens() } returns Unit
+                }
+            val reported = mutableListOf<Boolean>()
+            val supervisor =
+                ReconnectionSupervisor(
+                    engineState = engineState,
+                    instanceRepository = instance,
+                    serverConfig = serverConfig,
+                    sseClient = sseClient,
+                    authSession = authSession,
+                    errorBus = ErrorBus(),
+                    reevaluate = { },
+                    scope = scope,
+                    probeIntervalMillis = interval,
+                    reportProbe = { reported.add(it) },
+                )
+
+            supervisor.start()
+            // Don't advanceUntilIdle — the retry loop is infinite. Drive bounded virtual time.
+            scope.testScheduler.advanceTimeBy(interval + interval * 2 + 1)
+            scope.testScheduler.runCurrent()
+
+            reported shouldContain false
+        }
     })

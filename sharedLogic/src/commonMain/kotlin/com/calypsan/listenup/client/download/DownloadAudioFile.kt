@@ -3,12 +3,11 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -66,9 +65,10 @@ internal suspend fun downloadAudioFile(
     httpClient: HttpClient,
     repository: DownloadRepository,
     fileManager: DownloadFileManager,
-    playbackRpcFactory: PlaybackRpcFactory,
+    prepareRepository: PlaybackPrepareRepository,
     isStopped: () -> Boolean = { false },
     setProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    yieldToPlayback: suspend () -> Unit = {},
 ): AppResult<Unit> =
     suspendRunCatching {
         withContext(IODispatcher) {
@@ -79,7 +79,7 @@ internal suspend fun downloadAudioFile(
                 resolveDownloadUrl(
                     bookId = bookId,
                     audioFileId = audioFileId,
-                    playbackRpcFactory = playbackRpcFactory,
+                    prepareRepository = prepareRepository,
                 )
             val url = resolved.url
 
@@ -105,10 +105,24 @@ internal suspend fun downloadAudioFile(
                     // non-2xx; we only see successful or partial-content responses here. Status code 206
                     // is success per RFC 7233; treat it the same as 200.
 
+                    // Range-honored guard: we only send a Range header when startByte > 0. A 200 OK back
+                    // means the server (or an intervening proxy) IGNORED the Range and is streaming the
+                    // WHOLE body. Appending that full body onto the partial temp would yield a corrupt
+                    // startByte+fullSize file. Truncate the temp and restart cleanly from byte 0 instead.
+                    val serverIgnoredRange = startByte > 0 && response.status != HttpStatusCode.PartialContent
+                    if (serverIgnoredRange) {
+                        logger.warn {
+                            "Server ignored Range for $audioFileId (status ${response.status.value}); " +
+                                "restarting from byte 0 to avoid a corrupt append"
+                        }
+                        SystemFileSystem.delete(tempPath)
+                    }
+                    val effectiveStartByte = if (serverIgnoredRange) 0L else startByte
+
                     val contentLength = response.contentLength() ?: -1L
                     val totalSize =
-                        if (startByte > 0 && response.status == HttpStatusCode.PartialContent) {
-                            startByte + contentLength
+                        if (effectiveStartByte > 0 && response.status == HttpStatusCode.PartialContent) {
+                            effectiveStartByte + contentLength
                         } else {
                             contentLength
                         }
@@ -116,22 +130,26 @@ internal suspend fun downloadAudioFile(
                     // Update total size in DB up front so the UI shows progress against the right denominator.
                     if (totalSize > 0) {
                         // Progress write is best-effort UI feedback; a dropped update is corrected by the next tick.
-                        val _ = repository.updateProgress(audioFileId, startByte, totalSize)
+                        val _ = repository.updateProgress(audioFileId, effectiveStartByte, totalSize)
                     }
 
-                    // Stream the body into the temp file. Append mode iff we're resuming.
+                    // Stream the body into the temp file. Append mode iff we're genuinely resuming.
                     val channel = response.bodyAsChannel()
-                    val sink = SystemFileSystem.sink(tempPath, append = startByte > 0).buffered()
+                    val sink = SystemFileSystem.sink(tempPath, append = effectiveStartByte > 0).buffered()
                     try {
                         val buffer = ByteArray(BUFFER_SIZE)
-                        var totalBytesRead = startByte
+                        var totalBytesRead = effectiveStartByte
                         var lastProgressUpdate = 0L
-                        var lastProgressBytes = startByte
+                        var lastProgressBytes = effectiveStartByte
 
                         while (!channel.isClosedForRead) {
                             if (isStopped()) {
                                 throw CancellationException("Download stopped")
                             }
+                            // Soft-pause between chunks while playback is buffering a stream, so the
+                            // stream gets the bandwidth. Keeps the connection + partial file warm
+                            // (no cancel). The caller bounds how long this can suspend.
+                            yieldToPlayback()
 
                             val read = channel.readAvailable(buffer, 0, buffer.size)
                             if (read <= 0) continue
@@ -155,11 +173,26 @@ internal suspend fun downloadAudioFile(
                         sink.close()
                     }
 
-                    // Verify size if known.
+                    // Integrity gate. Prefer the caller's [expectedSize]; fall back to the server's
+                    // advertised total ([totalSize], from Content-Length, adjusted for resume). A
+                    // download we cannot verify against ANY known size is a FAILURE — a stream that
+                    // closes early without a transport error would otherwise be atomicMove'd and
+                    // markCompleted'd at a bogus 100%.
                     val writtenSize = SystemFileSystem.metadataOrNull(tempPath)?.size ?: 0L
-                    if (expectedSize > 0 && writtenSize != expectedSize) {
+                    val verificationTarget = if (expectedSize > 0) expectedSize else totalSize
+                    if (verificationTarget > 0) {
+                        if (writtenSize != verificationTarget) {
+                            SystemFileSystem.delete(tempPath)
+                            throw IOException(
+                                "Size mismatch for $audioFileId: expected $verificationTarget, got $writtenSize",
+                            )
+                        }
+                    } else {
                         SystemFileSystem.delete(tempPath)
-                        throw IOException("Size mismatch: expected $expectedSize, got $writtenSize")
+                        throw IOException(
+                            "Download for $audioFileId is unverifiable (no expected size and no " +
+                                "Content-Length); failing rather than finalizing a possibly-truncated file",
+                        )
                     }
 
                     // Move temp to final destination via FileManager.
@@ -167,18 +200,31 @@ internal suspend fun downloadAudioFile(
                         throw IOException("Failed to move temp file to destination")
                     }
 
-                    // Mark complete via repository. The file is already on disk, so a failed DB write
-                    // leaves a recoverable inconsistency — surface it loudly rather than silently.
-                    repository
-                        .markCompleted(
-                            audioFileId = audioFileId,
-                            localPath = destPath.toString(),
-                            completedAt = currentEpochMilliseconds(),
-                        ).onFailure {
-                            logger.error {
-                                "Download finished on disk but markCompleted failed for $audioFileId: ${it.message}"
-                            }
+                    // Mark complete via repository. The file is already on disk; if the DB write fails
+                    // the row is still DOWNLOADING, so surface it as a FAILURE (B10c) rather than
+                    // logging "complete" over a lying state — the worker then records FAILED honestly.
+                    when (
+                        val completed =
+                            repository.markCompleted(
+                                audioFileId = audioFileId,
+                                localPath = destPath.toString(),
+                                completedAt = currentEpochMilliseconds(),
+                            )
+                    ) {
+                        is AppResult.Success -> {
+                            Unit
                         }
+
+                        is AppResult.Failure -> {
+                            logger.error {
+                                "Download finished on disk but markCompleted failed for $audioFileId: " +
+                                    completed.error.message
+                            }
+                            throw IOException(
+                                "markCompleted failed after file landed for $audioFileId: ${completed.error.message}",
+                            )
+                        }
+                    }
                 }
         }
     }
@@ -197,9 +243,9 @@ internal suspend fun downloadAudioFile(
 private suspend fun resolveDownloadUrl(
     bookId: String,
     audioFileId: String,
-    playbackRpcFactory: PlaybackRpcFactory,
+    prepareRepository: PlaybackPrepareRepository,
 ): ResolveResult.Ready =
-    when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, playbackRpcFactory)) {
+    when (val resolved = resolveSignedDownloadUrl(bookId, audioFileId, prepareRepository)) {
         is AppResult.Success -> {
             ResolveResult.Ready(resolved.data)
         }

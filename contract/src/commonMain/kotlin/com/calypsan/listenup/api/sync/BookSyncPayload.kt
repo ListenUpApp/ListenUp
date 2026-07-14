@@ -200,12 +200,13 @@ enum class ChapterSource {
 }
 
 /**
- * A user-editable book metadata field whose in-app edit is rescan-protected.
+ * A book metadata field whose user-applied value is rescan-protected.
  *
- * When the user edits one of these in the app, the field is recorded in
- * [BookSyncPayload.userEditedFields], so a later rescan preserves the user's value instead of
- * re-deriving it from the files/sidecars and clobbering the edit. Chapters and covers carry their own
- * provenance ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not part of this set.
+ * A field lands here when the user either hand-edits it in the app or applies provider enrichment
+ * (Audible/Audnexus) to it — both are deliberate user choices the scanner must not silently revert.
+ * The field is recorded in [BookSyncPayload.userEditedFields], so a later rescan preserves the stored
+ * value instead of re-deriving it from the files/sidecars and clobbering it. Chapters and covers carry
+ * their own provenance ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not part of this set.
  */
 @Serializable
 enum class UserEditedField {
@@ -214,6 +215,10 @@ enum class UserEditedField {
     DESCRIPTION,
     CONTRIBUTORS,
     SERIES,
+    PUBLISHER,
+    LANGUAGE,
+    PUBLISH_YEAR,
+    GENRES,
 }
 
 /**

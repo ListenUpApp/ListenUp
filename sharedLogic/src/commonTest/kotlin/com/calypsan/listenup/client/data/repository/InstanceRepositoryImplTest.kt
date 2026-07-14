@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.error.ServerConnectError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.remote.InstanceRpcFactory
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.ServerUrl
@@ -66,6 +68,66 @@ class InstanceRepositoryImplTest :
             factory.lastWsUrl shouldBe "wss://library.example.com"
         }
 
+        /** Returns a canned result per ws URL, recording the order of attempts. */
+        class UrlKeyedRpcFactory(
+            private val results: Map<String, RpcResult<ServerInfo>>,
+        ) : InstanceRpcFactory {
+            val attempted = mutableListOf<String>()
+
+            override suspend fun getServerInfo(wsBaseUrl: String): RpcResult<ServerInfo> {
+                attempted += wsBaseUrl
+                return results[wsBaseUrl] ?: RpcResult.Failure(TransportError.NetworkUnavailable())
+            }
+        }
+
+        test("verifyServer falls back to the alternate scheme on a typed TLS failure") {
+            // https/wss candidate fails with a genuine TLS failure (plaintext server) → verification
+            // retries the http/ws candidate, which succeeds.
+            val factory =
+                UrlKeyedRpcFactory(
+                    mapOf(
+                        "wss://library.example.com" to RpcResult.Failure(ServerConnectError.TlsFailure()),
+                        "ws://library.example.com" to RpcResult.Success(serverInfo),
+                    ),
+                )
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { null },
+                    instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
+                )
+
+            val result = repository.verifyServer("library.example.com")
+
+            val verified = result.shouldBeInstanceOf<AppResult.Success<*>>()
+            (verified.data as com.calypsan.listenup.client.domain.repository.VerifiedServer)
+                .verifiedUrl shouldBe "http://library.example.com"
+            factory.attempted shouldBe listOf("wss://library.example.com", "ws://library.example.com")
+        }
+
+        test("verifyServer does NOT fall back on a non-TLS failure (proxy 500 upgrade)") {
+            // A WebSocketException-500 maps to NetworkUnavailable, NOT TlsFailure — it is not a scheme
+            // mismatch, so verification must stop at the first candidate rather than probing http/ws.
+            val factory =
+                UrlKeyedRpcFactory(
+                    mapOf(
+                        "wss://library.example.com" to RpcResult.Failure(TransportError.NetworkUnavailable()),
+                        "ws://library.example.com" to RpcResult.Success(serverInfo),
+                    ),
+                )
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { null },
+                    instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
+                )
+
+            val result = repository.verifyServer("library.example.com")
+
+            result.shouldBeInstanceOf<AppResult.Failure>()
+            factory.attempted shouldBe listOf("wss://library.example.com")
+        }
+
         test("getServerInfo returns failure without touching the factory when no URL is configured") {
             val factory = FakeInstanceRpcFactory(RpcResult.Success(serverInfo))
             val repository =
@@ -126,6 +188,32 @@ class InstanceRepositoryImplTest :
             repository.getServerInfo(forceRefresh = true)
 
             persisted shouldBe null
+        }
+
+        test("getServerInfo seeds the peer server version from the fetched ServerInfo") {
+            // Pre-auth seam: the server's version/apiVersion arrive on ServerInfo (screen-one
+            // probe) before any authenticated request exists to carry X-Server-Version headers.
+            val factory =
+                FakeInstanceRpcFactory(
+                    RpcResult.Success(serverInfo.copy(version = "0.9.0", apiVersion = "v2")),
+                )
+            var persistedVersion: String? = null
+            var persistedApi: String? = null
+            val repository =
+                InstanceRepositoryImpl(
+                    getServerUrl = { ServerUrl("http://192.168.1.10:8080") },
+                    instanceRpcFactory = factory,
+                    persistRemoteUrl = { },
+                    persistPeerVersion = { version, api ->
+                        persistedVersion = version
+                        persistedApi = api
+                    },
+                )
+
+            repository.getServerInfo(forceRefresh = true)
+
+            persistedVersion shouldBe "0.9.0"
+            persistedApi shouldBe "v2"
         }
 
         test("a rapid repeat probe of the same URL reuses the first result instead of reconnecting") {

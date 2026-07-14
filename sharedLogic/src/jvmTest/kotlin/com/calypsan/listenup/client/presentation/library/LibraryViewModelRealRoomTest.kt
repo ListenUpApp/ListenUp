@@ -14,11 +14,12 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
-import com.calypsan.listenup.client.data.remote.SeriesApiContract
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.SearchService
+import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl
@@ -224,7 +225,7 @@ private fun bookRepositoryWith(
         imageStorage = imageStorage,
         joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
-        bookRpcFactory = mock<BookRpcFactory>(),
+        channel = RpcChannel.forTest(mock<BookService>()),
         bookSyncDomainHandler =
             booksDomain(
                 database = db,
@@ -261,7 +262,7 @@ private fun realBookRepository(db: ListenUpDatabase): BookRepositoryImpl {
         imageStorage = mockImageStorage(),
         joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
-        bookRpcFactory = mock<BookRpcFactory>(),
+        channel = RpcChannel.forTest(mock<BookService>()),
         bookSyncDomainHandler =
             booksDomain(
                 database = db,
@@ -276,10 +277,10 @@ private fun realSeriesRepository(db: ListenUpDatabase): SeriesRepositoryImpl =
         seriesDao = db.seriesDao(),
         bookDao = db.bookDao(),
         searchDao = db.searchDao(),
-        api = mock<SeriesApiContract>(),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         imageStorage = mockImageStorage(),
-        rpcFactory = mock<SeriesRpcFactory>(),
+        channel = RpcChannel.forTest(mock<SeriesService>()),
+        searchChannel = RpcChannel.forTest(mock<SearchService>()),
         seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(),
     )
 
@@ -288,10 +289,10 @@ private fun realContributorRepository(db: ListenUpDatabase): ContributorReposito
         contributorDao = db.contributorDao(),
         bookDao = db.bookDao(),
         searchDao = db.searchDao(),
-        api = mock<ContributorApiContract>(),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         imageStorage = mockImageStorage(),
-        rpcFactory = mock<ContributorRpcFactory>(),
+        channel = RpcChannel.forTest(mock<ContributorService>()),
+        searchChannel = RpcChannel.forTest(mock<SearchService>()),
         contributorSyncHandler = mock<SyncDomainHandler<ContributorSyncPayload>>(),
     )
 

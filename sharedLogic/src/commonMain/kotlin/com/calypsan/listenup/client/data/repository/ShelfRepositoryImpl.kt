@@ -1,15 +1,24 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.dto.ShelfBookMutation
+import com.calypsan.listenup.api.dto.ShelfMutation
+import com.calypsan.listenup.api.error.ShelfError
+import com.calypsan.listenup.client.data.local.db.ShelfBookDao
+import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
-import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
@@ -33,18 +42,29 @@ import kotlinx.coroutines.flow.map
  * Discovery ([discoverShelves]) is **not** own-data — other users' shelves never enter the
  * substrate. It is served on demand by [com.calypsan.listenup.api.ShelfService.discoverShelves].
  *
- * Mutations call [com.calypsan.listenup.api.ShelfService] over RPC and return the typed
- * [AppResult] directly. No optimistic Room writes — the SSE echo from the server is the single
- * write path back into Room (the Collections pattern).
+ * **Mutation:** offline-first where it can be mirrored, online where it can't.
+ * - `updateShelf`, `deleteShelf`, `addBooksToShelf`, `removeBookFromShelf` write Room optimistically
+ *   and enqueue a durable op (via [OfflineEditor.edit]) — lifecycle edits on the `shelves` channel
+ *   keyed by shelf id, junction edits on the `shelf_books` channel keyed by the `"$shelfId:$bookId"`
+ *   envelope id — so an edit made offline persists and replays on reconnect rather than failing with
+ *   a [com.calypsan.listenup.api.error.ServerConnectError]. The entity-level in-flight shield defers
+ *   each row's own echo until its op drains.
+ * - `createShelf` stays online (the server mints the shelf's id); `reorderBooks`, `getUserShelves`,
+ *   `discoverShelves`, and `getShelfDetail` stay online (whole-shelf reconcile / on-demand reads).
  *
  * @property dao Substrate shelf DAO (own-shelf reads + derived cover/duration queries).
+ * @property shelfBookDao Substrate junction DAO (optimistic membership writes + cascade tombstone).
  * @property userDao Current-user lookup for owner fields on own shelves.
- * @property rpcFactory Supplies the [com.calypsan.listenup.api.ShelfService] RPC proxy.
+ * @property channel Dispatches [com.calypsan.listenup.api.ShelfService] RPCs through the seam.
+ * @property offlineEditor Composes the optimistic Room merge and the durable outbox enqueue into a
+ *   single transaction for the offline-first surfaces.
  */
 internal class ShelfRepositoryImpl(
     private val dao: ShelfDao,
+    private val shelfBookDao: ShelfBookDao,
     private val userDao: UserDao,
-    private val rpcFactory: ShelfRpcFactory,
+    private val channel: RpcChannel<ShelfService>,
+    private val offlineEditor: OfflineEditor,
 ) : ShelfRepository {
     // ── Own-shelf observation (Room) ──────────────────────────────────────────────
 
@@ -73,20 +93,20 @@ internal class ShelfRepositoryImpl(
     // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
 
     override suspend fun getUserShelves(userId: String): AppResult<List<Shelf>> =
-        rpcFactory
-            .callResult { it.getUserShelves(UserId(userId)) }
+        channel
+            .call(idempotent = true) { it.getUserShelves(UserId(userId)) }
             .map { shelves -> shelves.map { it.toDomain() } }
 
     override suspend fun discoverShelves(): AppResult<List<Shelf>> =
-        rpcFactory
-            .callResult { it.discoverShelves() }
+        channel
+            .call(idempotent = true) { it.discoverShelves() }
             .map { discovered -> discovered.map { it.toDomain() } }
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
     override suspend fun getShelfDetail(shelfId: ShelfId): AppResult<ShelfDetail> =
-        rpcFactory
-            .callResult { it.getShelf(shelfId) }
+        channel
+            .call(idempotent = true) { it.getShelf(shelfId) }
             .map { detail ->
                 val coverHashByBook = dao.coverHashesByBookFor(shelfId.value).associate { it.bookId to it.coverHash }
                 detail.toDomain(coverHashByBook)
@@ -99,8 +119,8 @@ internal class ShelfRepositoryImpl(
         description: String?,
         isPrivate: Boolean,
     ): AppResult<Shelf> =
-        rpcFactory
-            .callResult {
+        channel
+            .call {
                 it.createShelf(
                     name = name,
                     description = description ?: "",
@@ -109,48 +129,123 @@ internal class ShelfRepositoryImpl(
             }.also { if (it is AppResult.Success) mirrorCreatedShelf(it.data) }
             .map { it.toDomain() }
 
+    /**
+     * Offline-first: apply the new name, description, and privacy flag to Room and enqueue a durable
+     * op on the `shelves` channel keyed by the shelf id. Returns the optimistic aggregate (derived
+     * cover/duration/count are unaffected by this edit); [ShelfError.NotFound] when the shelf isn't
+     * in Room. The shelf's own echo (deferred by the in-flight shield) is the final word.
+     */
     override suspend fun updateShelf(
         shelfId: ShelfId,
         name: String,
         description: String?,
         isPrivate: Boolean,
-    ): AppResult<Shelf> =
-        rpcFactory
-            .callResult {
-                it.updateShelf(
-                    shelfId = shelfId,
-                    name = name,
-                    description = description ?: "",
-                    isPrivate = isPrivate,
-                )
-            }.map { it.toDomain() }
+    ): AppResult<Shelf> {
+        val existing = dao.getById(shelfId.value) ?: return AppResult.Failure(ShelfError.NotFound())
+        val updated =
+            existing.copy(
+                name = name,
+                description = description ?: "",
+                isPrivate = isPrivate,
+                updatedAt = currentEpochMilliseconds(),
+            )
+        val domain =
+            updated.toDomainWithDerived(
+                coverPaths = dao.coverHashesFor(shelfId.value),
+                totalDurationMs = dao.totalDurationMsFor(shelfId.value),
+                bookCountOverride = dao.bookCountFor(shelfId.value),
+            )
+        return offlineEditor
+            .edit(OutboxChannels.Shelves, shelfId.value, ShelfMutation.Update(name, description ?: "", isPrivate)) {
+                dao.upsert(updated)
+            }.map { domain }
+    }
 
-    override suspend fun deleteShelf(shelfId: ShelfId): AppResult<Unit> =
-        rpcFactory.callResult { it.deleteShelf(shelfId) }
+    /**
+     * Offline-first: soft-delete the shelf and cascade-tombstone its `shelf_books` junctions (mirroring
+     * the server's `deleteShelf` cascade), then enqueue a durable op on the `shelves` channel keyed by
+     * the shelf id. The shelf's revision is preserved so its own echo (deferred by the in-flight shield)
+     * re-applies the authoritative tombstone on drain; the junction echoes flow through their own domain.
+     */
+    override suspend fun deleteShelf(shelfId: ShelfId): AppResult<Unit> {
+        val now = currentEpochMilliseconds()
+        return offlineEditor.edit(OutboxChannels.Shelves, shelfId.value, ShelfMutation.Delete, op = OpKind.Delete) {
+            dao
+                .getById(
+                    shelfId.value,
+                )?.let { dao.softDelete(id = shelfId.value, deletedAt = now, revision = it.revision) }
+            shelfBookDao.tombstoneAllForShelf(shelfId = shelfId.value, deletedAt = now)
+        }
+    }
 
+    /**
+     * Offline-first: enqueue ONE add op per book on the `shelf_books` channel, each keyed by its own
+     * `"$shelfId:$bookId"` envelope id so each junction inherits the per-junction in-flight shield, and
+     * upsert each junction optimistically (revision-0 stub, appended after the current max sort order).
+     * Adds a book mints no server id (the book already exists). Fails fast on the first enqueue failure.
+     */
     override suspend fun addBooksToShelf(
         shelfId: ShelfId,
         bookIds: List<BookId>,
     ): AppResult<Unit> {
-        // The RPC surface adds one book at a time (idempotent); dispatch each and
-        // fail fast on the first error. SSE echoes update Room — no optimistic write.
         bookIds.forEach { bookId ->
-            val result = rpcFactory.callResult { it.addBookToShelf(shelfId, bookId) }
+            val id = "${shelfId.value}:${bookId.value}"
+            val result =
+                offlineEditor.edit(
+                    OutboxChannels.ShelfBooks,
+                    id,
+                    ShelfBookMutation.Add(shelfId = shelfId.value, bookId = bookId.value),
+                    op = OpKind.Create,
+                ) {
+                    val now = currentEpochMilliseconds()
+                    val nextSort = (shelfBookDao.maxSortOrderForShelf(shelfId.value) ?: -1) + 1
+                    shelfBookDao.upsert(
+                        ShelfBookEntity(
+                            id = id,
+                            shelfId = shelfId.value,
+                            bookId = bookId.value,
+                            sortOrder = nextSort,
+                            revision = 0,
+                            deletedAt = null,
+                            updatedAt = now,
+                            createdAt = now,
+                        ),
+                    )
+                }
             if (result is AppResult.Failure) return result
         }
         return AppResult.Success(Unit)
     }
 
+    /**
+     * Offline-first: tombstone the junction optimistically (preserving its revision) and enqueue a
+     * durable op on the `shelf_books` channel, keyed by the same `"$shelfId:$bookId"` envelope id the
+     * junction's mirror row uses so the in-flight shield and reconcile-on-drain align. Idempotent server-side.
+     */
     override suspend fun removeBookFromShelf(
         shelfId: ShelfId,
         bookId: BookId,
-    ): AppResult<Unit> = rpcFactory.callResult { it.removeBookFromShelf(shelfId, bookId) }
+    ): AppResult<Unit> {
+        val id = "${shelfId.value}:${bookId.value}"
+        return offlineEditor.edit(
+            OutboxChannels.ShelfBooks,
+            id,
+            ShelfBookMutation.Remove(shelfId = shelfId.value, bookId = bookId.value),
+            op = OpKind.Delete,
+        ) {
+            shelfBookDao.findById(id)?.let {
+                shelfBookDao.softDelete(id = id, deletedAt = currentEpochMilliseconds(), revision = it.revision)
+            }
+        }
+    }
 
     override suspend fun reorderBooks(
         shelfId: ShelfId,
         orderedBookIds: List<BookId>,
     ): AppResult<Unit> =
-        rpcFactory.callResult {
+        // TODO(offline-first): reorderBooks deferred — needs a shelf-scoped sortOrder-reconciling op
+        // (whole-shelf permutation) that doesn't fit the single-junction shield model.
+        channel.call {
             it.reorderShelfBooks(shelfId, orderedBookIds)
         }
 

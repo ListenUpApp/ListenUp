@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.ReadingOrderService
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.readingorder.DiscoveredReadingOrder
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderBookWrite
@@ -17,7 +18,7 @@ import com.calypsan.listenup.client.data.local.db.ReadingOrderFollowDao
 import com.calypsan.listenup.client.data.local.db.ReadingOrderFollowEntity
 import com.calypsan.listenup.client.data.local.db.ReadingOrderWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
-import com.calypsan.listenup.client.data.remote.ReadingOrderRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
@@ -62,7 +63,7 @@ internal class ReadingOrderRepositoryImpl(
     private val bookDao: ReadingOrderBookDao,
     private val followDao: ReadingOrderFollowDao,
     private val userDao: UserDao,
-    private val rpcFactory: ReadingOrderRpcFactory,
+    private val channel: RpcChannel<ReadingOrderService>,
     private val offlineEditor: OfflineEditor,
     private val authSession: AuthSession,
 ) : ReadingOrderRepository {
@@ -90,18 +91,18 @@ internal class ReadingOrderRepositoryImpl(
     // ── Discovery + detail (on-demand RPC) ────────────────────────────────────────
 
     override suspend fun getUserReadingOrders(userId: String): AppResult<List<ReadingOrder>> =
-        rpcFactory
-            .callResult { it.getUserReadingOrders(UserId(userId)) }
+        channel
+            .call(idempotent = true) { it.getUserReadingOrders(UserId(userId)) }
             .map { orders -> orders.map { it.toDomain() } }
 
     override suspend fun discoverReadingOrders(): AppResult<List<ReadingOrder>> =
-        rpcFactory
-            .callResult { it.discoverReadingOrders() }
+        channel
+            .call(idempotent = true) { it.discoverReadingOrders() }
             .map { discovered -> discovered.map { it.toDomain() } }
 
     override suspend fun getReadingOrderDetail(id: ReadingOrderId): AppResult<ReadingOrderDetail> =
-        rpcFactory
-            .callResult { it.getReadingOrder(id) }
+        channel
+            .call(idempotent = true) { it.getReadingOrder(id) }
             .map { it.toDomain() }
 
     // ── Lifecycle (direct RPC) ────────────────────────────────────────────────────
@@ -112,8 +113,8 @@ internal class ReadingOrderRepositoryImpl(
         attribution: String?,
         isPrivate: Boolean,
     ): AppResult<ReadingOrder> =
-        rpcFactory
-            .callResult {
+        channel
+            .call {
                 it.createReadingOrder(
                     name = name,
                     description = description ?: "",
@@ -124,7 +125,7 @@ internal class ReadingOrderRepositoryImpl(
             .map { it.toDomain() }
 
     override suspend fun deleteReadingOrder(id: ReadingOrderId): AppResult<Unit> =
-        rpcFactory.callResult { it.deleteReadingOrder(id) }
+        channel.call { it.deleteReadingOrder(id) }
 
     // ── Mutation (offline-first via the outbox) ───────────────────────────────────
 

@@ -23,7 +23,7 @@ class PublicProfilesDomainTest :
         test("Created event upserts a new public_profiles row matching the payload") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(payload("user-1")), isOwnEcho = false)
+                    .onEvent(created(payload("user-1")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val rows = db.publicProfileDao().digestRows(Long.MAX_VALUE)
@@ -36,7 +36,7 @@ class PublicProfilesDomainTest :
 
         test("Updated event for an existing user REPLACES the local row entirely (server wins)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-1", totalSecondsAllTime = 1000L, revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-1", totalSecondsAllTime = 1000L, revision = 1L)))
 
                 handler
                     .onEvent(
@@ -49,7 +49,6 @@ class PublicProfilesDomainTest :
                                 revision = 2L,
                             ),
                         ),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val rows = db.publicProfileDao().digestRows(Long.MAX_VALUE)
@@ -73,7 +72,7 @@ class PublicProfilesDomainTest :
 
         test("onCatchUpItem for an existing row also replaces it (server wins)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-3", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-3", revision = 1L)))
                 handler.onCatchUpItem(payload("user-3", revision = 3L), isTombstone = false)
 
                 val rows = db.publicProfileDao().digestRows(Long.MAX_VALUE)
@@ -85,13 +84,12 @@ class PublicProfilesDomainTest :
         test("Deleted event soft-deletes the row so observeAll no longer returns it") {
             withHandler { handler, db ->
                 // Seed a live row via a Created event
-                handler.onEvent(created(payload("user-deleted", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-deleted", revision = 1L)))
 
                 // Apply a live Deleted event — this was previously a no-op (the bug)
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "user-deleted", revision = 2L, occurredAt = 999_000L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 // The tombstoned row is retained (revision bumped) but EXCLUDED from the digest;
@@ -107,10 +105,9 @@ class PublicProfilesDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-tomb-digest", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-tomb-digest", revision = 1L)))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "user-tomb-digest", revision = 2L, occurredAt = 999_000L),
-                    isOwnEcho = false,
                 )
                 // observeById filters tombstones — invisible to reads
                 db.publicProfileDao().observeById("user-tomb-digest").first() shouldBe null
@@ -124,7 +121,7 @@ class PublicProfilesDomainTest :
         test("onCatchUpItem with isTombstone=true soft-deletes the row") {
             withHandler { handler, db ->
                 // First, upsert a live row
-                handler.onEvent(created(payload("user-4", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-4", revision = 1L)))
 
                 // Then receive a tombstone
                 handler
@@ -143,7 +140,7 @@ class PublicProfilesDomainTest :
         test("tagline is mapped through sync and emitted by observeById") {
             withHandler { handler, db ->
                 val p = payload("user-tagline", tagline = "Audiobook enthusiast")
-                handler.onEvent(created(p), isOwnEcho = false).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                handler.onEvent(created(p)).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val entity = db.publicProfileDao().observeById("user-tagline").first()
                 entity shouldNotBe null
@@ -154,7 +151,7 @@ class PublicProfilesDomainTest :
         test("tagline null payload produces null tagline in entity") {
             withHandler { handler, db ->
                 val p = payload("user-no-tagline", tagline = null)
-                handler.onEvent(created(p), isOwnEcho = false).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                handler.onEvent(created(p)).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val entity = db.publicProfileDao().observeById("user-no-tagline").first()
                 entity shouldNotBe null
@@ -171,10 +168,9 @@ class PublicProfilesDomainTest :
 
         test("observeById returns null for tombstoned row") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-tomb", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-tomb", revision = 1L)))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "user-tomb", revision = 2L, occurredAt = 999_000L),
-                    isOwnEcho = false,
                 )
 
                 val entity = db.publicProfileDao().observeById("user-tomb").first()
@@ -200,7 +196,7 @@ class PublicProfilesDomainTest :
             val fakeRepo = FakeAvatarDownloadRepository()
             withHandler(fakeRepo) { handler, _ ->
                 val p = payload("user-avatar-refresh", avatarType = "image", avatarUpdatedAt = 100L)
-                handler.onEvent(created(p), isOwnEcho = false)
+                handler.onEvent(created(p))
                 fakeRepo.forceRefreshCalls shouldBe listOf("user-avatar-refresh")
             }
         }
@@ -209,9 +205,9 @@ class PublicProfilesDomainTest :
             val fakeRepo = FakeAvatarDownloadRepository()
             withHandler(fakeRepo) { handler, _ ->
                 val p = payload("user-no-refresh", avatarType = "image", avatarUpdatedAt = 100L)
-                handler.onEvent(created(p), isOwnEcho = false)
+                handler.onEvent(created(p))
                 // same avatarUpdatedAt — should NOT trigger another refresh
-                handler.onEvent(updated(p), isOwnEcho = false)
+                handler.onEvent(updated(p))
                 fakeRepo.forceRefreshCalls.size shouldBe 1
             }
         }
@@ -219,10 +215,9 @@ class PublicProfilesDomainTest :
         test("avatarUpdatedAt advancing from an existing value re-triggers the refresh") {
             val fakeRepo = FakeAvatarDownloadRepository()
             withHandler(fakeRepo) { handler, _ ->
-                handler.onEvent(created(payload("user-advance", avatarType = "image", avatarUpdatedAt = 100L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-advance", avatarType = "image", avatarUpdatedAt = 100L)))
                 handler.onEvent(
                     updated(payload("user-advance", avatarType = "image", avatarUpdatedAt = 200L, revision = 2L)),
-                    isOwnEcho = false,
                 )
                 fakeRepo.forceRefreshCalls shouldBe listOf("user-advance", "user-advance")
             }
@@ -232,7 +227,7 @@ class PublicProfilesDomainTest :
             val fakeRepo = FakeAvatarDownloadRepository()
             withHandler(fakeRepo) { handler, _ ->
                 val p = payload("user-auto-avatar", avatarType = "auto", avatarUpdatedAt = 100L)
-                handler.onEvent(created(p), isOwnEcho = false)
+                handler.onEvent(created(p))
                 fakeRepo.forceRefreshCalls shouldBe emptyList<String>()
             }
         }

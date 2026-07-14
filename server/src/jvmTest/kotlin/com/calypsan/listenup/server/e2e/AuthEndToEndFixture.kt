@@ -35,7 +35,7 @@ import java.nio.file.Files
  * | `Application.module()` | Real, against a fresh tmp SQLite file                    |
  * | `AuthSession`          | Real `AuthSessionStore` from `clientAuthModule`          |
  * | `AuthRepository`       | Real `AuthRepositoryImpl` from `clientAuthModule`        |
- * | `AuthRpcFactory`       | Real, talking over the bearer-equipped `ApiClientFactory`|
+ * | Auth RPC channels      | Real, talking over the bearer-equipped `ApiClientFactory`|
  * |                        | client + `installKrpc` — the production graph            |
  * | `ApiClientFactory`     | Real, bearer + retry + HttpSend wired against the test   |
  * |                        | server URL                                               |
@@ -83,6 +83,9 @@ internal class AuthEndToEndFixture private constructor(
                             "jwt.audience" to "listenup-client",
                             "registration.policy" to "OPEN",
                             "mdns.enabled" to "false",
+                            // Disable the lost-response reuse-grace window (C4) so the immediate-replay
+                            // family-revoke path is exercised against a real Clock.System.
+                            "auth.refreshReuseGraceSeconds" to "0",
                         )
                 }
 

@@ -1,7 +1,8 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.repository.ContributorRepository
+import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.core.ContributorId
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -9,8 +10,10 @@ private val logger = KotlinLogging.logger {}
 /**
  * Deletes a contributor by ID.
  *
- * Delegates to the contributor repository for the actual deletion.
- * The server handles cascade operations (removing from books, etc.).
+ * Delegates to the RPC-backed [ContributorEditRepository] — mutation belongs on the
+ * edit repo per the established observe/edit split. The server hard-deletes the
+ * junction rows, soft-deletes the contributor, and the authoritative state flows
+ * back via SSE (no optimistic Room write here).
  *
  * Usage:
  * ```kotlin
@@ -22,7 +25,7 @@ private val logger = KotlinLogging.logger {}
  * ```
  */
 open class DeleteContributorUseCase(
-    private val contributorRepository: ContributorRepository,
+    private val contributorEditRepository: ContributorEditRepository,
 ) {
     /**
      * Delete a contributor.
@@ -32,6 +35,6 @@ open class DeleteContributorUseCase(
      */
     open suspend operator fun invoke(contributorId: String): AppResult<Unit> {
         logger.info { "Deleting contributor $contributorId" }
-        return contributorRepository.deleteContributor(contributorId)
+        return contributorEditRepository.deleteContributor(ContributorId(contributorId))
     }
 }

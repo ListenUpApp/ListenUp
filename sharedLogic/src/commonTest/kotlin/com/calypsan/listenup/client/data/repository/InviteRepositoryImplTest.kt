@@ -13,7 +13,9 @@ import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.InviteRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.RpcPolicy
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.model.toDomain
 import com.calypsan.listenup.client.domain.repository.AuthSession as AuthSessionStore
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -62,8 +64,8 @@ private fun fakeSession(): AuthSession =
 /**
  * Unit tests for [InviteRepositoryImpl] — the contract-typed RPC adapter.
  *
- * Verifies that lookup/claim dispatch through the [InviteServicePublic] proxy
- * (resolved via a mocked [InviteRpcFactory]) and that a successful claim lands
+ * Verifies that lookup/claim dispatch through the anonymous [InviteServicePublic] channel
+ * (an `RpcPolicy.Public` [RpcChannel] via `forTest`) and that a successful claim lands
  * the user logged-in by calling [AuthSessionStore.saveAuthTokens] with the
  * issued session's tokens — while a failed claim does NOT touch the store.
  */
@@ -71,12 +73,12 @@ class InviteRepositoryImplTest :
     FunSpec({
 
         fun repo(
-            rpc: InviteRpcFactory = mock(),
+            service: InviteServicePublic = mock(),
             authSession: AuthSessionStore = mock(),
             userRepository: UserRepository = mock { everySuspend { saveUser(any()) } returns Unit },
             deviceInfo: DeviceInfo = DeviceInfo(),
         ) = InviteRepositoryImpl(
-            rpc = rpc,
+            channel = RpcChannel.forTest(service, RpcPolicy.Public),
             authSession = authSession,
             userRepository = userRepository,
             deviceInfoProvider = { deviceInfo },
@@ -86,10 +88,8 @@ class InviteRepositoryImplTest :
             runTest {
                 val service = mock<InviteServicePublic>()
                 everySuspend { service.lookupInvite(INVITE_CODE) } returns AppResult.Success(fakePreview())
-                val rpc = mock<InviteRpcFactory>()
-                everySuspend { rpc.publicService() } returns service
 
-                val result = repo(rpc = rpc).lookupInvite(INVITE_CODE)
+                val result = repo(service = service).lookupInvite(INVITE_CODE)
 
                 val preview = result.shouldBeInstanceOf<AppResult.Success<InvitePreview>>()
                 preview.data.email shouldBe "alice@example.com"
@@ -102,12 +102,10 @@ class InviteRepositoryImplTest :
                 val service = mock<InviteServicePublic>()
                 everySuspend { service.claimInvite(INVITE_CODE, "password123", null, DeviceInfo()) } returns
                     AppResult.Success(fakeSession())
-                val rpc = mock<InviteRpcFactory>()
-                everySuspend { rpc.publicService() } returns service
                 val store = mock<AuthSessionStore>()
                 everySuspend { store.saveAuthTokens(any(), any(), any(), any()) } returns Unit
 
-                val result = repo(rpc = rpc, authSession = store).claimInvite(INVITE_CODE, "password123", null)
+                val result = repo(service = service, authSession = store).claimInvite(INVITE_CODE, "password123", null)
 
                 result.shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 verifySuspend(exactly(1)) {
@@ -127,8 +125,6 @@ class InviteRepositoryImplTest :
                 val service = mock<InviteServicePublic>()
                 everySuspend { service.claimInvite(any(), any(), any(), any()) } returns
                     AppResult.Success(fakeSession())
-                val rpc = mock<InviteRpcFactory>()
-                everySuspend { rpc.publicService() } returns service
                 val store =
                     mock<AuthSessionStore> {
                         everySuspend { saveAuthTokens(any(), any(), any(), any()) } calls
@@ -139,7 +135,7 @@ class InviteRepositoryImplTest :
                         everySuspend { saveUser(any()) } calls { events.add("saveUser") }
                     }
 
-                repo(rpc = rpc, authSession = store, userRepository = userRepo)
+                repo(service = service, authSession = store, userRepository = userRepo)
                     .claimInvite(INVITE_CODE, "password123", null)
 
                 // Save-first, then authenticate — mirrors LoginUseCase so the post-auth startup
@@ -154,13 +150,11 @@ class InviteRepositoryImplTest :
                 val service = mock<InviteServicePublic>()
                 everySuspend { service.claimInvite(any(), any(), any(), any()) } returns
                     AppResult.Success(fakeSession())
-                val rpc = mock<InviteRpcFactory>()
-                everySuspend { rpc.publicService() } returns service
                 val store = mock<AuthSessionStore>()
                 everySuspend { store.saveAuthTokens(any(), any(), any(), any()) } returns Unit
 
                 repo(
-                    rpc = rpc,
+                    service = service,
                     authSession = store,
                     deviceInfo = DeviceInfo(deviceModel = "Pixel 10"),
                 ).claimInvite(INVITE_CODE, "password123", null)
@@ -176,11 +170,9 @@ class InviteRepositoryImplTest :
                 val service = mock<InviteServicePublic>()
                 everySuspend { service.claimInvite(any(), any(), any(), any()) } returns
                     AppResult.Failure(AuthError.InvalidCredentials())
-                val rpc = mock<InviteRpcFactory>()
-                everySuspend { rpc.publicService() } returns service
                 val store = mock<AuthSessionStore>()
 
-                val result = repo(rpc = rpc, authSession = store).claimInvite(INVITE_CODE, "wrong", null)
+                val result = repo(service = service, authSession = store).claimInvite(INVITE_CODE, "wrong", null)
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
                 verifySuspend(exactly(0)) { store.saveAuthTokens(any(), any(), any(), any()) }

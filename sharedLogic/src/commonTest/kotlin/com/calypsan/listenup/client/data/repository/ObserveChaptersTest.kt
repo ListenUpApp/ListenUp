@@ -8,7 +8,9 @@ import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ChapterEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
@@ -50,7 +52,7 @@ class ObserveChaptersTest :
                         moodRepository = mock<MoodRepository>(MockMode.autoUnit),
                     ),
                 networkMonitor = networkMonitor,
-                bookRpcFactory = mock<BookRpcFactory>(MockMode.autoUnit),
+                channel = RpcChannel.forTest(mock<BookService>(MockMode.autoUnit)),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(MockMode.autoUnit),
             )
         }

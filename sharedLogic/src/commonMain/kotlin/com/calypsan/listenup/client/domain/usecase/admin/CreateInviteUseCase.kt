@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.domain.usecase.admin
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.validationError
+import com.calypsan.listenup.client.core.ValidationField
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 
@@ -22,7 +23,7 @@ open class CreateInviteUseCase(
         val trimmedEmail = email.trim()
 
         if (!isValidEmail(trimmedEmail)) {
-            return validationError("Invalid email address")
+            return validationError("Invalid email address", field = ValidationField.EMAIL)
         }
 
         return adminRepository.createInvite(

@@ -2,12 +2,14 @@ package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.result.AppResult as WireResult
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
@@ -124,8 +126,6 @@ private fun withTestRepo(
     val db = createInMemoryTestDatabase()
     try {
         val service: ContributorService = mock()
-        val rpcFactory: ContributorRpcFactory = mock()
-        everySuspend { rpcFactory.contributorService() } returns service
 
         val networkMonitor: NetworkMonitor = mock()
         every { networkMonitor.isOnline() } returns online
@@ -142,10 +142,10 @@ private fun withTestRepo(
                 contributorDao = db.contributorDao(),
                 bookDao = db.bookDao(),
                 searchDao = db.searchDao(),
-                api = mock(),
                 networkMonitor = networkMonitor,
                 imageStorage = imageStorage,
-                rpcFactory = rpcFactory,
+                channel = RpcChannel.forTest(service),
+                searchChannel = RpcChannel.forTest(mock<SearchService>()),
                 contributorSyncHandler = syncHandler,
             )
 

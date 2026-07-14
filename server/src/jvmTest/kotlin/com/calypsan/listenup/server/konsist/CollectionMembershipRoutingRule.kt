@@ -36,6 +36,9 @@ import io.kotest.matchers.collections.shouldBeEmpty
  *    tombstoned *entirely*, not re-homed between collections, so ALL_BOOKS exclusivity is moot.
  *  - `reviveByIds` — `BookRepository.reviveByIds`'s revival (`reviveAllForBooks`): restores the book's
  *    prior membership set verbatim (deletedAt-floored), so there is nothing to reconcile.
+ *  - `reviveBookJunctions` — `BookRepository`'s scan-revival helper (`reviveAllForBooks`): same verbatim,
+ *    deletedAt-floored restore as `reviveByIds` (only junctions tombstoned by the book's own removal
+ *    return), so the membership set is already consistent — nothing to reconcile.
  *  ( `deleteCollection` is NOT allowlisted — it matches `softDeleteAllForCollection` but already loops
  *    `reconcileSystemMembership` per affected book, so the reconcile filter clears it correctly. )
  */
@@ -78,6 +81,7 @@ class CollectionMembershipRoutingRule :
                 "writeSystemMembership",
                 "softDelete",
                 "reviveByIds",
+                "reviveBookJunctions",
             )
     }
 }

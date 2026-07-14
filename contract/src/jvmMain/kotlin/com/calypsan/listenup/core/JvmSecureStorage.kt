@@ -2,9 +2,13 @@ package com.calypsan.listenup.core
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
@@ -41,6 +45,14 @@ class JvmSecureStorage(
 ) : SecureStorage {
     private val json = appJson
     private val secretKey: SecretKeySpec by lazy { deriveKey() }
+
+    /**
+     * Serializes the read-modify-write of the single backing file. Without it two concurrent writers
+     * both decode the same snapshot, each add their key, and the later write clobbers the earlier —
+     * silently reverting a just-rotated token (C7). Reads stay lock-free: [saveStore] swaps the file
+     * in with an atomic rename, so a concurrent reader always sees a whole old-or-new file.
+     */
+    private val writeMutex = Mutex()
 
     /**
      * Derive encryption key from machine-specific data.
@@ -142,22 +154,31 @@ class JvmSecureStorage(
         }
 
     /**
-     * Save the data store to disk.
+     * Save the data store to disk via a temp file + atomic rename, so a crash or a concurrent read
+     * mid-write never observes a half-written (and thus undecryptable) file.
      */
     private fun saveStore(store: Map<String, String>) {
         storageFile.parentFile?.mkdirs()
         val plaintext = json.encodeToString(store)
         val encrypted = encrypt(plaintext)
-        storageFile.writeText(encrypted)
+        val tmp = File(storageFile.parentFile, "${storageFile.name}.tmp")
+        tmp.writeText(encrypted)
+        try {
+            Files.move(tmp.toPath(), storageFile.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: java.nio.file.AtomicMoveNotSupportedException) {
+            Files.move(tmp.toPath(), storageFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
     }
 
     override suspend fun save(
         key: String,
         value: String,
     ) = withContext(Dispatchers.IO) {
-        val store = loadStore()
-        store[key] = value
-        saveStore(store)
+        writeMutex.withLock {
+            val store = loadStore()
+            store[key] = value
+            saveStore(store)
+        }
     }
 
     override suspend fun read(key: String): String? =
@@ -167,15 +188,19 @@ class JvmSecureStorage(
 
     override suspend fun delete(key: String) =
         withContext(Dispatchers.IO) {
-            val store = loadStore()
-            store.remove(key)
-            saveStore(store)
+            writeMutex.withLock {
+                val store = loadStore()
+                store.remove(key)
+                saveStore(store)
+            }
         }
 
     override suspend fun clear() =
         withContext(Dispatchers.IO) {
-            if (storageFile.exists()) {
-                storageFile.delete()
+            writeMutex.withLock {
+                if (storageFile.exists()) {
+                    storageFile.delete()
+                }
             }
         }
 }

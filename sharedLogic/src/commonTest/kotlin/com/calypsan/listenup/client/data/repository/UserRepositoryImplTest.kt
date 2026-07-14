@@ -8,7 +8,8 @@ import com.calypsan.listenup.api.dto.auth.UserStatus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
-import com.calypsan.listenup.client.data.remote.AuthRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -74,7 +75,10 @@ class UserRepositoryImplTest :
 
         fun createMockUserDao(): UserDao = mock<UserDao>()
 
-        fun createMockAuthRpcFactory(): AuthRpcFactory = mock<AuthRpcFactory>()
+        // An authed channel over a bare AuthServiceAuthed mock — the profile-read surface these
+        // Room-only tests never exercise. The refresh tests build their own channel over a
+        // scripted service.
+        fun createMockAuthedChannel(): RpcChannel<AuthServiceAuthed> = RpcChannel.forTest(mock<AuthServiceAuthed>())
 
         // ========== observeCurrentUser Tests ==========
 
@@ -84,8 +88,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity()
                 every { userDao.observeCurrentUser() } returns flowOf(entity)
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.observeCurrentUser().first().shouldNotBeNull()
@@ -102,8 +106,8 @@ class UserRepositoryImplTest :
                 // Given
                 val userDao = createMockUserDao()
                 every { userDao.observeCurrentUser() } returns flowOf(null)
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.observeCurrentUser().first()
@@ -121,8 +125,8 @@ class UserRepositoryImplTest :
                 val updatedUser = createTestUserEntity(displayName = "Updated Name")
                 // Flow emits null -> user1 -> user2 -> null
                 every { userDao.observeCurrentUser() } returns flowOf(null, initialUser, updatedUser, null)
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val emissions = repository.observeCurrentUser().take(4).toList()
@@ -143,8 +147,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(isRoot = true)
                 every { userDao.observeCurrentUser() } returns flowOf(entity)
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val isAdmin = repository.observeIsAdmin().first()
@@ -160,8 +164,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(isRoot = false)
                 every { userDao.observeCurrentUser() } returns flowOf(entity)
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val isAdmin = repository.observeIsAdmin().first()
@@ -176,8 +180,8 @@ class UserRepositoryImplTest :
                 // Given
                 val userDao = createMockUserDao()
                 every { userDao.observeCurrentUser() } returns flowOf(null)
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val isAdmin = repository.observeIsAdmin().first()
@@ -195,8 +199,8 @@ class UserRepositoryImplTest :
                 val adminUser = createTestUserEntity(isRoot = true)
                 // Flow: null -> regular -> admin -> regular
                 every { userDao.observeCurrentUser() } returns flowOf(null, regularUser, adminUser, regularUser)
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val emissions = repository.observeIsAdmin().take(4).toList()
@@ -215,8 +219,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val userFlow = MutableStateFlow<UserEntity?>(null)
                 every { userDao.observeCurrentUser() } returns userFlow
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When/Then - initial state
                 repository.observeIsAdmin().first() shouldBe false
@@ -243,8 +247,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity()
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser().shouldNotBeNull()
@@ -260,8 +264,8 @@ class UserRepositoryImplTest :
                 // Given
                 val userDao = createMockUserDao()
                 everySuspend { userDao.getCurrentUser() } returns null
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -290,9 +294,8 @@ class UserRepositoryImplTest :
                             createdAt = 1_700_000_000_000L,
                         ),
                     )
-                val authRpcFactory = createMockAuthRpcFactory()
-                everySuspend { authRpcFactory.authedService() } returns authed
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = RpcChannel.forTest(authed)
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.refreshCurrentUser().shouldNotBeNull()
@@ -314,9 +317,8 @@ class UserRepositoryImplTest :
                         com.calypsan.listenup.api.error.TransportError
                             .NetworkUnavailable(),
                     )
-                val authRpcFactory = createMockAuthRpcFactory()
-                everySuspend { authRpcFactory.authedService() } returns authed
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = RpcChannel.forTest(authed)
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.refreshCurrentUser()
@@ -334,8 +336,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(id = "unique-user-id-123")
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -351,8 +353,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(email = "user@listenup.app")
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -368,8 +370,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(displayName = "Bookworm Betty")
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -385,8 +387,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(firstName = "Elizabeth")
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -402,8 +404,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(firstName = null)
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -419,8 +421,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(lastName = "Bennet")
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -436,8 +438,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(lastName = null)
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -453,8 +455,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(isRoot = true)
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -470,8 +472,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(isRoot = false)
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -487,8 +489,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(tagline = "Fantasy is my escape")
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -504,8 +506,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val entity = createTestUserEntity(tagline = null)
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -522,8 +524,8 @@ class UserRepositoryImplTest :
                 val timestamp = 1704067200000L // 2024-01-01 00:00:00 UTC
                 val entity = createTestUserEntity(createdAt = timestamp)
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -540,8 +542,8 @@ class UserRepositoryImplTest :
                 val timestamp = 1704153600000L // 2024-01-02 00:00:00 UTC
                 val entity = createTestUserEntity(updatedAt = timestamp)
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser()
@@ -573,8 +575,8 @@ class UserRepositoryImplTest :
                                 .Timestamp(1705000000000L),
                     )
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser().shouldNotBeNull()
@@ -604,8 +606,8 @@ class UserRepositoryImplTest :
                         email = "",
                     )
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser().shouldNotBeNull()
@@ -626,8 +628,8 @@ class UserRepositoryImplTest :
                         updatedAt = 0L,
                     )
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser().shouldNotBeNull()
@@ -649,8 +651,8 @@ class UserRepositoryImplTest :
                         updatedAt = maxTimestamp,
                     )
                 everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val user = repository.getCurrentUser().shouldNotBeNull()
@@ -676,8 +678,8 @@ class UserRepositoryImplTest :
                         isRoot = true,
                     )
                 every { userDao.observeCurrentUser() } returns flowOf(user1Entity, user2Entity)
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When
                 val emissions = repository.observeCurrentUser().take(2).toList()
@@ -699,8 +701,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val userFlow = MutableStateFlow<UserEntity?>(null)
                 every { userDao.observeCurrentUser() } returns userFlow
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When/Then - initial null
                 repository.observeCurrentUser().first() shouldBe null
@@ -725,13 +727,13 @@ class UserRepositoryImplTest :
             runTest {
                 // Given
                 val userDao = createMockUserDao()
-                val authRpcFactory = createMockAuthRpcFactory()
+                val authedChannel = createMockAuthedChannel()
                 every { userDao.observeCurrentUser() } returns flowOf(null)
                 everySuspend { userDao.getCurrentUser() } returns null
 
                 // When
                 val repository: com.calypsan.listenup.client.domain.repository.UserRepository =
-                    UserRepositoryImpl(userDao, authRpcFactory)
+                    UserRepositoryImpl(userDao, authedChannel)
 
                 // Then - all methods are accessible via interface
                 repository.observeCurrentUser().first() shouldBe null
@@ -746,8 +748,8 @@ class UserRepositoryImplTest :
                 val userDao = createMockUserDao()
                 val userFlow = MutableStateFlow<UserEntity?>(null)
                 every { userDao.observeCurrentUser() } returns userFlow
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
+                val authedChannel = createMockAuthedChannel()
+                val repository = UserRepositoryImpl(userDao, authedChannel)
 
                 // When/Then - null user
                 repository.observeIsAdmin().first() shouldBe false

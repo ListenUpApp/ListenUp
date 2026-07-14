@@ -14,14 +14,18 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -131,7 +135,8 @@ class PlaybackPreparerTest :
 
         fun buildPreparer(
             downloadService: DownloadService,
-            playbackRpcFactory: PlaybackRpcFactory,
+            prepareRepository: PlaybackPrepareRepository,
+            progressTracker: ProgressTracker = buildProgressTracker(),
         ): PlaybackPreparer {
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
@@ -152,15 +157,231 @@ class PlaybackPreparerTest :
                 audioFileDao = db.audioFileDao(),
                 chapterDao = db.chapterDao(),
                 imageStorage = imageStorage,
-                progressTracker = buildProgressTracker(),
+                progressTracker = progressTracker,
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                playbackRpcFactory = playbackRpcFactory,
-                bookRpcFactory = mock<BookRpcFactory>(),
+                prepareRepository = prepareRepository,
+                channel = RpcChannel.forTest(mock<BookService>()),
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
             )
+        }
+
+        // Builds a ProgressTracker whose getResumePosition() returns [local], modelling a
+        // stale (or fresh) local Room row at resume time.
+        fun trackerWithLocalPosition(local: PlaybackPosition?): ProgressTracker {
+            val repo: PlaybackPositionRepository = mock()
+            everySuspend { repo.savePlaybackState(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { repo.get(any<BookId>()) } returns AppResult.Success(local)
+            return buildProgressTracker(positionRepository = repo)
+        }
+
+        // A streaming-path download service: no file has a local path, so prepare() is called
+        // and its server-authoritative resumePosition participates in the merge.
+        fun streamingDownloadService(): DownloadService {
+            val downloadService: DownloadService = mock()
+            everySuspend { downloadService.getLocalPath(any()) } returns null
+            everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
+            everySuspend { downloadService.downloadBook(any()) } returns
+                AppResult.Success(DownloadOutcome.AlreadyDownloaded)
+            return downloadService
+        }
+
+        // Wraps a server resumePosition into a Success(PreparedPlayback) with the two seeded files.
+        fun preparedWith(resumePosition: PlaybackPositionSyncPayload?): PlaybackPrepareRepository =
+            FakePlaybackPrepareRepository(
+                FakePlaybackService(
+                    prepareResult =
+                        AppResult.Success(
+                            ContractPreparedPlayback(
+                                bookId = bookId.value,
+                                audioFiles =
+                                    listOf(
+                                        PreparedAudioFile(audioFile1, 0, "/api/v1/audio/x/$audioFile1?sig=a", "mp3", 1_000L, 1_000L),
+                                        PreparedAudioFile(audioFile2, 1, "/api/v1/audio/x/$audioFile2?sig=b", "mp3", 2_000L, 2_000L),
+                                    ),
+                                resumePosition = resumePosition,
+                            ),
+                        ),
+                ),
+            )
+
+        // A fully-downloaded service: every file has a local path → prepare() is skipped and the
+        // authoritative position must instead come from the best-effort getPosition() call (B8).
+        fun downloadedDownloadService(): DownloadService {
+            val downloadService: DownloadService = mock()
+            everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
+            everySuspend { downloadService.getLocalPath(audioFile2) } returns "/local/af-prep-2.mp3"
+            everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
+            everySuspend { downloadService.downloadBook(any()) } returns
+                AppResult.Success(DownloadOutcome.AlreadyDownloaded)
+            return downloadService
+        }
+
+        // Builds a prepare repository whose getPosition() returns [result]; prepare() would fail if
+        // called — which it must NOT be on the fully-downloaded path.
+        fun downloadedWithServerPosition(
+            result: AppResult<PlaybackPositionSyncPayload?>,
+        ): Pair<PlaybackPrepareRepository, FakePlaybackService> {
+            val svc = FakePlaybackService(prepareResult = stubFailure, getPositionResult = result)
+            return FakePlaybackPrepareRepository(svc) to svc
+        }
+
+        // ── resume-position merge (server-authoritative newer-wins) ─────────────────────
+
+        // Concrete epoch anchors. 4:30:00 = 16_200_000ms, 6:00:00 = 21_600_000ms.
+        val baseTime = 1_000_000_000_000L
+        val laterTime = baseTime + 3_600_000L // +1h
+        val pos430 = 16_200_000L
+        val pos600 = 21_600_000L
+
+        fun localPosition(
+            positionMs: Long,
+            lastPlayedAtMs: Long,
+            isFinished: Boolean = false,
+        ): PlaybackPosition =
+            PlaybackPosition(
+                bookId = bookId.value,
+                positionMs = positionMs,
+                playbackSpeed = 1.0f,
+                hasCustomSpeed = false,
+                updatedAtMs = lastPlayedAtMs,
+                syncedAtMs = null,
+                lastPlayedAtMs = lastPlayedAtMs,
+                isFinished = isFinished,
+            )
+
+        fun serverPosition(
+            positionMs: Long,
+            lastPlayedAt: Long,
+            finished: Boolean = false,
+        ): PlaybackPositionSyncPayload =
+            PlaybackPositionSyncPayload(
+                id = "pos-server",
+                bookId = bookId.value,
+                positionMs = positionMs,
+                lastPlayedAt = lastPlayedAt,
+                finished = finished,
+                playbackSpeed = 1.0f,
+                currentChapterId = null,
+                revision = 1L,
+                updatedAt = lastPlayedAt,
+                createdAt = baseTime,
+                deletedAt = null,
+            )
+
+        test("server position is newer — prepared resume resolves to the server position, not the stale local row") {
+            runTest {
+                // Device B: local Room row is stale (4:30:00 @ baseTime); the server's prepare()
+                // carries the authoritative newer position (6:00:00 @ +1h) from device A.
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(serverPosition(pos600, laterTime)),
+                        progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                // Pre-fix this is 16_200_000 (the stale local row) — the crown-jewel data-loss bug.
+                result.resumePositionMs shouldBe pos600
+            }
+        }
+
+        test("local position is newer — prepared resume resolves to the local row, not the stale server position") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(serverPosition(pos430, baseTime)),
+                        progressTracker = trackerWithLocalPosition(localPosition(pos600, laterTime)),
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumePositionMs shouldBe pos600
+            }
+        }
+
+        test("winning position is finished — resume starts at 0 for re-read") {
+            runTest {
+                // Server wins (newer) AND is finished → re-read from the beginning.
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(serverPosition(pos600, laterTime, finished = true)),
+                        progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumePositionMs shouldBe 0L
+            }
+        }
+
+        test("server resume position is null — falls back to the local row unchanged") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumePositionMs shouldBe pos430
+            }
+        }
+
+        // ── B8: fully-downloaded path also reconciles the server-authoritative position ──
+
+        test("fully downloaded — server getPosition is newer, resume uses it (B8 offline clobber fix)") {
+            runTest {
+                // Phone has the book downloaded and a stale local row (4:30 @ base); the server has
+                // the tablet's newer progress (6:00 @ +1h). prepare() is skipped (downloaded), so the
+                // authoritative position must arrive via getPosition() and win the merge.
+                val (prepareRepo, svc) =
+                    downloadedWithServerPosition(AppResult.Success(serverPosition(pos600, laterTime)))
+                val preparer =
+                    buildPreparer(
+                        downloadService = downloadedDownloadService(),
+                        prepareRepository = prepareRepo,
+                        progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                svc.prepareCallCount shouldBe 0 // offline-first: never touches prepare() when downloaded
+                svc.getPositionCallCount shouldBe 1 // ...but DOES fetch the authoritative position
+                // Pre-fix: resolves to the stale local 4:30 and clobbers the tablet — the F1 gap for downloads.
+                result.resumePositionMs shouldBe pos600
+            }
+        }
+
+        test("fully downloaded — getPosition fails offline, resume falls back to the local row") {
+            runTest {
+                val (prepareRepo, svc) = downloadedWithServerPosition(stubFailure)
+                val preparer =
+                    buildPreparer(
+                        downloadService = downloadedDownloadService(),
+                        prepareRepository = prepareRepo,
+                        progressTracker = trackerWithLocalPosition(localPosition(pos430, baseTime)),
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                svc.prepareCallCount shouldBe 0
+                // getPosition failed (offline) → never-stranded: resume resolves from Room, unchanged.
+                result.resumePositionMs shouldBe pos430
+            }
         }
 
         // ── test 1: fully downloaded ───────────────────────────────────────────────────
@@ -196,7 +417,7 @@ class PlaybackPreparerTest :
                                 ),
                             ),
                     )
-                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
@@ -216,6 +437,41 @@ class PlaybackPreparerTest :
                 result.timeline.files[1].localPath shouldBe "/local/af-prep-2.mp3"
                 // Streaming URL is empty when fully downloaded
                 result.timeline.files[0].streamingUrl shouldBe ""
+                result.timeline.files[1].streamingUrl shouldBe ""
+            }
+        }
+
+        // ── B3: partial download, offline — downloaded files still play (never-stranded) ──
+
+        test("partial download offline — prepare() fails but downloaded files still play") {
+            runTest {
+                // prepare() fails (offline / dead socket) and only file 1 is downloaded.
+                val fakePlaybackService =
+                    FakePlaybackService(
+                        prepareResult = AppResult.Failure(InternalError(debugInfo = "offline")),
+                    )
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
+
+                val downloadService: DownloadService = mock()
+                everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
+                everySuspend { downloadService.getLocalPath(audioFile2) } returns null // missing
+                everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
+                everySuspend { downloadService.downloadBook(any()) } returns
+                    AppResult.Success(DownloadOutcome.AlreadyDownloaded)
+
+                val preparer = buildPreparer(downloadService, fakeFactory)
+                val result = preparer.prepare(bookId)
+
+                // Pre-fix: buildTimeline returned null on the prepare() Failure → whole book unplayable.
+                result.shouldNotBeNull()
+                // prepare() WAS attempted (some files missing) but failed offline.
+                fakePlaybackService.prepareCallCount shouldBe 1
+                // Downloaded file plays from disk...
+                result.timeline.files[0].localPath shouldBe "/local/af-prep-1.mp3"
+                result.timeline.files[0].playbackUri shouldBe "file:///local/af-prep-1.mp3"
+                // ...and the missing file has NO fabricated streaming URL (honest gap, not a blanket
+                // streaming fallback that fails the whole book).
+                result.timeline.files[1].localPath shouldBe null
                 result.timeline.files[1].streamingUrl shouldBe ""
             }
         }
@@ -242,7 +498,7 @@ class PlaybackPreparerTest :
                                 ),
                             ),
                     )
-                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
                 // Both files NOT downloaded → streaming path
@@ -287,7 +543,7 @@ class PlaybackPreparerTest :
                     FakePlaybackService(
                         prepareResult = AppResult.Failure(InternalError(debugInfo = "server error")),
                     )
-                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(any()) } returns null
@@ -311,7 +567,7 @@ class PlaybackPreparerTest :
                         prepareResult = AppResult.Failure(InternalError(debugInfo = "unused")),
                         prepareThrows = RuntimeException("RPC transport failure (e.g. dead WebSocket)"),
                     )
-                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(any()) } returns null
@@ -342,8 +598,11 @@ private val stubFailure = AppResult.Failure(InternalError(debugInfo = "stub"))
 private class FakePlaybackService(
     private val prepareResult: AppResult<ContractPreparedPlayback>,
     private val prepareThrows: Throwable? = null,
+    private val getPositionResult: AppResult<PlaybackPositionSyncPayload?> = stubFailure,
 ) : PlaybackService {
     var prepareCallCount = 0
+        private set
+    var getPositionCallCount = 0
         private set
 
     override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> {
@@ -352,7 +611,10 @@ private class FakePlaybackService(
         return prepareResult
     }
 
-    override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = stubFailure
+    override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> {
+        getPositionCallCount++
+        return getPositionResult
+    }
 
     override suspend fun recordPosition(
         request: RecordPositionRequest,
@@ -366,12 +628,13 @@ private class FakePlaybackService(
 }
 
 /**
- * Fake [PlaybackRpcFactory] that returns a fixed [FakePlaybackService] without any I/O.
+ * Fake [PlaybackPrepareRepository] that delegates to a fixed [FakePlaybackService] without any I/O,
+ * so `prepareCallCount` assertions still hold across the seam.
  */
-private class FakePlaybackRpcFactory(
+private class FakePlaybackPrepareRepository(
     private val service: PlaybackService,
-) : PlaybackRpcFactory {
-    override suspend fun playbackService(): PlaybackService = service
+) : PlaybackPrepareRepository {
+    override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> = service.prepare(bookId)
 
-    override suspend fun invalidate() = Unit
+    override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = service.getPosition(bookId)
 }

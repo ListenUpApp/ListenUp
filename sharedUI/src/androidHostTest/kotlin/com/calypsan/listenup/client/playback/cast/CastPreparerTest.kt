@@ -1,11 +1,10 @@
 package com.calypsan.listenup.client.playback.cast
 
-import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ServerUrl
@@ -55,15 +54,13 @@ class CastPreparerTest :
 
         test("success — maps files to absolute URLs and prefixes cover URL") {
             runTest {
-                val service = mock<PlaybackService>()
-                val factory = mock<PlaybackRpcFactory>()
+                val prepareRepository = mock<PlaybackPrepareRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl(serverUrl)
-                everySuspend { factory.playbackService() } returns service
-                everySuspend { service.prepare(any()) } returns
+                everySuspend { prepareRepository.prepare(any()) } returns
                     AppResult.Success(twoFilePreparedPlayback("/api/v1/cover-cast/b?sig=c"))
 
-                val result = CastPreparer(factory, serverConfig).prepareForCast(bookId)
+                val result = CastPreparer(prepareRepository, serverConfig).prepareForCast(bookId)
 
                 result.shouldNotBeNull()
                 result.files.size shouldBe 2
@@ -79,14 +76,12 @@ class CastPreparerTest :
 
         test("null coverUrl in PreparedPlayback yields null coverUrlAbsolute, files still mapped") {
             runTest {
-                val service = mock<PlaybackService>()
-                val factory = mock<PlaybackRpcFactory>()
+                val prepareRepository = mock<PlaybackPrepareRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl(serverUrl)
-                everySuspend { factory.playbackService() } returns service
-                everySuspend { service.prepare(any()) } returns AppResult.Success(twoFilePreparedPlayback(null))
+                everySuspend { prepareRepository.prepare(any()) } returns AppResult.Success(twoFilePreparedPlayback(null))
 
-                val result = CastPreparer(factory, serverConfig).prepareForCast(bookId)
+                val result = CastPreparer(prepareRepository, serverConfig).prepareForCast(bookId)
 
                 result.shouldNotBeNull()
                 result.files.size shouldBe 2
@@ -96,27 +91,25 @@ class CastPreparerTest :
 
         test("no server URL — returns null without calling the RPC") {
             runTest {
-                val factory = mock<PlaybackRpcFactory>()
+                val prepareRepository = mock<PlaybackPrepareRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { serverConfig.getServerUrl() } returns null
 
-                val result = CastPreparer(factory, serverConfig).prepareForCast(bookId)
+                val result = CastPreparer(prepareRepository, serverConfig).prepareForCast(bookId)
 
                 result.shouldBeNull()
-                verifySuspend(exactly(0)) { factory.playbackService() }
+                verifySuspend(exactly(0)) { prepareRepository.prepare(any()) }
             }
         }
 
         test("RPC failure — returns null") {
             runTest {
-                val service = mock<PlaybackService>()
-                val factory = mock<PlaybackRpcFactory>()
+                val prepareRepository = mock<PlaybackPrepareRepository>()
                 val serverConfig = mock<ServerConfig>()
                 everySuspend { serverConfig.getServerUrl() } returns ServerUrl(serverUrl)
-                everySuspend { factory.playbackService() } returns service
-                everySuspend { service.prepare(any()) } returns AppResult.Failure(InternalError())
+                everySuspend { prepareRepository.prepare(any()) } returns AppResult.Failure(InternalError())
 
-                val result = CastPreparer(factory, serverConfig).prepareForCast(bookId)
+                val result = CastPreparer(prepareRepository, serverConfig).prepareForCast(bookId)
 
                 result.shouldBeNull()
             }

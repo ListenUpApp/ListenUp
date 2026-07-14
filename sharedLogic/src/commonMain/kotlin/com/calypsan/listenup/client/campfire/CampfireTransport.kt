@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
  * method-for-method — every fallible call already returns [AppResult] at the contract layer,
  * so this seam adds no extra wrapping, just a swappable binding.
  *
- * Two reasons this seam exists rather than the controller calling [CampfireRpcFactory]
+ * Two reasons this seam exists rather than the controller calling the `CampfireService` `RpcChannel`
  * directly:
  *  1. **Testability** — the session controller (drift correction, optimistic command
  *     application, presence handling) is exercised against a fake implementing this

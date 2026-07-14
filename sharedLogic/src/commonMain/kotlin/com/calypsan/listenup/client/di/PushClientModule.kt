@@ -3,9 +3,8 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.push.PushTokenProvider
-import com.calypsan.listenup.client.data.remote.KtorPushRpcFactory
-import com.calypsan.listenup.client.data.remote.PushRpcFactory
-import com.calypsan.listenup.client.data.remote.RemoteCache
+import com.calypsan.listenup.api.PushService
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.PushRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.PushRepository
 import org.koin.core.module.Module
@@ -31,19 +30,13 @@ import org.koin.dsl.module
  */
 internal val pushClientModule: Module =
     module {
-        // PushRpcFactory — kotlinx.rpc proxy for PushService (authed mount only; no local mirror).
-        single<PushRpcFactory> {
-            KtorPushRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-                authRecovery = get(),
-            )
-        } binds arrayOf(RemoteCache::class)
+        // PushService RPC channel — kotlinx.rpc dispatch for push tokens (authed mount only; no local mirror).
+        rpcChannel<PushService>()
 
         // PushRepository — device push-token registration (SOLID: interface in domain, impl in data)
         single<PushRepository> {
             PushRepositoryImpl(
-                rpcFactory = get(),
+                channel = rpcChannel(),
                 platform = get(),
             )
         }

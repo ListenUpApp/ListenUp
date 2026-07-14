@@ -58,7 +58,6 @@ class ContributorSelfHealIntegrationTest :
                                 contributors = listOf(contrib(id = "c1", name = "Stub Name From Book")),
                             ),
                         ),
-                        isOwnEcho = false,
                     )
 
                     // 2. Bootstrap stub was inserted with revision == 0.
@@ -70,7 +69,6 @@ class ContributorSelfHealIntegrationTest :
                     // 3. Real contributor event arrives from the contributors domain.
                     contributorHandler.onEvent(
                         contributorCreated(contributorPayload(id = "c1", name = "Canonical Name", revision = CANONICAL_REVISION)),
-                        isOwnEcho = false,
                     )
 
                     // 4. The real entity supersedes the stub — identity and revision are updated.
@@ -101,7 +99,6 @@ class ContributorSelfHealIntegrationTest :
                     // 1. Real contributor event arrives first.
                     contributorHandler.onEvent(
                         contributorCreated(contributorPayload(id = "c2", name = "Canonical Name", revision = CANONICAL_REVISION)),
-                        isOwnEcho = false,
                     )
 
                     // 2. Book event arrives with a stale embedded contributor name.
@@ -112,7 +109,6 @@ class ContributorSelfHealIntegrationTest :
                                 contributors = listOf(contrib(id = "c2", name = "Stale Name From Book")),
                             ),
                         ),
-                        isOwnEcho = false,
                     )
 
                     // 3. The contributor row must be untouched — contributors domain owns it.

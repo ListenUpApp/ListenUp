@@ -79,9 +79,29 @@ buildscript {
 // SPOTLESS - Code Formatting
 // =============================================================================
 spotless {
+    // Explicit LF instead of the default GIT_ATTRIBUTES policy: that policy re-walks the whole
+    // project tree (independent of the bounded targets below) to derive per-file endings, which
+    // is pathological with linked worktrees present. Every platform we build on is LF.
+    lineEndings = com.diffplug.spotless.LineEnding.UNIX
     kotlin {
-        target("**/*.kt")
-        targetExclude("**/build/**", "**/.worktrees/**")
+        // Bounded to the module source roots rather than `**/*.kt`: Gradle's snapshotter WALKS
+        // every directory the pattern could match before applying excludes, so a repo-wide glob
+        // visits every linked worktree under `.worktrees/` + `.claude/worktrees/` (each a full
+        // checkout) and turns a seconds-long format pass into an hours-long crawl. Explicit
+        // top-level roots let the walker prune everything else outright. androidApp/ and iosApp/
+        // carry no Kotlin sources (manifest-only wrapper / Swift); add a root here if a new
+        // module gains Kotlin.
+        target(
+            "baselineprofile/src/**/*.kt",
+            "build-logic/**/src/**/*.kt",
+            "contract/src/**/*.kt",
+            "desktopApp/src/**/*.kt",
+            "rpc-guard-ksp/src/**/*.kt",
+            "server/src/**/*.kt",
+            "sharedLogic/src/**/*.kt",
+            "sharedUI/src/**/*.kt",
+        )
+        targetExclude("**/build/**", "**/.worktrees/**", "**/.claude/**")
         ktlint(libs.versions.ktlint.get())
         // Suppress max-line-length for API files with complex Ktor builders
         suppressLintsFor {
@@ -90,8 +110,21 @@ spotless {
         }
     }
     kotlinGradle {
-        target("**/*.gradle.kts")
-        targetExclude("**/build/**", "**/.worktrees/**")
+        // Bounded like the `kotlin` block above — a bare `**/*.gradle.kts` walks every linked
+        // worktree before excludes apply.
+        target(
+            "*.gradle.kts",
+            "androidApp/*.gradle.kts",
+            "baselineprofile/*.gradle.kts",
+            "build-logic/**/*.gradle.kts",
+            "contract/*.gradle.kts",
+            "desktopApp/*.gradle.kts",
+            "rpc-guard-ksp/*.gradle.kts",
+            "server/*.gradle.kts",
+            "sharedLogic/*.gradle.kts",
+            "sharedUI/*.gradle.kts",
+        )
+        targetExclude("**/build/**", "**/.worktrees/**", "**/.claude/**")
         ktlint(libs.versions.ktlint.get())
         // Mirror the `kotlin` block: max-line-length is not enforced on build scripts. Beyond the
         // long dependency-coordinate / URL strings that motivate it for source, the embedded-Kotlin

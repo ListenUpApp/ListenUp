@@ -23,7 +23,7 @@ class LibraryFoldersDomainTest :
             withHandler { handler, db ->
                 seedLibrary(db, "lib1")
                 handler
-                    .onEvent(created(payload("f1", "lib1", "/audiobooks")), isOwnEcho = false)
+                    .onEvent(created(payload("f1", "lib1", "/audiobooks")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.libraryFolderDao().findById("f1")
                 row shouldNotBe null
@@ -37,7 +37,7 @@ class LibraryFoldersDomainTest :
         test("an Updated event overwrites the folder row") {
             withHandler { handler, db ->
                 seedLibrary(db, "lib1")
-                handler.onEvent(created(payload("f1", "lib1", "/audiobooks")), isOwnEcho = false)
+                handler.onEvent(created(payload("f1", "lib1", "/audiobooks")))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "f1",
@@ -46,7 +46,6 @@ class LibraryFoldersDomainTest :
                         clientOpId = null,
                         payload = payload("f1", "lib1", "/books", revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.libraryFolderDao().findById("f1")!!
                 row.rootPath shouldBe "/books"
@@ -57,11 +56,10 @@ class LibraryFoldersDomainTest :
         test("a Deleted event soft-deletes the folder row") {
             withHandler { handler, db ->
                 seedLibrary(db, "lib1")
-                handler.onEvent(created(payload("f1", "lib1", "/audiobooks")), isOwnEcho = false)
+                handler.onEvent(created(payload("f1", "lib1", "/audiobooks")))
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "f1", revision = 5L, occurredAt = 999L, clientOpId = null),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 // observeForLibrary excludes tombstones
                 val tombstone = db.libraryFolderDao().findById("f1")!!
@@ -73,10 +71,9 @@ class LibraryFoldersDomainTest :
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 seedLibrary(db, "lib1")
-                handler.onEvent(created(payload("f1", "lib1", "/audiobooks")), isOwnEcho = false)
+                handler.onEvent(created(payload("f1", "lib1", "/audiobooks")))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "f1", revision = 5L, occurredAt = 999L, clientOpId = null),
-                    isOwnEcho = false,
                 )
                 // findAllForLibrary filters tombstones — invisible to reads
                 db.libraryFolderDao().findAllForLibrary("lib1").none { it.id == "f1" } shouldBe true

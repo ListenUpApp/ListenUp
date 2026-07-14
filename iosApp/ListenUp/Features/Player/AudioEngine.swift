@@ -15,15 +15,40 @@ enum EngineClock {
     }
 }
 
+/// A raw framework callback (KVO / periodic time observer / `NotificationCenter`), funneled
+/// through the engine's single ordered inbox so they are drained in FIFO order on the actor.
+/// Carries only `Sendable` values so it can cross from the callback thread to the actor safely.
+private enum EngineSignal: Sendable {
+    case timeControl(AVPlayer.TimeControlStatus)
+    case periodicTick
+    case itemEnded(ObjectIdentifier)
+    case currentItemChanged
+    case itemStatus(status: AVPlayerItem.Status, errorMessage: String?, errorDetail: String)
+}
+
 /// Wraps `AVQueuePlayer` + `AVAudioSession`. The single isolation domain for all
 /// AVFoundation mutation. Emits `AudioEngineEvent`s on one `AsyncStream`; the
 /// coordinator is the sole consumer. Framework callbacks (periodic time observer,
-/// KVO, `NotificationCenter`) capture only `Sendable` values and hop back onto
-/// the actor before touching the player.
+/// KVO, `NotificationCenter`) capture only `Sendable` values and are funneled through ONE
+/// ordered inbox (`signals`) drained serially on the actor — so two callbacks can never reorder
+/// relative to each other (rule 7). The previous `Task { await … }`-per-callback let, e.g., a
+/// stale `.buffering` land after `.ready` and demote a playing book to a stuck spinner.
 actor AudioEngine: PlaybackEngine {
     /// The engine's event stream. Created once at init; consumed once.
     nonisolated let events: AsyncStream<AudioEngineEvent>
     private let continuation: AsyncStream<AudioEngineEvent>.Continuation
+
+    /// The single ordered inbox: every framework callback `yield`s an [EngineSignal] here (thread-
+    /// safe, from any callback thread), and one drain loop processes them FIFO on the actor. This
+    /// is the ordering guarantee — no two callbacks can be handled out of order (rule 7).
+    private nonisolated let signals: AsyncStream<EngineSignal>
+    private nonisolated let signalContinuation: AsyncStream<EngineSignal>.Continuation
+    /// `release()` is terminal: it finishes the inbox + event streams, so the drain loop ends and
+    /// no further callback can be delivered. Reuse (`load()` after `release()`) is therefore not
+    /// supported — this flag makes a stray reuse fail FAST instead of hanging the 20s readiness
+    /// wait (whose only resumer is the now-dead drain loop). `stop()` — the sole `release()` caller
+    /// — currently has no production callers; this guards the day one is wired without allowing replay.
+    private var isReleased = false
 
     private let player = AVQueuePlayer()
     private var segments: [AudioSegment] = []
@@ -67,6 +92,35 @@ actor AudioEngine: PlaybackEngine {
         var capturedContinuation: AsyncStream<AudioEngineEvent>.Continuation!
         events = AsyncStream { capturedContinuation = $0 }
         continuation = capturedContinuation
+
+        var capturedSignals: AsyncStream<EngineSignal>.Continuation!
+        signals = AsyncStream { capturedSignals = $0 }
+        signalContinuation = capturedSignals
+
+        // Start the single ordered drain loop: it processes each funneled callback to completion
+        // before the next, so callbacks are handled strictly FIFO on the actor. Fire-and-forget —
+        // it ends when `release()` finishes the inbox. Captures the stream value (not `self`) so
+        // there's no retain cycle; `self?` means a released engine just drops signals until the loop
+        // ends.
+        Task { [weak self] in
+            guard let stream = self?.signals else { return }
+            for await signal in stream {
+                await self?.handle(signal)
+            }
+        }
+    }
+
+    /// Drain one funneled signal on the actor. Called only by the ordered drain loop, so all these
+    /// handlers run serially in the order the callbacks fired.
+    private func handle(_ signal: EngineSignal) {
+        switch signal {
+        case .timeControl(let status): handleTimeControlStatus(status)
+        case .periodicTick: emitPosition()
+        case .itemEnded(let itemId): handleItemEnded(itemId)
+        case .currentItemChanged: handleCurrentItemChanged()
+        case .itemStatus(let status, let msg, let detail):
+            handleItemStatus(status, errorMessage: msg, errorDetail: detail)
+        }
     }
 
     /// Configure the audio session, enqueue `segments`, and seek to `startPositionMs`
@@ -81,6 +135,11 @@ actor AudioEngine: PlaybackEngine {
     /// begun playing position 0. That deferred seek was the "starts at chapter 1, then
     /// jumps" bug (RC-2).
     func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool {
+        guard !isReleased else {
+            // Terminal engine (see `isReleased`): fail fast rather than hang the readiness wait.
+            Log.error("AudioEngine.load called after release() — engine is terminal")
+            return false
+        }
         guard !segments.isEmpty else {
             continuation.yield(.failed(message: "This book has no audio."))
             return false
@@ -256,6 +315,10 @@ actor AudioEngine: PlaybackEngine {
         resumeReadyIfWaiting(false)
         player.removeAllItems()
         queue = []
+        // Terminal: close the ordered inbox → the drain loop ends → the engine's event stream
+        // finishes. `load()` after this fails fast (see `isReleased`).
+        isReleased = true
+        signalContinuation.finish()
         continuation.finish()
     }
 
@@ -312,10 +375,7 @@ actor AudioEngine: PlaybackEngine {
         timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
             guard let self else { return }
             let status = player.timeControlStatus
-            // Deferred (rule 7): fold this and the other KVO/notification callbacks into a single
-            // ordered AsyncStream the actor drains, so currentItem/status/timeControl events
-            // can't reorder relative to each other during a queue rebuild.
-            Task { await self.handleTimeControlStatus(status) }
+            self.signalContinuation.yield(.timeControl(status))
         }
     }
 
@@ -345,7 +405,7 @@ actor AudioEngine: PlaybackEngine {
         let interval = CMTime(value: 250, timescale: 1000)
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] _ in
             guard let self else { return }
-            Task { await self.emitPosition() }
+            self.signalContinuation.yield(.periodicTick)
         }
     }
 
@@ -372,7 +432,7 @@ actor AudioEngine: PlaybackEngine {
             guard let endedItem = notification.object as? AVPlayerItem else { return }
             // Pass the identity, not the non-`Sendable` `AVPlayerItem`, across the hop.
             let endedItemId = ObjectIdentifier(endedItem)
-            Task { await self.handleItemEnded(endedItemId) }
+            self.signalContinuation.yield(.itemEnded(endedItemId))
         }
     }
 
@@ -413,7 +473,7 @@ actor AudioEngine: PlaybackEngine {
     private func observeCurrentItemTransitions() {
         currentItemObservation = player.observe(\.currentItem, options: [.initial, .new]) { [weak self] _, _ in
             guard let self else { return }
-            Task { await self.handleCurrentItemChanged() }
+            self.signalContinuation.yield(.currentItemChanged)
         }
     }
 
@@ -431,7 +491,7 @@ actor AudioEngine: PlaybackEngine {
             // Capture the NSError domain/code too — the localized text alone rarely
             // names the cause (ATS, TLS trust, HTTP status).
             let detail = (item.error as NSError?).map { " [\($0.domain) \($0.code)]" } ?? ""
-            Task { await self.handleItemStatus(status, errorMessage: errorMessage, errorDetail: detail) }
+            self.signalContinuation.yield(.itemStatus(status: status, errorMessage: errorMessage, errorDetail: detail))
         }
     }
 

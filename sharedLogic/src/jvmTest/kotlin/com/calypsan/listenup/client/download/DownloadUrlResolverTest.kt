@@ -15,7 +15,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * obtain the signed `GET /api/v1/audio/{bookId}/{fileId}?u=&exp=&sig=` URL from
  * [com.calypsan.listenup.api.PlaybackService.prepare].
  *
- * Reuses `FakePlaybackRpcFactory` (internal, same package — defined in `DownloadWorkerLogicTest.kt`).
+ * Reuses `FakePlaybackPrepareRepository` (internal, same package — defined in `DownloadWorkerLogicTest.kt`).
  */
 class DownloadUrlResolverTest :
     FunSpec({
@@ -26,7 +26,7 @@ class DownloadUrlResolverTest :
             val signedUrl = "/api/v1/audio/$bookId/$audioFileId?u=user&exp=123&sig=abc"
 
             val factory =
-                FakePlaybackRpcFactory(
+                FakePlaybackPrepareRepository(
                     AppResult.Success(
                         PreparedPlayback(
                             bookId = bookId,
@@ -56,7 +56,7 @@ class DownloadUrlResolverTest :
 
         test("returns Failure when prepare() fails") {
             val factory =
-                FakePlaybackRpcFactory(
+                FakePlaybackPrepareRepository(
                     AppResult.Failure(TransportError.NetworkUnavailable(debugInfo = "simulated")),
                 )
 
@@ -67,7 +67,7 @@ class DownloadUrlResolverTest :
 
         test("returns Failure when the requested fileId is absent from the prepare() response") {
             val factory =
-                FakePlaybackRpcFactory(
+                FakePlaybackPrepareRepository(
                     AppResult.Success(
                         PreparedPlayback(
                             bookId = "book-3",

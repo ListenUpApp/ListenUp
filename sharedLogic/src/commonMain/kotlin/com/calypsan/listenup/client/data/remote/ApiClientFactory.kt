@@ -1,11 +1,13 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.VersionHeaders
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.version.ClientIdentity
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
@@ -22,6 +24,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.client.call.HttpClientCall
 import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.header
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.contentType
@@ -147,7 +150,10 @@ internal fun createApiClientFactory(
     serverConfig: ServerConfig,
     authSession: AuthSession,
     refreshAccessToken: RefreshAccessToken,
-): ApiClientFactory = KtorApiClientFactory(serverConfig, authSession, refreshAccessToken)
+    clientIdentity: ClientIdentity,
+    onPeerVersion: suspend (version: String, api: String) -> Unit = { _, _ -> },
+): ApiClientFactory =
+    KtorApiClientFactory(serverConfig, authSession, refreshAccessToken, clientIdentity, onPeerVersion = onPeerVersion)
 
 /**
  * Public seam to eagerly prime the authenticated HTTP client from outside `:sharedLogic`.
@@ -179,6 +185,13 @@ internal class KtorApiClientFactory(
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
     private val refreshAccessToken: RefreshAccessToken,
+    private val clientIdentity: ClientIdentity,
+    /**
+     * Called with a CHANGED (version, api) pair captured off the server's
+     * `X-Server-Version`/`X-Server-Api` response headers — see [installPeerVersionCapture].
+     * Defaults to a no-op so test call sites unrelated to version capture don't need updating.
+     */
+    private val onPeerVersion: suspend (version: String, api: String) -> Unit = { _, _ -> },
     /**
      * Test-only engine override. `null` (production) selects the platform-default
      * engine; tests inject a `MockEngine` so the real client configuration —
@@ -236,6 +249,7 @@ internal class KtorApiClientFactory(
                     serverUrl = serverUrl,
                     authSession = authSession,
                     refreshAccessToken = refreshAccessToken,
+                    clientIdentity = clientIdentity,
                 ).also { cachedStreamingClient = it }
             }
         }
@@ -250,7 +264,7 @@ internal class KtorApiClientFactory(
                 val serverUrl =
                     serverConfig.getActiveUrl()
                         ?: error(SERVER_URL_NOT_CONFIGURED_MESSAGE)
-                createUnauthenticatedStreamingHttpClient(serverUrl).also {
+                createUnauthenticatedStreamingHttpClient(serverUrl, clientIdentity).also {
                     cachedUnauthenticatedStreamingClient = it
                 }
             }
@@ -266,6 +280,7 @@ internal class KtorApiClientFactory(
 
         val config: HttpClientConfig<*>.() -> Unit = {
             installListenUpErrorHandling()
+            installPeerVersionCapture(onPeerVersion)
 
             install(ContentNegotiation) {
                 json(appJson)
@@ -335,6 +350,8 @@ internal class KtorApiClientFactory(
             defaultRequest {
                 url(initialUrl.value)
                 contentType(ContentType.Application.Json)
+                header(VersionHeaders.CLIENT_VERSION, clientIdentity.version)
+                header(VersionHeaders.CLIENT_API, clientIdentity.apiVersion)
             }
         }
         val client = engine?.let { HttpClient(it, config) } ?: HttpClient(config)
@@ -344,9 +361,8 @@ internal class KtorApiClientFactory(
         // `ws://`/`wss://`, and rewriting the protocol/host/port between the
         // upgrade-builder set-up and the actual handshake corrupts the request
         // (e.g. the WebSockets plugin builds an Upgrade headers preflight that
-        // the rewrite invalidates). RPC callers pin the URL themselves via
-        // `AuthRpcFactory.rpcBaseUrl()`; HTTP fallback doesn't apply to a live
-        // WebSocket transport anyway.
+        // the rewrite invalidates). RPC callers pin the URL themselves at the
+        // channel mount; HTTP fallback doesn't apply to a live WebSocket transport anyway.
         client.plugin(HttpSend).intercept { request ->
             if (request.url.protocol == URLProtocol.WS || request.url.protocol == URLProtocol.WSS) {
                 return@intercept execute(request)
@@ -469,12 +485,14 @@ internal class KtorApiClientFactory(
  * @param serverUrl Base server URL
  * @param authSession For loading auth tokens
  * @param refreshAccessToken Functional seam over `AuthRepository.refreshAccessToken()`
+ * @param clientIdentity Announced to the server via `X-Client-Version`/`X-Client-Api`
  * @return HttpClient with streaming configuration and infinite timeouts
  */
 internal expect suspend fun createStreamingHttpClient(
     serverUrl: ServerUrl,
     authSession: AuthSession,
     refreshAccessToken: RefreshAccessToken,
+    clientIdentity: ClientIdentity,
 ): HttpClient
 
 /**
@@ -485,16 +503,21 @@ internal expect suspend fun createStreamingHttpClient(
  * such as registration status streaming for pending users.
  *
  * @param serverUrl Base server URL
+ * @param clientIdentity Announced to the server via `X-Client-Version`/`X-Client-Api`
  * @return HttpClient with streaming configuration, no auth
  */
-internal expect fun createUnauthenticatedStreamingHttpClient(serverUrl: ServerUrl): HttpClient
+internal expect fun createUnauthenticatedStreamingHttpClient(
+    serverUrl: ServerUrl,
+    clientIdentity: ClientIdentity,
+): HttpClient
 
 /**
  * Bridges the bearer plugin's `refreshTokens { }` block to
  * `AuthRepository.refreshAccessToken()`.
  *
- *  - Success → persist the rotated pair into [AuthSession] (so the next `loadTokens`
- *    sees the fresh values) and return them as [BearerTokens] for the immediate retry.
+ *  - Success → the rotated pair was ALREADY persisted inside the single-flight refresh (C1); just
+ *    return it as [BearerTokens] for the immediate retry. Persisting here again would be redundant and
+ *    reopen the stale-token window this bridge used to own.
  *  - `Failure(SessionExpired | InvalidRefreshToken)` → the refresh token is dead; soft-clear the
  *    session credentials so state lands in `AuthState.SessionLapsed` (shell stays mounted,
  *    banner offers sign-in) instead of the login wall.
@@ -512,12 +535,6 @@ internal suspend fun refreshAuthTokens(
         when (val result = refreshAccessToken()) {
             is AppResult.Success -> {
                 val session = result.data
-                authSession.saveAuthTokens(
-                    access = session.accessToken,
-                    refresh = session.refreshToken,
-                    sessionId = session.sessionId.value,
-                    userId = session.user.id.value,
-                )
                 BearerTokens(
                     accessToken = session.accessToken.value,
                     refreshToken = session.refreshToken.value,

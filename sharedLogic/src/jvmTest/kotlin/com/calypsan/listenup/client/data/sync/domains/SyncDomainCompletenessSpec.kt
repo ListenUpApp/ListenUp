@@ -114,8 +114,14 @@ class SyncDomainCompletenessSpec :
                 channels.map { it.name }.filter { it !in mirroredByName }.toSet() shouldBe
                     setOf("profile", "preferences")
 
-                // Frozen posture: exactly these eight mirrored domains write through the outbox
-                // (the reading-order trio joined per Integration Foundations §5.3/§5.4).
+                // Frozen posture: exactly these mirrored domains write through the outbox. tags,
+                // book_tags, and book_moods joined when their rename/delete/remove surfaces went
+                // offline-first (adding a tag/mood to a book stays online — find-or-create mints a
+                // server-side id that can't be mirrored optimistically). shelves, shelf_books,
+                // collections, and collection_books joined when their update/delete/add/remove surfaces
+                // went offline-first (create stays online — the server mints the shelf/collection id).
+                // genres joined when update/delete went offline-first (create/move/merge stay online).
+                // The reading-order trio joined per Integration Foundations §5.3/§5.4.
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -126,6 +132,14 @@ class SyncDomainCompletenessSpec :
                         "reading_orders",
                         "reading_order_books",
                         "reading_order_follows",
+                        "genres",
+                        "tags",
+                        "book_tags",
+                        "book_moods",
+                        "shelves",
+                        "shelf_books",
+                        "collections",
+                        "collection_books",
                     )
             } finally {
                 db.close()

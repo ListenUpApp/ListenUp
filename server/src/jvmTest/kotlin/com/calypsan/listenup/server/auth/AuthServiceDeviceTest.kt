@@ -39,7 +39,7 @@ class AuthServiceDeviceTest :
             return AuthServiceImpl(
                 db = db,
                 sessions = sessions,
-                hasher = hasher,
+                hasher = Argon2Limiter(hasher),
                 jwt = jwt,
                 sessionIssuer = SessionIssuer(sessions, jwt, clock),
                 clock = clock,
@@ -103,7 +103,7 @@ class AuthServiceDeviceTest :
                 AuthServiceImpl(
                     db = db,
                     sessions = sessions,
-                    hasher = PasswordHasher(),
+                    hasher = Argon2Limiter(PasswordHasher()),
                     jwt = jwt,
                     sessionIssuer = SessionIssuer(sessions, jwt, clock),
                     clock = clock,

@@ -119,6 +119,15 @@ internal interface SeriesDao {
         revision: Long,
     )
 
+    /**
+     * Cascade-remove every `book_series` membership for [seriesId] — the client mirror of the
+     * server's `deleteSeries` cascade (which hard-deletes the membership rows, then strips the series
+     * from each affected book). This junction carries no soft-delete columns, so a hard delete is the
+     * faithful mirror; the authoritative membership state re-arrives on each affected book's echo.
+     */
+    @Query("DELETE FROM book_series WHERE seriesId = :seriesId")
+    suspend fun deleteAllBookSeriesForSeries(seriesId: String)
+
     /** All rows (including tombstones) with [revision][SeriesEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM series WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
@@ -226,6 +235,15 @@ internal interface ContributorDao {
         deletedAt: Long,
         revision: Long,
     )
+
+    /**
+     * Cascade-remove every `book_contributors` credit for [contributorId] — the client mirror of the
+     * server's `deleteContributor` cascade (which hard-deletes the credit rows, then strips the
+     * contributor from each affected book). This junction carries no soft-delete columns, so a hard
+     * delete is the faithful mirror; the authoritative credit state re-arrives on each affected book's echo.
+     */
+    @Query("DELETE FROM book_contributors WHERE contributorId = :contributorId")
+    suspend fun deleteAllBookContributorsForContributor(contributorId: String)
 
     /** All rows (including tombstones) with [revision][ContributorEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM contributors WHERE deletedAt IS NULL AND revision <= :max")

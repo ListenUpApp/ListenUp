@@ -861,6 +861,8 @@
     "library_changed": "Library Changed",
     "logout": "Logout",
     "no_pending_changes": "No pending changes",
+    "offline_body": "Downloads still play. We'll reconnect automatically.",
+    "offline_title": "Offline",
     "pendingcount_pending": "%1$s pending",
     "retry_all": "Retry all",
     "search_audiobooks": "Search audiobooks...",
@@ -872,6 +874,8 @@
     "sync_status": "Sync Status",
     "syncing": "Syncing...",
     "the_servers_library_has_changed": "The server's library has changed. You have unsaved changes that will be lost. ",
+    "update_available_body": "App %1$s / server %2$s. Some features may not sync.",
+    "update_available_title": "Update available",
     "your_library_is_up_to": "Your library is up to date"
   },
   "startup": {

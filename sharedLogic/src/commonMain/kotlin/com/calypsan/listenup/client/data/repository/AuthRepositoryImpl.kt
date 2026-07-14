@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.AuthServiceAuthed
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
@@ -10,43 +12,44 @@ import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.data.remote.AuthRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-private val logger = KotlinLogging.logger {}
-
 /**
- * Thin adapter over [AuthRpcFactory]. Each method picks the right proxy
- * (public vs authed) and forwards. Thrown transport failures are routed
- * through [com.calypsan.listenup.client.core.error.ErrorMapper] via [Failure],
- * so a transport-level 401 or WS-handshake-401 surfaces as a typed
- * [AuthError.SessionExpired] (driving the session-lapse chain) instead of a
- * generic InternalError, while IO/deserialization failures keep their own
- * typed shapes.
+ * Thin adapter over the split auth RPC surface, dispatching through two [RpcChannel]s.
  *
- * Per kotlinx.coroutines convention, `CancellationException` is re-thrown.
+ * The channel split is the recursion firewall, not an organizational nicety: the pre-auth
+ * handshake calls (login, register, setupRoot, and — critically — refreshSession) ride
+ * [authPublicChannel], an anonymous `RpcPolicy.Public` channel whose recovery is `None`. The
+ * bearer-gated session calls (logout, listSessions, revokeSession, logoutAll) ride
+ * [authedChannel], which self-heals a handshake 401 with one refresh + retry. Because the refresh
+ * primitive itself rides the Public (never-recover) channel, a 401 during refresh can never loop
+ * back into another refresh.
+ *
+ * Each channel folds transport faults into a typed [AppResult.Failure] (a WS-handshake 401 surfaces
+ * as [AuthError.SessionExpired], driving the session-lapse chain) and re-raises
+ * `CancellationException` per kotlinx.coroutines convention.
  */
 internal class AuthRepositoryImpl(
-    private val rpc: AuthRpcFactory,
+    private val authPublicChannel: RpcChannel<AuthServicePublic>,
+    private val authedChannel: RpcChannel<AuthServiceAuthed>,
     private val authSession: ClientAuthSession,
 ) : AuthRepository {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> =
-        catching("login") { rpc.publicService().login(request) }
+        authPublicChannel.call { it.login(request) }
 
     override suspend fun register(request: RegisterRequest): AppResult<RegisterResult> =
-        catching("register") { rpc.publicService().register(request) }
+        authPublicChannel.call { it.register(request) }
 
     override suspend fun setup(request: RegisterRequest): AppResult<AuthSession> =
-        catching("setup") { rpc.publicService().setupRoot(request) }
+        authPublicChannel.call { it.setupRoot(request) }
 
-    override suspend fun logout(): AppResult<Unit> = catching("logout") { rpc.authedService().logout() }
+    override suspend fun logout(): AppResult<Unit> = authedChannel.call { it.logout() }
 
     private val refreshMutex = Mutex()
     private var inFlightRefresh: CompletableDeferred<AppResult<AuthSession>>? = null
@@ -58,6 +61,13 @@ internal class AuthRepositoryImpl(
      * the server's replay detection reads the second as a stolen token and revokes
      * the whole session family, force-logging-out the user mid-listen. Coalescing
      * concurrent callers onto one in-flight refresh keeps exactly one rotation.
+     *
+     * The refresh RPC rides [authPublicChannel] (recovery = None): the refresh call is
+     * itself what a 401 recovery invokes, so it must never be able to trigger one.
+     *
+     * Persistence (C1) is done HERE, inside the single-flight and BEFORE leadership is released, so no
+     * later caller can present a stale refresh token after rotation. The auth epoch captured at the
+     * start guards it (C8): a logout that intervened makes the persist a no-op via [AuthSession.saveAuthTokens].
      */
     override suspend fun refreshAccessToken(): AppResult<AuthSession> {
         val leader = CompletableDeferred<AppResult<AuthSession>>()
@@ -66,18 +76,36 @@ internal class AuthRepositoryImpl(
         if (existing !== leader) return existing.await()
 
         return try {
+            val epoch = authSession.currentAuthEpoch()
             val token = authSession.getRefreshToken()
             val result =
                 if (token == null) {
                     AppResult.Failure(AuthError.SessionExpired())
                 } else {
-                    catching("refresh") { rpc.publicService().refreshSession(RefreshRequest(token)) }
+                    authPublicChannel.call { it.refreshSession(RefreshRequest(token)) }
                 }
+            if (result is AppResult.Success) {
+                val session = result.data
+                authSession.saveAuthTokens(
+                    access = session.accessToken,
+                    refresh = session.refreshToken,
+                    sessionId = session.sessionId.value,
+                    userId = session.user.id.value,
+                    ifEpoch = epoch,
+                )
+            }
             leader.complete(result)
             result
         } catch (e: CancellationException) {
             // Wake followers with a transient failure rather than cancelling their
             // (independent) coroutines; they retry on their next trigger.
+            leader.complete(AppResult.Failure(InternalError()))
+            throw e
+        } catch (e: Throwable) {
+            // The leader MUST complete its deferred on ANY throw between acquiring leadership and
+            // completing it (e.g. a getRefreshToken() secure-storage read failure) — otherwise every
+            // coalesced follower awaits this deferred forever (a hang). Wake them with a transient
+            // failure, then re-raise so the leader's own caller still sees the fault.
             leader.complete(AppResult.Failure(InternalError()))
             throw e
         } finally {
@@ -86,23 +114,12 @@ internal class AuthRepositoryImpl(
     }
 
     override suspend fun listSessions(): AppResult<List<SessionSummary>> =
-        catching("listSessions") { rpc.authedService().listSessions() }
+        authedChannel.call(idempotent = true) {
+            it.listSessions()
+        }
 
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> =
-        catching("revokeSession") { rpc.authedService().revokeSession(sessionId) }
+        authedChannel.call { it.revokeSession(sessionId) }
 
-    override suspend fun logoutAll(): AppResult<Unit> = catching("logoutAll") { rpc.authedService().logoutAll() }
-
-    private suspend inline fun <T> catching(
-        op: String,
-        block: () -> AppResult<T>,
-    ): AppResult<T> =
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "auth $op failed at the transport boundary" }
-            Failure(e)
-        }
+    override suspend fun logoutAll(): AppResult<Unit> = authedChannel.call { it.logoutAll() }
 }

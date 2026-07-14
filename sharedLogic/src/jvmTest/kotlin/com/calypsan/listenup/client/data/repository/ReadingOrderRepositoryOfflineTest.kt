@@ -4,7 +4,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.ReadingOrderEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.ReadingOrderRpcFactory
+import com.calypsan.listenup.api.ReadingOrderService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -31,7 +33,7 @@ import kotlinx.coroutines.test.runTest
 class ReadingOrderRepositoryOfflineTest :
     FunSpec({
 
-        suspend fun withRepo(block: suspend (ReadingOrderRepository, ListenUpDatabase, ReadingOrderRpcFactory) -> Unit) {
+        suspend fun withRepo(block: suspend (ReadingOrderRepository, ListenUpDatabase, ReadingOrderService) -> Unit) {
             val db = createInMemoryTestDatabase()
             try {
                 val queue =
@@ -49,18 +51,18 @@ class ReadingOrderRepositoryOfflineTest :
                         transactionRunner = txRunner,
                         authSession = FakeAuthSession(userId = "u1"),
                     )
-                val rpcFactory = mock<ReadingOrderRpcFactory>()
+                val service = mock<ReadingOrderService>()
                 val repo =
                     ReadingOrderRepositoryImpl(
                         dao = db.readingOrderDao(),
                         bookDao = db.readingOrderBookDao(),
                         followDao = db.readingOrderFollowDao(),
                         userDao = db.userDao(),
-                        rpcFactory = rpcFactory,
+                        channel = RpcChannel.forTest(service),
                         offlineEditor = offlineEditor,
                         authSession = FakeAuthSession(userId = "u1"),
                     )
-                block(repo, db, rpcFactory)
+                block(repo, db, service)
             } finally {
                 db.close()
             }
@@ -83,7 +85,7 @@ class ReadingOrderRepositoryOfflineTest :
 
         test("offline metadata update persists to Room and enqueues a reading_orders op") {
             runTest {
-                withRepo { repo, db, rpcFactory ->
+                withRepo { repo, db, service ->
                     db.readingOrderDao().upsert(orderEntity())
 
                     val result =
@@ -104,14 +106,14 @@ class ReadingOrderRepositoryOfflineTest :
                     row.revision shouldBe 1L
                     db.queuedOps().map { it.domainName } shouldContainExactly listOf("reading_orders")
                     // Explicit: the offline path never touches the RPC surface.
-                    verifyNoMoreCalls(rpcFactory)
+                    verifyNoMoreCalls(service)
                 }
             }
         }
 
         test("offline addBooks appends optimistic junction rows in order and enqueues one op per book") {
             runTest {
-                withRepo { repo, db, rpcFactory ->
+                withRepo { repo, db, service ->
                     db.readingOrderDao().upsert(orderEntity())
 
                     repo
@@ -123,14 +125,14 @@ class ReadingOrderRepositoryOfflineTest :
                     db.readingOrderBookDao().findById("ro1:b1")!!.sortOrder shouldBe 0
                     db.readingOrderBookDao().findById("ro1:b2")!!.sortOrder shouldBe 1
                     db.queuedOps().map { it.domainName } shouldContainExactly listOf("reading_order_books", "reading_order_books")
-                    verifyNoMoreCalls(rpcFactory)
+                    verifyNoMoreCalls(service)
                 }
             }
         }
 
         test("offline removeBook tombstones the junction row locally and enqueues a delete op") {
             runTest {
-                withRepo { repo, db, rpcFactory ->
+                withRepo { repo, db, service ->
                     db.readingOrderDao().upsert(orderEntity())
                     repo
                         .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1")))
@@ -142,14 +144,14 @@ class ReadingOrderRepositoryOfflineTest :
 
                     db.readingOrderBookDao().observeReadingOrderBooks("ro1").first() shouldBe emptyList()
                     db.readingOrderBookDao().findById("ro1:b1")!!.deletedAt shouldNotBe null
-                    verifyNoMoreCalls(rpcFactory)
+                    verifyNoMoreCalls(service)
                 }
             }
         }
 
         test("offline reorder rewrites local sort order and enqueues one op for the whole ordering") {
             runTest {
-                withRepo { repo, db, rpcFactory ->
+                withRepo { repo, db, service ->
                     db.readingOrderDao().upsert(orderEntity())
                     repo
                         .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1"), BookId("b2"), BookId("b3")))
@@ -161,14 +163,14 @@ class ReadingOrderRepositoryOfflineTest :
 
                     db.readingOrderBookDao().observeReadingOrderBooks("ro1").first() shouldContainExactly
                         listOf("b3", "b1", "b2")
-                    verifyNoMoreCalls(rpcFactory)
+                    verifyNoMoreCalls(service)
                 }
             }
         }
 
         test("offline setActiveReadingOrder writes the follow row with the deterministic id and enqueues an op") {
             runTest {
-                withRepo { repo, db, rpcFactory ->
+                withRepo { repo, db, service ->
                     db.readingOrderDao().upsert(orderEntity())
                     repo
                         .setActiveReadingOrder("series-1", ReadingOrderId("ro1"))
@@ -183,14 +185,14 @@ class ReadingOrderRepositoryOfflineTest :
                         .setActiveReadingOrder("series-1", null)
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
                     repo.observeActiveReadingOrder("series-1").first() shouldBe null
-                    verifyNoMoreCalls(rpcFactory)
+                    verifyNoMoreCalls(service)
                 }
             }
         }
 
         test("observeActiveReadingOrder falls back to null when the followed order is absent or tombstoned") {
             runTest {
-                withRepo { repo, db, rpcFactory ->
+                withRepo { repo, db, service ->
                     // Follow points at an order the local mirror has never seen — the
                     // graceful per-book-frontier floor, never a dangling pointer.
                     repo

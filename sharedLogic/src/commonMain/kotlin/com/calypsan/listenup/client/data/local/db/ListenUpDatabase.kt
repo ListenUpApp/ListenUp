@@ -15,26 +15,27 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v4** — a pre-1.0 baseline that squashed the accumulated migration chain
+ * Schema is at **v5** — a pre-1.0 baseline that squashed the accumulated migration chain
  * (no beta DBs existed to migrate, so the collapse is purely mechanical). There is no
  * migration chain: the pre-launch policy `fallbackToDestructiveMigration(true)` on each
  * platform `DatabaseModule` nukes and recreates the local DB on any schema change (data
- * re-syncs from the server), which is acceptable pre-release. Before launch, flip the
- * fallback to `false` and begin a real migration chain in `data/local/migrations/`; the
- * `@Database.exportSchema` on-disk JSON (`schemas/…/4.json`) is the authoritative baseline.
+ * re-syncs from the server), which is acceptable pre-release — so a version bump needs no
+ * hand-written [androidx.room.migration.Migration]. Before launch, flip the fallback to `false`
+ * and begin a real migration chain in `data/local/migrations/`; the `@Database.exportSchema`
+ * on-disk JSON (`schemas/…/5.json`) is the authoritative baseline.
  *
  * v1 → v2 (nested chapters): adds nullable `partTitle` / `bookTitle` columns to `chapters` —
- * optional Book/Part header labels on the chapter that opens each section. No hand-written
- * migration — the pre-launch destructive fallback recreates the schema.
+ * optional Book/Part header labels on the chapter that opens each section.
  *
  * v2 → v3 (reading orders): adds the `reading_orders`, `reading_order_books`, and
- * `reading_order_follows` mirrors (Story World Stage 1 backbone). No hand-written
- * migration — the pre-launch destructive fallback recreates the schema.
+ * `reading_order_follows` mirrors (Story World Stage 1 backbone).
  *
  * v3 → v4 (high-water listening frontier): adds `maxPositionMs` to `playback_positions` —
  * the furthest position ever heard in a book, the spoiler-safe frontier for Story World
- * Stage 3. No hand-written migration — the pre-launch destructive fallback recreates the
- * schema.
+ * Stage 3.
+ *
+ * v4 → v5 (trunk merge): adds `tentative_span.processId` for orphan-span process identity —
+ * the trunk line's own v1 → v2 bump, renumbered when the feature and trunk lines merged.
  */
 @Database(
     entities = [
@@ -79,7 +80,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(

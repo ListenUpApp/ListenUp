@@ -201,6 +201,49 @@ class AdminUserServiceImplTest :
             }
         }
 
+        test("demoting an admin to member revokes all their sessions (no stale privileged window)") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                runTest {
+                    // A live session the demoted admin still holds a valid access token against.
+                    val sessions =
+                        SessionService(sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+                    val issued = sessions.createSession(UserId("a1"))
+                    sessions.isLive(issued.sessionId) shouldBe true
+
+                    makeAdminUserService(db)
+                        .actAs("root1", UserRole.ROOT)
+                        .updateUser(UserId("a1"), AdminUserPatch(role = UserRole.MEMBER))
+                        .shouldSucceed()
+
+                    // The demotion must sever their sessions so the ADMIN-role JWT can't outlive it.
+                    sessions.isLive(issued.sessionId) shouldBe false
+                }
+            }
+        }
+
+        test("a permission-only update does NOT revoke sessions") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    val sessions =
+                        SessionService(sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+                    val issued = sessions.createSession(UserId("m1"))
+
+                    makeAdminUserService(db)
+                        .actAs("root1", UserRole.ROOT)
+                        .updateUser(UserId("m1"), AdminUserPatch(displayName = "Renamed"))
+                        .shouldSucceed()
+
+                    sessions.isLive(issued.sessionId) shouldBe true
+                }
+            }
+        }
+
         test("updateUser by a non-admin is rejected with PermissionDenied") {
             withSqlDatabase {
                 val db = this

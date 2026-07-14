@@ -6,7 +6,7 @@ import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -37,7 +37,7 @@ import org.koin.test.verify.verify
  *  - [GenreRepository] — owned by `genreTagModule`.
  *  - [TagRepository] — owned by `genreTagModule`.
  *  - [MoodRepository] — owned by `genreTagModule`.
- *  - [CollectionRpcFactory] — owned by `collectionModule`.
+ *  - the [RpcChannel] for `CollectionService` — owned by `collectionModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
  *  - [SyncDomainHandler] (books) — owned by `clientSyncModule`.
@@ -62,7 +62,7 @@ class BookModuleVerifyTest :
                         GenreRepository::class,
                         TagRepository::class,
                         MoodRepository::class,
-                        CollectionRpcFactory::class,
+                        RpcChannel::class,
                         ImageRepository::class,
                         ImageStagingRepository::class,
                         SyncDomainHandler::class,

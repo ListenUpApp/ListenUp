@@ -243,6 +243,11 @@ private class StubPlaybackManager : PlaybackManager {
 
     override fun updatePosition(positionMs: Long) = Unit
 
+    override fun updatePositionFromMediaItem(
+        mediaItemIndex: Int,
+        positionInItemMs: Long,
+    ) = Unit
+
     override fun updateSpeed(speed: Float) = Unit
 
     override fun reportError(

@@ -61,6 +61,9 @@ struct KotlinProgressReporting: PlaybackProgressReporting {
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
         reporter.onPositionUpdate(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
     }
+    func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float) {
+        reporter.onSeek(bookId: BookId(value: bookId), beforeMs: beforeMs, afterMs: afterMs, speed: speed)
+    }
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
         reporter.onSpeedChanged(bookId: BookId(value: bookId), positionMs: positionMs, newSpeed: newSpeed)
     }

@@ -100,18 +100,23 @@ class ContributorDeleteCascadeE2ETest :
                     contributorEditRepository.deleteContributor(ContributorId(contributorId.value))
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                // Cascade complete only when: both junction sets are empty AND the contributor
-                // row is tombstoned. The two `book.Updated` events drive the junction wipe via
-                // `BookMirrorApply.applyContributors` (which deleteContributorsForBook +
-                // re-inserts the empty list); the `contributor.Deleted` event drives the
-                // `deletedAt` write via the `contributors` domain's soft-delete.
+                // deleteContributor is now offline-first: the optimistic local cascade + tombstone
+                // satisfy the CLIENT witness immediately, so the loop must also wait for the durable
+                // op to drain to the server (which hard-deletes the junctions, strips each book, and
+                // soft-deletes the contributor) — otherwise the server-side assertions below race the
+                // drain. The two `book.Updated` + one `contributor.Deleted` echoes then reconcile the
+                // optimistic state (idempotent re-apply).
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
                     while (true) {
-                        val bookOneEmpty = clientDatabase.contributorDao().getByBookId(BOOK_ONE_ID).isEmpty()
-                        val bookTwoEmpty = clientDatabase.contributorDao().getByBookId(BOOK_TWO_ID).isEmpty()
-                        val tombstoned =
-                            clientDatabase.contributorDao().getById(contributorId.value)?.deletedAt != null
-                        if (bookOneEmpty && bookTwoEmpty && tombstoned) break
+                        val clientDone =
+                            clientDatabase.contributorDao().getByBookId(BOOK_ONE_ID).isEmpty() &&
+                                clientDatabase.contributorDao().getByBookId(BOOK_TWO_ID).isEmpty() &&
+                                clientDatabase.contributorDao().getById(contributorId.value)?.deletedAt != null
+                        val serverDone =
+                            serverBookRepository.findById(BookId(BOOK_ONE_ID))?.contributors?.isEmpty() == true &&
+                                serverBookRepository.findById(BookId(BOOK_TWO_ID))?.contributors?.isEmpty() == true &&
+                                serverContributorRepository.findById(contributorId.value)?.deletedAt != null
+                        if (clientDone && serverDone) break
                     }
                 }
 

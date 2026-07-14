@@ -65,6 +65,7 @@ internal val listeningModule: Module =
             ListeningEventRecorder(
                 listeningEventDao = get(),
                 tentativeSpanDao = get(),
+                transactionRunner = get(),
                 enqueue = { entityId, payload, ownerUserId ->
                     get<PendingOperationQueue>()
                         .enqueue(OutboxChannels.ListeningEvents, entityId, OpKind.Upsert, payload, ownerUserId)

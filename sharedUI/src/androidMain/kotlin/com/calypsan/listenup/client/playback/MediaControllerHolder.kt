@@ -118,7 +118,15 @@ class MediaControllerHolder(
             scope.launch(Dispatchers.Main.immediate) {
                 while (isActive) {
                     if (controller.isPlaying) {
-                        playbackManager.updatePosition(controller.currentPosition)
+                        // controller.currentPosition is FILE-relative (position within the
+                        // current media item). For a multi-file book this is NOT the book
+                        // position — push through the media-item seam so PlaybackManager
+                        // converts to book-relative via the active timeline. Passing the raw
+                        // offset would corrupt currentPositionMs (regressed saves, wrong skips).
+                        playbackManager.updatePositionFromMediaItem(
+                            mediaItemIndex = controller.currentMediaItemIndex,
+                            positionInItemMs = controller.currentPosition,
+                        )
                     }
                     delay(POSITION_POLL_INTERVAL_MS)
                 }

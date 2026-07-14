@@ -11,7 +11,8 @@ import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.UserPreferencesDao
 import com.calypsan.listenup.client.data.local.db.UserPreferencesEntity
-import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -75,6 +76,15 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
     override suspend fun nextDispatchable(maxAttempts: Int): List<PendingOperationV2Entity> = inserted.toList()
 
     override suspend fun countDispatchable(maxAttempts: Int): Int = inserted.count { it.failureCount <= maxAttempts }
+
+    override suspend fun hasQueuedOp(
+        domainName: String,
+        entityId: String,
+        maxAttempts: Int,
+    ): Boolean =
+        inserted.any {
+            it.domainName == domainName && it.entityId == entityId && it.failureCount <= maxAttempts
+        }
 
     override suspend fun deleteQueuedOps(
         domainName: String,
@@ -142,7 +152,6 @@ class UserPreferencesRepositoryImplTest :
             dao: UserPreferencesDao = FakeUserPreferencesDao(),
             pendingOperationDao: PendingOperationV2Dao = FakePendingOperationV2Dao(),
         ): UserPreferencesRepositoryImpl {
-            val factory = mock<UserPreferencesRpcFactory> { everySuspend { get() } returns service }
             val offlineEditor =
                 OfflineEditor(
                     pendingQueue =
@@ -153,7 +162,12 @@ class UserPreferencesRepositoryImplTest :
                     transactionRunner = passthroughTransactionRunner,
                     authSession = FakeAuthSession(userId = "u1"),
                 )
-            return UserPreferencesRepositoryImpl(factory, dao, FakeAuthSession(userId = "u1"), offlineEditor)
+            return UserPreferencesRepositoryImpl(
+                RpcChannel.forTest(service),
+                dao,
+                FakeAuthSession(userId = "u1"),
+                offlineEditor,
+            )
         }
 
         test("getPreferences maps the DTO to the domain type") {

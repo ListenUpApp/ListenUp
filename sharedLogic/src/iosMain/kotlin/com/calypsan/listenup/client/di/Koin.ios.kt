@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.core.configureLogging
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
-import com.calypsan.listenup.client.domain.usecase.GetInstanceUseCase
+import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
@@ -12,6 +12,7 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 import org.koin.mp.KoinPlatform
 import com.calypsan.listenup.client.download.DownloadService
+import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
 import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.SleepTimerManager
@@ -97,12 +98,6 @@ internal actual fun initializeKoin(additionalModules: List<Module>) {
 }
 
 /**
- * iOS simulator connects to host via 127.0.0.1.
- * Using explicit IPv4 address instead of localhost to avoid IPv6 resolution issues.
- */
-actual fun getBaseUrl(): String = "http://127.0.0.1:8080"
-
-/**
  * iOS-specific discovery module.
  * Provides Bonjour-based mDNS discovery using NSNetServiceBrowser.
  */
@@ -160,8 +155,6 @@ private fun <T : Any> resolveWithParams(
  * public surface. Every accessor returns a domain or presentation type, never a Koin type.
  */
 object KoinHelper {
-    fun getInstanceUseCase(): GetInstanceUseCase = resolve(GetInstanceUseCase::class)
-
     fun getInstanceRepository(): InstanceRepository = resolve(InstanceRepository::class)
 
     fun getServerConnectViewModel(): ServerConnectViewModel = resolve(ServerConnectViewModel::class)
@@ -186,6 +179,8 @@ object KoinHelper {
     fun getAppStartupViewModel(): AppStartupViewModel = resolve(AppStartupViewModel::class)
 
     fun getAuthSession(): AuthSession = resolve(AuthSession::class)
+
+    fun getConnectionHealthViewModel(): ConnectionHealthViewModel = resolve(ConnectionHealthViewModel::class)
 
     fun getServerConfig(): ServerConfig = resolve(ServerConfig::class)
 
@@ -310,6 +305,8 @@ object KoinHelper {
     fun getPlaybackPreparer(): PlaybackPreparer = resolve(PlaybackPreparer::class)
 
     fun getServerReachability(): ServerReachability = resolve(ServerReachability::class)
+
+    fun getPlaybackBandwidthCoordinator(): PlaybackBandwidthCoordinator = resolve(PlaybackBandwidthCoordinator::class)
 
     fun getPlaybackPreferences(): PlaybackPreferences = resolve(PlaybackPreferences::class)
 }

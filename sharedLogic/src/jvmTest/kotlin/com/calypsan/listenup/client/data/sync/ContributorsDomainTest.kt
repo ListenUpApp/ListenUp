@@ -39,7 +39,7 @@ class ContributorsDomainTest :
         test("a Created event inserts the contributor row") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(payload("c1", "Brandon Sanderson")), isOwnEcho = false)
+                    .onEvent(created(payload("c1", "Brandon Sanderson")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.contributorDao().getById("c1")
                 row shouldNotBe null
@@ -70,7 +70,6 @@ class ContributorsDomainTest :
                         clientOpId = null,
                         payload = payload("c1", "New Name", revision = 5),
                     ),
-                    isOwnEcho = false,
                 )
 
                 val row = db.contributorDao().getById("c1")!!
@@ -84,7 +83,7 @@ class ContributorsDomainTest :
 
         test("onCatchUpItem with isTombstone soft-deletes the contributor") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("c1", "Brandon Sanderson")), isOwnEcho = false)
+                handler.onEvent(created(payload("c1", "Brandon Sanderson")))
                 handler
                     .onCatchUpItem(payload("c1", "Brandon Sanderson", deletedAt = 100L), isTombstone = true)
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -102,7 +101,6 @@ class ContributorsDomainTest :
                             aliases = listOf("Richard Bachman", "John Swithen"),
                         ),
                     ),
-                    isOwnEcho = false,
                 )
 
                 db.contributorAliasDao().getForContributor("c1") shouldBe
@@ -120,7 +118,6 @@ class ContributorsDomainTest :
                             aliases = listOf("Richard Bachman", "John Swithen"),
                         ),
                     ),
-                    isOwnEcho = false,
                 )
 
                 handler.onEvent(
@@ -131,7 +128,6 @@ class ContributorsDomainTest :
                         clientOpId = null,
                         payload = payload("c1", "Stephen King", revision = 2, aliases = listOf("Beryl Evans")),
                     ),
-                    isOwnEcho = false,
                 )
 
                 db.contributorAliasDao().getForContributor("c1") shouldBe listOf("Beryl Evans")
@@ -142,7 +138,6 @@ class ContributorsDomainTest :
             withHandler { handler, db ->
                 handler.onEvent(
                     created(payload("c1", "Stephen King", aliases = listOf("Richard Bachman"))),
-                    isOwnEcho = false,
                 )
 
                 handler.onEvent(
@@ -153,7 +148,6 @@ class ContributorsDomainTest :
                         clientOpId = null,
                         payload = payload("c1", "Stephen King", revision = 2, aliases = emptyList()),
                     ),
-                    isOwnEcho = false,
                 )
 
                 db.contributorAliasDao().getForContributor("c1").shouldBeEmpty()
@@ -164,7 +158,6 @@ class ContributorsDomainTest :
             withHandler { handler, db ->
                 handler.onEvent(
                     created(payload("c1", "Stephen King", aliases = listOf("Richard Bachman"))),
-                    isOwnEcho = false,
                 )
 
                 handler.onEvent(
@@ -174,7 +167,6 @@ class ContributorsDomainTest :
                         occurredAt = 200L,
                         clientOpId = null,
                     ),
-                    isOwnEcho = false,
                 )
 
                 db.contributorDao().getById("c1")!!.deletedAt shouldBe 200L
@@ -184,10 +176,9 @@ class ContributorsDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("c1", "Brandon Sanderson")), isOwnEcho = false)
+                handler.onEvent(created(payload("c1", "Brandon Sanderson")))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "c1", revision = 2, occurredAt = 200L, clientOpId = null),
-                    isOwnEcho = false,
                 )
                 // observeById filters tombstones — invisible to reads
                 db.contributorDao().observeById("c1").first() shouldBe null
@@ -202,7 +193,6 @@ class ContributorsDomainTest :
             withHandler { handler, db ->
                 handler.onEvent(
                     created(payload("c1", "Stephen King", aliases = listOf("Richard Bachman"))),
-                    isOwnEcho = false,
                 )
 
                 handler.onCatchUpItem(
@@ -237,8 +227,8 @@ class ContributorsDomainTest :
                     val handler =
                         contributorsDomain(db, imageStorage).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
 
-                    handler.onEvent(created(photo("c1", "h1")), isOwnEcho = false)
-                    handler.onEvent(updated(photo("c1", "h2", revision = 2)), isOwnEcho = false)
+                    handler.onEvent(created(photo("c1", "h1")))
+                    handler.onEvent(updated(photo("c1", "h2", revision = 2)))
 
                     verifySuspend(VerifyMode.exactly(1)) { imageStorage.deleteContributorImage("c1") }
                 } finally {
@@ -256,8 +246,8 @@ class ContributorsDomainTest :
                     val handler =
                         contributorsDomain(db, imageStorage).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
 
-                    handler.onEvent(created(photo("c1", "h1")), isOwnEcho = false)
-                    handler.onEvent(updated(photo("c1", "h1", name = "Renamed", revision = 2)), isOwnEcho = false)
+                    handler.onEvent(created(photo("c1", "h1")))
+                    handler.onEvent(updated(photo("c1", "h1", name = "Renamed", revision = 2)))
 
                     verifySuspend(VerifyMode.not) { imageStorage.deleteContributorImage(any()) }
                 } finally {

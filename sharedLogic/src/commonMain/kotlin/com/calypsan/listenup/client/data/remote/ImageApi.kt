@@ -47,6 +47,10 @@ private fun seriesCoverPath(seriesId: String) = "/api/v1/series/$seriesId/cover"
  * @property clientFactory Factory for creating authenticated HttpClient
  * @property settingsRepository For constructing full image URLs
  */
+@NonRpcTransport(
+    NonRpcReason.BINARY_TRANSFER,
+    justification = "Cover/photo/avatar bytes and the TAR image batch are raw byte streams — no JSON-RPC frame.",
+)
 internal class ImageApi(
     private val clientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,

@@ -16,7 +16,8 @@ import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -25,6 +26,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
 import com.calypsan.listenup.client.test.stubImageStorage
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -113,7 +115,7 @@ class PlaybackManagerFallbackFetchTest :
 
         fun createPlaybackManager(
             db: ListenUpDatabase,
-            bookRpcFactory: BookRpcFactory,
+            channel: RpcChannel<BookService>,
         ): PlaybackManager {
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
@@ -158,10 +160,11 @@ class PlaybackManagerFallbackFetchTest :
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                playbackRpcFactory = testPlaybackRpcFactory("af-1", "af-2"),
-                bookRpcFactory = bookRpcFactory,
+                prepareRepository = testPlaybackPrepareRepository("af-1", "af-2"),
+                channel = channel,
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = bookSyncDomainHandler,
+                playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
             )
         }
 
@@ -170,8 +173,6 @@ class PlaybackManagerFallbackFetchTest :
             try {
                 runTest {
                     val bookService: BookService = mock()
-                    val bookRpcFactory: BookRpcFactory = mock()
-                    everySuspend { bookRpcFactory.bookService() } returns bookService
 
                     seedBookWithoutAudioFiles(db)
 
@@ -208,7 +209,7 @@ class PlaybackManagerFallbackFetchTest :
                             ),
                         )
 
-                    val playbackManager = createPlaybackManager(db = db, bookRpcFactory = bookRpcFactory)
+                    val playbackManager = createPlaybackManager(db = db, channel = RpcChannel.forTest(bookService))
 
                     playbackManager.prepareForPlayback(BookId("book-1"))
 

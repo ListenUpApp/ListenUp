@@ -157,6 +157,10 @@ class AdminUserServiceImpl(
         patch: AdminUserPatch,
     ): AppResult<User> {
         requireAdmin()?.let { return it }
+        // Captured inside the txn, acted on after commit: a privilege demotion must sever the
+        // demoted user's live sessions so a still-valid access token can't outlive its role (≤15m
+        // stale-privilege window otherwise — the access JWT embeds the role claim).
+        var demoted = false
         val outcome: AppResult<User> =
             suspendTransaction(sql) {
                 val user =
@@ -169,6 +173,7 @@ class AdminUserServiceImpl(
                 // Merge only the non-null patch fields, then write the merged row back.
                 val mergedDisplayName = patch.displayName ?: user.displayName
                 val mergedRole = patch.role?.toColumn() ?: user.role
+                demoted = user.role == UserRoleColumn.ADMIN && mergedRole == UserRoleColumn.MEMBER
                 val mergedCanEdit = patch.permissions?.canEdit ?: user.canEdit
                 val mergedCanShare = patch.permissions?.canShare ?: user.canShare
                 val now = clock.now().toEpochMilliseconds()
@@ -194,6 +199,7 @@ class AdminUserServiceImpl(
         // Publish AFTER commit, mirroring deleteUser's capture-then-act shape: the merged-row
         // write is the durable fact, so the roster refresh only fires once it's actually landed.
         if (outcome is AppResult.Success) {
+            if (demoted) sessions.revokeAll(id)
             adminUserRosterMaintainer?.refreshBestEffort(id.value)
         }
         return outcome

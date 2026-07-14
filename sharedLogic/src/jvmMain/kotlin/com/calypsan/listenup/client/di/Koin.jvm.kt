@@ -59,13 +59,18 @@ fun jvmPlaybackPresentationModule(): Module = playbackPresentationModule
 fun clientAuthModuleForTests(): Module = clientAuthModule
 
 /**
- * Public JVM Koin module that binds a real `ApiClientFactory` for the server's end-to-end fixture.
+ * Public JVM Koin module that binds the internal RPC-transport leaves — `ApiClientFactory` and its
+ * peer `RpcAuthRecovery` — for the server's end-to-end fixture.
  *
- * The `ApiClientFactory` type (and `createApiClientFactory`) are `internal` to `:sharedLogic` so the
- * Ktor `HttpClient` stays off the Swift Export surface — meaning `:server`'s `AuthEndToEndFixture`
- * can no longer bind the type itself. This seam does the binding inside `:sharedLogic`, resolving
- * `ServerConfig` / `AuthSession` / `AuthRepository` from the same Koin scope, so the fixture just
- * includes this module. Its signature names no internal type.
+ * Both types (and `createApiClientFactory`) are `internal` to `:sharedLogic` so the Ktor `HttpClient`
+ * stays off the Swift Export surface — meaning `:server`'s `AuthEndToEndFixture` can no longer bind
+ * them itself. This seam does the binding inside `:sharedLogic`, resolving `ServerConfig` /
+ * `AuthSession` / `AuthRepository` from the same Koin scope, so the fixture just includes this module.
+ * Its signature names no internal type.
+ *
+ * `RpcAuthRecovery` became a required peer when the auth RPC channels adopted `RpcChannel` (every
+ * authed channel's `RpcProxyCache` injects it for handshake-401 refresh-and-retry); it mirrors the
+ * production `networkModule` binding, using the same lazy `AuthRepository` seam as `ApiClientFactory`.
  */
 fun clientApiClientFactoryTestModule(): Module =
     module {
@@ -76,17 +81,23 @@ fun clientApiClientFactoryTestModule(): Module =
                 refreshAccessToken = {
                     get<com.calypsan.listenup.client.domain.repository.AuthRepository>().refreshAccessToken()
                 },
+                // Not resolved via `get()`: the minimal `AuthEndToEndFixture` DI scope deliberately
+                // omits `appCoreModule` (which owns the `ClientIdentity` binding) — see its comment.
+                // Same module (`:sharedLogic` jvmMain) can reference the internal object directly.
+                clientIdentity = com.calypsan.listenup.client.domain.version.DefaultClientIdentity,
+            )
+        }
+
+        single<com.calypsan.listenup.client.data.remote.RpcAuthRecovery> {
+            com.calypsan.listenup.client.data.remote.RpcAuthRecoveryImpl(
+                authSession = get(),
+                refreshAccessToken = {
+                    get<com.calypsan.listenup.client.domain.repository.AuthRepository>().refreshAccessToken()
+                },
+                apiClientFactory = get(),
             )
         }
     }
-
-/**
- * JVM desktop has no default base URL.
- * Users must configure server URL manually or via discovery.
- *
- * Returns a placeholder that will be replaced when user configures the server.
- */
-actual fun getBaseUrl(): String = "http://localhost:8080"
 
 /**
  * JVM desktop discovery module.

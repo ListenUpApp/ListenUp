@@ -54,7 +54,7 @@ final class DevicesObserver {
             let signingOut = Set(ready.signingOut.map { String(describing: $0) })
             phase = .ready(devices: devices, signingOut: signingOut)
         case .error(let errorState):
-            phase = .error(errorState.message)
+            phase = .error(errorState.error.message)
         case .unknown:
             Log.error("Unexpected DevicesUiState case")
             phase = .error(String(localized: "common.something_went_wrong"))
