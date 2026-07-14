@@ -21,7 +21,6 @@ import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.metadata.ImageStorage
-import com.calypsan.listenup.server.metadata.provider.MetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
@@ -67,7 +66,8 @@ internal class BookMetadataApplier(
     private val seriesRepository: SeriesRepository,
     private val imageStorage: ImageStorage,
     private val coverImageStore: CoverImageStore,
-    private val metadataProvider: MetadataProvider,
+    private val matchSource: suspend (asin: String, region: AudibleRegion) -> AppResult<MetadataBook?>,
+    private val enrichmentProvider: String,
     private val genreHierarchy: GenreHierarchyFromLadder,
     private val sqlDb: ListenUpDatabase,
     private val ladderSource: suspend (region: AudibleRegion, asin: String) -> List<List<String>>,
@@ -85,7 +85,7 @@ internal class BookMetadataApplier(
                     MetadataError.NotFound(debugInfo = "Book ${bookId.value} not found in the database."),
                 )
 
-        return metadataProvider.getBook(asin, region).flatMap { match ->
+        return matchSource(asin, region).flatMap { match ->
             if (match == null) {
                 return@flatMap AppResult.Failure(
                     MetadataError.NotFound(debugInfo = "No metadata for ASIN $asin in region $region."),
@@ -113,7 +113,7 @@ internal class BookMetadataApplier(
                     fieldProvenance =
                         existing.fieldProvenance.stampEnrichment(
                             enrichedFields(selection),
-                            metadataProvider.source.name.lowercase(),
+                            enrichmentProvider,
                         ),
                 )
 
@@ -287,9 +287,8 @@ internal class BookMetadataApplier(
      * [BookMoodWriter.setBookMoods][com.calypsan.listenup.server.services.BookMoodWriter.setBookMoods]
      * and [BookTagWriter.setBookTags][com.calypsan.listenup.server.services.BookTagWriter.setBookTags].
      *
-     * The moods/tags were scraped + classified at lookup time (see
-     * `MetadataLookupServiceImpl.enrichWithMoodsAndTags`) and presented to the user as toggleable
-     * chips; the apply path honors that selection rather than re-scraping. A re-match swaps the old
+     * The moods/tags are chosen by the user as toggleable chips and ride the apply [selection]; the
+     * apply path honors that selection rather than scraping. A re-match swaps the old
      * set for the new — a deselected mood/tag is dropped — and an empty set removes all of that
      * dimension's links (explicit "none" from the review). This stops re-matching from
      * accumulating across applies.

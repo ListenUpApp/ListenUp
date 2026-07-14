@@ -21,10 +21,9 @@ import com.calypsan.listenup.server.metadata.spi.SeriesMeta
 // The re-skin of the Audible catalog onto the capability SPI: every Audible
 // response type maps to a provider-neutral `*Meta` shape here so `AudibleProvider`
 // bodies stay one-line `.map { it.toX() }` delegations. Pure functions — no I/O —
-// so they are exhaustively unit-testable without a `MetadataService`, mirroring the
-// wire-DTO mappers in `AudibleMetadataProvider`. That duplication is deliberate and
-// temporary: the old provider still backs the un-migrated book/chapter lookup path
-// until the enrichment coordinator lands and retires it.
+// so they are exhaustively unit-testable without a `MetadataService`. The neutral
+// `*Meta` values feed the `EnrichmentCoordinator`, which composes them across
+// providers and projects the result to the wire DTOs.
 
 /** Minutes → milliseconds. */
 private const val MS_PER_MINUTE: Long = 60_000L
@@ -64,6 +63,7 @@ internal fun AudibleBook.toBookCoreMeta(): BookCoreMeta =
         publisher = publisher.takeIf { it.isNotBlank() },
         releaseDate = releaseDate.takeIf { it.isNotBlank() },
         language = language.takeIf { it.isNotBlank() },
+        runtimeMinutes = runtimeMinutes.takeIf { it > 0 },
         explicit = null,
         abridged = null,
         authors = authors.map { it.toBookContributorMeta(ContributorRole.AUTHOR) },

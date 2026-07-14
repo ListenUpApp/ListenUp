@@ -36,10 +36,10 @@ import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
-import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -148,7 +148,7 @@ private fun withCoverFixture(
             val service =
                 MetadataLookupServiceImpl(
                     metadataService = metadataService,
-                    metadataProviders = listOf(AudibleMetadataProvider(metadataService)),
+                    coordinator = testCoordinator(metadataService),
                     coverSearchService =
                         CoverSearchService(
                             readBook = { null },

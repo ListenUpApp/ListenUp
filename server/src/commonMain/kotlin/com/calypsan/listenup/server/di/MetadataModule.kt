@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.MetadataLookupService
-import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.server.api.MetadataEnrichmentDeps
 import com.calypsan.listenup.server.api.MetadataImageDeps
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
@@ -9,6 +8,8 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.io.readEnv
+import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
@@ -17,9 +18,9 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesClient
 import com.calypsan.listenup.server.metadata.itunes.ITunesRateLimiter
 import com.calypsan.listenup.server.metadata.itunes.ImageDimensionProbe
-import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.metadata.provider.AudibleProvider
 import com.calypsan.listenup.server.metadata.provider.ITunesProvider
+import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
@@ -55,8 +56,9 @@ import org.koin.dsl.module
  *  - [MetadataService] — orchestrator with region-aware fallback.
  *  - [AudibleProvider] / [ITunesProvider] — the capability-SPI providers, collected in a
  *    [MetadataProviderRegistry]; [CoverSearchService] fans cover lookups over the registry's
- *    [com.calypsan.listenup.server.metadata.spi.CoverSource]s. [AudibleMetadataProvider] still
- *    backs the un-migrated book/chapter lookup path until the enrichment coordinator lands.
+ *    [com.calypsan.listenup.server.metadata.spi.CoverSource]s.
+ *  - [EnrichmentRoutes] / [EnrichmentCoordinator] — the operator-configured provider precedence
+ *    and the composer that walks it per domain to build a book's metadata for the lookup service.
  *  - [ImageStorage] — downloads cover/photo images to disk.
  *  - [MetadataLookupServiceImpl] — RPC implementation bound as [MetadataLookupService].
  *
@@ -140,7 +142,14 @@ fun metadataModule(imageHome: Path): Module =
 
         single { MetadataProviderRegistry(providers = listOf(get<AudibleProvider>(), get<ITunesProvider>())) }
 
-        single { AudibleMetadataProvider(metadataService = get()) }
+        single {
+            EnrichmentRoutes.parse(
+                order = readEnv("LISTENUP_ENRICHMENT_ORDER"),
+                routes = readEnv("LISTENUP_ENRICHMENT_ROUTES"),
+            )
+        }
+
+        single { EnrichmentCoordinator(registry = get(), routes = get()) }
 
         single {
             val bookRepository = get<BookRepository>()
@@ -167,7 +176,7 @@ fun metadataModule(imageHome: Path): Module =
         single<MetadataLookupService> {
             MetadataLookupServiceImpl(
                 metadataService = get(),
-                metadataProviders = listOf(get<AudibleMetadataProvider>()),
+                coordinator = get(),
                 coverSearchService = get(),
                 bookRepository = get(),
                 contributorRepository = get(),
@@ -209,10 +218,10 @@ private fun Module.metadataCleanupBindings(imageHome: Path) {
 }
 
 /**
- * Audible mood/trope enrichment bindings for the metadata-apply path:
+ * Mood/trope enrichment bindings for the metadata-apply path:
  *  - [MetadataEnrichmentDeps] — bundles the add-only [BookMoodWriter] / [BookTagWriter] junction
- *    writers and the best-effort [AudibleApi.getProductTags] scrape (empty list on failure) that
- *    [com.calypsan.listenup.server.api.BookMetadataApplier] consumes after a genre apply.
+ *    writers that [com.calypsan.listenup.server.api.BookMetadataApplier] uses to reconcile a book's
+ *    moods/tropes to the user's apply selection.
  *
  * [BookMoodWriter] is a shared single (it also backs the scanner); [BookTagWriter] is constructed
  * here from its repository deps, mirroring [BookRepository]'s inline construction. Split out of
@@ -228,9 +237,6 @@ private fun Module.metadataEnrichmentBindings() {
                     tagRepository = get<TagRepository>(),
                     bookTagRepository = get<BookTagRepository>(),
                 ),
-            productTagSource = { region, asin ->
-                get<AudibleApi>().getProductTags(region, asin).getOrElse { emptyList() }
-            },
         )
     }
 }

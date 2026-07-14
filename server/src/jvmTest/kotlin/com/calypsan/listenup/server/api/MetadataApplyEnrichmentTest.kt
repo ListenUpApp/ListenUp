@@ -23,7 +23,8 @@ import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
-import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
+import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.MetadataLocale
 import com.calypsan.listenup.server.services.BookMoodWriter
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.BookTagWriter
@@ -43,6 +44,7 @@ import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -98,9 +100,8 @@ private val ENRICH_SELECTION =
 /**
  * Verifies the user-selected Audible mood/trope enrichment wired into the metadata-apply path.
  *
- * The applier no longer re-scrapes Audible at apply time: moods + tropes are scraped and
- * classified at lookup time (see `MetadataLookupServiceImpl.enrichWithMoodsAndTags`) and
- * presented to the user as toggleable chips. The apply path honors that selection —
+ * The applier does not scrape Audible at apply time: moods + tropes are chosen by the user as
+ * toggleable chips and ride the apply selection. The apply path honors that selection —
  * [MetadataApplySelection.moods] / [MetadataApplySelection.tags] — reconciling the book's moods/tags
  * to exactly the chosen values (replace, not add). This test covers:
  *
@@ -113,7 +114,6 @@ private val ENRICH_SELECTION =
  *
  * Drives [BookMetadataApplier] directly (rather than through [MetadataLookupServiceImpl]) so the
  * same mood/tag repositories used for assertion are injected without round-tripping the DI module.
- * The `productTagSource` is no longer consulted by the apply path; the stub asserts that.
  */
 class MetadataApplyEnrichmentTest :
     FunSpec({
@@ -122,7 +122,7 @@ class MetadataApplyEnrichmentTest :
             withSqlDatabase {
                 val ctx = enrichmentCtx(this)
                 // The apply path must NOT scrape — a throwing source proves moods/tags come from the selection.
-                val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
+                val applier = ctx.applier()
                 val selection =
                     ENRICH_SELECTION.copy(
                         moods = setOf("Feel-Good", "Tense"),
@@ -144,7 +144,7 @@ class MetadataApplyEnrichmentTest :
         test("an empty mood/tag selection writes nothing but still succeeds") {
             withSqlDatabase {
                 val ctx = enrichmentCtx(this)
-                val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
+                val applier = ctx.applier()
 
                 runTest {
                     ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
@@ -165,7 +165,7 @@ class MetadataApplyEnrichmentTest :
         test("re-matching reconciles moods/tropes to the new selection instead of accumulating (#573)") {
             withSqlDatabase {
                 val ctx = enrichmentCtx(this)
-                val applier = ctx.applier { _, _ -> error("apply must not scrape product tags") }
+                val applier = ctx.applier()
 
                 runTest {
                     ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
@@ -208,14 +208,20 @@ private class EnrichmentCtx(
     val bookTagRepo: BookTagRepository,
     val tempDir: String,
 ) {
-    fun applier(productTagSource: suspend (AudibleRegion, String) -> List<ProductTag>): BookMetadataApplier =
-        BookMetadataApplier(
+    fun applier(): BookMetadataApplier {
+        val coordinator = testCoordinator(metadataService)
+        return BookMetadataApplier(
             bookRepository = bookRepo,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) })),
             coverImageStore = CoverImageStore(ImageStore(IoPath(Path.of(tempDir).resolve("covers").toString()), MAX_COVER_BYTES)),
-            metadataProvider = AudibleMetadataProvider(metadataService),
+            matchSource = { asin, region ->
+                AppResult.Success(
+                    coordinator.composeBook(BookIdentity(asin = asin, title = ""), MetadataLocale(region.code))?.toMetadataBook(),
+                )
+            },
+            enrichmentProvider = "audible",
             genreHierarchy = GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),
             sqlDb = sql,
             ladderSource = { _, _ -> emptyList() },
@@ -223,9 +229,9 @@ private class EnrichmentCtx(
                 MetadataEnrichmentDeps(
                     bookMoodWriter = BookMoodWriter(FixedClock(ENRICH_NOW), moodRepo, bookMoodRepo),
                     bookTagWriter = BookTagWriter(FixedClock(ENRICH_NOW), tagRepo, bookTagRepo),
-                    productTagSource = productTagSource,
                 ),
         )
+    }
 
     suspend fun moodNamesForBook(bookId: String): List<String> =
         bookMoodRepo

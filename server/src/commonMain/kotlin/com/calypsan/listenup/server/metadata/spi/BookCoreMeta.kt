@@ -28,6 +28,8 @@ data class BookCoreMeta(
     val releaseDate: String? = null,
     /** BCP-47 / catalog language token. */
     val language: String? = null,
+    /** Total runtime in minutes when the catalog reports one; `null`/0 when unknown. */
+    val runtimeMinutes: Int? = null,
     /** Whether the catalog flags explicit content; `null` when unknown. */
     val explicit: Boolean? = null,
     /** Whether the edition is abridged; `null` when unknown. */

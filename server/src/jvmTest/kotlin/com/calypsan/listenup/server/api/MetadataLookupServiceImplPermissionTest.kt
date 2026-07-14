@@ -21,7 +21,6 @@ import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
-import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -37,6 +36,7 @@ import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -123,7 +123,7 @@ private fun makeMetadataPermService(dbs: SqlTestDatabases): MetadataLookupServic
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
-        metadataProviders = listOf(AudibleMetadataProvider(metadataService)),
+        coordinator = testCoordinator(metadataService),
         coverSearchService =
             CoverSearchService(
                 readBook = { null },

@@ -10,7 +10,6 @@ import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
-import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.metadata.AudibleRegion
@@ -25,8 +24,6 @@ import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
-import com.calypsan.listenup.server.metadata.provider.MetadataProvider
-import com.calypsan.listenup.server.metadata.provider.MetadataSource
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreAutoCreator
@@ -64,27 +61,6 @@ private val ONE_PX_PNG: ByteArray =
     java.util.Base64.getDecoder().decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
     )
-
-private fun fakeProvider(book: MetadataBook) =
-    object : MetadataProvider {
-        override val source = MetadataSource.AUDIBLE
-
-        override suspend fun search(
-            query: String,
-            region: AudibleRegion?,
-        ): AppResult<List<MetadataBook>> = AppResult.Success(listOf(book))
-
-        override suspend fun getBook(
-            id: String,
-            region: AudibleRegion,
-            refresh: Boolean,
-        ): AppResult<MetadataBook?> = AppResult.Success(book)
-
-        override suspend fun getChapters(
-            id: String,
-            region: AudibleRegion,
-        ): AppResult<MetadataChapters?> = AppResult.Success(null)
-    }
 
 private fun matchBook() =
     MetadataBook(
@@ -163,7 +139,7 @@ class MatchApplySelectionTest :
             books: BookRepository,
             contributors: ContributorRepository,
             series: SeriesRepository,
-            provider: MetadataProvider,
+            match: MetadataBook,
             coverBytes: ByteArray? = null,
             ladders: List<List<String>> = emptyList(),
         ): BookMetadataApplier {
@@ -182,7 +158,8 @@ class MatchApplySelectionTest :
                 seriesRepository = series,
                 imageStorage = ImageStorage(httpClient = HttpClient(engine)),
                 coverImageStore = CoverImageStore(ImageStore(IoPath(tempDir.resolve("covers").toString()), MAX_COVER_BYTES)),
-                metadataProvider = provider,
+                matchSource = { _, _ -> AppResult.Success(match) },
+                enrichmentProvider = "audible",
                 genreHierarchy = GenreHierarchyFromLadder(dbs.sql, genreRepo, GenreAutoCreator(genreRepo)),
                 sqlDb = dbs.sql,
                 ladderSource = { _, _ -> ladders },
@@ -204,7 +181,7 @@ class MatchApplySelectionTest :
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
 
                     a
                         .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover())
@@ -237,7 +214,7 @@ class MatchApplySelectionTest :
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
                     val sel = allButCover().copy(title = false, description = false, releaseDate = false)
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -263,7 +240,7 @@ class MatchApplySelectionTest :
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
                     val sel = allButCover().copy(authorAsins = emptySet())
 
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -286,7 +263,7 @@ class MatchApplySelectionTest :
                 val genreRepo = GenreRepository(sql, bus, registry)
                 val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
                 runTest {
-                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
                     a
                         .apply(BookId("nope"), "B0NEW", AudibleRegion.US, allButCover())
                         .shouldBeInstanceOf<AppResult.Failure>()
@@ -316,7 +293,7 @@ class MatchApplySelectionTest :
                             books,
                             contributors,
                             series,
-                            fakeProvider(matchBook()),
+                            matchBook(),
                             coverBytes = ONE_PX_PNG,
                         )
                     val sel = allButCover().copy(cover = true, coverUrl = "https://itunes/chosen.png")
@@ -342,7 +319,7 @@ class MatchApplySelectionTest :
                     sql.seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy")
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
 
                     val sel = allButCover().copy(genres = setOf("Fantasy"))
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -368,7 +345,7 @@ class MatchApplySelectionTest :
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     // seed the existing genre link AFTER the book row exists (FK constraint)
                     sql.bookGenresQueries.insertIfAbsent(book_id = "b1", genre_id = "g-fant")
-                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
 
                     a
                         .apply(BookId("b1"), "B0NEW", AudibleRegion.US, allButCover().copy(genres = emptySet()))
@@ -398,7 +375,7 @@ class MatchApplySelectionTest :
                             books,
                             contributors,
                             series,
-                            fakeProvider(matchBook()),
+                            matchBook(),
                             ladders = listOf(listOf("Fiction", "Fantasy", "LitRPG")),
                         )
 
@@ -431,7 +408,7 @@ class MatchApplySelectionTest :
                     sql.seedGenre("g-fant", "Fantasy", "fantasy", "/fantasy")
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
 
                     // Apply provider enrichment: publisher/language/publishYear + Fantasy genre.
                     a
@@ -473,7 +450,7 @@ class MatchApplySelectionTest :
                 runTest {
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
-                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, fakeProvider(matchBook()))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
                     // matchBook authors have asin "AUTH1"; select an asin that isn't in the match
                     val sel = allButCover().copy(authorAsins = setOf("NOT-IN-MATCH"), seriesAsins = setOf("NOT-IN-MATCH"))
                     a.apply(BookId("b1"), "B0NEW", AudibleRegion.US, sel).shouldBeInstanceOf<AppResult.Success<*>>()
