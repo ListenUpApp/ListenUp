@@ -38,11 +38,37 @@ value class MetadataProviderId(
         /** Reserved pseudo-provider: the book's existing scan-derived value. */
         val LOCAL = MetadataProviderId("local")
 
-        /** Every id the router recognizes from config tokens. */
+        /** Every built-in id the router recognizes from config tokens. */
         val known: List<MetadataProviderId> = listOf(AUDIBLE, ITUNES, AUDNEXUS, LOCAL)
 
-        /** Resolves a config token (case-insensitive) to a known id, or `null` if unrecognized. */
-        fun fromToken(token: String): MetadataProviderId? =
-            known.firstOrNull { it.value.equals(token.trim(), ignoreCase = true) }
+        /**
+         * The prefix that marks an operator-declared custom provider id — the token
+         * `custom:<name>` a `LISTENUP_CUSTOM_PROVIDERS` entry and any route naming it
+         * share. Kept lowercase so a route token and the config-derived id always match.
+         */
+        const val CUSTOM_PREFIX: String = "custom:"
+
+        /**
+         * The id for an operator-declared custom provider named [name] — `custom:<name>`,
+         * with [name] trimmed and lowercased so config and route tokens resolve identically.
+         */
+        fun custom(name: String): MetadataProviderId = MetadataProviderId(CUSTOM_PREFIX + name.trim().lowercase())
+
+        /**
+         * Resolves a config token (case-insensitive) to an id, or `null` if unrecognized.
+         *
+         * A built-in token matches one of [known]; a `custom:<name>` token resolves to
+         * that operator-declared provider's id (so a route can name a custom source), as
+         * long as `<name>` is non-blank.
+         */
+        fun fromToken(token: String): MetadataProviderId? {
+            val trimmed = token.trim()
+            known.firstOrNull { it.value.equals(trimmed, ignoreCase = true) }?.let { return it }
+            if (trimmed.startsWith(CUSTOM_PREFIX, ignoreCase = true)) {
+                val name = trimmed.substring(CUSTOM_PREFIX.length).trim()
+                if (name.isNotEmpty()) return custom(name)
+            }
+            return null
+        }
     }
 }

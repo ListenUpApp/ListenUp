@@ -17,6 +17,9 @@ import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusApi
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusClient
 import com.calypsan.listenup.server.metadata.audnexus.AudnexusRateLimiter
+import com.calypsan.listenup.server.metadata.custom.CustomHttpProvider
+import com.calypsan.listenup.server.metadata.custom.CustomMetadataClient
+import com.calypsan.listenup.server.metadata.custom.CustomProviderSpec
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesClient
 import com.calypsan.listenup.server.metadata.itunes.ITunesRateLimiter
@@ -62,7 +65,9 @@ import org.koin.dsl.module
  *  - [AudibleProvider] / [AudnexusProvider] / [ITunesProvider] — the capability-SPI providers,
  *    collected in a [MetadataProviderRegistry]; [CoverSearchService] fans cover lookups over the
  *    registry's [com.calypsan.listenup.server.metadata.spi.CoverSource]s. Audnexus is the contributor-
- *    profile, catalog-chapter, and genre/tag source.
+ *    profile, catalog-chapter, and genre/tag source. Any operator-declared
+ *    [com.calypsan.listenup.server.metadata.custom.CustomHttpProvider]s (from `LISTENUP_CUSTOM_PROVIDERS`)
+ *    join the same registry — the extensibility seam, and the only per-book character source.
  *  - [EnrichmentRoutes] / [EnrichmentCoordinator] — the operator-configured provider precedence
  *    and the composer that walks it per domain to build a book's metadata for the lookup service.
  *  - [ImageStorage] — downloads cover/photo images to disk.
@@ -154,7 +159,8 @@ fun metadataModule(imageHome: Path): Module =
 
         single {
             MetadataProviderRegistry(
-                providers = listOf(get<AudibleProvider>(), get<AudnexusProvider>(), get<ITunesProvider>()),
+                providers =
+                    listOf(get<AudibleProvider>(), get<AudnexusProvider>(), get<ITunesProvider>()) + customProviders(),
             )
         }
 
@@ -256,6 +262,29 @@ private fun Module.metadataEnrichmentBindings() {
         )
     }
 }
+
+/**
+ * Builds an operator's custom metadata providers from `LISTENUP_CUSTOM_PROVIDERS`, one
+ * [CustomHttpProvider] per parsed [CustomProviderSpec], each over the shared metadata HTTP
+ * client with its own rate limiter. Never-strand: a misconfigured env parses to an empty list
+ * (see [CustomProviderSpec.parse]), so enrichment runs on the built-ins alone.
+ */
+private fun Scope.customProviders(): List<CustomHttpProvider> =
+    CustomProviderSpec.parse(readEnv("LISTENUP_CUSTOM_PROVIDERS")).map { spec ->
+        CustomHttpProvider(
+            spec = spec,
+            client =
+                CustomMetadataClient(
+                    httpClient = get(named(METADATA_HTTP_CLIENT)),
+                    json =
+                        Json {
+                            ignoreUnknownKeys = true
+                            isLenient = true
+                        },
+                    baseUrl = spec.baseUrl,
+                ),
+        )
+    }
 
 private fun Scope.audnexusApi(): AudnexusApi =
     AudnexusClient(

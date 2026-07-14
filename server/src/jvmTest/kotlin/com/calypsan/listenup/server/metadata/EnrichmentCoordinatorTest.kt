@@ -240,6 +240,15 @@ class EnrichmentCoordinatorTest :
             }
         }
 
+        test("composeCharacters is empty by default — the honest empty slot, no built-in character source") {
+            // The DEFAULT routes leave CHARACTERS empty and no FakeProvider supplies characters, so the
+            // compose returns an empty list rather than fabricating data (the manual-entry story).
+            val audible = FakeProvider(id = MetadataProviderId.AUDIBLE, core = AppResult.Success(BookCoreMeta(title = "T")))
+            runTest {
+                coordinator(audible).composeCharacters(identity(), US).shouldBeEmpty()
+            }
+        }
+
         test("searchContributors returns the first non-empty hit list walking the CONTRIBUTORS order") {
             // CONTRIBUTORS order is [audnexus, audible]; Audible has no ContributorSource in production, but
             // here both are fakes — Audnexus (first) supplies the hits.
