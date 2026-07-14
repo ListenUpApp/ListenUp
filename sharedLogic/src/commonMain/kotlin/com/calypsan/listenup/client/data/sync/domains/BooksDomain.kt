@@ -20,7 +20,7 @@ import com.calypsan.listenup.core.BookId
  * full snapshot) applies and the row converges. A book with no in-flight edit applies normally.
  *
  * **Why server-wins is safe for offline edits:** a queued outbox edit carries
- * per-field `userEditedFields` provenance, so the server folds the user's fields
+ * per-field `fieldProvenance` (USER tier), so the server folds the user's fields
  * before the resulting event ever echoes back — an inbound snapshot never reverts a
  * user edit that reached the server, and one that hasn't yet is replayed by the
  * outbox after this apply. `WriteTier.Outbox(OutboxChannels.Books)` declares that

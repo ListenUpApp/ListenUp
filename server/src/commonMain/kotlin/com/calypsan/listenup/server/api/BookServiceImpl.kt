@@ -10,6 +10,9 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -21,7 +24,7 @@ import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.api.sync.CoverSource
-import com.calypsan.listenup.api.sync.UserEditedField
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
@@ -212,12 +215,13 @@ internal class BookServiceImpl(
                     creditedAs = input.creditedAs,
                 )
             }
-        // Record CONTRIBUTORS provenance so a later rescan preserves this edit (the merge in
-        // BookRepository skips replaceContributors while the field stays in the sticky set).
+        // Record USER provenance for both contributor roles so a later rescan preserves this edit (the
+        // merge in BookRepository skips replaceContributors while either role out-ranks a scan).
         val patched =
             current.copy(
                 contributors = resolved,
-                userEditedFields = current.userEditedFields + UserEditedField.CONTRIBUTORS,
+                fieldProvenance =
+                    current.fieldProvenance.stampUser(setOf(BookField.AUTHORS, BookField.NARRATORS)),
             )
         return when (val upsertResult = repo.upsert(patched)) {
             is AppResult.Success -> AppResult.Success(Unit)
@@ -300,12 +304,12 @@ internal class BookServiceImpl(
                     sequence = input.position?.toString(),
                 )
             }
-        // Record SERIES provenance so a later rescan preserves this edit (the merge in BookRepository
-        // skips replaceSeries while the field stays in the sticky set).
+        // Record USER provenance for SERIES so a later rescan preserves this edit (the merge in
+        // BookRepository skips replaceSeries while the field out-ranks a scan).
         val patched =
             current.copy(
                 series = resolved,
-                userEditedFields = current.userEditedFields + UserEditedField.SERIES,
+                fieldProvenance = current.fieldProvenance.stampUser(setOf(BookField.SERIES)),
             )
         return when (val upsertResult = repo.upsert(patched)) {
             is AppResult.Success -> AppResult.Success(Unit)
@@ -493,6 +497,17 @@ fun bookServiceScopedTo(
 private fun bookNotFound(id: BookId): AppResult.Failure =
     AppResult.Failure(BookError.NotFound(debugInfo = "bookId=${id.value}"))
 
+/**
+ * Overlays [FieldSourceKind.USER] provenance for [fields] onto this map, stamped at the current wall
+ * clock. A hand edit is the top tier, so this pins the field against any later rescan or provider
+ * apply (per the tier rule in `BookRepository.mergeByProvenance`); the max-tier union makes it sticky.
+ */
+private fun Map<BookField, FieldProvenance>.stampUser(fields: Set<BookField>): Map<BookField, FieldProvenance> {
+    if (fields.isEmpty()) return this
+    val now = currentEpochMilliseconds()
+    return this + fields.associateWith { FieldProvenance(FieldSourceKind.USER, at = now) }
+}
+
 private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
     copy(
         title = patch.title ?: title,
@@ -508,14 +523,15 @@ private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
         // The added date is stored as createdAt; null leaves it untouched. The DB write is gated by
         // BookWriteExtras.createdAtOverride in writePayload so only this edit path can move it.
         createdAt = patch.addedAt ?: createdAt,
-        // Record per-field user-edit provenance so a later rescan preserves these hand-edits instead
-        // of re-deriving them from the files. Each edited scalar is added to the sticky set; the merge
-        // in BookRepository keeps it protected from then on.
-        userEditedFields =
-            userEditedFields +
+        // Record USER provenance so a later rescan preserves these hand-edits instead of re-deriving
+        // them from the files. Each edited scalar is stamped USER (top tier); the max-tier union in
+        // BookRepository keeps it protected from then on.
+        fieldProvenance =
+            fieldProvenance.stampUser(
                 buildSet {
-                    if (patch.title != null) add(UserEditedField.TITLE)
-                    if (patch.subtitle != null) add(UserEditedField.SUBTITLE)
-                    if (patch.description != null) add(UserEditedField.DESCRIPTION)
+                    if (patch.title != null) add(BookField.TITLE)
+                    if (patch.subtitle != null) add(BookField.SUBTITLE)
+                    if (patch.description != null) add(BookField.DESCRIPTION)
                 },
+            ),
     )

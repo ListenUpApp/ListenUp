@@ -5,7 +5,8 @@ package com.calypsan.listenup.server.scanner
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.CoverSource
-import com.calypsan.listenup.api.dto.scanner.MetadataSource
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
@@ -77,7 +78,7 @@ class ScannerEmbeddedmetaIntegrationTest :
                     book1.embedded?.chapters?.size shouldBe 2
                     val cover1 = book1.cover.shouldBeInstanceOf<CoverSource.Embedded>()
                     cover1.artwork.mime shouldBe "image/jpeg"
-                    book1.sources shouldContain MetadataSource.AUDIO_METATAGS
+                    book1.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.EMBEDDED
 
                     // Book 2 — sidecar overlay overrides embedded for the resolved view;
                     // embedded payload survives verbatim on `embedded`.
@@ -86,8 +87,9 @@ class ScannerEmbeddedmetaIntegrationTest :
                     book2.authors shouldBe listOf("Sidecar Author Two")
                     book2.embedded?.tags?.title shouldBe "Embedded Title Two"
                     book2.embedded?.tags?.authors shouldBe listOf("Embedded Author Two")
-                    book2.sources shouldContain MetadataSource.AUDIO_METATAGS
-                    book2.sources shouldContain MetadataSource.ABS_METADATA
+                    // metadata.json wins the resolved title/authors; the embedded values survive as raw
+                    // signal on `book2.embedded` (asserted above), winner-based provenance records ABS.
+                    book2.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.ABS_METADATA
 
                     // Book 3 — filesystem cover wins over absent embedded artwork.
                     val book3 = first.books.single { it.candidate.rootRelPath == "Author3/Title Three" }

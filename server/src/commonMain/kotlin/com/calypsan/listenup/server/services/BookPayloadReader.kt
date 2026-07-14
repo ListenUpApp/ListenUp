@@ -6,39 +6,49 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookDocumentPayload
 import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
-import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.Books
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.json.Json
 
 /** Keeps `id IN (?, ?, …)` under SQLite's variable-parameter ceiling. */
 private const val SQLITE_IN_CHUNK = 900
 
 /**
- * Serializes a user-edit-provenance set to its stable `books.user_edited_fields` column form: the
- * uppercase [UserEditedField] names joined by commas in declaration order, or `""` for the empty set.
- * Declaration order keeps the stored string deterministic regardless of the source set's iteration order.
+ * The stable JSON codec for the `books.field_provenance` column. A [BookField]-keyed map serializes to
+ * a JSON object (`{"TITLE":{"kind":"USER","provider":null,"at":111}}`); `ignoreUnknownKeys` keeps an
+ * older row readable after the enum evolves (forward-compat, matching the wire DTO). `encodeDefaults`
+ * is off so an absent provider/at stays compact.
  */
-internal fun Set<UserEditedField>.toUserEditedFieldsColumn(): String =
-    UserEditedField.entries.filter { it in this }.joinToString(",") { it.name }
+private val fieldProvenanceJson = Json { ignoreUnknownKeys = true }
+
+private val fieldProvenanceSerializer =
+    MapSerializer(BookField.serializer(), FieldProvenance.serializer())
 
 /**
- * Parses the `books.user_edited_fields` column back to a set. An empty column is the empty set; any
- * token that no longer maps to a [UserEditedField] is silently dropped so an older row stays readable
- * after the enum evolves (forward-compat, matching the wire DTO's `ignoreUnknownKeys`).
+ * Serializes a per-field provenance map to its `books.field_provenance` column form (a JSON object).
+ * The empty map serializes to `"{}"`, matching the column default.
  */
-internal fun String.toUserEditedFields(): Set<UserEditedField> =
-    if (isEmpty()) {
-        emptySet()
+internal fun Map<BookField, FieldProvenance>.toFieldProvenanceColumn(): String =
+    fieldProvenanceJson.encodeToString(fieldProvenanceSerializer, this)
+
+/**
+ * Parses the `books.field_provenance` column back to a map. A blank/`"{}"` column is the empty map;
+ * unrecognized field keys are dropped so an older row stays readable after [BookField] evolves.
+ */
+internal fun String.toFieldProvenance(): Map<BookField, FieldProvenance> =
+    if (isBlank()) {
+        emptyMap()
     } else {
-        split(",").mapNotNullTo(LinkedHashSet()) { token ->
-            UserEditedField.entries.firstOrNull { it.name == token }
-        }
+        fieldProvenanceJson.decodeFromString(fieldProvenanceSerializer, this)
     }
 
 /**
@@ -98,7 +108,7 @@ internal fun assembleBookPayload(
         chapterSource =
             ChapterSource.entries.firstOrNull { it.name.equals(bookRow.chapter_source, ignoreCase = true) }
                 ?: ChapterSource.EMBEDDED,
-        userEditedFields = bookRow.user_edited_fields.toUserEditedFields(),
+        fieldProvenance = bookRow.field_provenance.toFieldProvenance(),
         documents = documents,
         revision = bookRow.revision,
         updatedAt = bookRow.updated_at,

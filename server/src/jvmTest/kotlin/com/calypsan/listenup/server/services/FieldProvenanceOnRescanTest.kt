@@ -8,10 +8,12 @@ import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
-import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -23,28 +25,35 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
- * Per-field user-edit provenance: a hand-edit to title/subtitle/description/contributors/series must
- * survive a later rescan, exactly as `chapter_source = 'user'` protects an edited chapter set. Each
- * test drives the REAL scan path ([BookRepository.resolveOrInsert] → `upsertFromAnalyzed`), where the
- * merge lives — a raw `repo.upsert` bypasses it (the scanner is the only producer of empty-provenance
- * payloads, so that is the only path that can clobber).
+ * The rescan tier matrix — the compliance oracle for `BookRepository.mergeByProvenance`.
+ *
+ * THE ONE WRITE RULE: a write may replace a field iff its tier `>=` the stored provenance's tier
+ * (scan `0` < enrichment `1` < user `2`). Each test drives the REAL scan path
+ * ([BookRepository.resolveOrInsert] → `upsertFromAnalyzed` → `mergeByProvenance`), where the merge
+ * lives — a raw `repo.upsert` bypasses it (the scanner is the only producer of scan-tier payloads,
+ * so that is the only path that can clobber a higher tier). The scan write's authority is tier 0, so
+ * a stored field is preserved exactly when its recorded tier is above scan.
+ *
+ * Compliance table (vs. the old `userEditedFields` behaviour):
+ *  - SCAN vs USER      → preserved (0 < 2), unchanged from before.
+ *  - SCAN vs ENRICHMENT → preserved (0 < 1) AND the value records ENRICHMENT/provider, not a fake USER
+ *    (the A7 workaround, done honestly).
+ *  - SCAN vs SCAN      → replaced (0 >= 0): a rescan still updates an unedited field.
  */
-class UserEditedFieldsOnRescanTest :
+class FieldProvenanceOnRescanTest :
     FunSpec({
 
         test("USER title survives a rescan that re-derives a different title from the files") {
             withSqlDatabase {
-                val (repo, registry) = userEditRepository(sql, driver)
+                val (repo, registry) = provenanceRepository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val path = "Sanderson/Mistborn"
                     val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path)).resolved()
 
-                    // User edits the title in the app: write the user value + TITLE provenance.
+                    // User edits the title in the app: write the user value + USER provenance.
                     val current = repo.findById(id)!!
-                    repo.upsert(
-                        current.copy(title = "The Final Empire", userEditedFields = setOf(UserEditedField.TITLE)),
-                    )
+                    repo.upsert(current.copy(title = "The Final Empire", fieldProvenance = userMap(BookField.TITLE)))
 
                     // Rescan re-derives a different title from the files.
                     repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, title = "Mistborn 01"))
@@ -56,7 +65,7 @@ class UserEditedFieldsOnRescanTest :
 
         test("USER description survives a rescan that re-derives a different description") {
             withSqlDatabase {
-                val (repo, registry) = userEditRepository(sql, driver)
+                val (repo, registry) = provenanceRepository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val path = "Sanderson/WayOfKings"
@@ -66,7 +75,7 @@ class UserEditedFieldsOnRescanTest :
                     repo.upsert(
                         current.copy(
                             description = "A hand-written blurb.",
-                            userEditedFields = setOf(UserEditedField.DESCRIPTION),
+                            fieldProvenance = userMap(BookField.DESCRIPTION),
                         ),
                     )
 
@@ -79,7 +88,7 @@ class UserEditedFieldsOnRescanTest :
 
         test("USER subtitle survives a rescan that re-derives a different subtitle") {
             withSqlDatabase {
-                val (repo, registry) = userEditRepository(sql, driver)
+                val (repo, registry) = provenanceRepository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val path = "Sanderson/Elantris"
@@ -87,7 +96,7 @@ class UserEditedFieldsOnRescanTest :
 
                     val current = repo.findById(id)!!
                     repo.upsert(
-                        current.copy(subtitle = "User Subtitle", userEditedFields = setOf(UserEditedField.SUBTITLE)),
+                        current.copy(subtitle = "User Subtitle", fieldProvenance = userMap(BookField.SUBTITLE)),
                     )
 
                     repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, subtitle = "File Subtitle"))
@@ -99,13 +108,13 @@ class UserEditedFieldsOnRescanTest :
 
         test("USER contributors survive a rescan that re-derives different contributors") {
             withSqlDatabase {
-                val (repo, registry, contributorRepo) = userEditRepository(sql, driver)
+                val (repo, registry, contributorRepo) = provenanceRepository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val path = "Sanderson/Warbreaker"
                     val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path)).resolved()
 
-                    // User curates the contributor list in the app.
+                    // User curates the contributor list in the app — stamps both contributor roles USER.
                     val curatedId = contributorRepo.resolveOrCreate("Brandon Sanderson", null)
                     val current = repo.findById(id)!!
                     repo.upsert(
@@ -120,7 +129,7 @@ class UserEditedFieldsOnRescanTest :
                                         creditedAs = null,
                                     ),
                                 ),
-                            userEditedFields = setOf(UserEditedField.CONTRIBUTORS),
+                            fieldProvenance = userMap(BookField.AUTHORS, BookField.NARRATORS),
                         ),
                     )
 
@@ -134,7 +143,7 @@ class UserEditedFieldsOnRescanTest :
 
         test("USER series survive a rescan that re-derives different series") {
             withSqlDatabase {
-                val fixture = userEditRepository(sql, driver)
+                val fixture = provenanceRepository(sql, driver)
                 val repo = fixture.repo
                 val registry = fixture.registry
                 val seriesRepo = fixture.series
@@ -151,7 +160,7 @@ class UserEditedFieldsOnRescanTest :
                                 listOf(
                                     BookSeriesPayload(id = curatedId.value, name = "The Stormlight Archive", sequence = "1"),
                                 ),
-                            userEditedFields = setOf(UserEditedField.SERIES),
+                            fieldProvenance = userMap(BookField.SERIES),
                         ),
                     )
 
@@ -162,26 +171,79 @@ class UserEditedFieldsOnRescanTest :
             }
         }
 
+        test("ENRICHMENT description survives a rescan AND keeps its ENRICHMENT/provider provenance (A7 done right)") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/Enriched"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publisher = "Tor V1")).resolved()
+
+                    // A prior wizard apply enriched the description (ENRICHMENT, provider = audible).
+                    val current = repo.findById(id)!!
+                    repo.upsert(
+                        current.copy(
+                            description = "Enriched blurb.",
+                            fieldProvenance =
+                                mapOf(
+                                    BookField.DESCRIPTION to
+                                        FieldProvenance(FieldSourceKind.ENRICHMENT, provider = "audible", at = 5L),
+                                ),
+                        ),
+                    )
+
+                    // Rescan re-derives a different description AND a new publisher (an unprotected field),
+                    // so the write actually happens — proving the enriched value + provenance are sticky.
+                    repo.resolveOrInsert(
+                        libId,
+                        TEST_FOLDER,
+                        scanFor(path, description = "Re-derived blurb.", publisher = "Tor V2"),
+                    )
+
+                    val readback = repo.findById(id)!!
+                    readback.description shouldBe "Enriched blurb." // preserved (0 < 1)
+                    readback.publisher shouldBe "Tor V2" // unprotected — updated
+                    // Recorded honestly as ENRICHMENT/provider, NOT masquerading as a user edit.
+                    readback.fieldProvenance[BookField.DESCRIPTION] shouldBe
+                        FieldProvenance(FieldSourceKind.ENRICHMENT, provider = "audible", at = 5L)
+                }
+            }
+        }
+
+        test("SCAN vs SCAN: a rescan replaces an unedited field (tier tie 0 >= 0)") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/PlainScan"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, title = "Old Title")).resolved()
+
+                    // No user/enrichment edit — a rescan with a different title overwrites it.
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, title = "New Title"))
+
+                    repo.findById(id)!!.title shouldBe "New Title"
+                }
+            }
+        }
+
         test("a rescan that only disagrees on a protected field skips — no revision bump") {
             withSqlDatabase {
-                val (repo, registry) = userEditRepository(sql, driver)
+                val (repo, registry) = provenanceRepository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val path = "Sanderson/Skip"
                     val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path)).resolved()
 
-                    // Use description: unlike title (which cascades to the derived sortTitle), a
-                    // description edit changes no other stored field, so the merged rescan matches
-                    // stored in every column and the idempotency check skips it cleanly.
+                    // Description edit changes no other stored field, so the merged rescan matches stored
+                    // in every column and the idempotency check skips it cleanly.
                     repo.upsert(
                         repo.findById(id)!!.copy(
                             description = "Curated blurb.",
-                            userEditedFields = setOf(UserEditedField.DESCRIPTION),
+                            fieldProvenance = userMap(BookField.DESCRIPTION),
                         ),
                     )
                     val revisionAfterEdit = repo.findById(id)!!.revision
 
-                    // Rescan whose ONLY difference from stored is the (protected) description.
                     repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, description = "Re-derived blurb."))
 
                     repo.findById(id)!!.revision shouldBe revisionAfterEdit
@@ -191,7 +253,7 @@ class UserEditedFieldsOnRescanTest :
 
         test("a non-protected field is still updated by a rescan, even alongside a protected one") {
             withSqlDatabase {
-                val (repo, registry) = userEditRepository(sql, driver)
+                val (repo, registry) = provenanceRepository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val path = "Sanderson/Publisher"
@@ -199,7 +261,7 @@ class UserEditedFieldsOnRescanTest :
                         repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publisher = "Tor V1")).resolved()
 
                     repo.upsert(
-                        repo.findById(id)!!.copy(title = "Curated", userEditedFields = setOf(UserEditedField.TITLE)),
+                        repo.findById(id)!!.copy(title = "Curated", fieldProvenance = userMap(BookField.TITLE)),
                     )
 
                     // Rescan changes BOTH the protected title and the unprotected publisher.
@@ -216,19 +278,24 @@ class UserEditedFieldsOnRescanTest :
             }
         }
 
-        test("userEditedFields round-trips through the row (serialize → column → deserialize)") {
+        test("fieldProvenance round-trips through the row (serialize → column → deserialize)") {
             withSqlDatabase {
-                val (repo, registry) = userEditRepository(sql, driver)
+                val (repo, registry) = provenanceRepository(sql, driver)
                 runTest {
                     val libId = registry.currentLibrary()
                     val id =
                         repo.resolveOrInsert(libId, TEST_FOLDER, scanFor("Sanderson/RoundTrip")).resolved()
 
-                    val edited =
-                        setOf(UserEditedField.DESCRIPTION, UserEditedField.TITLE, UserEditedField.SERIES)
-                    repo.upsert(repo.findById(id)!!.copy(userEditedFields = edited))
+                    val provenance =
+                        mapOf(
+                            BookField.DESCRIPTION to FieldProvenance(FieldSourceKind.USER, at = 1L),
+                            BookField.TITLE to FieldProvenance(FieldSourceKind.USER, at = 2L),
+                            BookField.SERIES to
+                                FieldProvenance(FieldSourceKind.ENRICHMENT, provider = "audnexus", at = 3L),
+                        )
+                    repo.upsert(repo.findById(id)!!.copy(fieldProvenance = provenance))
 
-                    repo.findById(id)!!.userEditedFields shouldBe edited
+                    repo.findById(id)!!.fieldProvenance shouldBe provenance
                 }
             }
         }
@@ -236,24 +303,27 @@ class UserEditedFieldsOnRescanTest :
 
 private val TEST_FOLDER = FolderId("test-folder")
 
+/** A USER-tier provenance map for [fields] (the app's hand-edit stamp). */
+private fun userMap(vararg fields: BookField) = fields.associateWith { FieldProvenance(FieldSourceKind.USER, at = 1L) }
+
 private fun AppResult<IngestOutcome>.resolved(): BookId =
     when (this) {
         is AppResult.Success -> data.bookId
         is AppResult.Failure -> error("resolveOrInsert failed: ${error.message}")
     }
 
-/** A [BookRepository] plus the catalogues a user-edit test plants curated contributor/series rows through. */
-private data class UserEditFixture(
+/** A [BookRepository] plus the catalogues a provenance test plants curated contributor/series rows through. */
+private data class ProvenanceFixture(
     val repo: BookRepository,
     val registry: LibraryRegistry,
     val contributors: ContributorRepository,
     val series: SeriesRepository,
 )
 
-private fun userEditRepository(
+private fun provenanceRepository(
     sql: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
-): UserEditFixture {
+): ProvenanceFixture {
     val registry = LibraryRegistry(sql)
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
@@ -269,13 +339,14 @@ private fun userEditRepository(
             seriesRepository = seriesRepo,
             genreRepository = GenreRepository(sql, bus, syncRegistry),
         )
-    return UserEditFixture(repo, registry, contributorRepo, seriesRepo)
+    return ProvenanceFixture(repo, registry, contributorRepo, seriesRepo)
 }
 
 /**
  * A minimal [AnalyzedBook] anchored at [rootRelPath] (the natural key a rescan resolves by), with the
- * file-derived metadata a scanner would produce. Defaults model an unedited rescan; override a field
- * to simulate the files disagreeing with a user's hand-edit.
+ * file-derived metadata a scanner would produce. Its [AnalyzedBook.fieldProvenance] is empty — the
+ * scan write's authority is tier 0 regardless, so protection derives from the *stored* provenance the
+ * test plants via `repo.upsert`. Override a field to simulate the files disagreeing with an edit.
  */
 private fun scanFor(
     rootRelPath: String,

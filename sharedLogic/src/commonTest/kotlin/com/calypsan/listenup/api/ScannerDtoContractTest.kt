@@ -6,6 +6,9 @@ import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.MetadataSource
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
@@ -120,7 +123,11 @@ class ScannerDtoContractTest :
                     publishedYear = 2010,
                     asin = "B0015T963C",
                     description = "A long book.",
-                    sources = setOf(MetadataSource.FOLDER_STRUCTURE, MetadataSource.ABS_METADATA),
+                    fieldProvenance =
+                        mapOf(
+                            BookField.TITLE to FieldProvenance(FieldSourceKind.FOLDER),
+                            BookField.DESCRIPTION to FieldProvenance(FieldSourceKind.ABS_METADATA),
+                        ),
                 )
             roundTrip(book) shouldBe book
         }

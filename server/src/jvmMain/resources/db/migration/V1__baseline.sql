@@ -125,7 +125,7 @@ CREATE TABLE books (
     updated_at     BIGINT NOT NULL,
     deleted_at     BIGINT,
     client_op_id   VARCHAR(64)
-, has_scan_warning INTEGER NOT NULL DEFAULT 0, folder_id VARCHAR(36) DEFAULT 'PENDING-LIB-C', chapter_source TEXT NOT NULL DEFAULT 'embedded', user_edited_fields TEXT NOT NULL DEFAULT '');
+, has_scan_warning INTEGER NOT NULL DEFAULT 0, folder_id VARCHAR(36) DEFAULT 'PENDING-LIB-C', chapter_source TEXT NOT NULL DEFAULT 'embedded', field_provenance TEXT NOT NULL DEFAULT '{}');
 
 CREATE TABLE contributors (
     id              VARCHAR(36) NOT NULL PRIMARY KEY,

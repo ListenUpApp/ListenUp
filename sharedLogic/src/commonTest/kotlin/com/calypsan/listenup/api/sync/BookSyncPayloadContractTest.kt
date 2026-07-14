@@ -1,6 +1,9 @@
 package com.calypsan.listenup.api.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import io.kotest.core.spec.style.FunSpec
@@ -69,6 +72,36 @@ class BookSyncPayloadContractTest :
             val json = contractJson.encodeToString(BookSyncPayload.serializer(), bookSyncPayloadFull())
             json shouldContain "\"libraryId\""
             json shouldContain "\"folderId\""
+        }
+
+        test("BookSyncPayload round-trips a populated fieldProvenance map across all three tiers") {
+            val original =
+                bookSyncPayloadMinimal().copy(
+                    fieldProvenance =
+                        mapOf(
+                            BookField.TITLE to FieldProvenance(FieldSourceKind.USER, at = 111L),
+                            BookField.DESCRIPTION to
+                                FieldProvenance(FieldSourceKind.ENRICHMENT, provider = "audible", at = 222L),
+                            BookField.PUBLISHER to FieldProvenance(FieldSourceKind.EMBEDDED, at = 333L),
+                        ),
+                )
+            val json = contractJson.encodeToString(BookSyncPayload.serializer(), original)
+            val decoded = contractJson.decodeFromString(BookSyncPayload.serializer(), json)
+            decoded shouldBe original
+            decoded.fieldProvenance[BookField.TITLE] shouldBe FieldProvenance(FieldSourceKind.USER, at = 111L)
+            decoded.fieldProvenance[BookField.DESCRIPTION]?.provider shouldBe "audible"
+            decoded.fieldProvenance[BookField.PUBLISHER]?.tier shouldBe 0
+        }
+
+        test("BookSyncPayload wire shape carries fieldProvenance") {
+            val original =
+                bookSyncPayloadMinimal().copy(
+                    fieldProvenance = mapOf(BookField.TITLE to FieldProvenance(FieldSourceKind.USER, at = 1L)),
+                )
+            val json = contractJson.encodeToString(BookSyncPayload.serializer(), original)
+            json shouldContain "\"fieldProvenance\""
+            json shouldContain "\"TITLE\""
+            json shouldContain "\"USER\""
         }
     })
 

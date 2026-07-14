@@ -4,7 +4,8 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
-import com.calypsan.listenup.api.dto.scanner.MetadataSource
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatDetector
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
@@ -75,7 +76,7 @@ class SidecarMergeTest :
                             .getOrThrow()
 
                     book.description shouldBe "from-sidecar"
-                    book.sources shouldContain MetadataSource.SIDECAR
+                    book.fieldProvenance[BookField.DESCRIPTION]?.kind shouldBe FieldSourceKind.SIDECAR
                 }
             }
         }
@@ -301,7 +302,7 @@ class SidecarMergeTest :
                             .getOrThrow()
 
                     book.description shouldBe null
-                    book.sources shouldNotContain MetadataSource.SIDECAR
+                    book.fieldProvenance.values.map { it.kind } shouldNotContain FieldSourceKind.SIDECAR
                 }
             }
         }
@@ -337,7 +338,7 @@ class SidecarMergeTest :
                     // The throwing parser is treated as null: folder-derived title survives.
                     book.title shouldBe "Title"
                     book.description shouldBe null
-                    book.sources shouldNotContain MetadataSource.SIDECAR
+                    book.fieldProvenance.values.map { it.kind } shouldNotContain FieldSourceKind.SIDECAR
                 }
             }
         }

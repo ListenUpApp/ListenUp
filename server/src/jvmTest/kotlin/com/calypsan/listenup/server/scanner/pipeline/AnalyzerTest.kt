@@ -5,7 +5,8 @@ import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
-import com.calypsan.listenup.api.dto.scanner.MetadataSource
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
@@ -67,7 +68,11 @@ class AnalyzerTest :
                     book.authors shouldContainExactly listOf("Sanderson")
                     book.series shouldContainExactly listOf(SeriesEntry("Stormlight"))
                     book.tracks.size shouldBe 2
-                    book.sources shouldBe setOf(MetadataSource.FOLDER_STRUCTURE)
+                    // Winner-based provenance: authors + series come straight from the folder; the title
+                    // is the folder leaf run through the title parser (FILENAME tier, which out-ranks FOLDER).
+                    book.fieldProvenance[BookField.AUTHORS]?.kind shouldBe FieldSourceKind.FOLDER
+                    book.fieldProvenance[BookField.SERIES]?.kind shouldBe FieldSourceKind.FOLDER
+                    book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.FILENAME
                 }
             }
         }
@@ -98,7 +103,13 @@ class AnalyzerTest :
                     book.narrators shouldContainExactly listOf("Michael Kramer", "Kate Reading")
                     book.publishedYear shouldBe 2010
                     book.series shouldContainExactly listOf(SeriesEntry("Stormlight", "1"))
-                    book.sources shouldBe setOf(MetadataSource.FOLDER_STRUCTURE, MetadataSource.FILENAME)
+                    // Winner-based provenance: title/series from the folder, narrators + year from the filename.
+                    book.fieldProvenance[BookField.NARRATORS]?.kind shouldBe FieldSourceKind.FILENAME
+                    book.fieldProvenance[BookField.PUBLISH_YEAR]?.kind shouldBe FieldSourceKind.FILENAME
+                    book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.FILENAME
+                    book.fieldProvenance[BookField.SERIES]?.kind shouldBe FieldSourceKind.FOLDER
+                    book.fieldProvenance.values.mapTo(mutableSetOf()) { it.kind } shouldBe
+                        setOf(FieldSourceKind.FOLDER, FieldSourceKind.FILENAME)
                 }
             }
         }
@@ -164,7 +175,11 @@ class AnalyzerTest :
                     book.tags shouldContainExactly listOf("epic")
                     book.abridged shouldBe false
                     book.explicit shouldBe false
-                    book.sources shouldBe setOf(MetadataSource.FOLDER_STRUCTURE, MetadataSource.ABS_METADATA)
+                    // metadata.json overrides every field, so it wins them all (winner-based provenance —
+                    // the folder no longer appears just for "being present").
+                    book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.ABS_METADATA
+                    book.fieldProvenance.values.mapTo(mutableSetOf()) { it.kind } shouldBe
+                        setOf(FieldSourceKind.ABS_METADATA)
                 }
             }
         }
@@ -196,7 +211,10 @@ class AnalyzerTest :
 
                     book.title shouldBe "Title"
                     book.authors shouldContainExactly listOf("Author")
-                    book.sources shouldBe setOf(MetadataSource.FOLDER_STRUCTURE)
+                    // Malformed metadata.json contributes nothing: author comes from the folder, the title
+                    // from the folder leaf via the title parser (FILENAME tier).
+                    book.fieldProvenance[BookField.AUTHORS]?.kind shouldBe FieldSourceKind.FOLDER
+                    book.fieldProvenance[BookField.TITLE]?.kind shouldBe FieldSourceKind.FILENAME
                 }
             }
         }

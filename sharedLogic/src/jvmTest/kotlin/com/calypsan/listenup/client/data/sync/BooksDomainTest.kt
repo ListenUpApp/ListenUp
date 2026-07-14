@@ -10,7 +10,9 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.api.sync.UserEditedField
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -68,28 +70,29 @@ class BooksDomainTest :
             }
         }
 
-        test("server-set userEditedFields round-trip into the book row") {
+        test("server-set fieldProvenance round-trips into the book row") {
             withTestHandler { handler, db ->
-                val payload =
-                    bookPayload(id = "b1").copy(
-                        userEditedFields = setOf(UserEditedField.TITLE, UserEditedField.CONTRIBUTORS),
+                val provenance =
+                    mapOf(
+                        BookField.TITLE to FieldProvenance(FieldSourceKind.USER, at = 1L),
+                        BookField.AUTHORS to FieldProvenance(FieldSourceKind.ENRICHMENT, provider = "audible", at = 2L),
                     )
+                val payload = bookPayload(id = "b1").copy(fieldProvenance = provenance)
                 handler
                     .onEvent(created(payload))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                db.bookDao().getById(BookId("b1"))?.userEditedFields shouldBe
-                    setOf(UserEditedField.TITLE, UserEditedField.CONTRIBUTORS)
+                db.bookDao().getById(BookId("b1"))?.fieldProvenance shouldBe provenance
             }
         }
 
-        test("a scanner payload with no provenance persists an empty userEditedFields set") {
+        test("a scanner payload with no provenance persists an empty fieldProvenance map") {
             withTestHandler { handler, db ->
                 handler
                     .onEvent(created(bookPayload(id = "b1")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                db.bookDao().getById(BookId("b1"))?.userEditedFields shouldBe emptySet()
+                db.bookDao().getById(BookId("b1"))?.fieldProvenance shouldBe emptyMap()
             }
         }
 

@@ -47,10 +47,10 @@ class BookWriteExtras(
      */
     val genreIds: List<String>? = null,
     /**
-     * Per-field user-edit provenance preserve flags (rescan data-safety). True when the stored book
-     * carries a `CONTRIBUTORS` / `SERIES` edit that THIS write isn't itself re-editing — computed by
-     * the scan paths' merge (`existing.userEditedFields − incoming.userEditedFields`). When set,
-     * [BookRepository.writePayload] skips the corresponding `replace` so the user's hand-edited
+     * Per-field provenance preserve flags (rescan data-safety). True when the stored book carries a
+     * contributor / series value that out-ranks a scan (enrichment or user) and THIS scan write isn't
+     * itself re-editing it — computed by the scan paths' merge (`mergeByProvenance`, the tier rule).
+     * When set, [BookRepository.writePayload] skips the corresponding `replace` so the higher-tier
      * contributor/series rows survive the rescan, exactly as `chapter_source = 'user'` protects
      * chapters. Scalar fields (title/subtitle/description) are preserved on the payload itself, so
      * they need no flag. Every non-scan write path leaves these false (replace as normal).

@@ -4,7 +4,8 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.calypsan.listenup.api.sync.UserEditedField
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ChapterId
 import com.calypsan.listenup.core.ContributorId
@@ -98,12 +99,12 @@ internal data class BookEntity(
     val revision: Long = 0, // Monotonic server revision, advanced on every committed change
     val deletedAt: Long? = null, // Epoch ms tombstone; null when the book is live
     val hasScanWarning: Boolean = false, // Server-raised advisory that the scan found something worth review
-    // Per-field user-edit provenance, mirrored from BookSyncPayload.userEditedFields: each listed field was
-    // hand-edited in the app and is rescan-protected server-side (a rescan preserves the user's value
-    // instead of re-deriving it from the files). Persisted locally so it survives offline and round-trips
-    // through the sync engine; stored comma-joined via UserEditedFieldsConverter.
-    @ColumnInfo(defaultValue = "''")
-    val userEditedFields: Set<UserEditedField> = emptySet(),
+    // Per-field provenance, mirrored from BookSyncPayload.fieldProvenance: the authority (scan/enrichment/
+    // user) that wrote each metadata field's current value, keyed by BookField. Persisted locally so it
+    // survives offline and round-trips through the sync engine; stored as a JSON object via
+    // FieldProvenanceConverter.
+    @ColumnInfo(defaultValue = "'{}'")
+    val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
     // Timestamps from the server
     val createdAt: Timestamp,
     val updatedAt: Timestamp,

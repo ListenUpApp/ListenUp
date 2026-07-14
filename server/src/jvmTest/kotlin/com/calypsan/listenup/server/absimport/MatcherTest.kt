@@ -265,7 +265,7 @@ private fun insertBook(
         cover_source = null,
         cover_path = null,
         cover_hash = null,
-        user_edited_fields = "",
+        field_provenance = "{}",
         root_rel_path = relPath,
         inode = null,
         scanned_at = now,

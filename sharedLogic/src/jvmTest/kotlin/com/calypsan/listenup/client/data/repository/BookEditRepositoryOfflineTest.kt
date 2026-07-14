@@ -11,7 +11,8 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.api.sync.UserEditedField
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
@@ -74,7 +75,12 @@ class BookEditRepositoryOfflineTest :
                     val book = db.bookDao().getById(bookId)
                     book?.title shouldBe "New Title"
                     book?.description shouldBe "New Desc"
-                    book?.userEditedFields shouldBe setOf(UserEditedField.TITLE, UserEditedField.DESCRIPTION)
+                    book?.fieldProvenance?.keys shouldBe setOf(BookField.TITLE, BookField.DESCRIPTION)
+                    book
+                        ?.fieldProvenance
+                        ?.values
+                        ?.map { it.kind }
+                        ?.toSet() shouldBe setOf(FieldSourceKind.USER)
 
                     val op = db.singleQueuedBooksOp()
                     val mutation = op.decodeMutation()

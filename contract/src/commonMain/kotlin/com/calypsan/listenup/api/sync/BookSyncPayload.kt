@@ -1,5 +1,7 @@
 package com.calypsan.listenup.api.sync
 
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import kotlinx.serialization.SerialName
@@ -51,13 +53,17 @@ data class BookSyncPayload(
     /** Provenance of [chapters]; [ChapterSource.USER] is rescan-protected. Defaults to EMBEDDED for forward-compat. */
     val chapterSource: ChapterSource = ChapterSource.EMBEDDED,
     /**
-     * The scalar/collection metadata fields the user has hand-edited in the app — each is
-     * rescan-protected. For a field in this set, a rescan preserves the existing DB value instead of
-     * overwriting it with the value re-derived from the files/sidecars. Empty on scanner-produced
-     * payloads; populated by the edit API. Defaults to empty for forward-compat. Chapters and covers
-     * carry their own provenance ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not listed here.
+     * Per-field provenance — the authority that wrote each metadata field's current value, keyed by
+     * [BookField]. Governs rescan safety via the tier rule: a write may replace a field iff its tier
+     * is `>=` the stored provenance's tier (scan `0` < enrichment `1` < user `2`). A scanner-produced
+     * payload carries scan-tier entries for the fields it derived; the edit API stamps
+     * [com.calypsan.listenup.api.metadata.FieldSourceKind.USER]; a provider apply stamps
+     * [com.calypsan.listenup.api.metadata.FieldSourceKind.ENRICHMENT]. The persisted map is the
+     * per-field max-tier union — sticky, so a rescan never demotes an enriched/edited field. Defaults
+     * to empty for forward-compat. Chapters and covers carry their own provenance
+     * ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not keyed here.
      */
-    val userEditedFields: Set<UserEditedField> = emptySet(),
+    val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
     override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
@@ -193,28 +199,6 @@ enum class ChapterSource {
     EMBEDDED,
     AUDNEXUS,
     USER,
-}
-
-/**
- * A book metadata field whose user-applied value is rescan-protected.
- *
- * A field lands here when the user either hand-edits it in the app or applies provider enrichment
- * (Audible/Audnexus) to it — both are deliberate user choices the scanner must not silently revert.
- * The field is recorded in [BookSyncPayload.userEditedFields], so a later rescan preserves the stored
- * value instead of re-deriving it from the files/sidecars and clobbering it. Chapters and covers carry
- * their own provenance ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not part of this set.
- */
-@Serializable
-enum class UserEditedField {
-    TITLE,
-    SUBTITLE,
-    DESCRIPTION,
-    CONTRIBUTORS,
-    SERIES,
-    PUBLISHER,
-    LANGUAGE,
-    PUBLISH_YEAR,
-    GENRES,
 }
 
 /**

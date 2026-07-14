@@ -73,9 +73,9 @@ internal class BookEntityMapper {
             // server's cover hash changed: BookSyncDomainHandler deletes the stale local file in the
             // same upsert flow, so presence must reset until the new cover is downloaded.
             coverDownloadedAt = existing?.takeIf { it.coverHash == payload.cover?.hash }?.coverDownloadedAt,
-            // Wire-authoritative per-field edit provenance — the server owns this set (it unions an
-            // edited field on every edit RPC), so a sync update always takes the payload's value.
-            userEditedFields = payload.userEditedFields,
+            // Wire-authoritative per-field provenance — the server owns this map (it folds the max-tier
+            // union on every write), so a sync update always takes the payload's value.
+            fieldProvenance = payload.fieldProvenance,
             // Sync substrate fields.
             revision = payload.revision,
             deletedAt = payload.deletedAt,
