@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.dto.MetadataSearchResults
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.api.result.AppResult
@@ -33,17 +33,17 @@ internal class MetadataRepositoryImpl(
 ) : MetadataRepository {
     override suspend fun searchBooks(
         query: String,
-        region: AudibleRegion?,
+        region: MetadataLocale?,
     ): AppResult<MetadataSearchResults> = channel.call(idempotent = true) { it.searchBooks(query, region) }
 
     override suspend fun getBookMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataBook?> = channel.call(idempotent = true) { it.getBookMetadata(asin, region) }
 
     override suspend fun getBookChapters(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataChapters?> = channel.call(idempotent = true) { it.getBookChapters(asin, region) }
 
     override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
@@ -51,32 +51,32 @@ internal class MetadataRepositoryImpl(
 
     override suspend fun getContributorMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataContributorProfile?> =
         channel.call(idempotent = true) { it.getContributorMetadata(asin, region) }
 
     override suspend fun refreshBookMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataBook?> = channel.call { it.refreshBookMetadata(asin, region) }
 
     override suspend fun applyBookMetadata(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         selection: MetadataApplySelection,
     ): AppResult<Unit> = channel.call { it.applyBookMetadata(bookId, asin, region, selection) }
 
     override suspend fun applyChapterNames(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         ordinals: Set<Int>,
     ): AppResult<Unit> = channel.call { it.applyChapterNames(bookId, asin, region, ordinals) }
 
     override suspend fun applyContributorMetadata(
         contributorId: ContributorId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<Unit> = channel.call { it.applyContributorMetadata(contributorId, asin, region) }
 }

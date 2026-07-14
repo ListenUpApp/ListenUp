@@ -53,7 +53,7 @@ import com.calypsan.listenup.client.features.contributoredit.ContributorEditScre
 import com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataPreviewRoute
 import com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.CreateEditShelfScreen
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.features.metadata.MatchPreviewRoute
 import com.calypsan.listenup.client.features.metadata.MetadataSearchRoute
 import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
@@ -127,7 +127,7 @@ sealed interface DetailDestination {
     data class MatchPreview(
         val bookId: String,
         val asin: String,
-        val region: AudibleRegion,
+        val region: MetadataLocale,
     ) : DetailDestination
 
     data class ContributorMetadataSearch(

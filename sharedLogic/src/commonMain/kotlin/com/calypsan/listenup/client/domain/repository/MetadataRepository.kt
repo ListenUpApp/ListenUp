@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.dto.MetadataSearchResults
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -28,19 +28,19 @@ interface MetadataRepository {
     /** Searches the Audible catalog for books matching [query]. */
     suspend fun searchBooks(
         query: String,
-        region: AudibleRegion?,
+        region: MetadataLocale?,
     ): AppResult<MetadataSearchResults>
 
     /** Fetches the canonical metadata for the Audible book identified by [asin] in [region]. */
     suspend fun getBookMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataBook?>
 
     /** Fetches the chapter list for the Audible book identified by [asin] in [region]. */
     suspend fun getBookChapters(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataChapters?>
 
     /** Searches Audible for contributors matching [query]. */
@@ -49,13 +49,13 @@ interface MetadataRepository {
     /** Fetches the canonical profile for the Audible contributor identified by [asin] in [region]. */
     suspend fun getContributorMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataContributorProfile?>
 
     /** Bypasses the cache and forces a fresh fetch of the Audible metadata for [asin] in [region]. */
     suspend fun refreshBookMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataBook?>
 
     /**
@@ -68,7 +68,7 @@ interface MetadataRepository {
     suspend fun applyBookMetadata(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         selection: MetadataApplySelection,
     ): AppResult<Unit>
 
@@ -81,7 +81,7 @@ interface MetadataRepository {
     suspend fun applyChapterNames(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         ordinals: Set<Int>,
     ): AppResult<Unit>
 
@@ -94,6 +94,6 @@ interface MetadataRepository {
     suspend fun applyContributorMetadata(
         contributorId: ContributorId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<Unit>
 }

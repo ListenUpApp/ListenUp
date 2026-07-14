@@ -6,7 +6,8 @@ import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
@@ -166,7 +167,7 @@ class B2aMetadataApplyE2ETest :
                     // Seed a minimal book (no description, no ASIN, no cover)
                     bookRepo.upsert(minimalBook(bookId), clientOpId = null)
 
-                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US, APPLY_SELECTION)
+                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, MetadataLocale("us"), APPLY_SELECTION)
 
                     // ── Assert: AppResult.Success ────────────────────────────────
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -248,7 +249,7 @@ class B2aMetadataApplyE2ETest :
                     )
                     bookRepo.setManagedCover(BookId(bookId), "covers/$bookId.png", existingHash, CoverSource.EMBEDDED)
 
-                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, AudibleRegion.US, APPLY_SELECTION)
+                    val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, MetadataLocale("us"), APPLY_SELECTION)
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
@@ -298,7 +299,7 @@ class B2aMetadataApplyE2ETest :
                     )
 
                 runTest {
-                    val result = service.applyBookMetadata(BookId("no-such-book"), TEST_ASIN, AudibleRegion.US, APPLY_SELECTION)
+                    val result = service.applyBookMetadata(BookId("no-such-book"), TEST_ASIN, MetadataLocale("us"), APPLY_SELECTION)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                 }
             }

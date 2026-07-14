@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
 import com.calypsan.listenup.api.error.ValidationError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
@@ -23,7 +23,7 @@ class ApplyContributorMetadataUseCaseTest :
         fun buildRequest(
             contributorId: String = "contributor-123",
             asin: String = "B001ABC123",
-            region: AudibleRegion = AudibleRegion.US,
+            region: MetadataLocale = MetadataLocale.DEFAULT,
         ): ApplyContributorMetadataRequest =
             ApplyContributorMetadataRequest(
                 contributorId = contributorId,
@@ -45,7 +45,7 @@ class ApplyContributorMetadataUseCaseTest :
                     repo.applyContributorMetadata(
                         contributorId = ContributorId("contributor-123"),
                         asin = "B001ABC123",
-                        region = AudibleRegion.US,
+                        region = MetadataLocale.DEFAULT,
                     )
                 }
             }
@@ -80,10 +80,10 @@ class ApplyContributorMetadataUseCaseTest :
                 val repo = mock<MetadataRepository>()
                 everySuspend { repo.applyContributorMetadata(any(), any(), any()) } returns AppResult.Success(Unit)
 
-                buildUseCase(repo)(buildRequest(region = AudibleRegion.UK))
+                buildUseCase(repo)(buildRequest(region = MetadataLocale("uk")))
 
                 verifySuspend {
-                    repo.applyContributorMetadata(any(), any(), AudibleRegion.UK)
+                    repo.applyContributorMetadata(any(), any(), MetadataLocale("uk"))
                 }
             }
         }

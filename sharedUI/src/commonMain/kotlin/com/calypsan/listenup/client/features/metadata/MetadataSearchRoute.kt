@@ -9,7 +9,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
@@ -30,7 +30,7 @@ import org.koin.compose.viewmodel.koinViewModel
 @Composable
 fun MetadataSearchRoute(
     bookId: String,
-    onResultSelected: (asin: String, region: AudibleRegion) -> Unit,
+    onResultSelected: (asin: String, region: MetadataLocale) -> Unit,
     onBack: () -> Unit,
     viewModel: MetadataViewModel = koinViewModel(),
 ) {

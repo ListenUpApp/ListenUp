@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.navigation
 
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.json.Json
@@ -48,7 +48,7 @@ private fun sampleRoutes(): List<Route> =
         add(BookDetail(bookId = "test-book-id"))
         add(BookReaders(bookId = "test-book-id"))
         add(BookEdit(bookId = "test-book-id"))
-        add(MatchPreview(bookId = "test-book-id", asin = "test-asin", region = AudibleRegion.US))
+        add(MatchPreview(bookId = "test-book-id", asin = "test-asin", region = MetadataLocale.DEFAULT))
         add(MetadataSearch(bookId = "test-book-id"))
         add(SeriesDetail(seriesId = "test-series-id"))
         add(TagDetail(tagId = "test-tag-id"))

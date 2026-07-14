@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
@@ -48,7 +48,7 @@ data class ContributorMetadataUiState(
     val contributorId: String = "",
     val currentContributor: Contributor? = null,
     // Region selection
-    val selectedRegion: AudibleRegion = AudibleRegion.US,
+    val selectedRegion: MetadataLocale = MetadataLocale.DEFAULT,
     // Search state
     val searchQuery: String = "",
     val searchResults: List<MetadataContributorHit> = emptyList(),
@@ -130,7 +130,7 @@ class ContributorMetadataViewModel(
     /**
      * Change the Audible region and re-search.
      */
-    fun changeRegion(region: AudibleRegion) {
+    fun changeRegion(region: MetadataLocale) {
         state.update { it.copy(selectedRegion = region) }
 
         // Re-search with new region if we have a query

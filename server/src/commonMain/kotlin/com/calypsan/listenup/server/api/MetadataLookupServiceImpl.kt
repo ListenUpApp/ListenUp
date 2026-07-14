@@ -11,7 +11,7 @@ import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.CoverSource
@@ -20,10 +20,11 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
+import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
-import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -111,23 +112,23 @@ internal class MetadataLookupServiceImpl(
 
     override suspend fun searchBooks(
         query: String,
-        region: AudibleRegion?,
+        region: MetadataLocale?,
     ): AppResult<MetadataSearchResults> {
-        val locale = region?.let { localeFor(it) } ?: MetadataLocale.DEFAULT
+        val locale = region ?: MetadataLocale.DEFAULT
         val hits = coordinator.searchBooks(query, locale).map { it.toMetadataBook() }
         return AppResult.Success(MetadataSearchResults(hits = hits))
     }
 
     override suspend fun getBookMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataBook?> = AppResult.Success(composeMetadataBook(asin, region))
 
     override suspend fun getBookChapters(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataChapters?> =
-        AppResult.Success(coordinator.composeChapters(bookIdentity(asin), localeFor(region))?.toMetadataChapters())
+        AppResult.Success(coordinator.composeChapters(bookIdentity(asin), region)?.toMetadataChapters())
 
     /**
      * Contributor auto-match (search + profile fetch) is served only by scraping `www.audible.com`,
@@ -149,15 +150,15 @@ internal class MetadataLookupServiceImpl(
 
     override suspend fun getContributorMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataContributorProfile?> {
         if (!CONTRIBUTOR_MATCH_ENABLED) return AppResult.Success(null)
-        return metadataService.getContributor(region, asin).map { it?.toMetadataContributorProfile() }
+        return metadataService.getContributor(region.toAudibleRegion(), asin).map { it?.toMetadataContributorProfile() }
     }
 
     override suspend fun refreshBookMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataBook?> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         return AppResult.Success(composeMetadataBook(asin, region, refresh = true))
@@ -166,9 +167,9 @@ internal class MetadataLookupServiceImpl(
     /** Composes and projects the ASIN-keyed book preview; `null` when no catalog has the book. */
     private suspend fun composeMetadataBook(
         asin: String,
-        region: AudibleRegion,
+        locale: MetadataLocale,
         refresh: Boolean = false,
-    ): MetadataBook? = coordinator.composeBook(bookIdentity(asin), localeFor(region), refresh)?.toMetadataBook()
+    ): MetadataBook? = coordinator.composeBook(bookIdentity(asin), locale, refresh)?.toMetadataBook()
 
     /**
      * The lookup key for an ASIN-keyed compose. The title is unknown at this point — the coordinator
@@ -176,13 +177,10 @@ internal class MetadataLookupServiceImpl(
      */
     private fun bookIdentity(asin: String): BookIdentity = BookIdentity(asin = asin, title = "")
 
-    /** Maps an Audible region to the provider-neutral [MetadataLocale] the coordinator speaks. */
-    private fun localeFor(region: AudibleRegion): MetadataLocale = MetadataLocale(region.code)
-
     override suspend fun applyBookMetadata(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         selection: MetadataApplySelection,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
@@ -193,7 +191,7 @@ internal class MetadataLookupServiceImpl(
             seriesRepository = seriesRepository,
             imageStorage = imageDeps.imageStorage,
             coverImageStore = imageDeps.coverImageStore,
-            matchSource = { a, r -> AppResult.Success(composeMetadataBook(a, r)) },
+            matchSource = { a, r -> AppResult.Success(composeMetadataBook(a, MetadataLocale(r.code))) },
             enrichmentProvider = MetadataProviderId.AUDIBLE.value,
             genreHierarchy = GenreHierarchyFromLadder(sqlDb, genreRepository, genreAutoCreator),
             sqlDb = sqlDb,
@@ -204,26 +202,26 @@ internal class MetadataLookupServiceImpl(
                 }
             },
             enrichmentDeps = enrichmentDeps,
-        ).apply(bookId, asin, region, selection)
+        ).apply(bookId, asin, region.toAudibleRegion(), selection)
     }
 
     override suspend fun applyChapterNames(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         ordinals: Set<Int>,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         return ChapterNameApplier(
             bookRepository = bookRepository,
             metadataService = metadataService,
-        ).apply(bookId, asin, region, ordinals)
+        ).apply(bookId, asin, region.toAudibleRegion(), ordinals)
     }
 
     override suspend fun applyContributorMetadata(
         contributorId: ContributorId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         return ContributorMetadataApplier(
@@ -231,12 +229,12 @@ internal class MetadataLookupServiceImpl(
             imageStorage = imageDeps.imageStorage,
             metadataService = metadataService,
             imageHome = imageDeps.imageHome,
-        ).apply(contributorId, asin, region)
+        ).apply(contributorId, asin, region.toAudibleRegion())
     }
 
     override suspend fun searchCovers(
         bookId: BookId,
-        region: AudibleRegion?,
+        region: MetadataLocale?,
     ): AppResult<CoverSearchResults> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         return coverSearchService.searchCovers(bookId, region).map { CoverSearchResults(options = it) }

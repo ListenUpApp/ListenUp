@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.contributor
 
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
@@ -48,7 +48,7 @@ open class ApplyContributorMetadataUseCase(
 data class ApplyContributorMetadataRequest(
     val contributorId: String,
     val asin: String,
-    val region: AudibleRegion,
+    val region: MetadataLocale,
     val selections: MetadataFieldSelections,
 )
 

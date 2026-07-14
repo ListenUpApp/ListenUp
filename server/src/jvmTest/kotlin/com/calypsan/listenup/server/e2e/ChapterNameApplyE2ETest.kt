@@ -6,7 +6,8 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -93,7 +94,7 @@ class ChapterNameApplyE2ETest :
                     )
 
                     val result =
-                        ctx.service.applyChapterNames(BookId("e2e-book"), ASIN, AudibleRegion.US, setOf(0, 2))
+                        ctx.service.applyChapterNames(BookId("e2e-book"), ASIN, MetadataLocale("us"), setOf(0, 2))
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                     val after =
@@ -122,7 +123,7 @@ class ChapterNameApplyE2ETest :
                             .revision
 
                     val result =
-                        ctx.service.applyChapterNames(BookId("e2e-book"), ASIN, AudibleRegion.US, setOf(0, 1, 2))
+                        ctx.service.applyChapterNames(BookId("e2e-book"), ASIN, MetadataLocale("us"), setOf(0, 1, 2))
 
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<MetadataError.ChapterCountMismatch>()

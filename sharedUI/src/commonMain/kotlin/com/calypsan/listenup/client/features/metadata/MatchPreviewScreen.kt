@@ -56,7 +56,7 @@ import coil3.compose.AsyncImage
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
@@ -128,7 +128,7 @@ fun MatchPreviewScreen(
     isApplying: Boolean,
     applyError: String?,
     previewNotFound: Boolean,
-    selectedRegion: AudibleRegion,
+    selectedRegion: MetadataLocale,
     // Cover selection
     coverOptions: List<CoverEntry>,
     isLoadingCovers: Boolean,
@@ -138,7 +138,7 @@ fun MatchPreviewScreen(
     chapterSuggestion: ChapterSuggestion,
     onReviewChapters: () -> Unit,
     // Callbacks
-    onRegionSelected: (AudibleRegion) -> Unit,
+    onRegionSelected: (MetadataLocale) -> Unit,
     onToggleField: (MetadataField) -> Unit,
     onToggleAuthor: (String) -> Unit,
     onToggleNarrator: (String) -> Unit,
@@ -289,7 +289,7 @@ private fun Overline(text: String) {
 private fun MatchedEditionHero(
     match: MetadataBook,
     coverUrl: String?,
-    selectedRegion: AudibleRegion,
+    selectedRegion: MetadataLocale,
 ) {
     val colors = MaterialTheme.colorScheme
     Surface(
@@ -360,7 +360,7 @@ private fun MatchedEditionHero(
 
 /** The "Audible · <region>" provenance chip shown on the matched-edition hero. */
 @Composable
-private fun SourceChip(region: AudibleRegion) {
+private fun SourceChip(region: MetadataLocale) {
     val colors = MaterialTheme.colorScheme
     Surface(
         shape = RoundedCornerShape(percent = 50),
@@ -810,14 +810,14 @@ private fun ChapterNamesItem(
  */
 @Composable
 private fun RegionSelector(
-    selectedRegion: AudibleRegion,
-    onRegionSelected: (AudibleRegion) -> Unit,
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
     ) {
-        AudibleRegion.entries.forEach { region ->
+        MetadataLocale.SUPPORTED.forEach { region ->
             PillChip(
                 label = region.displayName,
                 onClick = { onRegionSelected(region) },
@@ -1301,7 +1301,7 @@ private fun GenreToggleChip(
  * Message shown when the book is found on Audible but has no/minimal metadata.
  */
 @Composable
-private fun NoMetadataAvailableMessage(selectedRegion: AudibleRegion) {
+private fun NoMetadataAvailableMessage(selectedRegion: MetadataLocale) {
     Column(
         modifier =
             Modifier

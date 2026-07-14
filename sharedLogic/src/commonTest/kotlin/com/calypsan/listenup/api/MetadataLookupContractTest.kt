@@ -8,33 +8,32 @@ import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.encodeToString
 
 /**
- * Round-trip every metadata DTO and [AudibleRegion] enum entry through
+ * Round-trip every metadata DTO and the provider-neutral [MetadataLocale] through
  * [contractJson]. Any drift in field names, polymorphic discriminators, or
  * default-value handling fails here before any pipeline code runs.
  */
 class MetadataLookupContractTest :
     FunSpec({
 
-        // ── AudibleRegion ──────────────────────────────────────────────────────
+        // ── MetadataLocale ─────────────────────────────────────────────────────
 
-        test("AudibleRegion entries round-trip through JSON") {
-            AudibleRegion.entries.forEach { region ->
-                roundTrip<AudibleRegion>(region) shouldBe region
+        test("MetadataLocale entries round-trip through JSON") {
+            val samples = MetadataLocale.SUPPORTED + MetadataLocale.DEFAULT + MetadataLocale(region = "de", language = "de")
+            samples.forEach { locale ->
+                roundTrip<MetadataLocale>(locale) shouldBe locale
             }
         }
 
-        test("AudibleRegion serializes to its enum name (not code)") {
-            // The @Serializable enum uses the Kotlin enum name as the wire value
-            // by default. Confirming this so any future @SerialName change breaks
-            // this test rather than silently drifting.
-            val json = contractJson.encodeToString(AudibleRegion.US)
-            json shouldBe "\"US\""
+        test("MetadataLocale serializes its region under the stable key") {
+            // @SerialName("region") pins the wire key; a null language is omitted (encodeDefaults = false).
+            val json = contractJson.encodeToString(MetadataLocale("uk"))
+            json shouldBe "{\"region\":\"uk\"}"
         }
 
         // ── MetadataContributorRef ─────────────────────────────────────────────

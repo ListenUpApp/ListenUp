@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind

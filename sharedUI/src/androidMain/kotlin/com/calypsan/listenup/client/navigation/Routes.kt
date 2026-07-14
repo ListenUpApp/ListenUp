@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.navigation
 
 import androidx.navigation3.runtime.NavKey
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.FacetKind
 import kotlinx.serialization.Serializable
 
@@ -80,7 +80,7 @@ data class BookEdit(
 data class MatchPreview(
     val bookId: String,
     val asin: String,
-    val region: AudibleRegion,
+    val region: MetadataLocale,
 ) : Route
 
 /**

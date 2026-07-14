@@ -45,7 +45,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
@@ -71,7 +71,7 @@ fun ContributorMetadataSearchScreen(
     state: ContributorMetadataUiState,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
-    onRegionSelected: (AudibleRegion) -> Unit,
+    onRegionSelected: (MetadataLocale) -> Unit,
     onResultClick: (MetadataContributorHit) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -198,8 +198,8 @@ fun ContributorMetadataSearchScreen(
  */
 @Composable
 private fun RegionSelector(
-    selectedRegion: AudibleRegion,
-    onRegionSelected: (AudibleRegion) -> Unit,
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
 ) {
     Column {
         Text(
@@ -213,7 +213,7 @@ private fun RegionSelector(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.horizontalScroll(rememberScrollState()),
         ) {
-            AudibleRegion.entries.forEach { region ->
+            MetadataLocale.SUPPORTED.forEach { region ->
                 FilterChip(
                     selected = region == selectedRegion,
                     onClick = { onRegionSelected(region) },

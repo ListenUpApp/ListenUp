@@ -3,7 +3,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
