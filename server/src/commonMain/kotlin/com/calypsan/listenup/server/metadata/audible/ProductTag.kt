@@ -25,14 +25,12 @@ data class ProductTag(
  * `(type, name)` because the same tag repeats across impression blocks, and
  * preserve first-seen order.
  *
- * **Query-param tolerant** (mirrors [parseContributorSearch]): Audible
- * appends `?ref=…` tracking params after the `adbl_rec_tag_{id}` segment, so the
- * pattern tolerates anything up to the closing quote rather than requiring it
- * immediately after the id. The marker `adbl_rec_tag` distinguishes these
- * recommendation topic tags from ordinary `/tag/…` links on the page.
+ * **Query-param tolerant**: Audible appends `?ref=…` tracking params after the
+ * `adbl_rec_tag_{id}` segment, so the pattern tolerates anything up to the closing
+ * quote rather than requiring it immediately after the id. The marker `adbl_rec_tag`
+ * distinguishes these recommendation topic tags from ordinary `/tag/…` links on the page.
  *
- * Uses regex extraction rather than a full HTML parser, matching the approach in
- * [parseContributorProfile] — no non-Kotlin-native dependency.
+ * Uses regex extraction rather than a full HTML parser — no non-Kotlin-native dependency.
  */
 internal fun parseProductTags(html: String): List<ProductTag> {
     val anchorPattern =

@@ -14,11 +14,15 @@ import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
 import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
+import com.calypsan.listenup.server.metadata.audnexus.AudnexusApi
+import com.calypsan.listenup.server.metadata.audnexus.AudnexusClient
+import com.calypsan.listenup.server.metadata.audnexus.AudnexusRateLimiter
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesClient
 import com.calypsan.listenup.server.metadata.itunes.ITunesRateLimiter
 import com.calypsan.listenup.server.metadata.itunes.ImageDimensionProbe
 import com.calypsan.listenup.server.metadata.provider.AudibleProvider
+import com.calypsan.listenup.server.metadata.provider.AudnexusProvider
 import com.calypsan.listenup.server.metadata.provider.ITunesProvider
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -42,6 +46,7 @@ import kotlinx.io.files.Path
 import kotlinx.serialization.json.Json
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
+import org.koin.core.scope.Scope
 import org.koin.dsl.module
 
 /**
@@ -54,9 +59,10 @@ import org.koin.dsl.module
  *  - [AudibleClient] / [ITunesClient] — thin adapters over the external APIs.
  *  - [MetadataCacheRepository] — SQLite-backed TTL cache for API responses.
  *  - [MetadataService] — orchestrator with region-aware fallback.
- *  - [AudibleProvider] / [ITunesProvider] — the capability-SPI providers, collected in a
- *    [MetadataProviderRegistry]; [CoverSearchService] fans cover lookups over the registry's
- *    [com.calypsan.listenup.server.metadata.spi.CoverSource]s.
+ *  - [AudibleProvider] / [AudnexusProvider] / [ITunesProvider] — the capability-SPI providers,
+ *    collected in a [MetadataProviderRegistry]; [CoverSearchService] fans cover lookups over the
+ *    registry's [com.calypsan.listenup.server.metadata.spi.CoverSource]s. Audnexus is the contributor-
+ *    profile, catalog-chapter, and genre/tag source.
  *  - [EnrichmentRoutes] / [EnrichmentCoordinator] — the operator-configured provider precedence
  *    and the composer that walks it per domain to build a book's metadata for the lookup service.
  *  - [ImageStorage] — downloads cover/photo images to disk.
@@ -120,6 +126,10 @@ fun metadataModule(imageHome: Path): Module =
             )
         }
 
+        single { AudnexusRateLimiter() }
+
+        single<AudnexusApi> { audnexusApi() }
+
         single { MetadataCacheRepository(db = get<ListenUpDatabase>()) }
 
         single {
@@ -138,9 +148,15 @@ fun metadataModule(imageHome: Path): Module =
 
         single { AudibleProvider(metadataService = get()) }
 
+        single { AudnexusProvider(client = get(), cache = get()) }
+
         single { ITunesProvider(itunes = get()) }
 
-        single { MetadataProviderRegistry(providers = listOf(get<AudibleProvider>(), get<ITunesProvider>())) }
+        single {
+            MetadataProviderRegistry(
+                providers = listOf(get<AudibleProvider>(), get<AudnexusProvider>(), get<ITunesProvider>()),
+            )
+        }
 
         single {
             EnrichmentRoutes.parse(
@@ -240,3 +256,15 @@ private fun Module.metadataEnrichmentBindings() {
         )
     }
 }
+
+private fun Scope.audnexusApi(): AudnexusApi =
+    AudnexusClient(
+        httpClient = get(named(METADATA_HTTP_CLIENT)),
+        json =
+            Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            },
+        rateLimiter = get(),
+        baseUrl = readEnv("LISTENUP_AUDNEXUS_URL")?.takeIf { it.isNotBlank() } ?: AudnexusClient.DEFAULT_BASE_URL,
+    )

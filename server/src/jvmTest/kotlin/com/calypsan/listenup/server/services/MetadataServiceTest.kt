@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
-import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.ProductTag
@@ -218,58 +217,6 @@ class MetadataServiceTest :
                 }
             }
         }
-
-        // ── getContributor ─────────────────────────────────────────────────────
-
-        test("getContributor caches the result; second call does not hit AudibleApi") {
-            withSqlDatabase {
-                val audible = FakeAudibleApi(contributorResult = AppResult.Success(contributorProfile("B000APZOQA")))
-                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
-                runTest {
-                    service.getContributor(AudibleRegion.US, "B000APZOQA")
-                    service.getContributor(AudibleRegion.US, "B000APZOQA")
-                    audible.contributorCalls shouldBe 1
-                }
-            }
-        }
-
-        test("getContributor with refresh = true bypasses cache") {
-            withSqlDatabase {
-                val audible = FakeAudibleApi(contributorResult = AppResult.Success(contributorProfile("B000APZOQA")))
-                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
-                runTest {
-                    service.getContributor(AudibleRegion.US, "B000APZOQA")
-                    service.getContributor(AudibleRegion.US, "B000APZOQA", refresh = true)
-                    audible.contributorCalls shouldBe 2
-                }
-            }
-        }
-
-        test("getContributor caches null (unknown ASIN) to avoid repeated Audible hammering") {
-            withSqlDatabase {
-                val audible = FakeAudibleApi(contributorResult = AppResult.Success(null))
-                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
-                runTest {
-                    service.getContributor(AudibleRegion.US, "UNKNOWN")
-                    service.getContributor(AudibleRegion.US, "UNKNOWN")
-                    audible.contributorCalls shouldBe 1
-                    val result = service.getContributor(AudibleRegion.US, "UNKNOWN")
-                    (result as AppResult.Success).data.shouldBeNull()
-                }
-            }
-        }
-
-        test("getContributor is region-scoped — UK and US are independent cache entries") {
-            withSqlDatabase {
-                val audible = FakeAudibleApi(contributorResult = AppResult.Success(contributorProfile("B000APZOQA")))
-                val service = makeService(audible = audible, db = sql, clock = FixedClock(now))
-                runTest {
-                    service.getContributor(AudibleRegion.US, "B000APZOQA")
-                    service.getContributor(AudibleRegion.UK, "B000APZOQA")
-                    audible.contributorCalls shouldBe 2
-                }
-            }
-        }
     })
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -325,23 +272,16 @@ private fun searchResult(asin: String) =
 /** Minimal [AudibleChapter] for test assertions. */
 private fun chapter(title: String) = AudibleChapter(title = title, startMs = 0L, durationMs = 60_000L)
 
-/** Minimal [AudibleContributorProfile] for test assertions. */
-private fun contributorProfile(asin: String) = AudibleContributorProfile(asin = asin, name = "Frank Herbert", biography = "", imageUrl = "")
-
 // ─── Hand-rolled fakes ────────────────────────────────────────────────────────
 
 private open class FakeAudibleApi(
     var searchResult: AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList()),
     var bookResult: AppResult<AudibleBook?> = AppResult.Success(null),
     var chaptersResult: AppResult<List<AudibleChapter>> = AppResult.Success(emptyList()),
-    var contributorResult: AppResult<AudibleContributorProfile?> = AppResult.Success(null),
-    var contributorSearchResult: AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList()),
 ) : AudibleApi {
     var searchCalls = 0
     var bookCalls = 0
     var chapterCalls = 0
-    var contributorCalls = 0
-    var contributorSearchCalls = 0
 
     override suspend fun search(
         region: AudibleRegion,
@@ -368,24 +308,6 @@ private open class FakeAudibleApi(
         run {
             chapterCalls++
             chaptersResult
-        }
-
-    override suspend fun getContributor(
-        region: AudibleRegion,
-        asin: String,
-    ): AppResult<AudibleContributorProfile?> =
-        run {
-            contributorCalls++
-            contributorResult
-        }
-
-    override suspend fun searchContributors(
-        region: AudibleRegion,
-        name: String,
-    ): AppResult<List<AudibleContributorProfile>> =
-        run {
-            contributorSearchCalls++
-            contributorSearchResult
         }
 
     override suspend fun getProductTags(

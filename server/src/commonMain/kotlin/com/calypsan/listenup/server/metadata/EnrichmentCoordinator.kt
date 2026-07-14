@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.metadata
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataDomain
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.metadata.spi.BookContributorMeta
 import com.calypsan.listenup.server.metadata.spi.BookCoreMeta
@@ -12,6 +13,9 @@ import com.calypsan.listenup.server.metadata.spi.BookIdentitySource
 import com.calypsan.listenup.server.metadata.spi.BookMatch
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterSource
+import com.calypsan.listenup.server.metadata.spi.ContributorHitMeta
+import com.calypsan.listenup.server.metadata.spi.ContributorMeta
+import com.calypsan.listenup.server.metadata.spi.ContributorSource
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
@@ -131,6 +135,42 @@ internal class EnrichmentCoordinator(
         return order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.accurate } }
             ?: order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.chapters.isNotEmpty() } }
     }
+
+    /**
+     * Searches contributor profiles for [name] in [locale] across every registered
+     * [ContributorSource], returning the first non-empty hit list walking the CONTRIBUTORS
+     * provider order. Each source is failure-contained; a total miss yields an empty list.
+     */
+    suspend fun searchContributors(
+        name: String,
+        locale: MetadataLocale,
+    ): List<ContributorHitMeta> {
+        val byProvider =
+            fanOut(registry.capable<ContributorSource>(), "contributor-search") {
+                it.searchContributors(name, locale).map { hits -> hits.ifEmpty { null } }
+            }
+        return contributorOrder().firstNotNullOfOrNull { byProvider[it] } ?: emptyList()
+    }
+
+    /**
+     * Fetches the contributor profile for [key] in [locale], returning the first provider
+     * with a profile walking the CONTRIBUTORS order (`null` when none has one). [refresh]
+     * bypasses any provider-side cache. Each source is failure-contained.
+     */
+    suspend fun getContributor(
+        key: String,
+        locale: MetadataLocale,
+        refresh: Boolean = false,
+    ): ContributorMeta? {
+        val byProvider =
+            fanOut(registry.capable<ContributorSource>(), "contributor-profile") {
+                it.getContributor(key, locale, refresh)
+            }
+        return contributorOrder().firstNotNullOfOrNull { byProvider[it] }
+    }
+
+    /** The provider precedence for contributor profiles. */
+    private fun contributorOrder(): List<MetadataProviderId> = routes.domainOrder.getValue(MetadataDomain.CONTRIBUTORS)
 
     /**
      * Searches every registered [BookIdentitySource] for [query] in [locale], aggregating

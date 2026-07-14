@@ -20,7 +20,6 @@ import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
-import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
@@ -28,6 +27,11 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.server.metadata.spi.ContributorHitMeta
+import com.calypsan.listenup.server.metadata.spi.ContributorMeta
+import com.calypsan.listenup.server.metadata.spi.ContributorSource
+import com.calypsan.listenup.server.metadata.spi.MetadataCapability
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -67,63 +71,82 @@ private val NOW = Instant.parse("2026-05-24T12:00:00Z")
 class MetadataLookupServiceImplTest :
     FunSpec({
 
-        // ── contributor match: pulled out (Finding #18b) ──────────────────────
-        // Contributor auto-match scrapes www.audible.com, which Audible now bot-blocks with a uniform
-        // 503. The feature is disabled server-side until a multi-target scraper exists; it returns a
-        // clean empty/absent result (never a 503) so manual contributor editing stays the fallback.
+        // ── contributor match (via the coordinator's ContributorSource chain) ──
+        // Contributor search + profile fetch now compose across the registry's ContributorSource
+        // (Audnexus in production). A fake source stands in here to prove the wiring end-to-end.
 
-        test("searchContributorMetadata is pulled out — returns empty without scraping") {
+        test("searchContributorMetadata maps ContributorSource hits to wire hits") {
             withSqlDatabase {
-                val canned =
-                    listOf(
-                        AudibleContributorProfile(asin = "B001H6L8VC", name = "Stephen King", biography = "", imageUrl = ""),
-                        AudibleContributorProfile(asin = "B002ABCDEF", name = "Stephen King Jr.", biography = "", imageUrl = ""),
+                val source =
+                    FakeContributorSource(
+                        hits =
+                            listOf(
+                                ContributorHitMeta(key = "B001H6L8VC", name = "Stephen King"),
+                                ContributorHitMeta(key = "B002ABCDEF", name = "Stephen King Jr."),
+                            ),
                     )
-                // Even though the scrape *would* return two hits, the disabled feature ignores it.
-                val audible = StubAudibleApi(contributorSearchResult = AppResult.Success(canned))
-                val service = makeService(audible = audible, dbs = this)
+                val service = makeService(audible = StubAudibleApi(), dbs = this, extraProviders = listOf(source))
 
                 runTest {
                     val result = service.searchContributorMetadata("stephen king")
                     result
                         .shouldBeInstanceOf<AppResult.Success<List<MetadataContributorHit>>>()
-                        .data shouldHaveSize 0
+                        .data shouldContainExactly
+                        listOf(
+                            MetadataContributorHit(asin = "B001H6L8VC", name = "Stephen King"),
+                            MetadataContributorHit(asin = "B002ABCDEF", name = "Stephen King Jr."),
+                        )
                 }
             }
         }
 
-        test("searchContributorMetadata returns a clean empty result instead of surfacing the scrape 503") {
+        test("searchContributorMetadata returns empty when no source has hits") {
             withSqlDatabase {
-                val audible =
-                    StubAudibleApi(
-                        contributorSearchResult = AppResult.Failure(MetadataError.ExternalUnavailable()),
-                    )
-                val service = makeService(audible = audible, dbs = this)
+                val service = makeService(audible = StubAudibleApi(), dbs = this, extraProviders = listOf(FakeContributorSource()))
 
                 runTest {
-                    val result = service.searchContributorMetadata("anyone")
-                    // Not a Failure — the 503 must never reach the user; auto-match is simply off.
-                    result
+                    service
+                        .searchContributorMetadata("anyone")
                         .shouldBeInstanceOf<AppResult.Success<List<MetadataContributorHit>>>()
                         .data shouldHaveSize 0
                 }
             }
         }
 
-        test("getContributorMetadata is pulled out — returns null even when the scrape would return a profile") {
+        test("getContributorMetadata maps a ContributorMeta profile to the wire profile") {
             withSqlDatabase {
-                val audible =
-                    StubAudibleApi(
-                        contributorProfileResult =
-                            AppResult.Success(
-                                AudibleContributorProfile(asin = "B001", name = "Stephen King", biography = "bio", imageUrl = "img"),
-                            ),
+                val source =
+                    FakeContributorSource(
+                        profile = ContributorMeta(key = "B001", name = "Stephen King", description = "bio", imageUrl = "img"),
                     )
-                val service = makeService(audible = audible, dbs = this)
+                val service = makeService(audible = StubAudibleApi(), dbs = this, extraProviders = listOf(source))
 
                 runTest {
-                    val result = service.getContributorMetadata("B001", MetadataLocale("us"))
-                    result
+                    val profile =
+                        service
+                            .getContributorMetadata("B001", MetadataLocale("us"))
+                            .shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataContributorProfile?>>()
+                            .data
+                    profile.shouldNotBeNull()
+                    profile.asin shouldBe "B001"
+                    profile.name shouldBe "Stephen King"
+                    profile.description shouldBe "bio"
+                    profile.imageUrl shouldBe "img"
+                    profile.sortName shouldBe null
+                    profile.birthDate shouldBe null
+                    profile.deathDate shouldBe null
+                    profile.website shouldBe null
+                }
+            }
+        }
+
+        test("getContributorMetadata returns null when no source has a profile") {
+            withSqlDatabase {
+                val service = makeService(audible = StubAudibleApi(), dbs = this, extraProviders = listOf(FakeContributorSource()))
+
+                runTest {
+                    service
+                        .getContributorMetadata("B001", MetadataLocale("us"))
                         .shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataContributorProfile?>>()
                         .data shouldBe null
                 }
@@ -411,6 +434,7 @@ private fun makeService(
     audible: AudibleApi,
     dbs: SqlTestDatabases,
     itunes: ITunesApi = NoOpITunesApi(),
+    extraProviders: List<MetadataCapability> = emptyList(),
 ): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-test-").toAbsolutePath()
     val metadataService =
@@ -436,7 +460,7 @@ private fun makeService(
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
-        coordinator = testCoordinator(metadataService, itunes),
+        coordinator = testCoordinator(metadataService, itunes, extraProviders),
         coverSearchService =
             CoverSearchService(
                 readBook = { null },
@@ -460,10 +484,7 @@ private fun makeService(
     )
 }
 
-private class StubAudibleApi(
-    val contributorSearchResult: AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList()),
-    val contributorProfileResult: AppResult<AudibleContributorProfile?> = AppResult.Success(null),
-) : AudibleApi {
+private class StubAudibleApi : AudibleApi {
     override suspend fun search(
         region: AudibleRegion,
         params: SearchParams,
@@ -479,20 +500,29 @@ private class StubAudibleApi(
         asin: String,
     ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
 
-    override suspend fun getContributor(
-        region: AudibleRegion,
-        asin: String,
-    ): AppResult<AudibleContributorProfile?> = contributorProfileResult
-
-    override suspend fun searchContributors(
-        region: AudibleRegion,
-        name: String,
-    ): AppResult<List<AudibleContributorProfile>> = contributorSearchResult
-
     override suspend fun getProductTags(
         region: AudibleRegion,
         asin: String,
     ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
+}
+
+/** A fake [ContributorSource] (stands in for Audnexus) returning canned hits/profile. */
+private class FakeContributorSource(
+    private val hits: List<ContributorHitMeta> = emptyList(),
+    private val profile: ContributorMeta? = null,
+) : ContributorSource {
+    override val id: MetadataProviderId = MetadataProviderId.AUDNEXUS
+
+    override suspend fun searchContributors(
+        name: String,
+        locale: MetadataLocale,
+    ): AppResult<List<ContributorHitMeta>> = AppResult.Success(hits)
+
+    override suspend fun getContributor(
+        key: String,
+        locale: MetadataLocale,
+        refresh: Boolean,
+    ): AppResult<ContributorMeta?> = AppResult.Success(profile)
 }
 
 private class ComposeStubAudibleApi(
@@ -513,16 +543,6 @@ private class ComposeStubAudibleApi(
         region: AudibleRegion,
         asin: String,
     ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
-
-    override suspend fun getContributor(
-        region: AudibleRegion,
-        asin: String,
-    ): AppResult<AudibleContributorProfile?> = AppResult.Success(null)
-
-    override suspend fun searchContributors(
-        region: AudibleRegion,
-        name: String,
-    ): AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList())
 
     override suspend fun getProductTags(
         region: AudibleRegion,

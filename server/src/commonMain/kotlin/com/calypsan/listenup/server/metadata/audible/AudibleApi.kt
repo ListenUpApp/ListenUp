@@ -45,38 +45,6 @@ interface AudibleApi {
     ): AppResult<List<AudibleChapter>>
 
     /**
-     * Fetches the contributor profile for [asin] in [region] by scraping the
-     * Audible author page at `www.audible.{tld}/author/x/{asin}`.
-     *
-     * The official catalog API no longer returns contributor images or
-     * biographies, so web scraping is the only reliable source.
-     *
-     * @return [AppResult.Success] with the profile (or `null` for a 404),
-     *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
-     */
-    suspend fun getContributor(
-        region: AudibleRegion,
-        asin: String,
-    ): AppResult<AudibleContributorProfile?>
-
-    /**
-     * Searches Audible's contributor catalog by [name] using HTML scraping of
-     * `www.audible.{tld}/search?searchAuthor={name}`.
-     *
-     * The official catalog API offers no contributor-search endpoint, so this
-     * relies on HTML scraping.
-     *
-     * Results are deduplicated by ASIN and ranked by name-similarity to [name].
-     *
-     * @return [AppResult.Success] with a (possibly empty) result list on success,
-     *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
-     */
-    suspend fun searchContributors(
-        region: AudibleRegion,
-        name: String,
-    ): AppResult<List<AudibleContributorProfile>>
-
-    /**
      * Scrapes the typed topic tags (moods, themes, …) from the Audible product
      * page at `www.audible.{tld}/pd/{asin}` in [region].
      *
