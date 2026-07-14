@@ -13,7 +13,6 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
-import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
@@ -239,16 +238,6 @@ private class ChapterFakeAudibleApi(
         region: AudibleRegion,
         asin: String,
     ) = AppResult.Success(chapters)
-
-    override suspend fun getContributor(
-        region: AudibleRegion,
-        asin: String,
-    ) = AppResult.Success<AudibleContributorProfile?>(null)
-
-    override suspend fun searchContributors(
-        region: AudibleRegion,
-        name: String,
-    ) = AppResult.Success(emptyList<AudibleContributorProfile>())
 
     override suspend fun getProductTags(
         region: AudibleRegion,

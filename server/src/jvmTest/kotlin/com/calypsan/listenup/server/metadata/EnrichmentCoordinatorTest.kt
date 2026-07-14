@@ -15,6 +15,9 @@ import com.calypsan.listenup.server.metadata.spi.BookMatch
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterSource
+import com.calypsan.listenup.server.metadata.spi.ContributorHitMeta
+import com.calypsan.listenup.server.metadata.spi.ContributorMeta
+import com.calypsan.listenup.server.metadata.spi.ContributorSource
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
@@ -216,6 +219,79 @@ class EnrichmentCoordinatorTest :
                 coordinator(audible, audnexus).searchBooks("query", US).map { it.asin } shouldContainExactly listOf("B1", "B2")
             }
         }
+
+        test("composeChapters reaches Audnexus's accurate list when local has none (chain [local, audnexus, audible])") {
+            // No LOCAL provider is registered, so the FirstAccurate walk must fall through to Audnexus —
+            // now that Audnexus implements ChapterSource, its accurate list is selected.
+            val audnexus =
+                FakeProvider(
+                    id = MetadataProviderId.AUDNEXUS,
+                    chapters =
+                        AppResult.Success(
+                            ChapterListMeta(listOf(ChapterMeta(title = "Chapter 1", startMs = 0)), accurate = true),
+                        ),
+                )
+
+            runTest {
+                val chapters = coordinator(audnexus).composeChapters(identity(), US)
+                chapters.shouldNotBeNull()
+                chapters.accurate shouldBe true
+                chapters.chapters.single().title shouldBe "Chapter 1"
+            }
+        }
+
+        test("searchContributors returns the first non-empty hit list walking the CONTRIBUTORS order") {
+            // CONTRIBUTORS order is [audnexus, audible]; Audible has no ContributorSource in production, but
+            // here both are fakes — Audnexus (first) supplies the hits.
+            val audnexus =
+                FakeProvider(
+                    id = MetadataProviderId.AUDNEXUS,
+                    contributorHits =
+                        AppResult.Success(
+                            listOf(
+                                ContributorHitMeta(key = "A1", name = "Patrick Rothfuss"),
+                                ContributorHitMeta(key = "A2", name = "Pat Rothfuss"),
+                            ),
+                        ),
+                )
+
+            runTest {
+                coordinator(audnexus).searchContributors("rothfuss", US).map { it.key } shouldContainExactly listOf("A1", "A2")
+            }
+        }
+
+        test("searchContributors returns empty when no provider has a hit") {
+            val audnexus = FakeProvider(id = MetadataProviderId.AUDNEXUS)
+            runTest {
+                coordinator(audnexus).searchContributors("nobody", US).shouldBeEmpty()
+            }
+        }
+
+        test("getContributor returns the first provider's profile walking the CONTRIBUTORS order") {
+            val audnexus =
+                FakeProvider(
+                    id = MetadataProviderId.AUDNEXUS,
+                    contributorProfile =
+                        AppResult.Success(
+                            ContributorMeta(key = "A1", name = "Patrick Rothfuss", description = "bio", imageUrl = "https://a/p.jpg"),
+                        ),
+                )
+
+            runTest {
+                val profile = coordinator(audnexus).getContributor("A1", US)
+                profile.shouldNotBeNull()
+                profile.name shouldBe "Patrick Rothfuss"
+                profile.description shouldBe "bio"
+                profile.imageUrl shouldBe "https://a/p.jpg"
+            }
+        }
+
+        test("getContributor returns null when no provider has a profile") {
+            val audnexus = FakeProvider(id = MetadataProviderId.AUDNEXUS)
+            runTest {
+                coordinator(audnexus).getContributor("A1", US).shouldBeNull()
+            }
+        }
     })
 
 /**
@@ -232,11 +308,14 @@ private class FakeProvider(
     private val series: AppResult<List<SeriesMeta>?> = AppResult.Success(null),
     private val chapters: AppResult<ChapterListMeta?> = AppResult.Success(null),
     private val matches: AppResult<List<BookMatch>> = AppResult.Success(emptyList()),
+    private val contributorHits: AppResult<List<ContributorHitMeta>> = AppResult.Success(emptyList()),
+    private val contributorProfile: AppResult<ContributorMeta?> = AppResult.Success(null),
 ) : BookCoreSource,
     CoverSource,
     GenreSource,
     SeriesSource,
     ChapterSource,
+    ContributorSource,
     BookIdentitySource {
     override suspend fun getBookCore(
         book: BookIdentity,
@@ -268,4 +347,15 @@ private class FakeProvider(
         query: String,
         locale: MetadataLocale,
     ): AppResult<List<BookMatch>> = matches
+
+    override suspend fun searchContributors(
+        name: String,
+        locale: MetadataLocale,
+    ): AppResult<List<ContributorHitMeta>> = contributorHits
+
+    override suspend fun getContributor(
+        key: String,
+        locale: MetadataLocale,
+        refresh: Boolean,
+    ): AppResult<ContributorMeta?> = contributorProfile
 }

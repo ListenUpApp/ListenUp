@@ -126,47 +126,6 @@ class AudibleClient(
     }
 
     /**
-     * Fetches a contributor profile by scraping the Audible author page.
-     *
-     * Endpoint: `GET https://www.audible.{tld}/author/x/{asin}`
-     *
-     * Audible's catalog API no longer returns contributor images or biographies,
-     * so the author web page is the only reliable source.
-     * A placeholder name (`x`) is used in the URL because Audible redirects to
-     * the canonical slug regardless.
-     *
-     * The page is scraped with lightweight regex extraction:
-     *  - Name: `<h1 class="bc-heading...">` text content
-     *  - Biography: `<div class="bc-expander-content">` text content
-     *  - Image: `og:image` meta tag `content` attribute (falls back to
-     *    `author-image-outline` img `src`), filtered for the placeholder
-     *    image Audible uses when no author photo is available.
-     */
-    override suspend fun getContributor(
-        region: AudibleRegion,
-        asin: String,
-    ): AppResult<AudibleContributorProfile?> {
-        rateLimiter.await(region)
-        return webGet(region, "/author/x/$asin") { body ->
-            parseContributorProfile(body, asin)
-        }
-    }
-
-    override suspend fun searchContributors(
-        region: AudibleRegion,
-        name: String,
-    ): AppResult<List<AudibleContributorProfile>> {
-        rateLimiter.await(region)
-        // webGet returns AppResult<List<AudibleContributorProfile>?> — the search page always
-        // returns 200, so null is not expected; map it to an empty list as a safe fallback.
-        val raw: AppResult<List<AudibleContributorProfile>?> =
-            webGet(region, "/search", queryParams = mapOf("searchAuthor" to name)) { body ->
-                parseContributorSearch(body)
-            }
-        return raw.map { it ?: emptyList() }
-    }
-
-    /**
      * Scrapes typed topic tags from the Audible product page by ASIN.
      *
      * Endpoint: `GET https://www.audible.{tld}/pd/{asin}`
@@ -261,14 +220,12 @@ class AudibleClient(
      * (`www.audible.{tld}`) with browser-style headers, and maps the response
      * body via [decode].
      *
-     * Used by [getContributor] and [searchContributors] which scrape Audible
-     * web pages rather than calling the JSON API. Optional [queryParams] are
-     * appended to the URL. [CancellationException] is always rethrown.
+     * Used by [getProductTags], which scrapes the Audible product page rather than
+     * calling the JSON API. [CancellationException] is always rethrown.
      */
     private suspend fun <T> webGet(
         region: AudibleRegion,
         path: String,
-        queryParams: Map<String, String> = emptyMap(),
         failOnGeoRedirect: Boolean = false,
         decode: (String) -> T?,
     ): AppResult<T?> =
@@ -285,7 +242,6 @@ class AudibleClient(
                     // clears Audible's 503: the www host now bot-blocks datacenter clients regardless
                     // of the cookie — Finding #18b.)
                     header("Cookie", region.localeCookie())
-                    queryParams.forEach { (k, v) -> parameter(k, v) }
                 }
             when {
                 failOnGeoRedirect && response.geoRedirectedAwayFrom(region) -> {
@@ -358,141 +314,6 @@ class AudibleClient(
          */
         const val IMAGE_SIZES = "500,1024"
     }
-}
-
-// ─── Contributor HTML scraping ────────────────────────────────────────────────
-
-/**
- * Extracts [AudibleContributorProfile] from an Audible author page HTML body.
- *
- * Returns `null` when the page contains no `<h1 class="bc-heading">` element —
- * Audible serves a generic page for unknown ASINs rather than a 404.
- *
- * Uses regex extraction rather than a full HTML parser to avoid adding a
- * non-Kotlin-native dependency. The patterns are robust to Audible's typical
- * minification and attribute ordering because they target unique class names
- * and meta-tag attributes rather than tag structure.
- */
-internal fun parseContributorProfile(
-    html: String,
-    asin: String,
-): AudibleContributorProfile? {
-    // Name: first <h1> with class containing "bc-heading"
-    val name = extractH1Text(html, "bc-heading") ?: return null
-
-    // Biography: text inside the first element with class "bc-expander-content"
-    val biography = extractElementText(html, "bc-expander-content") ?: ""
-
-    // Image: prefer og:image meta tag; fall back to author-image-outline img src. The
-    // author-image-outline thumbnail is a tiny 120px rendition — upsize it.
-    val imageUrl =
-        upsizeAmazonImage(
-            extractOgImage(html)?.takeUnless { it.contains(PLACEHOLDER_IMAGE_FRAGMENT) }
-                ?: extractImgSrc(html, "author-image-outline") ?: "",
-        )
-
-    return AudibleContributorProfile(asin = asin, name = name, biography = biography, imageUrl = imageUrl)
-}
-
-private const val PLACEHOLDER_IMAGE_FRAGMENT = "Facebook_Placement"
-
-/** Target width (px) requested from Amazon's image server for contributor photos. */
-private const val AUTHOR_IMAGE_TARGET_PX = 600
-
-/**
- * Rewrites an Amazon image URL's size operator to request a larger rendition. Audible's
- * `author-image-outline` photo is served as a 120px thumbnail (e.g.
- * `…/{id}.__01_SX120_CR0,0,120,120__.jpg`); Amazon's image server honours a `._SX{n}_` operator,
- * so this swaps whichever operator block is present for `._SX600_` to fetch a sharp avatar.
- * Non-Amazon URLs (and URLs with no operator block) are returned unchanged.
- */
-private fun upsizeAmazonImage(url: String): String {
-    if (!url.contains("media-amazon", ignoreCase = true) && !url.contains("images-amazon", ignoreCase = true)) {
-        return url
-    }
-    // Matches the `.<__…__|_…_>.ext` size-operator block (the underscore count is back-referenced
-    // so `.__01_SX120_CR0,0,120,120__.jpg` and `._SX120_.jpg` both collapse to `._SX600_.ext`).
-    val operatorBlock = Regex("""\.(_{1,2})[^./]*\1\.(jpe?g|png)$""", RegexOption.IGNORE_CASE)
-    return operatorBlock.replace(url, "._SX${AUTHOR_IMAGE_TARGET_PX}_.$2")
-}
-
-/** Extracts the trimmed text content of the first `<h1 class="...{cssClass}...">` element. */
-private fun extractH1Text(
-    html: String,
-    cssClass: String,
-): String? {
-    val pattern = Regex("""<h1[^>]*class="[^"]*\b$cssClass\b[^"]*"[^>]*>(.*?)</h1>""", RegexOption.DOT_MATCHES_ALL)
-    val raw = pattern.find(html)?.groupValues?.get(1) ?: return null
-    return stripHtmlEntities(raw).takeIf { it.isNotBlank() }
-}
-
-/** Extracts the trimmed text content of the first element with [cssClass] as a class. */
-private fun extractElementText(
-    html: String,
-    cssClass: String,
-): String? {
-    val pattern = Regex("""class="[^"]*\b$cssClass\b[^"]*"[^>]*>(.*?)</""", RegexOption.DOT_MATCHES_ALL)
-    val raw = pattern.find(html)?.groupValues?.get(1) ?: return null
-    return stripHtmlEntities(raw).trim().takeIf { it.isNotBlank() }
-}
-
-/** Extracts the `content` attribute of `<meta property="og:image" ...>`. */
-private fun extractOgImage(html: String): String? {
-    val pattern = Regex("""<meta[^>]*property="og:image"[^>]*content="([^"]+)"""")
-    return pattern.find(html)?.groupValues?.get(1)
-        ?: Regex("""<meta[^>]*content="([^"]+)"[^>]*property="og:image"""").find(html)?.groupValues?.get(1)
-}
-
-/** Extracts the `src` attribute of the first `<img class="...{cssClass}...">`. */
-private fun extractImgSrc(
-    html: String,
-    cssClass: String,
-): String? {
-    val pattern = Regex("""<img[^>]*class="[^"]*\b$cssClass\b[^"]*"[^>]*src="([^"]+)"""")
-    return pattern.find(html)?.groupValues?.get(1)
-        ?: Regex("""<img[^>]*src="([^"]+)"[^>]*class="[^"]*\b$cssClass\b[^"]*"""").find(html)?.groupValues?.get(1)
-}
-
-// ─── Contributor search HTML scraping ────────────────────────────────────────
-
-/**
- * Extracts [AudibleContributorProfile] list from an Audible search-by-author
- * page (`/search?searchAuthor=...`).
- *
- * The page includes author links of the form `/author/{slug}/{ASIN}`. Each
- * unique ASIN is deduplicated; the same author often appears across multiple
- * product listings on the page.
- *
- * Returns an empty list when no author links match — not null — because the
- * search endpoint always returns HTTP 200.
- *
- * Uses regex extraction matching the approach in [parseContributorProfile]:
- * no full HTML parser to avoid a non-Kotlin-native dependency.
- */
-internal fun parseContributorSearch(html: String): List<AudibleContributorProfile> {
-    // Author links are `href="/author/{slug}/{ASIN}?{tracking}"` — Audible always appends tracking
-    // query params (ref, pf_rd_*, plink, …) after the ASIN. The pattern must therefore tolerate
-    // anything up to the closing quote after the ASIN; requiring a quote *immediately* after it
-    // (the previous behaviour) matched nothing, so every contributor search returned empty.
-    // The anchor's inner text is the contributor name.
-    val anchorPattern =
-        Regex(
-            """href="/author/[^/]+/([A-Z0-9]+)[^"]*"[^>]*>(.*?)</a>""",
-            RegexOption.DOT_MATCHES_ALL,
-        )
-
-    val seen = mutableSetOf<String>()
-    val results = mutableListOf<AudibleContributorProfile>()
-
-    anchorPattern.findAll(html).forEach { match ->
-        val asin = match.groupValues[1]
-        if (!seen.add(asin)) return@forEach // an author repeats across product listings — dedupe
-
-        val name = stripHtmlEntities(match.groupValues[2]).trim().takeIf { it.isNotBlank() } ?: return@forEach
-        results += AudibleContributorProfile(asin = asin, name = name, biography = "", imageUrl = "")
-    }
-
-    return results
 }
 
 // ─── Raw → Domain mappers ─────────────────────────────────────────────────────

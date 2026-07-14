@@ -11,7 +11,6 @@ import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.CoverSource
@@ -19,11 +18,11 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.BookRepository
@@ -38,13 +37,6 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import kotlinx.coroutines.CancellationException
 
 /**
- * Feature flag for contributor auto-match (search + profile fetch). Off while the only source — the
- * `www.audible.com` scrape — is bot-blocked (uniform 503); the future multi-target scrape provider
- * flips it back on. See [MetadataLookupServiceImpl.searchContributorMetadata]. Finding #18b.
- */
-private const val CONTRIBUTOR_MATCH_ENABLED = false
-
-/**
  * Server-side implementation of [MetadataLookupService].
  *
  * Search / fetch / refresh reads compose across the metadata provider registry through the injected
@@ -52,8 +44,8 @@ private const val CONTRIBUTOR_MATCH_ENABLED = false
  * iTunes cover fallback + genres today) and returns a provider-neutral result; this service projects
  * that onto the wire DTOs via [toMetadataBook] / [toMetadataChapters]. The two apply methods
  * ([applyBookMetadata], [applyContributorMetadata]) write through the syncable substrate via
- * [BookRepository] and [ContributorRepository]. Contributor lookup paths still use [metadataService]
- * directly (contributor search + profile fetch are Audible-only, not provider-abstracted yet).
+ * [BookRepository] and [ContributorRepository]. Contributor search + profile lookup route through the
+ * same [coordinator] (served by Audnexus's [com.calypsan.listenup.server.metadata.spi.ContributorSource]).
  *
  * Search / fetch reads ([searchBooks], [getBookMetadata], [getBookChapters],
  * [searchContributorMetadata], [getContributorMetadata]) are open to any authenticated
@@ -78,7 +70,6 @@ internal class MetadataLookupServiceImpl(
     private val permissionPolicy: UserPermissionPolicy,
     private val sqlDb: ListenUpDatabase,
     private val genreRepository: GenreRepository,
-    private val defaultRegion: AudibleRegion = AudibleRegion.US,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MetadataLookupService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
@@ -95,7 +86,6 @@ internal class MetadataLookupServiceImpl(
             permissionPolicy = permissionPolicy,
             sqlDb = sqlDb,
             genreRepository = genreRepository,
-            defaultRegion = defaultRegion,
             principal = principal,
         )
 
@@ -131,30 +121,24 @@ internal class MetadataLookupServiceImpl(
         AppResult.Success(coordinator.composeChapters(bookIdentity(asin), region)?.toMetadataChapters())
 
     /**
-     * Contributor auto-match (search + profile fetch) is served only by scraping `www.audible.com`,
-     * which Audible's edge now bot-blocks with a uniform 503 (the `api.audible.com` book-match path is
-     * unaffected). Rather than surface that 503 to users, the feature is disabled until a multi-target
-     * scrape provider exists — [searchContributorMetadata] returns an empty result and
-     * [getContributorMetadata] returns null, so the UI cleanly shows "no matches" and the user falls
-     * back to manual contributor editing (Never-Stranded). See Finding #18b.
-     *
-     * The re-enable seam is intact: flip [CONTRIBUTOR_MATCH_ENABLED] to `true` once a working scrape
-     * source lands and the [metadataService] calls below resume.
+     * Contributor auto-match — search + profile fetch — composed across the provider registry through
+     * the [coordinator]. The CONTRIBUTORS chain is served by Audnexus's `ContributorSource` (Audible has
+     * no contributor-profile endpoint), so the wizard resolves author bios and photos from Audnexus.
+     * A total catalog miss returns an empty list / null, so the UI cleanly shows "no matches" and manual
+     * contributor editing stays the fallback (Never-Stranded).
      */
-    override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> {
-        if (!CONTRIBUTOR_MATCH_ENABLED) return AppResult.Success(emptyList())
-        return metadataService
-            .searchContributors(defaultRegion, query)
-            .map { profiles -> profiles.map { MetadataContributorHit(asin = it.asin, name = it.name) } }
-    }
+    override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
+        AppResult.Success(
+            coordinator.searchContributors(query, MetadataLocale.DEFAULT).map {
+                MetadataContributorHit(asin = it.key, name = it.name)
+            },
+        )
 
     override suspend fun getContributorMetadata(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataContributorProfile?> {
-        if (!CONTRIBUTOR_MATCH_ENABLED) return AppResult.Success(null)
-        return metadataService.getContributor(region.toAudibleRegion(), asin).map { it?.toMetadataContributorProfile() }
-    }
+    ): AppResult<MetadataContributorProfile?> =
+        AppResult.Success(coordinator.getContributor(asin, region)?.toMetadataContributorProfile())
 
     override suspend fun refreshBookMetadata(
         asin: String,
@@ -227,9 +211,9 @@ internal class MetadataLookupServiceImpl(
         return ContributorMetadataApplier(
             contributorRepository = contributorRepository,
             imageStorage = imageDeps.imageStorage,
-            metadataService = metadataService,
+            coordinator = coordinator,
             imageHome = imageDeps.imageHome,
-        ).apply(contributorId, asin, region.toAudibleRegion())
+        ).apply(contributorId, asin, region)
     }
 
     override suspend fun searchCovers(
@@ -270,17 +254,17 @@ internal class MetadataLookupServiceImpl(
 
 // ─── Internal → wire DTO mappers ─────────────────────────────────────────────
 
-private fun AudibleContributorProfile.toMetadataContributorProfile(): MetadataContributorProfile =
+private fun ContributorMeta.toMetadataContributorProfile(): MetadataContributorProfile =
     MetadataContributorProfile(
-        asin = asin,
+        asin = key,
         name = name,
         sortName = null,
-        description = biography.takeIf { it.isNotBlank() },
-        imageUrl = imageUrl.takeIf { it.isNotBlank() },
+        description = description,
+        imageUrl = imageUrl,
         birthDate = null,
         deathDate = null,
-        // Audible author pages expose no external website (the scrape yields only name, biography,
-        // and og:image), so there is nothing to populate here — website stays a manual-only field
-        // edited on the contributor page.
+        // Audnexus author profiles expose no birth/death date, sort name, or website (only name,
+        // description, and photo), so those stay null — website remains a manual-only field edited
+        // on the contributor page.
         website = null,
     )

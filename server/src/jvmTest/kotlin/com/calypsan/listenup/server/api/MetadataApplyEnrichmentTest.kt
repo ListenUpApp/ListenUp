@@ -17,7 +17,6 @@ import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributor
-import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
@@ -347,16 +346,6 @@ private class EnrichStubAudibleApi(
         region: AudibleRegion,
         asin: String,
     ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
-
-    override suspend fun getContributor(
-        region: AudibleRegion,
-        asin: String,
-    ): AppResult<AudibleContributorProfile?> = AppResult.Success(null)
-
-    override suspend fun searchContributors(
-        region: AudibleRegion,
-        name: String,
-    ): AppResult<List<AudibleContributorProfile>> = AppResult.Success(emptyList())
 
     override suspend fun getProductTags(
         region: AudibleRegion,

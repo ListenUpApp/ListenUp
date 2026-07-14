@@ -286,26 +286,3 @@ data class AudibleChapter(
     val startMs: Long,
     val durationMs: Long,
 )
-
-/**
- * Full contributor profile scraped from an Audible author page.
- *
- * Unlike book metadata (which uses the catalog JSON API), contributor data is
- * fetched by scraping `www.audible.{tld}/author/x/{asin}` — Audible's official
- * API no longer returns contributor images or biographies.
- *
- * `@Serializable` so [com.calypsan.listenup.server.services.MetadataService]
- * can cache this value as JSON in `MetadataCacheRepository`.
- */
-@Serializable
-@SerialName("AudibleContributorProfile")
-data class AudibleContributorProfile(
-    /** Audible contributor ASIN — the stable external key. */
-    val asin: String,
-    /** Display name extracted from the author page heading. */
-    val name: String,
-    /** Plain-text biography extracted from the expander block, or empty string. */
-    val biography: String,
-    /** Author photo URL from the `og:image` meta tag, or empty string if unavailable. */
-    val imageUrl: String,
-)
