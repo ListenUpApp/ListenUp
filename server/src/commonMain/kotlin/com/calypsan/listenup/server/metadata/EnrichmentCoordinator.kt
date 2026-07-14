@@ -13,6 +13,8 @@ import com.calypsan.listenup.server.metadata.spi.BookIdentitySource
 import com.calypsan.listenup.server.metadata.spi.BookMatch
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterSource
+import com.calypsan.listenup.server.metadata.spi.CharacterMeta
+import com.calypsan.listenup.server.metadata.spi.CharacterSource
 import com.calypsan.listenup.server.metadata.spi.ContributorHitMeta
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.server.metadata.spi.ContributorSource
@@ -134,6 +136,27 @@ internal class EnrichmentCoordinator(
         val order = routes.orderFor(BookField.CHAPTERS)
         return order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.accurate } }
             ?: order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.chapters.isNotEmpty() } }
+    }
+
+    /**
+     * Composes the character list for [identity] in [locale] — the honest empty slot.
+     *
+     * No built-in provider implements [CharacterSource] (there is no public per-book
+     * character catalog), so with the default routes this returns an empty list rather
+     * than fabricating data — the user-facing story is manual character entry. When an
+     * operator points a custom provider at a character source and routes
+     * [MetadataDomain.CHARACTERS] to it, that provider slots straight in here: the method
+     * fans out across every registered [CharacterSource] and returns the first non-empty
+     * list walking the CHARACTERS provider order. Each source is failure-contained.
+     */
+    suspend fun composeCharacters(
+        identity: BookIdentity,
+        locale: MetadataLocale,
+    ): List<CharacterMeta> {
+        val byProvider =
+            fanOut(registry.capable<CharacterSource>(), "characters") { it.getCharacters(identity, locale) }
+        val order = routes.domainOrder.getValue(MetadataDomain.CHARACTERS)
+        return order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.isNotEmpty() } } ?: emptyList()
     }
 
     /**

@@ -117,6 +117,11 @@ class EnrichmentRoutesTest :
             EnrichmentRoutes.parse(order = "   ", routes = "  ;  ; ") shouldBe EnrichmentRoutes.DEFAULT
         }
 
+        test("a custom:<name> token resolves so a route can name an operator's custom provider") {
+            val parsed = EnrichmentRoutes.parse(order = null, routes = "characters=custom:mysource")
+            parsed.domainOrder.getValue(MetadataDomain.CHARACTERS) shouldBe listOf(MetadataProviderId.custom("mysource"))
+        }
+
         test("property: arbitrary garbage never throws and always leaves every domain routable") {
             checkAll(Arb.string(), Arb.string()) { order, routes ->
                 val parsed = EnrichmentRoutes.parse(order = order, routes = routes)
