@@ -16,8 +16,7 @@ import io.kotest.matchers.shouldBe
 /**
  * Covers the Audible → neutral-SPI mappers that back [AudibleProvider]. The provider methods
  * are one-line `.map { it.toX() }` delegations over `MetadataService`, so the mapping logic —
- * where the substance lives — is exercised here as pure functions, mirroring
- * `AudibleMetadataProviderTest`'s wire-DTO mapper coverage.
+ * where the substance lives — is exercised here as pure functions.
  */
 class AudibleProviderTest :
     FunSpec({

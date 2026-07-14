@@ -21,23 +21,20 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.media.ImageStore
-import com.calypsan.listenup.server.metadata.audible.ProductTagClassifier
-import com.calypsan.listenup.server.metadata.provider.MetadataProvider
-import com.calypsan.listenup.server.metadata.provider.MetadataSource
+import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
+import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.GenreAutoCreator
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
-import com.calypsan.listenup.server.services.GenreNormalizer
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
-
-private val log = loggerFor<MetadataLookupServiceImpl>()
 
 /**
  * Feature flag for contributor auto-match (search + profile fetch). Off while the only source — the
@@ -49,10 +46,12 @@ private const val CONTRIBUTOR_MATCH_ENABLED = false
 /**
  * Server-side implementation of [MetadataLookupService].
  *
- * Delegates search/fetch/refresh to the injected [metadataProviders] list, which own
- * the catalog-specific mapping. The two apply methods ([applyBookMetadata],
- * [applyContributorMetadata]) write through the syncable substrate via [BookRepository]
- * and [ContributorRepository]. Contributor lookup paths still use [metadataService]
+ * Search / fetch / refresh reads compose across the metadata provider registry through the injected
+ * [coordinator], which walks each domain's configured provider chain first-non-empty (Audible core +
+ * iTunes cover fallback + genres today) and returns a provider-neutral result; this service projects
+ * that onto the wire DTOs via [toMetadataBook] / [toMetadataChapters]. The two apply methods
+ * ([applyBookMetadata], [applyContributorMetadata]) write through the syncable substrate via
+ * [BookRepository] and [ContributorRepository]. Contributor lookup paths still use [metadataService]
  * directly (contributor search + profile fetch are Audible-only, not provider-abstracted yet).
  *
  * Search / fetch reads ([searchBooks], [getBookMetadata], [getBookChapters],
@@ -68,7 +67,7 @@ private const val CONTRIBUTOR_MATCH_ENABLED = false
  */
 internal class MetadataLookupServiceImpl(
     private val metadataService: MetadataService,
-    private val metadataProviders: List<MetadataProvider>,
+    private val coordinator: EnrichmentCoordinator,
     private val coverSearchService: CoverSearchService,
     private val bookRepository: BookRepository,
     private val contributorRepository: ContributorRepository,
@@ -81,17 +80,11 @@ internal class MetadataLookupServiceImpl(
     private val defaultRegion: AudibleRegion = AudibleRegion.US,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MetadataLookupService {
-    /** The Audible provider handles ASIN-keyed reads (get/refresh/chapters). */
-    private val audible =
-        metadataProviders.first {
-            it.source == MetadataSource.AUDIBLE
-        }
-
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): MetadataLookupServiceImpl =
         MetadataLookupServiceImpl(
             metadataService = metadataService,
-            metadataProviders = metadataProviders,
+            coordinator = coordinator,
             coverSearchService = coverSearchService,
             bookRepository = bookRepository,
             contributorRepository = contributorRepository,
@@ -120,27 +113,21 @@ internal class MetadataLookupServiceImpl(
         query: String,
         region: AudibleRegion?,
     ): AppResult<MetadataSearchResults> {
-        val hits =
-            buildList {
-                for (provider in metadataProviders) {
-                    when (val r = provider.search(query, region)) {
-                        is AppResult.Failure -> return r
-                        is AppResult.Success -> addAll(r.data)
-                    }
-                }
-            }
+        val locale = region?.let { localeFor(it) } ?: MetadataLocale.DEFAULT
+        val hits = coordinator.searchBooks(query, locale).map { it.toMetadataBook() }
         return AppResult.Success(MetadataSearchResults(hits = hits))
     }
 
     override suspend fun getBookMetadata(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataBook?> = audible.getBook(asin, region).enrichWithItunesCover().enrichWithMoodsAndTags(region)
+    ): AppResult<MetadataBook?> = AppResult.Success(composeMetadataBook(asin, region))
 
     override suspend fun getBookChapters(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataChapters?> = audible.getChapters(asin, region)
+    ): AppResult<MetadataChapters?> =
+        AppResult.Success(coordinator.composeChapters(bookIdentity(asin), localeFor(region))?.toMetadataChapters())
 
     /**
      * Contributor auto-match (search + profile fetch) is served only by scraping `www.audible.com`,
@@ -173,65 +160,24 @@ internal class MetadataLookupServiceImpl(
         region: AudibleRegion,
     ): AppResult<MetadataBook?> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return audible.getBook(asin, region, refresh = true).enrichWithItunesCover().enrichWithMoodsAndTags(region)
+        return AppResult.Success(composeMetadataBook(asin, region, refresh = true))
     }
 
-    /**
-     * Grafts iTunes' high-resolution cover onto a single-book metadata result.
-     *
-     * The metadata wizard's cover picker sources its "iTunes HD" option from
-     * [MetadataBook.coverUrlMaxSize] — but the Audible mappers never populate it.
-     * When the lookup succeeded with a book whose max-size cover is still empty,
-     * fetch the best iTunes cover by title + primary author and copy its
-     * max-resolution URL in. Failure-contained: a missing book, a blank title, a
-     * null hit, a blank URL, or any iTunes error leaves the result untouched so
-     * the Audible metadata still flows. One iTunes request per preview load.
-     */
-    private suspend fun AppResult<MetadataBook?>.enrichWithItunesCover(): AppResult<MetadataBook?> {
-        val book = (this as? AppResult.Success)?.data ?: return this
-        if (book.coverUrlMaxSize != null || book.title.isBlank()) return this
-        val author =
-            book.authors
-                .firstOrNull()
-                ?.name
-                .orEmpty()
-        val hit = (metadataService.findCover(book.title, author) as? AppResult.Success)?.data ?: return this
-        val maxUrl = hit.maxSizeUrl.takeIf { it.isNotBlank() } ?: return this
-        return AppResult.Success(book.copy(coverUrlMaxSize = maxUrl))
-    }
-
-    /**
-     * Grafts the matched book's Audible moods and tropes onto a single-book metadata result so
-     * the metadata wizard's preview can show them as toggleable chips alongside genres.
-     *
-     * Scrapes the matched ASIN's Audible product topic-tags via the same
-     * [MetadataEnrichmentDeps.productTagSource] the apply path uses, then classifies them via
-     * [ProductTagClassifier] — `mood` tags become [MetadataBook.moods], `theme` tags become
-     * [MetadataBook.tags] minus any theme that canonicalizes to a genre already on the match (the
-     * exclusion set is derived from the match's own [MetadataBook.genres] through
-     * [GenreNormalizer.normalizeToSlugs], mirroring the apply path's slug-based exclusion).
-     *
-     * Best-effort: a missing book, an empty scrape, or any classifier error leaves moods/tags
-     * empty so the rest of the metadata still flows. One product-page request per preview load —
-     * behind the existing loading state. [CancellationException] is always re-raised.
-     */
-    private suspend fun AppResult<MetadataBook?>.enrichWithMoodsAndTags(
+    /** Composes and projects the ASIN-keyed book preview; `null` when no catalog has the book. */
+    private suspend fun composeMetadataBook(
+        asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataBook?> {
-        val book = (this as? AppResult.Success)?.data ?: return this
-        return try {
-            val productTags = enrichmentDeps.productTagSource(region, book.asin)
-            if (productTags.isEmpty()) return this
-            val appliedGenreSlugs = book.genres.flatMap { GenreNormalizer.normalizeToSlugs(it) }.toSet()
-            val classified = ProductTagClassifier.classify(productTags, appliedGenreSlugs)
-            AppResult.Success(book.copy(moods = classified.moods, tags = classified.tags))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            log.warn(e) { "Mood/tag enrichment failed for ASIN ${book.asin} in region $region — leaving empty" }
-            this
-        }
-    }
+        refresh: Boolean = false,
+    ): MetadataBook? = coordinator.composeBook(bookIdentity(asin), localeFor(region), refresh)?.toMetadataBook()
+
+    /**
+     * The lookup key for an ASIN-keyed compose. The title is unknown at this point — the coordinator
+     * backfills it from the fetched core before running any title-keyed (cover) lookup.
+     */
+    private fun bookIdentity(asin: String): BookIdentity = BookIdentity(asin = asin, title = "")
+
+    /** Maps an Audible region to the provider-neutral [MetadataLocale] the coordinator speaks. */
+    private fun localeFor(region: AudibleRegion): MetadataLocale = MetadataLocale(region.code)
 
     override suspend fun applyBookMetadata(
         bookId: BookId,
@@ -247,7 +193,8 @@ internal class MetadataLookupServiceImpl(
             seriesRepository = seriesRepository,
             imageStorage = imageDeps.imageStorage,
             coverImageStore = imageDeps.coverImageStore,
-            metadataProvider = audible,
+            matchSource = { a, r -> AppResult.Success(composeMetadataBook(a, r)) },
+            enrichmentProvider = MetadataProviderId.AUDIBLE.value,
             genreHierarchy = GenreHierarchyFromLadder(sqlDb, genreRepository, genreAutoCreator),
             sqlDb = sqlDb,
             ladderSource = { r, a ->

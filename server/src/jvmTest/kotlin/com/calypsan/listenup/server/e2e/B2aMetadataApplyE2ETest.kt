@@ -32,7 +32,6 @@ import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
-import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
@@ -46,6 +45,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -309,8 +309,8 @@ class B2aMetadataApplyE2ETest :
 
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
 
-// canned_WayOfKings() has author ASIN "A123" and narrator ASIN "" (blank → null after
-// AudibleMetadataProvider.toMetadataBook mapping). Series is empty. Only the author is
+// canned_WayOfKings() has author ASIN "A123" and narrator ASIN "" (blank → null after the
+// composed-book wire mapping). Series is empty. Only the author is
 // selectable by ASIN; the narrator's null ASIN makes it unselectable per the design.
 private val APPLY_SELECTION =
     MetadataApplySelection(
@@ -339,7 +339,7 @@ private fun buildService(
 ): MetadataLookupServiceImpl =
     MetadataLookupServiceImpl(
         metadataService = metadataService,
-        metadataProviders = listOf(AudibleMetadataProvider(metadataService)),
+        coordinator = testCoordinator(metadataService),
         coverSearchService =
             CoverSearchService(
                 readBook = { null },
@@ -420,10 +420,28 @@ private fun canned_WayOfKings(): AudibleBook =
 private class SingleBookFakeAudibleApi(
     private val book: AudibleBook?,
 ) : AudibleApi {
+    // Surface the same book in search so the cover source (AudibleProvider.searchCovers) finds its cover.
     override suspend fun search(
         region: AudibleRegion,
         params: SearchParams,
-    ): AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList())
+    ): AppResult<List<AudibleSearchResult>> =
+        AppResult.Success(
+            book
+                ?.let {
+                    listOf(
+                        AudibleSearchResult(
+                            asin = it.asin,
+                            title = it.title,
+                            subtitle = it.subtitle,
+                            authors = it.authors,
+                            narrators = it.narrators,
+                            coverUrl = it.coverUrl,
+                            runtimeMinutes = it.runtimeMinutes,
+                            releaseDate = it.releaseDate,
+                        ),
+                    )
+                }.orEmpty(),
+        )
 
     override suspend fun getBook(
         region: AudibleRegion,

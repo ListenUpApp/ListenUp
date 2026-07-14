@@ -26,10 +26,11 @@ import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
-import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
+import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.GenreAutoCreator
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
@@ -42,10 +43,11 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -128,18 +130,23 @@ class MetadataLookupServiceImplTest :
             }
         }
 
-        // ── getBookMetadata iTunes cover enrichment ───────────────────────────
+        // ── getBookMetadata cover composition (Audible search cover + iTunes max-size) ─────────
+        // The preview cover composes over the COVER chain [audible, itunes]: the primary URL is
+        // Audible's search cover (falling back to iTunes when Audible has none), and the max-size URL
+        // is iTunes' high-resolution rendition.
 
-        test("getBookMetadata enriches coverUrlMaxSize from iTunes findCover") {
+        test("getBookMetadata composes the Audible cover and the iTunes max-size cover") {
             withSqlDatabase {
-                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
+                val audible = composeAudible(coverSearchUrl = "https://audible.test/cover.jpg")
                 val itunes =
                     StubITunesApi(
                         AppResult.Success(
-                            ITunesCoverHit(
-                                coverUrl = "https://itunes.test/100x100bb.jpg",
-                                maxSizeUrl = "https://itunes.test/7000x7000bb.jpg",
-                                sourceId = "12345",
+                            listOf(
+                                ITunesCoverHit(
+                                    coverUrl = "https://itunes.test/100x100bb.jpg",
+                                    maxSizeUrl = "https://itunes.test/7000x7000bb.jpg",
+                                    sourceId = "12345",
+                                ),
                             ),
                         ),
                     )
@@ -158,21 +165,23 @@ class MetadataLookupServiceImplTest :
 
         test("getBookMetadata leaves coverUrlMaxSize null when iTunes finds nothing") {
             withSqlDatabase {
-                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
-                val service = makeService(audible = audible, dbs = this, itunes = StubITunesApi(AppResult.Success(null)))
+                val audible = composeAudible(coverSearchUrl = "https://audible.test/cover.jpg")
+                val service =
+                    makeService(audible = audible, dbs = this, itunes = StubITunesApi(AppResult.Success(emptyList())))
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
                     val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
                     book.shouldNotBeNull()
+                    book.coverUrl shouldBe "https://audible.test/cover.jpg"
                     book.coverUrlMaxSize shouldBe null
                 }
             }
         }
 
-        test("getBookMetadata still returns the Audible book when the iTunes lookup fails") {
+        test("getBookMetadata still returns the Audible cover when the iTunes lookup fails") {
             withSqlDatabase {
-                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
+                val audible = composeAudible(coverSearchUrl = "https://audible.test/cover.jpg")
                 val itunes = StubITunesApi(AppResult.Failure(MetadataError.ExternalUnavailable()))
                 val service = makeService(audible = audible, dbs = this, itunes = itunes)
 
@@ -186,62 +195,18 @@ class MetadataLookupServiceImplTest :
             }
         }
 
-        // ── getBookMetadata mood/tag enrichment ───────────────────────────────
+        // ── getBookMetadata genre composition ─────────────────────────────────
 
-        test("getBookMetadata populates moods + tags from the classified product tags") {
+        test("getBookMetadata composes genres from the Audible genre source and leaves moods/tags empty") {
             withSqlDatabase {
-                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
-                val productTags =
-                    listOf(
-                        ProductTag(type = "mood", name = "Feel-Good"),
-                        ProductTag(type = "mood", name = "Tense"),
-                        ProductTag(type = "theme", name = "Found Family"),
-                        ProductTag(type = "genre", name = "Fantasy"), // dropped by the classifier
-                    )
-                val service = makeService(audible = audible, dbs = this, productTagSource = { _, _ -> productTags })
+                val audible = composeAudible(genres = listOf("Fantasy", "Epic"))
+                val service = makeService(audible = audible, dbs = this)
 
                 runTest {
                     val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
                     val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
                     book.shouldNotBeNull()
-                    book.moods shouldContainExactlyInAnyOrder listOf("Feel-Good", "Tense")
-                    book.tags shouldContainExactlyInAnyOrder listOf("Found Family")
-                }
-            }
-        }
-
-        test("getBookMetadata excludes a theme whose canonical slug matches one of the book's genres") {
-            withSqlDatabase {
-                // The book carries genre "Science Fiction"; a "Sci-Fi" theme canonicalizes to the same slug.
-                val audible = BookStubAudibleApi(bookWithGenres(listOf("Science Fiction")))
-                val productTags =
-                    listOf(
-                        ProductTag(type = "theme", name = "Sci-Fi"), // collides with the book genre → dropped
-                        ProductTag(type = "theme", name = "Survival"), // no collision → survives
-                        ProductTag(type = "mood", name = "Tense"),
-                    )
-                val service = makeService(audible = audible, dbs = this, productTagSource = { _, _ -> productTags })
-
-                runTest {
-                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
-                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
-                    book.shouldNotBeNull()
-                    book.tags shouldContainExactlyInAnyOrder listOf("Survival")
-                    book.moods shouldContainExactlyInAnyOrder listOf("Tense")
-                }
-            }
-        }
-
-        test("getBookMetadata leaves moods + tags empty when the product-tag scrape throws") {
-            withSqlDatabase {
-                val audible = BookStubAudibleApi(bookWithCover("https://audible.test/cover.jpg"))
-                val service =
-                    makeService(audible = audible, dbs = this, productTagSource = { _, _ -> error("scrape failed") })
-
-                runTest {
-                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
-                    val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
-                    book.shouldNotBeNull()
+                    book.genres shouldContainExactly listOf("Fantasy", "Epic")
                     book.moods shouldHaveSize 0
                     book.tags shouldHaveSize 0
                 }
@@ -275,10 +240,11 @@ class MetadataLookupServiceImplTest :
                     )
                 val metadataService =
                     MetadataService(
-                        audible = BookStubAudibleApi(bookWithCover("https://example.test/cover.jpg")),
+                        audible = composeAudible(coverSearchUrl = "https://example.test/cover.jpg"),
                         itunes = NoOpITunesApi(),
                         cache = MetadataCacheRepository(sql, clock = FixedClock(NOW)),
                     )
+                val coordinator = testCoordinator(metadataService)
                 // MockEngine returns a minimal valid JPEG so CoverImageStore validation passes.
                 val jpegBytes =
                     byteArrayOf(
@@ -310,7 +276,14 @@ class MetadataLookupServiceImplTest :
                             seriesRepository = seriesRepo,
                             imageStorage = imageStorage,
                             coverImageStore = coverImageStore,
-                            metadataProvider = AudibleMetadataProvider(metadataService),
+                            matchSource = { asin, region ->
+                                AppResult.Success(
+                                    coordinator
+                                        .composeBook(BookIdentity(asin = asin, title = ""), MetadataLocale(region.code))
+                                        ?.toMetadataBook(),
+                                )
+                            },
+                            enrichmentProvider = "audible",
                             genreHierarchy =
                                 GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),
                             sqlDb = sql,
@@ -343,26 +316,9 @@ class MetadataLookupServiceImplTest :
         }
     })
 
-private fun bookWithCover(coverUrl: String): AudibleBook =
-    AudibleBook(
-        asin = "B0TESTASIN",
-        title = "The Way of Kings",
-        subtitle = "",
-        authors = emptyList(),
-        narrators = emptyList(),
-        publisher = "",
-        releaseDate = "",
-        runtimeMinutes = 0,
-        description = "",
-        coverUrl = coverUrl,
-        series = emptyList(),
-        genres = emptyList(),
-        language = "",
-        rating = 0f,
-        ratingCount = 0,
-    )
-
-private fun bookWithGenres(genres: List<String>): AudibleBook =
+private fun audibleBook(
+    genres: List<String> = emptyList(),
+): AudibleBook =
     AudibleBook(
         asin = "B0TESTASIN",
         title = "The Way of Kings",
@@ -428,11 +384,33 @@ private fun bookFixture(bookId: String): BookSyncPayload =
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** A single Audible search hit carrying [coverUrl] for the cover source; other fields are minimal. */
+private fun searchHit(coverUrl: String): AudibleSearchResult =
+    AudibleSearchResult(
+        asin = "B0TESTASIN",
+        title = "The Way of Kings",
+        subtitle = "",
+        authors = emptyList(),
+        narrators = emptyList(),
+        coverUrl = coverUrl,
+        runtimeMinutes = 0,
+        releaseDate = "",
+    )
+
+/** An Audible API returning one canned book (get) and, when a cover URL is given, one search hit. */
+private fun composeAudible(
+    coverSearchUrl: String? = null,
+    genres: List<String> = emptyList(),
+): AudibleApi =
+    ComposeStubAudibleApi(
+        book = audibleBook(genres = genres),
+        searchResults = coverSearchUrl?.let { listOf(searchHit(it)) } ?: emptyList(),
+    )
+
 private fun makeService(
     audible: AudibleApi,
     dbs: SqlTestDatabases,
     itunes: ITunesApi = NoOpITunesApi(),
-    productTagSource: suspend (AudibleRegion, String) -> List<ProductTag> = { _, _ -> emptyList() },
 ): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-test-").toAbsolutePath()
     val metadataService =
@@ -458,7 +436,7 @@ private fun makeService(
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
-        metadataProviders = listOf(AudibleMetadataProvider(metadataService)),
+        coordinator = testCoordinator(metadataService, itunes),
         coverSearchService =
             CoverSearchService(
                 readBook = { null },
@@ -475,7 +453,7 @@ private fun makeService(
                     CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
-        enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, syncRegistry, productTagSource = productTagSource),
+        enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, syncRegistry),
         permissionPolicy = UserPermissionPolicy(dbs.sql),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,
@@ -517,13 +495,14 @@ private class StubAudibleApi(
     ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
 }
 
-private class BookStubAudibleApi(
+private class ComposeStubAudibleApi(
     private val book: AudibleBook,
+    private val searchResults: List<AudibleSearchResult> = emptyList(),
 ) : AudibleApi {
     override suspend fun search(
         region: AudibleRegion,
         params: SearchParams,
-    ): AppResult<List<AudibleSearchResult>> = AppResult.Success(emptyList())
+    ): AppResult<List<AudibleSearchResult>> = AppResult.Success(searchResults)
 
     override suspend fun getBook(
         region: AudibleRegion,
@@ -564,15 +543,15 @@ private class NoOpITunesApi : ITunesApi {
 }
 
 private class StubITunesApi(
-    private val findCoverResult: AppResult<ITunesCoverHit?>,
+    private val searchCoversResult: AppResult<List<ITunesCoverHit>>,
 ) : ITunesApi {
     override suspend fun findCover(
         title: String,
         author: String,
-    ): AppResult<ITunesCoverHit?> = findCoverResult
+    ): AppResult<ITunesCoverHit?> = AppResult.Success(null)
 
     override suspend fun searchCovers(
         title: String,
         author: String,
-    ): AppResult<List<ITunesCoverHit>> = AppResult.Success(emptyList())
+    ): AppResult<List<ITunesCoverHit>> = searchCoversResult
 }
