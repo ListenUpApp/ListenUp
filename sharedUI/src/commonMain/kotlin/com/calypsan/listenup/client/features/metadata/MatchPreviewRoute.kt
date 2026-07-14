@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.api.dto.MetadataBook
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.MetadataEvent
@@ -59,7 +59,7 @@ import listenup.composeapp.generated.resources.common_back
 fun MatchPreviewRoute(
     bookId: String,
     asin: String,
-    region: AudibleRegion,
+    region: MetadataLocale,
     onBack: () -> Unit,
     onApplySuccess: () -> Unit,
     metadataViewModel: MetadataViewModel = koinViewModel(),
@@ -176,8 +176,8 @@ fun MatchPreviewRoute(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NotFoundErrorScreen(
-    selectedRegion: AudibleRegion,
-    onRegionSelected: (AudibleRegion) -> Unit,
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
     onBack: () -> Unit,
 ) {
     Box(
@@ -216,7 +216,7 @@ private fun NotFoundErrorScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                AudibleRegion.entries.forEach { region ->
+                MetadataLocale.SUPPORTED.forEach { region ->
                     FilterChip(
                         selected = region == selectedRegion,
                         onClick = { onRegionSelected(region) },

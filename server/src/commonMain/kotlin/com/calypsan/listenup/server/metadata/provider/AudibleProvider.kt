@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.metadata.provider
 
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.server.metadata.audible.SearchParams
@@ -15,7 +15,7 @@ import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
 import com.calypsan.listenup.server.metadata.spi.GenreSource
-import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
 import com.calypsan.listenup.server.metadata.spi.SeriesSource
@@ -107,7 +107,7 @@ internal class AudibleProvider(
         query: String,
         locale: MetadataLocale,
     ) = SearchParams(keywords = query).let { params ->
-        when (val region = AudibleRegion.fromCodeOrNull(locale.code)) {
+        when (val region = AudibleRegion.fromCodeOrNull(locale.region)) {
             null -> metadataService.searchWithFallback(params)
             else -> metadataService.search(region, params)
         }
@@ -115,7 +115,7 @@ internal class AudibleProvider(
 
     /** Resolves an ASIN-keyed lookup's region, falling back to [defaultRegion] for unknown locales. */
     private fun regionFor(locale: MetadataLocale): AudibleRegion =
-        AudibleRegion.fromCodeOrNull(locale.code) ?: defaultRegion
+        AudibleRegion.fromCodeOrNull(locale.region) ?: defaultRegion
 }
 
 /** The free-text query Audible search runs for a cover lookup: title plus known author. */

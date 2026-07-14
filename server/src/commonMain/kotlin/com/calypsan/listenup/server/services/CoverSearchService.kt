@@ -4,13 +4,12 @@ import com.calypsan.listenup.api.dto.CoverOption
 import com.calypsan.listenup.api.dto.CoverOptionSource
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
-import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.logging.loggerFor
@@ -48,13 +47,13 @@ class CoverSearchService(
 ) {
     suspend fun searchCovers(
         bookId: BookId,
-        region: AudibleRegion?,
+        region: MetadataLocale?,
     ): AppResult<List<CoverOption>> {
         val book =
             readBook(bookId)
                 ?: return AppResult.Failure(MetadataError.NotFound(debugInfo = "book ${bookId.value} not found"))
 
-        val locale = region?.let { MetadataLocale(it.code) } ?: MetadataLocale.DEFAULT
+        val locale = region ?: MetadataLocale.DEFAULT
         val identity = BookIdentity(title = book.title, primaryAuthor = book.author.takeIf { it.isNotBlank() })
 
         return coroutineScope {

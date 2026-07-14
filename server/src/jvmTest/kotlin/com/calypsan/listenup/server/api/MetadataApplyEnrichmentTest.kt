@@ -3,7 +3,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.MetadataApplySelection
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -24,7 +24,7 @@ import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
-import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.services.BookMoodWriter
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.BookTagWriter

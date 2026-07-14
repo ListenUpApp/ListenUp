@@ -39,7 +39,6 @@ ApplyContributorMetadataRequest
 AppResult
 AppStartupState
 AppStartupViewModel
-AudibleRegion
 AudioFile
 AudioFileDownloader
 AudioFileResponse
@@ -302,6 +301,7 @@ MetadataContributorRef
 MetadataEvent
 MetadataField
 MetadataFieldSelections
+MetadataLocale
 MetadataRepository
 MetadataSelections
 MetadataSeriesRef

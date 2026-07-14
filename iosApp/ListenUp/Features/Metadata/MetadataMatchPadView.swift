@@ -81,7 +81,7 @@ struct MetadataMatchPadView: View {
                 VStack(alignment: .leading, spacing: 9) {
                     MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
                     FlowLayout(spacing: 8) {
-                        ForEach(Array(AudibleRegion.allCases), id: \.self) { region in
+                        ForEach(MetadataRegionOption.all) { region in
                             MetadataGenreChip(label: region.displayName, isOn: region == observer.region) {
                                 observer.changeRegion(region)
                             }

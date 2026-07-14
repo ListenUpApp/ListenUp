@@ -8,7 +8,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleBook
 import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams

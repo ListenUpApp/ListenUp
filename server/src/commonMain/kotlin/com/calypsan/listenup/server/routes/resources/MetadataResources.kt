@@ -6,10 +6,10 @@ import io.ktor.resources.Resource
  * REST mirror of the [com.calypsan.listenup.api.MetadataLookupService] RPC
  * surface. All routes live under `/api/v1/metadata/`.
  *
- * Region values in query and path parameters are the short [AudibleRegion.code]
- * strings (e.g. `"us"`, `"uk"`) rather than the enum name, matching the
- * operator-facing convention used throughout the API. The server route handler
- * is responsible for parsing via `AudibleRegion.fromCodeOrNull`.
+ * Region values in query and path parameters are short market-code strings
+ * (e.g. `"us"`, `"uk"`), matching the operator-facing convention used throughout
+ * the API. The server route handler parses each into a provider-neutral
+ * [com.calypsan.listenup.api.metadata.MetadataLocale] before calling the service.
  *
  * [Search] is the parent resource and doubles as the top-level collection route.
  */

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.spi
 
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder

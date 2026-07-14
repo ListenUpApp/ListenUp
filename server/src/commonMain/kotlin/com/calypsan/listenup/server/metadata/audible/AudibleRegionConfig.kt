@@ -1,7 +1,5 @@
 package com.calypsan.listenup.server.metadata.audible
 
-import com.calypsan.listenup.api.metadata.AudibleRegion
-
 /**
  * Server-side routing details for each [AudibleRegion].
  *

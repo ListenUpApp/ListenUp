@@ -43,7 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.calypsan.listenup.api.dto.MetadataBook
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
@@ -83,7 +83,7 @@ fun MetadataSearchScreen(
     state: MetadataUiState.Search,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
-    onRegionSelected: (AudibleRegion) -> Unit,
+    onRegionSelected: (MetadataLocale) -> Unit,
     onResultClick: (MetadataBook) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -243,14 +243,14 @@ private fun MatchingContextPill(title: String) {
  */
 @Composable
 private fun RegionSelector(
-    selectedRegion: AudibleRegion,
-    onRegionSelected: (AudibleRegion) -> Unit,
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
     ) {
-        AudibleRegion.entries.forEach { region ->
+        MetadataLocale.SUPPORTED.forEach { region ->
             PillChip(
                 label = region.displayName,
                 onClick = { onRegionSelected(region) },

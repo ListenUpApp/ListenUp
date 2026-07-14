@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
@@ -132,7 +132,7 @@ class MetadataViewModelTest :
                 val vm = buildVm(mock())
                 val state = vm.state.value
                 state.shouldBeInstanceOf<MetadataUiState.Idle>()
-                state.region shouldBe AudibleRegion.US
+                state.region shouldBe MetadataLocale.DEFAULT
             }
         }
 
@@ -457,7 +457,7 @@ class MetadataViewModelTest :
                     repo.applyBookMetadata(
                         BookId("b1"),
                         "B001",
-                        AudibleRegion.US,
+                        MetadataLocale.DEFAULT,
                         MetadataApplySelection(
                             title = false,
                             subtitle = true,
@@ -498,7 +498,7 @@ class MetadataViewModelTest :
                     repo.applyBookMetadata(
                         BookId("b1"),
                         "B001",
-                        AudibleRegion.US,
+                        MetadataLocale.DEFAULT,
                         MetadataApplySelection(
                             title = true,
                             subtitle = true,
@@ -540,7 +540,7 @@ class MetadataViewModelTest :
                     repo.applyBookMetadata(
                         BookId("b1"),
                         "B001",
-                        AudibleRegion.US,
+                        MetadataLocale.DEFAULT,
                         MetadataApplySelection(
                             title = true,
                             subtitle = true,
@@ -583,7 +583,7 @@ class MetadataViewModelTest :
                     repo.applyBookMetadata(
                         BookId("b1"),
                         "B001",
-                        AudibleRegion.US,
+                        MetadataLocale.DEFAULT,
                         MetadataApplySelection(
                             title = true,
                             subtitle = true,
@@ -885,7 +885,7 @@ class MetadataViewModelTest :
                     advanceUntilIdle()
                     awaitItem() shouldBe MetadataEvent.ChapterNamesApplied
                 }
-                verifySuspend { repo.applyChapterNames(BookId("b1"), "B001", AudibleRegion.US, setOf(0)) }
+                verifySuspend { repo.applyChapterNames(BookId("b1"), "B001", MetadataLocale.DEFAULT, setOf(0)) }
             }
         }
 
@@ -896,19 +896,19 @@ class MetadataViewModelTest :
                 val usBook = makeBook(title = "US Edition")
                 val ukBook = makeBook(title = "UK Edition")
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.getBookMetadata(any(), AudibleRegion.US) } returns AppResult.Success(usBook)
-                everySuspend { repo.getBookMetadata(any(), AudibleRegion.UK) } returns AppResult.Success(ukBook)
+                everySuspend { repo.getBookMetadata(any(), MetadataLocale.DEFAULT) } returns AppResult.Success(usBook)
+                everySuspend { repo.getBookMetadata(any(), MetadataLocale("uk")) } returns AppResult.Success(ukBook)
                 val vm = buildVm(repo)
 
                 vm.initForBook("b1", "Dune", "FH")
                 vm.selectMatch(usBook)
                 advanceUntilIdle()
 
-                vm.changeRegion(AudibleRegion.UK)
+                vm.changeRegion(MetadataLocale("uk"))
                 advanceUntilIdle()
 
                 val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
-                preview.region shouldBe AudibleRegion.UK
+                preview.region shouldBe MetadataLocale("uk")
                 preview.loadState
                     .shouldBeInstanceOf<PreviewLoadState.Ready>()
                     .preview.title shouldBe "UK Edition"
@@ -918,9 +918,9 @@ class MetadataViewModelTest :
         test("changeRegion in Search phase re-runs the search with the new region") {
             runTest {
                 val repo = mock<MetadataRepository>()
-                everySuspend { repo.searchBooks(any(), AudibleRegion.US) } returns
+                everySuspend { repo.searchBooks(any(), MetadataLocale.DEFAULT) } returns
                     AppResult.Success(MetadataSearchResults(listOf(makeBook(title = "US Edition"))))
-                everySuspend { repo.searchBooks(any(), AudibleRegion.CA) } returns
+                everySuspend { repo.searchBooks(any(), MetadataLocale("ca")) } returns
                     AppResult.Success(MetadataSearchResults(listOf(makeBook(title = "CA Edition"))))
                 val vm = buildVm(repo)
 
@@ -928,17 +928,17 @@ class MetadataViewModelTest :
                 vm.search()
                 advanceUntilIdle()
 
-                vm.changeRegion(AudibleRegion.CA)
+                vm.changeRegion(MetadataLocale("ca"))
                 advanceUntilIdle()
 
                 val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
-                state.region shouldBe AudibleRegion.CA
+                state.region shouldBe MetadataLocale("ca")
                 state.loadState
                     .shouldBeInstanceOf<SearchLoadState.Loaded>()
                     .results
                     .single()
                     .title shouldBe "CA Edition"
-                verifySuspend { repo.searchBooks(any(), AudibleRegion.CA) }
+                verifySuspend { repo.searchBooks(any(), MetadataLocale("ca")) }
             }
         }
 
@@ -952,15 +952,15 @@ class MetadataViewModelTest :
                 // Mirrors MatchPreviewRoute on a fresh per-entry VM: init, apply the region carried
                 // across navigation, then select the match. (changeRegion's search is a blank no-op.)
                 vm.initForBook(bookId = "b1", title = "", author = "")
-                vm.changeRegion(AudibleRegion.CA)
+                vm.changeRegion(MetadataLocale("ca"))
                 advanceUntilIdle()
                 vm.selectMatch(book)
                 advanceUntilIdle()
 
                 vm.state.value
                     .shouldBeInstanceOf<MetadataUiState.Preview>()
-                    .region shouldBe AudibleRegion.CA
-                verifySuspend { repo.getBookMetadata("B007", AudibleRegion.CA) }
+                    .region shouldBe MetadataLocale("ca")
+                verifySuspend { repo.getBookMetadata("B007", MetadataLocale("ca")) }
             }
         }
 
@@ -976,12 +976,12 @@ class MetadataViewModelTest :
                     }
                 val vm = buildVm(repo)
                 vm.initForBook("b1", "Dune", "FH")
-                vm.changeRegion(AudibleRegion.DE)
+                vm.changeRegion(MetadataLocale("de"))
                 advanceUntilIdle()
                 vm.reset()
 
                 val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Idle>()
-                state.region shouldBe AudibleRegion.DE
+                state.region shouldBe MetadataLocale("de")
             }
         }
 

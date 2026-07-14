@@ -30,7 +30,7 @@ struct MetadataFindView: View {
                 VStack(alignment: .leading, spacing: 9) {
                     MetadataGroupHeader(text: String(localized: "metadata.audible_region")).padding(.leading, 4)
                     RegionPicker(
-                        options: Array(AudibleRegion.allCases),
+                        options: MetadataRegionOption.all,
                         selection: observer.region,
                         label: \.displayName
                     ) { observer.changeRegion($0) }

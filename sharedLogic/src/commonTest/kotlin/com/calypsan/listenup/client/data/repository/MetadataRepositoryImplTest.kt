@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.InternalError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
@@ -51,9 +51,9 @@ class MetadataRepositoryImplTest :
         test("searchBooks delegates to service and returns Success") {
             val payload = MetadataSearchResults(emptyList())
             val service = mock<MetadataLookupService>()
-            everySuspend { service.searchBooks("query", AudibleRegion.US) } returns WireAppResult.Success(payload)
+            everySuspend { service.searchBooks("query", MetadataLocale.DEFAULT) } returns WireAppResult.Success(payload)
 
-            val result = buildRepo(service).searchBooks("query", AudibleRegion.US)
+            val result = buildRepo(service).searchBooks("query", MetadataLocale.DEFAULT)
 
             result shouldBe AppResult.Success(payload)
         }
@@ -63,7 +63,7 @@ class MetadataRepositoryImplTest :
             everySuspend { service.searchBooks(any(), any()) } throws CancellationException("cancelled")
 
             shouldThrow<CancellationException> {
-                buildRepo(service).searchBooks("q", AudibleRegion.US)
+                buildRepo(service).searchBooks("q", MetadataLocale.DEFAULT)
             }
         }
 
@@ -81,16 +81,16 @@ class MetadataRepositoryImplTest :
 
         test("getBookMetadata delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
-            everySuspend { service.getBookMetadata("B001", AudibleRegion.US) } returns WireAppResult.Success<MetadataBook?>(null)
+            everySuspend { service.getBookMetadata("B001", MetadataLocale.DEFAULT) } returns WireAppResult.Success<MetadataBook?>(null)
 
-            buildRepo(service).getBookMetadata("B001", AudibleRegion.US) shouldBe AppResult.Success<MetadataBook?>(null)
+            buildRepo(service).getBookMetadata("B001", MetadataLocale.DEFAULT) shouldBe AppResult.Success<MetadataBook?>(null)
         }
 
         test("getBookChapters delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
-            everySuspend { service.getBookChapters("B001", AudibleRegion.US) } returns WireAppResult.Success<MetadataChapters?>(null)
+            everySuspend { service.getBookChapters("B001", MetadataLocale.DEFAULT) } returns WireAppResult.Success<MetadataChapters?>(null)
 
-            buildRepo(service).getBookChapters("B001", AudibleRegion.US) shouldBe AppResult.Success<MetadataChapters?>(null)
+            buildRepo(service).getBookChapters("B001", MetadataLocale.DEFAULT) shouldBe AppResult.Success<MetadataChapters?>(null)
         }
 
         test("searchContributorMetadata delegates to service and returns Success") {
@@ -103,16 +103,16 @@ class MetadataRepositoryImplTest :
 
         test("getContributorMetadata delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
-            everySuspend { service.getContributorMetadata("A001", AudibleRegion.US) } returns WireAppResult.Success<MetadataContributorProfile?>(null)
+            everySuspend { service.getContributorMetadata("A001", MetadataLocale.DEFAULT) } returns WireAppResult.Success<MetadataContributorProfile?>(null)
 
-            buildRepo(service).getContributorMetadata("A001", AudibleRegion.US) shouldBe AppResult.Success<MetadataContributorProfile?>(null)
+            buildRepo(service).getContributorMetadata("A001", MetadataLocale.DEFAULT) shouldBe AppResult.Success<MetadataContributorProfile?>(null)
         }
 
         test("refreshBookMetadata delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
-            everySuspend { service.refreshBookMetadata("B001", AudibleRegion.US) } returns WireAppResult.Success<MetadataBook?>(null)
+            everySuspend { service.refreshBookMetadata("B001", MetadataLocale.DEFAULT) } returns WireAppResult.Success<MetadataBook?>(null)
 
-            buildRepo(service).refreshBookMetadata("B001", AudibleRegion.US) shouldBe AppResult.Success<MetadataBook?>(null)
+            buildRepo(service).refreshBookMetadata("B001", MetadataLocale.DEFAULT) shouldBe AppResult.Success<MetadataBook?>(null)
         }
 
         test("applyBookMetadata delegates to service and returns Success") {
@@ -130,28 +130,28 @@ class MetadataRepositoryImplTest :
                     narratorAsins = emptySet(),
                     seriesAsins = emptySet(),
                 )
-            everySuspend { service.applyBookMetadata(BookId("b1"), "B001", AudibleRegion.US, sel) } returns WireAppResult.Success(Unit)
+            everySuspend { service.applyBookMetadata(BookId("b1"), "B001", MetadataLocale.DEFAULT, sel) } returns WireAppResult.Success(Unit)
 
-            buildRepo(service).applyBookMetadata(BookId("b1"), "B001", AudibleRegion.US, sel) shouldBe AppResult.Success(Unit)
+            buildRepo(service).applyBookMetadata(BookId("b1"), "B001", MetadataLocale.DEFAULT, sel) shouldBe AppResult.Success(Unit)
         }
 
         test("applyContributorMetadata delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
             everySuspend {
-                service.applyContributorMetadata(ContributorId("c1"), "A001", AudibleRegion.US)
+                service.applyContributorMetadata(ContributorId("c1"), "A001", MetadataLocale.DEFAULT)
             } returns WireAppResult.Success(Unit)
 
             buildRepo(service)
-                .applyContributorMetadata(ContributorId("c1"), "A001", AudibleRegion.US) shouldBe AppResult.Success(Unit)
+                .applyContributorMetadata(ContributorId("c1"), "A001", MetadataLocale.DEFAULT) shouldBe AppResult.Success(Unit)
         }
 
         test("applyChapterNames delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
             everySuspend {
-                service.applyChapterNames(BookId("b1"), "B001", AudibleRegion.US, setOf(0, 2))
+                service.applyChapterNames(BookId("b1"), "B001", MetadataLocale.DEFAULT, setOf(0, 2))
             } returns WireAppResult.Success(Unit)
 
-            buildRepo(service).applyChapterNames(BookId("b1"), "B001", AudibleRegion.US, setOf(0, 2)) shouldBe
+            buildRepo(service).applyChapterNames(BookId("b1"), "B001", MetadataLocale.DEFAULT, setOf(0, 2)) shouldBe
                 AppResult.Success(Unit)
         }
     })

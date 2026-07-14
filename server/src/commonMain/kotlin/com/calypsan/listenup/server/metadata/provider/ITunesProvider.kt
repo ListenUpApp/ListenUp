@@ -7,7 +7,7 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
-import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 
 /**

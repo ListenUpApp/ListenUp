@@ -4,7 +4,8 @@ import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ValidationError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.server.routes.resources.MetadataResources
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -43,7 +44,7 @@ fun Route.metadataRoutes(metadataLookupService: MetadataLookupService) {
 
 private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
     get<MetadataResources> { resource ->
-        val region = resource.region?.let { AudibleRegion.fromCodeOrNull(it) }
+        val region = resource.region.toLocaleOrNull()
         if (resource.query.isBlank()) {
             return@get call.respond(HttpStatusCode.BadRequest, ValidationError(message = "query must not be blank."))
         }
@@ -54,7 +55,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
     }
 
     get<MetadataResources.Book> { resource ->
-        val region = call.resolveRegion(resource.region) ?: return@get
+        val region = call.resolveLocale(resource.region) ?: return@get
         when (val result = service.getBookMetadata(resource.asin, region)) {
             is AppResult.Success -> call.respondNullableOrNoContent(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
@@ -62,7 +63,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
     }
 
     get<MetadataResources.Chapters> { resource ->
-        val region = call.resolveRegion(resource.region) ?: return@get
+        val region = call.resolveLocale(resource.region) ?: return@get
         when (val result = service.getBookChapters(resource.asin, region)) {
             is AppResult.Success -> call.respondNullableOrNoContent(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
@@ -70,7 +71,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
     }
 
     post<MetadataResources.BookRefresh> { resource ->
-        val region = call.resolveRegion(resource.region) ?: return@post
+        val region = call.resolveLocale(resource.region) ?: return@post
         when (val result = call.scoped(service).refreshBookMetadata(resource.asin, region)) {
             is AppResult.Success -> call.respondNullableOrNoContent(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
@@ -78,7 +79,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
     }
 
     post<MetadataResources.ApplyBook> { resource ->
-        val region = call.resolveRegion(resource.region) ?: return@post
+        val region = call.resolveLocale(resource.region) ?: return@post
         val selection = call.receive<MetadataApplySelection>()
         when (
             val result =
@@ -90,7 +91,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
     }
 
     post<MetadataResources.ApplyChapters> { resource ->
-        val region = call.resolveRegion(resource.region) ?: return@post
+        val region = call.resolveLocale(resource.region) ?: return@post
         val result =
             call.scoped(service).applyChapterNames(
                 BookId(resource.bookId),
@@ -107,7 +108,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
 
 private fun Route.bookCoverRoutes(service: MetadataLookupService) {
     get<MetadataResources.SearchCovers> { resource ->
-        val region = resource.region?.let { AudibleRegion.fromCodeOrNull(it) }
+        val region = resource.region.toLocaleOrNull()
         when (val result = call.scoped(service).searchCovers(BookId(resource.bookId), region)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
@@ -134,7 +135,7 @@ private fun Route.contributorMetadataRoutes(service: MetadataLookupService) {
     }
 
     get<MetadataResources.Contributor> { resource ->
-        val region = call.resolveRegion(resource.region) ?: return@get
+        val region = call.resolveLocale(resource.region) ?: return@get
         when (val result = service.getContributorMetadata(resource.asin, region)) {
             is AppResult.Success -> call.respondNullableOrNoContent(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
@@ -142,7 +143,7 @@ private fun Route.contributorMetadataRoutes(service: MetadataLookupService) {
     }
 
     post<MetadataResources.ApplyContributor> { resource ->
-        val region = call.resolveRegion(resource.region) ?: return@post
+        val region = call.resolveLocale(resource.region) ?: return@post
         val id = ContributorId(resource.contributorId)
         when (val result = call.scoped(service).applyContributorMetadata(id, resource.asin, region)) {
             is AppResult.Success -> call.respond(HttpStatusCode.OK)
@@ -164,10 +165,13 @@ private const val METADATA_AUTH_WALL_REGRESSION_MSG =
     "metadata REST mount reached without a principal — auth wall regression"
 
 /**
- * Resolves [regionCode] to an [AudibleRegion], responding with 400 Bad Request
- * and returning `null` when the code is unrecognised.
+ * Resolves a required [regionCode] to a provider-neutral [MetadataLocale], responding with
+ * 400 Bad Request and returning `null` when the code is not a recognised region.
+ *
+ * Validation is against the Audible storefronts the REST surface exposes; the resolved value
+ * is the neutral locale the service speaks.
  */
-private suspend fun ApplicationCall.resolveRegion(regionCode: String): AudibleRegion? {
+private suspend fun ApplicationCall.resolveLocale(regionCode: String): MetadataLocale? {
     val region = AudibleRegion.fromCodeOrNull(regionCode)
     if (region == null) {
         respond(
@@ -175,8 +179,15 @@ private suspend fun ApplicationCall.resolveRegion(regionCode: String): AudibleRe
             ValidationError(message = "Unknown region code '$regionCode'."),
         )
     }
-    return region
+    return region?.let { MetadataLocale(it.code) }
 }
+
+/**
+ * Resolves an optional region-code query param to a [MetadataLocale], or `null` when the param
+ * is absent or unrecognised — the search/cover paths silently fall back to the default region.
+ */
+private fun String?.toLocaleOrNull(): MetadataLocale? =
+    this?.let { AudibleRegion.fromCodeOrNull(it) }?.let { MetadataLocale(it.code) }
 
 /**
  * Responds with the [value] if non-null, otherwise responds with HTTP 204 No Content.

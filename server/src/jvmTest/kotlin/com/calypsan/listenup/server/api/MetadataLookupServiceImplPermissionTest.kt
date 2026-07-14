@@ -4,7 +4,8 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.error.AuthError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -69,7 +70,7 @@ class MetadataLookupServiceImplPermissionTest :
                 sql.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
                 val service = makeMetadataPermService(this).copyWith(memberPrincipal("member"))
                 runTest {
-                    val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", AudibleRegion.US, ALL_SELECTED)
+                    val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", MetadataLocale("us"), ALL_SELECTED)
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
@@ -82,7 +83,7 @@ class MetadataLookupServiceImplPermissionTest :
                 sql.seedTestLibraryAndFolder()
                 val service = makeMetadataPermService(this).copyWith(rootPrincipal())
                 runTest {
-                    val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", AudibleRegion.US, ALL_SELECTED)
+                    val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", MetadataLocale("us"), ALL_SELECTED)
 
                     // Gate passed → reaches the applier, which fails because the book is absent.
                     // The point: it is NOT a PermissionDenied.

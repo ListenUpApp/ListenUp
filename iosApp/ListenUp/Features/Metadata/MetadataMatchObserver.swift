@@ -26,8 +26,8 @@ final class MetadataMatchObserver {
 
     private(set) var phase: Phase = .idle
 
-    /// The currently selected Audible region (persists across phases).
-    private(set) var region: AudibleRegion = .us
+    /// The currently selected metadata-lookup region (persists across phases).
+    private(set) var region = MetadataRegionOption(MetadataLocale.Companion.shared.DEFAULT)
     /// The live query string (the view binds an editable copy and pushes via `updateQuery`).
     private(set) var query: String = ""
 
@@ -70,7 +70,7 @@ final class MetadataMatchObserver {
 
     func search() { viewModel.search() }
 
-    func changeRegion(_ region: AudibleRegion) { viewModel.changeRegion(region: region) }
+    func changeRegion(_ region: MetadataRegionOption) { viewModel.changeRegion(region: region.locale) }
 
     func selectMatch(_ asin: String) {
         guard let book = currentSearchResult(asin: asin) else { return }
@@ -106,7 +106,7 @@ final class MetadataMatchObserver {
     // MARK: - State mapping
 
     private func apply(_ state: MetadataUiState) {
-        region = state.region
+        region = MetadataRegionOption(state.region)
         switch onEnum(of: state) {
         case .idle:
             phase = .idle

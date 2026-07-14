@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.contributormetadata
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.error.ValidationError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
@@ -385,16 +385,16 @@ class ContributorMetadataViewModelTest :
                 val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
                 vm.init("contributor-1")
                 advanceUntilIdle()
-                vm.state.value.selectedRegion shouldBe AudibleRegion.US
+                vm.state.value.selectedRegion shouldBe MetadataLocale.DEFAULT
                 vm.state.value.searchResults shouldBe usResults
 
                 // Update mock for UK re-search
                 everySuspend { metadataRepo.searchContributorMetadata("Stephen King") } returns
                     AppResult.Success(ukResults)
-                vm.changeRegion(AudibleRegion.UK)
+                vm.changeRegion(MetadataLocale("uk"))
                 advanceUntilIdle()
 
-                vm.state.value.selectedRegion shouldBe AudibleRegion.UK
+                vm.state.value.selectedRegion shouldBe MetadataLocale("uk")
                 vm.state.value.searchResults shouldBe ukResults
             }
         }

@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapter
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
@@ -149,16 +149,16 @@ sealed interface ChapterSuggestion {
  * it persists across phase transitions.
  */
 sealed interface MetadataUiState {
-    val region: AudibleRegion
+    val region: MetadataLocale
 
     /** No book loaded yet; pre-[MetadataViewModel.initForBook] placeholder. */
     data class Idle(
-        override val region: AudibleRegion = AudibleRegion.US,
+        override val region: MetadataLocale = MetadataLocale.DEFAULT,
     ) : MetadataUiState
 
     /** Book loaded; user is editing the search query and browsing results. */
     data class Search(
-        override val region: AudibleRegion,
+        override val region: MetadataLocale,
         val context: BookContext,
         val query: String,
         val loadState: SearchLoadState,
@@ -169,7 +169,7 @@ sealed interface MetadataUiState {
      * [MetadataViewModel.clearSelection] can return to [Search] without re-issuing the search.
      */
     data class Preview(
-        override val region: AudibleRegion,
+        override val region: MetadataLocale,
         val context: BookContext,
         val query: String,
         val searchResults: List<MetadataBook>,
@@ -313,7 +313,7 @@ class MetadataViewModel(
      * Change the Audible region and immediately reflect it: in preview, re-fetch the open match in
      * the new region; in search, re-run the query so results update without a manual re-submit.
      */
-    fun changeRegion(region: AudibleRegion) {
+    fun changeRegion(region: MetadataLocale) {
         state.update { current ->
             when (current) {
                 is MetadataUiState.Idle -> current.copy(region = region)
@@ -394,7 +394,7 @@ class MetadataViewModel(
         val current = state.value
         val baseSearchResults: List<MetadataBook>
         val query: String
-        val region: AudibleRegion
+        val region: MetadataLocale
         val context: BookContext
 
         when (current) {
@@ -572,7 +572,7 @@ class MetadataViewModel(
     private fun loadChapterSuggestion(
         bookId: String,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ) {
         viewModelScope.launch {
             val localChapters =
@@ -625,7 +625,7 @@ class MetadataViewModel(
 
     private fun updateChapterSuggestion(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         transform: (ChapterSuggestion) -> ChapterSuggestion,
     ) {
         state.update { latest ->
@@ -643,7 +643,7 @@ class MetadataViewModel(
      */
     private fun MetadataUiState.readyPreviewFor(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): MetadataUiState.Preview? =
         (this as? MetadataUiState.Preview)
             ?.takeIf { it.match.asin == asin && it.region == region && it.loadState is PreviewLoadState.Ready }
@@ -682,7 +682,7 @@ class MetadataViewModel(
 
     private fun loadPreview(
         match: MetadataBook,
-        region: AudibleRegion,
+        region: MetadataLocale,
         bookId: String,
     ) {
         viewModelScope.launch {
@@ -756,7 +756,7 @@ class MetadataViewModel(
         preview: MetadataBook,
         previewNotFound: Boolean,
         bookId: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ) {
         // Read the book's current items (local Room, offline-first) and union them
         // with the match's proposed ones. The server reconciles a match-apply by

@@ -21,7 +21,7 @@ import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.GenreKind
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
 import com.calypsan.listenup.server.metadata.spi.GenreSource
-import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta

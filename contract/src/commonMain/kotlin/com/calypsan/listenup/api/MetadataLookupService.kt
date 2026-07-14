@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.dto.MetadataSearchResults
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -47,7 +47,7 @@ interface MetadataLookupService {
      */
     suspend fun searchBooks(
         query: String,
-        region: AudibleRegion?,
+        region: MetadataLocale?,
     ): AppResult<MetadataSearchResults>
 
     /**
@@ -60,7 +60,7 @@ interface MetadataLookupService {
      */
     suspend fun getBookMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataBook?>
 
     /**
@@ -73,7 +73,7 @@ interface MetadataLookupService {
      */
     suspend fun getBookChapters(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataChapters?>
 
     /**
@@ -101,7 +101,7 @@ interface MetadataLookupService {
      */
     suspend fun getContributorMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataContributorProfile?>
 
     /**
@@ -113,7 +113,7 @@ interface MetadataLookupService {
      */
     suspend fun refreshBookMetadata(
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<MetadataBook?>
 
     /**
@@ -130,7 +130,7 @@ interface MetadataLookupService {
     suspend fun applyBookMetadata(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         selection: MetadataApplySelection,
     ): AppResult<Unit>
 
@@ -153,7 +153,7 @@ interface MetadataLookupService {
     suspend fun applyChapterNames(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
         ordinals: Set<Int>,
     ): AppResult<Unit>
 
@@ -168,7 +168,7 @@ interface MetadataLookupService {
     suspend fun applyContributorMetadata(
         contributorId: ContributorId,
         asin: String,
-        region: AudibleRegion,
+        region: MetadataLocale,
     ): AppResult<Unit>
 
     /**
@@ -182,7 +182,7 @@ interface MetadataLookupService {
      */
     suspend fun searchCovers(
         bookId: BookId,
-        region: AudibleRegion?,
+        region: MetadataLocale?,
     ): AppResult<CoverSearchResults>
 
     /**

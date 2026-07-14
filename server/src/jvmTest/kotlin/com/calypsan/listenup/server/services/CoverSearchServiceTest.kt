@@ -4,13 +4,12 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.CoverOptionSource
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
-import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import io.kotest.core.spec.style.FunSpec
@@ -53,7 +52,7 @@ class CoverSearchServiceTest :
                             ),
                         probeDimensions = probe,
                     )
-                val opts = (svc.searchCovers(BookId("book1"), AudibleRegion.US) as AppResult.Success).data
+                val opts = (svc.searchCovers(BookId("book1"), MetadataLocale("us")) as AppResult.Success).data
 
                 opts.map { it.source } shouldBe listOf(CoverOptionSource.AUDIBLE, CoverOptionSource.ITUNES)
                 opts[0].url shouldBe "https://audible/cover.jpg"

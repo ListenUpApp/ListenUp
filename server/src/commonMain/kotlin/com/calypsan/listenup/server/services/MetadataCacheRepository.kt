@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock

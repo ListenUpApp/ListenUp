@@ -5,7 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -27,7 +27,7 @@ import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
-import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -122,7 +122,7 @@ class MetadataLookupServiceImplTest :
                 val service = makeService(audible = audible, dbs = this)
 
                 runTest {
-                    val result = service.getContributorMetadata("B001", AudibleRegion.US)
+                    val result = service.getContributorMetadata("B001", MetadataLocale("us"))
                     result
                         .shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataContributorProfile?>>()
                         .data shouldBe null
@@ -153,7 +153,7 @@ class MetadataLookupServiceImplTest :
                 val service = makeService(audible = audible, dbs = this, itunes = itunes)
 
                 runTest {
-                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val result = service.getBookMetadata("B0TESTASIN", MetadataLocale("us"))
 
                     val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
                     book.shouldNotBeNull()
@@ -170,7 +170,7 @@ class MetadataLookupServiceImplTest :
                     makeService(audible = audible, dbs = this, itunes = StubITunesApi(AppResult.Success(emptyList())))
 
                 runTest {
-                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val result = service.getBookMetadata("B0TESTASIN", MetadataLocale("us"))
                     val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
                     book.shouldNotBeNull()
                     book.coverUrl shouldBe "https://audible.test/cover.jpg"
@@ -186,7 +186,7 @@ class MetadataLookupServiceImplTest :
                 val service = makeService(audible = audible, dbs = this, itunes = itunes)
 
                 runTest {
-                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val result = service.getBookMetadata("B0TESTASIN", MetadataLocale("us"))
                     val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
                     book.shouldNotBeNull()
                     book.coverUrl shouldBe "https://audible.test/cover.jpg"
@@ -203,7 +203,7 @@ class MetadataLookupServiceImplTest :
                 val service = makeService(audible = audible, dbs = this)
 
                 runTest {
-                    val result = service.getBookMetadata("B0TESTASIN", AudibleRegion.US)
+                    val result = service.getBookMetadata("B0TESTASIN", MetadataLocale("us"))
                     val book = result.shouldBeInstanceOf<AppResult.Success<com.calypsan.listenup.api.dto.MetadataBook?>>().data
                     book.shouldNotBeNull()
                     book.genres shouldContainExactly listOf("Fantasy", "Epic")
