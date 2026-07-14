@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
@@ -126,7 +127,7 @@ private fun makeMetadataPermService(dbs: SqlTestDatabases): MetadataLookupServic
         coverSearchService =
             CoverSearchService(
                 readBook = { null },
-                providers = emptyList(),
+                registry = MetadataProviderRegistry(emptyList()),
                 probeDimensions = { null },
             ),
         bookRepository = bookRepo,

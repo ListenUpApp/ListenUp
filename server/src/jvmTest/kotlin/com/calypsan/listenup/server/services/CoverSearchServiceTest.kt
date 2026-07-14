@@ -7,8 +7,12 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.metadata.provider.CoverCandidate
-import com.calypsan.listenup.server.metadata.provider.CoverProvider
+import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.CoverMeta
+import com.calypsan.listenup.server.metadata.spi.CoverSource
+import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -19,30 +23,32 @@ class CoverSearchServiceTest :
         // Probe stub: width=height=URL length, so options are distinguishable + deterministic.
         val probe: suspend (String) -> Pair<Int, Int>? = { url -> url.length to url.length }
 
-        fun provider(
-            src: CoverOptionSource,
-            block: suspend () -> AppResult<List<CoverCandidate>>,
-        ) = object : CoverProvider {
-            override val source = src
+        fun coverSource(
+            providerId: MetadataProviderId,
+            block: suspend () -> AppResult<List<CoverMeta>>,
+        ) = object : CoverSource {
+            override val id = providerId
 
             override suspend fun searchCovers(
-                book: BookSummary,
-                region: AudibleRegion?,
-            ): AppResult<List<CoverCandidate>> = block()
+                book: BookIdentity,
+                locale: MetadataLocale,
+            ): AppResult<List<CoverMeta>> = block()
         }
 
-        test("flattens provider options in list order with probed dimensions") {
+        fun registryOf(vararg sources: CoverSource) = MetadataProviderRegistry(sources.toList())
+
+        test("flattens provider options in registration order with probed dimensions") {
             runTest {
                 val svc =
                     CoverSearchService(
                         readBook = { BookSummary("The Way of Kings", "Brandon Sanderson") },
-                        providers =
-                            listOf(
-                                provider(CoverOptionSource.AUDIBLE) {
-                                    AppResult.Success(listOf(CoverCandidate("https://audible/cover.jpg", "B01ASIN")))
+                        registry =
+                            registryOf(
+                                coverSource(MetadataProviderId.AUDIBLE) {
+                                    AppResult.Success(listOf(CoverMeta(url = "https://audible/cover.jpg", sourceKey = "B01ASIN")))
                                 },
-                                provider(CoverOptionSource.ITUNES) {
-                                    AppResult.Success(listOf(CoverCandidate("https://i/7000.jpg", "999")))
+                                coverSource(MetadataProviderId.ITUNES) {
+                                    AppResult.Success(listOf(CoverMeta(url = "https://i/7000.jpg", sourceKey = "999")))
                                 },
                             ),
                         probeDimensions = probe,
@@ -58,16 +64,42 @@ class CoverSearchServiceTest :
             }
         }
 
+        test("prefers maxSizeUrl over url when a provider exposes a distinct high-res rendition") {
+            runTest {
+                val svc =
+                    CoverSearchService(
+                        readBook = { BookSummary("T", "A") },
+                        registry =
+                            registryOf(
+                                coverSource(MetadataProviderId.ITUNES) {
+                                    AppResult.Success(
+                                        listOf(
+                                            CoverMeta(
+                                                url = "https://i/100.jpg",
+                                                maxSizeUrl = "https://i/7000.jpg",
+                                                sourceKey = "5",
+                                            ),
+                                        ),
+                                    )
+                                },
+                            ),
+                        probeDimensions = probe,
+                    )
+                val opts = (svc.searchCovers(BookId("book1"), region = null) as AppResult.Success).data
+                opts[0].url shouldBe "https://i/7000.jpg"
+            }
+        }
+
         test("one provider failing still returns the others' options") {
             runTest {
                 val svc =
                     CoverSearchService(
                         readBook = { BookSummary("T", "A") },
-                        providers =
-                            listOf(
-                                provider(CoverOptionSource.AUDIBLE) { error("audible down") },
-                                provider(CoverOptionSource.ITUNES) {
-                                    AppResult.Success(listOf(CoverCandidate("https://i/2.jpg", "5")))
+                        registry =
+                            registryOf(
+                                coverSource(MetadataProviderId.AUDIBLE) { error("audible down") },
+                                coverSource(MetadataProviderId.ITUNES) {
+                                    AppResult.Success(listOf(CoverMeta(url = "https://i/2.jpg", sourceKey = "5")))
                                 },
                             ),
                         probeDimensions = probe,
@@ -82,13 +114,13 @@ class CoverSearchServiceTest :
                 val svc =
                     CoverSearchService(
                         readBook = { BookSummary("T", "A") },
-                        providers =
-                            listOf(
-                                provider(CoverOptionSource.AUDIBLE) {
+                        registry =
+                            registryOf(
+                                coverSource(MetadataProviderId.AUDIBLE) {
                                     AppResult.Failure(MetadataError.ExternalUnavailable())
                                 },
-                                provider(CoverOptionSource.ITUNES) {
-                                    AppResult.Success(listOf(CoverCandidate("https://i/2.jpg", "5")))
+                                coverSource(MetadataProviderId.ITUNES) {
+                                    AppResult.Success(listOf(CoverMeta(url = "https://i/2.jpg", sourceKey = "5")))
                                 },
                             ),
                         probeDimensions = probe,
@@ -103,10 +135,10 @@ class CoverSearchServiceTest :
                 val svc =
                     CoverSearchService(
                         readBook = { BookSummary("T", "A") },
-                        providers =
-                            listOf(
-                                provider(CoverOptionSource.AUDIBLE) {
-                                    AppResult.Success(listOf(CoverCandidate("https://a/c.jpg", "B1")))
+                        registry =
+                            registryOf(
+                                coverSource(MetadataProviderId.AUDIBLE) {
+                                    AppResult.Success(listOf(CoverMeta(url = "https://a/c.jpg", sourceKey = "B1")))
                                 },
                             ),
                         probeDimensions = { null },
@@ -123,7 +155,7 @@ class CoverSearchServiceTest :
                 val svc =
                     CoverSearchService(
                         readBook = { null },
-                        providers = emptyList(),
+                        registry = MetadataProviderRegistry(emptyList()),
                         probeDimensions = probe,
                     )
                 svc
