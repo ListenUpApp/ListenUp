@@ -63,7 +63,15 @@ protocol PlaybackPreparing: Sendable {
 }
 
 /// Position + listening-event persistence. `bookId` is the value-class-erased id.
-protocol PlaybackProgressReporting: Sendable {
+///
+/// `@MainActor`-isolated, mirroring `SleepTiming`/`SkipIntervalProviding`: the sole
+/// consumer (`PlayerCoordinator`) is `@MainActor` and drives every callback on the main
+/// actor. Isolation makes that a compile-time guarantee rather than a de-facto assumption —
+/// which matters for the test fake, whose `AsyncGate` waits and `signal()`s must share one
+/// isolation domain to be race-free (a non-isolated conformer's `nonisolated async` waits
+/// hop to the generic executor and lose wakeups against a main-actor `signal()`).
+@MainActor
+protocol PlaybackProgressReporting {
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float)
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float)
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float)

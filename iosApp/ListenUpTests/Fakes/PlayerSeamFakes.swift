@@ -98,7 +98,8 @@ actor FakePlaybackEngine: PlaybackEngine {
 
 // MARK: - Task 2 seam fakes
 
-final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendable {
+@MainActor
+final class FakeProgressReporting: PlaybackProgressReporting {
     private(set) var startedCalls: [(String, Int64, Float)] = []
     private(set) var pausedCalls: [(String, Int64, Float)] = []
     private(set) var positionUpdates: [(String, Int64, Float)] = []
@@ -107,8 +108,11 @@ final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendabl
     private(set) var finished: [(String, Int64)] = []
     private(set) var savedNow: [(String, Int64)] = []
 
-    /// Fires on each recorded call. The coordinator drives this fake on the main actor and
-    /// tests await on the main actor — one isolation domain, so the gate needs no locking.
+    /// Fires on each recorded call. The fake is `@MainActor`, so the coordinator's `signal()`
+    /// callbacks and the tests' `wait`s share the one main-actor isolation domain the
+    /// lock-free `AsyncGate` requires — its `wait`s inherit `#isolation == MainActor`, making
+    /// the check-then-append atomic against `signal()`. Without the isolation the wait methods,
+    /// being `nonisolated async`, would hop to the generic executor and race `signal()`.
     private let gate = AsyncGate()
 
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
