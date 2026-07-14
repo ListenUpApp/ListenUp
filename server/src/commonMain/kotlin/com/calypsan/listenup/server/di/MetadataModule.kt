@@ -13,14 +13,14 @@ import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
 import com.calypsan.listenup.server.metadata.audible.AudibleClient
 import com.calypsan.listenup.server.metadata.audible.AudibleRateLimiter
-import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesClient
 import com.calypsan.listenup.server.metadata.itunes.ITunesRateLimiter
 import com.calypsan.listenup.server.metadata.itunes.ImageDimensionProbe
-import com.calypsan.listenup.server.metadata.provider.AudibleCoverProvider
 import com.calypsan.listenup.server.metadata.provider.AudibleMetadataProvider
-import com.calypsan.listenup.server.metadata.provider.ITunesCoverProvider
+import com.calypsan.listenup.server.metadata.provider.AudibleProvider
+import com.calypsan.listenup.server.metadata.provider.ITunesProvider
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.services.BookMoodWriter
@@ -53,8 +53,10 @@ import org.koin.dsl.module
  *  - [AudibleClient] / [ITunesClient] — thin adapters over the external APIs.
  *  - [MetadataCacheRepository] — SQLite-backed TTL cache for API responses.
  *  - [MetadataService] — orchestrator with region-aware fallback.
- *  - [AudibleCoverProvider] / [ITunesCoverProvider] / [AudibleMetadataProvider] — the
- *    provider seam: each wraps [MetadataService] for one catalog surface.
+ *  - [AudibleProvider] / [ITunesProvider] — the capability-SPI providers, collected in a
+ *    [MetadataProviderRegistry]; [CoverSearchService] fans cover lookups over the registry's
+ *    [com.calypsan.listenup.server.metadata.spi.CoverSource]s. [AudibleMetadataProvider] still
+ *    backs the un-migrated book/chapter lookup path until the enrichment coordinator lands.
  *  - [ImageStorage] — downloads cover/photo images to disk.
  *  - [MetadataLookupServiceImpl] — RPC implementation bound as [MetadataLookupService].
  *
@@ -132,24 +134,11 @@ fun metadataModule(imageHome: Path): Module =
 
         single { ImageDimensionProbe(httpClient = get(named(METADATA_HTTP_CLIENT))) }
 
-        single {
-            val metadataService = get<MetadataService>()
-            AudibleCoverProvider(
-                search = { book, region ->
-                    val params = SearchParams(keywords = "${book.title} ${book.author}".trim())
-                    if (region == null) {
-                        metadataService.searchWithFallback(params)
-                    } else {
-                        metadataService.search(region, params)
-                    }
-                },
-            )
-        }
+        single { AudibleProvider(metadataService = get()) }
 
-        single {
-            val metadataService = get<MetadataService>()
-            ITunesCoverProvider(search = { title, author -> metadataService.searchCovers(title, author) })
-        }
+        single { ITunesProvider(itunes = get()) }
+
+        single { MetadataProviderRegistry(providers = listOf(get<AudibleProvider>(), get<ITunesProvider>())) }
 
         single { AudibleMetadataProvider(metadataService = get()) }
 
@@ -168,7 +157,7 @@ fun metadataModule(imageHome: Path): Module =
                         )
                     }
                 },
-                providers = listOf(get<AudibleCoverProvider>(), get<ITunesCoverProvider>()),
+                registry = get<MetadataProviderRegistry>(),
                 probeDimensions = { url -> probe.probe(url) },
             )
         }

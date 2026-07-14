@@ -7,7 +7,12 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.server.metadata.provider.CoverProvider
+import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.CoverMeta
+import com.calypsan.listenup.server.metadata.spi.CoverSource
+import com.calypsan.listenup.server.metadata.spi.MetadataLocale
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -23,19 +28,22 @@ data class BookSummary(
 )
 
 /**
- * Searches all configured [CoverProvider]s for cover candidates for a book, in parallel.
+ * Searches every registered [CoverSource] for cover candidates for a book, in parallel.
+ * Providers are discovered through [MetadataProviderRegistry.capable] in registration order
+ * (Audible first, iTunes second), so options are emitted Audible-first with no hand-wired list.
+ *
  * Each provider is failure-contained: if one throws or returns a typed failure, its options
  * are dropped (logged) and the other providers' options still return — never strand the
  * operator for one provider being down. Dimensions are probed per candidate; a probe miss
- * degrades to 0×0 rather than dropping the cover. Options are emitted in provider-list order
- * (the list is built Audible-first in `MetadataModule`).
+ * degrades to 0×0 rather than dropping the cover. A [CoverSource] whose id has no
+ * [CoverOptionSource] mapping is skipped (only Audible + iTunes surface covers to clients).
  *
  * [readBook] and [probeDimensions] are function seams so the orchestration is unit-testable
  * without a DB or HTTP; the DI binding supplies the real implementations.
  */
 class CoverSearchService(
     private val readBook: suspend (BookId) -> BookSummary?,
-    private val providers: List<CoverProvider>,
+    private val registry: MetadataProviderRegistry,
     private val probeDimensions: suspend (String) -> Pair<Int, Int>?,
 ) {
     suspend fun searchCovers(
@@ -46,29 +54,37 @@ class CoverSearchService(
             readBook(bookId)
                 ?: return AppResult.Failure(MetadataError.NotFound(debugInfo = "book ${bookId.value} not found"))
 
+        val locale = region?.let { MetadataLocale(it.code) } ?: MetadataLocale.DEFAULT
+        val identity = BookIdentity(title = book.title, primaryAuthor = book.author.takeIf { it.isNotBlank() })
+
         return coroutineScope {
             val deferred =
-                providers.map { provider ->
-                    async { contained(provider.source.name) { providerOptions(provider, book, region) } }
+                registry.capable<CoverSource>().map { provider ->
+                    async { contained(provider.id.value) { providerOptions(provider, identity, locale) } }
                 }
             AppResult.Success(deferred.awaitAll().flatten())
         }
     }
 
     private suspend fun providerOptions(
-        provider: CoverProvider,
-        book: BookSummary,
-        region: AudibleRegion?,
+        provider: CoverSource,
+        book: BookIdentity,
+        locale: MetadataLocale,
     ): List<CoverOption> {
-        log.debug { "cover search: source=${provider.source.name} title='${book.title}' author='${book.author}'" }
-        return when (val r = provider.searchCovers(book, region)) {
+        val source =
+            coverOptionSourceFor(provider.id) ?: run {
+                log.warn { "cover search: provider=${provider.id.value} has no CoverOption mapping — skipping" }
+                return emptyList()
+            }
+        log.debug { "cover search: source=${source.name} title='${book.title}' author='${book.primaryAuthor}'" }
+        return when (val r = provider.searchCovers(book, locale)) {
             is AppResult.Failure -> {
                 throw SourceException(r.error)
             }
 
             is AppResult.Success -> {
-                r.data.map { option(provider.source, it.url, it.sourceId) }.also { opts ->
-                    log.debug { "cover search result: source=${provider.source.name} candidates=${opts.size}" }
+                r.data.map { option(source, it) }.also { opts ->
+                    log.debug { "cover search result: source=${source.name} candidates=${opts.size}" }
                 }
             }
         }
@@ -76,11 +92,11 @@ class CoverSearchService(
 
     private suspend fun option(
         source: CoverOptionSource,
-        url: String,
-        sourceId: String,
+        cover: CoverMeta,
     ): CoverOption {
+        val url = cover.maxSizeUrl ?: cover.url
         val (w, h) = probeDimensions(url) ?: (0 to 0)
-        return CoverOption(source = source, url = url, width = w, height = h, sourceId = sourceId)
+        return CoverOption(source = source, url = url, width = w, height = h, sourceId = cover.sourceKey)
     }
 
     private suspend fun contained(
@@ -97,6 +113,14 @@ class CoverSearchService(
         } catch (e: Exception) {
             log.warn(e) { "cover search: $source source threw" }
             emptyList()
+        }
+
+    /** Maps a provider id to its client-facing [CoverOptionSource]; `null` for non-cover-surfacing ids. */
+    private fun coverOptionSourceFor(id: MetadataProviderId): CoverOptionSource? =
+        when (id) {
+            MetadataProviderId.AUDIBLE -> CoverOptionSource.AUDIBLE
+            MetadataProviderId.ITUNES -> CoverOptionSource.ITUNES
+            else -> null
         }
 
     private class SourceException(

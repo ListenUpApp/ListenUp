@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.services.CoverSearchService
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.MetadataCacheRepository
@@ -151,7 +152,7 @@ private fun withCoverFixture(
                     coverSearchService =
                         CoverSearchService(
                             readBook = { null },
-                            providers = emptyList(),
+                            registry = MetadataProviderRegistry(emptyList()),
                             probeDimensions = { null },
                         ),
                     bookRepository = books,
