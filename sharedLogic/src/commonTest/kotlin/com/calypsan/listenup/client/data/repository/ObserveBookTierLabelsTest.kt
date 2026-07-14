@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -50,7 +51,7 @@ class ObserveBookTierLabelsTest :
                         moodRepository = mock<MoodRepository>(MockMode.autoUnit),
                     ),
                 networkMonitor = networkMonitor,
-                channel = mock<RpcChannel<BookService>>(MockMode.autoUnit),
+                channel = RpcChannel.forTest(mock<BookService>(MockMode.autoUnit)),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(MockMode.autoUnit),
             )
         }
