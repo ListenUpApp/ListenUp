@@ -67,6 +67,7 @@ internal class BookMutationLocalApply(
             is BookMutation.SetSeries -> applySeries(bookId, mutation.series)
             is BookMutation.SetGenres -> applyGenres(bookId, mutation.genres)
             is BookMutation.SetChapters -> applyChapters(bookId, mutation.chapters)
+            is BookMutation.SetTierLabels -> applyTierLabels(bookId, mutation.bookTierLabel, mutation.partTierLabel)
             is BookMutation.SetCollections -> applyCollections(bookId, mutation.collectionIds)
             is BookMutation.DeleteCover -> applyDeleteCover(bookId)
         }
@@ -179,6 +180,21 @@ internal class BookMutationLocalApply(
                 )
             },
         )
+    }
+
+    /**
+     * Set the book's chapter-tier labels to exactly the given values — mirrors the server's targeted
+     * UPDATE (`BookService.setBookTierLabels`) and `BookMirrorApply`'s echo. A `null` clears that tier's
+     * name; both columns are written verbatim (last-write-wins), so the optimistic state equals the
+     * book's own SSE echo once the op drains.
+     */
+    private suspend fun applyTierLabels(
+        bookId: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ) {
+        val existing = bookDao.getById(bookId) ?: return
+        bookDao.upsert(existing.copy(bookTierLabel = bookTierLabel, partTierLabel = partTierLabel))
     }
 
     /**

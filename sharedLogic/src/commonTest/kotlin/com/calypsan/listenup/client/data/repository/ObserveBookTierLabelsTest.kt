@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
@@ -9,7 +10,7 @@ import com.calypsan.listenup.client.data.local.db.BookTierLabelsRow
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -49,7 +50,7 @@ class ObserveBookTierLabelsTest :
                         moodRepository = mock<MoodRepository>(MockMode.autoUnit),
                     ),
                 networkMonitor = networkMonitor,
-                bookRpcFactory = mock<BookRpcFactory>(MockMode.autoUnit),
+                channel = mock<RpcChannel<BookService>>(MockMode.autoUnit),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(MockMode.autoUnit),
             )
         }
