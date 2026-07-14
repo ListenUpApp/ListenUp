@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.auth.PasswordHasher
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Users
@@ -35,7 +35,7 @@ private const val AVATAR_TYPE_AUTO = "auto"
  */
 internal class ProfileServiceImpl(
     private val sql: ListenUpDatabase,
-    private val passwordHasher: PasswordHasher,
+    private val argon2Limiter: Argon2Limiter,
     private val publicProfileMaintainer: PublicProfileMaintainer,
     private val imageStore: ImageStore,
     private val clock: Clock = Clock.System,
@@ -58,7 +58,7 @@ internal class ProfileServiceImpl(
             principal.current()?.userId?.value
                 ?: return AppResult.Failure(AuthError.PermissionDenied())
         // Hash outside the transaction — Argon2 is CPU-bound and must not hold a DB connection.
-        val newHash = request.password?.let { passwordHasher.hash(it.newPassword) }
+        val newHash = request.password?.let { argon2Limiter.hash(it.newPassword) }
         // Read the current row first. The password verify and the write are split across two
         // steps because the SQLDelight transaction body is non-suspend and cannot call the
         // suspend Argon2 verify — matching the established cutover shape.
@@ -68,7 +68,7 @@ internal class ProfileServiceImpl(
 
         // Verify the current password (suspend Argon2) outside any transaction.
         request.password?.let { pc ->
-            if (!passwordHasher.verify(pc.currentPassword, current.password_hash)) {
+            if (!argon2Limiter.verify(pc.currentPassword, current.password_hash)) {
                 return AppResult.Failure(ProfileError.WrongPassword())
             }
         }
@@ -118,7 +118,7 @@ internal class ProfileServiceImpl(
     fun copyWith(principal: PrincipalProvider): ProfileServiceImpl =
         ProfileServiceImpl(
             sql = sql,
-            passwordHasher = passwordHasher,
+            argon2Limiter = argon2Limiter,
             publicProfileMaintainer = publicProfileMaintainer,
             imageStore = imageStore,
             clock = clock,
@@ -145,13 +145,13 @@ internal class ProfileServiceImpl(
  */
 fun createProfileService(
     sql: ListenUpDatabase,
-    passwordHasher: PasswordHasher,
+    argon2Limiter: Argon2Limiter,
     publicProfileMaintainer: PublicProfileMaintainer,
     imageStore: ImageStore,
 ): ProfileService =
     ProfileServiceImpl(
         sql = sql,
-        passwordHasher = passwordHasher,
+        argon2Limiter = argon2Limiter,
         publicProfileMaintainer = publicProfileMaintainer,
         imageStore = imageStore,
     )

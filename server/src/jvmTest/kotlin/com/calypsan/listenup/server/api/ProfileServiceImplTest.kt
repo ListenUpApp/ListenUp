@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.profile.Profile
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -29,7 +30,7 @@ class ProfileServiceImplTest :
         fun SqlTestDatabases.svc(userId: String): ProfileServiceImpl =
             ProfileServiceImpl(
                 sql = sql,
-                passwordHasher = PasswordHasher(),
+                argon2Limiter = Argon2Limiter(PasswordHasher()),
                 publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                 imageStore = tempAvatarImageStore(),
             ).copyWith(
@@ -53,7 +54,7 @@ class ProfileServiceImplTest :
                     val svc =
                         ProfileServiceImpl(
                             sql = sql,
-                            passwordHasher = PasswordHasher(),
+                            argon2Limiter = Argon2Limiter(PasswordHasher()),
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = tempAvatarImageStore(),
                             clock = FixedClock(Instant.fromEpochMilliseconds(fixed)),
@@ -94,7 +95,7 @@ class ProfileServiceImplTest :
                     val svc =
                         ProfileServiceImpl(
                             sql = sql,
-                            passwordHasher = hasher,
+                            argon2Limiter = Argon2Limiter(hasher),
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = tempAvatarImageStore(),
                         ).copyWith(
@@ -124,7 +125,7 @@ class ProfileServiceImplTest :
                     val svc =
                         ProfileServiceImpl(
                             sql = sql,
-                            passwordHasher = hasher,
+                            argon2Limiter = Argon2Limiter(hasher),
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = tempAvatarImageStore(),
                         ).copyWith(
@@ -140,6 +141,53 @@ class ProfileServiceImplTest :
                         )
                     val failure = r.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<ProfileError.WrongPassword>()
+                }
+            }
+        }
+
+        test("a password change routes hash + verify through the Argon2Limiter (bounded, not the raw hasher)") {
+            withSqlDatabase {
+                val hasher = PasswordHasher()
+                var hashCalls = 0
+                var verifyCalls = 0
+                // A limiter wrapping counting stand-ins over the real hasher — proves ProfileServiceImpl's
+                // Argon2 goes through the shared gate (C3 DoS ceiling) instead of a raw PasswordHasher.
+                val counting =
+                    Argon2Limiter(
+                        permits = 1,
+                        hashFn = { plaintext ->
+                            hashCalls++
+                            hasher.hash(plaintext)
+                        },
+                        verifyFn = { plaintext, encoded ->
+                            verifyCalls++
+                            hasher.verify(plaintext, encoded)
+                        },
+                    )
+                runTest {
+                    val hash = hasher.hash("correct-pass")
+                    sql.seedTestUser("u1")
+                    sql.usersQueries.updatePasswordHash(password_hash = hash, id = "u1")
+                    val svc =
+                        ProfileServiceImpl(
+                            sql = sql,
+                            argon2Limiter = counting,
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                            imageStore = tempAvatarImageStore(),
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
+                            },
+                        )
+                    svc
+                        .updateMyProfile(
+                            UpdateProfileRequest(
+                                password = PasswordChange("correct-pass", "brand-new-pass"),
+                            ),
+                        ).shouldBeInstanceOf<AppResult.Success<Profile>>()
+                    // Both the current-password verify and the new-password hash went through the gate.
+                    verifyCalls shouldBe 1
+                    hashCalls shouldBe 1
                 }
             }
         }
@@ -164,7 +212,7 @@ class ProfileServiceImplTest :
                     val svc =
                         ProfileServiceImpl(
                             sql = sql,
-                            passwordHasher = PasswordHasher(),
+                            argon2Limiter = Argon2Limiter(PasswordHasher()),
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = imageStore,
                             clock = FixedClock(Instant.fromEpochMilliseconds(t2)),
