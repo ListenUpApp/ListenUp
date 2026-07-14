@@ -75,7 +75,7 @@ private struct ContributorMetadataSearchView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.luLabel2)
                     RegionPicker(
-                        options: Array(AudibleRegion.allCases),
+                        options: MetadataRegionOption.all,
                         selection: observer.region,
                         label: \.displayName
                     ) { observer.changeRegion($0) }

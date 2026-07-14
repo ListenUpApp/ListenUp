@@ -71,7 +71,7 @@ struct MetadataSelectView: View {
 /// out so both the iPhone push screen and the iPad master–detail right column render it identically.
 struct MetadataSelectBody: View {
     let preview: MetadataPreview
-    let region: AudibleRegion
+    let region: MetadataRegionOption
     let observer: MetadataMatchObserver
     let onReviewChapters: () -> Void
     var showChangeRow = true

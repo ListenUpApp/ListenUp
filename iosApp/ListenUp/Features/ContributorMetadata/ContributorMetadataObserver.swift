@@ -51,7 +51,7 @@ struct ContributorFieldComparison: Identifiable {
 final class ContributorMetadataObserver {
     // MARK: - Search
 
-    private(set) var region: AudibleRegion = .us
+    private(set) var region = MetadataRegionOption(MetadataLocale.Companion.shared.DEFAULT)
     /// The live query (the view binds an editable copy and pushes via `updateQuery`).
     private(set) var query: String = ""
     private(set) var results: [ContributorHitRow] = []
@@ -99,7 +99,7 @@ final class ContributorMetadataObserver {
 
     func search() { viewModel.search() }
 
-    func changeRegion(_ region: AudibleRegion) { viewModel.changeRegion(region: region) }
+    func changeRegion(_ region: MetadataRegionOption) { viewModel.changeRegion(region: region.locale) }
 
     func selectCandidate(_ asin: String) {
         guard let hit = rawHits[asin] else { return }
@@ -121,7 +121,7 @@ final class ContributorMetadataObserver {
     // MARK: - State mapping
 
     private func apply(_ state: ContributorMetadataUiState) {
-        region = state.selectedRegion
+        region = MetadataRegionOption(state.selectedRegion)
         query = state.searchQuery
         contributorName = state.currentContributor?.name ?? ""
         currentImagePath = state.currentContributor?.imagePath
