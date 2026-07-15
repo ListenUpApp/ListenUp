@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapter
+import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -216,6 +217,10 @@ sealed interface PreviewLoadState {
         val genreCandidates: List<String>,
         val moodCandidates: List<String>,
         val tagCandidates: List<String>,
+        val fallbackSources: Map<BookField, String> = emptyMap(),
+        val coverSourceLabel: String? = null,
+        val coverResolution: String? = null,
+        val contributingSources: List<String> = emptyList(),
     ) : PreviewLoadState
 
     /** Preview fetch failed; [message] is shown in-line. */
@@ -769,6 +774,10 @@ class MetadataViewModel(
         val moodCandidates = unionCandidates(currentMoods, preview.moods)
         val tagCandidates = unionCandidates(currentTags, preview.tags)
 
+        val prov = preview.matchProvenance
+        val coverRes =
+            if (prov?.coverWidth != null && prov.coverHeight != null) "${prov.coverWidth}×${prov.coverHeight}" else null
+
         state.update { latest ->
             if (latest !is MetadataUiState.Preview || latest.match.asin != match.asin) return@update latest
             val ready =
@@ -784,6 +793,10 @@ class MetadataViewModel(
                     genreCandidates = genreCandidates,
                     moodCandidates = moodCandidates,
                     tagCandidates = tagCandidates,
+                    fallbackSources = prov?.fallbackFields ?: emptyMap(),
+                    coverSourceLabel = prov?.coverSource,
+                    coverResolution = coverRes,
+                    contributingSources = prov?.contributingSources ?: emptyList(),
                 )
             latest.copy(loadState = ready)
         }
@@ -870,7 +883,16 @@ class MetadataViewModel(
      */
     private fun buildCoverEntries(preview: MetadataBook): List<CoverEntry> =
         buildList {
-            preview.coverUrlMaxSize?.let { add(CoverEntry(url = it, label = "iTunes HD", resolution = null)) }
+            val prov = preview.matchProvenance
+            preview.coverUrlMaxSize?.let { url ->
+                val res =
+                    if (prov?.coverWidth != null && prov.coverHeight != null) {
+                        "${prov.coverWidth}×${prov.coverHeight}"
+                    } else {
+                        null
+                    }
+                add(CoverEntry(url = url, label = prov?.coverSource ?: "iTunes HD", resolution = res))
+            }
             preview.coverUrl?.let { add(CoverEntry(url = it, label = "Audible", resolution = null)) }
         }
 
