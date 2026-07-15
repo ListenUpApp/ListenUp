@@ -10,8 +10,8 @@ import kotlinx.serialization.Serializable
  * B1 carries only identity and display fields — `id`, `name`, `sortName` — plus
  * the substrate bookkeeping columns.
  *
- * B2a adds enrichment fields (`asin`, `description`, `imagePath`, `imageBlurHash`,
- * `birthDate`, `deathDate`, `website`). All are nullable with `null` defaults so
+ * B2a adds enrichment fields (`asin`, `description`, `imagePath`, `birthDate`,
+ * `deathDate`, `website`). All are nullable with `null` defaults so
  * existing fixtures and B1-era sync events remain forward-compatible; a receiver
  * that omits them simply keeps whatever enrichment it already had.
  *
@@ -33,7 +33,6 @@ data class ContributorSyncPayload(
     val asin: String? = null,
     val description: String? = null,
     val imagePath: String? = null,
-    val imageBlurHash: String? = null,
     val birthDate: String? = null,
     val deathDate: String? = null,
     val website: String? = null,

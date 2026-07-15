@@ -391,7 +391,6 @@ class BrowseTreeProviderTest {
         title = title,
         authorNames = authorNames,
         coverPath = null,
-        coverBlurHash = null,
         progress = 0.5f,
         currentPositionMs = 3_600_000L,
         totalDurationMs = 7_200_000L,
@@ -437,7 +436,6 @@ class BrowseTreeProviderTest {
         bookId = bookId,
         title = title,
         authorNames = "An Author",
-        coverBlurHash = null,
         sizeBytes = 10_000_000L,
         fileCount = 1,
     )

@@ -257,7 +257,7 @@ internal class SearchServiceImpl(
     ): List<ContributorHit> =
         suspendTransaction(db) {
             val sql =
-                "SELECT c.id, c.name, c.sort_name, c.image_path, c.image_blur_hash, " +
+                "SELECT c.id, c.name, c.sort_name, c.image_path, " +
                     "(SELECT COUNT(*) FROM book_contributors bc WHERE bc.contributor_id = c.id) AS book_count " +
                     "FROM contributor_search cs " +
                     "JOIN contributors c ON c.rowid = cs.rowid " +
@@ -271,8 +271,7 @@ internal class SearchServiceImpl(
                     name = name,
                     sortName = cursor.getString(2),
                     photoPath = cursor.getString(3),
-                    photoBlurHash = cursor.getString(4),
-                    bookCount = cursor.getLong(5)!!.toInt(),
+                    bookCount = cursor.getLong(4)!!.toInt(),
                     highlight = highlightMatches(name, ftsQuery),
                 )
             }
@@ -284,7 +283,7 @@ internal class SearchServiceImpl(
     ): List<SeriesHit> =
         suspendTransaction(db) {
             val sql =
-                "SELECT s.id, s.name, s.sort_name, s.cover_path, s.cover_blur_hash, " +
+                "SELECT s.id, s.name, s.sort_name, s.cover_path, " +
                     "(SELECT COUNT(*) FROM book_series_memberships bsm WHERE bsm.series_id = s.id) AS book_count " +
                     "FROM series_search ss " +
                     "JOIN book_series s ON s.rowid = ss.rowid " +
@@ -298,8 +297,7 @@ internal class SearchServiceImpl(
                     name = name,
                     sortName = cursor.getString(2),
                     coverPath = cursor.getString(3),
-                    coverBlurHash = cursor.getString(4),
-                    bookCount = cursor.getLong(5)!!.toInt(),
+                    bookCount = cursor.getLong(4)!!.toInt(),
                     highlight = highlightMatches(name, ftsQuery),
                 )
             }

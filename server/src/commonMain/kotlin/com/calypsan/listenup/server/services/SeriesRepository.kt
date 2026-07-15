@@ -119,7 +119,6 @@ class SeriesRepository(
                 asin = value.asin,
                 description = value.description,
                 cover_path = value.coverPath,
-                cover_blur_hash = value.coverBlurHash,
                 revision = rev,
                 updated_at = now,
                 deleted_at = null,
@@ -140,7 +139,6 @@ class SeriesRepository(
                 asin = value.asin,
                 description = value.description,
                 cover_path = value.coverPath,
-                cover_blur_hash = value.coverBlurHash,
             )
         }
     }
@@ -307,7 +305,6 @@ class SeriesRepository(
             asin = asin,
             description = description,
             coverPath = cover_path,
-            coverBlurHash = cover_blur_hash,
         )
 
     private companion object {

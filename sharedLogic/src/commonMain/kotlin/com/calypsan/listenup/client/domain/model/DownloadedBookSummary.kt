@@ -9,7 +9,6 @@ data class DownloadedBookSummary(
     val bookId: String,
     val title: String,
     val authorNames: String,
-    val coverBlurHash: String?,
     val sizeBytes: Long,
     val fileCount: Int,
 )

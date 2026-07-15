@@ -93,7 +93,6 @@ class FakeBookRepository(
             title = book.title,
             authorName = book.authors.firstOrNull()?.name,
             coverPath = book.coverPath,
-            coverBlurHash = book.coverBlurHash,
             createdAt = book.addedAt.epochMillis,
         )
 }

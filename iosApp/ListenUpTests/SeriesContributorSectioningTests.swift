@@ -11,7 +11,7 @@ struct SeriesContributorSectioningTests {
     }
 
     private func person(_ id: String, _ name: String) -> ContributorRow {
-        ContributorRow(id: id, name: name, bookCount: 1, imagePath: nil, imageBlurHash: nil)
+        ContributorRow(id: id, name: name, bookCount: 1, imagePath: nil)
     }
 
     // MARK: - Series alphabet index

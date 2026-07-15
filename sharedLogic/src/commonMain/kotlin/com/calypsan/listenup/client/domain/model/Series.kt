@@ -21,8 +21,6 @@ data class Series(
     val createdAt: Timestamp = Timestamp(0),
     /** Server-relative path to the series cover image. Null when no cover has been applied. */
     val coverPath: String? = null,
-    /** BlurHash placeholder string for the cover image. Null until server-side compute lands. */
-    val coverBlurHash: String? = null,
     /** Audible ASIN for this series, set when metadata has been applied. */
     val asin: String? = null,
 ) {

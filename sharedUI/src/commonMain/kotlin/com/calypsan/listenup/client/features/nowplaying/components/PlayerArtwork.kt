@@ -27,7 +27,6 @@ import com.calypsan.listenup.client.design.components.ElevatedCoverCard
  *
  * @param coverPath Local file path to the cover image, or null.
  * @param bookId Book identifier used for server-URL fallback image loading.
- * @param coverBlurHash Optional BlurHash placeholder string.
  * @param size Side length of the square cover, and the component's layout footprint.
  * @param title Book title, shown in the gradient fallback when no cover can be loaded.
  * @param author Primary author, shown in the gradient fallback when no cover can be loaded.
@@ -36,7 +35,6 @@ import com.calypsan.listenup.client.design.components.ElevatedCoverCard
 fun PlayerArtwork(
     coverPath: String?,
     bookId: String,
-    coverBlurHash: String?,
     size: Dp,
     title: String,
     author: String,
@@ -71,7 +69,6 @@ fun PlayerArtwork(
             path = coverPath,
             bookId = bookId,
             coverHash = coverHash,
-            blurHash = coverBlurHash,
             contentDescription = null,
             title = title,
             author = author,

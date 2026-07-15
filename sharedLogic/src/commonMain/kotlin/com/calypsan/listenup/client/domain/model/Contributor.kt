@@ -18,7 +18,6 @@ data class Contributor(
     val name: String,
     val description: String? = null,
     val imagePath: String? = null,
-    val imageBlurHash: String? = null,
     val website: String? = null,
     val birthDate: String? = null, // ISO 8601 date (e.g., "1947-09-21")
     val deathDate: String? = null, // ISO 8601 date (e.g., "2024-01-15")

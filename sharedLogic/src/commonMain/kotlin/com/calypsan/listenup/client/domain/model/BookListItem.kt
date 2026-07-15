@@ -28,7 +28,6 @@ data class BookListItem(
     override val duration: Long,
     override val coverPath: String?,
     override val coverHash: String? = null,
-    val coverBlurHash: String? = null,
     val addedAt: Timestamp,
     val updatedAt: Timestamp,
     val description: String? = null,

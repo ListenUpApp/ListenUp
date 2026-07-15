@@ -95,7 +95,6 @@ class StorageViewModelTest :
                         bookId = "b1",
                         title = "Book One",
                         authorNames = "Author A",
-                        coverBlurHash = null,
                         sizeBytes = 1_000L,
                         fileCount = 1,
                     )
@@ -121,7 +120,6 @@ class StorageViewModelTest :
                         bookId = "b1",
                         title = "B",
                         authorNames = "A",
-                        coverBlurHash = null,
                         sizeBytes = 1L,
                         fileCount = 1,
                     )
@@ -146,7 +144,6 @@ class StorageViewModelTest :
                         bookId = "b1",
                         title = "Now Playing Book",
                         authorNames = "A",
-                        coverBlurHash = null,
                         sizeBytes = 1L,
                         fileCount = 1,
                     )
@@ -176,7 +173,6 @@ class StorageViewModelTest :
                         bookId = "b1",
                         title = "B",
                         authorNames = "A",
-                        coverBlurHash = null,
                         sizeBytes = 1L,
                         fileCount = 1,
                     )
@@ -197,8 +193,8 @@ class StorageViewModelTest :
 
         test("confirmClearAll then executeDelete wipes all downloads in one sweep (reclaims orphans)") {
             runTest {
-                val s1 = DownloadedBookSummary("b1", "B1", "A", null, 10L, 1)
-                val s2 = DownloadedBookSummary("b2", "B2", "A", null, 20L, 1)
+                val s1 = DownloadedBookSummary("b1", "B1", "A", 10L, 1)
+                val s2 = DownloadedBookSummary("b2", "B2", "A", 20L, 1)
                 val (vm, fixture) = buildVm(downloads = listOf(s1, s2))
                 everySuspend { fixture.downloadService.deleteAllDownloads() } returns Unit
 

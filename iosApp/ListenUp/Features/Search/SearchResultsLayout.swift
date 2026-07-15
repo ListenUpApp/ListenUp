@@ -142,7 +142,7 @@ private struct SearchBookCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            BookCoverImage(bookId: row.id, coverPath: row.coverPath, blurHash: nil)
+            BookCoverImage(bookId: row.id, coverPath: row.coverPath)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 10))

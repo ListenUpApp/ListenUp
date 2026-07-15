@@ -60,7 +60,6 @@ class ContributorRepositoryTest :
                 name = name,
                 sortName = name,
                 photoPath = null,
-                photoBlurHash = null,
                 bookCount = bookCount,
             )
 

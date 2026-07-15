@@ -86,7 +86,6 @@ fun DesktopNowPlayingBar(
                         BarCover(
                             bookId = state.bookId,
                             coverPath = state.coverPath,
-                            blurHash = state.coverBlurHash,
                             contentDescription = state.title,
                         )
 
@@ -166,7 +165,6 @@ fun DesktopNowPlayingBar(
 private fun BarCover(
     bookId: String,
     coverPath: String?,
-    blurHash: String?,
     contentDescription: String,
 ) {
     Box(
@@ -180,7 +178,6 @@ private fun BarCover(
             bookId = bookId,
             coverPath = coverPath,
             contentDescription = contentDescription,
-            blurHash = blurHash,
             modifier = Modifier.size(48.dp),
         )
     }

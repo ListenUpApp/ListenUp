@@ -94,7 +94,6 @@ class BookEntityMapperTest :
 
         fun bookEntity(
             id: BookId = BookId("book-1"),
-            coverBlurHash: String? = "L5H2EC=PM+yV",
             coverHash: String? = null,
             coverDownloadedAt: Timestamp? = null,
         ): BookEntity =
@@ -104,7 +103,6 @@ class BookEntityMapperTest :
                 folderId = FolderId("test-folder"),
                 title = "Old Title",
                 totalDuration = 1_000L,
-                coverBlurHash = coverBlurHash,
                 coverHash = coverHash,
                 coverDownloadedAt = coverDownloadedAt,
                 createdAt = Timestamp(ENTITY_CREATED_AT_MS),
@@ -159,21 +157,6 @@ class BookEntityMapperTest :
             val result = mapper.toBookEntity(payload, existing = null)
 
             result.coverHash.shouldBeNull()
-        }
-
-        test("toBookEntity with existing null sets coverBlurHash to null") {
-            val payload = bookPayload()
-            val result = mapper.toBookEntity(payload, existing = null)
-
-            result.coverBlurHash.shouldBeNull()
-        }
-
-        test("toBookEntity preserves coverBlurHash from existing row") {
-            val existing = bookEntity(coverBlurHash = "L5H2EC=PM+yV")
-            val payload = bookPayload()
-            val result = mapper.toBookEntity(payload, existing = existing)
-
-            result.coverBlurHash shouldBe "L5H2EC=PM+yV"
         }
 
         test("toBookEntity does not carry over other fields from existing row — wire payload wins") {

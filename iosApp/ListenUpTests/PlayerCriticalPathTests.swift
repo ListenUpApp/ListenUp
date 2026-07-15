@@ -28,7 +28,7 @@ struct PausePersistenceTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine)
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
 
@@ -63,7 +63,7 @@ struct PrepareErrorStateTests {
         preparer.result = nil
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
-            engine: FakePlaybackEngine(), coverProvider: FakeBookCoverProviding())
+            engine: FakePlaybackEngine())
 
         coordinator.play(bookId: "book1")
         await awaitUntil {
@@ -90,7 +90,7 @@ struct PrepareErrorStateTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
-            engine: FakePlaybackEngine(), coverProvider: FakeBookCoverProviding())
+            engine: FakePlaybackEngine())
 
         coordinator.play(bookId: "book1")
         await awaitUntil {

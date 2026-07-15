@@ -12,8 +12,8 @@ import kotlinx.io.files.SystemFileSystem
  * temp file first, then atomic-renames into place — readers never see a
  * half-written file. The destination directory must already exist.
  *
- * Returns the raw bytes so the caller can feed them to [BlurHashGenerator]
- * without re-reading from disk. The temp file is always cleaned up on failure.
+ * Returns the raw bytes so the caller can reuse them without re-reading from
+ * disk. The temp file is always cleaned up on failure.
  */
 class ImageStorage(
     private val httpClient: HttpClient,

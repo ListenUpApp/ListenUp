@@ -10,11 +10,11 @@ struct ContributorRowTests {
     @Test func differentImagePathProducesDifferentRow() {
         let before = ContributorRow(
             id: "c-1", name: "Brandon Sanderson", bookCount: 12,
-            imagePath: "contributors/aaa.jpg", imageBlurHash: nil
+            imagePath: "contributors/aaa.jpg"
         )
         let after = ContributorRow(
             id: "c-1", name: "Brandon Sanderson", bookCount: 12,
-            imagePath: "contributors/bbb.jpg", imageBlurHash: nil
+            imagePath: "contributors/bbb.jpg"
         )
         #expect(before != after)
     }

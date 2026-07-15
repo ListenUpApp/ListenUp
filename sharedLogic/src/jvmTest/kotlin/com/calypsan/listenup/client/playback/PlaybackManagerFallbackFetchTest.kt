@@ -62,7 +62,6 @@ class PlaybackManagerFallbackFetchTest :
                     sortTitle = "Test Book",
                     subtitle = null,
                     coverHash = null,
-                    coverBlurHash = null,
                     totalDuration = 3_600_000L,
                     description = null,
                     publishYear = null,

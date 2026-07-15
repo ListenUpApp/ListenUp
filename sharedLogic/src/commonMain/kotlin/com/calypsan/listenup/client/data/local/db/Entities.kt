@@ -80,7 +80,6 @@ internal data class BookEntity(
     val sortTitle: String? = null, // Title used for sorting (e.g., "Lord of the Rings, The")
     val subtitle: String? = null, // Book subtitle
     val coverHash: String? = null, // Content hash of the cover image, supplied by the sync wire event
-    val coverBlurHash: String? = null, // BlurHash for cover placeholder
     // Client-local cover-presence marker: set when the cover file lands on disk
     // (ImageDownloader), cleared when it is invalidated (server cover-hash change or
     // local delete). Never on the wire — replaces the per-book filesystem stat that
@@ -145,7 +144,6 @@ internal data class SeriesEntity(
     val description: String?,
     val asin: String? = null,
     val coverPath: String? = null,
-    val coverBlurHash: String? = null,
     val revision: Long = 0,
     val deletedAt: Long? = null,
     val createdAt: Timestamp,
@@ -176,7 +174,6 @@ internal data class ContributorEntity(
     val asin: String? = null,
     val description: String?,
     val imagePath: String?,
-    val imageBlurHash: String? = null, // BlurHash placeholder for image
     val website: String? = null,
     val birthDate: String? = null, // ISO 8601 date (e.g., "1947-09-21")
     val deathDate: String? = null, // ISO 8601 date (e.g., "2024-01-15")

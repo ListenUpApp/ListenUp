@@ -120,10 +120,6 @@ protocol SkipIntervalProviding {
     var backwardSeconds: AsyncStream<Int> { get }
 }
 
-protocol BookCoverProviding: Sendable {
-    func coverBlurHash(bookId: String) async -> String?
-}
-
 /// Provides supplementary document metadata and on-demand local paths for a book.
 /// Used by `PlayerCoordinator` to show the "Open PDF" menu item and to download
 /// the file before handing it to `DocumentReaderView`.

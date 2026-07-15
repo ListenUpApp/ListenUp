@@ -160,13 +160,6 @@ final class KotlinSkipIntervalProviding: SkipIntervalProviding {
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 }
 
-struct KotlinBookCoverProviding: BookCoverProviding {
-    let repository: BookRepository
-    func coverBlurHash(bookId: String) async -> String? {
-        (try? await repository.getBookListItem(id: bookId))?.coverBlurHash
-    }
-}
-
 /// Adapts `DocumentRepository` to `BookDocumentProviding`. Takes the first emission from
 /// `observeDocuments` (a one-shot read) and calls `ensureLocalPathOrNull` to download on demand.
 struct KotlinBookDocumentProviding: BookDocumentProviding {

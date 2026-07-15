@@ -157,7 +157,6 @@ fun CompactNowPlaying(
             PlayerArtwork(
                 coverPath = state.coverPath,
                 bookId = state.bookId,
-                coverBlurHash = state.coverBlurHash,
                 size = coverSize,
                 title = state.title,
                 author = state.author,

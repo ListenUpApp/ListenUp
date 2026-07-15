@@ -32,7 +32,6 @@ final class ContributorDetailObserver {
     private(set) var name: String = ""
     private(set) var bio: String?
     private(set) var imagePath: String?
-    private(set) var imageBlurHash: String?
     private(set) var aliases: [String] = []
     private(set) var birthDate: String?
     private(set) var deathDate: String?
@@ -89,7 +88,6 @@ final class ContributorDetailObserver {
             name = contributor.name
             bio = contributor.description_
             imagePath = contributor.imagePath
-            imageBlurHash = contributor.imageBlurHash
             aliases = Array(contributor.aliases)
             birthDate = contributor.birthDate
             deathDate = contributor.deathDate

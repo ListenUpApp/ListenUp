@@ -35,7 +35,6 @@ sealed interface NowPlayingState {
         val author: String,
         val coverPath: String?,
         val coverHash: String?,
-        val coverBlurHash: String?,
         val authors: List<BookContributor>,
         val narrators: List<BookContributor>,
         val seriesId: String?,

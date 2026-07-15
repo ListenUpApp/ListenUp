@@ -96,7 +96,6 @@ class ActiveSessionRepositoryImplTest :
                         BookSummary(
                             id = "bookA",
                             title = "The Way of Kings",
-                            coverBlurHash = "blur",
                             coverHash = "cover-hash-a",
                             authorName = "Brandon",
                         ),
@@ -110,7 +109,6 @@ class ActiveSessionRepositoryImplTest :
                         s.bookId shouldBe "bookA"
                         s.user.displayName shouldBe "Bob"
                         s.book.title shouldBe "The Way of Kings"
-                        s.book.coverBlurHash shouldBe "blur"
                         s.book.authorName shouldBe "Brandon"
                         cancelAndIgnoreRemainingEvents()
                     }
@@ -131,7 +129,7 @@ class ActiveSessionRepositoryImplTest :
                     }
                 val bookDao =
                     bookDaoReturning(
-                        BookSummary(id = "present", title = "Present", coverBlurHash = null, coverHash = null, authorName = null),
+                        BookSummary(id = "present", title = "Present", coverHash = null, authorName = null),
                     )
 
                 repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
@@ -159,7 +157,7 @@ class ActiveSessionRepositoryImplTest :
                     }
                 val bookDao =
                     bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
+                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
                 val presence = PresenceRefreshSignal()
 
@@ -189,7 +187,7 @@ class ActiveSessionRepositoryImplTest :
                     }
                 val bookDao =
                     bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
+                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
 
                 repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
@@ -213,7 +211,7 @@ class ActiveSessionRepositoryImplTest :
                     }
                 val bookDao =
                     bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
+                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
 
                 repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
@@ -241,7 +239,7 @@ class ActiveSessionRepositoryImplTest :
                     }
                 val bookDao =
                     bookDaoReturning(
-                        BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
+                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
                     )
                 val presence = PresenceRefreshSignal()
 

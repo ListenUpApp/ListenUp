@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Features:
 /// - Authenticated cover loading via `BookCoverImage` (local file → signed server URL →
-///   BlurHash placeholder), so covers appear on the library grid even before the book is
+///   gradient placeholder), so covers appear on the library grid even before the book is
 ///   downloaded — the local file is not yet present there.
 /// - Soft shadow on the cover image
 /// - Title and author (single line, truncated)
@@ -38,7 +38,7 @@ struct BookCoverCard: View {
 
     private var coverImage: some View {
         ZStack(alignment: .bottom) {
-            // Square cover — local file, signed server URL, or BlurHash/gradient placeholder,
+            // Square cover — local file, signed server URL, or gradient placeholder,
             // all resolved by BookCoverImage.
             BookCoverImage(book: book)
                 .aspectRatio(1, contentMode: .fit)

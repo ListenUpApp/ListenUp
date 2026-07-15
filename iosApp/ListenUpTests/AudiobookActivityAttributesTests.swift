@@ -24,8 +24,7 @@ struct AudiobookActivityAttributesTests {
         let attributes = AudiobookActivityAttributes(
             bookId: "book-1",
             bookTitle: "The Way of Kings",
-            authorName: "Brandon Sanderson",
-            coverBlurHash: "LEHV6nWB2yk8"
+            authorName: "Brandon Sanderson"
         )
 
         #expect(attributes.bookId == "book-1")

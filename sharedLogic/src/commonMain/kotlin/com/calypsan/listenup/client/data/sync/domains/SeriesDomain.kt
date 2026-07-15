@@ -42,7 +42,6 @@ internal class SeriesMirrorApply(
                 description = payload.description ?: existing?.description,
                 asin = payload.asin ?: existing?.asin,
                 coverPath = payload.coverPath ?: existing?.coverPath,
-                coverBlurHash = payload.coverBlurHash ?: existing?.coverBlurHash,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
                 createdAt = Timestamp(payload.createdAt),

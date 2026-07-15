@@ -13,8 +13,7 @@ struct BookSectioningTests {
             title: title,
             authorNames: "Author",
             hasDocuments: false,
-            coverPath: nil,
-            coverBlurHash: nil
+            coverPath: nil
         )
     }
 

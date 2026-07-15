@@ -124,7 +124,6 @@ class PlaybackManagerPositionTransitionTest :
                     sortTitle = "Test Book",
                     subtitle = null,
                     coverHash = null,
-                    coverBlurHash = null,
                     totalDuration = fileDurationMs * fileCount,
                     description = null,
                     publishYear = null,

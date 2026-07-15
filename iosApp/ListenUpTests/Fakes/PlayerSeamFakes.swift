@@ -229,11 +229,6 @@ final class FakeSkipIntervalProviding: SkipIntervalProviding {
     func emitBackward(_ seconds: Int) { backwardContinuation.yield(seconds) }
 }
 
-final class FakeBookCoverProviding: BookCoverProviding, @unchecked Sendable {
-    var blurHash: String?
-    func coverBlurHash(bookId: String) async -> String? { blurHash }
-}
-
 final class FakePlaybackPreparing: PlaybackPreparing, @unchecked Sendable {
     var result: PreparedPlayback?
     func prepare(bookId: String) async -> PreparedPlayback? { result }

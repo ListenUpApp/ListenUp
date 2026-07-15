@@ -87,7 +87,6 @@ private suspend fun randomUnstartedSeedBook(
             sortTitle = "Book $id",
             subtitle = null,
             coverHash = null,
-            coverBlurHash = null,
             totalDuration = 0L,
             description = null,
             publishYear = null,

@@ -424,7 +424,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
+            b.id, b.title, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -450,7 +450,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
+            b.id, b.title, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -480,7 +480,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
+            b.id, b.title, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -518,7 +518,7 @@ internal interface BookDao {
     suspend fun revisionOf(id: BookId): Long?
 
     /**
-     * One-shot lightweight summary for a single book — title, cover blur hash, and primary
+     * One-shot lightweight summary for a single book — title, cover hash, and primary
      * author — used to enrich social presence sessions from the viewer's local library.
      *
      * Returns null when the book is absent from the local mirror (the viewer cannot access it),
@@ -530,7 +530,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash,
+            b.id, b.title, b.coverHash,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -549,12 +549,10 @@ internal interface BookDao {
  * Minimal book identity for enriching social presence sessions.
  *
  * Carries exactly what the "currently listening" UI needs beyond wire identity: the title,
- * the cover blur hash for the placeholder, the cover content hash for image-cache busting,
- * and the primary author's name.
+ * the cover content hash for image-cache busting, and the primary author's name.
  *
  * @property id The book id.
  * @property title The book title.
- * @property coverBlurHash BlurHash placeholder for the cover, or null when none is stored.
  * @property coverHash Content hash of the cover, used to version the image-cache key so a
  *   re-imaged cover invalidates the stale cached bitmap; null when no cover is stored.
  * @property authorName Primary author's display name, or null when no author is linked.
@@ -562,19 +560,17 @@ internal interface BookDao {
 internal data class BookSummary(
     val id: String,
     val title: String,
-    val coverBlurHash: String?,
     val coverHash: String?,
     val authorName: String?,
 )
 
 /**
  * Lightweight book data for discovery sections.
- * Includes only the fields needed for display: ID, title, blurHash, createdAt, and author.
+ * Includes only the fields needed for display: ID, title, coverHash, createdAt, and author.
  */
 internal data class DiscoveryBookWithAuthor(
     val id: BookId,
     val title: String,
-    val coverBlurHash: String?,
     val coverHash: String?,
     val coverDownloadedAt: Timestamp?,
     val createdAt: Timestamp,
@@ -591,7 +587,6 @@ internal data class DiscoveryBookWithAuthor(
 internal data class DiscoveryBookWithSeries(
     val id: BookId,
     val title: String,
-    val coverBlurHash: String?,
     val coverHash: String?,
     val coverDownloadedAt: Timestamp?,
     val createdAt: Timestamp,

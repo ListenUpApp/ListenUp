@@ -39,7 +39,6 @@ class BookWithContributorsMapperTest :
                 sortTitle = "Way of Kings, The",
                 subtitle = "The Stormlight Archive",
                 coverHash = null,
-                coverBlurHash = "L5H2EC=PM+yV",
                 totalDuration = 72_000_000L,
                 description = "A fantasy epic.",
                 publishYear = 2010,

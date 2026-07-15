@@ -89,7 +89,6 @@ class SeriesRepositoryTest :
                             asin = "B0SERIES",
                             description = "A described series.",
                             coverPath = "covers/enriched.jpg",
-                            coverBlurHash = "LKO2",
                         ),
                     )
                     val read = repo.findById("enriched")
@@ -97,7 +96,6 @@ class SeriesRepositoryTest :
                     read.asin shouldBe "B0SERIES"
                     read.description shouldBe "A described series."
                     read.coverPath shouldBe "covers/enriched.jpg"
-                    read.coverBlurHash shouldBe "LKO2"
                     read.sortName shouldBe "Enriched Series"
                 }
             }

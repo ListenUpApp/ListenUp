@@ -35,7 +35,7 @@ data class SearchResults(
 /**
  * A single book match within [SearchResults].
  *
- * [coverPath] and [coverBlurHash] are populated when cover enrichment has run;
+ * [coverPath] and [coverHash] are populated when cover enrichment has run;
  * `null` values indicate no cover is available yet.
  */
 @Serializable
@@ -49,7 +49,7 @@ data class BookHit(
     val authorNames: List<String>,
     /** Server-relative path to the cover image, or `null` when unavailable. */
     val coverPath: String?,
-    /** BlurHash placeholder for the cover image, or `null` when unavailable. */
+    /** Content hash of the cover image for cache-busting, or `null` when unavailable. */
     val coverHash: String?,
     /**
      * The primary matched display field with matched query tokens wrapped in the
@@ -62,10 +62,9 @@ data class BookHit(
 /**
  * A single contributor match within [SearchResults].
  *
- * [photoPath] and [photoBlurHash] are populated when contributor metadata
- * enrichment has run; `null` values indicate no photo is available yet.
- * [bookCount] reflects the number of books the contributor is credited on
- * at search time.
+ * [photoPath] is populated when contributor metadata enrichment has run;
+ * a `null` value indicates no photo is available yet. [bookCount] reflects
+ * the number of books the contributor is credited on at search time.
  */
 @Serializable
 @SerialName("ContributorHit")
@@ -81,8 +80,6 @@ data class ContributorHit(
     val sortName: String?,
     /** Server-relative path to the contributor photo, or `null` when unavailable. */
     val photoPath: String?,
-    /** BlurHash placeholder for the contributor photo, or `null` when unavailable. */
-    val photoBlurHash: String?,
     /** Number of books this contributor is credited on in the library. */
     val bookCount: Int,
     /**
@@ -96,9 +93,9 @@ data class ContributorHit(
 /**
  * A single series match within [SearchResults].
  *
- * [coverPath] and [coverBlurHash] are populated when series metadata enrichment
- * has run; `null` values indicate no cover is available yet. [bookCount]
- * reflects the number of books in the series at search time.
+ * [coverPath] is populated when series metadata enrichment has run; a `null`
+ * value indicates no cover is available yet. [bookCount] reflects the number
+ * of books in the series at search time.
  */
 @Serializable
 @SerialName("SeriesHit")
@@ -114,8 +111,6 @@ data class SeriesHit(
     val sortName: String?,
     /** Server-relative path to the series cover image, or `null` when unavailable. */
     val coverPath: String?,
-    /** BlurHash placeholder for the series cover image, or `null` when unavailable. */
-    val coverBlurHash: String?,
     /** Number of books belonging to this series in the library. */
     val bookCount: Int,
     /**

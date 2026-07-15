@@ -4,7 +4,8 @@
 --   V6__books_series.sql                  (id, name, sort_name)
 --   V10__books_series_normalized_name.sql (normalized_name)
 --   V14__book_series_syncable.sql         (revision, created_at, updated_at, deleted_at, client_op_id)
---   V18__b2a_substrate.sql                (asin, description, cover_path, cover_blur_hash)
+--   V18__b2a_substrate.sql                (asin, description, cover_path)
+--   V53__drop_blurhash_columns.sql        (drops the dormant cover_blur_hash column)
 --
 -- revision / created_at / updated_at are declared NOT NULL here so the generated
 -- column types are non-null `Long` — every live row carries them (V14 backfills the
@@ -23,8 +24,7 @@ CREATE TABLE book_series (
     client_op_id    TEXT,
     asin            TEXT,
     description     TEXT,
-    cover_path      TEXT,
-    cover_blur_hash TEXT
+    cover_path      TEXT
 );
 
 CREATE UNIQUE INDEX idx_series_normalized ON book_series(normalized_name);
@@ -61,10 +61,10 @@ SELECT id, revision FROM book_series WHERE deleted_at IS NULL;
 insert:
 INSERT INTO book_series (
     id, normalized_name, name, sort_name, revision, created_at, updated_at,
-    deleted_at, client_op_id, asin, description, cover_path, cover_blur_hash
+    deleted_at, client_op_id, asin, description, cover_path
 ) VALUES (
     :id, :normalized_name, :name, :sort_name, :revision, :created_at, :updated_at,
-    :deleted_at, :client_op_id, :asin, :description, :cover_path, :cover_blur_hash
+    :deleted_at, :client_op_id, :asin, :description, :cover_path
 );
 
 -- normalized_name is re-derived from name on every write (matches the Exposed
@@ -73,7 +73,7 @@ update:
 UPDATE book_series
 SET normalized_name = :normalized_name, name = :name, sort_name = :sort_name,
     asin = :asin, description = :description, cover_path = :cover_path,
-    cover_blur_hash = :cover_blur_hash, revision = :revision, updated_at = :updated_at,
+    revision = :revision, updated_at = :updated_at,
     deleted_at = :deleted_at, client_op_id = :client_op_id
 WHERE id = :id;
 

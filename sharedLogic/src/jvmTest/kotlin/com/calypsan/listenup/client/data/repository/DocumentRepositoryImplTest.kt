@@ -47,7 +47,6 @@ class DocumentRepositoryImplTest :
                 sortTitle = "Test $bookId",
                 subtitle = null,
                 coverHash = null,
-                coverBlurHash = null,
                 totalDuration = 0L,
                 description = null,
                 publishYear = null,

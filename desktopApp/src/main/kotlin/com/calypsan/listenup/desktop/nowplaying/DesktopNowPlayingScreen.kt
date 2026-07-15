@@ -348,7 +348,6 @@ private fun TallLayout(
             CoverArt(
                 bookId = state.bookId,
                 coverUrl = state.coverPath,
-                blurHash = state.coverBlurHash,
             )
         }
 
@@ -434,7 +433,6 @@ private fun WideLayout(
             CoverArt(
                 bookId = state.bookId,
                 coverUrl = state.coverPath,
-                blurHash = state.coverBlurHash,
             )
         }
 
@@ -612,7 +610,6 @@ private fun OverflowMenu(
 private fun CoverArt(
     bookId: String,
     coverUrl: String?,
-    blurHash: String?,
 ) {
     Surface(
         modifier =
@@ -627,7 +624,6 @@ private fun CoverArt(
             bookId = bookId,
             coverPath = coverUrl,
             contentDescription = "Book cover",
-            blurHash = blurHash,
             modifier = Modifier.fillMaxSize(),
         )
     }

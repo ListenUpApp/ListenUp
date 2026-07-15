@@ -67,7 +67,6 @@ class ContributorRepositoryImplTest :
             name: String = "Brandon Sanderson",
             description: String? = null,
             imagePath: String? = null,
-            imageBlurHash: String? = null,
             website: String? = null,
             birthDate: String? = null,
             deathDate: String? = null,
@@ -81,7 +80,6 @@ class ContributorRepositoryImplTest :
                 name = name,
                 description = description,
                 imagePath = imagePath,
-                imageBlurHash = imageBlurHash,
                 website = website,
                 birthDate = birthDate,
                 deathDate = deathDate,
@@ -246,7 +244,6 @@ class ContributorRepositoryImplTest :
                                 name = "Test Author",
                                 description = "Test description",
                                 imagePath = "/images/author.jpg",
-                                imageBlurHash = "LEHV6nWB2yk8pyo0adR*.7kCMdnj",
                                 website = "https://example.com",
                                 birthDate = "1947-09-21",
                                 deathDate = null,
@@ -266,7 +263,6 @@ class ContributorRepositoryImplTest :
                 result.name shouldBe "Test Author"
                 result.description shouldBe "Test description"
                 result.imagePath shouldBe "/images/author.jpg"
-                result.imageBlurHash shouldBe "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
                 result.website shouldBe "https://example.com"
                 result.birthDate shouldBe "1947-09-21"
                 result.deathDate shouldBe null
@@ -345,7 +341,6 @@ class ContributorRepositoryImplTest :
                                 name = "Complete Author",
                                 description = "Full biography here",
                                 imagePath = "/path/to/image.jpg",
-                                imageBlurHash = "ABC123",
                                 website = "https://author.com",
                                 birthDate = "1960-01-15",
                                 deathDate = "2020-12-31",
@@ -365,7 +360,6 @@ class ContributorRepositoryImplTest :
                 result.name shouldBe "Complete Author"
                 result.description shouldBe "Full biography here"
                 result.imagePath shouldBe "/path/to/image.jpg"
-                result.imageBlurHash shouldBe "ABC123"
                 result.website shouldBe "https://author.com"
                 result.birthDate shouldBe "1960-01-15"
                 result.deathDate shouldBe "2020-12-31"
@@ -668,7 +662,6 @@ class ContributorRepositoryImplTest :
                                 name = "Full Name",
                                 description = "Full description",
                                 imagePath = "/full/path.jpg",
-                                imageBlurHash = "BLURHASH",
                                 website = "https://full.website.com",
                                 birthDate = "1980-06-15",
                                 deathDate = "2050-12-31",
@@ -688,7 +681,6 @@ class ContributorRepositoryImplTest :
                 result.name shouldBe "Full Name"
                 result.description shouldBe "Full description"
                 result.imagePath shouldBe "/full/path.jpg"
-                result.imageBlurHash shouldBe "BLURHASH"
                 result.website shouldBe "https://full.website.com"
                 result.birthDate shouldBe "1980-06-15"
                 result.deathDate shouldBe "2050-12-31"
@@ -709,7 +701,6 @@ class ContributorRepositoryImplTest :
                                 name = "Minimal Author",
                                 description = null,
                                 imagePath = null,
-                                imageBlurHash = null,
                                 website = null,
                                 birthDate = null,
                                 deathDate = null,
@@ -729,7 +720,6 @@ class ContributorRepositoryImplTest :
                 result.name shouldBe "Minimal Author"
                 result.description shouldBe null
                 result.imagePath shouldBe null
-                result.imageBlurHash shouldBe null
                 result.website shouldBe null
                 result.birthDate shouldBe null
                 result.deathDate shouldBe null

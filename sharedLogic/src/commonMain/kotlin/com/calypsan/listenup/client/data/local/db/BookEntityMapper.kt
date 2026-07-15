@@ -20,11 +20,10 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
  *
  * ## Preservation semantics
  *
- * [BookEntity.coverBlurHash] is computed client-side by extracting it from the cover image
- * after download. It is never on the wire. Overwriting it with `null` on every sync update
- * would erase the already-computed BlurHash and cause the cover placeholder to flicker back
- * to its default state until the cover is re-analysed. This mapper preserves it from
- * [existing] so sync updates are visually transparent.
+ * [BookEntity.coverDownloadedAt] is a client-local marker, never on the wire. Overwriting it on
+ * every sync update would erase the record that the cover file already landed on disk. This
+ * mapper preserves it from [existing] — except when the server's cover hash changed, in which
+ * case the stale local file is invalidated and presence resets until the new cover downloads.
  *
  * ## Children
  *
@@ -34,13 +33,12 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 internal class BookEntityMapper {
     /**
      * Produce a [BookEntity] by combining server-authoritative fields from [payload] with
-     * the client-computed blur-hash field taken from [existing].
+     * the client-local cover-presence marker taken from [existing].
      *
      * @param payload The wire snapshot delivered by the sync substrate.
      * @param existing The current [BookEntity] in Room for this book ID, or `null` if this
-     *   is the first time the book is being seen on this client. When `null`, the
-     *   client-computed BlurHash defaults to `null` (it will be populated once the cover image
-     *   is downloaded and analysed).
+     *   is the first time the book is being seen on this client. When `null`, the client-local
+     *   cover-presence marker defaults to `null` (it is set once the cover image is downloaded).
      */
     fun toBookEntity(
         payload: BookSyncPayload,
@@ -64,12 +62,7 @@ internal class BookEntityMapper {
             abridged = payload.abridged,
             totalDuration = payload.totalDuration,
             coverHash = payload.cover?.hash,
-            // Client-computed field — preserved from the existing row so that a sync update
-            // never discards the BlurHash already extracted from the cover image on this device.
-            // When existing is null (first-seen book) it is null and will be populated after the
-            // cover image is downloaded and analysed.
-            coverBlurHash = existing?.coverBlurHash,
-            // Client-local cover-presence marker — preserved like coverBlurHash, except when the
+            // Client-local cover-presence marker — preserved from the existing row, except when the
             // server's cover hash changed: BookSyncDomainHandler deletes the stale local file in the
             // same upsert flow, so presence must reset until the new cover is downloaded.
             coverDownloadedAt = existing?.takeIf { it.coverHash == payload.cover?.hash }?.coverDownloadedAt,
@@ -184,7 +177,6 @@ internal fun BookWithContributors.toListItem(
         duration = book.totalDuration,
         coverPath = imageStorage.coverPathFor(book.id, book.coverDownloadedAt),
         coverHash = book.coverHash,
-        coverBlurHash = book.coverBlurHash,
         addedAt = book.createdAt,
         updatedAt = book.updatedAt,
         description = book.description,
@@ -258,7 +250,6 @@ internal fun BookWithContributors.toDetail(
         duration = book.totalDuration,
         coverPath = imageStorage.coverPathFor(book.id, book.coverDownloadedAt),
         coverHash = book.coverHash,
-        coverBlurHash = book.coverBlurHash,
         addedAt = book.createdAt,
         updatedAt = book.updatedAt,
         description = book.description,

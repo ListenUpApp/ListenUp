@@ -59,7 +59,6 @@ class PlaybackManagerPrepareTest :
                     sortTitle = "Test Book",
                     subtitle = null,
                     coverHash = null,
-                    coverBlurHash = null,
                     totalDuration = 5_400_000L,
                     description = null,
                     publishYear = null,

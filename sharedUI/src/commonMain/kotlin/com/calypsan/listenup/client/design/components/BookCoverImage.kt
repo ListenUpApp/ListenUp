@@ -1,9 +1,6 @@
 package com.calypsan.listenup.client.design.components
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -12,7 +9,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
@@ -20,7 +16,6 @@ import coil3.compose.LocalPlatformContext
 import coil3.network.NetworkHeaders
 import coil3.network.httpHeaders
 import coil3.request.ImageRequest
-import com.calypsan.listenup.client.design.util.decodeBlurHash
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -52,7 +47,6 @@ fun BookCoverImage(
     title: String? = null,
     author: String? = null,
     modifier: Modifier = Modifier,
-    blurHash: String? = null,
     coverHash: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
@@ -60,16 +54,8 @@ fun BookCoverImage(
     val imageRequest = rememberCoverRequest(bookId, coverPath, coverHash)
 
     var showFallback by remember(bookId, coverPath) { mutableStateOf(false) }
-    var imageLoaded by remember(bookId, coverPath) { mutableStateOf(false) }
 
-    val boxModifier =
-        if (blurHash != null) {
-            modifier.background(MaterialTheme.colorScheme.surfaceContainerHighest)
-        } else {
-            modifier
-        }
-
-    Box(modifier = boxModifier) {
+    Box(modifier = modifier) {
         // Bottom layer: gradient placeholder when there's no image to show or it failed to load.
         if (title != null && (imageRequest == null || showFallback)) {
             BookCoverFallback(
@@ -78,19 +64,6 @@ fun BookCoverImage(
                 modifier = Modifier.matchParentSize(),
                 seed = bookId,
             )
-        }
-
-        // BlurHash placeholder while the cover loads.
-        if (blurHash != null && !imageLoaded) {
-            val bitmap: ImageBitmap? = remember(blurHash) { decodeBlurHash(blurHash, width = 32, height = 32) }
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.matchParentSize(),
-                )
-            }
         }
 
         // Top layer: the actual cover. A success covers the fallback; an error reveals it.
@@ -102,7 +75,6 @@ fun BookCoverImage(
                 contentScale = contentScale,
                 onState = { state ->
                     if (state is AsyncImagePainter.State.Success) {
-                        imageLoaded = true
                         showFallback = false
                     } else if (state is AsyncImagePainter.State.Error) {
                         showFallback = true

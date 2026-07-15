@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
  * B1 carries only identity and display fields — `id`, `name`, `sortName` — plus
  * the substrate bookkeeping columns.
  *
- * B2a adds enrichment fields (`asin`, `description`, `coverPath`, `coverBlurHash`).
+ * B2a adds enrichment fields (`asin`, `description`, `coverPath`).
  * All are nullable with `null` defaults so existing fixtures and B1-era sync events
  * remain forward-compatible; a receiver that omits them simply keeps whatever
  * enrichment it already had.
@@ -31,5 +31,4 @@ data class SeriesSyncPayload(
     val asin: String? = null,
     val description: String? = null,
     val coverPath: String? = null,
-    val coverBlurHash: String? = null,
 ) : SyncPayload
