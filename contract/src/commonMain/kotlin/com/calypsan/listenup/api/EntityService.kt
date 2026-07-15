@@ -24,13 +24,13 @@ import kotlinx.rpc.annotations.Rpc
 @Rpc
 interface EntityService {
     /**
-     * Creates or updates the entity identified by [EntityUpsert.id], replacing its bio-entry
-     * child set wholesale, and returns the persisted [EntitySyncPayload].
+     * Creates or updates the entity identified by [EntityUpsert.id], and returns the
+     * persisted [EntitySyncPayload].
      *
      * Gated on the metadata-edit permission
-     * ([com.calypsan.listenup.api.error.AuthError.PermissionDenied] when denied). A write whose
-     * [EntityUpsert] carries a bio-entry set is idempotent: replaying the identical upsert never
-     * regresses the stored content — see the class KDoc's last-write-wins note.
+     * ([com.calypsan.listenup.api.error.AuthError.PermissionDenied] when denied). The write is
+     * idempotent: replaying the identical upsert never regresses the stored content — see the
+     * class KDoc's last-write-wins note.
      *
      * @param upsert The full-field entity snapshot to persist.
      */

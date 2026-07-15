@@ -23,7 +23,7 @@ sealed interface EntityMutation {
     /**
      * The full-field entity snapshot — maps to [com.calypsan.listenup.api.EntityService.upsertEntity].
      *
-     * @property upsert the entity's complete current state, including its whole-aggregate bio-entry set.
+     * @property upsert the entity's complete current state.
      */
     @Serializable
     @SerialName("EntityMutation.Upsert")
