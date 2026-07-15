@@ -87,9 +87,12 @@ struct RegisterView: View {
 
     private var emailField: some View {
         AuthFieldGroup {
+            // `.username` (not `.emailAddress`) is the account-identifier content type iOS Password
+            // AutoFill pairs with the `.newPassword` fields below, so a tapped credential suggestion
+            // actually fills; the `.emailAddress` keyboard still gives the right key layout.
             AppTextField(placeholder: String(localized: "common.email"),
                          text: $email, icon: "envelope", keyboardType: .emailAddress,
-                         textContentType: .emailAddress)
+                         textContentType: .username)
         }
     }
 

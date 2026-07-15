@@ -170,7 +170,11 @@ private struct RootView: View {
             // once the user is authenticated.
             authenticatedContent
                 .safeAreaInset(edge: .top) {
-                    if let connectionHealth {
+                    // Only meaningful once the main app is mounted and sync is running. During
+                    // first-run setup/populating there is no library or sync session yet, so the
+                    // firehose-driven reachability reads `.unreachable` and would flash a false
+                    // "offline" over the setup wizard (e.g. the folder picker) — suppress it there.
+                    if isMainAppMounted, let connectionHealth {
                         ConnectionHealthBanner(
                             kind: connectionHealth.kind,
                             onRetry: { connectionHealth.retry() },
@@ -193,6 +197,17 @@ private struct RootView: View {
     /// it fires only for the **initial** population (a returning user with books in Room is
     /// `ready` immediately; later background scans never re-arm it). A returning user goes
     /// straight to the app — setup is skipped.
+    /// True once the main app (`MainTabView`) is mounted — the only phase where the offline /
+    /// connection-health banner is meaningful. The `.checking`/`.needsSetup`/`.populating`
+    /// onboarding phases have no running sync session, so their firehose reachability is not a
+    /// real "offline" signal.
+    private var isMainAppMounted: Bool {
+        switch readiness.phase {
+        case .ready, .checkFailed: return true
+        default: return false
+        }
+    }
+
     @ViewBuilder
     private var authenticatedContent: some View {
         switch readiness.phase {
