@@ -438,8 +438,8 @@ internal class Analyzer(
             narrators = narrators?.value.orEmpty(),
             series = seriesEntries?.value.orEmpty(),
             publishedYear = publishedYear?.value,
-            asin = metadata?.asin ?: embedded?.tags?.asin ?: parsed.asin,
-            isbn = metadata?.isbn ?: embedded?.tags?.isbn,
+            asin = metadata?.asin ?: embedded?.tags?.asin ?: sidecar?.asin ?: parsed.asin,
+            isbn = metadata?.isbn ?: embedded?.tags?.isbn ?: sidecar?.isbn,
             description = description?.value,
             publisher = publisher?.value,
             language = language?.value,
@@ -745,6 +745,8 @@ private fun SidecarMetadata.mergedWith(other: SidecarMetadata): SidecarMetadata 
         language = language ?: other.language,
         series = series.ifEmpty { other.series },
         genres = genres.ifEmpty { other.genres },
+        isbn = isbn ?: other.isbn,
+        asin = asin ?: other.asin,
         contributors = contributors + other.contributors,
     )
 

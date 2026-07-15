@@ -19,6 +19,10 @@ internal data class SidecarMetadata(
     val series: List<SeriesEntry> = emptyList(),
     /** Genre/subject strings extracted from a sidecar (NFO `<genre>`, OPF `<dc:subject>`). */
     val genres: List<String> = emptyList(),
+    /** ISBN extracted from a sidecar identifier (OPF `<dc:identifier opf:scheme="ISBN">`). */
+    val isbn: String? = null,
+    /** Amazon/Audible ASIN extracted from a sidecar identifier (OPF `<dc:identifier opf:scheme="ASIN">`). */
+    val asin: String? = null,
     val contributors: List<SidecarContributor> = emptyList(),
 )
 
