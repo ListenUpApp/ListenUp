@@ -343,7 +343,7 @@ class MetadataViewModel(
             try {
                 val result =
                     withTimeout(METADATA_RPC_TIMEOUT) {
-                        metadataRepository.searchBooks(query, current.region)
+                        metadataRepository.searchBooks(query, current.region, BookId(current.context.bookId))
                     }
                 when (result) {
                     is AppResult.Success -> {

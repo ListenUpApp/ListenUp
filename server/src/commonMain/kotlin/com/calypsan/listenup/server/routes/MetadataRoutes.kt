@@ -48,7 +48,7 @@ private fun Route.bookMetadataRoutes(service: MetadataLookupService) {
         if (resource.query.isBlank()) {
             return@get call.respond(HttpStatusCode.BadRequest, ValidationError(message = "query must not be blank."))
         }
-        when (val result = service.searchBooks(resource.query, region)) {
+        when (val result = service.searchBooks(resource.query, region, resource.bookId?.let(::BookId))) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }

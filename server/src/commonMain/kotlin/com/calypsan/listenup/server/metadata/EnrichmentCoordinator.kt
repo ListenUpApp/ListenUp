@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.BookIdentitySource
 import com.calypsan.listenup.server.metadata.spi.BookMatch
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
+import com.calypsan.listenup.server.metadata.spi.MatchScorer
 import com.calypsan.listenup.server.metadata.spi.ChapterSource
 import com.calypsan.listenup.server.metadata.spi.CharacterMeta
 import com.calypsan.listenup.server.metadata.spi.CharacterSource
@@ -199,18 +200,27 @@ internal class EnrichmentCoordinator(
      * Searches every registered [BookIdentitySource] for [query] in [locale], aggregating
      * their ranked candidates. Sources are consulted in the configured book-core order;
      * each is failure-contained, so one catalog erroring never sinks the others.
+     *
+     * When [local] is supplied, the aggregated candidates are re-ranked by [MatchScorer]
+     * against that book's title/author/runtime — the duration-weighted confidence that
+     * replaces each source's provisional score. Without it (no local book context), the
+     * sources' own relevance order is preserved.
      */
     suspend fun searchBooks(
         query: String,
         locale: MetadataLocale,
-    ): List<BookMatch> =
-        coroutineScope {
-            orderedIdentitySources()
-                .map { source -> async { contained(source.id, "search") { source.searchBooks(query, locale) } } }
-                .awaitAll()
-                .filterNotNull()
-                .flatten()
-        }
+        local: BookIdentity? = null,
+    ): List<BookMatch> {
+        val candidates =
+            coroutineScope {
+                orderedIdentitySources()
+                    .map { source -> async { contained(source.id, "search") { source.searchBooks(query, locale) } } }
+                    .awaitAll()
+                    .filterNotNull()
+                    .flatten()
+            }
+        return if (local != null) MatchScorer.rank(local, candidates) else candidates
+    }
 
     /** The registered identity sources ranked by the book-core provider order (unlisted last). */
     private fun orderedIdentitySources(): List<BookIdentitySource> {

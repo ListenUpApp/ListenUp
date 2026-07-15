@@ -160,6 +160,9 @@ internal object Id3v2Reader {
 
             "TPE1" -> builder.authors += text
 
+            "TPE2" -> if (builder.authors.isEmpty()) builder.authors += text
+
+            // Band/album-artist — a fallback author when no TPE1 is present.
             "TALB" -> builder.custom["album"] = text
 
             "TCON" -> builder.genres += GenreSplitter.split(text)
@@ -232,7 +235,14 @@ internal object Id3v2Reader {
                 builder.seriesName = value
             }
 
-            "series part", "seriespart", "part", "series-part", "series position" -> {
+            "show" -> {
+                // Podcast/TV "show" name as a series fallback — never overrides an explicit series tag.
+                builder.seriesName = builder.seriesName ?: value
+            }
+
+            "series part", "seriespart", "part", "series-part", "series position",
+            "episode_id", "movement number", "movement index",
+            -> {
                 builder.seriesPart = value
             }
 

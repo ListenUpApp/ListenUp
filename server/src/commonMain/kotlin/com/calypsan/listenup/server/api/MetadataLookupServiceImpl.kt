@@ -7,12 +7,14 @@ import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
+import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -103,11 +105,28 @@ internal class MetadataLookupServiceImpl(
     override suspend fun searchBooks(
         query: String,
         region: MetadataLocale?,
+        bookId: BookId?,
     ): AppResult<MetadataSearchResults> {
         val locale = region ?: MetadataLocale.DEFAULT
-        val hits = coordinator.searchBooks(query, locale).map { it.toMetadataBook() }
+        val local = bookId?.let { bookRepository.findById(it)?.toLocalIdentity() }
+        val hits = coordinator.searchBooks(query, locale, local).map { it.toMetadataBook() }
         return AppResult.Success(MetadataSearchResults(hits = hits))
     }
+
+    /**
+     * Projects a persisted book onto the phase-1 match-scorer key: its title, primary
+     * author, and total runtime feed [com.calypsan.listenup.server.metadata.spi.MatchScorer]
+     * so candidates are ranked by how closely they match the local file.
+     */
+    private fun BookSyncPayload.toLocalIdentity(): BookIdentity =
+        BookIdentity(
+            asin = asin,
+            isbn = isbn,
+            title = title,
+            primaryAuthor =
+                contributors.firstOrNull { ContributorRole.fromApiValue(it.role) == ContributorRole.AUTHOR }?.name,
+            durationMs = totalDuration.takeIf { it > 0 },
+        )
 
     override suspend fun getBookMetadata(
         asin: String,

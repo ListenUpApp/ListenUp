@@ -313,6 +313,92 @@ class Mp3ParserTest :
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.tags.series shouldBe listOf(SeriesEntry("Wheel of Time", "3"))
         }
+
+        test("parse falls back to TPE2 (album-artist) for authors when no TPE1 is present") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "The Sunlit Man")
+                        textFrame("TPE2", "Brandon Sanderson")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.authors shouldBe listOf("Brandon Sanderson")
+        }
+
+        test("parse prefers TPE1 over TPE2 when both are present") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "The Sunlit Man")
+                        textFrame("TPE1", "Brandon Sanderson")
+                        textFrame("TPE2", "Macmillan Audio")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.authors shouldBe listOf("Brandon Sanderson")
+        }
+
+        test("parse maps TXXX:show to a series name") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Episode 1")
+                        txxxFrame("show", "Welcome to Night Vale")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Welcome to Night Vale", null))
+        }
+
+        test("parse: TXXX:show never overrides an explicit TXXX:series") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Episode 1")
+                        txxxFrame("show", "Marketing Show Name")
+                        txxxFrame("series", "Foundation")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Foundation", null))
+        }
+
+        test("parse maps TXXX:episode_id and movement aliases to a series part") {
+            val bytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Episode 2")
+                        txxxFrame("series", "Foundation")
+                        txxxFrame("episode_id", "2")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val result = parser.parse(byteSource(bytes))
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Foundation", "2"))
+
+            val movementBytes =
+                buildMp3File {
+                    id3v2(version = 4) {
+                        textFrame("TIT2", "Episode 3")
+                        txxxFrame("series", "Foundation")
+                        txxxFrame("movement index", "3")
+                    }
+                    mpegFrames(durationSeconds = 1)
+                }
+            val movementResult = parser.parse(byteSource(movementBytes))
+            require(movementResult is AppResult.Success<EmbeddedAudioMetadata>)
+            movementResult.data.tags.series shouldBe listOf(SeriesEntry("Foundation", "3"))
+        }
     })
 
 internal fun byteSource(bytes: ByteArray): SeekableSource =
