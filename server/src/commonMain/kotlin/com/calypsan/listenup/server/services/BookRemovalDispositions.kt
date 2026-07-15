@@ -82,6 +82,10 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         "shelf_books" to RemovalDisposition.USER_DATA,
         "reading_order_books" to RemovalDisposition.USER_DATA,
         "active_sessions" to RemovalDisposition.USER_DATA,
+        // Story World bio entries: library-shared curation whose nullable book_id is a spoiler
+        // anchor, not ownership — anchors deliberately survive a book removal so a remove-then-
+        // rescan keeps curated world data intact; consumers gate on live books like the rest.
+        "entity_bio_entries" to RemovalDisposition.USER_DATA,
         // ── FTS5 search-index shadow (rowid↔book_id map) ──
         "book_search_map" to RemovalDisposition.SEARCH_SHADOW,
     )
