@@ -1332,11 +1332,16 @@ class BookRepository(
         val merged =
             incoming.copy(
                 title = kept(BookField.TITLE, existing.title, incoming.title),
+                sortTitle = kept(BookField.SORT_TITLE, existing.sortTitle, incoming.sortTitle),
                 subtitle = kept(BookField.SUBTITLE, existing.subtitle, incoming.subtitle),
                 description = kept(BookField.DESCRIPTION, existing.description, incoming.description),
                 publisher = kept(BookField.PUBLISHER, existing.publisher, incoming.publisher),
                 language = kept(BookField.LANGUAGE, existing.language, incoming.language),
                 publishYear = kept(BookField.PUBLISH_YEAR, existing.publishYear, incoming.publishYear),
+                isbn = kept(BookField.ISBN, existing.isbn, incoming.isbn),
+                asin = kept(BookField.ASIN, existing.asin, incoming.asin),
+                abridged = kept(BookField.ABRIDGED, existing.abridged, incoming.abridged),
+                explicit = kept(BookField.EXPLICIT, existing.explicit, incoming.explicit),
                 fieldProvenance = mergedProvenance,
             )
         return ProvenanceMerge(

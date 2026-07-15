@@ -171,6 +171,192 @@ class FieldProvenanceOnRescanTest :
             }
         }
 
+        // H1 field-coverage matrix: every editable scalar a rescan re-derives from files must survive
+        // a USER pin. Before H1 only title/subtitle/description were covered; these prove the rest.
+
+        test("USER sortTitle survives a rescan that re-derives a different sort title from the title") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/SortTitle"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path)).resolved()
+
+                    val current = repo.findById(id)!!
+                    repo.upsert(current.copy(sortTitle = "Custom Sort", fieldProvenance = userMap(BookField.SORT_TITLE)))
+
+                    // The rescan re-derives sortTitle from a different title.
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, title = "Re-derived Title"))
+
+                    repo.findById(id)!!.sortTitle shouldBe "Custom Sort"
+                }
+            }
+        }
+
+        test("USER publisher survives a rescan that re-derives a different publisher") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/Publisher2"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publisher = "Tor V1")).resolved()
+
+                    val current = repo.findById(id)!!
+                    repo.upsert(current.copy(publisher = "Curated Publisher", fieldProvenance = userMap(BookField.PUBLISHER)))
+
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publisher = "Tor V2"))
+
+                    repo.findById(id)!!.publisher shouldBe "Curated Publisher"
+                }
+            }
+        }
+
+        test("USER publishYear survives a rescan that re-derives a different year") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/Year"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publishYear = 1999)).resolved()
+
+                    val current = repo.findById(id)!!
+                    repo.upsert(current.copy(publishYear = 2012, fieldProvenance = userMap(BookField.PUBLISH_YEAR)))
+
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publishYear = 2001))
+
+                    repo.findById(id)!!.publishYear shouldBe 2012
+                }
+            }
+        }
+
+        test("USER language survives a rescan that re-derives a different language") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/Language"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, language = "eng")).resolved()
+
+                    val current = repo.findById(id)!!
+                    repo.upsert(current.copy(language = "en-US", fieldProvenance = userMap(BookField.LANGUAGE)))
+
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, language = "de"))
+
+                    repo.findById(id)!!.language shouldBe "en-US"
+                }
+            }
+        }
+
+        test("USER isbn survives a rescan that re-derives a different isbn") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/Isbn"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, isbn = "111")).resolved()
+
+                    val current = repo.findById(id)!!
+                    repo.upsert(current.copy(isbn = "9780765326355", fieldProvenance = userMap(BookField.ISBN)))
+
+                    // A rescan re-derives a different (or absent) isbn from the files.
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, isbn = "222"))
+
+                    repo.findById(id)!!.isbn shouldBe "9780765326355"
+                }
+            }
+        }
+
+        test("USER asin survives a rescan that re-derives it away from the files") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/UserAsin"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, asin = "B0OLD")).resolved()
+
+                    val current = repo.findById(id)!!
+                    repo.upsert(current.copy(asin = "B0USER", fieldProvenance = userMap(BookField.ASIN)))
+
+                    // The files no longer carry an asin — a rescan would wipe it without provenance.
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, asin = null))
+
+                    repo.findById(id)!!.asin shouldBe "B0USER"
+                }
+            }
+        }
+
+        test("USER abridged flag survives a rescan that re-derives the default") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/Abridged"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path)).resolved()
+
+                    val current = repo.findById(id)!!
+                    repo.upsert(current.copy(abridged = true, fieldProvenance = userMap(BookField.ABRIDGED)))
+
+                    // A rescan derives no abridged flag (defaults to false); the USER pin must hold.
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, abridged = null))
+
+                    repo.findById(id)!!.abridged shouldBe true
+                }
+            }
+        }
+
+        test("USER explicit flag survives a rescan that re-derives the default") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/Explicit"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path)).resolved()
+
+                    val current = repo.findById(id)!!
+                    repo.upsert(current.copy(explicit = true, fieldProvenance = userMap(BookField.EXPLICIT)))
+
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, explicit = null))
+
+                    repo.findById(id)!!.explicit shouldBe true
+                }
+            }
+        }
+
+        test("applied ENRICHMENT asin survives a rescan AND keeps its ENRICHMENT/provider provenance") {
+            withSqlDatabase {
+                val (repo, registry) = provenanceRepository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val path = "Sanderson/EnrichedAsin"
+                    val id = repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, publisher = "Tor V1")).resolved()
+
+                    // A wizard apply stamped the matched ASIN (ENRICHMENT, provider = audible) — this is the
+                    // match identifier the refresh/chapter-apply/re-enrichment paths key on.
+                    val current = repo.findById(id)!!
+                    repo.upsert(
+                        current.copy(
+                            asin = "B0MATCH",
+                            fieldProvenance =
+                                mapOf(
+                                    BookField.ASIN to
+                                        FieldProvenance(FieldSourceKind.ENRICHMENT, provider = "audible", at = 7L),
+                                ),
+                        ),
+                    )
+
+                    // Rescan re-derives no asin from the files AND a new publisher (unprotected), so the
+                    // write actually happens — proving the enriched asin + provenance are sticky.
+                    repo.resolveOrInsert(libId, TEST_FOLDER, scanFor(path, asin = null, publisher = "Tor V2"))
+
+                    val readback = repo.findById(id)!!
+                    readback.asin shouldBe "B0MATCH" // preserved (0 < 1)
+                    readback.publisher shouldBe "Tor V2" // unprotected — updated
+                    readback.fieldProvenance[BookField.ASIN] shouldBe
+                        FieldProvenance(FieldSourceKind.ENRICHMENT, provider = "audible", at = 7L)
+                }
+            }
+        }
+
         test("ENRICHMENT description survives a rescan AND keeps its ENRICHMENT/provider provenance (A7 done right)") {
             withSqlDatabase {
                 val (repo, registry) = provenanceRepository(sql, driver)
@@ -354,6 +540,12 @@ private fun scanFor(
     subtitle: String? = null,
     description: String? = null,
     publisher: String? = null,
+    language: String? = null,
+    publishYear: Int? = null,
+    isbn: String? = null,
+    asin: String? = null,
+    abridged: Boolean? = null,
+    explicit: Boolean? = null,
     authors: List<String> = emptyList(),
     series: List<SeriesEntry> = emptyList(),
 ): AnalyzedBook {
@@ -373,6 +565,12 @@ private fun scanFor(
         subtitle = subtitle,
         description = description,
         publisher = publisher,
+        language = language,
+        publishedYear = publishYear,
+        isbn = isbn,
+        asin = asin,
+        abridged = abridged,
+        explicit = explicit,
         authors = authors,
         series = series,
         tracks = listOf(TrackEntry(file = file)),

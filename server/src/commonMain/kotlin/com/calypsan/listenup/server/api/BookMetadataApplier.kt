@@ -146,6 +146,10 @@ internal class BookMetadataApplier(
      */
     private fun enrichedFields(selection: MetadataApplySelection): Set<BookField> =
         buildSet {
+            // The apply always stamps the matched ASIN (it is the match identifier — see `asin = asin`
+            // in the copy), so its provenance is always ENRICHMENT. Without this a rescan re-derives
+            // asin from the files (usually null) and wipes the match identity.
+            add(BookField.ASIN)
             if (selection.title) add(BookField.TITLE)
             if (selection.subtitle) add(BookField.SUBTITLE)
             if (selection.description) add(BookField.DESCRIPTION)

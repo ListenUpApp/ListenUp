@@ -530,8 +530,15 @@ private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
             fieldProvenance.stampUser(
                 buildSet {
                     if (patch.title != null) add(BookField.TITLE)
+                    if (patch.sortTitle != null) add(BookField.SORT_TITLE)
                     if (patch.subtitle != null) add(BookField.SUBTITLE)
                     if (patch.description != null) add(BookField.DESCRIPTION)
+                    if (patch.publisher != null) add(BookField.PUBLISHER)
+                    if (patch.publishYear != null) add(BookField.PUBLISH_YEAR)
+                    if (patch.language != null) add(BookField.LANGUAGE)
+                    if (patch.isbn != null) add(BookField.ISBN)
+                    if (patch.asin != null) add(BookField.ASIN)
+                    if (patch.abridged != null) add(BookField.ABRIDGED)
                 },
             ),
     )

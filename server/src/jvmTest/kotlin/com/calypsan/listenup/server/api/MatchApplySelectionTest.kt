@@ -12,6 +12,8 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
+import com.calypsan.listenup.api.metadata.BookField
+import com.calypsan.listenup.api.metadata.FieldSourceKind
 import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -195,6 +197,11 @@ class MatchApplySelectionTest :
                     saved.language shouldBe "english"
                     saved.publishYear shouldBe 2015
                     saved.asin shouldBe "B0NEW"
+                    // The apply stamps ENRICHMENT provenance for the matched ASIN (the match identifier),
+                    // so a later rescan preserves it instead of re-deriving asin from the files (H1).
+                    val asinProvenance = saved.fieldProvenance[BookField.ASIN].shouldNotBeNull()
+                    asinProvenance.kind shouldBe FieldSourceKind.ENRICHMENT
+                    asinProvenance.provider shouldBe "audible"
                     saved.contributors.map { it.name }.toSet() shouldBe setOf("New Author", "New Narrator")
                     saved.series.single().name shouldBe "New Series"
                     saved.cover.shouldBeNull() // cover deselected → no cover write
