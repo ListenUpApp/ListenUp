@@ -64,3 +64,31 @@ value class MetadataProviderId(
         }
     }
 }
+
+/**
+ * Human display label for a provider — what the client shows in provenance chips/footers.
+ * Built-ins get branded names; a `custom:<name>` id title-cases `<name>` (the only affordance —
+ * custom providers carry no configured display name).
+ */
+fun MetadataProviderId.displayLabel(): String =
+    when (this) {
+        MetadataProviderId.AUDIBLE -> {
+            "Audible"
+        }
+
+        MetadataProviderId.ITUNES -> {
+            "iTunes"
+        }
+
+        MetadataProviderId.AUDNEXUS -> {
+            "Audnexus"
+        }
+
+        else -> {
+            value
+                .removePrefix(MetadataProviderId.CUSTOM_PREFIX)
+                .split(Regex("[\\s_-]+"))
+                .filter { it.isNotBlank() }
+                .joinToString(" ") { it.replaceFirstChar(Char::uppercaseChar) }
+        }
+    }
