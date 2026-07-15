@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -131,7 +132,7 @@ class MetadataApplyEnrichmentTest :
                 runTest {
                     ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
 
-                    val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, selection)
+                    val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, MetadataLocale("us"), selection)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     ctx.moodNamesForBook(BOOK_ID) shouldContainExactlyInAnyOrder listOf("Feel-Good", "Tense")
@@ -148,7 +149,7 @@ class MetadataApplyEnrichmentTest :
                 runTest {
                     ctx.bookRepo.upsert(minimalEnrichBook(BOOK_ID), clientOpId = null)
 
-                    val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, AudibleRegion.US, ENRICH_SELECTION)
+                    val result = applier.apply(BookId(BOOK_ID), ENRICH_ASIN, MetadataLocale("us"), ENRICH_SELECTION)
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                     ctx.bookRepo.findById(BookId(BOOK_ID))?.description shouldBe "An enriched description."
@@ -173,7 +174,7 @@ class MetadataApplyEnrichmentTest :
                         .apply(
                             BookId(BOOK_ID),
                             ENRICH_ASIN,
-                            AudibleRegion.US,
+                            MetadataLocale("us"),
                             ENRICH_SELECTION.copy(moods = setOf("Tense", "Hopeful"), tags = setOf("Heist")),
                         ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
@@ -181,7 +182,7 @@ class MetadataApplyEnrichmentTest :
                         .apply(
                             BookId(BOOK_ID),
                             ENRICH_ASIN,
-                            AudibleRegion.US,
+                            MetadataLocale("us"),
                             ENRICH_SELECTION.copy(moods = setOf("Hopeful", "Wistful"), tags = setOf("Revenge")),
                         ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
@@ -215,10 +216,10 @@ private class EnrichmentCtx(
             seriesRepository = seriesRepo,
             imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) })),
             coverImageStore = CoverImageStore(ImageStore(IoPath(Path.of(tempDir).resolve("covers").toString()), MAX_COVER_BYTES)),
-            matchSource = { asin, region ->
-                AppResult.Success(
-                    coordinator.composeBook(BookIdentity(asin = asin, title = ""), MetadataLocale(region.code))?.toMetadataBook(),
-                )
+            matchSource = { asin, locale ->
+                coordinator.composeBook(BookIdentity(asin = asin, title = ""), locale).map { composed ->
+                    composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
+                }
             },
             enrichmentProvider = "audible",
             genreHierarchy = GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),

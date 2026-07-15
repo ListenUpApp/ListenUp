@@ -131,16 +131,20 @@ internal class MetadataService(
     /**
      * Fetches the chapter list for an audiobook by [asin] in [region], caching
      * the result for [CHAPTER_TTL] (30 days — chapters rarely change).
+     *
+     * Pass [refresh] = `true` to bypass the long-lived cache and force a fresh fetch —
+     * the only way to pick up a corrected catalog list within the 30-day window.
      */
     suspend fun getBookChapters(
         region: AudibleRegion,
         asin: String,
+        refresh: Boolean = false,
     ): AppResult<List<AudibleChapter>> =
         cached(
             region = region,
             cacheKey = "chapters:$asin",
             ttl = CHAPTER_TTL,
-            refresh = false,
+            refresh = refresh,
             fetch = { audible.getChapters(region, asin) },
             serializer = ListSerializer(AudibleChapter.serializer()),
         )

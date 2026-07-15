@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -299,12 +300,10 @@ class MetadataLookupServiceImplTest :
                             seriesRepository = seriesRepo,
                             imageStorage = imageStorage,
                             coverImageStore = coverImageStore,
-                            matchSource = { asin, region ->
-                                AppResult.Success(
-                                    coordinator
-                                        .composeBook(BookIdentity(asin = asin, title = ""), MetadataLocale(region.code))
-                                        ?.toMetadataBook(),
-                                )
+                            matchSource = { asin, locale ->
+                                coordinator.composeBook(BookIdentity(asin = asin, title = ""), locale).map { composed ->
+                                    composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
+                                }
                             },
                             enrichmentProvider = "audible",
                             genreHierarchy =
@@ -327,7 +326,8 @@ class MetadataLookupServiceImplTest :
                             seriesAsins = emptySet(),
                         )
 
-                    val result = applier.apply(BookId("book-1"), asin = "B0TESTASIN", region = AudibleRegion.US, selection = coverSelection)
+                    val result =
+                        applier.apply(BookId("book-1"), asin = "B0TESTASIN", locale = MetadataLocale("us"), selection = coverSelection)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     // Cover lands under the managed covers dir …

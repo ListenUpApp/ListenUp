@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterSource
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
+import com.calypsan.listenup.server.metadata.spi.GenreLadderSource
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
 import com.calypsan.listenup.server.metadata.spi.GenreSource
 import com.calypsan.listenup.api.metadata.MetadataLocale
@@ -51,7 +52,8 @@ internal class AudibleProvider(
     ChapterSource,
     CoverSource,
     SeriesSource,
-    GenreSource {
+    GenreSource,
+    GenreLadderSource {
     override val id: MetadataProviderId = MetadataProviderId.AUDIBLE
 
     override suspend fun searchBooks(
@@ -73,9 +75,10 @@ internal class AudibleProvider(
     override suspend fun getChapters(
         book: BookIdentity,
         locale: MetadataLocale,
+        refresh: Boolean,
     ): AppResult<ChapterListMeta?> {
         val asin = book.asin ?: return AppResult.Success(null)
-        return metadataService.getBookChapters(regionFor(locale), asin).map { it.toChapterListMeta() }
+        return metadataService.getBookChapters(regionFor(locale), asin, refresh).map { it.toChapterListMeta() }
     }
 
     override suspend fun searchCovers(
@@ -97,6 +100,14 @@ internal class AudibleProvider(
     ): AppResult<List<GenreMeta>?> {
         val asin = book.asin ?: return AppResult.Success(null)
         return metadataService.getBook(regionFor(locale), asin).map { it?.genres?.toGenreMetas() }
+    }
+
+    override suspend fun getGenreLadders(
+        book: BookIdentity,
+        locale: MetadataLocale,
+    ): AppResult<List<List<String>>?> {
+        val asin = book.asin ?: return AppResult.Success(null)
+        return metadataService.getBook(regionFor(locale), asin).map { it?.genreLadders }
     }
 
     /**

@@ -279,6 +279,7 @@ private class FakeChapterProvider(
     override suspend fun getChapters(
         book: BookIdentity,
         locale: MetadataLocale,
+        refresh: Boolean,
     ): AppResult<ChapterListMeta?> =
         AppResult.Success(
             ChapterListMeta(

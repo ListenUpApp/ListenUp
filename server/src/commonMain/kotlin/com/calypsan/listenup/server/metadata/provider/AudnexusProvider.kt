@@ -109,13 +109,14 @@ internal class AudnexusProvider(
     override suspend fun getChapters(
         book: BookIdentity,
         locale: MetadataLocale,
+        refresh: Boolean,
     ): AppResult<ChapterListMeta?> {
         val asin = book.asin ?: return AppResult.Success(null)
         return cachedNullable(
             "chapters:$asin",
             locale.region,
             CHAPTER_TTL,
-            refresh = false,
+            refresh = refresh,
             AudnexusChapters.serializer(),
         ) {
             client.getChapters(asin, locale.region)

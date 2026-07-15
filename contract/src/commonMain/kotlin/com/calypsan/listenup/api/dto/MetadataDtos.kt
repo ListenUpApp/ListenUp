@@ -182,6 +182,14 @@ enum class CoverOptionSource {
 
     @SerialName("ITUNES")
     ITUNES,
+
+    /**
+     * Any other provider — Audnexus, or an operator-declared custom source. The picker groups these
+     * as generic candidates so a cover from a provider without a first-class label still surfaces,
+     * rather than being silently dropped.
+     */
+    @SerialName("OTHER")
+    OTHER,
 }
 
 /**

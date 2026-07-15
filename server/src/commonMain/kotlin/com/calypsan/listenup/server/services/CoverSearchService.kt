@@ -34,8 +34,9 @@ data class BookSummary(
  * Each provider is failure-contained: if one throws or returns a typed failure, its options
  * are dropped (logged) and the other providers' options still return — never strand the
  * operator for one provider being down. Dimensions are probed per candidate; a probe miss
- * degrades to 0×0 rather than dropping the cover. A [CoverSource] whose id has no
- * [CoverOptionSource] mapping is skipped (only Audible + iTunes surface covers to clients).
+ * degrades to 0×0 rather than dropping the cover. Audible and iTunes carry a first-class
+ * [CoverOptionSource]; every other cover source surfaces as [CoverOptionSource.OTHER] so its
+ * candidates still reach the picker.
  *
  * [readBook] and [probeDimensions] are function seams so the orchestration is unit-testable
  * without a DB or HTTP; the DI binding supplies the real implementations.
@@ -70,11 +71,7 @@ class CoverSearchService(
         book: BookIdentity,
         locale: MetadataLocale,
     ): List<CoverOption> {
-        val source =
-            coverOptionSourceFor(provider.id) ?: run {
-                log.warn { "cover search: provider=${provider.id.value} has no CoverOption mapping — skipping" }
-                return emptyList()
-            }
+        val source = coverOptionSourceFor(provider.id)
         log.debug { "cover search: source=${source.name} title='${book.title}' author='${book.primaryAuthor}'" }
         return when (val r = provider.searchCovers(book, locale)) {
             is AppResult.Failure -> {
@@ -114,12 +111,16 @@ class CoverSearchService(
             emptyList()
         }
 
-    /** Maps a provider id to its client-facing [CoverOptionSource]; `null` for non-cover-surfacing ids. */
-    private fun coverOptionSourceFor(id: MetadataProviderId): CoverOptionSource? =
+    /**
+     * Maps a provider id to its client-facing [CoverOptionSource]. Audible and iTunes get a first-class
+     * label; every other cover source (Audnexus, custom providers) surfaces as [CoverOptionSource.OTHER]
+     * so its candidates reach the picker instead of being silently dropped.
+     */
+    private fun coverOptionSourceFor(id: MetadataProviderId): CoverOptionSource =
         when (id) {
             MetadataProviderId.AUDIBLE -> CoverOptionSource.AUDIBLE
             MetadataProviderId.ITUNES -> CoverOptionSource.ITUNES
-            else -> null
+            else -> CoverOptionSource.OTHER
         }
 
     private class SourceException(

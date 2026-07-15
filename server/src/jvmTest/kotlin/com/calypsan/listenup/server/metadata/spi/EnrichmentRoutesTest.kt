@@ -132,6 +132,33 @@ class EnrichmentRoutesTest :
             parsed.domainOrder.getValue(MetadataDomain.CHARACTERS) shouldBe listOf(MetadataProviderId.custom("mysource"))
         }
 
+        // ---- providersFor: domain order ∪ its fields' overrides (M3 fan-out filter) ----
+
+        test("providersFor unions the domain order with any override for one of the domain's fields") {
+            val routes =
+                EnrichmentRoutes(
+                    domainOrder = mapOf(MetadataDomain.CONTRIBUTORS to listOf(audnexus)),
+                    fieldOverrides = mapOf(BookField.NARRATORS to listOf(audible, itunes)),
+                )
+            routes.providersFor(MetadataDomain.CONTRIBUTORS) shouldBe setOf(audnexus, audible, itunes)
+        }
+
+        // ---- unresolvedCustomProviders: registry-aware boot warning (L9) ----
+
+        test("unresolvedCustomProviders flags a custom route with no declared provider") {
+            val declared = MetadataProviderId.custom("declared")
+            val typo = MetadataProviderId.custom("typo")
+            val routes =
+                EnrichmentRoutes.parse(order = null, routes = "cover=custom:declared; series=custom:typo")
+
+            // Only the custom id absent from the registry is reported; the declared one and built-ins are not.
+            routes.unresolvedCustomProviders(knownIds = setOf(audible, audnexus, itunes, declared)) shouldBe listOf(typo)
+        }
+
+        test("unresolvedCustomProviders never reports built-in ids") {
+            EnrichmentRoutes.DEFAULT.unresolvedCustomProviders(knownIds = emptySet()) shouldBe emptyList()
+        }
+
         test("property: arbitrary garbage never throws and always leaves every domain routable") {
             checkAll(Arb.string(), Arb.string()) { order, routes ->
                 val parsed = EnrichmentRoutes.parse(order = order, routes = routes)

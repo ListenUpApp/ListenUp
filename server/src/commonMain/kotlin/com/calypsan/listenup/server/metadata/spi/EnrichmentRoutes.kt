@@ -36,6 +36,34 @@ data class EnrichmentRoutes(
     fun orderFor(field: BookField): List<MetadataProviderId> =
         fieldOverrides[field] ?: domainOrder.getValue(field.domain)
 
+    /**
+     * Every provider the router might consult for [domain]: its domain order plus any
+     * per-field override that names a provider for one of the domain's fields. The
+     * coordinator intersects its capability fan-out with this set so a provider the
+     * operator never routed to [domain] is not queried at all — no wasted fetch, no
+     * privacy/rate-limit surprise (e.g. a cover-only catalog isn't hit for genres).
+     */
+    fun providersFor(domain: MetadataDomain): Set<MetadataProviderId> =
+        buildSet {
+            addAll(domainOrder.getValue(domain))
+            fieldOverrides.forEach { (field, providers) -> if (field.domain == domain) addAll(providers) }
+        }
+
+    /**
+     * The `custom:<name>` provider ids these routes name that are *not* in [knownIds] — routes that
+     * resolve to nothing because no matching provider was declared in `LISTENUP_CUSTOM_PROVIDERS`
+     * (typically a typo). Returned distinct and in first-seen order so a caller can warn once per id.
+     * Built-in ids are never reported (they always resolve). [parse] can't catch these on its own —
+     * a `custom:<name>` token is syntactically valid before the provider registry exists.
+     */
+    fun unresolvedCustomProviders(knownIds: Set<MetadataProviderId>): List<MetadataProviderId> =
+        (domainOrder.values.flatten() + fieldOverrides.values.flatten())
+            .asSequence()
+            .filter { it.value.startsWith(MetadataProviderId.CUSTOM_PREFIX) }
+            .filterNot { it in knownIds }
+            .distinct()
+            .toList()
+
     companion object {
         /**
          * The approved code defaults — the enrichment order with no env configured.
