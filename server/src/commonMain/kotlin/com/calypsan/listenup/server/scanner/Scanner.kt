@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.EmbeddedScanCounters
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
+import com.calypsan.listenup.api.dto.scanner.FailedScanPath
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.dto.scanner.ScanScope
@@ -180,6 +181,7 @@ internal class Scanner(
         // runs once over the full aggregated set after all folders are processed.
         val allBooks = mutableListOf<AnalyzedBook>()
         val allErrors = mutableListOf<ScanError>()
+        val allFailedPaths = mutableListOf<FailedScanPath>()
         var authorsMatched = 0
         var totalDurationMs = 0L
         var currentFile: String? = null
@@ -212,6 +214,7 @@ internal class Scanner(
             // folder's root so the persister attributes it to the correct library_folders row.
             allBooks += pass.books.map { it.copy(folderRootPath = folderRootPaths[i]) }
             allErrors += pass.errors
+            allFailedPaths += pass.failedPaths.map { FailedScanPath(folderRootPaths[i], it) }
             authorsMatched += pass.authorsMatched
             totalDurationMs += pass.totalDurationMs
             if (pass.currentFile != null) currentFile = pass.currentFile
@@ -252,6 +255,7 @@ internal class Scanner(
                 scope = ScanScope.Full,
                 // Non-authoritative when any configured root was unreachable — suppresses the sweep.
                 fullScanAuthoritative = fullScanAuthoritative,
+                failedPaths = allFailedPaths,
             )
         // Store a stripped copy in lastResult so artwork bytes are not retained between scans.
         lastResult = result.withoutArtwork()
@@ -445,6 +449,7 @@ internal class Scanner(
     ): AnalyzePass {
         val books = mutableListOf<AnalyzedBook>()
         val errors = mutableListOf<ScanError>()
+        val failedPaths = mutableListOf<String>()
         val authorsSeen = mutableSetOf<String>()
         var durationMsSum = 0L
         val recent = ArrayDeque<ScanBookRef>()
@@ -479,7 +484,8 @@ internal class Scanner(
                     recent.addLast(ScanBookRef(title = book.title, author = book.authors.firstOrNull().orEmpty()))
                     while (recent.size > RECENT_BOOKS_CAP) recent.removeFirst()
                 }.onFailure { t ->
-                    val relPath = (t as? BookAnalysisFailure)?.rootRelPath ?: errorRoot.toString()
+                    val failedRelPath = (t as? BookAnalysisFailure)?.rootRelPath
+                    val relPath = failedRelPath ?: errorRoot.toString()
                     // A folder with no recognized audio is an expected skip (not a book), not a
                     // fault — log it as a calm, actionable one-liner without a stacktrace. Genuine
                     // analysis faults keep the full throwable so they stay diagnosable.
@@ -489,6 +495,11 @@ internal class Scanner(
                     } else {
                         logger.warn(t) { "analyze failed: path=$relPath library=${library.id.value}" }
                     }
+                    // Protect this book-root from the tombstone sweep: it was walked but not analyzed, so
+                    // it is absent from `books`. Covers both transient faults and NoRecognizedAudio (a
+                    // book mid-replacement). Only paths tied to a specific book-root are protectable; a
+                    // path-less infra fault (null rootRelPath) can't be, and is a whole-scan error anyway.
+                    failedRelPath?.let { failedPaths += it }
                     errors += toScanError(t, errorRoot)
                 }
             val now = clock()
@@ -530,6 +541,7 @@ internal class Scanner(
             totalDurationMs = durationMsSum,
             currentFile = currentFile,
             recentBooks = recent.toList(),
+            failedPaths = failedPaths,
         )
     }
 
@@ -546,6 +558,8 @@ internal class Scanner(
         val totalDurationMs: Long,
         val currentFile: String?,
         val recentBooks: List<ScanBookRef>,
+        /** rootRelPaths of book-roots that were walked but failed analysis this pass (sweep-safety). */
+        val failedPaths: List<String>,
     )
 
     /**
