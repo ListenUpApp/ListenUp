@@ -119,6 +119,34 @@ class OpfParserTest :
             }
         }
 
+        test("reads dc:identifier scheme=ISBN/ASIN into SidecarMetadata.isbn/asin") {
+            runTest {
+                val md = parser.parse(fixture("sample.opf"))
+
+                md.shouldNotBeNull()
+                md.isbn shouldBe "978-0765326362"
+                md.asin shouldBe "B00INEXAMP"
+            }
+        }
+
+        test("absent dc:identifier yields null isbn and asin") {
+            runTest {
+                val md = parser.parse(fixture("minimal.opf"))
+                md.shouldNotBeNull()
+                md.isbn.shouldBeNull()
+                md.asin.shouldBeNull()
+            }
+        }
+
+        test("scheme-less dc:identifier is classified by content shape") {
+            runTest {
+                val md = parser.parse(inlineOpfWithIdentifiers("B0ABCDE123", "9780306406157"))
+                md.shouldNotBeNull()
+                md.asin shouldBe "B0ABCDE123"
+                md.isbn shouldBe "9780306406157"
+            }
+        }
+
         test("reads dc:subtitle into SidecarMetadata.subtitle") {
             runTest {
                 val opfPath = inlineOpfWithSubtitle(title = "Mistborn", subtitle = "The Final Empire")
@@ -206,6 +234,27 @@ private fun inlineOpfNoSubtitle(title: String): IoPath {
         <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
             <metadata>
                 <dc:title>$title</dc:title>
+            </metadata>
+        </package>
+        """.trimIndent(),
+    )
+    temp.toFile().deleteOnExit()
+    return IoPath(temp.toString())
+}
+
+private fun inlineOpfWithIdentifiers(
+    asin: String,
+    isbn: String,
+): IoPath {
+    val temp = kotlin.io.path.createTempFile(suffix = ".opf")
+    temp.toFile().writeText(
+        """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="3.0">
+            <metadata>
+                <dc:title>Identifier Test</dc:title>
+                <dc:identifier>$asin</dc:identifier>
+                <dc:identifier>$isbn</dc:identifier>
             </metadata>
         </package>
         """.trimIndent(),

@@ -47,10 +47,11 @@ private val YEAR_PATTERN = Regex("""^\s*(\d{4})""")
  *    Any other relator code (`trl`, `edt`, …) is dropped, not mis-filed
  *  - `<meta name="calibre:series" content="…">` + `<meta name="calibre:series_index"
  *    content="…">` → [SidecarMetadata.series] (Calibre-authored `.opf` files only)
- *
- * `<dc:identifier>` (ISBN / ASIN) is intentionally NOT extracted —
- * [SidecarMetadata] carries no identifier field and the Analyzer does not
- * merge a sidecar identifier, so parsing it would be dead code.
+ *  - `<dc:identifier opf:scheme="ISBN">` → [SidecarMetadata.isbn], `opf:scheme="ASIN"`
+ *    (or `AMAZON`) → [SidecarMetadata.asin]; a scheme-less identifier is classified by
+ *    its content shape (ASIN = `B` + 9 alphanumerics; ISBN = 10/13 digits). First of
+ *    each kind wins. The Analyzer merges these below the embedded/metadata.json tiers,
+ *    so an `.opf`-only Calibre export can still carry a match identifier.
  *
  * The parser is non-namespace-aware and queries elements by their literal
  * prefixed tag name (`dc:title`, …). It therefore assumes the conventional
@@ -64,6 +65,7 @@ internal class OpfParser : SidecarParser {
     override suspend fun parse(file: Path): SidecarMetadata? =
         try {
             val root = parseXml(file.readText())
+            val ids = root.identifiers()
             SidecarMetadata(
                 title = root.firstText("dc:title"),
                 subtitle = root.firstText("dc:subtitle"),
@@ -95,6 +97,8 @@ internal class OpfParser : SidecarParser {
                         }
                         ?: emptyList(),
                 genres = root.allText("dc:subject"),
+                isbn = ids.isbn,
+                asin = ids.asin,
                 contributors = root.creators(),
             )
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -133,4 +137,37 @@ private fun XmlElement.metaContent(name: String): String? {
         }
     }
     return null
+}
+
+/** An Amazon/Audible ASIN — `B` followed by 9 uppercase alphanumerics. */
+private val ASIN_SHAPE = Regex("^B[0-9A-Z]{9}$")
+
+/** An ISBN-10 or ISBN-13 with separators already stripped. */
+private val ISBN_SHAPE = Regex("^(?:97[89])?[0-9]{9}[0-9X]$")
+
+/** The ISBN and ASIN carried by `<dc:identifier>` elements, if any. */
+private data class SidecarIdentifiers(
+    val isbn: String?,
+    val asin: String?,
+)
+
+/**
+ * Classifies `<dc:identifier>` elements by their `opf:scheme` (`ISBN`, or `ASIN`/`AMAZON`),
+ * falling back to a content-shape check for scheme-less identifiers. First of each kind wins.
+ */
+private fun XmlElement.identifiers(): SidecarIdentifiers {
+    var isbn: String? = null
+    var asin: String? = null
+    for (el in getElementsByTagName("dc:identifier")) {
+        val value = el.textContent.trim().ifBlank { null } ?: continue
+        val scheme = el.getAttribute("opf:scheme").uppercase()
+        val bare = value.replace("-", "").uppercase()
+        when {
+            "ISBN" in scheme -> isbn = isbn ?: value
+            "ASIN" in scheme || "AMAZON" in scheme -> asin = asin ?: value
+            scheme.isBlank() && ASIN_SHAPE.matches(bare) -> asin = asin ?: value
+            scheme.isBlank() && ISBN_SHAPE.matches(bare) -> isbn = isbn ?: value
+        }
+    }
+    return SidecarIdentifiers(isbn, asin)
 }

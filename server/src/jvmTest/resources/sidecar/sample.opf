@@ -11,5 +11,6 @@
         <dc:subject>Fantasy</dc:subject>
         <dc:subject>Epic</dc:subject>
         <dc:identifier opf:scheme="ISBN">978-0765326362</dc:identifier>
+        <dc:identifier opf:scheme="ASIN">B00INEXAMP</dc:identifier>
     </metadata>
 </package>
