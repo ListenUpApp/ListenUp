@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.scanner.sidecar
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.server.io.readText
 import com.calypsan.listenup.server.scanner.sidecar.xml.XmlElement
+import com.calypsan.listenup.server.scanner.sidecar.xml.allText
 import com.calypsan.listenup.server.scanner.sidecar.xml.firstText
 import com.calypsan.listenup.server.scanner.sidecar.xml.getAttribute
 import com.calypsan.listenup.server.scanner.sidecar.xml.getElementsByTagName
@@ -40,6 +41,7 @@ private val YEAR_PATTERN = Regex("""^\s*(\d{4})""")
  *    year only; free-text prose yields no year rather than a guess)
  *  - `<dc:publisher>`   → [SidecarMetadata.publisher]
  *  - `<dc:language>`    → [SidecarMetadata.language]
+ *  - `<dc:subject>`     → [SidecarMetadata.genres] (one string per element)
  *  - `<dc:creator>`     → contributor; the `opf:role` attribute maps
  *    `aut` (or absent — the OPF default) → `"author"`, `nrt` → `"narrator"`.
  *    Any other relator code (`trl`, `edt`, …) is dropped, not mis-filed
@@ -92,6 +94,7 @@ internal class OpfParser : SidecarParser {
                             )
                         }
                         ?: emptyList(),
+                genres = root.allText("dc:subject"),
                 contributors = root.creators(),
             )
         } catch (e: kotlinx.coroutines.CancellationException) {

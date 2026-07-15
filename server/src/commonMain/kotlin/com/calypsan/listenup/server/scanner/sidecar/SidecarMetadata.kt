@@ -17,6 +17,8 @@ internal data class SidecarMetadata(
     val language: String? = null,
     /** Series entries extracted from a sidecar (e.g. Calibre `<meta name="calibre:series">`). */
     val series: List<SeriesEntry> = emptyList(),
+    /** Genre/subject strings extracted from a sidecar (NFO `<genre>`, OPF `<dc:subject>`). */
+    val genres: List<String> = emptyList(),
     val contributors: List<SidecarContributor> = emptyList(),
 )
 

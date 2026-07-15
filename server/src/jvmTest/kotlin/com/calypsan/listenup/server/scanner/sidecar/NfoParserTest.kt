@@ -36,6 +36,24 @@ class NfoParserTest :
             }
         }
 
+        test("reads <subtitle> into SidecarMetadata.subtitle") {
+            runTest {
+                val md = parser.parse(fixture("sample.nfo"))
+
+                md.shouldNotBeNull()
+                md.subtitle shouldBe "The Stormlight Archive, Book One"
+            }
+        }
+
+        test("reads <genre> elements into SidecarMetadata.genres") {
+            runTest {
+                val md = parser.parse(fixture("sample.nfo"))
+
+                md.shouldNotBeNull()
+                md.genres shouldBe listOf("Fantasy", "Epic")
+            }
+        }
+
         test("malformed XML returns null") {
             runTest {
                 parser.parse(fixture("malformed.nfo")).shouldBeNull()

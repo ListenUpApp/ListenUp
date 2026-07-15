@@ -122,6 +122,13 @@ internal class Analyzer(
             // Multi-track books are already parsed once there; synthesis reuses that
             // map instead of re-parsing every file. Single-track books and books
             // where no synthesis is needed pay nothing.
+            //
+            // This map is load-bearing for BOTH multi-file chapter synthesis AND multi-file
+            // OverDrive-marker reconstruction — `pickChapters` reads per-track `tags.custom`
+            // and `durationMs` from it. `shouldSynthesizeChapters` is the right gate for both:
+            // it is true exactly when the book is multi-file with no higher-precedence chapter
+            // source, which is also the only case the OverDrive branch is reachable. Keep them
+            // aligned — narrowing this gate would silently starve the OverDrive path.
             val perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?> =
                 if (shouldSynthesizeChapters(metadata, embedded, tracks)) {
                     builtTracks.perTrackMetadata.ifEmpty { parseAllTrackDurations(tracks) }
@@ -402,7 +409,7 @@ internal class Analyzer(
                 FieldSourceKind.EMBEDDED to embedded?.tags?.language,
                 FieldSourceKind.SIDECAR to sidecar?.language,
             )?.let { Sourced(LanguageNormalizer.normalize(it.value), it.kind) }
-        val genres = pickGenres(embedded, metadata)
+        val genres = pickGenres(embedded, metadata, sidecar)
 
         // Per-field scan provenance (tier 0): one entry per resolved field, tagged with the source that
         // won it. Ties are already resolved by MetadataPrecedence at pick time. Fields with no scanned
@@ -469,11 +476,14 @@ internal class Analyzer(
 
     /**
      * Chapter precedence:
-     *   metadata.json (non-empty) → embedded (non-empty) → synthesized (multi-file) → empty.
+     *   metadata.json (non-empty) → embedded (non-empty) → OverDrive markers →
+     *   synthesized (multi-file) → empty.
      *
      * The sidecar wins when present so user-curated chapter titles in ABS survive
-     * a rescan. Synthesis activates only when no higher source exists AND the
-     * book is multi-file.
+     * a rescan. OverDrive markers sit above synthesis: they carry real chapter
+     * boundaries (even inside a single file, where synthesis produces nothing),
+     * so they beat the one-chapter-per-track fallback. Synthesis activates only
+     * when no higher source exists AND the book is multi-file.
      *
      * `embedded.chapters` continues to surface verbatim on
      * [AnalyzedBook.embedded] regardless of which won — the resolved view is
@@ -498,6 +508,17 @@ internal class Analyzer(
             val clampBound = if (tracks.size <= 1) embedded.durationMs else null
             return clampEmbeddedChapters(embedded.chapters, clampBound) to
                 BookChapterSource.Embedded(embedded.chaptersSource)
+        }
+        // OverDrive/Libby marker chapters. Single-file books read the primary parse directly;
+        // multi-file books reuse the per-track parses already captured for synthesis.
+        val overdriveMetadata: (TrackEntry) -> EmbeddedAudioMetadata? =
+            if (tracks.size <= 1) {
+                { embedded }
+            } else {
+                { track -> perTrackMetadata[track] }
+            }
+        OverdriveChapters.parse(tracks, overdriveMetadata)?.let { chapters ->
+            return chapters to BookChapterSource.Overdrive
         }
         if (tracks.size >= 2) {
             return synthesizeChapters(tracks, perTrackMetadata, bookTitle) to
@@ -671,12 +692,13 @@ internal class Analyzer(
     private fun pickGenres(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
     ): Sourced<List<String>>? =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
                 MetadataPrecedenceSource.ABS_METADATA -> metadata?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.genres?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.SIDECAR -> null
+                MetadataPrecedenceSource.SIDECAR -> sidecar?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.FILENAME -> null
                 MetadataPrecedenceSource.FOLDER -> null
             }?.let { Sourced(it, source.scanKind()) }
@@ -707,6 +729,7 @@ private fun SidecarMetadata.mergedWith(other: SidecarMetadata): SidecarMetadata 
         publisher = publisher ?: other.publisher,
         language = language ?: other.language,
         series = series.ifEmpty { other.series },
+        genres = genres.ifEmpty { other.genres },
         contributors = contributors + other.contributors,
     )
 
