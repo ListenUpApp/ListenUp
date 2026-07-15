@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BioEntryMode
 import com.calypsan.listenup.api.sync.EntityKind
@@ -10,9 +12,11 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.model.BioEntry
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -20,6 +24,10 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -178,6 +186,99 @@ class EntityEditRepositoryOfflineTest :
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
                 db.pendingOperationV2Dao().nextDispatchable().shouldBeEmpty()
+                db.close()
+            }
+        }
+
+        test("concurrent upsertBioEntry calls to the same entity never queue a payload missing the other's entry") {
+            runTest {
+                // Room queries ride the test scheduler so the interleaving below is deterministic.
+                val db = createInMemoryTestDatabase(StandardTestDispatcher(testScheduler))
+                db.entityDao().upsert(entityRow(id = "e1"))
+
+                // The lost-update mechanism this test pins: each write READS current Room state,
+                // builds a whole-aggregate EntityUpsert, then enqueues it inside the transaction.
+                // This gate parks every transaction until the test opens it — so WITHOUT the
+                // repository's edit mutex, BOTH calls complete their reads against the pre-edit
+                // (empty) bio set before either write commits, and the op carrying "b" queues a
+                // whole-aggregate payload that omits "a" (whose server apply + ServerWins echo
+                // would then silently erase "a" everywhere). WITH the mutex, the second call
+                // cannot start reading until the first one's read→edit sequence fully completes
+                // (the first holds the lock while parked at the gate), so its payload carries both.
+                val gate = CompletableDeferred<Unit>()
+                val sentPayloads = mutableListOf<String>()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender =
+                            PendingOperationSender { op ->
+                                sentPayloads += op.payload
+                                AppResult.Success(Unit)
+                            },
+                    )
+                val offlineEditor =
+                    OfflineEditor(
+                        pendingQueue = queue,
+                        transactionRunner =
+                            object : TransactionRunner {
+                                override suspend fun <R> atomically(block: suspend () -> R): R {
+                                    gate.await()
+                                    return block()
+                                }
+                            },
+                        authSession = FakeAuthSession(userId = "u1"),
+                    )
+                val repo =
+                    EntityEditRepositoryImpl(
+                        entityDao = db.entityDao(),
+                        bioEntryDao = db.bioEntryDao(),
+                        offlineEditor = offlineEditor,
+                    )
+
+                val first =
+                    launch {
+                        repo.upsertBioEntry(
+                            "e1",
+                            BioEntry(id = "a", mode = BioEntryMode.APPEND, text = "First.", sortKey = 0),
+                        ) shouldBe AppResult.Success(Unit)
+                    }
+                val second =
+                    launch {
+                        repo.upsertBioEntry(
+                            "e1",
+                            BioEntry(id = "b", mode = BioEntryMode.APPEND, text = "Second.", sortKey = 1),
+                        ) shouldBe AppResult.Success(Unit)
+                    }
+                // Run both calls as far as they can go while the gate is closed, then open it.
+                advanceUntilIdle()
+                gate.complete(Unit)
+                first.join()
+                second.join()
+
+                // Room converges either way (per-row upserts) — the queue payloads are the seam
+                // where the unfixed race loses data.
+                db
+                    .bioEntryDao()
+                    .getForEntity("e1")
+                    .map { it.id }
+                    .toSet() shouldBe setOf("a", "b")
+
+                // Drain both ops (per-entity FIFO dispatches one op per wave) and decode what the
+                // server would actually receive.
+                queue.drain()
+                queue.drain()
+                sentPayloads shouldHaveSize 2
+                val upserts =
+                    sentPayloads
+                        .map { contractJson.decodeFromString(OutboxChannels.Entities.serializer, it) }
+                        .map { it.shouldBeInstanceOf<EntityMutation.Upsert>().upsert }
+                val opCarryingB = upserts.single { upsert -> upsert.bioEntries.any { it.id == "b" } }
+                withClue(
+                    "the op that added entry \"b\" queued a whole-aggregate payload missing entry \"a\" — " +
+                        "its server apply (and ServerWins echo) would silently erase \"a\"",
+                ) {
+                    opCarryingB.bioEntries.map { it.id }.toSet() shouldBe setOf("a", "b")
+                }
                 db.close()
             }
         }
