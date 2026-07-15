@@ -1,8 +1,6 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BioEntryMode
-import com.calypsan.listenup.api.sync.BioEntryPayload
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.api.sync.EntitySyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -10,11 +8,11 @@ import com.calypsan.listenup.server.db.sqldelight.Entities
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import kotlin.uuid.Uuid
 
 /**
  * SQLDelight syncable repository for Story World entities (characters, locations,
- * items) — library-shared, curated world data namespaced under a series.
+ * items) — library-shared, curated world data, dual-homed under exactly one of a
+ * series or a standalone book.
  *
  * Unlike [ReadingOrderRepository], this is NOT userScoped: entities are curated
  * content behind the metadata-edit gate ([com.calypsan.listenup.server.auth.UserPermissionPolicy.requireCanEdit]),
@@ -28,14 +26,6 @@ import kotlin.uuid.Uuid
  * value-class id like [com.calypsan.listenup.core.ReadingOrderId], and matching
  * the sibling domains' convention of overriding explicitly rather than relying on
  * the base's `toString()` default.
- *
- * **Bio entries are a whole-aggregate child collection.** [writePayload] replaces
- * every `entity_bio_entries` row for the entity (delete-then-insert) inside the
- * same [suspendTransaction] as the entity row write — the same atomic
- * child-set-replace pattern
- * [BookAggregateWriter.replaceChapters][com.calypsan.listenup.server.services.BookAggregateWriter.replaceChapters]
- * uses for `book_chapters`. A client always sends the full bio-entry set; there is
- * no incremental per-entry write.
  *
  * **Last-write-wins by `updatedAt`.** The [SqlSyncableRepository] base's `upsert`
  * has no staleness check of its own (it always writes and bumps the domain
@@ -73,14 +63,13 @@ class EntityRepository(
     /**
      * Entities are not access-filtered ([driver] stays null, matching the tag/genre/series
      * curation domains), so the base's identity default would be sufficient for the access
-     * model alone. Overridden anyway: [BioEntryPayload] content is what Stage 3's spoiler fold
-     * consults, so a tombstoned entity's bio text and name must never linger in a catch-up
-     * payload once deleted — the same "no content past the tombstone" contract
+     * model alone. Overridden anyway: a tombstoned entity's name/home must never linger in a
+     * catch-up payload once deleted — the same "no content past the tombstone" contract
      * [CollectionRepository][com.calypsan.listenup.server.sync.CollectionRepository] applies for
      * privacy reasons, applied here for spoiler-safety reasons instead.
      */
     override fun minimizeTombstone(payload: EntitySyncPayload): EntitySyncPayload =
-        payload.copy(name = "", homeSeriesId = "", imageRef = null, bioEntries = emptyList())
+        payload.copy(name = "", homeSeriesId = null, homeBookId = null, imageRef = null)
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.entitiesQueries].
@@ -160,6 +149,7 @@ class EntityRepository(
             db.entitiesQueries.update(
                 kind = value.kind.name.lowercase(),
                 home_series_id = value.homeSeriesId,
+                home_book_id = value.homeBookId,
                 name = value.name,
                 image_ref = value.imageRef,
                 revision = rev,
@@ -173,6 +163,7 @@ class EntityRepository(
                 id = value.id,
                 kind = value.kind.name.lowercase(),
                 home_series_id = value.homeSeriesId,
+                home_book_id = value.homeBookId,
                 name = value.name,
                 image_ref = value.imageRef,
                 created_at = now,
@@ -180,20 +171,6 @@ class EntityRepository(
                 revision = rev,
                 deleted_at = null,
                 client_op_id = clientOpId,
-            )
-        }
-        // Replace the bio-entry child set wholesale (delete-then-insert), inside the same
-        // open transaction as the entity row write — see BookAggregateWriter.replaceChapters.
-        db.entityBioEntriesQueries.deleteForEntity(value.id)
-        value.bioEntries.forEach { entry ->
-            db.entityBioEntriesQueries.insert(
-                id = entry.id.ifBlank { Uuid.random().toString() },
-                entity_id = value.id,
-                book_id = entry.bookId,
-                position_ms = entry.positionMs,
-                mode = entry.mode.name.lowercase(),
-                text = entry.text,
-                sort_key = entry.sortKey.toLong(),
             )
         }
     }
@@ -231,31 +208,27 @@ class EntityRepository(
                 .map { it.toSyncPayload() }
         }
 
+    /** Returns every live (non-tombstoned) entity namespaced under standalone [bookId]. */
+    suspend fun listByBook(bookId: String): List<EntitySyncPayload> =
+        suspendTransaction(db) {
+            db.entitiesQueries
+                .selectLiveByBook(bookId)
+                .executeAsList()
+                .map { it.toSyncPayload() }
+        }
+
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: String): String = idAsString(id)
 
-    /** Maps a generated [Entities] row plus its live bio entries to the wire [EntitySyncPayload] DTO. */
+    /** Maps a generated [Entities] row to the wire [EntitySyncPayload] DTO. */
     private fun Entities.toSyncPayload(): EntitySyncPayload =
         EntitySyncPayload(
             id = id,
             kind = EntityKind.valueOf(kind.uppercase()),
             name = name,
             homeSeriesId = home_series_id,
+            homeBookId = home_book_id,
             imageRef = image_ref,
-            bioEntries =
-                db.entityBioEntriesQueries
-                    .selectForEntity(id)
-                    .executeAsList()
-                    .map {
-                        BioEntryPayload(
-                            id = it.id,
-                            bookId = it.book_id,
-                            positionMs = it.position_ms,
-                            mode = BioEntryMode.valueOf(it.mode.uppercase()),
-                            text = it.text,
-                            sortKey = it.sort_key.toInt(),
-                        )
-                    },
             revision = revision,
             updatedAt = updated_at,
             createdAt = created_at,

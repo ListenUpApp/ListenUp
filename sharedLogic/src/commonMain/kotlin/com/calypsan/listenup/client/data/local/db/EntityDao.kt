@@ -29,6 +29,10 @@ internal interface EntityDao {
     @Query("SELECT * FROM entities WHERE homeSeriesId = :seriesId AND deletedAt IS NULL ORDER BY name ASC")
     fun observeForSeries(seriesId: String): Flow<List<EntityEntity>>
 
+    /** Observe every non-tombstoned entity namespaced under standalone [bookId], ordered by name. */
+    @Query("SELECT * FROM entities WHERE homeBookId = :bookId AND deletedAt IS NULL ORDER BY name ASC")
+    fun observeForBook(bookId: String): Flow<List<EntityEntity>>
+
     /** Apply a server tombstone: set [EntityEntity.deletedAt] and advance [EntityEntity.revision]. */
     @Query(
         "UPDATE entities SET deletedAt = :deletedAt, revision = :revision, updatedAt = :deletedAt WHERE id = :id",
@@ -50,38 +54,4 @@ internal interface EntityDao {
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
     @Query("SELECT revision FROM entities WHERE id = :id LIMIT 1")
     suspend fun revisionOf(id: String): Long?
-}
-
-/**
- * Room DAO for [BioEntryEntity] operations (Story World Stage 2).
- *
- * Bio entries have no sync substrate of their own — they are a whole-aggregate child collection
- * replaced wholesale ([deleteForEntity] + [upsertAll]) inside the same write transaction as
- * their parent [EntityEntity]'s apply. Mirrors [ChapterDao].
- */
-@Dao
-internal interface BioEntryDao {
-    /** One-shot fetch of an entity's bio entries, in fold order. */
-    @Query("SELECT * FROM entity_bio_entries WHERE entityId = :entityId ORDER BY sortKey ASC")
-    suspend fun getForEntity(entityId: String): List<BioEntryEntity>
-
-    /** Observe an entity's bio entries reactively, in fold order. */
-    @Query("SELECT * FROM entity_bio_entries WHERE entityId = :entityId ORDER BY sortKey ASC")
-    fun observeForEntity(entityId: String): Flow<List<BioEntryEntity>>
-
-    /** Insert or update multiple bio entries in one operation. */
-    @Upsert
-    suspend fun upsertAll(entries: List<BioEntryEntity>)
-
-    /** Remove one bio entry by id. */
-    @Query("DELETE FROM entity_bio_entries WHERE id = :id")
-    suspend fun deleteById(id: String)
-
-    /** Replace-wholesale step: delete every bio entry for [entityId]. */
-    @Query("DELETE FROM entity_bio_entries WHERE entityId = :entityId")
-    suspend fun deleteForEntity(entityId: String)
-
-    /** Delete all bio-entry rows (used in tests and full re-sync scenarios). */
-    @Query("DELETE FROM entity_bio_entries")
-    suspend fun deleteAll()
 }

@@ -58,8 +58,6 @@ BackupId
 BackupInfo
 BackupRepository
 BackupSummary
-BioEntry
-BioEntryMode
 BookAvailability
 BookContext
 BookContributor

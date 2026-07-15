@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.local.db.BioEntryDao
 import com.calypsan.listenup.client.data.local.db.EntityDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.OfflineEditor
@@ -17,7 +16,7 @@ import org.koin.test.verify.verify
  *
  *  - [ApiClientFactory] — owned by `networkModule`.
  *  - [ServerConfig] — owned by `settingsModule`.
- *  - [EntityDao] / [BioEntryDao] — owned by `persistenceModule`.
+ *  - [EntityDao] — owned by `persistenceModule`.
  *  - [OfflineEditor] — owned by `clientSyncModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
@@ -31,7 +30,6 @@ class EntityModuleVerifyTest :
                         ApiClientFactory::class,
                         ServerConfig::class,
                         EntityDao::class,
-                        BioEntryDao::class,
                         OfflineEditor::class,
                     ),
             )

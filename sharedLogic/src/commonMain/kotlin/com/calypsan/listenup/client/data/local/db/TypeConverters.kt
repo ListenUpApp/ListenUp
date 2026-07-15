@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room.TypeConverter
-import com.calypsan.listenup.api.sync.BioEntryMode
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.BookId
@@ -173,10 +172,10 @@ internal class CoverDownloadStatusConverter {
 }
 
 /**
- * Room type converters for [EntityKind] and [BioEntryMode] — the wire enums on [EntityEntity] /
- * [BioEntryEntity] (Story World Stage 2). Stores by declared `name`, not ordinal, matching
- * [Converters]' store-by-name discipline: resilient to a future enum-member reordering, and
- * `valueOf` throws on an unknown value rather than silently remapping it.
+ * Room type converter for [EntityKind] — the wire enum on [EntityEntity] (Story World
+ * Stage 2). Stores by declared `name`, not ordinal, matching [Converters]' store-by-name
+ * discipline: resilient to a future enum-member reordering, and `valueOf` throws on an
+ * unknown value rather than silently remapping it.
  */
 internal class EntityEnumConverters {
     @TypeConverter
@@ -184,12 +183,6 @@ internal class EntityEnumConverters {
 
     @TypeConverter
     fun toEntityKind(value: String): EntityKind = EntityKind.valueOf(value)
-
-    @TypeConverter
-    fun fromBioEntryMode(value: BioEntryMode): String = value.name
-
-    @TypeConverter
-    fun toBioEntryMode(value: String): BioEntryMode = BioEntryMode.valueOf(value)
 }
 
 /**

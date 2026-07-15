@@ -14,8 +14,7 @@ import org.koin.dsl.module
  * External dependencies (owned by other modules):
  *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
- *  - [com.calypsan.listenup.client.data.local.db.EntityDao] /
- *    [com.calypsan.listenup.client.data.local.db.BioEntryDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.db.EntityDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
  *
  * There is no online-only entity RPC surface (unlike [seriesModule]'s `mergeSeries`), so
@@ -32,7 +31,6 @@ internal val entityModule: Module =
         single<EntityEditRepository> {
             EntityEditRepositoryImpl(
                 entityDao = get(),
-                bioEntryDao = get(),
                 offlineEditor = get(),
             )
         }
