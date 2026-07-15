@@ -149,6 +149,28 @@ class CoverSearchServiceTest :
             }
         }
 
+        test("a provider without a first-class label surfaces as OTHER instead of being dropped (M4)") {
+            runTest {
+                val svc =
+                    CoverSearchService(
+                        readBook = { BookSummary("T", "A") },
+                        registry =
+                            registryOf(
+                                coverSource(MetadataProviderId.AUDNEXUS) {
+                                    AppResult.Success(listOf(CoverMeta(url = "https://audnexus/c.jpg", sourceKey = "AX1")))
+                                },
+                                coverSource(MetadataProviderId.custom("mycatalog")) {
+                                    AppResult.Success(listOf(CoverMeta(url = "https://custom/c.jpg", sourceKey = "CU1")))
+                                },
+                            ),
+                        probeDimensions = probe,
+                    )
+                val opts = (svc.searchCovers(BookId("book1"), region = null) as AppResult.Success).data
+                opts.map { it.source } shouldBe listOf(CoverOptionSource.OTHER, CoverOptionSource.OTHER)
+                opts.map { it.url } shouldBe listOf("https://audnexus/c.jpg", "https://custom/c.jpg")
+            }
+        }
+
         test("book not found is a typed failure") {
             runTest {
                 val svc =

@@ -103,11 +103,14 @@ interface ContributorSource : MetadataCapability {
 interface ChapterSource : MetadataCapability {
     /**
      * Fetches chapters for [book] in [locale]. `Success(null)` when the catalog has
-     * no chapter data; [AppResult.Failure] only on a provider error.
+     * no chapter data; [AppResult.Failure] only on a provider error. Pass [refresh] =
+     * `true` to bypass any provider-side cache — chapter lists carry a long TTL, so a
+     * refresh is the only way to pick up a corrected catalog list.
      */
     suspend fun getChapters(
         book: BookIdentity,
         locale: MetadataLocale,
+        refresh: Boolean = false,
     ): AppResult<ChapterListMeta?>
 }
 
@@ -151,6 +154,27 @@ interface GenreSource : MetadataCapability {
         book: BookIdentity,
         locale: MetadataLocale,
     ): AppResult<List<GenreMeta>?>
+}
+
+/**
+ * Fetches a book's genre *ladders* — the ordered root→leaf category paths a catalog
+ * files the book under (e.g. `["Fiction", "Science Fiction & Fantasy", "Fantasy"]`).
+ *
+ * A narrow, optional companion to [GenreSource]: [GenreSource] yields the flat genre
+ * terms every apply reconciles, while this yields the *hierarchy* that lets browsing a
+ * parent genre surface the book. Audible is the only catalog that exposes ladders, so
+ * this is its own capability rather than a method every provider must stub — the same
+ * reason contributor profiles are their own [ContributorSource].
+ */
+interface GenreLadderSource : MetadataCapability {
+    /**
+     * Fetches the root→leaf genre ladders for [book] in [locale]. `Success(null)`/empty
+     * when the catalog exposes none; [AppResult.Failure] only on a provider error.
+     */
+    suspend fun getGenreLadders(
+        book: BookIdentity,
+        locale: MetadataLocale,
+    ): AppResult<List<List<String>>?>
 }
 
 /**

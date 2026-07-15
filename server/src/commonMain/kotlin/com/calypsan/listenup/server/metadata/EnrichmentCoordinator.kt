@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata
 
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataDomain
 import com.calypsan.listenup.api.result.AppResult
@@ -22,6 +23,7 @@ import com.calypsan.listenup.server.metadata.spi.ContributorSource
 import com.calypsan.listenup.server.metadata.spi.CoverMeta
 import com.calypsan.listenup.server.metadata.spi.CoverSource
 import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
+import com.calypsan.listenup.server.metadata.spi.GenreLadderSource
 import com.calypsan.listenup.server.metadata.spi.GenreMeta
 import com.calypsan.listenup.server.metadata.spi.GenreSource
 import com.calypsan.listenup.server.metadata.spi.MetadataCapability
@@ -43,9 +45,11 @@ private val logger = loggerFor<EnrichmentCoordinator>()
  * mapped to a wire DTO.
  *
  * Every slot is resolved first-non-empty across each domain's provider chain, so a
- * field can come from one catalog and its neighbor from another. All fields are
- * empty-able: a total catalog miss yields `null` from [EnrichmentCoordinator.composeBook]
- * rather than a blank [ComposedBook].
+ * field can come from one catalog and its neighbor from another. [fieldProviders]
+ * records which catalog actually won each field, so the apply layer can stamp honest
+ * per-field provenance instead of crediting a single hardcoded provider. All fields
+ * are empty-able: a total catalog miss yields `Success(null)` from
+ * [EnrichmentCoordinator.composeBook] rather than a blank [ComposedBook].
  */
 internal data class ComposedBook(
     /** The catalog key the compose ran for, echoed from the lookup [BookIdentity]. */
@@ -60,26 +64,29 @@ internal data class ComposedBook(
     val genres: List<GenreMeta>,
     /** The first non-empty series list walking the series chain. */
     val series: List<SeriesMeta>,
+    /** The winning provider per resolved field — the source that supplied that field's value. */
+    val fieldProviders: Map<BookField, MetadataProviderId>,
 )
 
 /**
  * Composes a book's metadata across the registered providers, per the operator's
  * [EnrichmentRoutes].
  *
- * For each metadata domain it needs, the coordinator fans a lookup across every
- * registered provider that implements the domain's capability — once each, in
- * parallel, failure-contained (promoting `CoverSearchService`'s pattern: a provider
- * that errors or throws is logged and skipped, never sinking the others;
- * [CancellationException] is always re-raised). It then resolves each field
- * first-non-empty by walking that field's chain from [EnrichmentRoutes.orderFor],
- * so a lean catalog early in a chain contributes what it has and the next fills the
- * rest. Covers take the first non-blank URL (and, separately, the first non-blank
- * max-resolution URL); chapters prefer a catalog-verified list, else the first
- * non-empty one.
+ * For each metadata domain it needs, the coordinator fans a lookup across the
+ * registered providers that both implement the domain's capability *and* the operator
+ * routed to that domain ([EnrichmentRoutes.providersFor]) — once each, in parallel,
+ * failure-contained (promoting `CoverSearchService`'s pattern: a provider that errors
+ * or throws is logged and skipped, never sinking the others; [CancellationException]
+ * is always re-raised). It then resolves each field first-non-empty by walking that
+ * field's chain from [EnrichmentRoutes.orderFor], so a lean catalog early in a chain
+ * contributes what it has and the next fills the rest. Covers take the first non-blank
+ * URL (and, separately, the first non-blank max-resolution URL); chapters prefer a
+ * catalog-verified list, else the first non-empty one.
  *
- * Server-internal orchestration: it speaks neutral `*Meta` types only and never
- * fails outward — a total catalog miss is a `null` [ComposedBook], the never-strand
- * anchor for the caller.
+ * Server-internal orchestration: it speaks neutral `*Meta` types only. A total catalog
+ * miss is `Success(null)`; a run where every consulted core provider *errored* (a
+ * likely outage) is a typed [MetadataError.ExternalUnavailable] rather than a silent
+ * miss — honest over silent, the never-strand anchor for the caller.
  */
 internal class EnrichmentCoordinator(
     private val registry: MetadataProviderRegistry,
@@ -87,20 +94,42 @@ internal class EnrichmentCoordinator(
 ) {
     /**
      * Composes the full book preview for [identity] in [locale] — core fields, cover,
-     * genres, and series. Returns `null` when no provider has core metadata for the book
-     * (a catalog miss); [refresh] bypasses any provider-side cache on the core fetch.
+     * genres, and series. Returns `Success(null)` when no provider has core metadata for the
+     * book (a catalog miss), or [MetadataError.ExternalUnavailable] when every consulted core
+     * provider errored (an outage, not an honest miss); [refresh] bypasses any provider-side
+     * cache on the core fetch.
      */
     suspend fun composeBook(
         identity: BookIdentity,
         locale: MetadataLocale,
         refresh: Boolean = false,
-    ): ComposedBook? =
+    ): AppResult<ComposedBook?> =
         coroutineScope {
-            val cores =
-                fanOut(registry.capable<BookCoreSource>(), "book-core") { it.getBookCore(identity, locale, refresh) }
-            if (cores.isEmpty()) return@coroutineScope null
+            val coreOutcomes =
+                fanOutOutcomes(
+                    registry.capable<BookCoreSource>(),
+                    MetadataDomain.BOOK_CORE,
+                    "book-core",
+                ) { it.getBookCore(identity, locale, refresh) }
+            val cores = coreOutcomes.succeededValues()
+            if (cores.isEmpty()) {
+                // Distinguish an outage (every consulted provider errored) from an honest miss: if even
+                // one working provider said "not in my catalog", it's a genuine miss; only when every
+                // consulted provider failed is it an outage worth surfacing as unavailable.
+                val allFailed =
+                    coreOutcomes.values.isNotEmpty() && coreOutcomes.values.all { it is ProviderOutcome.Failed }
+                return@coroutineScope if (allFailed) {
+                    AppResult.Failure(
+                        MetadataError.ExternalUnavailable(
+                            debugInfo = "all core metadata providers failed for asin=${identity.asin}",
+                        ),
+                    )
+                } else {
+                    AppResult.Success(null)
+                }
+            }
 
-            val core = mergeCore(cores)
+            val (core, coreWinners) = mergeCore(cores)
             // Cover search is title-keyed, so it needs the resolved core's title/author; genres and
             // series are ASIN-keyed and can fan out alongside it.
             val coverIdentity =
@@ -109,34 +138,81 @@ internal class EnrichmentCoordinator(
                     primaryAuthor = core.authors.firstOrNull()?.name ?: identity.primaryAuthor,
                 )
             val covers =
-                async { fanOut(registry.capable<CoverSource>(), "cover") { it.searchCovers(coverIdentity, locale) } }
-            val genres = async { fanOut(registry.capable<GenreSource>(), "genres") { it.getGenres(identity, locale) } }
-            val series = async { fanOut(registry.capable<SeriesSource>(), "series") { it.getSeries(identity, locale) } }
+                async {
+                    fanOut(registry.capable<CoverSource>(), MetadataDomain.COVER, "cover") {
+                        it.searchCovers(coverIdentity, locale)
+                    }
+                }
+            val genres =
+                async {
+                    fanOut(registry.capable<GenreSource>(), MetadataDomain.GENRES, "genres") {
+                        it.getGenres(identity, locale)
+                    }
+                }
+            val series =
+                async {
+                    fanOut(registry.capable<SeriesSource>(), MetadataDomain.SERIES, "series") {
+                        it.getSeries(identity, locale)
+                    }
+                }
 
             val coversByProvider = covers.await()
-            ComposedBook(
-                asin = identity.asin,
-                core = core,
-                coverUrl = resolveCover(coversByProvider) { it.url },
-                coverUrlMaxSize = resolveCover(coversByProvider) { it.maxSizeUrl },
-                genres = resolveList(BookField.GENRES, genres.await()),
-                series = resolveList(BookField.SERIES, series.await()),
+            val genresByProvider = genres.await()
+            val seriesByProvider = series.await()
+            AppResult.Success(
+                ComposedBook(
+                    asin = identity.asin,
+                    core = core,
+                    coverUrl = resolveCover(coversByProvider) { it.url },
+                    coverUrlMaxSize = resolveCover(coversByProvider) { it.maxSizeUrl },
+                    genres = resolveList(BookField.GENRES, genresByProvider),
+                    series = resolveList(BookField.SERIES, seriesByProvider),
+                    fieldProviders =
+                        coreWinners +
+                            listOfNotNull(
+                                coverWinner(coversByProvider)?.let { BookField.COVER to it },
+                                listWinner(BookField.GENRES, genresByProvider)?.let { BookField.GENRES to it },
+                                listWinner(BookField.SERIES, seriesByProvider)?.let { BookField.SERIES to it },
+                            ),
+                ),
             )
         }
 
     /**
      * Composes the chapter list for [identity] in [locale], preferring a catalog-verified
      * ([ChapterListMeta.accurate]) list over a heuristic one, else the first non-empty list.
-     * Returns `null` when no provider has chapters.
+     * Returns `null` when no provider has chapters. [refresh] bypasses any provider-side cache
+     * on the chapter fetch, so a stale (long-TTL) list can be forced fresh.
      */
     suspend fun composeChapters(
         identity: BookIdentity,
         locale: MetadataLocale,
+        refresh: Boolean = false,
     ): ChapterListMeta? {
-        val byProvider = fanOut(registry.capable<ChapterSource>(), "chapters") { it.getChapters(identity, locale) }
+        val byProvider =
+            fanOut(registry.capable<ChapterSource>(), MetadataDomain.CHAPTERS, "chapters") {
+                it.getChapters(identity, locale, refresh)
+            }
         val order = routes.orderFor(BookField.CHAPTERS)
         return order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.accurate } }
             ?: order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.chapters.isNotEmpty() } }
+    }
+
+    /**
+     * Composes the root→leaf genre ladders for [identity] in [locale] — the first non-empty
+     * set walking the GENRES provider order. Ladders drive the genre-hierarchy links on apply;
+     * only a [GenreLadderSource] (Audible today) contributes, so a catalog with flat genres but
+     * no hierarchy contributes nothing. Each source is failure-contained; a total miss is empty.
+     */
+    suspend fun composeGenreLadders(
+        identity: BookIdentity,
+        locale: MetadataLocale,
+    ): List<List<String>> {
+        val byProvider =
+            fanOut(registry.capable<GenreLadderSource>(), MetadataDomain.GENRES, "genre-ladders") {
+                it.getGenreLadders(identity, locale)
+            }
+        return resolveList(BookField.GENRES, byProvider)
     }
 
     /**
@@ -155,7 +231,9 @@ internal class EnrichmentCoordinator(
         locale: MetadataLocale,
     ): List<CharacterMeta> {
         val byProvider =
-            fanOut(registry.capable<CharacterSource>(), "characters") { it.getCharacters(identity, locale) }
+            fanOut(registry.capable<CharacterSource>(), MetadataDomain.CHARACTERS, "characters") {
+                it.getCharacters(identity, locale)
+            }
         val order = routes.domainOrder.getValue(MetadataDomain.CHARACTERS)
         return order.firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.isNotEmpty() } } ?: emptyList()
     }
@@ -170,7 +248,7 @@ internal class EnrichmentCoordinator(
         locale: MetadataLocale,
     ): List<ContributorHitMeta> {
         val byProvider =
-            fanOut(registry.capable<ContributorSource>(), "contributor-search") {
+            fanOut(registry.capable<ContributorSource>(), MetadataDomain.CONTRIBUTORS, "contributor-search") {
                 it.searchContributors(name, locale).map { hits -> hits.ifEmpty { null } }
             }
         return contributorOrder().firstNotNullOfOrNull { byProvider[it] } ?: emptyList()
@@ -187,7 +265,7 @@ internal class EnrichmentCoordinator(
         refresh: Boolean = false,
     ): ContributorMeta? {
         val byProvider =
-            fanOut(registry.capable<ContributorSource>(), "contributor-profile") {
+            fanOut(registry.capable<ContributorSource>(), MetadataDomain.CONTRIBUTORS, "contributor-profile") {
                 it.getContributor(key, locale, refresh)
             }
         return contributorOrder().firstNotNullOfOrNull { byProvider[it] }
@@ -214,8 +292,9 @@ internal class EnrichmentCoordinator(
         val candidates =
             coroutineScope {
                 orderedIdentitySources()
-                    .map { source -> async { contained(source.id, "search") { source.searchBooks(query, locale) } } }
-                    .awaitAll()
+                    .map { source ->
+                        async { contained(source.id, "search") { source.searchBooks(query, locale) }.valueOrNull() }
+                    }.awaitAll()
                     .filterNotNull()
                     .flatten()
             }
@@ -230,35 +309,44 @@ internal class EnrichmentCoordinator(
         }
     }
 
-    /** Merges each core field first-non-empty across its chain; unresolved fields stay `null`/empty. */
-    private fun mergeCore(cores: Map<MetadataProviderId, BookCoreMeta>): BookCoreMeta {
+    /** Merges each core field first-non-empty across its chain, recording the winning provider per field. */
+    private fun mergeCore(
+        cores: Map<MetadataProviderId, BookCoreMeta>,
+    ): Pair<BookCoreMeta, Map<BookField, MetadataProviderId>> {
+        val winners = mutableMapOf<BookField, MetadataProviderId>()
+
         fun str(
             field: BookField,
             select: (BookCoreMeta) -> String?,
-        ): String? =
-            routes.orderFor(field).firstNotNullOfOrNull { id ->
-                cores[id]?.let(select)?.takeIf(String::isNotBlank)
-            }
+        ): String? {
+            val id = routes.orderFor(field).firstOrNull { cores[it]?.let(select)?.isNotBlank() == true }
+            id?.let { winners[field] = it }
+            return id?.let { cores.getValue(it).let(select) }
+        }
 
         fun credits(
             field: BookField,
             select: (BookCoreMeta) -> List<BookContributorMeta>,
-        ): List<BookContributorMeta> =
-            routes.orderFor(field).firstNotNullOfOrNull { id -> cores[id]?.let(select)?.takeIf { it.isNotEmpty() } }
-                ?: emptyList()
+        ): List<BookContributorMeta> {
+            val id = routes.orderFor(field).firstOrNull { cores[it]?.let(select)?.isNotEmpty() == true }
+            id?.let { winners[field] = it }
+            return id?.let { cores.getValue(it).let(select) } ?: emptyList()
+        }
 
         val coreOrder = routes.domainOrder.getValue(MetadataDomain.BOOK_CORE)
-        return BookCoreMeta(
-            title = str(BookField.TITLE) { it.title },
-            subtitle = str(BookField.SUBTITLE) { it.subtitle },
-            description = str(BookField.DESCRIPTION) { it.description },
-            publisher = str(BookField.PUBLISHER) { it.publisher },
-            releaseDate = str(BookField.PUBLISH_YEAR) { it.releaseDate },
-            language = str(BookField.LANGUAGE) { it.language },
-            runtimeMinutes = coreOrder.firstNotNullOfOrNull { cores[it]?.runtimeMinutes?.takeIf { m -> m > 0 } },
-            authors = credits(BookField.AUTHORS) { it.authors },
-            narrators = credits(BookField.NARRATORS) { it.narrators },
-        )
+        val meta =
+            BookCoreMeta(
+                title = str(BookField.TITLE) { it.title },
+                subtitle = str(BookField.SUBTITLE) { it.subtitle },
+                description = str(BookField.DESCRIPTION) { it.description },
+                publisher = str(BookField.PUBLISHER) { it.publisher },
+                releaseDate = str(BookField.PUBLISH_YEAR) { it.releaseDate },
+                language = str(BookField.LANGUAGE) { it.language },
+                runtimeMinutes = coreOrder.firstNotNullOfOrNull { cores[it]?.runtimeMinutes?.takeIf { m -> m > 0 } },
+                authors = credits(BookField.AUTHORS) { it.authors },
+                narrators = credits(BookField.NARRATORS) { it.narrators },
+            )
+        return meta to winners
     }
 
     /** The first non-blank cover URL (selected by [pick]) walking the cover chain. */
@@ -270,6 +358,12 @@ internal class EnrichmentCoordinator(
             covers[id]?.firstNotNullOfOrNull { pick(it)?.takeIf(String::isNotBlank) }
         }
 
+    /** The provider whose covers supply the first non-blank primary URL walking the cover chain. */
+    private fun coverWinner(covers: Map<MetadataProviderId, List<CoverMeta>>): MetadataProviderId? =
+        routes.orderFor(BookField.COVER).firstOrNull { id ->
+            covers[id]?.any { it.url.isNotBlank() } == true
+        }
+
     /** The first non-empty list walking [field]'s chain, else empty. */
     private fun <T> resolveList(
         field: BookField,
@@ -278,41 +372,91 @@ internal class EnrichmentCoordinator(
         routes.orderFor(field).firstNotNullOfOrNull { byProvider[it]?.takeIf { list -> list.isNotEmpty() } }
             ?: emptyList()
 
-    /** Fetches [block] from every [providers] entry once, in parallel and contained, keyed by id. */
+    /** The provider whose list wins [field] (first non-empty walking the chain), or `null`. */
+    private fun <T> listWinner(
+        field: BookField,
+        byProvider: Map<MetadataProviderId, List<T>>,
+    ): MetadataProviderId? = routes.orderFor(field).firstOrNull { byProvider[it]?.isNotEmpty() == true }
+
+    /**
+     * Fetches [block] from every routed [providers] entry once, in parallel and contained, keyed
+     * by id — keeping only the providers the operator routed to [domain]. Returns the succeeded,
+     * non-empty values; failures and honest misses drop out.
+     */
     private suspend fun <C : MetadataCapability, T : Any> fanOut(
         providers: List<C>,
+        domain: MetadataDomain,
         label: String,
         block: suspend (C) -> AppResult<T?>,
-    ): Map<MetadataProviderId, T> =
-        coroutineScope {
+    ): Map<MetadataProviderId, T> = fanOutOutcomes(providers, domain, label, block).succeededValues()
+
+    /**
+     * Like [fanOut] but preserves each routed provider's [ProviderOutcome] so a caller can tell a
+     * real failure (outage) apart from an honest empty — the distinction [composeBook] needs to
+     * return [MetadataError.ExternalUnavailable] instead of a silent miss.
+     */
+    private suspend fun <C : MetadataCapability, T : Any> fanOutOutcomes(
+        providers: List<C>,
+        domain: MetadataDomain,
+        label: String,
+        block: suspend (C) -> AppResult<T?>,
+    ): Map<MetadataProviderId, ProviderOutcome<T>> {
+        val allowed = routes.providersFor(domain)
+        return coroutineScope {
             providers
+                .filter { it.id in allowed }
                 .map { provider -> async { provider.id to contained(provider.id, label) { block(provider) } } }
                 .awaitAll()
-                .mapNotNull { (id, value) -> value?.let { id to it } }
                 .toMap()
         }
+    }
 
-    /** Runs [block], turning a typed failure or a thrown fault into `null` (logged); re-raises cancellation. */
+    /** The succeeded, non-empty values from an outcome map — failures and honest misses drop out. */
+    private fun <T> Map<MetadataProviderId, ProviderOutcome<T>>.succeededValues(): Map<MetadataProviderId, T> =
+        mapNotNull { (id, outcome) -> if (outcome is ProviderOutcome.Value) id to outcome.value else null }.toMap()
+
+    /** The provider's value if it succeeded with data, else `null` (honest miss or failure). */
+    private fun <T> ProviderOutcome<T>.valueOrNull(): T? = if (this is ProviderOutcome.Value) value else null
+
+    /**
+     * Runs [block], classifying the result: a value (present), an honest empty ([AppResult.Success]
+     * of `null`), or a failure (typed [AppResult.Failure] or a thrown fault — both logged, cancellation
+     * re-raised). Keeping "failed" distinct from "empty" is what lets [composeBook] surface an outage.
+     */
     private suspend fun <T> contained(
         id: MetadataProviderId,
         label: String,
         block: suspend () -> AppResult<T?>,
-    ): T? =
+    ): ProviderOutcome<T> =
         try {
             when (val result = block()) {
                 is AppResult.Success -> {
-                    result.data
+                    result.data?.let { ProviderOutcome.Value(it) } ?: ProviderOutcome.Empty
                 }
 
                 is AppResult.Failure -> {
                     logger.warn { "enrichment: $label from ${id.value} failed (${result.error.code}) — skipping" }
-                    null
+                    ProviderOutcome.Failed
                 }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.warn(e) { "enrichment: $label from ${id.value} threw — skipping" }
-            null
+            ProviderOutcome.Failed
         }
+
+    /** The classified result of one contained provider call — value, honest empty, or failure. */
+    private sealed interface ProviderOutcome<out T> {
+        /** The provider returned data. */
+        data class Value<T>(
+            val value: T,
+        ) : ProviderOutcome<T>
+
+        /** The provider succeeded but has nothing for this book — a normal miss. */
+        data object Empty : ProviderOutcome<Nothing>
+
+        /** The provider errored or threw — a real failure, not a miss. */
+        data object Failed : ProviderOutcome<Nothing>
+    }
 }

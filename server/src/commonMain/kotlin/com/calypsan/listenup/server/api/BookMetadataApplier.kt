@@ -6,10 +6,10 @@ import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
 import com.calypsan.listenup.api.error.MetadataError
-import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
@@ -29,6 +30,22 @@ import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 
 private val log = loggerFor<BookMetadataApplier>()
+
+/**
+ * A composed metadata match ready to apply: the provider-neutral wire [book] plus the
+ * per-field [fieldProviders] map recording which catalog actually won each field.
+ *
+ * The apply layer stays source-agnostic (it consumes the wire [MetadataBook], never a
+ * catalog-internal type), while [fieldProviders] lets it stamp honest per-field
+ * provenance — the field whose winning value came from iTunes records `itunes`, not a
+ * blanket `audible`.
+ */
+internal data class MetadataMatch(
+    /** The composed match projected onto the wire DTO. */
+    val book: MetadataBook,
+    /** The winning provider per resolved field, from the enrichment compose. */
+    val fieldProviders: Map<BookField, MetadataProviderId>,
+)
 
 /**
  * Applies a chosen Audible match to an existing book aggregate, honoring a per-field
@@ -66,17 +83,17 @@ internal class BookMetadataApplier(
     private val seriesRepository: SeriesRepository,
     private val imageStorage: ImageStorage,
     private val coverImageStore: CoverImageStore,
-    private val matchSource: suspend (asin: String, region: AudibleRegion) -> AppResult<MetadataBook?>,
+    private val matchSource: suspend (asin: String, locale: MetadataLocale) -> AppResult<MetadataMatch?>,
     private val enrichmentProvider: String,
     private val genreHierarchy: GenreHierarchyFromLadder,
     private val sqlDb: ListenUpDatabase,
-    private val ladderSource: suspend (region: AudibleRegion, asin: String) -> List<List<String>>,
+    private val ladderSource: suspend (locale: MetadataLocale, asin: String) -> List<List<String>>,
     private val enrichmentDeps: MetadataEnrichmentDeps,
 ) {
     suspend fun apply(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        locale: MetadataLocale,
         selection: MetadataApplySelection,
     ): AppResult<Unit> {
         val existing =
@@ -85,15 +102,16 @@ internal class BookMetadataApplier(
                     MetadataError.NotFound(debugInfo = "Book ${bookId.value} not found in the database."),
                 )
 
-        return matchSource(asin, region).flatMap { match ->
-            if (match == null) {
+        return matchSource(asin, locale).flatMap { matched ->
+            if (matched == null) {
                 return@flatMap AppResult.Failure(
-                    MetadataError.NotFound(debugInfo = "No metadata for ASIN $asin in region $region."),
+                    MetadataError.NotFound(debugInfo = "No metadata for ASIN $asin in region ${locale.region}."),
                 )
             }
+            val match = matched.book
 
             applyGenresBestEffort(bookId, asin, selection)
-            applyGenreHierarchyBestEffort(bookId, asin, region, selection)
+            applyGenreHierarchyBestEffort(bookId, asin, locale, selection)
             applyEnrichmentBestEffort(bookId, asin, selection)
 
             val updated =
@@ -109,11 +127,12 @@ internal class BookMetadataApplier(
                     series = mergeSeries(existing.series, match, selection),
                     // Stamp ENRICHMENT provenance for every field this apply overwrites so a later
                     // rescan preserves the enriched value instead of reverting it to file-derived data
-                    // (A7 — done honestly now: the field records ENRICHMENT/provider, not a fake USER).
+                    // (A7 — done honestly now: the field records ENRICHMENT/the actual winning provider,
+                    // not a fake USER and not a blanket "audible" when another catalog won the field).
                     fieldProvenance =
                         existing.fieldProvenance.stampEnrichment(
                             enrichedFields(selection),
-                            enrichmentProvider,
+                            matched.fieldProviders,
                         ),
                 )
 
@@ -261,12 +280,12 @@ internal class BookMetadataApplier(
     private suspend fun applyGenreHierarchyBestEffort(
         bookId: BookId,
         asin: String,
-        region: AudibleRegion,
+        locale: MetadataLocale,
         selection: MetadataApplySelection,
     ) {
         if (selection.genres.isEmpty()) return
         try {
-            val ladders = ladderSource(region, asin)
+            val ladders = ladderSource(locale, asin)
             if (ladders.isEmpty()) return
 
             for (ladder in ladders) {
@@ -350,18 +369,26 @@ internal class BookMetadataApplier(
     private fun parseYear(releaseDate: String?): Int? = releaseDate?.take(YEAR_DIGITS)?.toIntOrNull()
 
     /**
-     * Overlays [FieldSourceKind.ENRICHMENT] provenance (with the applying [provider]) for [fields] onto
-     * this map, stamped at the current wall clock. Out-ranks a scan, so a rescan preserves the enriched
-     * value; the max-tier union in `BookRepository` makes it sticky.
+     * Overlays [FieldSourceKind.ENRICHMENT] provenance for [fields] onto this map, stamped at the
+     * current wall clock, crediting each field's *actual winning* provider from [fieldProviders]
+     * (the compose knows which catalog supplied each field). A field the compose did not attribute
+     * — e.g. a selected-but-unresolved field — falls back to [enrichmentProvider]. Out-ranks a scan,
+     * so a rescan preserves the enriched value; the max-tier union in `BookRepository` makes it sticky.
      */
     private fun Map<BookField, FieldProvenance>.stampEnrichment(
         fields: Set<BookField>,
-        provider: String,
+        fieldProviders: Map<BookField, MetadataProviderId>,
     ): Map<BookField, FieldProvenance> {
         if (fields.isEmpty()) return this
         val now = currentEpochMilliseconds()
         return this +
-            fields.associateWith { FieldProvenance(FieldSourceKind.ENRICHMENT, provider = provider, at = now) }
+            fields.associateWith { field ->
+                FieldProvenance(
+                    FieldSourceKind.ENRICHMENT,
+                    provider = fieldProviders[field]?.value ?: enrichmentProvider,
+                    at = now,
+                )
+            }
     }
 
     private companion object {

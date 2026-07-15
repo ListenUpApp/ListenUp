@@ -9,6 +9,7 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.io.readEnv
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.audible.AudibleApi
@@ -87,6 +88,8 @@ import org.koin.dsl.module
  *   works on a library-less boot.
  */
 private const val METADATA_HTTP_CLIENT = "metadataHttpClient"
+
+private val metadataModuleLogger = loggerFor<EnrichmentRoutes>()
 
 fun metadataModule(imageHome: Path): Module =
     module {
@@ -171,7 +174,7 @@ fun metadataModule(imageHome: Path): Module =
             )
         }
 
-        single { EnrichmentCoordinator(registry = get(), routes = get()) }
+        single { enrichmentCoordinator() }
 
         single {
             val bookRepository = get<BookRepository>()
@@ -285,6 +288,24 @@ private fun Scope.customProviders(): List<CustomHttpProvider> =
                 ),
         )
     }
+
+/**
+ * Builds the [EnrichmentCoordinator] over the registry and configured routes, warning at boot for any
+ * route that names a `custom:<name>` provider with no matching declaration in `LISTENUP_CUSTOM_PROVIDERS`
+ * (a typo silently resolves to nothing) — a registry-aware check the parser can't do on its own. Never
+ * fails: a mis-routed custom token is a warning, not a boot error.
+ */
+private fun Scope.enrichmentCoordinator(): EnrichmentCoordinator {
+    val routes = get<EnrichmentRoutes>()
+    val registry = get<MetadataProviderRegistry>()
+    routes.unresolvedCustomProviders(registry.byId.keys).forEach { id ->
+        metadataModuleLogger.warn {
+            "Enrichment route names custom provider '${id.value}', but no such provider is " +
+                "declared in LISTENUP_CUSTOM_PROVIDERS — routes to it resolve to nothing."
+        }
+    }
+    return EnrichmentCoordinator(registry = registry, routes = routes)
+}
 
 private fun Scope.audnexusApi(): AudnexusApi =
     AudnexusClient(

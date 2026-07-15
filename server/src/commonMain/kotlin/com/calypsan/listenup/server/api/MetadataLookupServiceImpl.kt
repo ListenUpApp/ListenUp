@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.metadata.ComposedBook
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
@@ -131,7 +132,7 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getBookMetadata(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataBook?> = AppResult.Success(composeMetadataBook(asin, region))
+    ): AppResult<MetadataBook?> = composeBook(asin, region).map { it?.toMetadataBook() }
 
     override suspend fun getBookChapters(
         asin: String,
@@ -164,15 +165,20 @@ internal class MetadataLookupServiceImpl(
         region: MetadataLocale,
     ): AppResult<MetadataBook?> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return AppResult.Success(composeMetadataBook(asin, region, refresh = true))
+        return composeBook(asin, region, refresh = true).map { it?.toMetadataBook() }
     }
 
-    /** Composes and projects the ASIN-keyed book preview; `null` when no catalog has the book. */
-    private suspend fun composeMetadataBook(
+    /**
+     * Composes the ASIN-keyed book preview across the provider registry. `Success(null)` when no
+     * catalog has the book (an honest miss); a typed [MetadataError.ExternalUnavailable] when every
+     * consulted core provider errored (an outage), so the caller shows "service unavailable" rather
+     * than "no match found".
+     */
+    private suspend fun composeBook(
         asin: String,
         locale: MetadataLocale,
         refresh: Boolean = false,
-    ): MetadataBook? = coordinator.composeBook(bookIdentity(asin), locale, refresh)?.toMetadataBook()
+    ): AppResult<ComposedBook?> = coordinator.composeBook(bookIdentity(asin), locale, refresh)
 
     /**
      * The lookup key for an ASIN-keyed compose. The title is unknown at this point — the coordinator
@@ -194,18 +200,17 @@ internal class MetadataLookupServiceImpl(
             seriesRepository = seriesRepository,
             imageStorage = imageDeps.imageStorage,
             coverImageStore = imageDeps.coverImageStore,
-            matchSource = { a, r -> AppResult.Success(composeMetadataBook(a, MetadataLocale(r.code))) },
+            matchSource = { a, locale ->
+                composeBook(a, locale).map { composed ->
+                    composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
+                }
+            },
             enrichmentProvider = MetadataProviderId.AUDIBLE.value,
             genreHierarchy = GenreHierarchyFromLadder(sqlDb, genreRepository, genreAutoCreator),
             sqlDb = sqlDb,
-            ladderSource = { r, a ->
-                when (val book = metadataService.getBook(r, a)) {
-                    is AppResult.Success -> book.data?.genreLadders.orEmpty()
-                    is AppResult.Failure -> emptyList()
-                }
-            },
+            ladderSource = { locale, a -> coordinator.composeGenreLadders(bookIdentity(a), locale) },
             enrichmentDeps = enrichmentDeps,
-        ).apply(bookId, asin, region.toAudibleRegion(), selection)
+        ).apply(bookId, asin, region, selection)
     }
 
     override suspend fun applyChapterNames(
