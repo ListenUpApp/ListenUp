@@ -122,7 +122,6 @@ class ContributorDetailViewModelTest :
                 name = name,
                 description = description,
                 imagePath = null,
-                imageBlurHash = null,
                 website = null,
                 birthDate = null,
                 deathDate = null,

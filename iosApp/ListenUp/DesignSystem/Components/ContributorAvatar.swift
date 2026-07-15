@@ -7,8 +7,7 @@ import UIKit
 ///
 /// Display priority:
 /// 1. Local file image (if imagePath exists and is valid)
-/// 2. BlurHash placeholder (if blurHash exists)
-/// 3. Colored circle with initials derived from name
+/// 2. Colored circle with initials derived from name
 ///
 /// The fallback color is deterministically generated from the ID for consistency.
 ///
@@ -17,7 +16,6 @@ import UIKit
 /// ContributorAvatar(
 ///     name: "Brandon Sanderson",
 ///     imagePath: contributor.imagePath,
-///     blurHash: contributor.imageBlurHash,
 ///     id: contributorId
 /// )
 /// .frame(width: 48, height: 48)
@@ -25,7 +23,6 @@ import UIKit
 struct ContributorAvatar: View {
     let name: String
     let imagePath: String?
-    let blurHash: String?
     let id: String
 
     /// Font size for initials (auto-calculated based on frame if not specified)
@@ -41,7 +38,6 @@ struct ContributorAvatar: View {
     init(contributor: Contributor, fontSize: CGFloat = 16) {
         self.name = contributor.name
         self.imagePath = contributor.imagePath
-        self.blurHash = contributor.imageBlurHash
         self.id = contributor.idString
         self.initialsFontSize = fontSize
         self.streamsContributorPhoto = true
@@ -52,14 +48,12 @@ struct ContributorAvatar: View {
     init(
         name: String,
         imagePath: String?,
-        blurHash: String? = nil,
         id: String,
         fontSize: CGFloat = 16,
         streamsContributorPhoto: Bool = false
     ) {
         self.name = name
         self.imagePath = imagePath
-        self.blurHash = blurHash
         self.id = id
         self.initialsFontSize = fontSize
         self.streamsContributorPhoto = streamsContributorPhoto
@@ -68,8 +62,8 @@ struct ContributorAvatar: View {
     /// The on-disk avatar, read + decoded OFF the main thread by [loadImage]. Reading/decoding
     /// a file image synchronously in `body` (as this view used to) blocks the main thread on
     /// every render for every visible row, which freezes the app during a fast Contributors
-    /// scroll — the same hazard that froze the cover grid. Until it loads, the BlurHash or
-    /// initials fallback shows.
+    /// scroll — the same hazard that froze the cover grid. Until it loads, the initials
+    /// fallback shows.
     @State private var fileImage: UIImage?
 
     var body: some View {
@@ -82,16 +76,13 @@ struct ContributorAvatar: View {
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .clipShape(Circle())
-            } else if let blurHash {
-                BlurHashView(blurHash: blurHash)
-                    .clipShape(Circle())
             } else {
                 Text(initials)
                     .font(.system(size: initialsFontSize, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
             }
 
-            // Streamed contributor photo, layered over the BlurHash/initials placeholder. Nuke
+            // Streamed contributor photo, layered over the initials placeholder. Nuke
             // owns the off-main decode + caching (scroll-safe, like the cover grid).
             if streamsContributorPhoto {
                 ContributorPhotoLayer(contributorId: id, imagePath: imagePath)
@@ -141,7 +132,7 @@ struct ContributorAvatar: View {
 /// Streams a contributor's photo (durable local file → authenticated server URL) via Nuke,
 /// fading in over whatever placeholder [ContributorAvatar] draws beneath it. Building the request
 /// also lazily persists the photo to disk for offline use. Transparent until the image resolves,
-/// so the BlurHash/initials placeholder shows through.
+/// so the initials placeholder shows through.
 private struct ContributorPhotoLayer: View {
     let contributorId: String
     /// The contributor's content-addressed image path. Folded into the cache key and the task id so

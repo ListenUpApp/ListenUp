@@ -41,7 +41,6 @@ data class ActiveSession(
         val title: String,
         val coverPath: String?,
         val coverHash: String? = null,
-        val coverBlurHash: String?,
         val authorName: String?,
     )
 }

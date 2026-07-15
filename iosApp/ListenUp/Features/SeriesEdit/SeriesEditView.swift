@@ -29,7 +29,7 @@ struct SeriesEditView: View {
                             onPicked: { observer.onCoverSelected($0) },
                             onRemove: { observer.onCoverRemoved() }
                         ) {
-                            BookCoverImage(coverPath: observer.displayCoverPath, blurHash: nil)
+                            BookCoverImage(coverPath: observer.displayCoverPath)
                         }
                         .padding(.top, 8)
 

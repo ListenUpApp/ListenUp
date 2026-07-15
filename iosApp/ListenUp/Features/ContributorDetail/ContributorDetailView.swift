@@ -152,7 +152,6 @@ struct ContributorDetailView: View {
             ContributorAvatar(
                 name: observer.name,
                 imagePath: observer.imagePath,
-                blurHash: observer.imageBlurHash,
                 id: contributorId,
                 fontSize: 40,
                 streamsContributorPhoto: true

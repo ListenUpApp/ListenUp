@@ -134,7 +134,7 @@ struct MiniPlayerBar: View {
     }
 
     private var cover: some View {
-        BookCoverImage(bookId: observer.currentBookId, coverPath: observer.coverPath, blurHash: observer.coverBlurHash)
+        BookCoverImage(bookId: observer.currentBookId, coverPath: observer.coverPath)
             .frame(width: 40, height: 40)
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
             .matchedGeometryEffect(id: PlayerMorph.coverID, in: namespace)

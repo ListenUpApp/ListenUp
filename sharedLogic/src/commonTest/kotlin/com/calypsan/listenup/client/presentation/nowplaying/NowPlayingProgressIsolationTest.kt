@@ -51,7 +51,6 @@ class NowPlayingProgressIsolationTest :
                 narrators = listOf(BookContributor(id = "narrator-1", name = "Test Narrator", roles = listOf("Narrator"))),
                 duration = 200_000L,
                 coverPath = "/covers/sample.jpg",
-                coverBlurHash = "L6PZfSi_.AyE_3t7t7R**0o#DgR4",
                 addedAt = Timestamp(epochMillis = 1_704_067_200_000L),
                 updatedAt = Timestamp(epochMillis = 1_704_067_200_000L),
             )

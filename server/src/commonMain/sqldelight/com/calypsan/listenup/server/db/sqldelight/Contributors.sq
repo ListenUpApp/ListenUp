@@ -2,8 +2,9 @@
 -- Effective schema is the union of:
 --   V5__books_contributors.sql   (id, normalized_name, name, sort_name)
 --   V13__contributors_syncable.sql (revision, created_at, updated_at, deleted_at, client_op_id)
---   V18__b2a_substrate.sql       (asin, description, image_path, image_blur_hash,
+--   V18__b2a_substrate.sql       (asin, description, image_path,
 --                                 birth_date, death_date, website)
+--   V53__drop_blurhash_columns.sql (drops the dormant image_blur_hash column)
 --
 -- revision / created_at / updated_at are declared NOT NULL here so the generated
 -- column types are non-null `Long` — every live row carries them (V13 backfills the
@@ -29,7 +30,6 @@ CREATE TABLE contributors (
     asin            TEXT,
     description     TEXT,
     image_path      TEXT,
-    image_blur_hash TEXT,
     birth_date      TEXT,
     death_date      TEXT,
     website         TEXT
@@ -76,11 +76,11 @@ SELECT id FROM contributors WHERE deleted_at IS NULL;
 insert:
 INSERT INTO contributors (
     id, normalized_name, name, sort_name, revision, created_at, updated_at,
-    deleted_at, client_op_id, asin, description, image_path, image_blur_hash,
+    deleted_at, client_op_id, asin, description, image_path,
     birth_date, death_date, website
 ) VALUES (
     :id, :normalized_name, :name, :sort_name, :revision, :created_at, :updated_at,
-    :deleted_at, :client_op_id, :asin, :description, :image_path, :image_blur_hash,
+    :deleted_at, :client_op_id, :asin, :description, :image_path,
     :birth_date, :death_date, :website
 );
 
@@ -89,7 +89,7 @@ INSERT INTO contributors (
 update:
 UPDATE contributors
 SET name = :name, sort_name = :sort_name, asin = :asin, description = :description,
-    image_path = :image_path, image_blur_hash = :image_blur_hash, birth_date = :birth_date,
+    image_path = :image_path, birth_date = :birth_date,
     death_date = :death_date, website = :website, revision = :revision,
     updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
 WHERE id = :id;

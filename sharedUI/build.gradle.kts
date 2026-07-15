@@ -175,8 +175,6 @@ kotlin {
             // Window (foldable posture awareness)
             implementation(libs.androidx.window)
 
-            // BlurHash for image placeholders
-
             // kotlinx-io: wrap a SAF OutputStream as a RawSink to stream backup downloads to disk
             implementation(libs.kotlinx.io.core)
         }

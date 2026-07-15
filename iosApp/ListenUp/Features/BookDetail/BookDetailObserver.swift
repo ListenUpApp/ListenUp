@@ -25,7 +25,6 @@ struct CollectionRow: Identifiable, Equatable {
 struct BookDetailHeaderModel: Equatable {
     let coverBookId: String
     let coverPath: String?
-    let coverBlurHash: String?
     let seriesId: String?
 }
 
@@ -331,7 +330,6 @@ final class BookDetailObserver {
         header = BookDetailHeaderModel(
             coverBookId: book.idString,
             coverPath: book.coverPath,
-            coverBlurHash: book.coverBlurHash,
             seriesId: book.seriesId
         )
         audioFormat = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail

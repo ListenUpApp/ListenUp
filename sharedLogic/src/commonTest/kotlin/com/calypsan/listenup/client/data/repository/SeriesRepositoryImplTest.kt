@@ -120,7 +120,6 @@ class SeriesRepositoryImplTest :
                 sortTitle = title,
                 subtitle = null,
                 coverHash = null,
-                coverBlurHash = null,
                 totalDuration = 1_000L,
                 description = null,
                 publishYear = null,
@@ -918,7 +917,6 @@ class SeriesRepositoryImplTest :
                         name = "Stormlight Archive",
                         description = null,
                         coverPath = ".listenup-meta/series/stormlight.jpg",
-                        coverBlurHash = null,
                         asin = null,
                         createdAt = Timestamp(1000L),
                         updatedAt = Timestamp(1000L),
@@ -931,12 +929,11 @@ class SeriesRepositoryImplTest :
 
                 result.shouldNotBeNull()
                 result.coverPath shouldBe ".listenup-meta/series/stormlight.jpg"
-                result.coverBlurHash shouldBe null
                 result.asin shouldBe null
             }
         }
 
-        test("toDomain carries coverBlurHash and asin through entity→domain boundary") {
+        test("toDomain carries asin through entity→domain boundary") {
             runTest {
                 val entity =
                     SeriesEntity(
@@ -946,7 +943,6 @@ class SeriesRepositoryImplTest :
                         name = "Mistborn",
                         description = "Ash falls from the sky.",
                         coverPath = ".listenup-meta/series/mistborn.jpg",
-                        coverBlurHash = "L6Pj0^jE.AyE_3t7t7R**0o#DgR4",
                         asin = "B017V4IM1G",
                         createdAt = Timestamp(2000L),
                         updatedAt = Timestamp(2000L),
@@ -959,7 +955,6 @@ class SeriesRepositoryImplTest :
 
                 result.shouldNotBeNull()
                 result.coverPath shouldBe ".listenup-meta/series/mistborn.jpg"
-                result.coverBlurHash shouldBe "L6Pj0^jE.AyE_3t7t7R**0o#DgR4"
                 result.asin shouldBe "B017V4IM1G"
             }
         }
@@ -974,7 +969,6 @@ class SeriesRepositoryImplTest :
                         name = "Bare Series",
                         description = null,
                         coverPath = null,
-                        coverBlurHash = null,
                         asin = null,
                         createdAt = Timestamp(1000L),
                         updatedAt = Timestamp(1000L),
@@ -987,7 +981,6 @@ class SeriesRepositoryImplTest :
 
                 result.shouldNotBeNull()
                 result.coverPath shouldBe null
-                result.coverBlurHash shouldBe null
                 result.asin shouldBe null
             }
         }

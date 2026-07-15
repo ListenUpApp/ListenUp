@@ -426,7 +426,6 @@ private fun seedAuthor(
             asin = null,
             description = null,
             image_path = null,
-            image_blur_hash = null,
             birth_date = null,
             death_date = null,
             website = null,

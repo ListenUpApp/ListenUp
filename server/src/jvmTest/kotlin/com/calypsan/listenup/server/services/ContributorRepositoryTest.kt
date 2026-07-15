@@ -139,7 +139,6 @@ class ContributorRepositoryTest :
                             asin = "B0ASIN",
                             description = "A described author.",
                             imagePath = "images/enriched.jpg",
-                            imageBlurHash = "LKO2",
                             birthDate = "1975-12-19",
                             deathDate = null,
                             website = "https://example.com",
@@ -150,7 +149,6 @@ class ContributorRepositoryTest :
                     read.asin shouldBe "B0ASIN"
                     read.description shouldBe "A described author."
                     read.imagePath shouldBe "images/enriched.jpg"
-                    read.imageBlurHash shouldBe "LKO2"
                     read.birthDate shouldBe "1975-12-19"
                     read.deathDate.shouldBeNull()
                     read.website shouldBe "https://example.com"

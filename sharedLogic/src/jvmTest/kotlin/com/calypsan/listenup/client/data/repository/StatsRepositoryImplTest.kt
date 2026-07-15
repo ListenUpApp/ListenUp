@@ -449,7 +449,6 @@ private fun seedBook(id: String): BookEntity =
         sortTitle = null,
         subtitle = null,
         coverHash = null,
-        coverBlurHash = null,
         totalDuration = 0L,
         description = null,
         publishYear = null,

@@ -19,13 +19,11 @@ public struct AudiobookActivityAttributes: ActivityAttributes {
     public let bookId: String
     public let bookTitle: String
     public let authorName: String
-    public let coverBlurHash: String?
 
-    public init(bookId: String, bookTitle: String, authorName: String, coverBlurHash: String?) {
+    public init(bookId: String, bookTitle: String, authorName: String) {
         self.bookId = bookId
         self.bookTitle = bookTitle
         self.authorName = authorName
-        self.coverBlurHash = coverBlurHash
     }
 
     /// Dynamic data — pushed on discrete playback events.

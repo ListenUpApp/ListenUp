@@ -67,7 +67,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// hides the "Narrated by" line in that case).
     private(set) var narratorName: String = ""
     private(set) var coverPath: String?
-    private(set) var coverBlurHash: String?
     private(set) var playbackSpeed: Float = 1.0
     private(set) var chapters: [Chapter] = []
 
@@ -157,7 +156,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let preparer: PlaybackPreparing
     private let progress: PlaybackProgressReporting
     private let sleep: SleepTiming
-    private let coverProvider: BookCoverProviding
     private let documentProvider: BookDocumentProviding
     /// Reactive source of the user's skip-interval settings. The coordinator observes
     /// its streams so the transport, glyphs, and lock-screen control track the setting
@@ -210,7 +208,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         progress: PlaybackProgressReporting,
         sleep: SleepTiming,
         engine: PlaybackEngine,
-        coverProvider: BookCoverProviding,
         documentProvider: BookDocumentProviding = NoDocumentProviding(),
         skipIntervals: SkipIntervalProviding? = nil,
         fadeStepDelay: Duration = .milliseconds(250),
@@ -220,7 +217,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         self.progress = progress
         self.sleep = sleep
         self.engine = engine
-        self.coverProvider = coverProvider
         self.documentProvider = documentProvider
         self.skipIntervals = skipIntervals
         self.fadeStepDelay = fadeStepDelay
@@ -244,7 +240,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
             progress: KotlinProgressReporting(reporter: deps.playbackProgressReporter),
             sleep: KotlinSleepTiming(manager: deps.sleepTimerManager),
             engine: AudioEngine(),
-            coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository),
             documentProvider: KotlinBookDocumentProviding(repository: deps.documentRepository),
             skipIntervals: KotlinSkipIntervalProviding(preferences: deps.playbackPreferences),
             bandwidthCoordinator: deps.playbackBandwidthCoordinator
@@ -399,7 +394,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         authorName = ""
         narratorName = ""
         coverPath = nil
-        coverBlurHash = nil
         chapters = []
         firstPdfDocId = nil
         documentToOpen = nil
@@ -595,10 +589,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         lastSyncedChapterIndex = chapterIndex
         updateNowPlaying()
 
-        // Blur-hash + PDF availability resolve concurrently — neither blocks the audio start, and
+        // PDF availability resolves off the audio-start path — it doesn't block playback, and
         // the cover already renders from `coverPath`. Guard stale results after a rapid switch.
-        let blurHash = await coverProvider.coverBlurHash(bookId: bookId)
-        if !isSuperseded(generation) { coverBlurHash = blurHash }
         Task {
             let id = await documentProvider.firstPdfDocId(bookId: bookId)
             if bookId == currentBookId { firstPdfDocId = id }

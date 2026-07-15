@@ -52,7 +52,6 @@ fun mapToNowPlayingState(
         author = book.authorNames,
         coverPath = book.coverPath,
         coverHash = book.coverHash,
-        coverBlurHash = book.coverBlurHash,
         authors = book.authors,
         narrators = book.narrators,
         seriesId = book.seriesId,

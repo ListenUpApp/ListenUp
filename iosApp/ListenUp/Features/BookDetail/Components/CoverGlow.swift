@@ -4,7 +4,7 @@ import SwiftUI
 /// hero cover image so the art reads as a gentle coloured glow (think Apple Music's
 /// now-playing artwork glow) — not a full-bleed band across the top of the screen.
 ///
-/// The same `BookCoverImage` (Nuke-backed, BlurHash placeholder) is reused as the source,
+/// The same `BookCoverImage` (Nuke-backed) is reused as the source,
 /// scaled up slightly and blurred so its colours bloom just past the cover's edges, then
 /// nudged downward so the glow pools beneath the crisp cover that sits on top.
 ///
@@ -17,7 +17,6 @@ import SwiftUI
 struct CoverGlow: View {
     let bookId: String?
     let coverPath: String?
-    let blurHash: String?
 
     /// The hero cover's edge length; the glow is framed to this so it stays bounded.
     let size: CGFloat
@@ -44,7 +43,7 @@ struct CoverGlow: View {
             Color.clear
                 .frame(width: size, height: size)
                 .overlay {
-                    BookCoverImage(bookId: bookId, coverPath: coverPath, blurHash: blurHash)
+                    BookCoverImage(bookId: bookId, coverPath: coverPath)
                         .scaledToFill()
                         .scaleEffect(scale)
                         .blur(radius: blurRadius, opaque: false)
@@ -67,10 +66,9 @@ struct CoverGlow: View {
             CoverGlow(
                 bookId: nil,
                 coverPath: nil,
-                blurHash: "LEHV6nWB2yk8pyo0adR*.7kCMdnj",
                 size: 196
             )
-            BookCoverImage(coverPath: nil, blurHash: "LEHV6nWB2yk8pyo0adR*.7kCMdnj")
+            BookCoverImage(coverPath: nil)
                 .frame(width: 196, height: 196)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)

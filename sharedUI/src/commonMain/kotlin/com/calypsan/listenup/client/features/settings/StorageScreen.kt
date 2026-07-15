@@ -316,7 +316,6 @@ private fun DownloadedBookItem(
             // Book cover
             ListenUpAsyncImage(
                 path = null,
-                blurHash = book.coverBlurHash,
                 contentDescription = book.title,
                 modifier = Modifier.size(56.dp),
             )

@@ -84,7 +84,6 @@ class PlaybackPreparerTest :
                     sortTitle = "Prepare Test Book",
                     subtitle = null,
                     coverHash = null,
-                    coverBlurHash = null,
                     totalDuration = 3_000L,
                     description = null,
                     publishYear = null,

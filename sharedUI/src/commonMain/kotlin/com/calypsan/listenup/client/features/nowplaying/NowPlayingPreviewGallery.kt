@@ -88,7 +88,6 @@ private val mockActiveState =
         author = "Brandon Sanderson",
         coverPath = null,
         coverHash = null,
-        coverBlurHash = null,
         authors = mockAuthors,
         narrators = mockNarrators,
         seriesId = "ser-stormlight",

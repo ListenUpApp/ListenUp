@@ -17,7 +17,6 @@ struct HomeWrapperTests {
             authorNames: "Brandon Sanderson",
             coverPath: "/covers/wok.jpg",
             coverHash: nil,
-            coverBlurHash: "L6Pj0^jE.AyE",
             progress: 0.42,
             currentPositionMs: 1_000,
             totalDurationMs: 10_000,
@@ -29,7 +28,6 @@ struct HomeWrapperTests {
         #expect(item.title == "The Way of Kings")
         #expect(item.author == "Brandon Sanderson")
         #expect(item.coverPath == "/covers/wok.jpg")
-        #expect(item.blurHash == "L6Pj0^jE.AyE")
         // progress crosses as Float → Double; allow for float widening imprecision.
         #expect(abs(item.progress - 0.42) < 0.0001)
         #expect(item.progressPercent == 42)

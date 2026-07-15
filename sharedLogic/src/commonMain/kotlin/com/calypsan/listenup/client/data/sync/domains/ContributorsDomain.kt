@@ -63,7 +63,6 @@ internal class ContributorMirrorApply(
                 asin = payload.asin ?: existing?.asin,
                 description = payload.description ?: existing?.description,
                 imagePath = newImagePath,
-                imageBlurHash = payload.imageBlurHash ?: existing?.imageBlurHash,
                 website = payload.website ?: existing?.website,
                 birthDate = payload.birthDate ?: existing?.birthDate,
                 deathDate = payload.deathDate ?: existing?.deathDate,

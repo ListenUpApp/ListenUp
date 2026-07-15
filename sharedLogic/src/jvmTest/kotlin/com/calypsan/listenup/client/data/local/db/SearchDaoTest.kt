@@ -37,7 +37,6 @@ class SearchDaoTest :
                     sortTitle = "Test $id",
                     subtitle = null,
                     coverHash = null,
-                    coverBlurHash = null,
                     totalDuration = 0L,
                     description = null,
                     publishYear = null,

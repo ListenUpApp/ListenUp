@@ -88,7 +88,6 @@ private suspend fun daoDocsSeedBook(
             sortTitle = "Book $id",
             subtitle = null,
             coverHash = null,
-            coverBlurHash = null,
             totalDuration = 0L,
             description = null,
             publishYear = null,

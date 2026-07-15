@@ -83,7 +83,7 @@ data class AvatarOverlayData(
  * - Discover: basic cover with optional subtitle (e.g. series name)
  * - Recently Added: basic cover with title/author
  *
- * @param cover Bundled cover identity (id, title, author, coverPath, coverHash, blurHash). Travels
+ * @param cover Bundled cover identity (id, title, author, coverPath, coverHash). Travels
  *   as one unit so a call-site can never silently drop [BookCoverModel.coverHash].
  * @param onClick Callback when card is clicked
  * @param duration Formatted duration string (e.g. "12h 30m")
@@ -199,7 +199,6 @@ fun BookCard(
                 bookId = cover.bookId,
                 coverPath = cover.coverPath,
                 coverHash = cover.coverHash,
-                blurHash = cover.blurHash,
                 contentDescription = cover.title,
                 title = cover.title,
                 author = cover.author.orEmpty(),
@@ -335,8 +334,7 @@ private fun NowPlayingBadge(modifier: Modifier = Modifier) {
  * Unified cover composable handling all overlay variants.
  *
  * Supports:
- * - BookCoverImage with blurHash placeholder
- * - Gradient placeholder fallback (no cover/blurHash)
+ * - BookCoverImage with gradient placeholder fallback (no cover)
  * - Progress overlay (when progress != null and > 0)
  * - Avatar overlay (when avatarOverlay != null)
  * - Selection/focus border
@@ -346,7 +344,6 @@ private fun BookCardCover(
     bookId: String,
     coverPath: String?,
     coverHash: String? = null,
-    blurHash: String?,
     contentDescription: String?,
     title: String,
     author: String,
@@ -387,7 +384,6 @@ private fun BookCardCover(
                 bookId = bookId,
                 coverPath = coverPath,
                 coverHash = coverHash,
-                blurHash = blurHash,
                 contentDescription = contentDescription,
                 title = title,
                 author = author,

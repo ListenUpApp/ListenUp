@@ -25,9 +25,8 @@ private val log = loggerFor<ContributorMetadataApplier>()
  *  - `asin` stamp
  *  - `description` (biography)
  *  - `imagePath` — downloads the photo to `contributors/{sha}.jpg` relative to
- *    [imageHome]; **BlurHash deferred** (no Kotlin-native image decoder;
- *    `imageBlurHash` stays null). The OrphanImageCleanupTask reclaims the orphan
- *    file if the DB write rolls back.
+ *    [imageHome]. The OrphanImageCleanupTask reclaims the orphan file if the DB
+ *    write rolls back.
  *
  * Returns [MetadataError.NotFound] when the contributor is absent from the DB, or
  * when no catalog has a profile for the ASIN.
@@ -69,7 +68,6 @@ internal class ContributorMetadataApplier(
                 asin = asin,
                 description = profile.description,
                 imagePath = imagePath,
-                // imageBlurHash: BlurHash deferred — no Kotlin-native image decoder.
             )
 
         return contributorRepository.upsert(updated, clientOpId = null).flatMap { AppResult.Success(Unit) }

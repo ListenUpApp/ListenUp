@@ -32,7 +32,6 @@ struct ContributorEditView: View {
                             ContributorAvatar(
                                 name: observer.name,
                                 imagePath: observer.imagePath,
-                                blurHash: nil,
                                 id: contributorId,
                                 fontSize: 40
                             )

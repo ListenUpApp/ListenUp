@@ -15,14 +15,15 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v3** — the v2 baseline with `books.userEditedFields` replaced by the per-field
- * `books.fieldProvenance` provenance map (metadata-enrichment substrate). There is still no
+ * Schema is at **v4** — the v3 baseline with the dormant BlurHash columns
+ * (`books.coverBlurHash`, `series.coverBlurHash`, `contributors.imageBlurHash`) dropped; the
+ * server never generated BlurHashes, so the columns were always null. There is still no
  * migration chain: the pre-launch policy `fallbackToDestructiveMigration(true)` on each platform
  * `DatabaseModule` nukes and recreates the local DB on any schema change (data re-syncs from the
  * server), which is acceptable pre-release — so a version bump needs no hand-written
  * [androidx.room.migration.Migration]. Before launch, flip the fallback to `false` and begin a
  * real migration chain in `data/local/migrations/`; the `@Database.exportSchema` on-disk JSON
- * (`schemas/…/3.json`) is the authoritative baseline.
+ * (`schemas/…/4.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -64,7 +65,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 @TypeConverters(

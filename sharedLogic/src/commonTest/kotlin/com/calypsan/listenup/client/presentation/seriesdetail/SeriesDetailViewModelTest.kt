@@ -309,7 +309,6 @@ class SeriesDetailViewModelTest :
                         description = null,
                         createdAt = Timestamp(0L),
                         coverPath = ".listenup-meta/series/stormlight.jpg",
-                        coverBlurHash = null,
                         asin = null,
                     )
                 val viewModel = fixture.build()
@@ -339,7 +338,6 @@ class SeriesDetailViewModelTest :
                         description = null,
                         createdAt = Timestamp(0L),
                         coverPath = ".listenup-meta/series/mistborn.jpg",
-                        coverBlurHash = null,
                         asin = null,
                     )
                 val viewModel = fixture.build()
@@ -368,7 +366,6 @@ class SeriesDetailViewModelTest :
                         description = null,
                         createdAt = Timestamp(0L),
                         coverPath = null,
-                        coverBlurHash = null,
                         asin = null,
                     )
                 val book = createBook(id = "book-1", title = "Way of Kings").copy(coverPath = "/books/wok.jpg")

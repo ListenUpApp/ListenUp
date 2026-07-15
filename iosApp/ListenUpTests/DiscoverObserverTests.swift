@@ -17,7 +17,6 @@ struct DiscoverObserverTests {
             title: "Project Hail Mary",
             authorName: "Andy Weir",
             coverPath: "/covers/phm.jpg",
-            coverBlurHash: "L6Pj0^jE",
             coverHash: nil,
             seriesName: nil
         )
@@ -27,7 +26,6 @@ struct DiscoverObserverTests {
         #expect(book.title == "Project Hail Mary")
         #expect(book.author == "Andy Weir")
         #expect(book.coverPath == "/covers/phm.jpg")
-        #expect(book.blurHash == "L6Pj0^jE")
     }
 
     // MARK: - RecentlyAddedBook
@@ -39,7 +37,6 @@ struct DiscoverObserverTests {
             title: "The Silkworm",
             authorName: "Robert Galbraith",
             coverPath: nil,
-            coverBlurHash: nil,
             coverHash: nil,
             createdAt: 1_609_459_200_000
         )
@@ -234,7 +231,6 @@ struct CurrentlyListeningMappingTests {
             authorName: "Frank Herbert",
             coverPath: nil,
             coverHash: nil,
-            coverBlurHash: nil,
             displayName: name,
             startedAt: startedAt
         )

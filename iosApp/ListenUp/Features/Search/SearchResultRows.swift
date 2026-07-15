@@ -12,7 +12,7 @@ struct SearchBookRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                BookCoverImage(bookId: row.id, coverPath: row.coverPath, blurHash: nil)
+                BookCoverImage(bookId: row.id, coverPath: row.coverPath)
                     .frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
                 SearchRowText(title: row.name, subtitle: row.subtitle)

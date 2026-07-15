@@ -6,26 +6,22 @@ import Shared
 struct CoverArt: Identifiable, Equatable, Hashable {
     let id: String
     let coverPath: String?
-    let blurHash: String?
 
-    init(id: String, coverPath: String?, blurHash: String?) {
+    init(id: String, coverPath: String?) {
         self.id = id
         self.coverPath = coverPath
-        self.blurHash = blurHash
     }
 
     /// Maps a `BookListItem` to its cover.
     init(book: BookListItem) {
         self.id = book.idString
         self.coverPath = book.coverPath
-        self.blurHash = book.coverBlurHash
     }
 
     /// Maps a native `BookRow` to its cover (no Swift Export re-bridge).
     init(book: BookRow) {
         self.id = book.id
         self.coverPath = book.coverPath
-        self.blurHash = book.coverBlurHash
     }
 }
 
@@ -67,7 +63,7 @@ struct CoverStack: View {
                     .frame(width: size, height: size)
             } else {
                 ForEach(Array(visible.enumerated()).reversed(), id: \.element.id) { index, art in
-                    BookCoverImage(bookId: art.id, coverPath: art.coverPath, blurHash: art.blurHash)
+                    BookCoverImage(bookId: art.id, coverPath: art.coverPath)
                         .frame(width: size, height: size)
                         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                         .overlay(
@@ -91,7 +87,7 @@ struct CoverStack: View {
 // MARK: - Preview
 
 #Preview("CoverStack") {
-    let mock = (0 ..< 5).map { CoverArt(id: "\($0)", coverPath: nil, blurHash: nil) }
+    let mock = (0 ..< 5).map { CoverArt(id: "\($0)", coverPath: nil) }
     return VStack(alignment: .leading, spacing: 44) {
         CoverStack(covers: Array(mock.prefix(1)), size: 76, peek: 17)
         CoverStack(covers: Array(mock.prefix(3)), size: 76, peek: 17)

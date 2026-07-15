@@ -37,7 +37,6 @@ internal fun BookResponse.toEntity(): BookEntity =
         // coverHash intentionally null here: the legacy BookResponse path is superseded by the
         // BookService RPC fetch.
         coverHash = null,
-        coverBlurHash = coverImage?.blurHash,
         totalDuration = totalDuration,
         description = description,
         // Series is now stored via book_series junction table (many-to-many)

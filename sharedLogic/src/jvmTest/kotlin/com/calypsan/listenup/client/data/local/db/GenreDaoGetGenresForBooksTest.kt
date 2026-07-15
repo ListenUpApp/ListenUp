@@ -130,7 +130,6 @@ private suspend fun seedBook(
             sortTitle = null,
             subtitle = null,
             coverHash = null,
-            coverBlurHash = null,
             totalDuration = 0L,
             description = null,
             publishYear = null,

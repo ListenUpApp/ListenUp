@@ -26,7 +26,7 @@ internal interface ActivityDao {
         SELECT a.id, a.userId, a.type, a.occurredAt, a.bookId, a.isReread, a.durationMs,
                a.milestoneValue, a.milestoneUnit, a.shelfId, a.shelfName,
                pp.displayName AS displayName, pp.avatarType AS avatarType,
-               b.title AS bookTitle, b.coverBlurHash AS bookCoverPath,
+               b.title AS bookTitle, NULL AS bookCoverPath,
                (
                    SELECT c.name FROM book_contributors bc
                    INNER JOIN contributors c ON bc.contributorId = c.id

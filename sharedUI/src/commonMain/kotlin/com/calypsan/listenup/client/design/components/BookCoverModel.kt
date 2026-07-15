@@ -19,7 +19,6 @@ data class BookCoverModel(
     val author: String?,
     val coverPath: String?,
     val coverHash: String?,
-    val blurHash: String?,
 )
 
 /** Bundle a library/shelf book's cover identity for a [com.calypsan.listenup.client.features.library.BookCard]. */
@@ -30,7 +29,6 @@ fun BookListItem.toCoverModel(): BookCoverModel =
         author = authorNames,
         coverPath = coverPath,
         coverHash = coverHash,
-        blurHash = coverBlurHash,
     )
 
 /** Bundle a "Recently Added" Discover tile's cover identity. */
@@ -41,7 +39,6 @@ fun RecentlyAddedUiBook.toCoverModel(): BookCoverModel =
         author = authorName,
         coverPath = coverPath,
         coverHash = coverHash,
-        blurHash = coverBlurHash,
     )
 
 /** Bundle a "Discover Something New" tile's cover identity. */
@@ -52,10 +49,9 @@ fun DiscoverUiBook.toCoverModel(): BookCoverModel =
         author = authorName,
         coverPath = coverPath,
         coverHash = coverHash,
-        blurHash = coverBlurHash,
     )
 
-/** Bundle a search hit's cover identity. Search hits carry no blurHash. */
+/** Bundle a search hit's cover identity. */
 fun SearchHit.toCoverModel(): BookCoverModel =
     BookCoverModel(
         bookId = id,
@@ -63,7 +59,6 @@ fun SearchHit.toCoverModel(): BookCoverModel =
         author = author,
         coverPath = coverPath,
         coverHash = coverHash,
-        blurHash = null,
     )
 
 /** Bundle a shelf book's cover identity. */
@@ -74,7 +69,6 @@ fun ShelfBook.toCoverModel(): BookCoverModel =
         author = authorNames.joinToString(", "),
         coverPath = coverPath,
         coverHash = coverHash,
-        blurHash = null,
     )
 
 /** Bundle a "Continue Listening" book's cover identity. */
@@ -85,7 +79,6 @@ fun ContinueListeningBook.toCoverModel(): BookCoverModel =
         author = authorNames,
         coverPath = coverPath,
         coverHash = coverHash,
-        blurHash = coverBlurHash,
     )
 
 /** Bundle a Discover "currently listening" session's cover identity. */
@@ -96,5 +89,4 @@ fun CurrentlyListeningUiSession.toCoverModel(): BookCoverModel =
         author = authorName,
         coverPath = coverPath,
         coverHash = coverHash,
-        blurHash = coverBlurHash,
     )

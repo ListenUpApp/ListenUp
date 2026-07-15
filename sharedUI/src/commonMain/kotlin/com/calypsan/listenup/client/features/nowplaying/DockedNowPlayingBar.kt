@@ -159,7 +159,6 @@ private fun ActiveDockedContent(
             bookId = state.bookId,
             coverPath = state.coverPath,
             coverHash = state.coverHash,
-            blurHash = state.coverBlurHash,
             contentDescription = stringResource(Res.string.player_cover_a11y),
             title = state.title,
             author = state.author,

@@ -84,7 +84,6 @@ class DiscoverViewModelTest :
                         id = bookId,
                         title = "Some Book",
                         coverPath = null,
-                        coverBlurHash = null,
                         authorName = "An Author",
                     ),
             )
@@ -99,7 +98,6 @@ class DiscoverViewModelTest :
                 title = title,
                 authorName = "An Author",
                 coverPath = null,
-                coverBlurHash = null,
                 coverHash = coverHash,
                 createdAt = 0L,
             )

@@ -22,7 +22,6 @@ import androidx.compose.ui.unit.dp
  * @param contentDescription Accessibility description for the image
  * @param modifier Size and layout modifier for the card
  * @param bookId Book ID for server URL fallback via BookCoverImage (smart loading)
- * @param blurHash Optional BlurHash placeholder shown while cover loads
  * @param cornerRadius Rounded corner radius (default: 16.dp)
  * @param elevation Card elevation (default: 16.dp)
  * @param refreshKey Optional key to force image cache refresh
@@ -37,7 +36,6 @@ fun ElevatedCoverCard(
     bookId: String? = null,
     title: String? = null,
     author: String? = null,
-    blurHash: String? = null,
     coverHash: String? = null,
     cornerRadius: Dp = 16.dp,
     elevation: Dp = 16.dp,
@@ -61,7 +59,6 @@ fun ElevatedCoverCard(
                 bookId = bookId,
                 title = title,
                 author = author,
-                blurHash = blurHash,
                 coverHash = coverHash,
                 refreshKey = refreshKey,
                 overlay = overlay,
@@ -79,7 +76,6 @@ fun ElevatedCoverCard(
                 bookId = bookId,
                 title = title,
                 author = author,
-                blurHash = blurHash,
                 coverHash = coverHash,
                 refreshKey = refreshKey,
                 overlay = overlay,
@@ -95,7 +91,6 @@ private fun CoverContent(
     bookId: String?,
     title: String?,
     author: String?,
-    blurHash: String?,
     coverHash: String?,
     refreshKey: Any?,
     overlay: @Composable (BoxScope.() -> Unit)?,
@@ -108,7 +103,6 @@ private fun CoverContent(
                 contentDescription = contentDescription,
                 title = title,
                 author = author,
-                blurHash = blurHash,
                 coverHash = coverHash,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

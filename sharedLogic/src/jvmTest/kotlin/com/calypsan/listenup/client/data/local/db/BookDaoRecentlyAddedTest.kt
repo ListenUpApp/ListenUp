@@ -73,7 +73,6 @@ private suspend fun recentlyAddedSeedBook(
             sortTitle = "Book $id",
             subtitle = null,
             coverHash = null,
-            coverBlurHash = null,
             totalDuration = 0L,
             description = null,
             publishYear = null,

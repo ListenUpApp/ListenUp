@@ -50,7 +50,7 @@ struct ShelfCard: View {
                 placeholderTile(offset: 0)
             } else {
                 ForEach(Array(covers.enumerated()), id: \.offset) { index, path in
-                    BookCoverImage(coverPath: path, blurHash: nil)
+                    BookCoverImage(coverPath: path)
                         .frame(width: coverSize, height: coverSize)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)

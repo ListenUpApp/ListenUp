@@ -2,13 +2,12 @@ import NukeUI
 import SwiftUI
 import Shared
 
-/// Reusable book cover image component with authenticated loading and BlurHash placeholders.
+/// Reusable book cover image component with authenticated loading and a gradient placeholder.
 ///
 /// Display priority:
 /// 1. Downloaded local cover file (`coverPath`), when present — the offline fast path.
 /// 2. The authenticated server URL `{activeUrl}/api/v1/covers/{bookId}`, when a `bookId` is known.
-/// 3. A BlurHash placeholder, or a gradient placeholder with a book icon, while loading or
-///    when no source resolves.
+/// 3. A gradient placeholder with a book icon, while loading or when no source resolves.
 ///
 /// Loading, downsampling, and memory + disk caching are owned by Nuke (`LazyImage`). The
 /// request is built off the main work by `CoverImageRequest`, which keys the cache on the
@@ -23,7 +22,6 @@ import Shared
 struct BookCoverImage: View {
     let bookId: String?
     let coverPath: String?
-    let blurHash: String?
     /// Content hash of the current cover, folded into the image cache key so a new cover at the same
     /// stable path/URL busts the stale entry (mirrors Android's `"$bookId:$coverHash"` Coil key).
     /// Nil when unknown — the cache then keys on the path/URL alone, as before.
@@ -40,7 +38,6 @@ struct BookCoverImage: View {
     init(book: BookListItem) {
         self.bookId = book.idString
         self.coverPath = book.coverPath
-        self.blurHash = book.coverBlurHash
         self.coverHash = book.coverHash
         self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
@@ -49,7 +46,6 @@ struct BookCoverImage: View {
     init(book: BookRow) {
         self.bookId = book.id
         self.coverPath = book.coverPath
-        self.blurHash = book.coverBlurHash
         self.coverHash = book.coverHash
         self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
@@ -58,7 +54,6 @@ struct BookCoverImage: View {
     init(book: BookDetail) {
         self.bookId = book.idString
         self.coverPath = book.coverPath
-        self.blurHash = book.coverBlurHash
         self.coverHash = book.coverHash
         self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
@@ -67,22 +62,19 @@ struct BookCoverImage: View {
     init(
         bookId: String?,
         coverPath: String?,
-        blurHash: String? = nil,
         coverHash: String? = nil,
         accessibilityLabel: String? = nil
     ) {
         self.bookId = bookId
         self.coverPath = coverPath
-        self.blurHash = blurHash
         self.coverHash = coverHash
         self.accessibilityLabel = accessibilityLabel
     }
 
     /// Local-only initializer (no `bookId`): renders the downloaded file or a placeholder.
-    init(coverPath: String?, blurHash: String? = nil, coverHash: String? = nil, accessibilityLabel: String? = nil) {
+    init(coverPath: String?, coverHash: String? = nil, accessibilityLabel: String? = nil) {
         self.bookId = nil
         self.coverPath = coverPath
-        self.blurHash = blurHash
         self.coverHash = coverHash
         self.accessibilityLabel = accessibilityLabel
     }
@@ -91,11 +83,7 @@ struct BookCoverImage: View {
         LazyImage(request: request) { state in
             ZStack {
                 // Layer 1: Placeholder (always behind)
-                if blurHash != nil {
-                    BlurHashView(blurHash: blurHash)
-                } else {
-                    gradientPlaceholder
-                }
+                gradientPlaceholder
 
                 // Layer 2: Loaded image (fades in on top)
                 if let image = state.image {
@@ -152,14 +140,8 @@ struct BookCoverImage: View {
 
 // MARK: - Preview
 
-#Preview("With Cover") {
-    BookCoverImage(coverPath: nil, blurHash: "LEHV6nWB2yk8pyo0adR*.7kCMdnj")
-        .frame(width: 100, height: 100)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-}
-
 #Preview("Placeholder") {
-    BookCoverImage(coverPath: nil, blurHash: nil)
+    BookCoverImage(coverPath: nil)
         .frame(width: 100, height: 100)
         .clipShape(RoundedRectangle(cornerRadius: 8))
 }

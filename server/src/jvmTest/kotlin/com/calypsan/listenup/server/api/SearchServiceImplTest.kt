@@ -562,7 +562,6 @@ private fun ListenUpDatabase.seedContributor(
         asin = null,
         description = null,
         image_path = null,
-        image_blur_hash = null,
         birth_date = null,
         death_date = null,
         website = null,
@@ -589,7 +588,6 @@ private fun ListenUpDatabase.seedSeries(
         asin = null,
         description = null,
         cover_path = null,
-        cover_blur_hash = null,
     )
     // V19 triggers auto-populate series_search on INSERT — no manual FTS write needed.
 }

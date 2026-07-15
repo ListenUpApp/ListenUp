@@ -22,7 +22,6 @@ struct PersonRow: View {
                 ContributorAvatar(
                     name: name,
                     imagePath: contributor.imagePath,
-                    blurHash: contributor.imageBlurHash,
                     id: contributor.id,
                     fontSize: 16,
                     streamsContributorPhoto: true

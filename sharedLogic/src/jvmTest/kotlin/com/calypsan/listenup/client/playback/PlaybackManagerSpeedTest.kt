@@ -150,7 +150,6 @@ class PlaybackManagerSpeedTest :
                     sortTitle = "Test Book",
                     subtitle = null,
                     coverHash = null,
-                    coverBlurHash = null,
                     totalDuration = 1_800_000L,
                     description = null,
                     publishYear = null,

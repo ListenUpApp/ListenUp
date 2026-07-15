@@ -231,7 +231,6 @@ private struct ContributorMetadataPreviewView: View {
                                 content: ContributorAvatar(
                                     name: observer.contributorName,
                                     imagePath: observer.currentImagePath,
-                                    blurHash: nil,
                                     id: "",
                                     fontSize: 22
                                 )

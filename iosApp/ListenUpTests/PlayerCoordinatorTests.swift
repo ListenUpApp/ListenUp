@@ -113,7 +113,7 @@ struct PlayerCoordinatorWiringTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: sleep,
-            engine: engine, coverProvider: FakeBookCoverProviding()
+            engine: engine
         )
         return (coordinator, engine, progress)
     }
@@ -147,7 +147,7 @@ struct SleepTimerFiringTests {
         // sleeps, which otherwise flake against the awaitUntil deadline under CI load.
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: sleep,
-            engine: engine, coverProvider: FakeBookCoverProviding(), fadeStepDelay: .zero)
+            engine: engine, fadeStepDelay: .zero)
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
 
@@ -175,7 +175,7 @@ struct SaveCurrentPositionTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine)
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
 
@@ -188,8 +188,7 @@ struct SaveCurrentPositionTests {
         let progress = FakeProgressReporting()
         let coordinator = PlayerCoordinator(
             preparer: FakePlaybackPreparing(), progress: progress,
-            sleep: FakeSleepTiming(), engine: FakePlaybackEngine(),
-            coverProvider: FakeBookCoverProviding())
+            sleep: FakeSleepTiming(), engine: FakePlaybackEngine())
         await coordinator.saveCurrentPosition()
         #expect(progress.savedNow.isEmpty)
     }
@@ -223,7 +222,7 @@ struct RouteChangeTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine)
         return (coordinator, engine, progress)
     }
 
@@ -262,7 +261,7 @@ struct AudioSessionInterruptionTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine)
         return (coordinator, engine, progress)
     }
 
@@ -412,7 +411,7 @@ struct EndOfChapterTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: sleep,
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine)
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
 
@@ -441,7 +440,7 @@ struct SkipIntervalTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding(),
+            engine: engine,
             skipIntervals: skipIntervals)
         return (coordinator, engine, progress)
     }
@@ -540,7 +539,7 @@ struct SeekPersistenceTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine)
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
 
@@ -574,7 +573,7 @@ struct StopDeactivatesSessionTests {
     private func makeCoordinator(_ engine: FakePlaybackEngine) -> PlayerCoordinator {
         PlayerCoordinator(
             preparer: FakePlaybackPreparing(), progress: FakeProgressReporting(),
-            sleep: FakeSleepTiming(), engine: engine, coverProvider: FakeBookCoverProviding())
+            sleep: FakeSleepTiming(), engine: engine)
     }
 
     @Test func stopDeactivatesAudioSession() async throws {
@@ -609,7 +608,7 @@ struct DocumentProviderTests {
         )
         return PlayerCoordinator(
             preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
-            engine: FakePlaybackEngine(), coverProvider: FakeBookCoverProviding(),
+            engine: FakePlaybackEngine(),
             documentProvider: documentProvider
         )
     }
@@ -663,7 +662,7 @@ struct PlaybackLifecycleTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine)
         return (coordinator, engine, progress)
     }
 

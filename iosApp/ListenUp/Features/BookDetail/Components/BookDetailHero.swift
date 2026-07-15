@@ -85,14 +85,12 @@ struct BookDetailHero: View {
             CoverGlow(
                 bookId: header?.coverBookId,
                 coverPath: header?.coverPath,
-                blurHash: header?.coverBlurHash,
                 size: coverSize
             )
 
             BookCoverImage(
                 bookId: header?.coverBookId,
-                coverPath: header?.coverPath,
-                blurHash: header?.coverBlurHash
+                coverPath: header?.coverPath
             )
                 .frame(width: coverSize, height: coverSize)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))

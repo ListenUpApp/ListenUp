@@ -336,7 +336,6 @@ private fun SeriesEntity.toDomain(): Series =
         description = description,
         createdAt = createdAt,
         coverPath = coverPath,
-        coverBlurHash = coverBlurHash,
         asin = asin,
     )
 

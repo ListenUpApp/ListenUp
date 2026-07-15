@@ -24,7 +24,7 @@ struct PlayerSwitchPathTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine)
         return (coordinator, engine, progress)
     }
 

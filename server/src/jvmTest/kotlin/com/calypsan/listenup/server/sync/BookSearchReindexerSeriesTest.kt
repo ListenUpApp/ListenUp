@@ -123,7 +123,6 @@ class BookSearchReindexerSeriesTest :
                         asin = null,
                         description = null,
                         cover_path = null,
-                        cover_blur_hash = null,
                         revision = 2L,
                         updated_at = System.currentTimeMillis(),
                         deleted_at = null,
@@ -211,6 +210,5 @@ private fun ListenUpDatabase.seedSeries(
         asin = null,
         description = null,
         cover_path = null,
-        cover_blur_hash = null,
     )
 }

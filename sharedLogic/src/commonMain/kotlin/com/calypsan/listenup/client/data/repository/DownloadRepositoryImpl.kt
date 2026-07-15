@@ -66,7 +66,6 @@ internal class DownloadRepositoryImpl(
                         bookId = bookId,
                         title = book.title,
                         authorNames = book.authorNames,
-                        coverBlurHash = book.coverBlurHash,
                         sizeBytes = files.sumOf { it.downloadedBytes },
                         fileCount = files.size,
                     )

@@ -15,7 +15,7 @@ struct CurrentlyListeningCard: View {
     var body: some View {
         SelectableBookCard(bookId: row.bookId, selection: selection) {
             VStack(alignment: .leading, spacing: 8) {
-                BookCoverImage(bookId: row.bookId, coverPath: row.coverPath, blurHash: row.blurHash)
+                BookCoverImage(bookId: row.bookId, coverPath: row.coverPath)
                     .frame(width: width, height: width)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)

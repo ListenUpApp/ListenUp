@@ -40,7 +40,6 @@ class SearchResultsContractTest :
                                 name = "Brandon Sanderson",
                                 sortName = "Sanderson, Brandon",
                                 photoPath = null,
-                                photoBlurHash = null,
                                 bookCount = 42,
                             ),
                         ),
@@ -51,7 +50,6 @@ class SearchResultsContractTest :
                                 name = "The Stormlight Archive",
                                 sortName = "Stormlight Archive, The",
                                 coverPath = null,
-                                coverBlurHash = null,
                                 bookCount = 5,
                             ),
                         ),
@@ -105,7 +103,6 @@ class SearchResultsContractTest :
                     name = "Unknown Narrator",
                     sortName = null,
                     photoPath = null,
-                    photoBlurHash = null,
                     bookCount = 0,
                 )
             roundTrip<ContributorHit>(hit) shouldBe hit
@@ -118,7 +115,6 @@ class SearchResultsContractTest :
                     name = "The Kingkiller Chronicle",
                     sortName = "Kingkiller Chronicle, The",
                     coverPath = "series/s2/cover.jpg",
-                    coverBlurHash = "LEHV6nWB2yk8pyo0adR*.7kCMdnj",
                     bookCount = 2,
                 )
             roundTrip<SeriesHit>(hit) shouldBe hit
