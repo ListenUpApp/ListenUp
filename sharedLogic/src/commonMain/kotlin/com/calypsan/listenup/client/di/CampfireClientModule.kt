@@ -54,13 +54,11 @@ internal val campfireClientModule: Module =
             )
         }
 
-        // ActiveCampfireCoordinator — process-scope liveness seam read by NowPlayingViewModel (B3).
-        single { ActiveCampfireCoordinator() }
-
-        // CampfireSessionController — one per joined session (NOT a singleton). The UI/ViewModel
-        // creates one via get() on join and retains it for the session's duration, calling
-        // leave() when done; there is no instance to release back to Koin.
-        factory {
+        // CampfireSessionController — process-`single` (F2). Only one campfire is live at a time and
+        // its jobs already run on appScope, so a single instance IS the session: any ViewModel
+        // generation (e.g. after an activity rebuild on task-swipe) re-attaches to the same live
+        // controller rather than spawning a fresh, empty one that orphans the running session.
+        single {
             CampfireSessionController(
                 transport = get(),
                 playbackManager = get(),
@@ -70,15 +68,23 @@ internal val campfireClientModule: Module =
             )
         }
 
-        // CampfireViewModel — one per screen instance (factory, matching the CampfireSessionController
-        // it wraps), not a singleton.
+        // ActiveCampfireCoordinator — process-scope liveness seam read by NowPlayingViewModel (B3).
+        // Owns the always-on mirror of the single controller's state on appScope (F2).
+        single {
+            ActiveCampfireCoordinator(
+                controller = get(),
+                scope = get(qualifier = named(APP_SCOPE)),
+            )
+        }
+
+        // CampfireViewModel — one per screen instance (factory). Wraps the single controller; the
+        // liveness mirror lives in the coordinator now, so the VM no longer holds it (F2).
         factory {
             CampfireViewModel(
                 controller = get(),
                 transport = get(),
                 errorBus = get(),
                 userRepository = get(),
-                coordinator = get(),
             )
         }
 

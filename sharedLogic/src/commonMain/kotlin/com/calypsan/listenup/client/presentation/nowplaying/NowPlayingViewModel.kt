@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
+import com.calypsan.listenup.client.campfire.ActiveCampfire
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -86,7 +86,7 @@ class NowPlayingViewModel internal constructor(
     private val documentRepository: DocumentRepository,
     private val downloadRepository: DownloadRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
-    private val activeCampfire: ActiveCampfireCoordinator,
+    private val activeCampfire: StateFlow<ActiveCampfire?>,
 ) : ViewModel() {
     private companion object {
         const val FADE_DURATION_MS = 3000L
@@ -458,7 +458,7 @@ class NowPlayingViewModel internal constructor(
      * needs a distinct (dialog-less) resolution and is a tracked follow-up, not part of this cut.
      */
     fun playBook(bookId: BookId) {
-        val active = activeCampfire.current.value
+        val active = activeCampfire.value
         if (active != null) {
             if (active.bookId != bookId.value) {
                 _playbackGuardEvents.trySend(PlaybackGuardEvent.ConfirmPlayOverCampfire(bookId, active.isHost))

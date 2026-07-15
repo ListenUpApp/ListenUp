@@ -2,8 +2,10 @@ package com.calypsan.listenup.client.campfire
 
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfirePhase
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 /**
  * A snapshot of the one live Campfire session, as the rest of the app needs to see it.
@@ -31,17 +33,34 @@ internal data class ActiveCampfire(
  * Process-scope holder for the currently-live [ActiveCampfire], or `null` when none.
  *
  * The seam that lets the process-singleton `NowPlayingViewModel` observe campfire liveness without
- * depending on the per-session `CampfireSessionController`/`CampfireViewModel` factories (co-listening
- * coexistence spec, B3). The per-session `CampfireViewModel` is the sole writer — it mirrors its
- * controller's hot state into [set]; readers observe [current]. Registered as a Koin `single`.
+ * depending on the per-screen `CampfireViewModel` (co-listening coexistence spec, B3). Registered as
+ * a Koin `single` alongside the now-`single` [CampfireSessionController]: the coordinator OWNS the
+ * always-on mirror at **process scope** (the injected app-lifetime [CoroutineScope]) rather than a
+ * ViewModel's `viewModelScope`. That is the F2 ownership fix — an activity torn down and rebuilt
+ * (task-swipe while the playback service keeps the process alive) no longer stops the mirror or
+ * strands the live session behind a fresh, empty ViewModel; readers keep seeing the true liveness.
  */
-internal class ActiveCampfireCoordinator {
+internal class ActiveCampfireCoordinator(
+    controller: CampfireSessionController,
+    scope: CoroutineScope,
+) {
     /** The live campfire, or `null` when no session is active. */
     val current: StateFlow<ActiveCampfire?>
         field = MutableStateFlow<ActiveCampfire?>(null)
 
-    /** Publishes the live campfire (or `null` to clear). Called by `CampfireViewModel` on every controller-state change. */
-    fun set(value: ActiveCampfire?) {
-        current.value = value
+    init {
+        // Always-on, process-scope mirror of the single controller's hot state. Independent of any
+        // ViewModel subscription: the singleton NowPlayingViewModel must see liveness at all times.
+        scope.launch {
+            controller.state.collect { current.value = it.toActiveCampfire() }
+        }
     }
 }
+
+/** Only a live/lobby session is guard-worthy; Idle / Joining / Disconnected / Ended → `null`. */
+private fun CampfireUiState.toActiveCampfire(): ActiveCampfire? =
+    if (this is CampfireUiState.Active) {
+        ActiveCampfire(sessionId = sessionId, bookId = bookId, isHost = isHost, phase = phase)
+    } else {
+        null
+    }

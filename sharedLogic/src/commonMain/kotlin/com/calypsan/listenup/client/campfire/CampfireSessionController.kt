@@ -261,40 +261,68 @@ internal class CampfireSessionController(
         scope.launch { applyAnchorToPlayback(pendingAnchor, nowMs()) }
     }
 
-    /** Leaves the session: stops the frame stream + drift loop and notifies the server. */
-    suspend fun leave() {
-        val sessionId =
-            when (val current = state.value) {
-                is CampfireUiState.Active -> current.sessionId
-                is CampfireUiState.Disconnected -> current.sessionId
-                else -> null
+    /**
+     * Leaves the session: stops the frame stream + drift loop and notifies the server.
+     *
+     * The local teardown (job cancel + [state] → [CampfireUiState.Idle]) is synchronous so readers
+     * observe the exit immediately; the terminal [CampfireTransport.leaveSession] RPC is dispatched
+     * on the controller's own [scope] (appScope in prod), NOT the caller's coroutine — a screen or
+     * ViewModel torn down the instant it calls [leave] (task-swipe) must not strand a live membership
+     * server-side (co-listening coexistence spec, F7). Its result is logged on failure, never dropped.
+     */
+    fun leave() {
+        val sessionId = currentSessionId()
+        teardownLocal()
+        if (sessionId != null) {
+            scope.launch {
+                val result = transport.leaveSession(sessionId)
+                if (result is AppResult.Failure) logger.warn { "Campfire leave failed: ${result.error.code}" }
             }
-        observeJob?.cancel()
-        driftJob?.cancel()
-        pendingCommandIds.value = emptySet()
-        state.value = CampfireUiState.Idle
-        if (sessionId != null) transport.leaveSession(sessionId)
+        }
     }
 
     /**
      * Ends the session for everyone (host-only; the UI gates this behind [CampfireUiState.Active.isHost]).
      * Twin of [leave] but calls [CampfireTransport.endSession] — used when the host chooses to play a
      * different book, which tears the campfire down rather than migrating the host (co-listening
-     * coexistence spec, B3). Local state moves to [CampfireUiState.Idle] first so readers observe the
-     * teardown immediately, regardless of the network round-trip.
+     * coexistence spec, B3). The terminal RPC is dispatched on [scope] with the same anti-stranding
+     * contract as [leave] (F7).
      */
-    suspend fun endCampfire() {
-        val sessionId =
-            when (val current = state.value) {
-                is CampfireUiState.Active -> current.sessionId
-                is CampfireUiState.Disconnected -> current.sessionId
-                else -> null
+    fun endCampfire() {
+        val sessionId = currentSessionId()
+        teardownLocal()
+        if (sessionId != null) {
+            scope.launch {
+                val result = transport.endSession(sessionId)
+                if (result is AppResult.Failure) logger.warn { "Campfire end failed: ${result.error.code}" }
             }
+        }
+    }
+
+    private fun currentSessionId(): CampfireId? =
+        when (val current = state.value) {
+            is CampfireUiState.Active -> current.sessionId
+            is CampfireUiState.Disconnected -> current.sessionId
+            else -> null
+        }
+
+    /** Synchronous local teardown shared by [leave]/[endCampfire]: stop the jobs, clear pending, go Idle. */
+    private fun teardownLocal() {
         observeJob?.cancel()
         driftJob?.cancel()
         pendingCommandIds.value = emptySet()
         state.value = CampfireUiState.Idle
-        if (sessionId != null) transport.endSession(sessionId)
+    }
+
+    /**
+     * Exits the session to make room for solo playback of a different book — the co-listening
+     * coexistence spec's B3 confirm continuation. Re-reads the CURRENT role from [state] rather than
+     * a role snapshotted when the confirm dialog opened: a [CampfireFrame.HostChanged] handoff while
+     * the dialog is up must not make a now-participant [endCampfire] everyone's session (or a
+     * promoted host merely [leave]). Host → ends for all; participant → leaves only.
+     */
+    fun exitForPlayback() {
+        if ((state.value as? CampfireUiState.Active)?.isHost == true) endCampfire() else leave()
     }
 
     /** Resumes room playback (optimistic local apply; denied via [CampfireSessionEvent.ControlDenied] without control). */

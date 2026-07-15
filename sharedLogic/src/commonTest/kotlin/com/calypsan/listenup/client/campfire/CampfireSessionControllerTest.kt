@@ -548,6 +548,83 @@ class CampfireSessionControllerTest :
             }
         }
 
+        test("leave dispatches the server leaveSession on the controller scope, not the calling coroutine") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+
+                sut.leave()
+
+                // State flips immediately so readers see the teardown; the terminal RPC is handed to
+                // the controller's own scope (appScope in prod) so a torn-down caller can't strand it.
+                sut.state.value shouldBe CampfireUiState.Idle
+                transport.leaveCalls shouldBe emptyList()
+                runCurrent()
+                transport.leaveCalls shouldBe listOf(sessionId)
+            }
+        }
+
+        test("endCampfire dispatches the server endSession on the controller scope, not the calling coroutine") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+
+                sut.endCampfire()
+
+                sut.state.value shouldBe CampfireUiState.Idle
+                transport.endCalls shouldBe emptyList()
+                runCurrent()
+                transport.endCalls shouldBe listOf(sessionId)
+            }
+        }
+
+        test("exitForPlayback ends the campfire when the local user is currently the host") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot(hostUserId = "self-1")) }
+                val sut = controller(transport, backgroundScope, clock, selfUserId = "self-1")
+                sut.join(sessionId)
+                runCurrent()
+                (sut.state.value as CampfireUiState.Active).isHost shouldBe true
+
+                sut.exitForPlayback()
+                runCurrent()
+
+                transport.endCalls shouldBe listOf(sessionId)
+                transport.leaveCalls shouldBe emptyList()
+            }
+        }
+
+        test("exitForPlayback leaves — not ends — after a host transfer makes the local user a participant") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot(hostUserId = "self-1")) }
+                val sut = controller(transport, backgroundScope, clock, selfUserId = "self-1")
+                sut.join(sessionId)
+                runCurrent()
+
+                // The host hands control to someone else — the local user is now a participant, so
+                // exiting to play another book must LEAVE, not END everyone's session.
+                transport.emit(RpcEvent.Data(CampfireFrame.HostChanged("other-user")))
+                runCurrent()
+                (sut.state.value as CampfireUiState.Active).isHost shouldBe false
+
+                sut.exitForPlayback()
+                runCurrent()
+
+                transport.leaveCalls shouldBe listOf(sessionId)
+                transport.endCalls shouldBe emptyList()
+            }
+        }
+
         // ── Lobby phase (2026-07-11 amendment) ───────────────────────────────
 
         test("join with a LOBBY snapshot does not touch local playback") {

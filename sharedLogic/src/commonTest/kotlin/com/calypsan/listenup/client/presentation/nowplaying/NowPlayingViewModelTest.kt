@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.campfire.ActiveCampfire
-import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
@@ -76,7 +75,7 @@ class NowPlayingViewModelTest :
             val networkMonitor: NetworkMonitor = mock()
             val documentRepository: DocumentRepository = mock()
             val sleepTimerManager: SleepTimerManager = SleepTimerManager(CoroutineScope(Job()))
-            val activeCampfire = ActiveCampfireCoordinator()
+            val activeCampfire = MutableStateFlow<ActiveCampfire?>(null)
 
             init {
                 // Default: networkMonitor.isOnline() returns true. Tests override to false where needed.
@@ -309,9 +308,8 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-1")
-                fixture.activeCampfire.set(
-                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE),
-                )
+                fixture.activeCampfire.value =
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE)
                 fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
 
@@ -327,9 +325,8 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-1")
-                fixture.activeCampfire.set(
-                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LOBBY),
-                )
+                fixture.activeCampfire.value =
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LOBBY)
 
                 val vm = fixture.newVm()
                 vm.playbackGuardEvents.test {
@@ -350,9 +347,8 @@ class NowPlayingViewModelTest :
         test("playBook on a different book as host emits an end-confirm and does not play") {
             runTest(testDispatcher) {
                 val fixture = TestFixture()
-                fixture.activeCampfire.set(
-                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE),
-                )
+                fixture.activeCampfire.value =
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE)
 
                 val vm = fixture.newVm()
                 vm.playbackGuardEvents.test {
@@ -373,9 +369,8 @@ class NowPlayingViewModelTest :
         test("playBook on a different book as participant emits a leave-confirm") {
             runTest(testDispatcher) {
                 val fixture = TestFixture()
-                fixture.activeCampfire.set(
-                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = false, phase = CampfirePhase.LIVE),
-                )
+                fixture.activeCampfire.value =
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = false, phase = CampfirePhase.LIVE)
 
                 val vm = fixture.newVm()
                 vm.playbackGuardEvents.test {
@@ -389,9 +384,8 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 val fixture = TestFixture()
                 val bookId = BookId("book-2")
-                fixture.activeCampfire.set(
-                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE),
-                )
+                fixture.activeCampfire.value =
+                    ActiveCampfire(CampfireId("cf-1"), bookId = "book-1", isHost = true, phase = CampfirePhase.LIVE)
                 fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
                 everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import org.koin.dsl.module
 
@@ -27,7 +28,9 @@ internal val playbackPresentationModule =
                 documentRepository = get(),
                 downloadRepository = get(),
                 playbackPositionRepository = get(),
-                activeCampfire = get(),
+                // The coordinator (single) owns the process-scope liveness mirror; the VM only needs
+                // to read it. Resolving it here also instantiates the coordinator so its mirror starts.
+                activeCampfire = get<ActiveCampfireCoordinator>().current,
             )
         }
     }
