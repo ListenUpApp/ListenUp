@@ -73,6 +73,7 @@ data class ScanResult(
  */
 @Serializable
 data class FailedScanPath(
+    @SerialName("folderRootPath")
     val folderRootPath: String,
     val rootRelPath: String,
 )
