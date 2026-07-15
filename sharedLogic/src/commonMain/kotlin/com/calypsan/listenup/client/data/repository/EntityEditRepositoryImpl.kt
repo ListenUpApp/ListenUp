@@ -142,12 +142,15 @@ internal class EntityEditRepositoryImpl(
 private fun validateHome(
     homeSeriesId: String?,
     homeBookId: String?,
-): ValidationError? =
-    if ((homeSeriesId == null) == (homeBookId == null)) {
+): ValidationError? {
+    val seriesHomeMissing = homeSeriesId == null
+    val bookHomeMissing = homeBookId == null
+    return if (seriesHomeMissing == bookHomeMissing) {
         ValidationError(message = "Exactly one of homeSeriesId or homeBookId must be set.")
     } else {
         null
     }
+}
 
 /** Client-local not-found failure for an entity op whose target row is absent from Room. */
 private fun entityNotFound(id: String): SyncError.NotFound =

@@ -92,10 +92,13 @@ internal class EntityServiceImpl(
      * [EntityUpsert.homeBookId] must be non-null. Returns null when [upsert] satisfies
      * that rule, a [ValidationError] otherwise.
      */
-    private fun validateHome(upsert: EntityUpsert): ValidationError? =
-        if ((upsert.homeSeriesId == null) == (upsert.homeBookId == null)) {
+    private fun validateHome(upsert: EntityUpsert): ValidationError? {
+        val seriesHomeMissing = upsert.homeSeriesId == null
+        val bookHomeMissing = upsert.homeBookId == null
+        return if (seriesHomeMissing == bookHomeMissing) {
             ValidationError(message = "Exactly one of homeSeriesId or homeBookId must be set.")
         } else {
             null
         }
+    }
 }
