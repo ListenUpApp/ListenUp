@@ -5,9 +5,8 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BioEntryMode
-import com.calypsan.listenup.api.sync.BioEntryPayload
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -17,6 +16,8 @@ import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestSeries
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -29,7 +30,8 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Happy-path tests for [EntityServiceImpl] — create/update via [EntityServiceImpl.upsertEntity],
- * [EntityServiceImpl.listEntitiesForSeries], and [EntityServiceImpl.deleteEntity].
+ * [EntityServiceImpl.listEntitiesForSeries], [EntityServiceImpl.listEntitiesForBook], and
+ * [EntityServiceImpl.deleteEntity].
  *
  * The `canEdit`-gate deny/allow matrix lives in [EntityServiceImplPermissionTest], mirroring
  * [SeriesServiceImplPermissionTest]; this file uses a ROOT caller throughout so the gate never
@@ -112,26 +114,86 @@ class EntityServiceImplTest :
             }
         }
 
-        test("upsertEntity persists bio entries") {
+        test("upsertEntity creates a book-homed entity and listEntitiesForBook returns it") {
             withSqlDatabase {
-                sql.seedTestSeries("mistborn")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("hoa1")
                 runTest {
                     val service = makeService(sql)
-                    val entries =
-                        listOf(BioEntryPayload(id = "b1", mode = BioEntryMode.APPEND, text = "A mistborn.", sortKey = 0))
                     val created =
                         service
                             .upsertEntity(
                                 EntityUpsert(
-                                    id = "vin",
+                                    id = "alcatraz",
                                     kind = EntityKind.CHARACTER,
-                                    name = "Vin",
-                                    homeSeriesId = "mistborn",
-                                    bioEntries = entries,
+                                    name = "Alcatraz",
+                                    homeBookId = "hoa1",
                                 ),
                             ).value()
+                    created.homeBookId shouldBe "hoa1"
+                    created.homeSeriesId shouldBe null
 
-                    created.bioEntries shouldBe entries
+                    val listed = service.listEntitiesForBook("hoa1").value()
+                    listed shouldHaveSize 1
+                    listed.first().id shouldBe "alcatraz"
+                }
+            }
+        }
+
+        test("listEntitiesForBook excludes series-homed entities") {
+            withSqlDatabase {
+                sql.seedTestSeries("mistborn")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("hoa1")
+                runTest {
+                    val service = makeService(sql)
+                    service
+                        .upsertEntity(
+                            EntityUpsert(id = "vin", kind = EntityKind.CHARACTER, name = "Vin", homeSeriesId = "mistborn"),
+                        ).value()
+                    service
+                        .upsertEntity(
+                            EntityUpsert(id = "alcatraz", kind = EntityKind.CHARACTER, name = "Alcatraz", homeBookId = "hoa1"),
+                        ).value()
+
+                    service.listEntitiesForBook("hoa1").value() shouldHaveSize 1
+                }
+            }
+        }
+
+        test("upsertEntity rejects both homeSeriesId and homeBookId set") {
+            withSqlDatabase {
+                sql.seedTestSeries("mistborn")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("hoa1")
+                runTest {
+                    val result =
+                        makeService(sql).upsertEntity(
+                            EntityUpsert(
+                                id = "vin",
+                                kind = EntityKind.CHARACTER,
+                                name = "Vin",
+                                homeSeriesId = "mistborn",
+                                homeBookId = "hoa1",
+                            ),
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<ValidationError>()
+                }
+            }
+        }
+
+        test("upsertEntity rejects neither homeSeriesId nor homeBookId set") {
+            withSqlDatabase {
+                runTest {
+                    val result =
+                        makeService(sql).upsertEntity(
+                            EntityUpsert(id = "vin", kind = EntityKind.CHARACTER, name = "Vin"),
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<ValidationError>()
                 }
             }
         }

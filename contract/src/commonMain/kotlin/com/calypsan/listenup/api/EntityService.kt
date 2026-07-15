@@ -56,4 +56,14 @@ interface EntityService {
      * @param seriesId Identifies the series whose entities are requested.
      */
     suspend fun listEntitiesForSeries(seriesId: String): AppResult<List<EntitySyncPayload>>
+
+    /**
+     * Returns every live (non-tombstoned) entity namespaced under standalone [bookId].
+     *
+     * Open to any authenticated caller — entities are library-shared, not access-gated
+     * per-book the way [BookService] content is.
+     *
+     * @param bookId Identifies the standalone book whose entities are requested.
+     */
+    suspend fun listEntitiesForBook(bookId: String): AppResult<List<EntitySyncPayload>>
 }

@@ -1,14 +1,15 @@
 -- entities: library-shared Story World world data (characters, locations, items),
--- namespaced under a series. Syncable, soft-deletable, revision-tracked — but NOT
--- userScoped: unlike reading_orders, any caller holding the metadata-edit permission
--- may write, matching the series/genre/tag curation model. `kind` and the child
--- `entity_bio_entries.mode` are stored lowercase, matching books.chapter_source's
--- enum-column convention.
--- Column set matches V9__entities.sql exactly.
+-- dual-homed under exactly one of home_series_id / home_book_id. Syncable,
+-- soft-deletable, revision-tracked — but NOT userScoped: unlike reading_orders,
+-- any caller holding the metadata-edit permission may write, matching the
+-- series/genre/tag curation model. `kind` is stored lowercase, matching
+-- books.chapter_source's enum-column convention.
+-- Column set matches V10__entities_dual_home.sql exactly.
 CREATE TABLE entities (
     id              TEXT    NOT NULL,
     kind            TEXT    NOT NULL,
-    home_series_id  TEXT    NOT NULL,
+    home_series_id  TEXT,
+    home_book_id    TEXT,
     name            TEXT    NOT NULL,
     image_ref       TEXT,
     created_at      INTEGER NOT NULL,
@@ -16,10 +17,12 @@ CREATE TABLE entities (
     revision        INTEGER NOT NULL,
     deleted_at      INTEGER,
     client_op_id    TEXT,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    CHECK ((home_series_id IS NULL) != (home_book_id IS NULL))
 );
 
 CREATE INDEX idx_entities_home_series ON entities(home_series_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_entities_home_book ON entities(home_book_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_entities_revision ON entities(revision);
 
 -- Substrate queries — the SyncableSubstrateQueries adapter surface.
@@ -53,18 +56,21 @@ SELECT * FROM entities WHERE id IN :ids;
 selectLiveBySeries:
 SELECT * FROM entities WHERE home_series_id = :home_series_id AND deleted_at IS NULL;
 
+-- Live entities namespaced under a standalone book, for listEntitiesForBook.
+selectLiveByBook:
+SELECT * FROM entities WHERE home_book_id = :home_book_id AND deleted_at IS NULL;
+
 insert:
-INSERT INTO entities (id, kind, home_series_id, name, image_ref, created_at, updated_at, revision, deleted_at, client_op_id)
-VALUES (:id, :kind, :home_series_id, :name, :image_ref, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+INSERT INTO entities (id, kind, home_series_id, home_book_id, name, image_ref, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :kind, :home_series_id, :home_book_id, :name, :image_ref, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
 
 update:
 UPDATE entities
-SET kind = :kind, home_series_id = :home_series_id, name = :name, image_ref = :image_ref,
+SET kind = :kind, home_series_id = :home_series_id, home_book_id = :home_book_id, name = :name, image_ref = :image_ref,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;
 
--- Hard-deletes one entity row by id — test-scoped: proves the entity→bio-entry
--- ON DELETE CASCADE safety net removes orphaned bio-entry rows.
+-- Hard-deletes one entity row by id — test-scoped.
 deleteById:
 DELETE FROM entities WHERE id = :id;
