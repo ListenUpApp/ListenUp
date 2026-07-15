@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
+import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import io.kotest.core.spec.style.FunSpec
@@ -112,7 +113,7 @@ class ChapterSynthesisTest :
             chapters[2].endMs shouldBe 360_000L
         }
 
-        test("synthesizeChapters: missing trackMeta produces zero-length chapter") {
+        test("synthesizeChapters: parse-failed track's zero-length ghost chapter is dropped") {
             val tracks =
                 listOf(
                     trackEntry("01 First.mp3"),
@@ -133,15 +134,50 @@ class ChapterSynthesisTest :
                     bookTitle = "Some Book",
                 )
 
-            chapters shouldHaveSize 3
+            // The zero-length "Failed" ghost is dropped and survivors re-number 1-based.
+            chapters shouldHaveSize 2
+            chapters[0].index shouldBe 1
+            chapters[0].title shouldBe "First"
+            chapters[0].startMs shouldBe 0L
             chapters[0].endMs shouldBe 60_000L
-            // Track 2's chapter is zero-length at the current cumulative position.
+            // Track 3 still picks up where track 1 left off (track 2 contributed 0ms).
+            chapters[1].index shouldBe 2
+            chapters[1].title shouldBe "Third"
             chapters[1].startMs shouldBe 60_000L
-            chapters[1].endMs shouldBe 60_000L
-            chapters[1].title shouldBe "Failed"
-            // Track 3 picks up where track 1 left off (track 2 contributed 0ms).
-            chapters[2].startMs shouldBe 60_000L
-            chapters[2].endMs shouldBe 150_000L
+            chapters[1].endMs shouldBe 150_000L
+        }
+
+        test("dropGhostChapters: drops sub-0.1s ghosts, re-numbers, and keeps boundaries gap-free") {
+            val chapters =
+                listOf(
+                    Chapter(index = 1, title = "Real", startMs = 0L, endMs = 100L),
+                    Chapter(index = 2, title = "Ghost", startMs = 100L, endMs = 199L), // 99ms, dropped
+                    Chapter(index = 3, title = "Also Real", startMs = 199L, endMs = 5_000L),
+                )
+
+            val kept = chapters.dropGhostChapters()
+
+            kept.map { it.title } shouldBe listOf("Real", "Also Real")
+            kept.map { it.index } shouldBe listOf(1, 2)
+            // The previous survivor absorbs the dropped ghost's span — no coverage hole.
+            kept[0].endMs shouldBe kept[1].startMs
+            kept[0].endMs shouldBe 199L
+            kept[1].endMs shouldBe 5_000L // final survivor keeps its own end
+        }
+
+        test("dropGhostChapters: a leading ghost is absorbed so the first survivor still starts at 0") {
+            val chapters =
+                listOf(
+                    Chapter(index = 1, title = "Intro blip", startMs = 0L, endMs = 40L), // 40ms, dropped
+                    Chapter(index = 2, title = "Real", startMs = 40L, endMs = 5_000L),
+                )
+
+            val kept = chapters.dropGhostChapters()
+
+            kept shouldHaveSize 1
+            kept[0].title shouldBe "Real"
+            kept[0].startMs shouldBe 0L // pulled back to the original head — no uncovered start
+            kept[0].endMs shouldBe 5_000L
         }
     })
 

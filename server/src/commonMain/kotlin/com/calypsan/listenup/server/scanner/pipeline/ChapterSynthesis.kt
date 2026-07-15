@@ -71,9 +71,10 @@ internal fun cleanFilename(name: String): String =
 
 /**
  * Build one [Chapter] per track. A track whose duration parse failed
- * (`perTrackMetadata[track]` is null or `durationMs == 0`) produces a
- * zero-length chapter at the current cumulative position; subsequent
- * tracks' boundaries are unaffected by the failure.
+ * (`perTrackMetadata[track]` is null or `durationMs == 0`) contributes 0ms to
+ * the cumulative offset — subsequent tracks' boundaries are unaffected — and its
+ * own zero-length chapter is dropped by [dropGhostChapters] rather than surfacing
+ * as an un-navigable ghost.
  */
 internal fun synthesizeChapters(
     tracks: List<TrackEntry>,
@@ -81,16 +82,48 @@ internal fun synthesizeChapters(
     bookTitle: String,
 ): List<Chapter> {
     var cumulativeMs = 0L
-    return tracks.mapIndexed { i, track ->
-        val durationMs = perTrackMetadata[track]?.durationMs ?: 0L
-        val chapter =
-            Chapter(
-                index = i + 1,
-                title = pickChapterTitle(track, bookTitle, perTrackMetadata[track], i + 1),
-                startMs = cumulativeMs,
-                endMs = cumulativeMs + durationMs,
-            )
-        cumulativeMs += durationMs
-        chapter
+    return tracks
+        .mapIndexed { i, track ->
+            val durationMs = perTrackMetadata[track]?.durationMs ?: 0L
+            val chapter =
+                Chapter(
+                    index = i + 1,
+                    title = pickChapterTitle(track, bookTitle, perTrackMetadata[track], i + 1),
+                    startMs = cumulativeMs,
+                    endMs = cumulativeMs + durationMs,
+                )
+            cumulativeMs += durationMs
+            chapter
+        }.dropGhostChapters()
+}
+
+/**
+ * Minimum chapter length. Shorter chapters are ghosts — a parse-failed track's
+ * zero-length boundary or a pair of OverDrive markers at the same timestamp — and
+ * mislead the UI (an un-navigable entry) rather than inform it.
+ */
+private const val MIN_CHAPTER_MS = 100L
+
+/**
+ * Drops sub-[MIN_CHAPTER_MS] ghost chapters, re-numbers the survivors 1-based, and
+ * re-stitches boundaries so the list stays gap-free and covers the whole span the
+ * input did:
+ *  - the first survivor's start is pulled back to the original first chapter's start,
+ *    so leading ghosts leave no uncovered head;
+ *  - each survivor ends where the next begins, so a dropped middle/trailing ghost is
+ *    absorbed by the previous survivor;
+ *  - the final survivor keeps its own end (already the book's end for both synthesis
+ *    and OverDrive).
+ */
+internal fun List<Chapter>.dropGhostChapters(): List<Chapter> {
+    val kept = filter { it.endMs - it.startMs >= MIN_CHAPTER_MS }
+    if (kept.isEmpty()) return emptyList()
+    val headStart = first().startMs
+    return kept.mapIndexed { i, chapter ->
+        chapter.copy(
+            index = i + 1,
+            startMs = if (i == 0) headStart else chapter.startMs,
+            endMs = if (i < kept.lastIndex) kept[i + 1].startMs else chapter.endMs,
+        )
     }
 }

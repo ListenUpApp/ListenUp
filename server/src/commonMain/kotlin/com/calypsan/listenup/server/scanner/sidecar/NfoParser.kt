@@ -24,10 +24,12 @@ private val logger = loggerFor<NfoParser>()
  *
  * Element mapping:
  *  - `<title>`     → [SidecarMetadata.title]
+ *  - `<subtitle>`  → [SidecarMetadata.subtitle] (Kodi-style explicit subtitle)
  *  - `<plot>`      → [SidecarMetadata.description]
  *  - `<year>`      → [SidecarMetadata.publishYear]
  *  - `<publisher>` → [SidecarMetadata.publisher]
  *  - `<language>`  → [SidecarMetadata.language]
+ *  - `<genre>`     → [SidecarMetadata.genres] (one string per element)
  *  - `<author>`    → contributor, role `"author"`
  *  - `<actor>` / `<actor><name>` → contributor, role `"narrator"`
  *    (Kodi reuses the video `<actor>` element for audiobook narrators)
@@ -41,10 +43,12 @@ internal class NfoParser : SidecarParser {
             val root = parseXml(file.readText())
             SidecarMetadata(
                 title = root.firstText("title"),
+                subtitle = root.firstText("subtitle"),
                 description = root.firstText("plot"),
                 publishYear = root.firstText("year")?.toIntOrNull(),
                 publisher = root.firstText("publisher"),
                 language = root.firstText("language"),
+                genres = root.allText("genre"),
                 contributors =
                     buildList {
                         root.allText("author").forEach { add(SidecarContributor(it, "author")) }

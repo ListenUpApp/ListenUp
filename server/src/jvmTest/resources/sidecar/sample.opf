@@ -8,6 +8,8 @@
         <dc:description>The second volume of the Stormlight Archive.</dc:description>
         <dc:publisher>Tor Books</dc:publisher>
         <dc:language>en</dc:language>
+        <dc:subject>Fantasy</dc:subject>
+        <dc:subject>Epic</dc:subject>
         <dc:identifier opf:scheme="ISBN">978-0765326362</dc:identifier>
     </metadata>
 </package>

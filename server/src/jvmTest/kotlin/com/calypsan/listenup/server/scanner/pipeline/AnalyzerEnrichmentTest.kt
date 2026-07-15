@@ -646,7 +646,7 @@ class AnalyzerEnrichmentTest :
             }
         }
 
-        test("multi-file: one track's parse failure produces zero-length chapter, book still emerges") {
+        test("multi-file: one track's parse failure drops its ghost chapter, book still emerges") {
             audioLibrary {}.use { fixture ->
                 runTest {
                     val rel = "Author/Multi"
@@ -678,11 +678,10 @@ class AnalyzerEnrichmentTest :
                             .single()
                             .getOrThrow()
 
-                    book.chapters shouldHaveSize 2
+                    // Track 2's parse fails → 0ms duration → its zero-length ghost chapter is dropped.
+                    // Track 1's real chapter survives and the book still emerges.
+                    book.chapters shouldHaveSize 1
                     book.chapters[0].title shouldBe "Real Track"
-                    // Track 2's chapter exists but is zero-length: failed parse → 0ms duration.
-                    book.chapters[1].startMs shouldBe book.chapters[0].endMs
-                    book.chapters[1].endMs shouldBe book.chapters[1].startMs
                     book.chaptersSource shouldBe BookChapterSource.SynthesizedFromTracks
                 }
             }

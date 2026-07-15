@@ -104,6 +104,21 @@ class OpfParserTest :
             }
         }
 
+        test("reads dc:subject elements into SidecarMetadata.genres") {
+            runTest {
+                val md = parser.parse(fixture("sample.opf"))
+
+                md.shouldNotBeNull()
+                md.genres shouldBe listOf("Fantasy", "Epic")
+            }
+        }
+
+        test("absent dc:subject yields empty genres") {
+            runTest {
+                parser.parse(fixture("minimal.opf"))?.genres shouldBe emptyList()
+            }
+        }
+
         test("reads dc:subtitle into SidecarMetadata.subtitle") {
             runTest {
                 val opfPath = inlineOpfWithSubtitle(title = "Mistborn", subtitle = "The Final Empire")
