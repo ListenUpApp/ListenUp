@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 6,
-    "identityHash": "e5cda4093a6cc1d7fa397f34d6bfba8a",
+    "version": 7,
+    "identityHash": "f507b9739c61eceebfc6ed0254a72fbb",
     "entities": [
       {
         "tableName": "users",
@@ -3089,11 +3089,158 @@
             "userId"
           ]
         }
+      },
+      {
+        "tableName": "entities",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `name` TEXT NOT NULL, `homeSeriesId` TEXT NOT NULL, `imageRef` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "homeSeriesId",
+            "columnName": "homeSeriesId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "imageRef",
+            "columnName": "imageRef",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "revision",
+            "columnName": "revision",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deletedAt",
+            "columnName": "deletedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_entities_homeSeriesId",
+            "unique": false,
+            "columnNames": [
+              "homeSeriesId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_entities_homeSeriesId` ON `${TABLE_NAME}` (`homeSeriesId`)"
+          },
+          {
+            "name": "index_entities_deletedAt",
+            "unique": false,
+            "columnNames": [
+              "deletedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_entities_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
+          }
+        ]
+      },
+      {
+        "tableName": "entity_bio_entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `entityId` TEXT NOT NULL, `bookId` TEXT, `positionMs` INTEGER, `mode` TEXT NOT NULL, `text` TEXT NOT NULL, `sortKey` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entityId",
+            "columnName": "entityId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bookId",
+            "columnName": "bookId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "positionMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "text",
+            "columnName": "text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortKey",
+            "columnName": "sortKey",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_entity_bio_entries_entityId",
+            "unique": false,
+            "columnNames": [
+              "entityId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_entity_bio_entries_entityId` ON `${TABLE_NAME}` (`entityId`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e5cda4093a6cc1d7fa397f34d6bfba8a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f507b9739c61eceebfc6ed0254a72fbb')"
     ]
   }
 }

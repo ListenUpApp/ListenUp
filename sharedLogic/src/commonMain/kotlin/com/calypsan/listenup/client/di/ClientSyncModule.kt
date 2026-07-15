@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackService
@@ -72,6 +73,7 @@ import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.ShelfBookMutation
 import com.calypsan.listenup.api.dto.ShelfMutation
 import com.calypsan.listenup.api.dto.TagMutation
+import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderBookWrite
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
@@ -159,6 +161,7 @@ internal val clientSyncModule =
             val shelfChannel = rpcChannel<ShelfService>()
             val genreChannel = rpcChannel<GenreService>()
             val readingOrderChannel = rpcChannel<ReadingOrderService>()
+            val entityChannel = rpcChannel<EntityService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -393,6 +396,19 @@ internal val clientSyncModule =
                                         BookId(mutation.bookId),
                                     )
                                 }
+                            }
+                        }
+                    },
+                    // The op's entityId is the entity id; every write is a full-snapshot Upsert
+                    // (create and update share the one upsertEntity RPC — see EntityMutation's KDoc).
+                    outboxBinding(OutboxChannels.Entities) { id, mutation ->
+                        when (mutation) {
+                            is EntityMutation.Upsert -> {
+                                entityChannel.call { it.upsertEntity(mutation.upsert) }
+                            }
+
+                            is EntityMutation.Delete -> {
+                                entityChannel.call { it.deleteEntity(id) }.orSuccessIfNotFound()
                             }
                         }
                     },

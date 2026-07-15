@@ -56,6 +56,8 @@ internal val persistenceModule: Module =
         single { get<ListenUpDatabase>().libraryFolderDao() }
         single { get<ListenUpDatabase>().bookDocumentDao() }
         single { get<ListenUpDatabase>().adminUserRosterDao() }
+        single { get<ListenUpDatabase>().entityDao() }
+        single { get<ListenUpDatabase>().bioEntryDao() }
 
         single<TransactionRunner> {
             RoomTransactionRunner(get())

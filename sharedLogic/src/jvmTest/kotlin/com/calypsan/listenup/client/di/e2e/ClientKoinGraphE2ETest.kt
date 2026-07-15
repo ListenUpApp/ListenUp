@@ -103,11 +103,11 @@ class ClientKoinGraphE2ETest :
             val invalidator = koin.get<RpcCacheInvalidator>()
             val defaultInvalidator = invalidator.shouldBeInstanceOf<DefaultRpcCacheInvalidator>()
 
-            // getAll<RemoteCache>() must return exactly 29: ApiClientFactory + 28 RpcChannel<S>
+            // getAll<RemoteCache>() must return exactly 30: ApiClientFactory + 29 RpcChannel<S>
             // singles. This pins the count so a silently-dropped `binds arrayOf(RemoteCache::class)`
             // declaration causes an immediate test failure before production code ever misses an
             // invalidation.
-            // Note: 29 is the sharedModules count (no platform-only RemoteCache impls on JVM).
+            // Note: 30 is the sharedModules count (no platform-only RemoteCache impls on JVM).
             // W7 retired the two dual-mount Auth/Invite factories (−2) in favour of four finer-grained
             // channels — AuthServicePublic, AuthServiceAuthed, InviteServicePublic, InviteService (+4).
             // W8a retired the last PlaybackRpcFactory RemoteCache (−1) — its prepare() surface now rides
@@ -118,7 +118,9 @@ class ClientKoinGraphE2ETest :
             // The feature-line merge added rpcChannel registrations for OrganizeService,
             // ReadingOrderService, CampfireService, and PushService (their Ktor*RpcFactory shapes were
             // migrated onto the channel seam in the same merge), so 25 → 29.
-            defaultInvalidator.caches shouldHaveSize 29
+            // Story World Stage 2 added rpcChannel<EntityService>() (entityModule) for the entities
+            // outbox sender, so 29 → 30.
+            defaultInvalidator.caches shouldHaveSize 30
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

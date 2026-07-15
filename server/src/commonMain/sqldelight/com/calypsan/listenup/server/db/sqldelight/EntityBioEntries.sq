@@ -1,0 +1,34 @@
+-- entity_bio_entries: an entity's spoiler-anchored biography entries — a pure child
+-- collection carried whole-aggregate with its parent [entities] row, replaced
+-- wholesale (delete-then-insert) on every entity write. No revision/timestamp/
+-- client_op_id columns of its own: mirrors book_chapters, which is replaced the
+-- same way alongside its parent book.
+-- Column set matches V9__entities.sql exactly.
+-- FK declaration (REFERENCES entities) is omitted here: SQLDelight cannot resolve
+-- cross-table references for tables not defined in this schema's .sq files. The
+-- constraint is present in the migration DDL and enforced by SQLite at runtime.
+CREATE TABLE entity_bio_entries (
+    id           TEXT    NOT NULL,
+    entity_id    TEXT    NOT NULL,
+    book_id      TEXT,
+    position_ms  INTEGER,
+    mode         TEXT    NOT NULL,
+    text         TEXT    NOT NULL,
+    sort_key     INTEGER NOT NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE INDEX idx_entity_bio_entries_entity ON entity_bio_entries(entity_id);
+
+-- Live bio entries for an entity, in fold order (Stage 3 folds entries in sort_key order).
+selectForEntity:
+SELECT * FROM entity_bio_entries WHERE entity_id = :entity_id ORDER BY sort_key ASC;
+
+-- The child-collection replace half: clears every entry for an entity before re-inserting
+-- the incoming set (see EntityRepository.writePayload).
+deleteForEntity:
+DELETE FROM entity_bio_entries WHERE entity_id = :entity_id;
+
+insert:
+INSERT INTO entity_bio_entries (id, entity_id, book_id, position_ms, mode, text, sort_key)
+VALUES (:id, :entity_id, :book_id, :position_ms, :mode, :text, :sort_key);

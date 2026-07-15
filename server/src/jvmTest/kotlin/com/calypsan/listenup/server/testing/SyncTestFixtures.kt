@@ -228,6 +228,40 @@ fun ListenUpDatabase.seedTestLibraryAndFolder(
 }
 
 /**
+ * Seeds a minimal `book_series` row with [id] into [this] database.
+ *
+ * Used in tests that insert `entities` rows — the FK `home_series_id REFERENCES book_series(id)`
+ * requires the parent row to exist when FK enforcement is enabled. DDL-defaulted columns are
+ * supplied explicitly: `sort_name=null`, `asin/description/cover_path/cover_blur_hash=null`.
+ *
+ * @param id the `book_series.id` value.
+ * @param name the `book_series.name` / `normalized_name` value (default `"Test Series $id"`).
+ */
+fun ListenUpDatabase.seedTestSeries(
+    id: String,
+    name: String = "Test Series $id",
+) {
+    val now = System.currentTimeMillis()
+    transaction {
+        seriesQueries.insert(
+            id = id,
+            normalized_name = name.lowercase(),
+            name = name,
+            sort_name = null,
+            revision = 0L,
+            created_at = now,
+            updated_at = now,
+            deleted_at = null,
+            client_op_id = null,
+            asin = null,
+            description = null,
+            cover_path = null,
+            cover_blur_hash = null,
+        )
+    }
+}
+
+/**
  * Seeds a minimal `books` row with [bookId] into [this] database.
  *
  * Used in tests that insert `book_tags` rows — the junction table's FK `book_id REFERENCES books(id)`

@@ -84,6 +84,9 @@ object SyncDomains {
     val READING_ORDER_FOLLOWS =
         SyncDomainKey("reading_order_follows", ReadingOrderFollowSyncPayload.serializer())
 
+    /** Story World entities (characters, locations, items), library-shared per series. */
+    val ENTITIES = SyncDomainKey("entities", EntitySyncPayload.serializer())
+
     /** Server-materialized public profiles (leaderboard/social read model). */
     val PUBLIC_PROFILES = SyncDomainKey("public_profiles", PublicProfileSyncPayload.serializer())
 
@@ -119,6 +122,7 @@ object SyncDomains {
             READING_ORDERS,
             READING_ORDER_BOOKS,
             READING_ORDER_FOLLOWS,
+            ENTITIES,
             PUBLIC_PROFILES,
             ACTIVITIES,
         )

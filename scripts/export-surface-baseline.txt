@@ -58,6 +58,8 @@ BackupId
 BackupInfo
 BackupRepository
 BackupSummary
+BioEntry
+BioEntryMode
 BookAvailability
 BookContext
 BookContributor
@@ -229,6 +231,9 @@ EditableTag
 EditProfileEvent
 EditProfileUiState
 EditProfileViewModel
+Entity
+EntityEditRepository
+EntityKind
 ErrorBus
 EventStreamRepository
 FacetCount

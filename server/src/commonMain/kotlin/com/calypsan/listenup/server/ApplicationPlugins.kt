@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
 import com.calypsan.listenup.server.di.campfireModule
+import com.calypsan.listenup.server.di.entityModule
 import com.calypsan.listenup.server.di.importModule
 import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.libraryWriteModule
@@ -111,6 +112,7 @@ internal fun Application.installDependencies(
         modules += adminUserRosterModule()
         modules += shelfModule()
         modules += readingOrderModule()
+        modules += entityModule()
         modules += pushModule()
         modules += campfireModule()
         val httpPort =
