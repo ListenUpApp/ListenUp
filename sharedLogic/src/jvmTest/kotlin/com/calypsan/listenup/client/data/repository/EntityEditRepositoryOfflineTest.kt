@@ -274,8 +274,8 @@ class EntityEditRepositoryOfflineTest :
                         .map { it.shouldBeInstanceOf<EntityMutation.Upsert>().upsert }
                 val opCarryingB = upserts.single { upsert -> upsert.bioEntries.any { it.id == "b" } }
                 withClue(
-                    "the op that added entry \"b\" queued a whole-aggregate payload missing entry \"a\" — " +
-                        "its server apply (and ServerWins echo) would silently erase \"a\"",
+                    """the op that added entry "b" queued a whole-aggregate payload missing entry "a" — """ +
+                        """its server apply (and ServerWins echo) would silently erase "a"""",
                 ) {
                     opCarryingB.bioEntries.map { it.id }.toSet() shouldBe setOf("a", "b")
                 }
