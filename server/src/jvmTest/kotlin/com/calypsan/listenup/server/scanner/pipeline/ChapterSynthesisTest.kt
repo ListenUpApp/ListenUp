@@ -164,6 +164,21 @@ class ChapterSynthesisTest :
             kept[0].endMs shouldBe 199L
             kept[1].endMs shouldBe 5_000L // final survivor keeps its own end
         }
+
+        test("dropGhostChapters: a leading ghost is absorbed so the first survivor still starts at 0") {
+            val chapters =
+                listOf(
+                    Chapter(index = 1, title = "Intro blip", startMs = 0L, endMs = 40L), // 40ms, dropped
+                    Chapter(index = 2, title = "Real", startMs = 40L, endMs = 5_000L),
+                )
+
+            val kept = chapters.dropGhostChapters()
+
+            kept shouldHaveSize 1
+            kept[0].title shouldBe "Real"
+            kept[0].startMs shouldBe 0L // pulled back to the original head — no uncovered start
+            kept[0].endMs shouldBe 5_000L
+        }
     })
 
 private fun trackEntry(filename: String): TrackEntry =

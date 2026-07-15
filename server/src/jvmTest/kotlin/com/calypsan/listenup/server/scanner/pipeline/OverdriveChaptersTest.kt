@@ -136,7 +136,30 @@ class OverdriveChaptersTest :
             OverdriveChapters.parse(listOf(track)) { meta }.shouldNotBeNullAnd {
                 it.map { c -> c.title } shouldBe listOf("Chapter 1 alt", "Chapter 2")
                 it.map { c -> c.index } shouldBe listOf(1, 2)
+                it[0].startMs shouldBe 0L // leading ghost absorbed — no uncovered head
             }
+        }
+
+        test("marker frame is matched case-insensitively on the TXXX description") {
+            val track = trackEntry("Book.mp3")
+            val xml = "<Markers><Marker><Name>Chapter 1</Name><Time>0:00.000</Time></Marker></Markers>"
+            val meta = embeddedNoMarkers(60_000L).let { it.copy(tags = it.tags.copy(custom = mapOf("OVERDRIVE MEDIAMARKERS" to xml))) }
+
+            OverdriveChapters.parse(listOf(track)) { meta }.shouldNotBeNullAnd {
+                it shouldHaveSize 1
+                it[0].title shouldBe "Chapter 1"
+            }
+        }
+
+        test("non-monotonic marker start times abort to null") {
+            val track = trackEntry("Book.mp3")
+            val meta =
+                overdriveTrack(
+                    durationMs = 600_000L,
+                    markers = listOf("A" to "3:00.000", "B" to "1:00.000"), // B before A → corrupt
+                )
+
+            OverdriveChapters.parse(listOf(track)) { meta }.shouldBeNull()
         }
     })
 

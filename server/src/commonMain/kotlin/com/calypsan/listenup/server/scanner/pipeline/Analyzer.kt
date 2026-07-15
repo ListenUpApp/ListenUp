@@ -123,12 +123,13 @@ internal class Analyzer(
             // map instead of re-parsing every file. Single-track books and books
             // where no synthesis is needed pay nothing.
             //
-            // This map is load-bearing for BOTH multi-file chapter synthesis AND multi-file
-            // OverDrive-marker reconstruction — `pickChapters` reads per-track `tags.custom`
-            // and `durationMs` from it. `shouldSynthesizeChapters` is the right gate for both:
-            // it is true exactly when the book is multi-file with no higher-precedence chapter
-            // source, which is also the only case the OverDrive branch is reachable. Keep them
-            // aligned — narrowing this gate would silently starve the OverDrive path.
+            // This map is load-bearing for BOTH multi-file chapter synthesis AND the multi-file
+            // OverDrive-marker path — `pickChapters` reads per-track `tags.custom` and `durationMs`
+            // from it. `shouldSynthesizeChapters` is the right gate for both: it is true exactly
+            // when the book is multi-file with no higher-precedence chapter source, which is the
+            // only case the *multi-file* OverDrive branch needs this map. (Single-file OverDrive
+            // books also reach that branch, but read `embedded` directly, not this map.) Keep them
+            // aligned — narrowing this gate would silently starve the multi-file OverDrive path.
             val perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?> =
                 if (shouldSynthesizeChapters(metadata, embedded, tracks)) {
                     builtTracks.perTrackMetadata.ifEmpty { parseAllTrackDurations(tracks) }
@@ -485,6 +486,14 @@ internal class Analyzer(
      * so they beat the one-chapter-per-track fallback. Synthesis activates only
      * when no higher source exists AND the book is multi-file.
      *
+     * Deliberate divergence from ABS: ABS checks OverDrive markers *before* embedded
+     * chapters; we rank explicit embedded chapter atoms (Nero `chpl`, ID3 `CHAP`,
+     * MP4 chapter tracks) higher, because they are the standard, purpose-built chapter
+     * representation and OverDrive markers are a vendor-specific fallback. Pure
+     * OverDrive books carry no embedded chapters, so they are unaffected. The only
+     * case this changes is a hybrid file that carries both — rare, and if a real one
+     * with an *incomplete* embedded set surfaces we revisit (see followups.md).
+     *
      * `embedded.chapters` continues to surface verbatim on
      * [AnalyzedBook.embedded] regardless of which won — the resolved view is
      * additive, not destructive.
@@ -521,8 +530,14 @@ internal class Analyzer(
             return chapters to BookChapterSource.Overdrive
         }
         if (tracks.size >= 2) {
-            return synthesizeChapters(tracks, perTrackMetadata, bookTitle) to
-                BookChapterSource.SynthesizedFromTracks
+            // Synthesis can come back empty if every track's duration parse failed (all ghosts
+            // dropped); report that honestly as None rather than a synthesized-but-empty source.
+            val synthesized = synthesizeChapters(tracks, perTrackMetadata, bookTitle)
+            return if (synthesized.isEmpty()) {
+                emptyList<Chapter>() to BookChapterSource.None
+            } else {
+                synthesized to BookChapterSource.SynthesizedFromTracks
+            }
         }
         return emptyList<Chapter>() to BookChapterSource.None
     }

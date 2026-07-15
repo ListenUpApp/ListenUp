@@ -32,11 +32,12 @@ import kotlin.math.roundToLong
  * — names containing `(` immediately followed by a digit, or the word "continued"
  * — are dropped, matching ABS.
  *
- * One deliberate divergence from ABS: a well-formed marker frame that contains *no*
- * markers (or only weird ones) counts as "present" — the reconstruction proceeds
- * from the other tracks rather than discarding every chapter. ABS instead falls
- * back to synthesis whenever any track's cleaned marker list is empty. Keeping the
- * real chapters we do have is the more content-preserving choice.
+ * One deliberate divergence from ABS: a well-formed but childless `<Markers/>` frame
+ * counts as "present" here, so the reconstruction proceeds from the other tracks;
+ * ABS treats a frame with no `<Marker>` children as absent and falls back to
+ * synthesis for the whole book. (A frame whose markers are all *weird*-filtered is
+ * handled the same in both — the track stays present and contributes nothing.)
+ * Keeping the real chapters we do have is the more content-preserving choice.
  */
 internal object OverdriveChapters {
     /** The ID3 `TXXX` frame description under which OverDrive stores its marker XML. */
@@ -63,12 +64,15 @@ internal object OverdriveChapters {
         val starts = mutableListOf<Pair<String, Long>>()
         for (track in tracks) {
             val meta = metadataOf(track) ?: return null
-            val markerXml = meta.tags.custom[MARKERS_TAG_KEY] ?: return null
+            val markerXml = meta.tags.custom.markerFrame() ?: return null
             val markers = parseMarkers(markerXml) ?: return null
             markers.forEach { (name, relativeMs) -> starts += name to (cumulativeMs + relativeMs) }
             cumulativeMs += meta.durationMs
         }
         if (starts.isEmpty()) return null
+        // Corrupt markers (non-monotonic start times) would stitch into overlapping/inverted
+        // chapters. Bail to per-track synthesis rather than persist a broken chapter list.
+        if (starts.zipWithNext().any { (earlier, later) -> later.second < earlier.second }) return null
         // End of each chapter is the next chapter's start; the last runs to the book's end.
         val stitched =
             starts
@@ -108,6 +112,13 @@ internal object OverdriveChapters {
         } catch (e: Exception) {
             null
         }
+
+    /**
+     * The OverDrive marker XML from a track's `tags.custom` map, matched case-insensitively on the
+     * TXXX description (ABS grabs the tag with a lower-cased comparison; ID3 stores it verbatim).
+     */
+    private fun Map<String, String>.markerFrame(): String? =
+        entries.firstOrNull { it.key.equals(MARKERS_TAG_KEY, ignoreCase = true) }?.value
 
     /** Parses `H:MM:SS.mmm` / `MM:SS.mmm` / `SS.mmm` into milliseconds. Throws on a malformed component. */
     private fun parseTimeToMs(time: String): Long {

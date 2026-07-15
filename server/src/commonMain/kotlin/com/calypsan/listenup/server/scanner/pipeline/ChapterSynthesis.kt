@@ -106,17 +106,23 @@ private const val MIN_CHAPTER_MS = 100L
 
 /**
  * Drops sub-[MIN_CHAPTER_MS] ghost chapters, re-numbers the survivors 1-based, and
- * re-stitches boundaries so the list stays gap-free: each survivor ends where the
- * next begins, and the final survivor keeps its own end (already the book's end for
- * both synthesis and OverDrive). Dropping a zero-length entry is a no-op on the
- * neighbours; dropping a short-but-nonzero one has the previous survivor absorb the
- * gap rather than leaving a hole.
+ * re-stitches boundaries so the list stays gap-free and covers the whole span the
+ * input did:
+ *  - the first survivor's start is pulled back to the original first chapter's start,
+ *    so leading ghosts leave no uncovered head;
+ *  - each survivor ends where the next begins, so a dropped middle/trailing ghost is
+ *    absorbed by the previous survivor;
+ *  - the final survivor keeps its own end (already the book's end for both synthesis
+ *    and OverDrive).
  */
 internal fun List<Chapter>.dropGhostChapters(): List<Chapter> {
     val kept = filter { it.endMs - it.startMs >= MIN_CHAPTER_MS }
+    if (kept.isEmpty()) return emptyList()
+    val headStart = first().startMs
     return kept.mapIndexed { i, chapter ->
         chapter.copy(
             index = i + 1,
+            startMs = if (i == 0) headStart else chapter.startMs,
             endMs = if (i < kept.lastIndex) kept[i + 1].startMs else chapter.endMs,
         )
     }
