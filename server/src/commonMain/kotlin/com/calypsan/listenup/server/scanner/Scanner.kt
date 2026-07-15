@@ -324,7 +324,7 @@ internal class Scanner(
 
         val walker = Walker()
         val rawFiles = walker.walk(bookRoot).toList()
-        val prefix = bookRoot.relativeTo(folderRoot).replace('\\', '/')
+        val prefix = (bookRoot.relativeTo(folderRoot) ?: bookRoot.toString()).replace('\\', '/')
         val rebasedFiles =
             rawFiles.map { entry ->
                 if (prefix.isEmpty()) entry else entry.copy(relPath = "$prefix/${entry.relPath}")
@@ -347,7 +347,16 @@ internal class Scanner(
             )
         // For incremental scans the dirty-check only covers the affected subtree;
         // the untouched books are preserved via previousUntouched below.
-        val previousByPath = lastResult?.books.orEmpty().associateBy { it.candidate.rootRelPath }
+        // Scope the fingerprint cache to THIS folder only — a bare-rootRelPath map aliases a book to
+        // a same-relpath book in ANOTHER folder (associateBy keeps the last), so the wrong folder's
+        // analysis is reused (or a genuine cache hit is evicted). Mirrors the full-scan bucketing
+        // (A11); M9 extends the same guard to the incremental path.
+        val previousByPath =
+            lastResult
+                ?.books
+                .orEmpty()
+                .filter { it.folderRootPath == folderRootPath }
+                .associateBy { it.candidate.rootRelPath }
         val pass = collectAnalyzed(analyzer, candidates, correlationId, rebasedFiles.size, folderRoot, previousByPath)
         // Stamp each book with its owning folder's root so the persister attributes it correctly.
         val books = pass.books.map { it.copy(folderRootPath = folderRootPath) }
@@ -368,7 +377,7 @@ internal class Scanner(
 
         val patchedStripped = previousUntouched + booksStripped
         val durationMs = clock() - started
-        val rootRelPath = bookRoot.relativeTo(folderRoot).replace('\\', '/')
+        val rootRelPath = (bookRoot.relativeTo(folderRoot) ?: bookRoot.toString()).replace('\\', '/')
         val subtreeScope = ScanScope.Subtree(rootRelPath)
         val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
 
@@ -595,7 +604,7 @@ internal class Scanner(
         folderRootPath: String,
         books: List<AnalyzedBook>,
     ): Pair<List<AnalyzedBook>, List<AnalyzedBook>> {
-        val rootPrefix = bookRoot.relativeTo(folderRoot).replace('\\', '/')
+        val rootPrefix = (bookRoot.relativeTo(folderRoot) ?: bookRoot.toString()).replace('\\', '/')
         return books.partition { book ->
             // A book is "affected" by this incremental only if it belongs to the SAME folder as the
             // scanned subtree. The previous snapshot spans EVERY folder, and each rootRelPath is

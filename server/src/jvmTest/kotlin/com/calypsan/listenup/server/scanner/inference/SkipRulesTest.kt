@@ -27,6 +27,18 @@ class SkipRulesTest :
             SkipRules.shouldSkip(Path("/library/Author/Book/@eaDir/SYNOPHOTO_THUMB_M.jpg")) shouldBe true
         }
 
+        test("skips the @eaDir directory itself so the Walker never descends into it") {
+            // The substring check only matches CHILDREN of @eaDir; the name check prunes the
+            // directory itself.
+            SkipRules.shouldSkipByName(Path("/library/Author/Book/@eaDir")) shouldBe true
+        }
+
+        test("shouldSkipByName does not probe the filesystem for a .ignore sibling") {
+            // Name-only decision — an ordinary file with no .ignore sibling is not skipped, and no
+            // exists() syscall is made (the Walker owns the per-directory probe).
+            SkipRules.shouldSkipByName(Path("/library/Author/Book/track.mp3")) shouldBe false
+        }
+
         test(".ignore sibling marks the directory as skipped") {
             val tmp = Files.createTempDirectory("listenup-skip-")
             try {

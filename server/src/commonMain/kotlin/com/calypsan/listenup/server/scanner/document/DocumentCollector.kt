@@ -42,7 +42,10 @@ internal class DocumentCollector {
             .sortedBy { (_, absolutePath) -> absolutePath.toString() }
             .map { (_, absolutePath) ->
                 AnalyzedDocument(
-                    relPath = absolutePath.relativeTo(bookRoot),
+                    // Documents always live beneath bookRoot (including a subtree doc rolled up into
+                    // the owning book), so relativeTo is non-null; the filename fallback covers the
+                    // unreachable non-descendant case rather than leaking an absolute path.
+                    relPath = absolutePath.relativeTo(bookRoot) ?: absolutePath.name,
                     format =
                         absolutePath.name
                             .substringAfterLast('.', "")

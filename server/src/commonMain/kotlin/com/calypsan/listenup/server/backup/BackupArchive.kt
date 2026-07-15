@@ -278,7 +278,9 @@ class BackupArchive(
         try {
             val files = listRegularFilesRecursively(dir)
             files.forEachIndexed { index, file ->
-                val rel = file.relativeTo(dir)
+                // listRegularFilesRecursively only returns files beneath dir, so relativeTo is
+                // non-null; the filename fallback covers the unreachable non-descendant case.
+                val rel = file.relativeTo(dir) ?: file.name
                 zip.putEntry("$prefix$rel", ZipMethod.DEFLATE).buffered().use { sink ->
                     SystemFileSystem.source(file).use { src -> src.drainInto(sink, digest) }
                 }

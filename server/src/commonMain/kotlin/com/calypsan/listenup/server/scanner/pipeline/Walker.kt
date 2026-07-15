@@ -44,7 +44,8 @@ private val logger = loggerFor<Walker>()
  *    the backpressure precision of channelFlow here.
  */
 internal class Walker(
-    private val skipRules: (Path) -> Boolean = SkipRules::shouldSkip,
+    private val skipByName: (Path) -> Boolean = SkipRules::shouldSkipByName,
+    private val hasIgnoreSentinel: (Path) -> Boolean = SkipRules::hasIgnoreSentinel,
 ) {
     fun walk(root: Path): Flow<FileEntry> =
         flow {
@@ -59,6 +60,9 @@ internal class Walker(
         dir: Path,
         out: MutableList<FileEntry>,
     ) {
+        // `.ignore` sentinel: one probe as we enter the directory prunes the whole subtree, instead
+        // of an exists() syscall for every walked entry (100k+ redundant probes on a large NAS).
+        if (hasIgnoreSentinel(dir)) return
         val children =
             try {
                 SystemFileSystem.list(dir).sortedBy { it.name }
@@ -68,7 +72,7 @@ internal class Walker(
                 return
             }
         for (child in children) {
-            if (skipRules(child)) continue
+            if (skipByName(child)) continue
             // Symlinks are leaves: emit but never recurse (cycle-safe). The
             // isSymlink probe must precede the directory test because
             // metadataOrNull follows links, so a symlinked dir would otherwise
@@ -99,7 +103,9 @@ internal class Walker(
         val ext = name.substringAfterLast('.', missingDelimiterValue = "").lowercase()
         out +=
             FileEntry(
-                relPath = file.relativeTo(root),
+                // The walker only ever emits files discovered beneath root, so relativeTo is
+                // non-null here; the filename fallback covers the unreachable non-descendant case.
+                relPath = file.relativeTo(root) ?: file.name,
                 name = name,
                 ext = ext,
                 size = attrs.size,

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -113,6 +114,61 @@ class GrouperTest :
                 books.size shouldBe 2
                 books.all { it.isFile } shouldBe true
                 books.map { it.rootRelPath } shouldContainExactlyInAnyOrder listOf("a.m4b", "b.mp3")
+            }
+        }
+
+        test("rolls an audio-less subfolder up into the nearest ancestor book that has audio") {
+            runTest {
+                // Author/Title/extras/ holds only a PDF — it is not a book. Its files must attach to
+                // the owning audio book instead of becoming an audio-less "book" (NoRecognizedAudio).
+                val files =
+                    listOf(
+                        entry("Author/Title/01.mp3", FileType.AUDIO),
+                        entry("Author/Title/extras/notes.pdf", FileType.EBOOK),
+                    )
+                val books = grouper.group(files.asFlow()).toList()
+                books.map { it.rootRelPath } shouldContainExactly listOf("Author/Title")
+                books.single().files.map { it.relPath } shouldContainExactlyInAnyOrder
+                    listOf("Author/Title/01.mp3", "Author/Title/extras/notes.pdf")
+            }
+        }
+
+        test("audio-less rollup does not regress multi-disc collapse") {
+            runTest {
+                val files =
+                    listOf(
+                        entry("Title/CD1/01.mp3", FileType.AUDIO),
+                        entry("Title/CD2/01.mp3", FileType.AUDIO),
+                        entry("Title/extras/booklet.pdf", FileType.EBOOK),
+                    )
+                val book = grouper.group(files.asFlow()).toList().single()
+                book.rootRelPath shouldBe "Title"
+                book.discFolders shouldContainExactly listOf("CD1", "CD2")
+                book.files.map { it.relPath } shouldContain "Title/extras/booklet.pdf"
+            }
+        }
+
+        test("keeps an audio-less folder as its own candidate when no audio ancestor exists") {
+            runTest {
+                // No audio anywhere → nothing to roll up into. Preserve the folder as a candidate
+                // (the Analyzer surfaces it) rather than silently dropping it.
+                val files = listOf(entry("Author/ArtOnly/scan.pdf", FileType.EBOOK))
+                val book = grouper.group(files.asFlow()).toList().single()
+                book.rootRelPath shouldBe "Author/ArtOnly"
+            }
+        }
+
+        test("a root-level single-file book keeps a sibling cover image") {
+            runTest {
+                val files =
+                    listOf(
+                        entry("MyBook.m4b", FileType.AUDIO),
+                        entry("cover.jpg", FileType.IMAGE),
+                    )
+                val book = grouper.group(files.asFlow()).toList().single()
+                book.rootRelPath shouldBe "MyBook.m4b"
+                book.isFile shouldBe true
+                book.files.map { it.relPath } shouldContainExactlyInAnyOrder listOf("MyBook.m4b", "cover.jpg")
             }
         }
 

@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
@@ -334,6 +335,52 @@ class ScanOrchestratorTest :
                 // reanalyze must have been called; the null-folder must not have caused a crash.
                 reanalyzedPaths.size shouldBe 1
                 reanalyzedPaths.first().toString() shouldBe "/tmp/books/Author/Title"
+            }
+        }
+
+        test("onFileChanged ignores an event outside every registered folder") {
+            runTest {
+                val reanalyzedPaths = mutableListOf<Path>()
+                val factory = FakeScannerFactory(recordIncremental = { path -> reanalyzedPaths.add(path) })
+
+                val realFolder = LibraryFolderRef(FolderId("f-real"), "/tmp/books")
+                val library =
+                    Library(
+                        id = LibraryId("lib-1"),
+                        name = "Test Library",
+                        folders = listOf(realFolder),
+                        metadataPrecedence = "embedded,abs,sidecar",
+                        accessMode = AccessMode.SHARED,
+                        createdByUserId = null,
+                        createdAt = 0L,
+                    )
+
+                var capturedEvent: (suspend (LibraryId, Path) -> Unit)? = null
+                val supervisor =
+                    object : WatcherSupervisorPort {
+                        override suspend fun mount(
+                            libraryId: LibraryId,
+                            folder: LibraryFolderRef,
+                            onEvent: suspend (LibraryId, Path) -> Unit,
+                        ) {
+                            capturedEvent = onEvent
+                        }
+
+                        override suspend fun unmount(folderId: FolderId) = Unit
+
+                        override suspend fun unmountAllForLibrary(libraryId: LibraryId) = Unit
+
+                        override suspend fun unmountAll() = Unit
+                    }
+                val orchestrator = orchestrator(factory, supervisor, backgroundScope)
+                orchestrator.onLibraryAdded(library)
+
+                // A path under no registered folder (a sibling mount / stray move) must be ignored,
+                // not reanalyzed against a folder the library doesn't own.
+                capturedEvent?.invoke(LibraryId("lib-1"), Path("/tmp/elsewhere/Author/Title"))
+                testScheduler.runCurrent()
+
+                reanalyzedPaths.shouldBeEmpty()
             }
         }
     })

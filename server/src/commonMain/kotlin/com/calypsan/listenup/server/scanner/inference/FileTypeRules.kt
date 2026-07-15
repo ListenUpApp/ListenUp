@@ -13,11 +13,17 @@ import com.calypsan.listenup.api.dto.scanner.FileType
  * unclassified, so the Analyzer can see them if it cares.
  */
 internal object FileTypeRules {
+    // Mirrors ABS's SupportedAudioTypes with two deliberate divergences: `mpg`/`mpeg` are dropped
+    // (they are MPEG *video* containers ABS mis-lists as audio — admitting them turns a stray video
+    // clip into a failing "book"), and `m4p` is added (Apple's DRM-protected AAC — a real audio
+    // container, classified as AUDIO so it forms a book candidate rather than being silently dropped;
+    // the embedded parser surfaces its own status if the DRM blocks a clean read).
     private val audioExt =
         setOf(
             "m4b",
             "mp3",
             "m4a",
+            "m4p",
             "flac",
             "opus",
             "ogg",
@@ -33,8 +39,6 @@ internal object FileTypeRules {
             "mka",
             "awb",
             "caf",
-            "mpg",
-            "mpeg",
         )
     private val imageExt = setOf("png", "jpg", "jpeg", "webp")
     private val ebookExt = setOf("epub", "pdf", "mobi", "azw3", "cbr", "cbz")
