@@ -481,6 +481,67 @@ class Mp4ParserTest :
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.audioStream?.codecProfile shouldBe "xhe"
         }
+
+        test("parse maps the ©st3 track-subtitle atom to subtitle") {
+            val bytes =
+                buildMp4File {
+                    ftyp(brand = "M4B ")
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "The Way of Kings")
+                                tag("©st3", "Book One of the Stormlight Archive")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.subtitle shouldBe "Book One of the Stormlight Archive"
+        }
+
+        test("parse maps the tvsh show atom to a series name") {
+            val bytes =
+                buildMp4File {
+                    ftyp(brand = "M4B ")
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Episode 1")
+                                tag("tvsh", "Welcome to Night Vale")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("Welcome to Night Vale", null))
+        }
+
+        test("parse maps a freeform show name and episode_id to a series with part") {
+            val bytes =
+                buildMp4File {
+                    ftyp(brand = "M4B ")
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        udta {
+                            meta {
+                                tag("©nam", "Episode 2")
+                                freeform(mean = "com.apple.iTunes", name = "show", value = "The Sandman")
+                                freeform(mean = "com.apple.iTunes", name = "episode_id", value = "2")
+                            }
+                        }
+                        audioTrack()
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.tags.series shouldBe listOf(SeriesEntry("The Sandman", "2"))
+        }
     })
 
 internal fun byteSource(bytes: ByteArray): SeekableSource =
