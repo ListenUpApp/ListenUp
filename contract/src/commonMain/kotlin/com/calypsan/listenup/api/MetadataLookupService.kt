@@ -44,10 +44,17 @@ interface MetadataLookupService {
      *
      * Results are cached for 24 hours (search-TTL). Repeated calls with the
      * same arguments are cheap.
+     *
+     * When [bookId] identifies a local book, the server threads that book's
+     * title, primary author, and runtime into the phase-1 match scorer and
+     * returns candidates ranked best-first by match confidence
+     * (`0.7·duration + 0.2·title + 0.1·author`). When `null`, the underlying
+     * catalog's own relevance order is preserved.
      */
     suspend fun searchBooks(
         query: String,
         region: MetadataLocale?,
+        bookId: BookId? = null,
     ): AppResult<MetadataSearchResults>
 
     /**

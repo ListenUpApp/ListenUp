@@ -34,7 +34,8 @@ internal class MetadataRepositoryImpl(
     override suspend fun searchBooks(
         query: String,
         region: MetadataLocale?,
-    ): AppResult<MetadataSearchResults> = channel.call(idempotent = true) { it.searchBooks(query, region) }
+        bookId: BookId?,
+    ): AppResult<MetadataSearchResults> = channel.call(idempotent = true) { it.searchBooks(query, region, bookId) }
 
     override suspend fun getBookMetadata(
         asin: String,

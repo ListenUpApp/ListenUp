@@ -25,10 +25,15 @@ import com.calypsan.listenup.core.ContributorId
  * [kotlinx.coroutines.CancellationException].
  */
 interface MetadataRepository {
-    /** Searches the Audible catalog for books matching [query]. */
+    /**
+     * Searches the Audible catalog for books matching [query]. When [bookId]
+     * identifies the local book being matched, the server ranks candidates
+     * best-first by match confidence against that book's title/author/runtime.
+     */
     suspend fun searchBooks(
         query: String,
         region: MetadataLocale?,
+        bookId: BookId? = null,
     ): AppResult<MetadataSearchResults>
 
     /** Fetches the canonical metadata for the Audible book identified by [asin] in [region]. */

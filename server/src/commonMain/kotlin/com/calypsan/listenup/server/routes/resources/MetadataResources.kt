@@ -24,6 +24,12 @@ class MetadataResources(
      * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.searchBooks].
      */
     val region: String? = null,
+    /**
+     * Optional local book id. When present, the server threads that book's
+     * title/author/runtime into the match scorer and returns candidates ranked
+     * best-first by match confidence.
+     */
+    val bookId: String? = null,
 ) {
     /**
      * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.getBookMetadata] —
