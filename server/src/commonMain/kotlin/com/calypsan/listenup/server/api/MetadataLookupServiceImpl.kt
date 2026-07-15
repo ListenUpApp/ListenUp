@@ -198,8 +198,8 @@ internal class MetadataLookupServiceImpl(
         requireCanEdit()?.let { return AppResult.Failure(it) }
         return ChapterNameApplier(
             bookRepository = bookRepository,
-            metadataService = metadataService,
-        ).apply(bookId, asin, region.toAudibleRegion(), ordinals)
+            coordinator = coordinator,
+        ).apply(bookId, asin, region, ordinals)
     }
 
     override suspend fun applyContributorMetadata(
