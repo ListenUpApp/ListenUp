@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CampfireService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.EntityService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.ImportService
 import com.calypsan.listenup.api.InstanceService
@@ -56,6 +57,7 @@ data class RpcServices(
     val collectionService: CollectionService,
     val shelfService: ShelfService,
     val readingOrderService: ReadingOrderService,
+    val entityService: EntityService,
     val socialService: SocialService,
     val activityService: ActivityService,
     val adminUserService: AdminUserService,
