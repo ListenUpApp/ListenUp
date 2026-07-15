@@ -3,10 +3,13 @@ package com.calypsan.listenup.server.scanner.pipeline
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.scanner.sidecar.xml.firstText
 import com.calypsan.listenup.server.scanner.sidecar.xml.getElementsByTagName
 import com.calypsan.listenup.server.scanner.sidecar.xml.parseXml
 import kotlin.math.roundToLong
+
+private val logger = loggerFor<OverdriveChapters>()
 
 /**
  * Reconstructs chapters from OverDrive/Libby `TXXX:"OverDrive MediaMarkers"` frames.
@@ -66,7 +69,7 @@ internal object OverdriveChapters {
             val meta = metadataOf(track) ?: return null
             val markerXml = meta.tags.custom.markerFrame() ?: return null
             val markers = parseMarkers(markerXml) ?: return null
-            markers.forEach { (name, relativeMs) -> starts += name to (cumulativeMs + relativeMs) }
+            markers.forEach { (name, relativeMs) -> starts += name to cumulativeMs + relativeMs }
             cumulativeMs += meta.durationMs
         }
         if (starts.isEmpty()) return null
@@ -110,6 +113,8 @@ internal object OverdriveChapters {
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
+            // Malformed marker XML is not an error — the caller falls back to synthesis.
+            logger.debug(e) { "Unparseable OverDrive marker XML — skipping" }
             null
         }
 
