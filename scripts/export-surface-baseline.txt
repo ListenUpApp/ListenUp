@@ -75,6 +75,7 @@ BookEditUiEvent
 BookEditUiState
 BookEditViewModel
 BookEvent
+BookField
 BookGenreInput
 BookId
 BookListeningDuration
@@ -291,6 +292,7 @@ LoginField
 LoginRequest
 LoginUiState
 LoginViewModel
+MatchProvenance
 MatchTier
 MediaFocus
 MetadataApplySelection
@@ -298,6 +300,7 @@ MetadataBook
 MetadataContributorHit
 MetadataContributorProfile
 MetadataContributorRef
+MetadataDomain
 MetadataEvent
 MetadataField
 MetadataFieldSelections
