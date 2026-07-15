@@ -12,33 +12,53 @@ struct ConnectionHealthBanner: View {
     var onRetry: () -> Void
     var onDismiss: () -> Void
 
-    /// UI-local dismissal of the Offline banner; resets when the state next changes.
+    /// UI-local dismissal of the Offline banner; re-armed when the connection state next changes.
     @State private var offlineDismissed = false
+    /// True for a short beat after Retry is tapped — swaps the action for a spinner so the tap has
+    /// visible feedback even when the recheck leaves the server still unreachable.
+    @State private var isRetrying = false
 
     var body: some View {
-        switch kind {
-        case .unreachable:
-            if !offlineDismissed {
+        Group {
+            switch kind {
+            case .unreachable:
+                if !offlineDismissed {
+                    card(
+                        icon: "wifi.slash",
+                        title: Text("shell.offline_title"),
+                        message: Text("shell.offline_body"),
+                        actionLabel: Text("common.retry"),
+                        actionInProgress: isRetrying,
+                        onAction: { isRetrying = true; onRetry() },
+                        onClose: { offlineDismissed = true }
+                    )
+                }
+            case .outdated(let clientVersion, let serverVersion):
                 card(
-                    icon: "wifi.slash",
-                    title: Text("shell.offline_title"),
-                    message: Text("shell.offline_body"),
-                    actionLabel: Text("common.retry"),
-                    onAction: onRetry,
-                    onClose: { offlineDismissed = true }
+                    icon: "arrow.down.circle",
+                    title: Text("shell.update_available_title"),
+                    message: Text(updateBody(clientVersion, serverVersion)),
+                    actionLabel: Text("common.dismiss"),
+                    actionInProgress: false,
+                    onAction: onDismiss,
+                    onClose: nil
                 )
+            case .hidden, .sessionExpired:
+                EmptyView()
             }
-        case .outdated(let clientVersion, let serverVersion):
-            card(
-                icon: "arrow.down.circle",
-                title: Text("shell.update_available_title"),
-                message: Text(updateBody(clientVersion, serverVersion)),
-                actionLabel: Text("common.dismiss"),
-                onAction: onDismiss,
-                onClose: nil
-            )
-        case .hidden, .sessionExpired:
-            EmptyView()
+        }
+        .onChange(of: kind) { _, _ in
+            // A genuine connection-state change resolves any pending Retry and re-arms a prior
+            // offline dismissal, so the next real offline event surfaces the banner again.
+            isRetrying = false
+            offlineDismissed = false
+        }
+        .task(id: isRetrying) {
+            // Hold the spinner for a visible beat even when the server stays down (kind unchanged),
+            // then fall back to the Retry affordance so the user can try again.
+            guard isRetrying else { return }
+            try? await Task.sleep(for: .seconds(1.5))
+            isRetrying = false
         }
     }
 
@@ -52,6 +72,7 @@ struct ConnectionHealthBanner: View {
         title: Text,
         message: Text,
         actionLabel: Text,
+        actionInProgress: Bool,
         onAction: @escaping () -> Void,
         onClose: (() -> Void)?
     ) -> some View {
@@ -73,12 +94,20 @@ struct ConnectionHealthBanner: View {
             Spacer(minLength: 8)
 
             Button(action: onAction) {
-                actionLabel
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.listenUpOrange)
-                    .frame(minHeight: 44)
+                Group {
+                    if actionInProgress {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        actionLabel
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.listenUpOrange)
+                    }
+                }
+                .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
+            .disabled(actionInProgress)
 
             if let onClose {
                 Button(action: onClose) {
