@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.CoverSource
+import com.calypsan.listenup.api.dto.scanner.FailedScanPath
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.ScanPhase
@@ -269,6 +270,31 @@ class BookPersisterTest :
 
                     // The sweep uses seenPaths (rootRelPaths from result.books), not BookIds.
                     fake.softDeleteAbsentByPathsCalls shouldHaveSize 1
+                    fake.softDeleteAbsentByPathsCalls.single() shouldBe setOf("a", "b")
+                }
+            }
+        }
+
+        test("full scan does NOT sweep a book whose analysis failed this scan (protected via failedPaths)") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this)
+
+                    // "a" analyzed cleanly; "b" was walked but its analysis threw (transient fault or a
+                    // book mid-replacement), so it is absent from `books` but present in `failedPaths`.
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a")),
+                            changes = listOf(ChangeEventDto.Added(analyzedBook("a"))),
+                            scope = ScanScope.Full,
+                            failedPaths = listOf(FailedScanPath(folderRootPath = "/lib", rootRelPath = "b")),
+                        ),
+                    )
+
+                    // "b" must be in the seen set — the sweep must NOT tombstone a book that is still
+                    // on disk but failed to analyze. Without the failedPaths union it would be absent
+                    // here and soft-deleted.
                     fake.softDeleteAbsentByPathsCalls.single() shouldBe setOf("a", "b")
                 }
             }
@@ -919,6 +945,7 @@ internal fun scanResult(
     scope: ScanScope,
     rootPath: String = "/lib",
     fullScanAuthoritative: Boolean = true,
+    failedPaths: List<FailedScanPath> = emptyList(),
 ): ScanResult =
     ScanResult(
         correlationId = "c",
@@ -931,6 +958,7 @@ internal fun scanResult(
         filesSkipped = 0,
         scope = scope,
         fullScanAuthoritative = fullScanAuthoritative,
+        failedPaths = failedPaths,
     )
 
 /** Builds a minimal [AnalyzedBook] anchored at [rootRelPath] with one audio file. */

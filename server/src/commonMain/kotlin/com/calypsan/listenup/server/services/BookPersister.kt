@@ -205,9 +205,12 @@ class BookPersister internal constructor(
      * OOM signals a compromised heap and must never be swallowed per-book.
      *
      * Tombstone sweep safety: [ScanResult.books] represents every book present on disk at scan
-     * time, including books that changed but failed to persist. A failed book is still on disk,
-     * so its `rootRelPath` IS in [seenPaths] — the path-based sweep will not tombstone it. The
-     * sweep is therefore safe regardless of persist failures; no skip-on-failure guard is needed.
+     * time, including books that changed but failed to persist — those are still on disk and their
+     * `rootRelPath` IS in [ScanResult.books], so the path-based sweep will not tombstone them.
+     * Books whose *analysis* failed (a transient read fault, a locked file, a book mid-replacement)
+     * are absent from [ScanResult.books]; they are protected separately via [ScanResult.failedPaths],
+     * which `persistAll` unions into its seen-set. The sweep is therefore safe regardless of persist
+     * OR analyze failures; no skip-on-failure guard is needed.
      */
     private suspend fun persistAll(
         result: ScanResult,
@@ -233,14 +236,28 @@ class BookPersister internal constructor(
         // root handled by resolveFolderId). Built from result.books (every book on disk) so it covers
         // both the changed-book persist grouping and the whole-library folder-qualified sweep.
         val folderIdByRoot: Map<String, FolderId> =
-            result.books.mapTo(mutableSetOf(), ::folderRootOf).associateWith { resolveFolderId(it) }
+            (result.books.map(::folderRootOf) + result.failedPaths.map { it.folderRootPath })
+                .toSet()
+                .associateWith { resolveFolderId(it) }
 
         // The seen set for the full-scan tombstone sweep: every book present on disk, keyed by its
         // (folderId, rootRelPath) locator — no DB, no per-book work. Folder-qualifying it stops a
         // book in one folder from masking a same-named book in another.
+        //
+        // `failedPaths` are book-roots that were walked but whose analysis failed this scan (a
+        // transient read fault, a locked/half-written file, or a book mid-replacement). They are
+        // absent from `books`, so without unioning them here the sweep would tombstone a book that is
+        // still physically on disk. Adding a path with no DB book behind it is a harmless no-op, so
+        // this over-protects safely — genuine removals (the folder actually gone) are never walked
+        // and so are still swept.
         val seenPaths: Set<FolderScopedPath> =
-            result.books.mapTo(mutableSetOf()) {
-                FolderScopedPath(folderIdByRoot.getValue(folderRootOf(it)), it.candidate.rootRelPath)
+            buildSet {
+                result.books.forEach {
+                    add(FolderScopedPath(folderIdByRoot.getValue(folderRootOf(it)), it.candidate.rootRelPath))
+                }
+                result.failedPaths.forEach {
+                    add(FolderScopedPath(folderIdByRoot.getValue(it.folderRootPath), it.rootRelPath))
+                }
             }
         // Resolve the library's system collection ONCE per scan: ALL_BOOKS when the inbox gate
         // is off (non-held), INBOX when it is on (held). The two cases are mutually exclusive —

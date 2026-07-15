@@ -54,6 +54,27 @@ data class ScanResult(
      * `true` for a [ScanScope.Subtree] scan (which never sweeps regardless).
      */
     val fullScanAuthoritative: Boolean = true,
+    /**
+     * Book-roots that were walked but whose analysis failed this scan — a transient read fault, a
+     * locked/half-written file, a parser throwable, or a `NoRecognizedAudio` skip (e.g. a book mid-
+     * replacement whose files are momentarily all `.part`). They are absent from [books], so without
+     * this the tombstone sweep would soft-delete a book that is still physically on disk.
+     * `BookPersister` unions these into its seen-set so a failed analysis never tombstones a live book;
+     * genuine removals (the folder actually gone) are still swept because they are not walked at all.
+     */
+    val failedPaths: List<FailedScanPath> = emptyList(),
+)
+
+/**
+ * A book-root that was walked but failed to analyze, located by the same
+ * `(folderRootPath, rootRelPath)` pair the persister keys books by. Carried on
+ * [ScanResult.failedPaths] purely to keep the tombstone sweep from deleting a
+ * book whose analysis transiently failed.
+ */
+@Serializable
+data class FailedScanPath(
+    val folderRootPath: String,
+    val rootRelPath: String,
 )
 
 /**
