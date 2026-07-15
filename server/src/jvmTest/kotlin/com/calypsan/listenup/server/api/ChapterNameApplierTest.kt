@@ -3,10 +3,12 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.error.MetadataError
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -16,8 +18,15 @@ import com.calypsan.listenup.server.metadata.audible.AudibleChapter
 import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.ProductTag
 import com.calypsan.listenup.server.metadata.audible.SearchParams
+import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.itunes.ITunesApi
 import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
+import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
+import com.calypsan.listenup.server.metadata.spi.ChapterMeta
+import com.calypsan.listenup.server.metadata.spi.ChapterSource as SpiChapterSource
+import com.calypsan.listenup.server.metadata.spi.MetadataCapability
+import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -29,6 +38,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -53,7 +63,7 @@ class ChapterNameApplierTest :
                         clientOpId = null,
                     )
 
-                    val result = deps.applier.apply(BookId("b1"), ASIN, AudibleRegion.US, ordinals = setOf(0, 2))
+                    val result = deps.applier.apply(BookId("b1"), ASIN, MetadataLocale("us"), ordinals = setOf(0, 2))
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                     val after =
@@ -71,6 +81,88 @@ class ChapterNameApplierTest :
             }
         }
 
+        test("applied names are stamped USER and survive a later rescan (H2 stickiness)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = deps(this, audibleChapters = audible("Prologue", "Chapter One", "Chapter Two"))
+                runTest {
+                    deps.bookRepo.upsert(
+                        bookWithChapters("b1", local("Track 1", "Track 2", "Track 3")),
+                        clientOpId = null,
+                    )
+
+                    deps.applier
+                        .apply(BookId("b1"), ASIN, MetadataLocale("us"), ordinals = setOf(0, 1, 2))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // Apply stamps the chapter set USER — selection-as-consent — so it is rescan-protected.
+                    val applied = deps.bookRepo.findById(BookId("b1")).shouldNotBeNull()
+                    applied.chapterSource shouldBe ChapterSource.USER
+                    applied.chapters.map { it.title } shouldBe listOf("Prologue", "Chapter One", "Chapter Two")
+
+                    // Simulate a writing rescan re-ingesting EMBEDDED chapters with the old track names.
+                    deps.bookRepo.upsert(
+                        applied.copy(
+                            chapters = local("Track 1", "Track 2", "Track 3"),
+                            chapterSource = ChapterSource.EMBEDDED,
+                        ),
+                        clientOpId = null,
+                    )
+
+                    val afterRescan = deps.bookRepo.findById(BookId("b1")).shouldNotBeNull()
+                    afterRescan.chapterSource shouldBe ChapterSource.USER
+                    afterRescan.chapters.map { it.title } shouldBe listOf("Prologue", "Chapter One", "Chapter Two")
+                }
+            }
+        }
+
+        test("apply reads the same composition as preview — the winning provider, not Audible (H3)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                // Audible (last in the CHAPTERS chain) yields "Audible-*"; a higher-priority
+                // AUDNEXUS provider yields "Audnexus-*". The composed preview must win — and apply
+                // must read that exact same composition, not the raw Audible list.
+                val deps =
+                    deps(
+                        this,
+                        audibleChapters = audible("Audible One", "Audible Two"),
+                        extraProviders =
+                            listOf<MetadataCapability>(
+                                FakeChapterProvider(
+                                    MetadataProviderId.AUDNEXUS,
+                                    listOf("Audnexus One", "Audnexus Two"),
+                                ),
+                            ),
+                    )
+                runTest {
+                    deps.bookRepo.upsert(bookWithChapters("b1", local("Track 1", "Track 2")), clientOpId = null)
+
+                    // The preview the wizard shows.
+                    val preview =
+                        deps.coordinator
+                            .composeChapters(BookIdentity(asin = ASIN, title = ""), MetadataLocale("us"))
+                            .shouldNotBeNull()
+                            .chapters
+                            .map { it.title }
+                    preview shouldBe listOf("Audnexus One", "Audnexus Two")
+
+                    deps.applier
+                        .apply(BookId("b1"), ASIN, MetadataLocale("us"), ordinals = setOf(0, 1))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // Apply used the same composition — the AUDNEXUS names, matching the preview exactly.
+                    val applied =
+                        deps.bookRepo
+                            .findById(BookId("b1"))
+                            .shouldNotBeNull()
+                            .chapters
+                            .sortedBy { it.startTime }
+                            .map { it.title }
+                    applied shouldBe preview
+                }
+            }
+        }
+
         test("count mismatch: returns ChapterCountMismatch and writes nothing") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -83,7 +175,7 @@ class ChapterNameApplierTest :
                             .shouldNotBeNull()
                             .revision
 
-                    val result = deps.applier.apply(BookId("b1"), ASIN, AudibleRegion.US, ordinals = setOf(0, 1))
+                    val result = deps.applier.apply(BookId("b1"), ASIN, MetadataLocale("us"), ordinals = setOf(0, 1))
 
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<MetadataError.ChapterCountMismatch>()
@@ -106,7 +198,7 @@ class ChapterNameApplierTest :
                             .shouldNotBeNull()
                             .revision
 
-                    val result = deps.applier.apply(BookId("b1"), ASIN, AudibleRegion.US, ordinals = emptySet())
+                    val result = deps.applier.apply(BookId("b1"), ASIN, MetadataLocale("us"), ordinals = emptySet())
 
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                     val after = deps.bookRepo.findById(BookId("b1")).shouldNotBeNull()
@@ -121,7 +213,7 @@ class ChapterNameApplierTest :
                 sql.seedTestLibraryAndFolder()
                 val deps = deps(this, audibleChapters = audible("A"))
                 runTest {
-                    val result = deps.applier.apply(BookId("missing"), ASIN, AudibleRegion.US, ordinals = setOf(0))
+                    val result = deps.applier.apply(BookId("missing"), ASIN, MetadataLocale("us"), ordinals = setOf(0))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<MetadataError.NotFound>()
                 }
@@ -134,7 +226,7 @@ class ChapterNameApplierTest :
                 val deps = deps(this, audibleChapters = emptyList())
                 runTest {
                     deps.bookRepo.upsert(bookWithChapters("b1", local("Track 1")), clientOpId = null)
-                    val result = deps.applier.apply(BookId("b1"), ASIN, AudibleRegion.US, ordinals = setOf(0))
+                    val result = deps.applier.apply(BookId("b1"), ASIN, MetadataLocale("us"), ordinals = setOf(0))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<MetadataError.NotFound>()
                 }
@@ -147,11 +239,13 @@ class ChapterNameApplierTest :
 private data class Deps(
     val bookRepo: BookRepository,
     val applier: ChapterNameApplier,
+    val coordinator: EnrichmentCoordinator,
 )
 
 private fun deps(
     db: SqlTestDatabases,
     audibleChapters: List<AudibleChapter>,
+    extraProviders: List<MetadataCapability> = emptyList(),
 ): Deps {
     val bus = ChangeBus()
     val registry = SyncRegistry()
@@ -173,7 +267,25 @@ private fun deps(
             itunes = NoOpITunes(),
             cache = MetadataCacheRepository(db.sql, clock = FixedClock(NOW)),
         )
-    return Deps(bookRepo, ChapterNameApplier(bookRepo, metadataService))
+    val coordinator = testCoordinator(metadataService, extraProviders = extraProviders)
+    return Deps(bookRepo, ChapterNameApplier(bookRepo, coordinator), coordinator)
+}
+
+/** A fake chapter provider that always wins its slot, used to prove apply reads the composed chain. */
+private class FakeChapterProvider(
+    override val id: MetadataProviderId,
+    private val titles: List<String>,
+) : SpiChapterSource {
+    override suspend fun getChapters(
+        book: BookIdentity,
+        locale: MetadataLocale,
+    ): AppResult<ChapterListMeta?> =
+        AppResult.Success(
+            ChapterListMeta(
+                chapters = titles.mapIndexed { i, t -> ChapterMeta(title = t, startMs = i * 1000L, lengthMs = 1000L) },
+                accurate = true,
+            ),
+        )
 }
 
 private fun audible(vararg titles: String): List<AudibleChapter> =

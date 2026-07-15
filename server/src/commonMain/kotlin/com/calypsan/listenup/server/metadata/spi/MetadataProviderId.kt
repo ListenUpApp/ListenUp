@@ -9,11 +9,6 @@ import kotlin.jvm.JvmInline
  * Server-internal: a provider id never crosses the RPC wire (the client picks
  * fields and domains, not provider implementations). The [value] is the operator-
  * facing config token used in `LISTENUP_ENRICHMENT_ORDER` / `_ROUTES`.
- *
- * [LOCAL] is a reserved pseudo-provider: it does not fetch from any catalog. Its
- * presence in a domain's order means "the book's existing scan-derived value ranks
- * here" — the never-strand anchor that lets local metadata out-rank, or fall
- * behind, a remote catalog per the operator's precedence.
  */
 @JvmInline
 value class MetadataProviderId(
@@ -35,11 +30,8 @@ value class MetadataProviderId(
         /** The Audnexus aggregator (contributor profiles, chapters, genres). */
         val AUDNEXUS = MetadataProviderId("audnexus")
 
-        /** Reserved pseudo-provider: the book's existing scan-derived value. */
-        val LOCAL = MetadataProviderId("local")
-
         /** Every built-in id the router recognizes from config tokens. */
-        val known: List<MetadataProviderId> = listOf(AUDIBLE, ITUNES, AUDNEXUS, LOCAL)
+        val known: List<MetadataProviderId> = listOf(AUDIBLE, ITUNES, AUDNEXUS)
 
         /**
          * The prefix that marks an operator-declared custom provider id — the token

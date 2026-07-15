@@ -46,8 +46,7 @@ data class EnrichmentRoutes(
             mapOf(
                 MetadataDomain.BOOK_CORE to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS),
                 MetadataDomain.CONTRIBUTORS to listOf(MetadataProviderId.AUDNEXUS, MetadataProviderId.AUDIBLE),
-                MetadataDomain.CHAPTERS to
-                    listOf(MetadataProviderId.LOCAL, MetadataProviderId.AUDNEXUS, MetadataProviderId.AUDIBLE),
+                MetadataDomain.CHAPTERS to listOf(MetadataProviderId.AUDNEXUS, MetadataProviderId.AUDIBLE),
                 MetadataDomain.COVER to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.ITUNES),
                 MetadataDomain.SERIES to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS),
                 MetadataDomain.GENRES to listOf(MetadataProviderId.AUDIBLE, MetadataProviderId.AUDNEXUS),

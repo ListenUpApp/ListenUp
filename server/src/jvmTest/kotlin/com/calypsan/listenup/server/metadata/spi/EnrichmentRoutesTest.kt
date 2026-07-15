@@ -13,7 +13,6 @@ class EnrichmentRoutesTest :
         val audible = MetadataProviderId.AUDIBLE
         val audnexus = MetadataProviderId.AUDNEXUS
         val itunes = MetadataProviderId.ITUNES
-        val local = MetadataProviderId.LOCAL
 
         // ---- orderFor: field override beats domain; domain default otherwise ----
 
@@ -46,7 +45,7 @@ class EnrichmentRoutesTest :
             }
             d.orderFor(BookField.TITLE) shouldBe listOf(audible, audnexus)
             d.orderFor(BookField.AUTHORS) shouldBe listOf(audnexus, audible)
-            d.orderFor(BookField.CHAPTERS) shouldBe listOf(local, audnexus, audible)
+            d.orderFor(BookField.CHAPTERS) shouldBe listOf(audnexus, audible)
             d.orderFor(BookField.COVER) shouldBe listOf(audible, itunes)
             d.orderFor(BookField.GENRES) shouldBe listOf(audible, audnexus)
             d.orderFor(BookField.SERIES) shouldBe listOf(audible, audnexus)
@@ -54,6 +53,17 @@ class EnrichmentRoutesTest :
 
         test("CHARACTERS is the honest empty slot") {
             EnrichmentRoutes.DEFAULT.domainOrder.getValue(MetadataDomain.CHARACTERS) shouldBe emptyList()
+        }
+
+        // ---- H4: the dead 'local' pseudo-provider is gone, not silently stranding a route ----
+
+        test("'local' is not a known provider token and no default route names it") {
+            // Nothing resolves 'local', so a config token for it must be rejected outright rather
+            // than parsed into a chain slot that walks to nothing.
+            MetadataProviderId.fromToken("local") shouldBe null
+            MetadataProviderId.known.none { it.value == "local" } shouldBe true
+            EnrichmentRoutes.DEFAULT.domainOrder.values
+                .none { chain -> chain.any { it.value == "local" } } shouldBe true
         }
 
         // ---- parse: global order + route clauses ----
@@ -75,12 +85,12 @@ class EnrichmentRoutesTest :
                 EnrichmentRoutes.parse(
                     order = null,
                     routes =
-                        "contributors=audnexus,audible; chapters=local,audnexus,audible; " +
+                        "contributors=audnexus,audible; chapters=audnexus,audible; " +
                             "cover=itunes,audible; description=audible; narrators=itunes",
                 )
             // Domain clause.
             parsed.orderFor(BookField.AUTHORS) shouldBe listOf(audnexus, audible)
-            parsed.orderFor(BookField.CHAPTERS) shouldBe listOf(local, audnexus, audible)
+            parsed.orderFor(BookField.CHAPTERS) shouldBe listOf(audnexus, audible)
             parsed.orderFor(BookField.COVER) shouldBe listOf(itunes, audible)
             // Field clauses (description is BOOK_CORE, narrators is CONTRIBUTORS).
             parsed.orderFor(BookField.DESCRIPTION) shouldBe listOf(audible)
