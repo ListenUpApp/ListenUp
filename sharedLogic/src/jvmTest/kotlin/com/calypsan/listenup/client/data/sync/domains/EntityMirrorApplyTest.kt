@@ -1,12 +1,9 @@
 package com.calypsan.listenup.client.data.sync.domains
 
-import com.calypsan.listenup.api.sync.BioEntryMode
-import com.calypsan.listenup.api.sync.BioEntryPayload
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.api.sync.EntitySyncPayload
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -14,76 +11,55 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Inbound-apply invariants for [EntityMirrorApply]: an [EntitySyncPayload] upserts the entity
- * row and fully replaces its bio-entry child set (delete-then-insert), and a tombstone removes
- * it from the live set — the same whole-aggregate-replace contract [BookMirrorApply] enforces
- * for `chapters`.
+ * row (a plain single-row aggregate, no child collection to replace), and a tombstone removes
+ * it from the live set.
  */
 class EntityMirrorApplyTest :
     FunSpec({
-        test("upsert inserts the entity row and its bio entries") {
+        test("upsert inserts the entity row, series-homed") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val apply = EntityMirrorApply(db)
 
-                apply.upsert(
-                    entityPayload(
-                        id = "e1",
-                        bioEntries = listOf(bioEntryPayload(id = "b1", text = "A soldier.", sortKey = 0)),
-                    ),
-                )
+                apply.upsert(entityPayload(id = "e1", homeSeriesId = "series1", homeBookId = null))
 
                 val row = db.entityDao().getById("e1")
                 row.shouldNotBeNull()
                 row.name shouldBe "Kaladin"
                 row.kind shouldBe EntityKind.CHARACTER
                 row.homeSeriesId shouldBe "series1"
-                val entries = db.bioEntryDao().getForEntity("e1")
-                entries.map { it.id to it.text } shouldBe listOf("b1" to "A soldier.")
+                row.homeBookId.shouldBeNull()
                 db.close()
             }
         }
 
-        test("re-upsert with a different bio-entry set fully replaces the prior set, not merges it") {
+        test("upsert inserts the entity row, book-homed") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val apply = EntityMirrorApply(db)
-                apply.upsert(
-                    entityPayload(
-                        id = "e1",
-                        revision = 1L,
-                        bioEntries =
-                            listOf(
-                                bioEntryPayload(id = "b1", text = "First.", sortKey = 0),
-                                bioEntryPayload(id = "b2", text = "Second.", sortKey = 1),
-                            ),
-                    ),
-                )
 
-                apply.upsert(
-                    entityPayload(
-                        id = "e1",
-                        revision = 2L,
-                        bioEntries = listOf(bioEntryPayload(id = "b3", text = "Only this now.", sortKey = 0)),
-                    ),
-                )
+                apply.upsert(entityPayload(id = "e1", homeSeriesId = null, homeBookId = "book1"))
 
-                val entries = db.bioEntryDao().getForEntity("e1")
-                entries.map { it.id } shouldBe listOf("b3")
+                val row = db.entityDao().getById("e1")
+                row.shouldNotBeNull()
+                row.homeSeriesId.shouldBeNull()
+                row.homeBookId shouldBe "book1"
                 db.close()
             }
         }
 
-        test("re-upsert with an empty bio-entry set clears the prior entries") {
+        test("re-upsert with a changed name replaces the prior row, not merges it") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val apply = EntityMirrorApply(db)
-                apply.upsert(
-                    entityPayload(id = "e1", bioEntries = listOf(bioEntryPayload(id = "b1", text = "Gone soon.", sortKey = 0))),
-                )
+                apply.upsert(entityPayload(id = "e1", revision = 1L, name = "Old Name"))
 
-                apply.upsert(entityPayload(id = "e1", revision = 2L, bioEntries = emptyList()))
+                apply.upsert(entityPayload(id = "e1", revision = 2L, name = "New Name"))
 
-                db.bioEntryDao().getForEntity("e1").shouldBeEmpty()
+                val row = db.entityDao().getById("e1")
+                row.shouldNotBeNull()
+                row.name shouldBe "New Name"
+                row.revision shouldBe 2L
                 db.close()
             }
         }
@@ -117,23 +93,19 @@ class EntityMirrorApplyTest :
 
 private fun entityPayload(
     id: String,
+    name: String = "Kaladin",
+    homeSeriesId: String? = "series1",
+    homeBookId: String? = null,
     revision: Long = 0L,
     deletedAt: Long? = null,
-    bioEntries: List<BioEntryPayload> = emptyList(),
 ) = EntitySyncPayload(
     id = id,
     kind = EntityKind.CHARACTER,
-    name = "Kaladin",
-    homeSeriesId = "series1",
-    bioEntries = bioEntries,
+    name = name,
+    homeSeriesId = homeSeriesId,
+    homeBookId = homeBookId,
     revision = revision,
     updatedAt = 0L,
     createdAt = 0L,
     deletedAt = deletedAt,
 )
-
-private fun bioEntryPayload(
-    id: String,
-    text: String,
-    sortKey: Int,
-) = BioEntryPayload(id = id, mode = BioEntryMode.APPEND, text = text, sortKey = sortKey)

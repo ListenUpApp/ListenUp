@@ -3,24 +3,20 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.dto.entity.EntityUpsert
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
-import com.calypsan.listenup.api.sync.BioEntryPayload
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.client.data.local.db.BioEntryDao
-import com.calypsan.listenup.client.data.local.db.BioEntryEntity
 import com.calypsan.listenup.client.data.local.db.EntityDao
 import com.calypsan.listenup.client.data.local.db.EntityEntity
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
-import com.calypsan.listenup.client.domain.model.BioEntry
 import com.calypsan.listenup.client.domain.model.Entity
 import com.calypsan.listenup.client.domain.repository.EntityEditRepository
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -49,7 +45,6 @@ import kotlin.uuid.Uuid
  */
 internal class EntityEditRepositoryImpl(
     private val entityDao: EntityDao,
-    private val bioEntryDao: BioEntryDao,
     private val offlineEditor: OfflineEditor,
 ) : EntityEditRepository {
     /** Serializes every write's read → build-snapshot → edit sequence; see the class KDoc. */
@@ -58,20 +53,24 @@ internal class EntityEditRepositoryImpl(
     override fun observeEntitiesForSeries(seriesId: String): Flow<List<Entity>> =
         entityDao.observeForSeries(seriesId).map { entities -> entities.map { it.toDomain() } }
 
+    override fun observeEntitiesForBook(bookId: String): Flow<List<Entity>> =
+        entityDao.observeForBook(bookId).map { entities -> entities.map { it.toDomain() } }
+
     override fun observeEntity(id: String): Flow<Entity?> =
-        combine(entityDao.observeById(id), bioEntryDao.observeForEntity(id)) { entity, entries ->
-            entity?.toDomain(entries.map { it.toDomain() })
-        }
+        entityDao.observeById(id).map { entity -> entity?.toDomain() }
 
     override suspend fun createEntity(
         kind: EntityKind,
         name: String,
-        homeSeriesId: String,
+        homeSeriesId: String?,
+        homeBookId: String?,
     ): AppResult<String> =
         editMutex.withLock {
+            validateHome(homeSeriesId, homeBookId)?.let { return@withLock AppResult.Failure(it) }
             val id = Uuid.random().toString()
             val now = currentEpochMilliseconds()
-            val upsert = EntityUpsert(id = id, kind = kind, name = name, homeSeriesId = homeSeriesId)
+            val upsert =
+                EntityUpsert(id = id, kind = kind, name = name, homeSeriesId = homeSeriesId, homeBookId = homeBookId)
             offlineEditor
                 .edit(OutboxChannels.Entities, id, EntityMutation.Upsert(upsert)) {
                     entityDao.upsert(
@@ -80,6 +79,7 @@ internal class EntityEditRepositoryImpl(
                             kind = kind,
                             name = name,
                             homeSeriesId = homeSeriesId,
+                            homeBookId = homeBookId,
                             imageRef = null,
                             // A brand-new local-only row: revision = 0 marks it as a not-yet-synced
                             // stub, the same convention BookMirrorApply's bootstrap stubs use — any
@@ -101,15 +101,14 @@ internal class EntityEditRepositoryImpl(
         editMutex.withLock {
             val existing =
                 entityDao.getById(id) ?: return@withLock AppResult.Failure(entityNotFound(id))
-            val bioEntries = bioEntryDao.getForEntity(id).map { it.toPayload() }
             val upsert =
                 EntityUpsert(
                     id = id,
                     kind = existing.kind,
                     name = name,
                     homeSeriesId = existing.homeSeriesId,
+                    homeBookId = existing.homeBookId,
                     imageRef = imageRef,
-                    bioEntries = bioEntries,
                 )
             offlineEditor.edit(OutboxChannels.Entities, id, EntityMutation.Upsert(upsert)) {
                 entityDao.upsert(
@@ -119,62 +118,6 @@ internal class EntityEditRepositoryImpl(
                         // revision + updatedAt deliberately untouched.
                     ),
                 )
-            }
-        }
-
-    override suspend fun upsertBioEntry(
-        entityId: String,
-        entry: BioEntry,
-    ): AppResult<Unit> =
-        editMutex.withLock {
-            val existing =
-                entityDao.getById(entityId) ?: return@withLock AppResult.Failure(entityNotFound(entityId))
-            val entryId = entry.id.ifBlank { Uuid.random().toString() }
-            val mergedEntry = entry.copy(id = entryId)
-            val mergedEntries =
-                bioEntryDao
-                    .getForEntity(entityId)
-                    .map { it.toPayload() }
-                    .filterNot { it.id == entryId } + mergedEntry.toPayload()
-            val upsert =
-                EntityUpsert(
-                    id = entityId,
-                    kind = existing.kind,
-                    name = existing.name,
-                    homeSeriesId = existing.homeSeriesId,
-                    imageRef = existing.imageRef,
-                    bioEntries = mergedEntries,
-                )
-            offlineEditor.edit(OutboxChannels.Entities, entityId, EntityMutation.Upsert(upsert)) {
-                // Parent entity's revision + updatedAt deliberately untouched.
-                bioEntryDao.upsertAll(listOf(mergedEntry.toEntity(entityId)))
-            }
-        }
-
-    override suspend fun removeBioEntry(
-        entityId: String,
-        entryId: String,
-    ): AppResult<Unit> =
-        editMutex.withLock {
-            val existing =
-                entityDao.getById(entityId) ?: return@withLock AppResult.Failure(entityNotFound(entityId))
-            val remainingEntries =
-                bioEntryDao
-                    .getForEntity(entityId)
-                    .filterNot { it.id == entryId }
-                    .map { it.toPayload() }
-            val upsert =
-                EntityUpsert(
-                    id = entityId,
-                    kind = existing.kind,
-                    name = existing.name,
-                    homeSeriesId = existing.homeSeriesId,
-                    imageRef = existing.imageRef,
-                    bioEntries = remainingEntries,
-                )
-            offlineEditor.edit(OutboxChannels.Entities, entityId, EntityMutation.Upsert(upsert)) {
-                // Parent entity's revision + updatedAt deliberately untouched.
-                bioEntryDao.deleteById(entryId)
             }
         }
 
@@ -189,36 +132,33 @@ internal class EntityEditRepositoryImpl(
         }
 }
 
+/**
+ * Entities are dual-homed: exactly one of [homeSeriesId] / [homeBookId] must be non-null — see
+ * [com.calypsan.listenup.api.sync.EntitySyncPayload] for the dual-home rule. Returns null when
+ * that rule holds, a [ValidationError] otherwise. Mirrors the server-side
+ * `EntityServiceImpl.validateHome` guard word-for-word, so the same violation reads identically
+ * whether it's caught locally (offline) or echoed back from the server.
+ */
+private fun validateHome(
+    homeSeriesId: String?,
+    homeBookId: String?,
+): ValidationError? =
+    if ((homeSeriesId == null) == (homeBookId == null)) {
+        ValidationError(message = "Exactly one of homeSeriesId or homeBookId must be set.")
+    } else {
+        null
+    }
+
 /** Client-local not-found failure for an entity op whose target row is absent from Room. */
 private fun entityNotFound(id: String): SyncError.NotFound =
     SyncError.NotFound(domain = SyncDomains.ENTITIES.name, entityId = id)
 
-private fun EntityEntity.toDomain(bioEntries: List<BioEntry> = emptyList()): Entity =
+private fun EntityEntity.toDomain(): Entity =
     Entity(
         id = id,
         kind = kind,
         name = name,
         homeSeriesId = homeSeriesId,
+        homeBookId = homeBookId,
         imageRef = imageRef,
-        bioEntries = bioEntries,
-    )
-
-private fun BioEntryEntity.toDomain(): BioEntry =
-    BioEntry(id = id, bookId = bookId, positionMs = positionMs, mode = mode, text = text, sortKey = sortKey)
-
-private fun BioEntryEntity.toPayload(): BioEntryPayload =
-    BioEntryPayload(id = id, bookId = bookId, positionMs = positionMs, mode = mode, text = text, sortKey = sortKey)
-
-private fun BioEntry.toPayload(): BioEntryPayload =
-    BioEntryPayload(id = id, bookId = bookId, positionMs = positionMs, mode = mode, text = text, sortKey = sortKey)
-
-private fun BioEntry.toEntity(entityId: String): BioEntryEntity =
-    BioEntryEntity(
-        id = id,
-        entityId = entityId,
-        bookId = bookId,
-        positionMs = positionMs,
-        mode = mode,
-        text = text,
-        sortKey = sortKey,
     )

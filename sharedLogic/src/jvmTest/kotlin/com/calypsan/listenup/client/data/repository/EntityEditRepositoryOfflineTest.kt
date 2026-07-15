@@ -3,9 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BioEntryMode
 import com.calypsan.listenup.api.sync.EntityKind
-import com.calypsan.listenup.client.data.local.db.BioEntryEntity
 import com.calypsan.listenup.client.data.local.db.EntityEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -13,7 +11,6 @@ import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
-import com.calypsan.listenup.client.domain.model.BioEntry
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.assertions.withClue
@@ -36,12 +33,12 @@ import kotlinx.coroutines.test.runTest
  */
 class EntityEditRepositoryOfflineTest :
     FunSpec({
-        test("createEntity persists to Room as a not-yet-synced stub and enqueues a pending op") {
+        test("createEntity persists a series-homed stub to Room and enqueues a pending op") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val repo = buildRepo(db)
 
-                val result = repo.createEntity(EntityKind.CHARACTER, "Kaladin", "series1")
+                val result = repo.createEntity(EntityKind.CHARACTER, "Kaladin", homeSeriesId = "series1")
 
                 val id = result.shouldBeInstanceOf<AppResult.Success<String>>().data
                 val row = db.entityDao().getById(id)
@@ -49,6 +46,7 @@ class EntityEditRepositoryOfflineTest :
                 row.name shouldBe "Kaladin"
                 row.kind shouldBe EntityKind.CHARACTER
                 row.homeSeriesId shouldBe "series1"
+                row.homeBookId.shouldBeNull()
                 row.revision shouldBe 0L
                 db
                     .pendingOperationV2Dao()
@@ -59,7 +57,57 @@ class EntityEditRepositoryOfflineTest :
             }
         }
 
-        test("updateCore persists the name/image change and carries the kind/series forward unchanged") {
+        test("createEntity persists a book-homed stub to Room and enqueues a pending op") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val repo = buildRepo(db)
+
+                val result = repo.createEntity(EntityKind.LOCATION, "The Shattered Plains", homeBookId = "book1")
+
+                val id = result.shouldBeInstanceOf<AppResult.Success<String>>().data
+                val row = db.entityDao().getById(id)
+                row.shouldNotBeNull()
+                row.name shouldBe "The Shattered Plains"
+                row.kind shouldBe EntityKind.LOCATION
+                row.homeSeriesId.shouldBeNull()
+                row.homeBookId shouldBe "book1"
+                db
+                    .pendingOperationV2Dao()
+                    .nextDispatchable(maxAttempts = 5)
+                    .firstOrNull()
+                    ?.domainName shouldBe "entities"
+                db.close()
+            }
+        }
+
+        test("createEntity fails validation when both homeSeriesId and homeBookId are set, with no Room write or queued op") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val repo = buildRepo(db)
+
+                val result =
+                    repo.createEntity(EntityKind.CHARACTER, "Kaladin", homeSeriesId = "series1", homeBookId = "book1")
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                db.pendingOperationV2Dao().nextDispatchable().shouldBeEmpty()
+                db.close()
+            }
+        }
+
+        test("createEntity fails validation when neither homeSeriesId nor homeBookId is set, with no Room write or queued op") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val repo = buildRepo(db)
+
+                val result = repo.createEntity(EntityKind.CHARACTER, "Kaladin")
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                db.pendingOperationV2Dao().nextDispatchable().shouldBeEmpty()
+                db.close()
+            }
+        }
+
+        test("updateCore persists the name/image change and carries the kind/home forward unchanged") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 db.entityDao().upsert(entityRow(id = "e1", name = "Old Name", homeSeriesId = "series1"))
@@ -74,82 +122,6 @@ class EntityEditRepositoryOfflineTest :
                 row.imageRef shouldBe "cover.jpg"
                 row.kind shouldBe EntityKind.CHARACTER
                 row.homeSeriesId shouldBe "series1"
-                db
-                    .pendingOperationV2Dao()
-                    .nextDispatchable()
-                    .single()
-                    .domainName shouldBe "entities"
-                db.close()
-            }
-        }
-
-        test("upsertBioEntry mints an id for a blank-id entry and persists it") {
-            runTest {
-                val db = createInMemoryTestDatabase()
-                db.entityDao().upsert(entityRow(id = "e1"))
-                val repo = buildRepo(db)
-
-                val result =
-                    repo.upsertBioEntry(
-                        entityId = "e1",
-                        entry = BioEntry(id = "", mode = BioEntryMode.APPEND, text = "A soldier.", sortKey = 0),
-                    )
-
-                result shouldBe AppResult.Success(Unit)
-                val entries = db.bioEntryDao().getForEntity("e1")
-                entries shouldHaveSize 1
-                entries.single().id.shouldNotBeNull()
-                entries.single().text shouldBe "A soldier."
-                db
-                    .pendingOperationV2Dao()
-                    .nextDispatchable()
-                    .single()
-                    .domainName shouldBe "entities"
-                db.close()
-            }
-        }
-
-        test("upsertBioEntry with an existing id replaces that entry, leaving others untouched") {
-            runTest {
-                val db = createInMemoryTestDatabase()
-                db.entityDao().upsert(entityRow(id = "e1"))
-                db.bioEntryDao().upsertAll(
-                    listOf(
-                        bioEntryRow(id = "b1", entityId = "e1", text = "First.", sortKey = 0),
-                        bioEntryRow(id = "b2", entityId = "e1", text = "Second.", sortKey = 1),
-                    ),
-                )
-                val repo = buildRepo(db)
-
-                val result =
-                    repo.upsertBioEntry(
-                        entityId = "e1",
-                        entry = BioEntry(id = "b1", mode = BioEntryMode.REPLACE, text = "Revised.", sortKey = 0),
-                    )
-
-                result shouldBe AppResult.Success(Unit)
-                val entries = db.bioEntryDao().getForEntity("e1")
-                entries.map { it.id to it.text }.toSet() shouldBe setOf("b1" to "Revised.", "b2" to "Second.")
-                db.close()
-            }
-        }
-
-        test("removeBioEntry deletes only the targeted entry and enqueues a pending op") {
-            runTest {
-                val db = createInMemoryTestDatabase()
-                db.entityDao().upsert(entityRow(id = "e1"))
-                db.bioEntryDao().upsertAll(
-                    listOf(
-                        bioEntryRow(id = "b1", entityId = "e1", text = "First.", sortKey = 0),
-                        bioEntryRow(id = "b2", entityId = "e1", text = "Second.", sortKey = 1),
-                    ),
-                )
-                val repo = buildRepo(db)
-
-                val result = repo.removeBioEntry(entityId = "e1", entryId = "b1")
-
-                result shouldBe AppResult.Success(Unit)
-                db.bioEntryDao().getForEntity("e1").map { it.id } shouldBe listOf("b2")
                 db
                     .pendingOperationV2Dao()
                     .nextDispatchable()
@@ -190,21 +162,26 @@ class EntityEditRepositoryOfflineTest :
             }
         }
 
-        test("concurrent upsertBioEntry calls to the same entity never queue a payload missing the other's entry") {
+        test("a concurrent updateCore never resurrects an entity a deleteEntity is tombstoning") {
             runTest {
                 // Room queries ride the test scheduler so the interleaving below is deterministic.
                 val db = createInMemoryTestDatabase(StandardTestDispatcher(testScheduler))
-                db.entityDao().upsert(entityRow(id = "e1"))
+                db.entityDao().upsert(entityRow(id = "e1", name = "Old Name", revision = 3))
 
-                // The lost-update mechanism this test pins: each write READS current Room state,
-                // builds a whole-aggregate EntityUpsert, then enqueues it inside the transaction.
-                // This gate parks every transaction until the test opens it — so WITHOUT the
-                // repository's edit mutex, BOTH calls complete their reads against the pre-edit
-                // (empty) bio set before either write commits, and the op carrying "b" queues a
-                // whole-aggregate payload that omits "a" (whose server apply + ServerWins echo
-                // would then silently erase "a" everywhere). WITH the mutex, the second call
-                // cannot start reading until the first one's read→edit sequence fully completes
-                // (the first holds the lock while parked at the gate), so its payload carries both.
+                // The lost-update mechanism this test pins is asymmetric between the two writers:
+                // updateCore reads `existing` and closes over it BEFORE the gated transaction —
+                // `existing.copy(name = name, imageRef = imageRef)` silently carries forward
+                // whatever `deletedAt` that snapshot had. deleteEntity reads INSIDE the gated
+                // transaction. WITHOUT the repository's edit mutex, both calls' gate.await() calls
+                // are registered back-to-back before either commits — updateCore's `existing` is
+                // captured pre-delete (deletedAt = null) — so if deleteEntity's transaction happens
+                // to run first (tombstoning the row) and updateCore's runs second, updateCore's
+                // stale-snapshot copy() overwrites deletedAt back to null: the just-deleted entity
+                // is silently RESURRECTED, carrying the rename. WITH the mutex, deleteEntity (launched
+                // first) fully completes — including its gated transaction — before updateCore can
+                // even acquire the lock to perform its own `existing` read; that read then correctly
+                // observes the tombstone (Room's `getById` filters `deletedAt IS NULL`) and updateCore
+                // fails with a not-found error instead of resurrecting the row.
                 val gate = CompletableDeferred<Unit>()
                 val sentPayloads = mutableListOf<String>()
                 val queue =
@@ -231,54 +208,33 @@ class EntityEditRepositoryOfflineTest :
                 val repo =
                     EntityEditRepositoryImpl(
                         entityDao = db.entityDao(),
-                        bioEntryDao = db.bioEntryDao(),
                         offlineEditor = offlineEditor,
                     )
 
-                val first =
+                lateinit var renameResult: AppResult<Unit>
+                val delete = launch { repo.deleteEntity("e1") shouldBe AppResult.Success(Unit) }
+                val rename =
                     launch {
-                        repo.upsertBioEntry(
-                            "e1",
-                            BioEntry(id = "a", mode = BioEntryMode.APPEND, text = "First.", sortKey = 0),
-                        ) shouldBe AppResult.Success(Unit)
-                    }
-                val second =
-                    launch {
-                        repo.upsertBioEntry(
-                            "e1",
-                            BioEntry(id = "b", mode = BioEntryMode.APPEND, text = "Second.", sortKey = 1),
-                        ) shouldBe AppResult.Success(Unit)
+                        renameResult = repo.updateCore(id = "e1", name = "New Name", imageRef = null)
                     }
                 // Run both calls as far as they can go while the gate is closed, then open it.
                 advanceUntilIdle()
                 gate.complete(Unit)
-                first.join()
-                second.join()
+                delete.join()
+                rename.join()
 
-                // Room converges either way (per-row upserts) — the queue payloads are the seam
-                // where the unfixed race loses data.
-                db
-                    .bioEntryDao()
-                    .getForEntity("e1")
-                    .map { it.id }
-                    .toSet() shouldBe setOf("a", "b")
-
-                // Drain both ops (per-entity FIFO dispatches one op per wave) and decode what the
-                // server would actually receive.
-                queue.drain()
-                queue.drain()
-                sentPayloads shouldHaveSize 2
-                val upserts =
-                    sentPayloads
-                        .map { contractJson.decodeFromString(OutboxChannels.Entities.serializer, it) }
-                        .map { it.shouldBeInstanceOf<EntityMutation.Upsert>().upsert }
-                val opCarryingB = upserts.single { upsert -> upsert.bioEntries.any { it.id == "b" } }
-                withClue(
-                    """the op that added entry "b" queued a whole-aggregate payload missing entry "a" — """ +
-                        """its server apply (and ServerWins echo) would silently erase "a"""",
-                ) {
-                    opCarryingB.bioEntries.map { it.id }.toSet() shouldBe setOf("a", "b")
+                withClue("updateCore's stale pre-delete read resurrected the entity deleteEntity just tombstoned") {
+                    db.entityDao().getById("e1").shouldBeNull()
                 }
+                renameResult.shouldBeInstanceOf<AppResult.Failure>()
+
+                // Only the delete's op is ever queued — the mutex stops updateCore from reaching
+                // its own transaction at all (it fails the not-found check first).
+                queue.drain()
+                sentPayloads shouldHaveSize 1
+                contractJson
+                    .decodeFromString(OutboxChannels.Entities.serializer, sentPayloads.single())
+                    .shouldBeInstanceOf<EntityMutation.Delete>()
                 db.close()
             }
         }
@@ -302,7 +258,6 @@ private fun buildRepo(db: ListenUpDatabase): EntityEditRepositoryImpl {
         )
     return EntityEditRepositoryImpl(
         entityDao = db.entityDao(),
-        bioEntryDao = db.bioEntryDao(),
         offlineEditor = offlineEditor,
     )
 }
@@ -310,27 +265,16 @@ private fun buildRepo(db: ListenUpDatabase): EntityEditRepositoryImpl {
 private fun entityRow(
     id: String,
     name: String = "Kaladin",
-    homeSeriesId: String = "series1",
+    homeSeriesId: String? = "series1",
+    homeBookId: String? = null,
     revision: Long = 0,
 ) = EntityEntity(
     id = id,
     kind = EntityKind.CHARACTER,
     name = name,
     homeSeriesId = homeSeriesId,
+    homeBookId = homeBookId,
     revision = revision,
     createdAt = 0L,
     updatedAt = 0L,
-)
-
-private fun bioEntryRow(
-    id: String,
-    entityId: String,
-    text: String,
-    sortKey: Int,
-) = BioEntryEntity(
-    id = id,
-    entityId = entityId,
-    mode = BioEntryMode.APPEND,
-    text = text,
-    sortKey = sortKey,
 )

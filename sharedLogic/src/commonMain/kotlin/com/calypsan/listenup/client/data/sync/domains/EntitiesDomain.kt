@@ -1,26 +1,23 @@
 package com.calypsan.listenup.client.data.sync.domains
 
-import com.calypsan.listenup.api.sync.BioEntryPayload
 import com.calypsan.listenup.api.sync.EntitySyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.client.data.local.db.BioEntryEntity
 import com.calypsan.listenup.client.data.local.db.EntityEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 
 /**
- * The `entities` domain (Story World Stage 2): server-wins apply, soft-delete tombstones, full
- * digest, outbox-backed writes.
+ * The `entities` domain (Story World Stage 2, dual-home amendment): server-wins apply,
+ * soft-delete tombstones, full digest, outbox-backed writes.
  *
  * **Outbox writes.** Every write — including a brand-new (client-minted id) entity — writes Room
  * optimistically and queues a durable op on [OutboxChannels.Entities] keyed by the entity id; the
  * entity-level in-flight shield defers a stale echo until the queued op drains. There is no
- * online-only entity RPC: create/update/bio-entry edits/delete are all offline-first, since the
- * backing [com.calypsan.listenup.api.EntityService.upsertEntity] mints no server-side identity
- * the client couldn't already generate.
+ * online-only entity RPC: create/update/delete are all offline-first, since the backing
+ * [com.calypsan.listenup.api.EntityService.upsertEntity] mints no server-side identity the
+ * client couldn't already generate.
  *
- * **Whole-aggregate bio entries.** [EntityMirrorApply.upsert] replaces every
- * `entity_bio_entries` row for the entity (delete-then-insert) as part of the same apply — the
- * same child-set-replace pattern [BookMirrorApply] uses for `chapters`.
+ * **Plain aggregate.** [EntityMirrorApply.upsert] is a single-row upsert — an entity has no
+ * child collection to replace, mirroring [SeriesMirrorApply].
  */
 internal fun entitiesDomain(database: ListenUpDatabase): MirroredDomain<EntitySyncPayload> {
     val apply = EntityMirrorApply(database)
@@ -34,7 +31,7 @@ internal fun entitiesDomain(database: ListenUpDatabase): MirroredDomain<EntitySy
     )
 }
 
-/** Room mapping for [EntitySyncPayload] payloads (whole-aggregate bio-entry replace). */
+/** Room mapping for [EntitySyncPayload] payloads (plain single-row upsert). */
 internal class EntityMirrorApply(
     private val database: ListenUpDatabase,
 ) : MirrorApply<EntitySyncPayload> {
@@ -45,35 +42,13 @@ internal class EntityMirrorApply(
                 kind = payload.kind,
                 name = payload.name,
                 homeSeriesId = payload.homeSeriesId,
+                homeBookId = payload.homeBookId,
                 imageRef = payload.imageRef,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
                 createdAt = payload.createdAt,
                 updatedAt = payload.updatedAt,
             ),
-        )
-        applyBioEntries(payload.id, payload.bioEntries)
-    }
-
-    /** Replace-wholesale: delete every existing bio entry for [entityId], then insert [entries]. */
-    private suspend fun applyBioEntries(
-        entityId: String,
-        entries: List<BioEntryPayload>,
-    ) {
-        database.bioEntryDao().deleteForEntity(entityId)
-        if (entries.isEmpty()) return
-        database.bioEntryDao().upsertAll(
-            entries.map { entry ->
-                BioEntryEntity(
-                    id = entry.id,
-                    entityId = entityId,
-                    bookId = entry.bookId,
-                    positionMs = entry.positionMs,
-                    mode = entry.mode,
-                    text = entry.text,
-                    sortKey = entry.sortKey,
-                )
-            },
         )
     }
 
