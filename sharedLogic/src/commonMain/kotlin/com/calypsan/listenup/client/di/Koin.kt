@@ -51,6 +51,7 @@ internal val sharedModules =
         collectionModule,
         shelfModule,
         readingOrderModule,
+        entityModule,
         genreTagModule,
         searchModule,
         mediaModule,

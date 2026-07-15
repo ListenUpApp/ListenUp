@@ -121,7 +121,9 @@ class SyncDomainCompletenessSpec :
                 // collections, and collection_books joined when their update/delete/add/remove surfaces
                 // went offline-first (create stays online — the server mints the shelf/collection id).
                 // genres joined when update/delete went offline-first (create/move/merge stay online).
-                // The reading-order trio joined per Integration Foundations §5.3/§5.4.
+                // The reading-order trio joined per Integration Foundations §5.3/§5.4. entities joined
+                // (Story World Stage 2) with EVERY write offline-first, including create — the id is
+                // client-minted, so there is no server-minted-id RPC forcing an online-only create.
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -140,6 +142,7 @@ class SyncDomainCompletenessSpec :
                         "shelf_books",
                         "collections",
                         "collection_books",
+                        "entities",
                     )
             } finally {
                 db.close()

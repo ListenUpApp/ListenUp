@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ShelfError
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
 
@@ -19,9 +20,11 @@ import com.calypsan.listenup.api.result.AppResult
  * true — i.e. success. Applied at every delete-tombstone sender binding so a lost-then-retried delete
  * drains cleanly instead of quarantining.
  *
- * Only the six row-level target `*.NotFound` failures are folded — never a sub-entity miss like
- * [TagError.BookNotFound], [CollectionError.BookNotFound], or [ContributorError.AliasNotFound], which
- * are genuine failures that must surface.
+ * Seven row-level target `NotFound` failures are folded: six domain-specific `*.NotFound` subtypes,
+ * plus the generic [SyncError.NotFound] — [com.calypsan.listenup.api.EntityService.deleteEntity] has
+ * no dedicated `EntityError` hierarchy and fails with the base sync substrate's `NotFound` instead.
+ * Never a sub-entity miss like [TagError.BookNotFound], [CollectionError.BookNotFound], or
+ * [ContributorError.AliasNotFound], which are genuine failures that must surface.
  */
 internal fun AppResult<Unit>.orSuccessIfNotFound(): AppResult<Unit> =
     if (this is AppResult.Failure && error.isDeleteTargetNotFound()) AppResult.Success(Unit) else this
@@ -32,4 +35,5 @@ private fun com.calypsan.listenup.api.error.AppError.isDeleteTargetNotFound(): B
         this is CollectionError.NotFound ||
         this is GenreError.NotFound ||
         this is SeriesError.NotFound ||
-        this is ContributorError.NotFound
+        this is ContributorError.NotFound ||
+        this is SyncError.NotFound

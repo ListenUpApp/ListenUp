@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.dto.SeriesMutation
+import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderBookWrite
@@ -187,6 +188,20 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
+    // Entity (character/location/item) lifecycle: every write — including a brand-new
+    // (client-minted id) entity — is a full-snapshot Upsert; delete soft-deletes. Both are
+    // idempotent: EntityRepository.upsertEntity's KDoc documents that re-applying the identical
+    // upsert twice converges to the same stored content, and a re-fired delete hits an
+    // already-tombstoned row (folded to Success by orSuccessIfNotFound). There is no online-only
+    // entity RPC — the server mints no identity the client couldn't already generate.
+    val Entities =
+        OutboxChannel(
+            SyncDomains.ENTITIES.name,
+            EntityMutation.serializer(),
+            setOf(OpKind.Update, OpKind.Delete),
+            idempotent = true,
+        )
+
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
         listOf(
@@ -208,6 +223,7 @@ internal object OutboxChannels {
             ShelfBooks,
             Collections,
             CollectionBooks,
+            Entities,
         )
 
     private val byName: Map<String, OutboxChannel<*>> = all.associateBy { it.name }

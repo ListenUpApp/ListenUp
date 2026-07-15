@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ShelfError
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -34,6 +35,7 @@ class DeleteIdempotencyTest :
                 GenreError.NotFound(),
                 SeriesError.NotFound(),
                 ContributorError.NotFound(),
+                SyncError.NotFound(domain = "entities", entityId = "e1"),
             ).forEach { notFound ->
                 AppResult.Failure(notFound).orSuccessIfNotFound() shouldBe AppResult.Success(Unit)
             }
