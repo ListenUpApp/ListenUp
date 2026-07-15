@@ -37,14 +37,21 @@ internal fun createTempFileIn(
     error("could not allocate a temp file in $dir")
 }
 
-/** [this] relative to [base] as a string, or [this] as-is if it's not under [base]. */
-internal fun Path.relativeTo(base: Path): String {
+/**
+ * [this] relative to [base] as a string, or `null` when [this] is not under [base].
+ *
+ * Returning `null` for a non-descendant (rather than the absolute path as-is) forces callers to
+ * decide what a non-descendant means for them — the silent absolute-path fallback was the footgun
+ * behind a prior absolute-`rootRelPath` regression, where a mismatched base leaked absolute paths
+ * downstream instead of failing visibly.
+ */
+internal fun Path.relativeTo(base: Path): String? {
     val p = this.toString()
     val b = base.toString().trimEnd('/')
     return when {
         p == b -> ""
         p.startsWith("$b/") -> p.removePrefix("$b/")
-        else -> p
+        else -> null
     }
 }
 

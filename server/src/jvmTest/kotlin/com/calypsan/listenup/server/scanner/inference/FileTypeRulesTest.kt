@@ -7,11 +7,12 @@ import io.kotest.matchers.shouldBe
 class FileTypeRulesTest :
     FunSpec({
 
-        test("classifies all ABS audio extensions as AUDIO") {
+        test("classifies audio extensions as AUDIO") {
             listOf(
                 "track.m4b",
                 "track.mp3",
                 "track.m4a",
+                "track.m4p",
                 "track.flac",
                 "track.opus",
                 "track.ogg",
@@ -27,9 +28,14 @@ class FileTypeRulesTest :
                 "track.mka",
                 "track.awb",
                 "track.caf",
-                "track.mpg",
-                "track.mpeg",
             ).forEach { FileTypeRules.classify(it) shouldBe FileType.AUDIO }
+        }
+
+        test("does NOT classify MPEG video containers as AUDIO") {
+            // mpg/mpeg are video containers ABS mis-lists as audio; a stray video clip must not
+            // become a failing "book".
+            FileTypeRules.classify("clip.mpg") shouldBe FileType.UNKNOWN
+            FileTypeRules.classify("clip.mpeg") shouldBe FileType.UNKNOWN
         }
 
         test("classifies image extensions as IMAGE") {

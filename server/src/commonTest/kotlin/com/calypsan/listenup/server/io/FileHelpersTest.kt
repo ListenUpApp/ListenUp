@@ -37,7 +37,10 @@ class FileHelpersTest :
         test("relativeTo preserves special characters in the remainder") {
             Path("/mnt/lib/John O'Donohue/Anam Cara").relativeTo(Path("/mnt/lib")) shouldBe "John O'Donohue/Anam Cara"
         }
-        test("relativeTo does NOT strip a sibling that merely shares a name prefix") {
-            Path("/mnt/library2/Book").relativeTo(Path("/mnt/lib")) shouldBe "/mnt/library2/Book"
+        test("relativeTo returns null for a sibling that merely shares a name prefix") {
+            Path("/mnt/library2/Book").relativeTo(Path("/mnt/lib")) shouldBe null
+        }
+        test("relativeTo returns null for an unrelated path") {
+            Path("/other/Book").relativeTo(Path("/mnt/lib")) shouldBe null
         }
     })

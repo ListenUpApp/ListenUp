@@ -236,13 +236,18 @@ internal class ScanOrchestrator(
         subtreePath: Path,
     ) {
         val active = bundle?.takeIf { it.library.id == libraryId } ?: return
-        // Find the owning folder and compute a book-root within that folder.
-        val owningFolder =
-            active.library.folders.firstOrNull { folder ->
+        // Ignore events outside every registered folder — a watcher can surface paths (moves,
+        // sibling mounts) that belong to no configured folder, and reanalyzing them would walk a
+        // subtree the library doesn't own.
+        val owns =
+            active.library.folders.any { folder ->
                 folder.rootPath?.let { subtreePath.isUnder(Path(it)) } ?: false
             }
-        val bookRoot = owningFolder?.let { subtreePath } ?: subtreePath
-        active.coordinator.reanalyze(bookRoot)
+        if (!owns) {
+            logger.debug { "ignoring filesystem event outside all registered folders: $subtreePath" }
+            return
+        }
+        active.coordinator.reanalyze(subtreePath)
     }
 }
 
