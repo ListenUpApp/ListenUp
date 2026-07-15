@@ -8,6 +8,15 @@ import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataDomain
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.toMetadataBook
+import com.calypsan.listenup.server.metadata.audible.AudibleApi
+import com.calypsan.listenup.server.metadata.audible.AudibleBook
+import com.calypsan.listenup.server.metadata.audible.AudibleChapter
+import com.calypsan.listenup.server.metadata.audible.AudibleRegion
+import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
+import com.calypsan.listenup.server.metadata.audible.ProductTag
+import com.calypsan.listenup.server.metadata.audible.SearchParams
+import com.calypsan.listenup.server.metadata.itunes.ITunesApi
+import com.calypsan.listenup.server.metadata.itunes.ITunesCoverHit
 import com.calypsan.listenup.server.metadata.spi.BookContributorMeta
 import com.calypsan.listenup.server.metadata.spi.BookCoreMeta
 import com.calypsan.listenup.server.metadata.spi.BookCoreSource
@@ -32,6 +41,10 @@ import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderRegistry
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
 import com.calypsan.listenup.server.metadata.spi.SeriesSource
+import com.calypsan.listenup.server.services.MetadataCacheRepository
+import com.calypsan.listenup.server.services.MetadataService
+import com.calypsan.listenup.server.testing.testCoordinator
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -447,6 +460,39 @@ class EnrichmentCoordinatorTest :
                 coordinator(audible).composeGenreLadders(identity(), US).shouldBeEmpty()
             }
         }
+
+        // ── max-size cover winner + exposed routes ─────────────────────────────
+
+        test("composeBook records the max-size cover winner and exposes routes") {
+            // Real AudibleProvider + ITunesProvider over Api-level stubs (not SPI-level fakes) —
+            // this exercises the actual cover mappers: Audible's toCoverMetas() never sets
+            // maxSizeUrl, iTunes's does, so the max-size winner walks through to iTunes.
+            withSqlDatabase {
+                val itunes =
+                    StubITunesApi(
+                        ITunesCoverHit(
+                            coverUrl = "https://itunes.test/100.jpg",
+                            maxSizeUrl = "https://itunes.test/7000.jpg",
+                            sourceId = "123",
+                        ),
+                    )
+                val metadataService =
+                    MetadataService(
+                        audible = ComposeStubAudibleApi(book = audibleCoreBook(), searchResults = listOf(audibleCoverHit())),
+                        itunes = itunes,
+                        cache = MetadataCacheRepository(sql),
+                    )
+                val coordinator = testCoordinator(metadataService, itunes)
+
+                runTest {
+                    val composed =
+                        (coordinator.composeBook(identity("B1"), US) as AppResult.Success).data!!
+
+                    composed.coverMaxSizeWinner shouldBe MetadataProviderId.ITUNES
+                    coordinator.routes shouldBe EnrichmentRoutes.DEFAULT
+                }
+            }
+        }
     })
 
 /**
@@ -535,4 +581,85 @@ private class FakeProvider(
         locale: MetadataLocale,
         refresh: Boolean,
     ): AppResult<ContributorMeta?> = contributorProfile
+}
+
+// ── Api-level stubs for the real-provider max-size-cover-winner test ──────────
+//
+// Unlike FakeProvider (which fakes the SPI directly), these fake the underlying
+// AudibleApi/ITunesApi and get wrapped in the real AudibleProvider/ITunesProvider via
+// testCoordinator — so the test exercises the actual cover mappers (AudibleSpiMappers /
+// ITunesProvider.toCoverMetas), not a hand-authored CoverMeta.
+
+/** A minimal [AudibleBook] with just a title, for a core-metadata hit. */
+private fun audibleCoreBook(): AudibleBook =
+    AudibleBook(
+        asin = "B1",
+        title = "The Way of Kings",
+        subtitle = "",
+        authors = emptyList(),
+        narrators = emptyList(),
+        publisher = "",
+        releaseDate = "",
+        runtimeMinutes = 0,
+        description = "",
+        coverUrl = "",
+        series = emptyList(),
+        genres = emptyList(),
+        language = "",
+        rating = 0f,
+        ratingCount = 0,
+    )
+
+/** A single Audible search hit carrying a primary cover URL (url-only — no max-size rendition). */
+private fun audibleCoverHit(): AudibleSearchResult =
+    AudibleSearchResult(
+        asin = "B1",
+        title = "The Way of Kings",
+        subtitle = "",
+        authors = emptyList(),
+        narrators = emptyList(),
+        coverUrl = "https://audible.test/cover.jpg",
+        runtimeMinutes = 0,
+        releaseDate = "",
+    )
+
+/** An [AudibleApi] returning [book] for `getBook` and [searchResults] for `search` — core + base cover. */
+private class ComposeStubAudibleApi(
+    private val book: AudibleBook,
+    private val searchResults: List<AudibleSearchResult> = emptyList(),
+) : AudibleApi {
+    override suspend fun search(
+        region: AudibleRegion,
+        params: SearchParams,
+    ): AppResult<List<AudibleSearchResult>> = AppResult.Success(searchResults)
+
+    override suspend fun getBook(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<AudibleBook?> = AppResult.Success(book)
+
+    override suspend fun getChapters(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<AudibleChapter>> = AppResult.Success(emptyList())
+
+    override suspend fun getProductTags(
+        region: AudibleRegion,
+        asin: String,
+    ): AppResult<List<ProductTag>> = AppResult.Success(emptyList())
+}
+
+/** An [ITunesApi] whose `searchCovers` returns a single [hit] — carries a max-size rendition. */
+private class StubITunesApi(
+    private val hit: ITunesCoverHit,
+) : ITunesApi {
+    override suspend fun findCover(
+        title: String,
+        author: String,
+    ): AppResult<ITunesCoverHit?> = AppResult.Success(null)
+
+    override suspend fun searchCovers(
+        title: String,
+        author: String,
+    ): AppResult<List<ITunesCoverHit>> = AppResult.Success(listOf(hit))
 }
