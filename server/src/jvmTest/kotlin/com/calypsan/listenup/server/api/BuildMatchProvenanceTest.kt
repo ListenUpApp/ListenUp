@@ -48,6 +48,23 @@ class BuildMatchProvenanceTest :
             prov.contributingSources shouldBe listOf("Audible", "Audnexus", "iTunes")
         }
 
+        test("Audible-only cover (no max-size winner) reports the primary cover winner + keeps probed dims") {
+            val prov =
+                buildMatchProvenance(
+                    composed(
+                        fieldProviders = mapOf(BookField.COVER to MetadataProviderId.AUDIBLE),
+                        coverMax = null, // iTunes had no match → no max-size winner
+                    ),
+                    routes = EnrichmentRoutes.DEFAULT,
+                    coverDimensions = 2400 to 2400,
+                )
+
+            prov.coverSource shouldBe "Audible"
+            prov.coverWidth shouldBe 2400
+            prov.coverHeight shouldBe 2400
+            prov.contributingSources shouldBe listOf("Audible")
+        }
+
         test("no cover winner and no probe dims → null cover fields") {
             val prov = buildMatchProvenance(composed(emptyMap(), coverMax = null), EnrichmentRoutes.DEFAULT, null)
             prov.coverSource shouldBe null

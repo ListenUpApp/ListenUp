@@ -49,8 +49,8 @@ internal fun ComposedBook.toMetadataBook(): MetadataBook =
  * - [MatchProvenance.fallbackFields]: non-cover fields whose winner ≠ the field's configured primary
  *   (`routes.orderFor(field).first()`) — "this field fell through to a fallback provider."
  * - [MatchProvenance.contributingSources]: distinct provider labels across all field winners + the
- *   max-size cover winner, in BookField order (deterministic).
- * - cover source/dimensions from the max-size cover winner and the probed [coverDimensions].
+ *   applied cover's winner, in BookField order (deterministic).
+ * - cover source/dimensions from the applied cover's winner and the probed [coverDimensions].
  */
 internal fun buildMatchProvenance(
     composed: ComposedBook,
@@ -63,7 +63,10 @@ internal fun buildMatchProvenance(
             .filterKeys { it != BookField.COVER }
             .filter { (field, winner) -> routes.orderFor(field).firstOrNull() != winner }
             .mapValues { (_, winner) -> winner.displayLabel() }
-    val coverWinner = composed.coverMaxSizeWinner
+    // The applied cover is `coverUrlMaxSize ?: coverUrl`. When no provider set a max-size URL
+    // (e.g. iTunes had no match), the applied cover is the primary-url winner — report THAT source
+    // so the badge and probed dimensions aren't dropped for the common Audible-only-cover case.
+    val coverWinner = composed.coverMaxSizeWinner ?: fieldProviders[BookField.COVER]
     val contributing =
         (BookField.entries.mapNotNull { fieldProviders[it] } + listOfNotNull(coverWinner))
             .map { it.displayLabel() }
