@@ -83,6 +83,22 @@ sealed interface BookMutation {
     ) : BookMutation
 
     /**
+     * The book's chapter-tier vocabulary — maps to
+     * [com.calypsan.listenup.api.BookService.setBookTierLabels]. Sets the book's own renamable
+     * names for its two chapter-grouping tiers (e.g. Book/Part, Act/Scene); a `null` label
+     * clears that tier's name. Last-write-wins, like every other variant.
+     *
+     * @property bookTierLabel the name for the outer grouping tier, or `null` if unused.
+     * @property partTierLabel the name for the inner grouping tier, or `null` if unused.
+     */
+    @Serializable
+    @SerialName("BookMutation.SetTierLabels")
+    data class SetTierLabels(
+        @SerialName("bookTierLabel") val bookTierLabel: String?,
+        @SerialName("partTierLabel") val partTierLabel: String?,
+    ) : BookMutation
+
+    /**
      * A replace-set of the collections a book belongs to — maps to
      * [com.calypsan.listenup.api.CollectionService.setBookCollections]. Rides the `books`
      * outbox channel (not a collection channel) so it shares the book's FIFO order and

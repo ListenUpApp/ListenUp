@@ -3121,6 +3121,16 @@
         }
       }
     },
+    "book.detail_edit_chapters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Chapters"
+          }
+        }
+      }
+    },
     "book.detail_error_title": {
       "localizations": {
         "en": {
@@ -5087,6 +5097,396 @@
           "stringUnit": {
             "state": "translated",
             "value": "Heads up: spoilers ahead"
+          }
+        }
+      }
+    },
+    "chapter_editor.changed_elsewhere_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book changed elsewhere — your edits are still here."
+          }
+        }
+      }
+    },
+    "chapter_editor.changed_elsewhere_refresh": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard my edits & refresh"
+          }
+        }
+      }
+    },
+    "chapter_editor.chapter_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d. %2$@"
+          }
+        }
+      }
+    },
+    "chapter_editor.detail_panel_empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select a chapter to edit its title and timing."
+          }
+        }
+      }
+    },
+    "chapter_editor.detail_panel_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapter details"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_add_anchor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add another anchor"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_anchor_snapped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "True start: %1$@"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_anchor_unsnapped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not snapped yet."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_apply": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_bad_anchors_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These anchors can't be applied. Try snapping again."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_entry_point": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct drift…"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play to where a chapter truly starts, then tap Snap. First and last are pre-picked — two anchors handle most drift; add more for tricky sections."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_inverted_warning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These anchors are out of order — snap them again so true starts follow the same order as the chapters."
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_locked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock this chapter's start"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_snap": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snap"
+          }
+        }
+      }
+    },
+    "chapter_editor.drift_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Correct chapter drift"
+          }
+        }
+      }
+    },
+    "chapter_editor.field_start_time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start time"
+          }
+        }
+      }
+    },
+    "chapter_editor.field_start_time_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HH:MM:SS.mmm"
+          }
+        }
+      }
+    },
+    "chapter_editor.field_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title"
+          }
+        }
+      }
+    },
+    "chapter_editor.lens_structure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Structure"
+          }
+        }
+      }
+    },
+    "chapter_editor.lens_timing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timing"
+          }
+        }
+      }
+    },
+    "chapter_editor.new_chapter_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Chapter"
+          }
+        }
+      }
+    },
+    "chapter_editor.offline_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your edits are saved on this device and will sync once you're back online."
+          }
+        }
+      }
+    },
+    "chapter_editor.offline_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're offline"
+          }
+        }
+      }
+    },
+    "chapter_editor.preview_show_offline_sheet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show offline sheet"
+          }
+        }
+      }
+    },
+    "chapter_editor.reset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset"
+          }
+        }
+      }
+    },
+    "chapter_editor.reset_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This clears every change you've made since opening the editor. This can't be undone."
+          }
+        }
+      }
+    },
+    "chapter_editor.reset_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard edits"
+          }
+        }
+      }
+    },
+    "chapter_editor.reset_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard all edits?"
+          }
+        }
+      }
+    },
+    "chapter_editor.save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "chapter_editor.save_failed_retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save failed. Retry?"
+          }
+        }
+      }
+    },
+    "chapter_editor.saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chapters saved."
+          }
+        }
+      }
+    },
+    "chapter_editor.saving": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving…"
+          }
+        }
+      }
+    },
+    "chapter_editor.section_label_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whatever the book calls it"
+          }
+        }
+      }
+    },
+    "chapter_editor.snap_to_playhead": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snap to playhead"
+          }
+        }
+      }
+    },
+    "chapter_editor.tier_book_default": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book"
+          }
+        }
+      }
+    },
+    "chapter_editor.tier_part_default": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Part"
+          }
+        }
+      }
+    },
+    "chapter_editor.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Chapters"
+          }
+        }
+      }
+    },
+    "chapter_editor.undo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
           }
         }
       }

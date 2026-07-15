@@ -5,8 +5,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.design.timeline.TimelinePreviewGallery
 import com.calypsan.listenup.client.features.auth.PendingApprovalContent
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPreviewGallery
+import com.calypsan.listenup.client.features.chaptereditor.ChapterEditorPreviewGallery
 import com.calypsan.listenup.client.features.home.HomePreviewGallery
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingPreviewGallery
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
@@ -20,6 +22,8 @@ import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
  * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity
  * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity --es gallery bookdetail
  * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity --es gallery nowplaying
+ * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity --es gallery timeline
+ * adb shell am start -n com.calypsan.listenup.client/.PreviewGalleryActivity --es gallery chaptereditor
  * ```
  */
 class PreviewGalleryActivity : ComponentActivity() {
@@ -36,6 +40,14 @@ class PreviewGalleryActivity : ComponentActivity() {
 
                     "nowplaying" -> {
                         NowPlayingPreviewGallery()
+                    }
+
+                    "timeline" -> {
+                        TimelinePreviewGallery()
+                    }
+
+                    "chaptereditor" -> {
+                        ChapterEditorPreviewGallery()
                     }
 
                     "pendingapproval" -> {

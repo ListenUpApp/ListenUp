@@ -80,6 +80,12 @@ internal class BookEditRepositoryImpl(
         return edit(id, BookMutation.SetChapters(chapters))
     }
 
+    override suspend fun setBookTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit> = edit(id, BookMutation.SetTierLabels(bookTierLabel, partTierLabel))
+
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> = edit(id, BookMutation.DeleteCover)
 
     override suspend fun setBookCollections(

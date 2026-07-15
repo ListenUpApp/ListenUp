@@ -51,6 +51,19 @@ data class BookSyncPayload(
     /** Provenance of [chapters]; [ChapterSource.USER] is rescan-protected. Defaults to EMBEDDED for forward-compat. */
     val chapterSource: ChapterSource = ChapterSource.EMBEDDED,
     /**
+     * The book's own vocabulary for its OUTER chapter-grouping tier — e.g. "Book" or "Volume".
+     * Pairs with the per-chapter [BookChapterPayload.bookTitle]. Null means the tier is unnamed;
+     * the UI then shows the chapter's grouping value with no type chip, or offers to name it.
+     * Defaults to null for forward-compat with payloads produced by older server versions.
+     */
+    @SerialName("bookTierLabel") val bookTierLabel: String? = null,
+    /**
+     * The book's own vocabulary for its INNER chapter-grouping tier — e.g. "Part" or "Sequence".
+     * Pairs with the per-chapter [BookChapterPayload.partTitle]. Same null semantics as
+     * [bookTierLabel].
+     */
+    @SerialName("partTierLabel") val partTierLabel: String? = null,
+    /**
      * The scalar/collection metadata fields the user has hand-edited in the app — each is
      * rescan-protected. For a field in this set, a rescan preserves the existing DB value instead of
      * overwriting it with the value re-derived from the files/sidecars. Empty on scanner-produced

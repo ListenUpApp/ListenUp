@@ -122,6 +122,9 @@ CampfireSettings
 CampfireViewModel
 Chapter
 ChapterAnchor
+ChapterEditorEvent
+ChapterEditorUiState
+ChapterEditorViewModel
 ChapterInput
 ChapterNameRow
 ChapterResponse
@@ -214,6 +217,7 @@ DownloadOutcome
 DownloadRepository
 DownloadService
 DownloadStatus
+DriftPreview
 DriftResult
 DurationFormatter
 EditableCollection
@@ -521,6 +525,8 @@ TagDetailUiState
 TagDetailViewModel
 TagRepository
 ThemeMode
+TierKind
+TierLabels
 TimelineFileInput
 Timestamp
 TitleSortUtils

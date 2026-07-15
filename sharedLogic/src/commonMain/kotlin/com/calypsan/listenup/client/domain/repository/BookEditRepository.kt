@@ -77,6 +77,18 @@ interface BookEditRepository {
     ): AppResult<Unit>
 
     /**
+     * Renames the book's two chapter-grouping tiers to [bookTierLabel] (outer) and
+     * [partTierLabel] (inner). Dispatches via
+     * [com.calypsan.listenup.api.BookService.setBookTierLabels]; authoritative state returns
+     * through the SSE sync engine (no optimistic Room write).
+     */
+    suspend fun setBookTierLabels(
+        id: BookId,
+        bookTierLabel: String?,
+        partTierLabel: String?,
+    ): AppResult<Unit>
+
+    /**
      * Removes the cover from the book identified by [id]: nulls cover state on
      * the book row and best-effort-deletes the underlying file after commit.
      */

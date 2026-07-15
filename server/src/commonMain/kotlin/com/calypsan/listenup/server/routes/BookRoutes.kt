@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
+import com.calypsan.listenup.api.dto.TierLabelsInput
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.server.routes.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
@@ -74,6 +75,8 @@ private const val COVER_MAX_BYTES = 10L * 1024 * 1024
  *    for a book (body: JSON array of [BookContributorInput]). HTTP 204 on success.
  *  - `PUT /api/v1/books/{id}/chapters` — replaces the full chapter list for a book
  *    (body: JSON array of [ChapterInput]). HTTP 204 on success.
+ *  - `PUT /api/v1/books/{id}/chapter-tiers` — renames the book's two chapter-grouping tiers
+ *    (body: [TierLabelsInput]). HTTP 204 on success.
  *  - `PUT /api/v1/books/{id}/series` — replaces the full series list for a book
  *    (body: JSON array of [BookSeriesInput]). HTTP 204 on success.
  *  - `PUT /api/v1/books/{id}/genres` — replaces the full genre list for a book
@@ -158,6 +161,19 @@ internal fun Route.bookRoutes(
                             p
                         },
                     ).setBookChapters(res.id, chapters)
+        ) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    put<BookResources.ChapterTiers> { res ->
+        val body = call.receive<TierLabelsInput>()
+        when (
+            val result =
+                call
+                    .scoped(bookService)
+                    .setBookTierLabels(res.id, body.bookTierLabel, body.partTierLabel)
         ) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)

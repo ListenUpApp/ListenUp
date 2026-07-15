@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
+import com.calypsan.listenup.domain.TierLabels
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +42,8 @@ class FakeBookRepository(
     override suspend fun getChapters(bookId: String): List<Chapter> = chaptersByBookId[bookId].orEmpty()
 
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(chaptersByBookId[bookId].orEmpty())
+
+    override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = flowOf(TierLabels(null, null))
 
     /** A book is "live" in this fake when it is present in the current [books] list. */
     override fun observeIsBookLive(id: String): Flow<Boolean> =

@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.domain.TierLabels
 import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.core.BookId
@@ -111,6 +112,8 @@ private class NoopBookRepository : BookRepository {
     override suspend fun getChapters(bookId: String): List<Chapter> = emptyList()
 
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(emptyList())
+
+    override fun observeBookTierLabels(bookId: String): Flow<TierLabels> = flowOf(TierLabels(null, null))
 
     override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(true)
 

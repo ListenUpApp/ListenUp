@@ -62,6 +62,8 @@ internal class BookEntityMapper {
             isbn = payload.isbn,
             asin = payload.asin,
             abridged = payload.abridged,
+            bookTierLabel = payload.bookTierLabel,
+            partTierLabel = payload.partTierLabel,
             totalDuration = payload.totalDuration,
             coverHash = payload.cover?.hash,
             // Client-computed field — preserved from the existing row so that a sync update

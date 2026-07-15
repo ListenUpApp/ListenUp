@@ -1,7 +1,10 @@
 package com.calypsan.listenup.client.domain.chapter
 
 import com.calypsan.listenup.client.domain.model.Chapter
-import kotlin.math.roundToLong
+import com.calypsan.listenup.core.AnchorValidation
+import com.calypsan.listenup.core.TimeAnchor
+import com.calypsan.listenup.core.alignTimestamps
+import com.calypsan.listenup.core.validateAnchors
 
 /**
  * A user-pinned "true" start for one chapter, the input to drift correction.
@@ -23,25 +26,20 @@ sealed interface DriftResult {
 
     /** The correction could not be computed. */
     sealed interface Rejected : DriftResult {
-        /** Fewer than one anchor, more than two, or an anchor referencing an unknown chapter. */
+        /** Fewer than one anchor, or an anchor referencing an unknown chapter id. */
         data object BadAnchors : Rejected
 
-        /** Two anchors imply a non-positive scale (would reverse chapter order). */
+        /** The anchors, sorted by chapter start, do not strictly increase in true-start too. */
         data object InvertedAnchors : Rejected
     }
 }
 
 /**
- * Corrects chapter drift by an affine map on start times, defined by one or two
- * anchors, then rebuilds contiguity.
- *
- * - **One anchor** → constant shift `f(s) = s + (trueStart - anchorStart)`.
- * - **Two anchors** → `f(s) = a*s + b` with `a = (t2-t1)/(s2-s1)`, `b = t1 - a*s1`,
- *   correcting both a constant offset and accumulating drift. `a <= 0` is rejected.
- *
- * Locked chapters ([lockedIds]) keep their original start. After mapping, starts
- * are clamped to `[0, bookDurationMs]`, re-sorted, and durations recomputed so the
- * set is contiguous (each end = next start; last end = [bookDurationMs]).
+ * Corrects chapter drift via [alignTimestamps]'s N-anchor piecewise-linear map, then
+ * rebuilds contiguity. One anchor is a constant shift; two or more interpolate/extrapolate
+ * through every segment. Locked chapters ([lockedIds]) keep their original start. After
+ * mapping, starts are clamped to `[0, bookDurationMs]`, re-sorted, and durations recomputed
+ * so the set stays contiguous (each end = next start; last end = [bookDurationMs]).
  */
 fun correctDrift(
     chapters: List<Chapter>,
@@ -50,30 +48,26 @@ fun correctDrift(
     lockedIds: Set<String> = emptySet(),
 ): DriftResult {
     if (chapters.isEmpty()) return DriftResult.Corrected(chapters)
-    if (anchors.isEmpty() || anchors.size > 2) return DriftResult.Rejected.BadAnchors
+    if (anchors.isEmpty()) return DriftResult.Rejected.BadAnchors
 
     val byId = chapters.associateBy { it.id }
-    val a0 = anchors[0]
-    val s1 = byId[a0.chapterId]?.startTime ?: return DriftResult.Rejected.BadAnchors
+    val timeAnchors = mutableListOf<TimeAnchor>()
+    for (a in anchors) {
+        val sourceMs = byId[a.chapterId]?.startTime ?: return DriftResult.Rejected.BadAnchors
+        timeAnchors += TimeAnchor(sourceMs = sourceMs, targetMs = a.trueStartMs)
+    }
 
-    val map: (Long) -> Long =
-        if (anchors.size == 1) {
-            val shift = a0.trueStartMs - s1
-            { s -> s + shift }
-        } else {
-            val a1 = anchors[1]
-            val s2 = byId[a1.chapterId]?.startTime ?: return DriftResult.Rejected.BadAnchors
-            if (s2 == s1) return DriftResult.Rejected.BadAnchors
-            val scale = (a1.trueStartMs - a0.trueStartMs).toDouble() / (s2 - s1).toDouble()
-            if (scale <= 0.0) return DriftResult.Rejected.InvertedAnchors
-            val offset = a0.trueStartMs - scale * s1
-            { s -> (scale * s + offset).roundToLong() }
-        }
+    when (validateAnchors(timeAnchors)) {
+        AnchorValidation.Valid -> Unit
+        AnchorValidation.NoAnchors -> return DriftResult.Rejected.BadAnchors
+        is AnchorValidation.InvertedSegment -> return DriftResult.Rejected.InvertedAnchors
+    }
 
+    val movedStarts = alignTimestamps(timeAnchors, chapters.map { it.startTime })
     val moved =
         chapters
-            .map { ch ->
-                val newStart = if (ch.id in lockedIds) ch.startTime else map(ch.startTime)
+            .mapIndexed { i, ch ->
+                val newStart = if (ch.id in lockedIds) ch.startTime else movedStarts[i]
                 ch to newStart.coerceIn(0L, bookDurationMs)
             }.sortedBy { it.second }
 

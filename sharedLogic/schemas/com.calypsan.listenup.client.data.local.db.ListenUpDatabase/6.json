@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 5,
-    "identityHash": "a1aaa1fb32134b8ef72090fb1837fde8",
+    "version": 6,
+    "identityHash": "e5cda4093a6cc1d7fa397f34d6bfba8a",
     "entities": [
       {
         "tableName": "users",
@@ -203,7 +203,7 @@
       },
       {
         "tableName": "books",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `libraryId` TEXT NOT NULL, `folderId` TEXT NOT NULL, `title` TEXT NOT NULL, `sortTitle` TEXT, `subtitle` TEXT, `coverHash` TEXT, `coverBlurHash` TEXT, `coverDownloadedAt` INTEGER, `totalDuration` INTEGER NOT NULL, `description` TEXT, `publishYear` INTEGER, `publisher` TEXT, `language` TEXT, `isbn` TEXT, `asin` TEXT, `abridged` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `hasScanWarning` INTEGER NOT NULL, `userEditedFields` TEXT NOT NULL DEFAULT '', `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `libraryId` TEXT NOT NULL, `folderId` TEXT NOT NULL, `title` TEXT NOT NULL, `sortTitle` TEXT, `subtitle` TEXT, `coverHash` TEXT, `coverBlurHash` TEXT, `coverDownloadedAt` INTEGER, `totalDuration` INTEGER NOT NULL, `description` TEXT, `publishYear` INTEGER, `publisher` TEXT, `language` TEXT, `isbn` TEXT, `asin` TEXT, `abridged` INTEGER NOT NULL, `bookTierLabel` TEXT, `partTierLabel` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `hasScanWarning` INTEGER NOT NULL, `userEditedFields` TEXT NOT NULL DEFAULT '', `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -295,6 +295,16 @@
             "columnName": "abridged",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "bookTierLabel",
+            "columnName": "bookTierLabel",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "partTierLabel",
+            "columnName": "partTierLabel",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "revision",
@@ -3083,7 +3093,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'a1aaa1fb32134b8ef72090fb1837fde8')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e5cda4093a6cc1d7fa397f34d6bfba8a')"
     ]
   }
 }

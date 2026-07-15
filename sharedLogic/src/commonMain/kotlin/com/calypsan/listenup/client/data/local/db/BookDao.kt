@@ -8,6 +8,12 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.Timestamp
 import kotlinx.coroutines.flow.Flow
 
+/** Projection for [BookDao.observeTierLabels] — the two renamable per-book tier-vocabulary labels. */
+internal data class BookTierLabelsRow(
+    val bookTierLabel: String?,
+    val partTierLabel: String?,
+)
+
 /**
  * Room DAO for [BookEntity] operations.
  *
@@ -51,6 +57,16 @@ internal interface BookDao {
      */
     @Query("SELECT * FROM books WHERE id = :id LIMIT 1")
     suspend fun getById(id: BookId): BookEntity?
+
+    /**
+     * Observe the two renamable per-book tier-vocabulary labels ([BookEntity.bookTierLabel],
+     * [BookEntity.partTierLabel]). Emits null while the book row is absent from the local mirror.
+     *
+     * @param id The type-safe book ID
+     * @return Flow emitting the tier-label pair, or null when the book row is absent
+     */
+    @Query("SELECT bookTierLabel, partTierLabel FROM books WHERE id = :id LIMIT 1")
+    fun observeTierLabels(id: BookId): Flow<BookTierLabelsRow?>
 
     /**
      * Get all live (non-tombstoned) books synchronously.

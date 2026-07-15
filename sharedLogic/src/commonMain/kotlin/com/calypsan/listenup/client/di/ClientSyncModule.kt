@@ -190,6 +190,12 @@ internal val clientSyncModule =
                                 bookChannel.call { it.setBookChapters(bookId, mutation.chapters) }
                             }
 
+                            is BookMutation.SetTierLabels -> {
+                                bookChannel.call {
+                                    it.setBookTierLabels(bookId, mutation.bookTierLabel, mutation.partTierLabel)
+                                }
+                            }
+
                             // Rides the books channel for FIFO + shield, but dispatches to CollectionService.
                             is BookMutation.SetCollections -> {
                                 collectionChannel.call {
