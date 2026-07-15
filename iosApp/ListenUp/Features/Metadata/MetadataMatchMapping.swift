@@ -55,15 +55,23 @@ enum MetadataMatchMapping {
         let book = ready.preview
         let sel = ready.selections
 
-        let identity = identityFields(book: book, selections: sel)
-        let details = detailFields(book: book, selections: sel)
-        let authors = contributors(book.authors, selected: sel.selectedAuthors)
-        let narrators = contributors(book.narrators, selected: sel.selectedNarrators)
-        let seriesItems = series(book.series, selected: sel.selectedSeries)
-        let genres = genreSelections(book.genres, selected: sel.selectedGenres)
-        let moods = genreSelections(book.moods, selected: sel.selectedMoods)
-        let tags = genreSelections(book.tags, selected: sel.selectedTags)
-        let description = descriptionField(book: book, selections: sel)
+        // Read per-field provenance at the boundary. `fallbackSources` is a bridged Kotlin
+        // `Map<BookField, String>`; subscripting it here (not in a view/`ForEach`) is the same
+        // idiom as `BookEditObserver`'s per-role maps. Each closure call yields a native `String?`.
+        let fallback = ready.fallbackSources
+        let sourceFor: (BookField) -> String? = { fallback[$0] }
+
+        let identity = identityFields(book: book, selections: sel, sourceFor: sourceFor)
+        let details = detailFields(book: book, selections: sel, sourceFor: sourceFor)
+        let authors = contributors(book.authors, selected: sel.selectedAuthors, sourceLabel: sourceFor(.authors))
+        let narrators = contributors(
+            book.narrators, selected: sel.selectedNarrators, sourceLabel: sourceFor(.narrators)
+        )
+        let seriesItems = series(book.series, selected: sel.selectedSeries, sourceLabel: sourceFor(.series))
+        let genres = genreSelections(book.genres, selected: sel.selectedGenres, sourceLabel: sourceFor(.genres))
+        let moods = genreSelections(book.moods, selected: sel.selectedMoods, sourceLabel: sourceFor(.moods))
+        let tags = genreSelections(book.tags, selected: sel.selectedTags, sourceLabel: sourceFor(.tags))
+        let description = descriptionField(book: book, selections: sel, sourceLabel: sourceFor(.description))
 
         let scalarFields = identity + details + (description.map { [$0] } ?? [])
         let counts = selectionCounts(
@@ -92,6 +100,10 @@ enum MetadataMatchMapping {
             descriptionField: description,
             coverEnabled: sel.cover,
             coverValueText: String(localized: "metadata.field_cover_value"),
+            coverSourceLabel: ready.coverSourceLabel,
+            coverResolution: ready.coverResolution,
+            // Copy into a native array at the boundary — never hold the bridged Kotlin list.
+            contributingSources: Array(ready.contributingSources),
             chapters: chapterState(from: ready.chapterSuggestion),
             isApplying: ready.isApplying,
             applyError: ready.applyError,
@@ -105,19 +117,22 @@ enum MetadataMatchMapping {
 
     private static func identityFields(
         book: MetadataBook,
-        selections: MetadataSelections
+        selections: MetadataSelections,
+        sourceFor: (BookField) -> String?
     ) -> [MetadataFieldSelection] {
         var out: [MetadataFieldSelection] = []
         if !book.title.isEmpty {
             out.append(.init(
                 field: .title, label: String(localized: "metadata.field_title"),
-                value: book.title, isSelected: selections.title, systemImage: "textformat"
+                value: book.title, isSelected: selections.title, systemImage: "textformat",
+                sourceLabel: sourceFor(.title)
             ))
         }
         if let subtitle = book.subtitle, !subtitle.isEmpty {
             out.append(.init(
                 field: .subtitle, label: String(localized: "metadata.field_subtitle"),
-                value: subtitle, isSelected: selections.subtitle, systemImage: "text.alignleft"
+                value: subtitle, isSelected: selections.subtitle, systemImage: "text.alignleft",
+                sourceLabel: sourceFor(.subtitle)
             ))
         }
         return out
@@ -125,25 +140,30 @@ enum MetadataMatchMapping {
 
     private static func detailFields(
         book: MetadataBook,
-        selections: MetadataSelections
+        selections: MetadataSelections,
+        sourceFor: (BookField) -> String?
     ) -> [MetadataFieldSelection] {
         var out: [MetadataFieldSelection] = []
         if let publisher = book.publisher, !publisher.isEmpty {
             out.append(.init(
                 field: .publisher, label: String(localized: "metadata.field_publisher"),
-                value: publisher, isSelected: selections.publisher, systemImage: "building.2"
+                value: publisher, isSelected: selections.publisher, systemImage: "building.2",
+                sourceLabel: sourceFor(.publisher)
             ))
         }
         if let releaseDate = book.releaseDate, !releaseDate.isEmpty {
             out.append(.init(
                 field: .releaseDate, label: String(localized: "metadata.field_release_date"),
-                value: releaseDate, isSelected: selections.releaseDate, systemImage: "calendar"
+                value: releaseDate, isSelected: selections.releaseDate, systemImage: "calendar",
+                // Release date is the `PUBLISH_YEAR` field in the provenance router.
+                sourceLabel: sourceFor(.publishYear)
             ))
         }
         if let language = book.language, !language.isEmpty {
             out.append(.init(
                 field: .language, label: String(localized: "metadata.field_language"),
-                value: language, isSelected: selections.language, systemImage: "globe"
+                value: language, isSelected: selections.language, systemImage: "globe",
+                sourceLabel: sourceFor(.language)
             ))
         }
         return out
@@ -151,41 +171,52 @@ enum MetadataMatchMapping {
 
     private static func descriptionField(
         book: MetadataBook,
-        selections: MetadataSelections
+        selections: MetadataSelections,
+        sourceLabel: String?
     ) -> MetadataFieldSelection? {
         guard let description = book.description_, !description.isEmpty else { return nil }
         return .init(
             field: .description, label: String(localized: "metadata.field_description"),
-            value: description, isSelected: selections.description_, systemImage: "doc.text"
+            value: description, isSelected: selections.description_, systemImage: "doc.text",
+            sourceLabel: sourceLabel
         )
     }
 
     private static func contributors(
         _ refs: [MetadataContributorRef],
-        selected: Set<String>
+        selected: Set<String>,
+        sourceLabel: String?
     ) -> [MetadataContributorSelection] {
         refs.map { ref in
             let key = ref.asin ?? ref.name
-            return MetadataContributorSelection(id: key, name: ref.name, isSelected: selected.contains(key))
+            return MetadataContributorSelection(
+                id: key, name: ref.name, isSelected: selected.contains(key), sourceLabel: sourceLabel
+            )
         }
     }
 
     private static func series(
         _ refs: [MetadataSeriesRef],
-        selected: Set<String>
+        selected: Set<String>,
+        sourceLabel: String?
     ) -> [MetadataSeriesSelection] {
         refs.map { ref in
             let key = ref.asin ?? ref.title
             let display = ref.sequence.map { "\(ref.title) #\($0)" } ?? ref.title
-            return MetadataSeriesSelection(id: key, displayText: display, isSelected: selected.contains(key))
+            return MetadataSeriesSelection(
+                id: key, displayText: display, isSelected: selected.contains(key), sourceLabel: sourceLabel
+            )
         }
     }
 
     private static func genreSelections(
         _ genres: [String],
-        selected: Set<String>
+        selected: Set<String>,
+        sourceLabel: String?
     ) -> [MetadataGenreSelection] {
-        genres.map { MetadataGenreSelection(id: $0, label: $0, isSelected: selected.contains($0)) }
+        genres.map {
+            MetadataGenreSelection(id: $0, label: $0, isSelected: selected.contains($0), sourceLabel: sourceLabel)
+        }
     }
 
     // MARK: - Chapters

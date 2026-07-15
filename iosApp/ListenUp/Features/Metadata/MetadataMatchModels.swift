@@ -62,6 +62,14 @@ struct MetadataPreview: Equatable {
     /// Cover options (Audible / iTunes HD) plus the implicit "keep current" choice.
     let coverEnabled: Bool
     let coverValueText: String
+    /// The provider the probed cover came from (e.g. "iTunes", "Audible"), when known.
+    let coverSourceLabel: String?
+    /// The probed cover's pixel dimensions as "W×H" (U+00D7), when both are known.
+    let coverResolution: String?
+
+    /// Every provider that contributed a winning field to this match, for the "Merged from …"
+    /// footer. One entry means a single source (footer hidden); more than one means a blend.
+    let contributingSources: [String]
 
     let chapters: ChapterReviewState
 
@@ -74,37 +82,45 @@ struct MetadataPreview: Equatable {
     let totalCount: Int
 }
 
-/// A toggleable scalar metadata field (cover excluded — it has its own row).
+/// A toggleable scalar metadata field (cover excluded — it has its own row). `sourceLabel` is the
+/// provider that supplied this field's value when it fell back off the primary source, for a
+/// per-field provenance chip.
 struct MetadataFieldSelection: Identifiable, Equatable {
     let field: MetadataField
     let label: String
     let value: String
     let isSelected: Bool
     let systemImage: String
+    let sourceLabel: String?
 
     var id: Int { Int(field.rawValue) }
 }
 
 /// One author/narrator with its own opt-in. `asin` is the toggle key (name fallback when Audible
-/// omits the ASIN, matching the apply contract).
+/// omits the ASIN, matching the apply contract). `sourceLabel` is the field-level provenance
+/// (shared across every contributor of the same role).
 struct MetadataContributorSelection: Identifiable, Equatable {
     let id: String
     let name: String
     let isSelected: Bool
+    let sourceLabel: String?
 }
 
-/// One series entry with its own opt-in.
+/// One series entry with its own opt-in. `sourceLabel` is the field-level provenance.
 struct MetadataSeriesSelection: Identifiable, Equatable {
     let id: String
     let displayText: String
     let isSelected: Bool
+    let sourceLabel: String?
 }
 
-/// One genre label with its own opt-in.
+/// One genre label with its own opt-in. `sourceLabel` is the field-level provenance (shared across
+/// every label in the group).
 struct MetadataGenreSelection: Identifiable, Equatable {
     let id: String
     let label: String
     let isSelected: Bool
+    let sourceLabel: String?
 }
 
 // MARK: - Chapters

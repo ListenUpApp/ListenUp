@@ -139,6 +139,47 @@ struct MetadataMatchMappingTests {
         #expect(preview2.totalCount == 4)
     }
 
+    // MARK: - Provenance
+
+    @Test func previewCarriesFieldSourceCoverAndContributingProvenance() {
+        let book = makeBook(
+            asin: "B20",
+            title: "Title",
+            description: "A description.",
+            authors: [ref("Zogarth", asin: "AUTH1")],
+            genres: ["Fantasy"]
+        )
+        let state = ready(
+            book: book,
+            fallbackSources: [.description: "Audnexus", .authors: "iTunes", .genres: "Audnexus"],
+            coverSourceLabel: "iTunes",
+            coverResolution: "1400×1400",
+            contributingSources: ["Audible", "Audnexus", "iTunes"]
+        )
+        let preview = MetadataMatchMapping.preview(from: state, match: book)
+
+        // Per-field fallback labels flow to the matching row structs; unmapped fields stay nil.
+        #expect(preview.identityFields.first { $0.field == .title }?.sourceLabel == nil)
+        #expect(preview.descriptionField?.sourceLabel == "Audnexus")
+        #expect(preview.authors.first?.sourceLabel == "iTunes")
+        #expect(preview.genres.first?.sourceLabel == "Audnexus")
+
+        // Cover + footer provenance copy through verbatim.
+        #expect(preview.coverSourceLabel == "iTunes")
+        #expect(preview.coverResolution == "1400×1400")
+        #expect(preview.contributingSources == ["Audible", "Audnexus", "iTunes"])
+    }
+
+    @Test func previewProvenanceDefaultsAreEmpty() {
+        let book = makeBook(asin: "B21", title: "Title", description: "Desc.")
+        let preview = MetadataMatchMapping.preview(from: ready(book: book), match: book)
+
+        #expect(preview.descriptionField?.sourceLabel == nil)
+        #expect(preview.coverSourceLabel == nil)
+        #expect(preview.coverResolution == nil)
+        #expect(preview.contributingSources.isEmpty)
+    }
+
     // MARK: - Fixtures
 
     private func ref(_ name: String, asin: String? = nil) -> MetadataContributorRef {
@@ -178,7 +219,9 @@ struct MetadataMatchMappingTests {
             moods: moods,
             tags: tags,
             coverUrl: coverUrl,
-            coverUrlMaxSize: nil
+            coverUrlMaxSize: nil,
+            // Provenance is consumed off the resolved `PreviewLoadState.Ready`, not the raw book.
+            matchProvenance: nil
         )
     }
 
@@ -211,7 +254,11 @@ struct MetadataMatchMappingTests {
 
     private func ready(
         book: MetadataBook,
-        selections: MetadataSelections? = nil
+        selections: MetadataSelections? = nil,
+        fallbackSources: [BookField: String] = [:],
+        coverSourceLabel: String? = nil,
+        coverResolution: String? = nil,
+        contributingSources: [String] = []
     ) -> PreviewLoadStateReady {
         PreviewLoadStateReady(
             preview: book,
@@ -224,7 +271,11 @@ struct MetadataMatchMappingTests {
             chapterSuggestion: ChapterSuggestionUnavailable.shared,
             genreCandidates: book.genres,
             moodCandidates: book.moods,
-            tagCandidates: book.tags
+            tagCandidates: book.tags,
+            fallbackSources: fallbackSources,
+            coverSourceLabel: coverSourceLabel,
+            coverResolution: coverResolution,
+            contributingSources: contributingSources
         )
     }
 }
