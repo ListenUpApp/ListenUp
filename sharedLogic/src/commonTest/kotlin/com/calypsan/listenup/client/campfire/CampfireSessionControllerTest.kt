@@ -625,6 +625,83 @@ class CampfireSessionControllerTest :
             }
         }
 
+        test("exitForPlayback still ends the campfire when the host disconnected while the confirm was open") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot(hostUserId = "self-1")) }
+                val sut = controller(transport, backgroundScope, clock, selfUserId = "self-1")
+                sut.join(sessionId)
+                runCurrent()
+
+                // The frame stream drops → Disconnected, but the play-over-campfire confirm dialog is
+                // still open. A host confirming "end for everyone" must still END, not silently leave.
+                transport.emit(RpcEvent.Error(CampfireError.CampfireNotFound()))
+                runCurrent()
+                sut.state.value.shouldBeInstanceOf<CampfireUiState.Disconnected>()
+
+                sut.exitForPlayback()
+                runCurrent()
+
+                transport.endCalls shouldBe listOf(sessionId)
+                transport.leaveCalls shouldBe emptyList()
+            }
+        }
+
+        test("join drains stale one-shot events left buffered by a previous session on the singleton controller") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+
+                // A reaction arrives with no events collector (the campfire screen is gone) → it buffers
+                // on the controller's channel, which now outlives the session (F2 made it a singleton).
+                transport.emit(RpcEvent.Data(CampfireFrame.Reaction("ghost", "🔥")))
+                runCurrent()
+                sut.leave()
+                runCurrent()
+
+                // A fresh session on the SAME controller must not replay the previous session's events.
+                sut.join(sessionId)
+                runCurrent()
+                sut.events.test {
+                    transport.emit(RpcEvent.Data(CampfireFrame.Reaction("live", "✨")))
+                    awaitItem() shouldBe CampfireSessionEvent.ReactionReceived("live", "✨")
+                }
+            }
+        }
+
+        test("a second join on the singleton controller yields a clean Active state with no bleed from the first") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport()
+                val sut = controller(transport, backgroundScope, clock, selfUserId = "self-1")
+
+                // Session 1: the local user is the host.
+                transport.joinResult = AppResult.Success(snapshot(hostUserId = "self-1"))
+                sut.join(sessionId)
+                runCurrent()
+                (sut.state.value as CampfireUiState.Active).isHost shouldBe true
+                sut.leave()
+                runCurrent()
+
+                // Session 2 (different room) where the local user is NOT the host — the reused
+                // singleton must reflect ONLY session 2, with no host role or ids carried over.
+                val other = CampfireId("cf-2")
+                transport.joinResult =
+                    AppResult.Success(snapshot(hostUserId = "someone-else").copy(id = other, bookId = "book-2"))
+                sut.join(other)
+                runCurrent()
+
+                val active = sut.state.value as CampfireUiState.Active
+                active.sessionId shouldBe other
+                active.bookId shouldBe "book-2"
+                active.isHost shouldBe false
+            }
+        }
+
         // ── Lobby phase (2026-07-11 amendment) ───────────────────────────────
 
         test("join with a LOBBY snapshot does not touch local playback") {
