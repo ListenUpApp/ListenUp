@@ -1,16 +1,20 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapter
 import com.calypsan.listenup.api.dto.MetadataChapters
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
+import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.server.metadata.ComposedBook
 import com.calypsan.listenup.server.metadata.spi.BookContributorMeta
 import com.calypsan.listenup.server.metadata.spi.BookMatch
 import com.calypsan.listenup.server.metadata.spi.ChapterListMeta
 import com.calypsan.listenup.server.metadata.spi.ChapterMeta
+import com.calypsan.listenup.server.metadata.spi.EnrichmentRoutes
 import com.calypsan.listenup.server.metadata.spi.SeriesMeta
+import com.calypsan.listenup.server.metadata.spi.displayLabel
 
 // ─── Composed neutral metadata → wire DTO mappers ─────────────────────────────
 //
@@ -39,6 +43,39 @@ internal fun ComposedBook.toMetadataBook(): MetadataBook =
         coverUrl = coverUrl,
         coverUrlMaxSize = coverUrlMaxSize,
     )
+
+/**
+ * Projects a [ComposedBook]'s per-field winners onto the wire [MatchProvenance].
+ * - [MatchProvenance.fallbackFields]: non-cover fields whose winner ≠ the field's configured primary
+ *   (`routes.orderFor(field).first()`) — "this field fell through to a fallback provider."
+ * - [MatchProvenance.contributingSources]: distinct provider labels across all field winners + the
+ *   max-size cover winner, in BookField order (deterministic).
+ * - cover source/dimensions from the max-size cover winner and the probed [coverDimensions].
+ */
+internal fun buildMatchProvenance(
+    composed: ComposedBook,
+    routes: EnrichmentRoutes,
+    coverDimensions: Pair<Int, Int>?,
+): MatchProvenance {
+    val fieldProviders = composed.fieldProviders
+    val fallbackFields =
+        fieldProviders
+            .filterKeys { it != BookField.COVER }
+            .filter { (field, winner) -> routes.orderFor(field).firstOrNull() != winner }
+            .mapValues { (_, winner) -> winner.displayLabel() }
+    val coverWinner = composed.coverMaxSizeWinner
+    val contributing =
+        (BookField.entries.mapNotNull { fieldProviders[it] } + listOfNotNull(coverWinner))
+            .map { it.displayLabel() }
+            .distinct()
+    return MatchProvenance(
+        contributingSources = contributing,
+        fallbackFields = fallbackFields,
+        coverSource = coverWinner?.displayLabel(),
+        coverWidth = coverDimensions?.first,
+        coverHeight = coverDimensions?.second,
+    )
+}
 
 /**
  * Projects a phase-1 search candidate onto the wire [MetadataBook]. Deliberately lean — a
