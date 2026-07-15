@@ -165,6 +165,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Per-step delay of the sleep-timer fade-out. Injected so tests run the fade instantly
     /// (`.zero`) instead of depending on ~3 s of real wall-clock time, which flakes under CI load.
     private let fadeStepDelay: Duration
+    /// Source of the audio-session interruption/route-change notifications this coordinator observes.
+    /// Defaults to `.default` in production; tests inject a private center so a notification posted by
+    /// one test can't leak into a concurrently-running test's coordinator through the process-global
+    /// center (the cause of a cross-suite flake — see `PlayerCoordinatorTests`).
+    private let notificationCenter: NotificationCenter
     private let bridge = FlowBridge()
 
     private(set) var currentBookId: String?
@@ -211,7 +216,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         documentProvider: BookDocumentProviding = NoDocumentProviding(),
         skipIntervals: SkipIntervalProviding? = nil,
         fadeStepDelay: Duration = .milliseconds(250),
-        bandwidthCoordinator: PlaybackBandwidthCoordinator? = nil
+        bandwidthCoordinator: PlaybackBandwidthCoordinator? = nil,
+        notificationCenter: NotificationCenter = .default
     ) {
         self.preparer = preparer
         self.progress = progress
@@ -221,6 +227,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         self.skipIntervals = skipIntervals
         self.fadeStepDelay = fadeStepDelay
         self.bandwidthCoordinator = bandwidthCoordinator
+        self.notificationCenter = notificationCenter
         system.attach(handler: self)
         system.updateSkipIntervals(forwardSeconds: skipForwardSec, backwardSeconds: skipBackwardSec)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
@@ -272,7 +279,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private func observeInterruptions() {
         let name = AVAudioSession.interruptionNotification
-        bridge.bind(NotificationCenter.default.notifications(named: name)) { [weak self] note in
+        bridge.bind(notificationCenter.notifications(named: name)) { [weak self] note in
             guard let self else { return }
             guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                   let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
@@ -287,7 +294,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private func observeRouteChanges() {
         let name = AVAudioSession.routeChangeNotification
-        bridge.bind(NotificationCenter.default.notifications(named: name)) { [weak self] note in
+        bridge.bind(notificationCenter.notifications(named: name)) { [weak self] note in
             guard let self else { return }
             guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                   let reason = AVAudioSession.RouteChangeReason(rawValue: raw),

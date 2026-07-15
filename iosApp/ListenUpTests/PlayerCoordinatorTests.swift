@@ -210,6 +210,10 @@ struct InterruptionPolicyTests {
 @Suite("Route change handling")
 @MainActor
 struct RouteChangeTests {
+    /// A private center per test instance — the coordinator observes THIS, not the process-global
+    /// `.default`, so this suite's route-change post can never leak into a concurrent suite's coordinator.
+    private let center = NotificationCenter()
+
     private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
         let engine = FakePlaybackEngine()
         let progress = FakeProgressReporting()
@@ -222,7 +226,7 @@ struct RouteChangeTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
+            engine: engine, notificationCenter: center)
         return (coordinator, engine, progress)
     }
 
@@ -231,7 +235,7 @@ struct RouteChangeTests {
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
 
-        NotificationCenter.default.post(
+        center.post(
             name: AVAudioSession.routeChangeNotification, object: nil,
             userInfo: [AVAudioSessionRouteChangeReasonKey:
                 NSNumber(value: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue)])
@@ -242,13 +246,15 @@ struct RouteChangeTests {
 
 }
 
-// `.serialized`: every test here posts `AVAudioSession.interruptionNotification`
-// to `NotificationCenter.default`, which every live `PlayerCoordinator` observes.
-// Run in parallel, one test's `began`/`ended` post reaches a sibling test's
-// coordinator and flips its phase — so the suite must run its tests one at a time.
+// Each test instance owns a private `NotificationCenter` and injects it into its coordinator, so an
+// interruption post here reaches ONLY this test's coordinator — never a sibling test's, and never a
+// concurrently-running suite's (which was the `PlayerSwitchPathTests` cross-suite flake: a `.began`
+// post pausing a coordinator that was mid-`.buffering`). `.serialized` is kept as belt-and-suspenders.
 @Suite("Audio-session interruption handling", .serialized)
 @MainActor
 struct AudioSessionInterruptionTests {
+    private let center = NotificationCenter()
+
     private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
         let engine = FakePlaybackEngine()
         let progress = FakeProgressReporting()
@@ -261,12 +267,12 @@ struct AudioSessionInterruptionTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine)
+            engine: engine, notificationCenter: center)
         return (coordinator, engine, progress)
     }
 
     private func postInterruptionBegan() {
-        NotificationCenter.default.post(
+        center.post(
             name: AVAudioSession.interruptionNotification, object: nil,
             userInfo: [AVAudioSessionInterruptionTypeKey:
                 NSNumber(value: AVAudioSession.InterruptionType.began.rawValue)])
@@ -281,7 +287,7 @@ struct AudioSessionInterruptionTests {
             userInfo[AVAudioSessionInterruptionOptionKey] =
                 NSNumber(value: AVAudioSession.InterruptionOptions.shouldResume.rawValue)
         }
-        NotificationCenter.default.post(
+        center.post(
             name: AVAudioSession.interruptionNotification, object: nil, userInfo: userInfo)
     }
 
