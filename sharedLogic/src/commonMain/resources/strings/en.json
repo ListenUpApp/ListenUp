@@ -568,7 +568,7 @@
     "match_metadata": "Match metadata",
     "find_on_audible": "Find on Audible",
     "matching": "Matching",
-    "audible_region": "Audible region",
+    "audible_region": "Region",
     "no_matches_found": "No matches found",
     "search_audible": "Search Audible",
     "try_a_different_search_term_or_region": "Try a different search term or region",
@@ -578,7 +578,7 @@
     "section_identity": "Identity",
     "section_classification": "Classification",
     "section_details": "Details",
-    "match_on_audible": "Match on Audible",
+    "match_on_audible": "Match metadata",
     "find_subtitle": "Search Audible for this book, then choose the edition that matches your audiobook.",
     "search_helper": "Search by title, author, or ASIN",
     "match_count": "%1$d match found",
@@ -623,7 +623,10 @@
     "updated_fields_applied": "Fields applied",
     "updated_chapters_named": "Chapters named",
     "updated_cover_replaced": "Cover replaced",
-    "matched_by_asin": "Matched by ASIN on Audible %1$s"
+    "matched_by_asin": "Matched by ASIN on Audible %1$s",
+    "merged_from": "Merged from %1$s",
+    "field_source": "from %1$s",
+    "cover_source_resolution": "%1$s · %2$s"
   },
   "search": {
     "coming_soon": "Search functionality coming soon",
