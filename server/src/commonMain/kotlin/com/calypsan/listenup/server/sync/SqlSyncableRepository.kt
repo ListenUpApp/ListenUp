@@ -565,9 +565,15 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * can converge. The page is un-paged — the caller (the sync route) caps the request size, so
      * `nextCursor` is null and `hasMore` is false.
      *
-     * When [extraWhere] is null (an all-seeing role) the access clause is dropped and every matched
-     * row returns. Only ever called on access-gated aggregates, which wire a [driver]; an ungated
-     * domain has none and [accessDriver] fails loud rather than silently degrading.
+     * When [extraWhere] is null but a [driver] is wired (an all-seeing role on a gated domain) the
+     * access clause is dropped and every matched row returns.
+     *
+     * A domain with **no wired [driver]** — every userScoped/global aggregate — cannot serve the
+     * access-filtered read this performs, so it degrades to an **empty page** rather than failing
+     * loud. Those domains are served via the `?since=` catch-up, and the client gates its
+     * reconcile-on-drain targeted fetch to access-filtered handlers so it never asks them; the empty
+     * page is the defense-in-depth backstop that keeps a stray `?ids=` request from 500ing. This is
+     * a valid "nothing to reconcile here" answer — convergence still rides `?since=`/newer-wins.
      */
     override suspend fun pullByIds(
         userId: String?,
@@ -576,10 +582,13 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         extraWhere: SqlFragment?,
     ): Page<T> {
         if (matchValues.isEmpty()) return Page(items = emptyList(), nextCursor = null, hasMore = false)
+        // No driver → this domain has no access-filtered read capability (see KDoc): answer empty
+        // rather than throw, so a valid authenticated sync GET never 500s.
+        val accessFilterDriver = driver ?: return Page(items = emptyList(), nextCursor = null, hasMore = false)
         return suspendTransaction(db) {
             val placeholders = matchValues.joinToString(separator = ", ") { "?" }
             val idsWithRev =
-                accessDriver().selectIdRevAccessFiltered(
+                accessFilterDriver.selectIdRevAccessFiltered(
                     table = rootTableName,
                     predicate = SqlFragment(sql = "$matchColumn IN ($placeholders)", args = matchValues),
                     extraWhere = extraWhere,

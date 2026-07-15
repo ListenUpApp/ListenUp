@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -22,9 +23,11 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
 
-// "tags" IS registered as a mirrored sync handler below, so it is a stand-in for any mirrored
-// outbox domain (books/series/contributors). "preferences" is a real client-only channel with no
-// sync handler — the negative case.
+// "books" is registered as an ACCESS-GATED mirrored handler (implements AccessFilteredSyncHandler) —
+// the only kind the server's access-filtered `pullByIds` can serve, so the only kind reconcile-on-
+// drain targeted-fetches. "tags" is a mirrored but NON-gated handler (userScoped/global class) that
+// is skipped. "preferences" is a real client-only channel with no sync handler — also skipped.
+private val reconcileBooksChannel = OutboxChannel("books", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 private val reconcileTagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 private val reconcilePreferencesChannel =
     OutboxChannel("preferences", String.serializer(), setOf(OpKind.Update), idempotent = true)
@@ -39,13 +42,14 @@ private const val QUIET_WINDOW_MILLIS = 400L
  * next digest" gap.
  *
  * RED (pre-fix): the engine never fetched after a drain, so the entity stayed stale until a
- * lifecycle digest. GREEN: exactly one targeted `?ids=` fetch fires for the just-sent (domain, id),
- * only for mirrored domains; a client-only channel (`preferences`) is skipped.
+ * lifecycle digest. GREEN: exactly one targeted `?ids=` fetch fires for the just-sent (domain, id) —
+ * but only for an ACCESS-GATED domain the server can serve; a non-gated mirrored domain (`tags`) and
+ * a client-only channel (`preferences`) are both skipped (they converge via catch-up / newer-wins).
  */
 class ReconcileOnDrainTest :
     FunSpec({
 
-        test("after a drain sends a mirrored-domain op, the engine targeted-fetches that entity") {
+        test("a drain reconciles an access-gated domain but skips a non-gated one") {
             runBlocking {
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 val db = createInMemoryTestDatabase()
@@ -61,17 +65,21 @@ class ReconcileOnDrainTest :
                     val sse = ReconcileFakeSseClient(state)
                     val engine = buildReconcileEngine(db, queue, state, sse, scope, catchUp)
 
-                    // Enqueued before start → only the connection-up drain sends it. On send the engine
-                    // must reconcile the just-sent (tags, t1) via a targeted fetchTransient.
+                    // Both enqueued before start → the same connection-up drain wave sends both. The
+                    // engine must reconcile the access-gated (books, b1) via a targeted fetchTransient
+                    // and must NOT fetch the non-gated (tags, t1).
+                    queue.enqueue(reconcileBooksChannel, "b1", OpKind.Upsert, "{}", "u1")
                     queue.enqueue(reconcileTagsChannel, "t1", OpKind.Upsert, "{}", "u1")
 
                     engine.start(currentUserId = "u1")
 
                     withTimeout(TIMEOUT_SECONDS.seconds) {
-                        fetches.first { (domain, ids) -> domain == "tags" && ids.contains("t1") }
+                        fetches.first { (domain, ids) -> domain == "books" && ids.contains("b1") }
                     }
-                    // The op actually drained (removed), proving the reconcile followed a real send.
+                    // Both ops drained in this wave (books fetch fired only after the wave processed
+                    // its whole sentEntities set), so tags was seen-and-skipped, not merely pending.
                     db.pendingOperationV2Dao().countDispatchable(maxAttempts = 5) shouldBe 0
+                    fetches.replayCache.none { it.first == "tags" } shouldBe true
                 } finally {
                     scope.cancel()
                     scope.coroutineContext.job.children
@@ -132,6 +140,7 @@ private fun buildReconcileEngine(
     catchUp: CatchUp,
 ): SyncEngine {
     val registry = ClientSyncDomainRegistry()
+    registry.register(ReconcileGatedHandler)
     registry.register(ReconcileTagHandler)
     val store = SyncCursorStore(db.syncCursorDao())
     val dispatcher =
@@ -192,6 +201,44 @@ private object ReconcileTagHandler : SyncDomainHandler<Tag> {
     ): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
+}
+
+/**
+ * An access-gated stand-in (books). Implementing [AccessFilteredSyncHandler] is the signal
+ * reconcile-on-drain gates its targeted fetch on; its delta methods are never reached by that path,
+ * so they are trivial stubs.
+ */
+private object ReconcileGatedHandler :
+    SyncDomainHandler<Tag>,
+    AccessFilteredSyncHandler {
+    override val domainName = "books"
+    override val payloadSerializer = Tag.serializer()
+
+    override fun syncId(item: Tag): String = item.id
+
+    override suspend fun onEvent(event: com.calypsan.listenup.api.sync.SyncEvent<Tag>): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun onCatchUpItem(
+        item: Tag,
+        isTombstone: Boolean,
+    ): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
+
+    override val deltaPolicy: AccessDeltaPolicy = AccessDeltaPolicy.LiveTailOnly("reconcile-on-drain test fake")
+
+    override suspend fun localLiveIds(): Set<String> = emptySet()
+
+    override suspend fun pruneTo(
+        accessibleIds: Set<String>,
+        now: Long,
+    ) = Unit
+
+    override suspend fun pruneWithin(
+        candidateIds: Set<String>,
+        accessibleIds: Set<String>,
+        now: Long,
+    ) = Unit
 }
 
 /** Fake SSE client whose `connect()` transitions [state] to Connected — driving the engine's drain trigger. */

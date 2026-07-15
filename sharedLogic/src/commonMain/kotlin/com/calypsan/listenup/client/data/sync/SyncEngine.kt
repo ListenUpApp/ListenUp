@@ -1061,12 +1061,15 @@ internal class SyncEngine(
      * Targeted-reconcile the entities an outbox drain wave just sent, so a server echo the in-flight
      * anti-flicker shield dropped lands promptly instead of waiting for the next lifecycle digest.
      *
-     * Bounded to ONE targeted fetch per (mirrored) domain per wave: the sent refs are grouped by
+     * Bounded to ONE targeted fetch per access-gated domain per wave: the sent refs are grouped by
      * domain and fetched by their id list via the existing [CatchUp.fetchTransient] `?ids=` path —
      * the same primitive the `AccessChanged` delta uses, so the fetch inherits the domain handler's
-     * revision guard and in-flight shield. A client-only channel (`profile`/`preferences`) has no
-     * registered [SyncDomainHandler], so it is skipped gracefully — its inbound echo already rides a
-     * different surface (the `public_profiles` mirror / the `PreferencesChanged` refreshed domain).
+     * revision guard and in-flight shield. Two classes are skipped:
+     *  - A client-only channel (`profile`/`preferences`) has no registered [SyncDomainHandler] — its
+     *    inbound echo rides a different surface (the `public_profiles` mirror / `PreferencesChanged`).
+     *  - A non-[AccessFilteredSyncHandler] domain (userScoped/global — positions, tags, series, …)
+     *    can't be served by the server's access-filtered `pullByIds` (no wired driver), so a fetch
+     *    would 500 and buy nothing; its echo converges via `?since=` catch-up / newer-wins instead.
      *
      * Runs under the shared [catchUpMutex] so it serializes with catch-up/reconcile paging (never
      * concurrent), and NOT under [drainMutex] (released by the caller before this runs) so there is
@@ -1080,6 +1083,20 @@ internal class SyncEngine(
             if (handler == null) {
                 logger.debug {
                     "reconcile-on-drain: '$domainName' has no sync handler (client-only channel); skipping targeted fetch"
+                }
+                continue
+            }
+            // The targeted `?ids=` fetch is the read half of the scoped AccessChanged delta — an
+            // access-gated-domain primitive. Only [AccessFilteredSyncHandler] domains (books,
+            // collections, collection_books) can be served by the server's access-filtered
+            // `pullByIds`; a userScoped/global domain has no server-side driver, so the fetch would
+            // 500 (and buy nothing — those echoes self-heal via `?since=` catch-up / newer-wins).
+            // Skip them: reconcile-on-drain is a promptness optimization, and the digest reconcile is
+            // the convergence backstop.
+            if (handler !is AccessFilteredSyncHandler) {
+                logger.debug {
+                    "reconcile-on-drain: '$domainName' is not access-gated; skipping targeted fetch " +
+                        "(its echo converges via catch-up / newer-wins)"
                 }
                 continue
             }
