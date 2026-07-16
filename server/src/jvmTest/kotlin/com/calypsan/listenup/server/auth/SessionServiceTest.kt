@@ -179,6 +179,23 @@ class SessionServiceTest :
                 .revoked_at shouldNotBe null
         }
 
+        test("revokeAllExcept revokes every other session but spares the given one") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val svc =
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+
+            val spared = svc.createSession(UserId("u-1"))
+            val other1 = svc.createSession(UserId("u-1"))
+            val other2 = svc.createSession(UserId("u-1"))
+
+            svc.revokeAllExcept(UserId("u-1"), spared.sessionId)
+
+            svc.isLive(spared.sessionId) shouldBe true
+            svc.isLive(other1.sessionId) shouldBe false
+            svc.isLive(other2.sessionId) shouldBe false
+        }
+
         test("rotate returns null for an explicitly-revoked session") {
             val db = freshDb()
             db.seedTestUser("u-1")

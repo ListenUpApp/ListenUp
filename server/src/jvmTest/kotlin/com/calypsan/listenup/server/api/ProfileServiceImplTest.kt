@@ -11,6 +11,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RefreshTokenGenerator
+import com.calypsan.listenup.server.auth.RefreshTokenHasher
+import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
@@ -27,12 +30,17 @@ import kotlin.time.Instant
 
 class ProfileServiceImplTest :
     FunSpec({
+        val pepper = "x".repeat(32).toByteArray()
+
+        fun SqlTestDatabases.sessionsService(): SessionService = SessionService(sql, RefreshTokenHasher(pepper), RefreshTokenGenerator())
+
         fun SqlTestDatabases.svc(userId: String): ProfileServiceImpl =
             ProfileServiceImpl(
                 sql = sql,
                 argon2Limiter = Argon2Limiter(PasswordHasher()),
                 publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                 imageStore = tempAvatarImageStore(),
+                sessions = sessionsService(),
             ).copyWith(
                 PrincipalProvider {
                     UserPrincipal(UserId(userId), SessionId("s-$userId"), UserRole.MEMBER)
@@ -57,6 +65,7 @@ class ProfileServiceImplTest :
                             argon2Limiter = Argon2Limiter(PasswordHasher()),
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = tempAvatarImageStore(),
+                            sessions = sessionsService(),
                             clock = FixedClock(Instant.fromEpochMilliseconds(fixed)),
                         ).copyWith(
                             PrincipalProvider {
@@ -98,6 +107,7 @@ class ProfileServiceImplTest :
                             argon2Limiter = Argon2Limiter(hasher),
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = tempAvatarImageStore(),
+                            sessions = sessionsService(),
                         ).copyWith(
                             PrincipalProvider {
                                 UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
@@ -128,6 +138,7 @@ class ProfileServiceImplTest :
                             argon2Limiter = Argon2Limiter(hasher),
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = tempAvatarImageStore(),
+                            sessions = sessionsService(),
                         ).copyWith(
                             PrincipalProvider {
                                 UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
@@ -174,6 +185,7 @@ class ProfileServiceImplTest :
                             argon2Limiter = counting,
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = tempAvatarImageStore(),
+                            sessions = sessionsService(),
                         ).copyWith(
                             PrincipalProvider {
                                 UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
@@ -215,6 +227,7 @@ class ProfileServiceImplTest :
                             argon2Limiter = Argon2Limiter(PasswordHasher()),
                             publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                             imageStore = imageStore,
+                            sessions = sessionsService(),
                             clock = FixedClock(Instant.fromEpochMilliseconds(t2)),
                         ).copyWith(
                             PrincipalProvider { UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER) },
@@ -228,6 +241,108 @@ class ProfileServiceImplTest :
                     row?.avatar_updated_at shouldBe t2
                     // And the orphaned bytes are gone so GET /avatars/{id} 404s.
                     imageStore.pathFor("u1").shouldBeNull()
+                }
+            }
+        }
+
+        // ── Session revocation on password change (SEC-03) ─────────────────────────
+
+        test("a successful password change revokes the caller's OTHER sessions but spares the current one") {
+            withSqlDatabase {
+                val hasher = PasswordHasher()
+                runTest {
+                    val hash = hasher.hash("correct-pass")
+                    sql.seedTestUser("u1")
+                    sql.usersQueries.updatePasswordHash(password_hash = hash, id = "u1")
+                    val sessions = sessionsService()
+                    // The session issuing THIS request, plus one other live session on a different device.
+                    val current = sessions.createSession(UserId("u1"))
+                    val other = sessions.createSession(UserId("u1"))
+
+                    val svc =
+                        ProfileServiceImpl(
+                            sql = sql,
+                            argon2Limiter = Argon2Limiter(hasher),
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                            imageStore = tempAvatarImageStore(),
+                            sessions = sessions,
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), current.sessionId, UserRole.MEMBER)
+                            },
+                        )
+
+                    svc
+                        .updateMyProfile(UpdateProfileRequest(password = PasswordChange("correct-pass", "brand-new-pass")))
+                        .shouldBeInstanceOf<AppResult.Success<Profile>>()
+
+                    sessions.isLive(current.sessionId) shouldBe true
+                    sessions.isLive(other.sessionId) shouldBe false
+                }
+            }
+        }
+
+        test("a display-name-only update does NOT revoke any sessions") {
+            withSqlDatabase {
+                sql.seedTestUser("u1")
+                runTest {
+                    val sessions = sessionsService()
+                    val current = sessions.createSession(UserId("u1"))
+                    val other = sessions.createSession(UserId("u1"))
+
+                    val svc =
+                        ProfileServiceImpl(
+                            sql = sql,
+                            argon2Limiter = Argon2Limiter(PasswordHasher()),
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                            imageStore = tempAvatarImageStore(),
+                            sessions = sessions,
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), current.sessionId, UserRole.MEMBER)
+                            },
+                        )
+
+                    svc
+                        .updateMyProfile(UpdateProfileRequest(displayName = "New Name"))
+                        .shouldBeInstanceOf<AppResult.Success<Profile>>()
+
+                    sessions.isLive(current.sessionId) shouldBe true
+                    sessions.isLive(other.sessionId) shouldBe true
+                }
+            }
+        }
+
+        test("a failed password change (wrong current password) does NOT revoke any sessions") {
+            withSqlDatabase {
+                val hasher = PasswordHasher()
+                runTest {
+                    val hash = hasher.hash("correct-pass")
+                    sql.seedTestUser("u1")
+                    sql.usersQueries.updatePasswordHash(password_hash = hash, id = "u1")
+                    val sessions = sessionsService()
+                    val current = sessions.createSession(UserId("u1"))
+                    val other = sessions.createSession(UserId("u1"))
+
+                    val svc =
+                        ProfileServiceImpl(
+                            sql = sql,
+                            argon2Limiter = Argon2Limiter(hasher),
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                            imageStore = tempAvatarImageStore(),
+                            sessions = sessions,
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), current.sessionId, UserRole.MEMBER)
+                            },
+                        )
+
+                    svc
+                        .updateMyProfile(UpdateProfileRequest(password = PasswordChange("wrong-current", "brand-new-pass")))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+
+                    sessions.isLive(current.sessionId) shouldBe true
+                    sessions.isLive(other.sessionId) shouldBe true
                 }
             }
         }
