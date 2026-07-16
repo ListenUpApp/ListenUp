@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.features.metadata
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
@@ -63,10 +61,10 @@ import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
-import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.presentation.metadata.ChapterSuggestion
 import com.calypsan.listenup.client.presentation.metadata.CoverEntry
 import com.calypsan.listenup.client.presentation.metadata.MetadataField
@@ -847,29 +845,6 @@ private fun ChapterNamesItem(
                     )
                 }
             }
-        }
-    }
-}
-
-/**
- * Region selector — a horizontally scrolling row of [PillChip]s for trying different Audible markets.
- */
-@Composable
-private fun RegionSelector(
-    selectedRegion: MetadataLocale,
-    onRegionSelected: (MetadataLocale) -> Unit,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-    ) {
-        MetadataLocale.SUPPORTED.forEach { region ->
-            PillChip(
-                label = region.displayName,
-                onClick = { onRegionSelected(region) },
-                selected = region == selectedRegion,
-                leadingIcon = if (region == selectedRegion) Icons.Outlined.Check else null,
-            )
         }
     }
 }
