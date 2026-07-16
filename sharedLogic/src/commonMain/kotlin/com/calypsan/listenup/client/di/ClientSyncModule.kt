@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
+import com.calypsan.listenup.api.WorldEventService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -162,6 +163,7 @@ internal val clientSyncModule =
             val genreChannel = rpcChannel<GenreService>()
             val readingOrderChannel = rpcChannel<ReadingOrderService>()
             val entityChannel = rpcChannel<EntityService>()
+            val worldEventChannel = rpcChannel<WorldEventService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -411,6 +413,12 @@ internal val clientSyncModule =
                                 entityChannel.call { it.deleteEntity(id) }.orSuccessIfNotFound()
                             }
                         }
+                    },
+                    // The payload IS the wire EventsBatch — every write (record/recordBatch/update/
+                    // delete) already built the exact batch WorldEventService.applyBatch expects, so
+                    // the binding is a direct pass-through with no per-op dispatch.
+                    outboxBinding(OutboxChannels.WorldEvents) { _, batch ->
+                        worldEventChannel.call { it.applyBatch(batch) }
                     },
                 ),
             )

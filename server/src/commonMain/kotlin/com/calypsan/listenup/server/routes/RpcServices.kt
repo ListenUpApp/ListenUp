@@ -28,6 +28,7 @@ import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
+import com.calypsan.listenup.api.WorldEventService
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.SessionLiveness
@@ -58,6 +59,7 @@ data class RpcServices(
     val shelfService: ShelfService,
     val readingOrderService: ReadingOrderService,
     val entityService: EntityService,
+    val worldEventService: WorldEventService,
     val socialService: SocialService,
     val activityService: ActivityService,
     val adminUserService: AdminUserService,

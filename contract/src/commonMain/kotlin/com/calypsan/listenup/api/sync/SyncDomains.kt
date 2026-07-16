@@ -87,6 +87,9 @@ object SyncDomains {
     /** Story World entities (characters, locations, items), library-shared per series. */
     val ENTITIES = SyncDomainKey("entities", EntitySyncPayload.serializer())
 
+    /** Story World unified event log rows (notes, scene entries, and the reserved typed vocabulary). */
+    val WORLD_EVENTS = SyncDomainKey("world_events", WorldEventSyncPayload.serializer())
+
     /** Server-materialized public profiles (leaderboard/social read model). */
     val PUBLIC_PROFILES = SyncDomainKey("public_profiles", PublicProfileSyncPayload.serializer())
 
@@ -123,6 +126,7 @@ object SyncDomains {
             READING_ORDER_BOOKS,
             READING_ORDER_FOLLOWS,
             ENTITIES,
+            WORLD_EVENTS,
             PUBLIC_PROFILES,
             ACTIVITIES,
         )

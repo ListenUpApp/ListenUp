@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room.TypeConverter
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.api.sync.UserEditedField
+import com.calypsan.listenup.api.sync.WorldEventSource
+import com.calypsan.listenup.api.sync.WorldEventType
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -183,6 +185,25 @@ internal class EntityEnumConverters {
 
     @TypeConverter
     fun toEntityKind(value: String): EntityKind = EntityKind.valueOf(value)
+}
+
+/**
+ * Room type converters for [WorldEventType] / [WorldEventSource] — the wire enums on
+ * [WorldEventEntity] (Story World unified event log). Stores by declared `name`, not ordinal,
+ * matching [Converters]' / [EntityEnumConverters]' store-by-name discipline.
+ */
+internal class WorldEventEnumConverters {
+    @TypeConverter
+    fun fromWorldEventType(value: WorldEventType): String = value.name
+
+    @TypeConverter
+    fun toWorldEventType(value: String): WorldEventType = WorldEventType.valueOf(value)
+
+    @TypeConverter
+    fun fromWorldEventSource(value: WorldEventSource): String = value.name
+
+    @TypeConverter
+    fun toWorldEventSource(value: String): WorldEventSource = WorldEventSource.valueOf(value)
 }
 
 /**

@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.entity.EntityMutation
 import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
+import com.calypsan.listenup.api.dto.world.EventsBatch
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderBookWrite
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderUpdate
@@ -202,6 +203,23 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
+    // Story World unified event log: every write — a brand-new (client-minted id) event, an
+    // edit, or a soft-delete — rides one EventsBatch (a single write is a batch of one op) on
+    // this ONE channel, applied server-side atomically by WorldEventService.applyBatch. The
+    // outer op is always OpKind.Update ("apply this batch") regardless of what's inside the
+    // batch — the real upsert/delete distinction lives in the polymorphic WorldEventOp, not in
+    // the outbox's own op kind. Idempotent: WorldEventRepository.applyUpsert is last-write-wins
+    // by updatedAt and a re-fired delete hits an already-tombstoned row, matching EntityMutation's
+    // idempotency rationale above. There is no online-only world-event RPC — the server mints no
+    // identity the client couldn't already generate.
+    val WorldEvents =
+        OutboxChannel(
+            SyncDomains.WORLD_EVENTS.name,
+            EventsBatch.serializer(),
+            setOf(OpKind.Update),
+            idempotent = true,
+        )
+
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
         listOf(
@@ -224,6 +242,7 @@ internal object OutboxChannels {
             Collections,
             CollectionBooks,
             Entities,
+            WorldEvents,
         )
 
     private val byName: Map<String, OutboxChannel<*>> = all.associateBy { it.name }
