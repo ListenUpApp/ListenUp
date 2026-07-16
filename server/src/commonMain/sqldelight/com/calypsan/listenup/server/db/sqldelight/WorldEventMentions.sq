@@ -1,0 +1,23 @@
+-- world_event_mentions: the server-recomputed junction between a world event and every
+-- entity it mentions. Never client-authored — always replaced wholesale (delete-then-
+-- insert) inside the same transaction as the parent event's own root-row write. No
+-- revision/sync columns: it rides the parent world_events row's sync-discipline
+-- entirely. Column set matches V11__world_events.sql exactly.
+CREATE TABLE world_event_mentions (
+    event_id   TEXT NOT NULL,
+    entity_id  TEXT NOT NULL,
+    PRIMARY KEY (event_id, entity_id)
+);
+
+CREATE INDEX idx_world_event_mentions_entity ON world_event_mentions(entity_id);
+
+deleteForEvent:
+DELETE FROM world_event_mentions WHERE event_id = :event_id;
+
+insert:
+INSERT INTO world_event_mentions (event_id, entity_id) VALUES (:event_id, :entity_id);
+
+-- Batch mention lookup for many events at once — readPayloads/listFor* hydrate mentionIds
+-- for a whole page in one query instead of per-row.
+selectMentionsForEvents:
+SELECT event_id, entity_id FROM world_event_mentions WHERE event_id IN :event_ids;

@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.di.shelfModule
 import com.calypsan.listenup.server.di.sidecarModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.di.userPreferencesModule
+import com.calypsan.listenup.server.di.worldEventModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installAutoHeadResponse
@@ -113,6 +114,7 @@ internal fun Application.installDependencies(
         modules += shelfModule()
         modules += readingOrderModule()
         modules += entityModule()
+        modules += worldEventModule()
         modules += pushModule()
         modules += campfireModule()
         val httpPort =

@@ -25,6 +25,7 @@ import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
+import com.calypsan.listenup.api.WorldEventService
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
@@ -138,6 +139,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val shelfService by inject<ShelfService>()
     val readingOrderService by inject<ReadingOrderService>()
     val entityService by inject<EntityService>()
+    val worldEventService by inject<WorldEventService>()
     val socialService by inject<SocialService>()
     val activityService by inject<ActivityService>()
     val profileService by inject<ProfileService>()
@@ -238,6 +240,7 @@ private fun Application.rpcServiceBundle(): RpcServices =
         shelfService = koinGet<ShelfService>(),
         readingOrderService = koinGet<ReadingOrderService>(),
         entityService = koinGet<EntityService>(),
+        worldEventService = koinGet<WorldEventService>(),
         socialService = koinGet<SocialService>(),
         activityService = koinGet<ActivityService>(),
         adminUserService = koinGet<AdminUserServiceImpl>(),

@@ -1,0 +1,106 @@
+-- world_events: the Story World unified event log, dual-homed under exactly one of
+-- home_series_id / home_book_id, optionally anchored to a specific book position via
+-- (book_id, position_ms). Syncable, soft-deletable, revision-tracked — but NOT
+-- userScoped: any caller holding the metadata-edit permission may write, matching the
+-- entities curation model. `type`/`source` are stored lowercase, matching
+-- entities.kind's enum-column convention. mentionIds is NOT a column here — it is
+-- reconstructed by joining world_event_mentions (see WorldEventMentions.sq).
+-- Column set matches V11__world_events.sql exactly.
+CREATE TABLE world_events (
+    id                 TEXT    NOT NULL,
+    home_series_id     TEXT,
+    home_book_id       TEXT,
+    book_id            TEXT,
+    position_ms        INTEGER,
+    type               TEXT    NOT NULL,
+    text               TEXT    NOT NULL,
+    subject_entity_id  TEXT,
+    object_entity_id   TEXT,
+    source             TEXT    NOT NULL,
+    track_id           TEXT,
+    track_version      INTEGER,
+    created_at         INTEGER NOT NULL,
+    updated_at         INTEGER NOT NULL,
+    revision           INTEGER NOT NULL,
+    deleted_at         INTEGER,
+    client_op_id       TEXT,
+    PRIMARY KEY (id),
+    CHECK ((home_series_id IS NULL) != (home_book_id IS NULL))
+);
+
+CREATE INDEX idx_world_events_book_position ON world_events(book_id, position_ms);
+CREATE INDEX idx_world_events_home_series ON world_events(home_series_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_world_events_home_book ON world_events(home_book_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_world_events_revision ON world_events(revision);
+
+-- Substrate queries — the SyncableSubstrateQueries adapter surface.
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM world_events WHERE id = :id);
+
+softDeleteById:
+UPDATE world_events
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM world_events WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM world_events WHERE deleted_at IS NULL AND revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by id. Used by the base's pullSince/readPayloads, which
+-- must hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM world_events WHERE id = :id;
+
+selectByIds:
+SELECT * FROM world_events WHERE id IN :ids;
+
+-- Live events anchored to a specific book, for listForBook.
+selectLiveByBook:
+SELECT * FROM world_events WHERE book_id = :book_id AND deleted_at IS NULL;
+
+-- Live events that mention a given entity (subquery over the junction, so the row shape
+-- stays a plain world_events select — no join-shaped generated type).
+selectLiveByEntity:
+SELECT * FROM world_events
+WHERE deleted_at IS NULL
+  AND id IN (SELECT event_id FROM world_event_mentions WHERE entity_id = :entity_id);
+
+-- Live events namespaced under a series, for listForWorld.
+selectLiveByHomeSeries:
+SELECT * FROM world_events WHERE home_series_id = :home_series_id AND deleted_at IS NULL;
+
+-- Live events namespaced under a standalone book, for listForWorld.
+selectLiveByHomeBook:
+SELECT * FROM world_events WHERE home_book_id = :home_book_id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO world_events (
+    id, home_series_id, home_book_id, book_id, position_ms, type, text,
+    subject_entity_id, object_entity_id, source, track_id, track_version,
+    created_at, updated_at, revision, deleted_at, client_op_id
+)
+VALUES (
+    :id, :home_series_id, :home_book_id, :book_id, :position_ms, :type, :text,
+    :subject_entity_id, :object_entity_id, :source, :track_id, :track_version,
+    :created_at, :updated_at, :revision, :deleted_at, :client_op_id
+);
+
+update:
+UPDATE world_events
+SET home_series_id = :home_series_id, home_book_id = :home_book_id, book_id = :book_id,
+    position_ms = :position_ms, type = :type, text = :text,
+    subject_entity_id = :subject_entity_id, object_entity_id = :object_entity_id,
+    source = :source, track_id = :track_id, track_version = :track_version,
+    revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+-- Hard-deletes one event row by id — test-scoped.
+deleteById:
+DELETE FROM world_events WHERE id = :id;

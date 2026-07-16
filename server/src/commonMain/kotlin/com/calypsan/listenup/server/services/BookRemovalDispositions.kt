@@ -82,6 +82,12 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         "shelf_books" to RemovalDisposition.USER_DATA,
         "reading_order_books" to RemovalDisposition.USER_DATA,
         "active_sessions" to RemovalDisposition.USER_DATA,
+        // world_events: Story World log rows optionally anchored to a book position via book_id.
+        // The anchor is curated content, not book-owned FK membership — a removed book's anchored
+        // events simply become unreachable via any book-gated read path (same as the events'
+        // dual home) until the book is re-added, at which point the anchor resolves again
+        // (never-stranded: removal never destroys a caller's story-world notes).
+        "world_events" to RemovalDisposition.USER_DATA,
         // ── FTS5 search-index shadow (rowid↔book_id map) ──
         "book_search_map" to RemovalDisposition.SEARCH_SHADOW,
     )
