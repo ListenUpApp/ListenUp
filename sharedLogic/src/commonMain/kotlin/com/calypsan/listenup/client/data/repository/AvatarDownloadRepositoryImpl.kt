@@ -11,8 +11,8 @@ private val logger = KotlinLogging.logger {}
 /**
  * [AvatarDownloadRepository] implementation backed by [ImageDownloaderContract].
  *
- * Mirrors [CoverDownloadRepositoryImpl]. No post-fetch book-row marking — avatars paint
- * from a stable file path and do not require a Room invalidation signal for UI refresh.
+ * No post-fetch book-row marking — avatars paint from a stable file path and do not
+ * require a Room invalidation signal for UI refresh.
  *
  * @property imageDownloader underlying downloader (platform-specific through Koin).
  * @property scope the repository's structured-concurrency scope. Child jobs launched

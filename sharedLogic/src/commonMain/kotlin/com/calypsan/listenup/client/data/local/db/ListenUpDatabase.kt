@@ -15,15 +15,15 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v4** — the v3 baseline with the dormant BlurHash columns
- * (`books.coverBlurHash`, `series.coverBlurHash`, `contributors.imageBlurHash`) dropped; the
- * server never generated BlurHashes, so the columns were always null. There is still no
- * migration chain: the pre-launch policy `fallbackToDestructiveMigration(true)` on each platform
- * `DatabaseModule` nukes and recreates the local DB on any schema change (data re-syncs from the
- * server), which is acceptable pre-release — so a version bump needs no hand-written
- * [androidx.room.migration.Migration]. Before launch, flip the fallback to `false` and begin a
- * real migration chain in `data/local/migrations/`; the `@Database.exportSchema` on-disk JSON
- * (`schemas/…/4.json`) is the authoritative baseline.
+ * Schema is at **v5** — the v4 baseline with the dead `cover_download_queue` table
+ * (`CoverDownloadTaskEntity`) dropped; the persistent cover-download queue it backed had no
+ * production producer or consumer (live cover fetches go through `ImageRepositoryImpl` /
+ * `ImageDownloaderContract` on demand). There is still no migration chain: the pre-launch policy
+ * `fallbackToDestructiveMigration(true)` on each platform `DatabaseModule` nukes and recreates the
+ * local DB on any schema change (data re-syncs from the server), which is acceptable pre-release
+ * — so a version bump needs no hand-written [androidx.room.migration.Migration]. Before launch,
+ * flip the fallback to `false` and begin a real migration chain in `data/local/migrations/`; the
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/5.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -58,20 +58,18 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         UserPreferencesEntity::class,
         PublicProfileEntity::class,
         TentativeSpanEntity::class,
-        CoverDownloadTaskEntity::class,
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
         AdminUserRosterEntity::class,
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(
     ValueClassConverters::class,
     Converters::class,
-    CoverDownloadStatusConverter::class,
     StringListJsonConverter::class,
     FieldProvenanceConverter::class,
 )
@@ -139,8 +137,6 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun publicProfileDao(): PublicProfileDao
 
     abstract fun tentativeSpanDao(): TentativeSpanDao
-
-    abstract fun coverDownloadDao(): CoverDownloadDao
 
     abstract fun syncCursorDao(): SyncCursorDao
 

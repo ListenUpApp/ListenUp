@@ -161,18 +161,6 @@ internal enum class DownloadState {
 }
 
 /**
- * Room type converter for [CoverDownloadStatus] enum.
- * Uses string names (not ordinals) for readable queries and forward compatibility.
- */
-internal class CoverDownloadStatusConverter {
-    @TypeConverter
-    fun fromStatus(value: CoverDownloadStatus): String = value.name
-
-    @TypeConverter
-    fun toStatus(value: String): CoverDownloadStatus = CoverDownloadStatus.valueOf(value)
-}
-
-/**
  * Room type converter for the per-field provenance map on [BookEntity].
  *
  * Stores the map as a JSON object keyed by [BookField] name (`{"TITLE":{"kind":"USER",...}}`) via

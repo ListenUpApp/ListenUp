@@ -5,16 +5,13 @@ import com.calypsan.listenup.client.data.local.documents.DocumentStorageImpl
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.repository.AvatarDownloadRepositoryImpl
-import com.calypsan.listenup.client.data.repository.CoverDownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.DocumentRepositoryImpl
 import com.calypsan.listenup.client.data.repository.DownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImageRepositoryImpl
-import com.calypsan.listenup.client.data.sync.CoverDownloadWorker
 import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.ImageDownloader
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
-import com.calypsan.listenup.client.domain.repository.CoverDownloadRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -28,8 +25,7 @@ import org.koin.dsl.module
 private const val APP_SCOPE = "appScope"
 
 /**
- * Media aggregate Koin wiring — image API, image/cover/avatar download, and the
- * persistent cover download worker.
+ * Media aggregate Koin wiring — image API, image/cover/avatar download.
  *
  * External dependencies (owned by other modules):
  *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory] — `networkModule`
@@ -37,7 +33,6 @@ private const val APP_SCOPE = "appScope"
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - [kotlinx.coroutines.CoroutineScope] named `appScope` — `appCoreModule`
  *  - [com.calypsan.listenup.client.data.local.db.DownloadDao] — `persistenceModule`
- *  - [com.calypsan.listenup.client.data.local.db.CoverDownloadDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.BookRepository] — `bookModule`
  *  - [com.calypsan.listenup.client.download.DownloadEnqueuer] — platform download module
@@ -107,19 +102,7 @@ internal val mediaModule: Module =
             )
         }
 
-        // CoverDownloadRepository - owns scope for fire-and-forget cover downloads
-        single<CoverDownloadRepository> {
-            CoverDownloadRepositoryImpl(
-                imageDownloader = get(),
-                scope =
-                    get(
-                        qualifier =
-                            named(APP_SCOPE),
-                    ),
-            )
-        }
-
-        // AvatarDownloadRepository - owns scope for fire-and-forget avatar downloads (mirrors CoverDownloadRepository)
+        // AvatarDownloadRepository - owns scope for fire-and-forget avatar downloads
         single<AvatarDownloadRepository> {
             AvatarDownloadRepositoryImpl(
                 imageDownloader = get(),
@@ -128,14 +111,6 @@ internal val mediaModule: Module =
                         qualifier =
                             named(APP_SCOPE),
                     ),
-            )
-        }
-
-        // Cover Download Worker — processes the persistent cover download queue
-        single {
-            CoverDownloadWorker(
-                coverDownloadDao = get(),
-                imageDownloader = get(),
             )
         }
 
