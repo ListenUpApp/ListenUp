@@ -96,13 +96,6 @@ internal class SyncEngine(
     private var reconnectRefreshJob: Job? = null
     private var authGateJob: Job? = null
 
-    // Serializes drain waves so concurrent triggers (connection-up + enqueue +
-    // retry) coalesce into one wave at a time. drain() reads from the DAO and
-    // mutates rows; without a Mutex two concurrent drains would dispatch the
-    // same op twice. The Mutex is per-engine, not per-op — per-op FIFO is the
-    // queue's SQL filter responsibility.
-    private val drainMutex = Mutex()
-
     // The ONE shared choke point for cursor-advancing catch-up + digest reconcile — the same
     // "single dispatch seam" move the RpcChannel seam made for RPC. Every reconcile/catch-up entry
     // point ([runStart], [lifecycleReconcile], [handleCursorStale], [forceReconcile]) drives
@@ -116,8 +109,8 @@ internal class SyncEngine(
     // orchestration), and is never acquired while any other engine mutex is held — the caller-level
     // coalescers ([cursorStaleMutex], [lifecycleReconcileMutex]) and [startMutex] all release their
     // bookkeeping lock BEFORE the pass runs, so there is no lock-order inversion with this guard or
-    // with [drainMutex] (which the drain path holds independently and which never pages catch-up).
-    // Each caller's DISTINCT surrounding behavior (cursorStale's coalescing + await, lifecycle's
+    // with [PendingOperationQueue.drain]'s own internal mutex (held independently by the drain path,
+    // which never pages catch-up). Each caller's DISTINCT surrounding behavior (cursorStale's coalescing + await, lifecycle's
     // debounce + digest, start's ordering) is preserved above this seam; only the paging serializes.
     private val catchUpMutex = Mutex()
 
@@ -1004,8 +997,9 @@ internal class SyncEngine(
      * wave made progress (something sent or terminally quarantined) and more
      * dispatchable ops remain beyond this wave's own retryable failures.
      *
-     * Each wave runs under [drainMutex] so concurrent triggers (connect-up,
-     * enqueue, retry) coalesce. Retry scheduling is budget-aware:
+     * Concurrent triggers (connect-up, enqueue, retry) coalesce because
+     * [PendingOperationQueue.drain] itself is safe by construction — it serializes internally on
+     * its own mutex, so no wrapping lock is needed here. Retry scheduling is budget-aware:
      *  - **Server-answered retryable failures** (5xx, [DrainOutcome.hasRetryableFailures]) schedule
      *    a backoff-delayed re-drain — the server is up but erroring transiently, so a bounded timer
      *    retry is right.
@@ -1018,26 +1012,24 @@ internal class SyncEngine(
     private suspend fun runDrain() {
         while (true) {
             val outcome =
-                drainMutex.withLock {
-                    try {
-                        queue.drain()
-                    } catch (e: kotlinx.coroutines.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        // Re-throwing here would tear down the trigger collector
-                        // and silently stop all future drains. Log and continue —
-                        // a future trigger will re-attempt.
-                        logger.warn(e) { "Drain wave failed unexpectedly; will retry on next trigger" }
-                        return
-                    }
+                try {
+                    queue.drain()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Re-throwing here would tear down the trigger collector
+                    // and silently stop all future drains. Log and continue —
+                    // a future trigger will re-attempt.
+                    logger.warn(e) { "Drain wave failed unexpectedly; will retry on next trigger" }
+                    return
                 }
             // Reconcile-on-drain-success: an entity whose optimistic write was INCOMPLETE (e.g. a
             // new-by-name contributor that couldn't be linked offline) stayed stale because the
             // entity-level anti-flicker shield DROPPED the server echo while this op was in flight,
             // and the op is now gone. Targeted-fetch just-sent entities so the current server state
-            // lands promptly instead of waiting for the next lifecycle digest. Deliberately AFTER the
-            // drainMutex block: fetchTransient serializes on catchUpMutex (a leaf lock), which must
-            // never be acquired while drainMutex is held (non-inversion).
+            // lands promptly instead of waiting for the next lifecycle digest. Deliberately AFTER
+            // queue.drain() returns: fetchTransient serializes on catchUpMutex (a leaf lock), which
+            // must never be acquired while the queue's own drain mutex is held (non-inversion).
             reconcileSentEntities(outcome.sentEntities)
             val madeProgress = outcome.sent > 0 || outcome.terminalFailures > 0
             // Both this wave's server-answered retries AND its parked ops remain dispatchable (still
@@ -1072,9 +1064,10 @@ internal class SyncEngine(
      *    would 500 and buy nothing; its echo converges via `?since=` catch-up / newer-wins instead.
      *
      * Runs under the shared [catchUpMutex] so it serializes with catch-up/reconcile paging (never
-     * concurrent), and NOT under [drainMutex] (released by the caller before this runs) so there is
-     * no lock-order inversion. Best-effort: a failed fetch logs and moves on — the digest reconcile
-     * is the convergence backstop.
+     * concurrent), and NOT under [PendingOperationQueue.drain]'s own mutex (already released by the
+     * caller before this runs, since `queue.drain()` has returned) so there is no lock-order
+     * inversion. Best-effort: a failed fetch logs and moves on — the digest reconcile is the
+     * convergence backstop.
      */
     private suspend fun reconcileSentEntities(sentEntities: List<SentEntityRef>) {
         if (sentEntities.isEmpty()) return

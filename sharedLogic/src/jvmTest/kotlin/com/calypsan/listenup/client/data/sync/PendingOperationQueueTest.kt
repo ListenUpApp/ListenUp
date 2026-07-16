@@ -16,7 +16,12 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.serializer
 
@@ -392,6 +397,49 @@ class PendingOperationQueueTest :
                 dao.get("dead-ancient") shouldBe null
                 dao.get("dead-recent") shouldNotBe null
                 db.close()
+            }
+        }
+
+        test("concurrent drain() calls never dispatch the same op twice") {
+            runBlocking {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val dispatchCount = AtomicInteger(0)
+                    val firstSenderEntered = CompletableDeferred<Unit>()
+                    val releaseFirstSender = CompletableDeferred<Unit>()
+                    val sender =
+                        PendingOperationSender {
+                            // The FIRST dispatch parks mid-send (holding the op's row un-deleted) so a
+                            // concurrent second drain() gets a real chance to read the same still-queued
+                            // row before the first drain deletes it — the exact double-send window
+                            // `PendingOperationQueue.drain` must close by construction.
+                            if (dispatchCount.incrementAndGet() == 1) {
+                                firstSenderEntered.complete(Unit)
+                                releaseFirstSender.await()
+                            }
+                            AppResult.Success(Unit)
+                        }
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = sender,
+                        )
+                    queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+
+                    val firstDrain = async { queue.drain() }
+                    firstSenderEntered.await()
+                    val secondDrain = async { queue.drain() }
+                    // Give the second drain a real chance to race the first drain's still-unfinished
+                    // dispatch before releasing it.
+                    delay(50)
+                    releaseFirstSender.complete(Unit)
+                    firstDrain.await()
+                    secondDrain.await()
+
+                    dispatchCount.get() shouldBe 1
+                } finally {
+                    db.close()
+                }
             }
         }
     })
