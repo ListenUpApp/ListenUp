@@ -57,9 +57,10 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
                 backStack.removeAt(backStack.lastIndex)
             },
             onSignedOutEverywhere = {
-                // Mirror the Shell sign-out teardown: clear local library
-                // data, then clear auth tokens so auth-state routing returns
-                // the user to login.
+                // Same local teardown as the Shell sign-out action (LogoutUseCase, via
+                // onSignOut) — the server-side revoke-all already happened in
+                // signOutEverywhere(); this just clears local state so auth-state
+                // routing returns the user to login.
                 onSignOut()
             },
         )

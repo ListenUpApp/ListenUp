@@ -22,11 +22,10 @@ import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.device.DeviceContext
-import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScreen
 import com.calypsan.listenup.client.features.bookedit.BookEditScreen
 import com.calypsan.listenup.client.features.admin.AdminScreen
@@ -208,8 +207,7 @@ fun DesktopApp() {
 @Composable
 private fun DesktopAuthenticatedNavigation() {
     val scope = rememberCoroutineScope()
-    val authSession: AuthSession = koinInject()
-    val libraryResetHelper: LibraryResetHelper = koinInject()
+    val logoutUseCase: LogoutUseCase = koinInject()
     val nowPlayingViewModel: NowPlayingViewModel = koinInject()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -254,8 +252,7 @@ private fun DesktopAuthenticatedNavigation() {
                         onSignOut = {
                             scope.launch {
                                 logger.info { "Signing out..." }
-                                libraryResetHelper.clearLibraryData()
-                                authSession.clearAuthTokens()
+                                logoutUseCase()
                             }
                         },
                         onUserProfileClick = { userId ->
