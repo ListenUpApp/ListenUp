@@ -1,10 +1,8 @@
 package com.calypsan.listenup.server.di
 
-import com.calypsan.listenup.api.ActivityService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.SocialService
-import com.calypsan.listenup.server.api.ActivityServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.SocialServiceImpl
@@ -187,15 +185,6 @@ fun playbackModule(): Module =
             )
         }
         single<SocialService> { get<SocialServiceImpl>() }
-        single {
-            ActivityServiceImpl(
-                activities = get(),
-                bookAccessPolicy = get(),
-                publicProfiles = get(),
-                principal = unscopedActivityPlaceholder(),
-            )
-        }
-        single<ActivityService> { get<ActivityServiceImpl>() }
     }
 
 /**
@@ -206,12 +195,3 @@ fun playbackModule(): Module =
  */
 private fun unscopedSocialPlaceholder(): PrincipalProvider =
     PrincipalProvider { error("Unscoped SocialService — call copyWith(PrincipalProvider) at the route") }
-
-/**
- * The unscoped-caller placeholder the [ActivityServiceImpl] binding carries: a
- * [PrincipalProvider] that throws if invoked. The RPC route always `copyWith`s the
- * authenticated principal before calling, so reaching this placeholder signals a wiring
- * bug — fail loud rather than silently serving an unscoped (ACL-bypassing) feed.
- */
-private fun unscopedActivityPlaceholder(): PrincipalProvider =
-    PrincipalProvider { error("Unscoped ActivityService — call copyWith(PrincipalProvider) at the route") }

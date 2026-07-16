@@ -19,9 +19,7 @@ import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
@@ -36,8 +34,6 @@ import org.koin.test.verify.verify
  * dependencies that [adminPresentationModule] pulls in but other modules own:
  *
  *  - [GetRegistrationPolicyUseCase] — owned by `adminModule`.
- *  - [LoadUsersUseCase] — owned by `adminModule`.
- *  - [LoadPendingUsersUseCase] — owned by `adminModule`.
  *  - [LoadInvitesUseCase] — owned by `adminModule`.
  *  - [DeleteUserUseCase] — owned by `adminModule`.
  *  - [RevokeInviteUseCase] — owned by `adminModule`.
@@ -71,8 +67,6 @@ class AdminPresentationModuleVerifyTest :
                 extraTypes =
                     listOf(
                         GetRegistrationPolicyUseCase::class,
-                        LoadUsersUseCase::class,
-                        LoadPendingUsersUseCase::class,
                         LoadInvitesUseCase::class,
                         DeleteUserUseCase::class,
                         RevokeInviteUseCase::class,

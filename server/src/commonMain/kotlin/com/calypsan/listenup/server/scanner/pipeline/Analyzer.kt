@@ -14,8 +14,6 @@ import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
 import com.calypsan.listenup.api.error.AudioMetadataError
-import com.calypsan.listenup.api.external.abs.AbsChapter
-import com.calypsan.listenup.api.external.abs.AbsMetadata
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
@@ -27,6 +25,8 @@ import com.calypsan.listenup.server.scanner.inference.FolderShape
 import com.calypsan.listenup.server.scanner.inference.ParsedTitle
 import com.calypsan.listenup.server.scanner.inference.SeriesSuffixMatcher
 import com.calypsan.listenup.server.scanner.inference.TrackInference
+import com.calypsan.listenup.server.scanner.metadata.AbsChapter
+import com.calypsan.listenup.server.scanner.metadata.AbsMetadata
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedenceSource

@@ -17,7 +17,6 @@ import com.calypsan.listenup.client.domain.repository.PendingOperationRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
-import com.calypsan.listenup.client.domain.usecase.library.RefreshLibraryUseCase
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
@@ -123,13 +122,6 @@ internal val libraryModule: Module =
             LibraryRepositoryImpl(
                 libraryDao = get(),
                 libraryFolderDao = get(),
-            )
-        }
-
-        // Library use cases (using domain layer interfaces only)
-        factory {
-            RefreshLibraryUseCase(
-                syncRepository = get(),
             )
         }
     }

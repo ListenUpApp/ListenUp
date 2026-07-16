@@ -1,4 +1,4 @@
-package com.calypsan.listenup.api.external.abs
+package com.calypsan.listenup.server.scanner.metadata
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

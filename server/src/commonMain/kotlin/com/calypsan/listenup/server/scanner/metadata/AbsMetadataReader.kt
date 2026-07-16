@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.scanner.metadata
 
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
-import com.calypsan.listenup.api.external.abs.AbsMetadata
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.readText
 import com.calypsan.listenup.server.logging.loggerFor

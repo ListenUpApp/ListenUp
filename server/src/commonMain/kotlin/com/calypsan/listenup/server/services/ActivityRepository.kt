@@ -7,8 +7,7 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 /**
  * One persisted activity row, as stored. Type-specific columns are nullable / defaulted: a
  * `started_book` row fills [bookId], a `shelf_created` row fills [shelfId] + [shelfName], a
- * milestone row fills [milestoneValue] + [milestoneUnit]. The service layer joins identity,
- * ACL-filters, and projects this onto the wire `ActivityEvent`.
+ * milestone row fills [milestoneValue] + [milestoneUnit].
  *
  * [occurredAt] is the real event time; the feed orders and displays by it. [createdAt] is the
  * insertion audit timestamp retained for diagnostics.
@@ -29,13 +28,9 @@ data class ActivityRow(
 )
 
 /**
- * Read seam for the social-activity feed. [page] reads rows back most-recent-first for the `feed`
- * RPC; **writes go through the syncable [ActivitySyncRepository]** (via [ActivityRecorder]), so the
+ * Read seam for the social-activity feed. [page] reads rows back most-recent-first;
+ * **writes go through the syncable [ActivitySyncRepository]** (via [ActivityRecorder]), so the
  * feed is a book-gated MirroredDomain that clients also receive over the sync data channel.
- *
- * [page] is intentionally raw (no identity join, no ACL filter): the [ActivityServiceImpl] layer
- * overfetches, joins `public_profiles` identity, and drops items the caller may not see, then
- * re-pages. Keeping that policy out of the store keeps this class a thin persistence seam.
  */
 class ActivityRepository(
     private val db: ListenUpDatabase,
