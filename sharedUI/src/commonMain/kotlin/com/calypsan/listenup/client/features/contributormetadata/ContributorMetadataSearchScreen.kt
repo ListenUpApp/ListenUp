@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.contributormetadata
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -22,13 +20,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,12 +35,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.api.dto.MetadataContributorHit
+import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import org.jetbrains.compose.resources.stringResource
@@ -137,6 +134,12 @@ fun ContributorMetadataSearchScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Region selector
+            Text(
+                text = stringResource(Res.string.contributor_audible_region),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
             RegionSelector(
                 selectedRegion = state.selectedRegion,
                 onRegionSelected = onRegionSelected,
@@ -169,7 +172,16 @@ fun ContributorMetadataSearchScreen(
                 }
 
                 state.searchResults.isEmpty() && state.searchError == null -> {
-                    EmptyState(hasSearched = state.searchQuery.isNotBlank())
+                    val hasSearched = state.searchQuery.isNotBlank()
+                    EmptyState(
+                        title = if (hasSearched) "No matches found" else "Search Audible",
+                        subtitle =
+                            if (hasSearched) {
+                                "Try a different name or region"
+                            } else {
+                                "Enter a name to search for contributors on Audible"
+                            },
+                    )
                 }
 
                 else -> {
@@ -189,82 +201,6 @@ fun ContributorMetadataSearchScreen(
                     }
                 }
             }
-        }
-    }
-}
-
-/**
- * Region selector chips.
- */
-@Composable
-private fun RegionSelector(
-    selectedRegion: MetadataLocale,
-    onRegionSelected: (MetadataLocale) -> Unit,
-) {
-    Column {
-        Text(
-            text = stringResource(Res.string.contributor_audible_region),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-        ) {
-            MetadataLocale.SUPPORTED.forEach { region ->
-                FilterChip(
-                    selected = region == selectedRegion,
-                    onClick = { onRegionSelected(region) },
-                    label = { Text(region.displayName) },
-                )
-            }
-        }
-    }
-}
-
-/**
- * Empty state when no results found.
- */
-@Composable
-private fun EmptyState(hasSearched: Boolean) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Default.SearchOff,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            Text(
-                text = if (hasSearched) "No matches found" else "Search Audible",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                text =
-                    if (hasSearched) {
-                        "Try a different name or region"
-                    } else {
-                        "Enter a name to search for contributors on Audible"
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center,
-            )
         }
     }
 }

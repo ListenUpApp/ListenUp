@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.metadata
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,10 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.SearchOff
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Schedule
@@ -28,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import kotlin.time.Duration.Companion.minutes
 import androidx.compose.material3.Surface
@@ -38,16 +35,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
-import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.presentation.metadata.MetadataUiState
 import com.calypsan.listenup.client.presentation.metadata.SearchLoadState
 import org.jetbrains.compose.resources.stringResource
@@ -164,7 +160,7 @@ fun MetadataSearchScreen(
                     }
 
                     searchResults.isEmpty() && searchError == null -> {
-                        EmptyState(hasSearched = state.query.isNotBlank() && !isSearching)
+                        MetadataSearchEmptyState(hasSearched = state.query.isNotBlank() && !isSearching)
                     }
 
                     else -> {
@@ -189,6 +185,25 @@ fun MetadataSearchScreen(
             }
         }
     }
+}
+
+/** [EmptyState] wired to the metadata-search copy — pre/post-search title and subtitle. */
+@Composable
+private fun MetadataSearchEmptyState(hasSearched: Boolean) {
+    EmptyState(
+        title =
+            stringResource(
+                if (hasSearched) Res.string.metadata_no_matches_found else Res.string.metadata_search_audible,
+            ),
+        subtitle =
+            stringResource(
+                if (hasSearched) {
+                    Res.string.metadata_try_a_different_search_term_or_region
+                } else {
+                    Res.string.metadata_enter_a_term_to_search
+                },
+            ),
+    )
 }
 
 /** UPPERCASE muted overline label, matching the grouped-section heading idiom. */
@@ -232,80 +247,6 @@ private fun MatchingContextPill(title: String) {
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-/**
- * Region selector — a horizontally scrolling row of [PillChip]s. Selecting a region re-scopes the
- * Audible catalog the search runs against.
- */
-@Composable
-private fun RegionSelector(
-    selectedRegion: MetadataLocale,
-    onRegionSelected: (MetadataLocale) -> Unit,
-) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-    ) {
-        MetadataLocale.SUPPORTED.forEach { region ->
-            PillChip(
-                label = region.displayName,
-                onClick = { onRegionSelected(region) },
-                selected = region == selectedRegion,
-                leadingIcon = if (region == selectedRegion) Icons.Outlined.Check else null,
-            )
-        }
-    }
-}
-
-/**
- * Empty state when no results found.
- */
-@Composable
-private fun EmptyState(hasSearched: Boolean) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Default.SearchOff,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            Text(
-                text =
-                    if (hasSearched) {
-                        stringResource(Res.string.metadata_no_matches_found)
-                    } else {
-                        stringResource(Res.string.metadata_search_audible)
-                    },
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                text =
-                    if (hasSearched) {
-                        stringResource(Res.string.metadata_try_a_different_search_term_or_region)
-                    } else {
-                        stringResource(Res.string.metadata_enter_a_term_to_search)
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                textAlign = TextAlign.Center,
             )
         }
     }

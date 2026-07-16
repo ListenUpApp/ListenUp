@@ -13,7 +13,7 @@ import platform.Foundation.dateWithTimeIntervalSince1970
  *
  * `NSDateFormatter` initialization is one of Apple's documented performance footguns — Cupertino's
  * guidance is to reuse a formatter rather than allocate one per call. Patterns are a tiny fixed set
- * (`"MMM d, yyyy"`, `"MMMM d, yyyy"`, `"MMMM yyyy"`), so we memoize one formatter per pattern.
+ * (`"MMMM d, yyyy"`, `"MMMM yyyy"`), so we memoize one formatter per pattern.
  *
  * Access is guarded because `formatDate` is called from both coroutines and Foundation delegate
  * queues; the lock is uncontended in practice and only protects the map mutation.

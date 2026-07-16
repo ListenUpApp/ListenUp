@@ -3,9 +3,11 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.dto.profile.Profile
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.Argon2Limiter
@@ -152,6 +154,37 @@ class ProfileServiceImplTest :
                         )
                     val failure = r.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<ProfileError.WrongPassword>()
+                }
+            }
+        }
+
+        test("updateMyProfile rejects a whitespace-only new password with WeakPassword(BLANK)") {
+            withSqlDatabase {
+                val hasher = PasswordHasher()
+                runTest {
+                    val hash = hasher.hash("correct-pass")
+                    sql.seedTestUser("u1")
+                    sql.usersQueries.updatePasswordHash(password_hash = hash, id = "u1")
+                    val svc =
+                        ProfileServiceImpl(
+                            sql = sql,
+                            argon2Limiter = Argon2Limiter(hasher),
+                            publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                            imageStore = tempAvatarImageStore(),
+                            sessions = sessionsService(),
+                        ).copyWith(
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s"), UserRole.MEMBER)
+                            },
+                        )
+                    val r =
+                        svc.updateMyProfile(
+                            UpdateProfileRequest(
+                                password = PasswordChange("correct-pass", " ".repeat(8)),
+                            ),
+                        )
+                    val failure = r.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<AuthError.WeakPassword>().reason shouldBe WeakPasswordReason.BLANK
                 }
             }
         }

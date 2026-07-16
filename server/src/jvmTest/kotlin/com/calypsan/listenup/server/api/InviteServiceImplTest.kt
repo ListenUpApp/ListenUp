@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.dto.invite.InviteStatus
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
@@ -234,6 +235,54 @@ class InviteServiceImplTest :
         }
 
         // ── claimInvite / lookupInvite (public, no principal) ───────────────────
+
+        test("claimInvite rejects a blank password with WeakPassword(BLANK)") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
+                    val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
+
+                    val failure =
+                        makeInviteService(sql)
+                            .claimInvite(invite.code, "        ")
+                            .shouldFail<AuthError.WeakPassword>()
+                    failure.reason shouldBe WeakPasswordReason.BLANK
+                }
+            }
+        }
+
+        test("claimInvite rejects a too-short password with WeakPassword(TOO_SHORT)") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
+                    val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
+
+                    val failure =
+                        makeInviteService(sql)
+                            .claimInvite(invite.code, "x".repeat(7))
+                            .shouldFail<AuthError.WeakPassword>()
+                    failure.reason shouldBe WeakPasswordReason.TOO_SHORT
+                }
+            }
+        }
+
+        test("claimInvite rejects a too-long password with WeakPassword(TOO_LONG)") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val admin = makeInviteService(sql).actAs("root1", UserRole.ROOT)
+                    val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
+
+                    val failure =
+                        makeInviteService(sql)
+                            .claimInvite(invite.code, "x".repeat(1025))
+                            .shouldFail<AuthError.WeakPassword>()
+                    failure.reason shouldBe WeakPasswordReason.TOO_LONG
+                }
+            }
+        }
 
         test("claimInvite creates an ACTIVE user, sets invited_by, marks claimed, issues a session") {
             withSqlDatabase {

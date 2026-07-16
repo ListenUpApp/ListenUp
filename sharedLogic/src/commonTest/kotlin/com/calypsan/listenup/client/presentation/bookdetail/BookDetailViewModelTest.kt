@@ -563,9 +563,9 @@ class BookDetailViewModelTest :
                     viewModel.loadBook("book-1")
                     advanceUntilIdle()
 
-                    // Then - 15m remaining
+                    // Then - 15m remaining, formatted via the canonical DurationFormatter.timeLeft()
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
-                    ready.timeRemainingFormatted shouldBe "15m left"
+                    ready.timeRemainingFormatted shouldBe "15 min left"
                     states.cancel()
                 }
             }

@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.client.util.formatDateLong
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -132,7 +133,7 @@ private fun DateField(
     millis: Long,
     onClick: () -> Unit,
 ) {
-    val displayText = formatDateForDisplay(millis)
+    val displayText = formatDateLong(millis)
 
     Box(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
@@ -211,25 +212,3 @@ private fun epochMillisToLocalDate(millis: Long): LocalDate =
         .fromEpochMilliseconds(millis)
         .toLocalDateTime(TimeZone.UTC)
         .date
-
-private val monthNames =
-    arrayOf(
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    )
-
-private fun formatDateForDisplay(millis: Long): String {
-    val date = epochMillisToLocalDate(millis)
-    val monthName = monthNames[date.month.ordinal]
-    return "$monthName ${date.day}, ${date.year}"
-}

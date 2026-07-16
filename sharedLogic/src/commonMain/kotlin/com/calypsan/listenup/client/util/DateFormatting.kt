@@ -15,11 +15,6 @@ expect fun formatDate(
 ): String
 
 /**
- * Format epoch milliseconds to a short date (e.g., "Jan 15, 2024").
- */
-fun formatDateShort(epochMillis: Long): String = formatDate(epochMillis, "MMM d, yyyy")
-
-/**
  * Format epoch milliseconds to a long date (e.g., "January 15, 2024").
  */
 fun formatDateLong(epochMillis: Long): String = formatDate(epochMillis, "MMMM d, yyyy")

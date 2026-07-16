@@ -80,6 +80,10 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorDe
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
 import com.calypsan.listenup.client.presentation.contributordetail.RoleSection
+import com.calypsan.listenup.client.util.formatDateLong
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -1058,22 +1062,11 @@ private fun formatDateForDisplay(isoDate: String): String? {
         val month = parts[1].toIntOrNull() ?: return null
         val day = parts[2].toIntOrNull() ?: return null
         if (month < 1 || month > 12) return null
-        val monthNames =
-            listOf(
-                "January",
-                "February",
-                "March",
-                "April",
-                "May",
-                "June",
-                "July",
-                "August",
-                "September",
-                "October",
-                "November",
-                "December",
-            )
-        "${monthNames[month - 1]} $day, $year"
+        val epochMillis =
+            LocalDate(year, month, day)
+                .atStartOfDayIn(TimeZone.UTC)
+                .toEpochMilliseconds()
+        formatDateLong(epochMillis)
     } catch (
         @Suppress("SwallowedException") e: Exception,
     ) {
