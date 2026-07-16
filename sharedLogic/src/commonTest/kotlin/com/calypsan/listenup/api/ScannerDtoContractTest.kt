@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
-import com.calypsan.listenup.api.dto.scanner.MetadataSource
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.api.metadata.FieldSourceKind
@@ -18,9 +17,7 @@ import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
-import com.calypsan.listenup.api.external.abs.AbsChapter
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.api.external.abs.AbsMetadata
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.serialization.encodeToString
@@ -90,9 +87,8 @@ class ScannerDtoContractTest :
             roundTrip(TrackEntry(file = file)) shouldBe TrackEntry(file = file)
         }
 
-        test("ScanPhase + MetadataSource enum variants round-trip") {
+        test("ScanPhase enum variants round-trip") {
             ScanPhase.entries.forEach { roundTrip(it) shouldBe it }
-            MetadataSource.entries.forEach { roundTrip(it) shouldBe it }
         }
 
         test("CandidateBook with multi-disc folders round-trips") {
@@ -229,25 +225,6 @@ class ScannerDtoContractTest :
                 val json = contractJson.encodeToString<ScanEvent>(it)
                 contractJson.decodeFromString<ScanEvent>(json) shouldBe it
             }
-        }
-
-        test("AbsMetadata accepts the flat schema with all optional fields absent") {
-            val flat = """{"title":"Hello","authors":["Alice"]}"""
-            val parsed = contractJson.decodeFromString<AbsMetadata>(flat)
-            parsed.title shouldBe "Hello"
-            parsed.authors shouldBe listOf("Alice")
-            parsed.series shouldBe emptyList()
-        }
-
-        test("AbsMetadata round-trips with chapters") {
-            val md =
-                AbsMetadata(
-                    title = "Hello",
-                    authors = listOf("Alice"),
-                    series = listOf("Series #1"),
-                    chapters = listOf(AbsChapter(0, 0.0, 60.0, "Chapter 1")),
-                )
-            roundTrip(md) shouldBe md
         }
     })
 

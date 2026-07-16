@@ -8,6 +8,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.encodeToString
 import java.nio.file.Files
 import kotlin.io.path.createDirectories
 import kotlin.io.path.div
@@ -134,5 +135,24 @@ class AbsMetadataReaderTest :
 
         test("parseSeriesEntries with empty sequence (#) keeps name only") {
             reader.parseSeriesEntries(listOf("Name #")) shouldBe listOf(SeriesEntry("Name"))
+        }
+
+        test("AbsMetadata accepts the flat schema with all optional fields absent") {
+            val flat = """{"title":"Hello","authors":["Alice"]}"""
+            val parsed = contractJson.decodeFromString<AbsMetadata>(flat)
+            parsed.title shouldBe "Hello"
+            parsed.authors shouldBe listOf("Alice")
+            parsed.series shouldBe emptyList()
+        }
+
+        test("AbsMetadata round-trips with chapters") {
+            val md =
+                AbsMetadata(
+                    title = "Hello",
+                    authors = listOf("Alice"),
+                    series = listOf("Series #1"),
+                    chapters = listOf(AbsChapter(0, 0.0, 60.0, "Chapter 1")),
+                )
+            contractJson.decodeFromString<AbsMetadata>(contractJson.encodeToString(md)) shouldBe md
         }
     })
