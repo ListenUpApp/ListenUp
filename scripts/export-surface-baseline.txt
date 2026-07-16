@@ -30,6 +30,8 @@ AdminSettingsViewModel
 AdminUiState
 AdminUserInfo
 AdminViewModel
+AnchorLabel
+AnchorSelection
 ApiResponse
 AppError
 AppleDownloadService
@@ -39,6 +41,7 @@ ApplyContributorMetadataRequest
 AppResult
 AppStartupState
 AppStartupViewModel
+AssertionUi
 AudibleRegion
 AudioFile
 AudioFileDownloader
@@ -139,6 +142,8 @@ CollectionEditDelegate
 CollectionRepository
 CollectionShare
 CollectionShareItem
+ComposerState
+ComposerWorldBook
 ConnectionCoordinator
 ConnectionHealthUi
 ConnectionHealthViewModel
@@ -230,9 +235,17 @@ EditProfileEvent
 EditProfileUiState
 EditProfileViewModel
 Entity
+EntityCard
+EntityDetailEvent
+EntityDetailUiState
+EntityDetailViewModel
 EntityEditRepository
+EntityEntryRow
 EntityKind
+EntityListGroup
+EntityListRow
 ErrorBus
+EventRow
 EventStreamRepository
 FacetCount
 FacetKind
@@ -278,6 +291,7 @@ InviteInfo
 InvitePreview
 InviteRepository
 IosBackgroundSyncScheduler
+KindGroup
 KoinHelper
 Language
 LanguageOption
@@ -511,6 +525,10 @@ StoragePaths
 StorageSpaceProvider
 StorageUiState
 StorageViewModel
+StoryWorldEntityListUiState
+StoryWorldEntityListViewModel
+StoryWorldHubUiState
+StoryWorldHubViewModel
 StreamedRegistrationStatus
 SurfaceMetadata
 SyncBooksResponse
@@ -551,8 +569,11 @@ VerifiedServer
 VoiceHints
 VoiceIntentResolver
 WeeklyStats
+WorldComposerEvent
+WorldComposerViewModel
 WorldEvent
 WorldEventEditRepository
 WorldEventSource
 WorldEventType
 WorldEventUpsert
+WorldRef
