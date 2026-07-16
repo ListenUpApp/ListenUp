@@ -4,39 +4,20 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * Tests for [formatTimeLeft] and [scrubberPageIndex].
+ * Tests for [scrubberPageIndex].
  *
- * Both functions are pure — no Android framework needed. Runs directly as a Kotest FunSpec.
+ * Pure — no Android framework needed. Runs directly as a Kotest FunSpec.
  *
  * Coverage:
- * - [formatTimeLeft] — zero, sub-minute, round-up-to-minute, exact-hour, multi-hour
  * - [scrubberPageIndex] — zero fraction, full fraction (1.0), midpoint, negative clamp,
  *   over-1 clamp, zero-page-count guard
+ *
+ * Time-remaining formatting for the reader's now-playing strip routes through the canonical
+ * `DurationFormatter.timeLeft()` (see `DurationFormatterTest`) — the former hand-rolled
+ * `formatTimeLeft` here was removed as a duplicate.
  */
 class ReaderChromeFormattingTest :
     FunSpec({
-        // ── formatTimeLeft ────────────────────────────────────────────────────
-
-        test("0ms remaining shows 0m left") {
-            formatTimeLeft(0L) shouldBe "0m left"
-        }
-
-        test("59s remaining shows 0m left (rounds down to 0 minutes)") {
-            formatTimeLeft(59_000L) shouldBe "0m left"
-        }
-
-        test("90s remaining shows 1m left") {
-            formatTimeLeft(90_000L) shouldBe "1m left"
-        }
-
-        test("exactly 1 hour remaining shows 1h 0m left") {
-            formatTimeLeft(3_600_000L) shouldBe "1h 0m left"
-        }
-
-        test("9h 51m remaining shows 9h 51m left") {
-            formatTimeLeft(35_460_000L) shouldBe "9h 51m left"
-        }
-
         // ── scrubberPageIndex ─────────────────────────────────────────────────
 
         test("fraction 0 with 1232 pages yields index 0") {

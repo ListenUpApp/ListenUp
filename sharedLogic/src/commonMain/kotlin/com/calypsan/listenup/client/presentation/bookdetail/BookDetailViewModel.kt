@@ -29,6 +29,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.core.Failure
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,6 +49,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -341,7 +343,7 @@ class BookDetailViewModel(
         val timeRemaining =
             if (hasMeaningfulProgress) {
                 val remainingMs = detail.duration - (position?.positionMs ?: 0L)
-                formatTimeRemaining(remainingMs)
+                DurationFormatter.timeLeft(remainingMs.milliseconds)
             } else {
                 null
             }
@@ -807,22 +809,6 @@ internal fun currentChapterIndex(
     chapterStartTimesMs: List<Long>,
     positionMs: Long,
 ): Int? = chapterStartTimesMs.indexOfLast { it <= positionMs }.takeIf { it >= 0 }
-
-/**
- * Format milliseconds as human-readable time remaining.
- * E.g., "2h 15m left" or "45m left"
- */
-private fun formatTimeRemaining(ms: Long): String {
-    val totalMinutes = ms / 60_000
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-
-    return when {
-        hours > 0 -> "${hours}h ${minutes}m left"
-        minutes > 0 -> "${minutes}m left"
-        else -> "< 1m left"
-    }
-}
 
 /**
  * Checks if a subtitle is redundant because it's just the series name and book number.

@@ -23,9 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
+import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
 import listenup.composeapp.generated.resources.player_pause
@@ -89,7 +91,7 @@ internal fun ReaderNowPlayingStrip(
                 )
                 val remainingMs = (progress.bookDurationMs - progress.bookPositionMs).coerceAtLeast(0L)
                 Text(
-                    text = formatTimeLeft(remainingMs),
+                    text = DurationFormatter.timeLeft(remainingMs.milliseconds),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
