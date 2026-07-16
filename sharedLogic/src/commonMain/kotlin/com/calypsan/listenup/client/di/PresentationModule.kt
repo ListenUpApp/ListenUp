@@ -571,6 +571,50 @@ internal val settingsPresentationModule =
     }
 
 /**
+ * Story World ViewModels — the entity/event encyclopedia UI: the hub, per-kind entity lists,
+ * entity detail (Structure/Timing-style tabs over an entity's log), and the world-event composer.
+ */
+internal val storyWorldPresentationModule =
+    module {
+        factory {
+            com.calypsan.listenup.client.presentation.storyworld.StoryWorldHubViewModel(
+                entityEditRepository = get(),
+                worldEventEditRepository = get(),
+                seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
+                bookRepository = get(),
+                playbackPositionRepository = get(),
+            )
+        }
+        factory {
+            com.calypsan.listenup.client.presentation.storyworld.StoryWorldEntityListViewModel(
+                entityEditRepository = get(),
+                worldEventEditRepository = get(),
+                playbackPositionRepository = get(),
+            )
+        }
+        factory {
+            com.calypsan.listenup.client.presentation.storyworld.EntityDetailViewModel(
+                entityEditRepository = get(),
+                worldEventEditRepository = get(),
+                seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
+                bookRepository = get(),
+                playbackPositionRepository = get(),
+                errorBus = get(),
+            )
+        }
+        factory {
+            com.calypsan.listenup.client.presentation.storyworld.composer.WorldComposerViewModel(
+                entityEditRepository = get(),
+                worldEventEditRepository = get(),
+                seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
+                bookRepository = get(),
+                playbackManager = get(),
+                errorBus = get(),
+            )
+        }
+    }
+
+/**
  * App startup / navigation initialisation ViewModel.
  */
 internal val startupPresentationModule =
@@ -602,4 +646,5 @@ internal val allPresentationModules =
         profilePresentationModule,
         settingsPresentationModule,
         startupPresentationModule,
+        storyWorldPresentationModule,
     )
