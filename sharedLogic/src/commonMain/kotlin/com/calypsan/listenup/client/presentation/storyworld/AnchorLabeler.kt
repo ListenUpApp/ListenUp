@@ -8,8 +8,12 @@ import kotlin.time.Duration.Companion.milliseconds
  * A human-facing description of where a Story World anchor sits in a book — pure data,
  * no localized strings. The UI (not this layer) maps each variant to a localized string
  * resource; this type only carries the facts needed to pick and fill that resource.
+ *
+ * Public (unlike [AnchorLabeler], which stays internal): sharedUI consumes this shape directly
+ * off [com.calypsan.listenup.client.presentation.storyworld.EventRow.anchor] to render each Story
+ * World log entry's anchor caption.
  */
-internal sealed interface AnchorLabel {
+sealed interface AnchorLabel {
     /** The entry has no book anchor at all — it's always safe to show. */
     data object AlwaysVisible : AnchorLabel
 
