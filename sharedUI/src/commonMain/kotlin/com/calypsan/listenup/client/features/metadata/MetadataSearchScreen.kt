@@ -160,21 +160,7 @@ fun MetadataSearchScreen(
                     }
 
                     searchResults.isEmpty() && searchError == null -> {
-                        val hasSearched = state.query.isNotBlank() && !isSearching
-                        EmptyState(
-                            title =
-                                stringResource(
-                                    if (hasSearched) Res.string.metadata_no_matches_found else Res.string.metadata_search_audible,
-                                ),
-                            subtitle =
-                                stringResource(
-                                    if (hasSearched) {
-                                        Res.string.metadata_try_a_different_search_term_or_region
-                                    } else {
-                                        Res.string.metadata_enter_a_term_to_search
-                                    },
-                                ),
-                        )
+                        MetadataSearchEmptyState(hasSearched = state.query.isNotBlank() && !isSearching)
                     }
 
                     else -> {
@@ -199,6 +185,25 @@ fun MetadataSearchScreen(
             }
         }
     }
+}
+
+/** [EmptyState] wired to the metadata-search copy — pre/post-search title and subtitle. */
+@Composable
+private fun MetadataSearchEmptyState(hasSearched: Boolean) {
+    EmptyState(
+        title =
+            stringResource(
+                if (hasSearched) Res.string.metadata_no_matches_found else Res.string.metadata_search_audible,
+            ),
+        subtitle =
+            stringResource(
+                if (hasSearched) {
+                    Res.string.metadata_try_a_different_search_term_or_region
+                } else {
+                    Res.string.metadata_enter_a_term_to_search
+                },
+            ),
+    )
 }
 
 /** UPPERCASE muted overline label, matching the grouped-section heading idiom. */
