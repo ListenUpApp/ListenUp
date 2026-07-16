@@ -11,6 +11,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Entity
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
@@ -28,6 +29,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -648,6 +650,183 @@ class WorldComposerViewModelTest :
                     advanceUntilIdle()
 
                     states.expectMostRecentItem().anchorSummary shouldBe AnchorLabel.AlwaysVisible
+                    states.cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("worldBooks exposes this world's books in reading order with sequence label and duration") {
+            runTest {
+                val fixture = Fixture()
+                fixture.seriesRepo.setSeriesWithBooks(
+                    "series-1",
+                    SeriesWithBooks(
+                        series = series(),
+                        books = listOf(book("book-1", "The Way of Kings"), book("book-2", "Words of Radiance")),
+                        bookSequences = mapOf("book-1" to "1", "book-2" to "2"),
+                    ),
+                )
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+
+                    viewModel.start(world)
+                    advanceUntilIdle()
+
+                    val worldBooks = states.expectMostRecentItem().worldBooks
+                    worldBooks.map { it.id } shouldBe listOf("book-1", "book-2")
+                    worldBooks[0].sequenceLabel shouldBe "1"
+                    worldBooks[1].sequenceLabel shouldBe "2"
+                    worldBooks[0].durationMs shouldBe 3_600_000L
+                    states.cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("playheadSnapshot and playheadLabel are exposed independent of the currently selected anchor") {
+            runTest {
+                val fixture = Fixture()
+                fixture.seedSeries()
+                fixture.playbackManager.currentBookIdFlow.value = BookId("book-1")
+                fixture.playbackManager.currentPositionMsFlow.value = 42_000L
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+
+                    viewModel.start(world)
+                    advanceUntilIdle()
+
+                    // The author picks a different anchor — the playhead card should still be offered.
+                    viewModel.selectAnchor(AnchorSelection.AlwaysVisible)
+                    advanceUntilIdle()
+
+                    val ready = states.expectMostRecentItem()
+                    ready.anchor shouldBe AnchorSelection.AlwaysVisible
+                    ready.playheadSnapshot shouldBe AnchorSelection.Playhead("book-1", 42_000L)
+                    ready.playheadLabel.shouldNotBeNull()
+                    states.cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("playheadSnapshot is null when playing a book outside the world") {
+            runTest {
+                val fixture = Fixture()
+                fixture.seedSeries()
+                fixture.playbackManager.currentBookIdFlow.value = BookId("other-book")
+                fixture.playbackManager.currentPositionMsFlow.value = 10_000L
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+
+                    viewModel.start(world)
+                    advanceUntilIdle()
+
+                    states.expectMostRecentItem().playheadSnapshot.shouldBeNull()
+                    states.cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("endOfChapterOption resolves the containing chapter's end from the live playhead") {
+            runTest {
+                val fixture = Fixture()
+                fixture.seedSeries()
+                fixture.bookRepo.setChapters(
+                    "book-1",
+                    listOf(
+                        Chapter(id = "ch-1", title = "Chapter 1", duration = 60_000L, startTime = 0L),
+                        Chapter(id = "ch-2", title = "Chapter 2", duration = 60_000L, startTime = 60_000L),
+                    ),
+                )
+                fixture.playbackManager.currentBookIdFlow.value = BookId("book-1")
+                fixture.playbackManager.currentPositionMsFlow.value = 90_000L
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+
+                    viewModel.start(world)
+                    advanceUntilIdle()
+
+                    states.expectMostRecentItem().endOfChapterOption shouldBe
+                        AnchorSelection.EndOfCurrentChapter("book-1", 120_000L)
+                    states.cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("endOfChapterOption is null when nothing is playing") {
+            runTest {
+                val fixture = Fixture()
+                fixture.seedSeries()
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+
+                    viewModel.start(world)
+                    advanceUntilIdle()
+
+                    states.expectMostRecentItem().endOfChapterOption.shouldBeNull()
+                    states.cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("worldBookChapters maps every world book to its own chapters") {
+            runTest {
+                val fixture = Fixture()
+                fixture.seedSeries(books = listOf(book("book-1", "Book One"), book("book-2", "Book Two")))
+                fixture.bookRepo.setChapters(
+                    "book-1",
+                    listOf(Chapter(id = "ch-1", title = "Ch 1", duration = 10_000L, startTime = 0L)),
+                )
+                fixture.bookRepo.setChapters(
+                    "book-2",
+                    listOf(Chapter(id = "ch-2", title = "Ch 2", duration = 20_000L, startTime = 0L)),
+                )
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+
+                    viewModel.start(world)
+                    advanceUntilIdle()
+
+                    val chaptersByBook = states.expectMostRecentItem().worldBookChapters
+                    chaptersByBook["book-1"]?.single()?.id shouldBe "ch-1"
+                    chaptersByBook["book-2"]?.single()?.id shouldBe "ch-2"
+                    states.cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("previewAnchorLabel resolves a label for an arbitrary book/position without committing the anchor") {
+            runTest {
+                val fixture = Fixture()
+                fixture.seedSeries(books = listOf(book("book-1", "The Way of Kings")))
+                fixture.bookRepo.setChapters(
+                    "book-1",
+                    listOf(Chapter(id = "ch-1", title = "Prelude", duration = 60_000L, startTime = 0L)),
+                )
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+
+                    viewModel.start(world)
+                    advanceUntilIdle()
+
+                    val label = viewModel.previewAnchorLabel("book-1", 30_000L)
+                    label.shouldBeInstanceOf<AnchorLabel.AtChapter>()
+                    (label as AnchorLabel.AtChapter).chapterTitle shouldBe "Prelude"
+
+                    // The committed anchor is untouched by a preview lookup.
+                    states.expectMostRecentItem().anchor shouldBe AnchorSelection.AlwaysVisible
                     states.cancelAndIgnoreRemainingEvents()
                 }
             }

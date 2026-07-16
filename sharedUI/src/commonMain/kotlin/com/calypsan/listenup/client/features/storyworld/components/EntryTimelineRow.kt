@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -40,6 +41,7 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_delete
+import listenup.composeapp.generated.resources.common_edit
 import listenup.composeapp.generated.resources.story_world_delete_entry
 import listenup.composeapp.generated.resources.story_world_delete_entry_title
 
@@ -50,13 +52,13 @@ private val ROW_BOTTOM_SPACING = 20.dp
 /**
  * A single row in an entity's chronological log timeline: a numbered leading circle connected to
  * the next row by a vertical line (omitted after the last entry), the entry's mention-resolved
- * text with its [AnchorChip] below, and a trailing overflow menu offering delete. Edit arrives
- * with the composer (Task 10) via an additional `onEditEntry` callback on this row's caller.
+ * text with its [AnchorChip] below, and a trailing overflow menu offering edit and delete.
  *
  * @param index This entry's 1-based position in the timeline.
  * @param renderedText [com.calypsan.listenup.client.presentation.storyworld.EntityEntryRow.renderedText].
  * @param anchorLabel The resolved display string for this entry's anchor (see `anchorLabelText`).
  * @param isLast True for the last row in the list — suppresses the connector line below it.
+ * @param onEdit Called when the viewer chooses to edit this entry — opens the composer sheet.
  * @param onDelete Called when the viewer confirms deleting this entry.
  * @param modifier Modifier for the row.
  */
@@ -66,6 +68,7 @@ fun EntryTimelineRow(
     renderedText: String,
     anchorLabel: String,
     isLast: Boolean,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -114,13 +117,16 @@ fun EntryTimelineRow(
             Spacer(Modifier.height(10.dp))
             AnchorChip(label = anchorLabel)
         }
-        EntryOverflowMenu(onDelete = onDelete)
+        EntryOverflowMenu(onEdit = onEdit, onDelete = onDelete)
     }
 }
 
-/** Trailing overflow icon button — delete only for now; edit joins in the Task 10 composer wiring. */
+/** Trailing overflow icon button — edit and delete. */
 @Composable
-private fun EntryOverflowMenu(onDelete: () -> Unit) {
+private fun EntryOverflowMenu(
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
     var menuExpanded by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -134,6 +140,14 @@ private fun EntryOverflowMenu(onDelete: () -> Unit) {
             )
         }
         DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.common_edit)) },
+                leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                onClick = {
+                    menuExpanded = false
+                    onEdit()
+                },
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.story_world_delete_entry)) },
                 leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },

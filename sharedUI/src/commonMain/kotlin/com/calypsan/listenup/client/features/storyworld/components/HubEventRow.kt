@@ -102,8 +102,11 @@ private fun HubEventItem(event: EventRow) {
     }
 }
 
-/** Decorative icon + tint per [WorldEventType] — reserved (not-yet-reduced) types fall back to the NOTE treatment. */
-private fun WorldEventType.iconAndTint(): Pair<ImageVector, Color> =
+/**
+ * Decorative icon + tint per [WorldEventType] — reserved (not-yet-reduced) types fall back to the
+ * NOTE treatment. Internal (not private): also drives the composer's [AssertionChip].
+ */
+internal fun WorldEventType.iconAndTint(): Pair<ImageVector, Color> =
     when (this) {
         WorldEventType.ENTERS_SCENE -> Icons.AutoMirrored.Outlined.Login to Color(0xFF1F8A5B)
 

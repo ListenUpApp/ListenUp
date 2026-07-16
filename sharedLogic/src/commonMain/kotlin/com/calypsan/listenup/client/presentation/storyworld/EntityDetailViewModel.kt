@@ -215,6 +215,7 @@ class EntityDetailViewModel(
 
         return Draft(
             entityCard = entity.toCard(),
+            world = WorldRef(seriesId = entity.homeSeriesId, bookId = entity.homeBookId),
             visibleEvents = gated.visible,
             hiddenCount = gated.hiddenCount,
             revealed = reveal,
@@ -288,6 +289,7 @@ class EntityDetailViewModel(
 
         return EntityDetailUiState.Ready(
             entity = draft.entityCard,
+            world = draft.world,
             entries = entries,
             hiddenCount = draft.hiddenCount,
             revealed = draft.revealed,
@@ -313,6 +315,7 @@ class EntityDetailViewModel(
     /** Everything computed pre-gating/pre-chapter-resolution except the anchor-dependent entries. */
     private data class Draft(
         val entityCard: EntityCard,
+        val world: WorldRef,
         val visibleEvents: List<WorldEvent>,
         val hiddenCount: Int,
         val revealed: Boolean,
@@ -337,6 +340,8 @@ sealed interface EntityDetailUiState {
     data class Ready(
         /** The entity being viewed. */
         val entity: EntityCard,
+        /** This entity's home world — feeds the composer sheet when adding/editing an entry here. */
+        val world: WorldRef,
         /** This entity's chronological log — the world's own internal clock, gated for spoilers. */
         val entries: List<EntityEntryRow>,
         /** How many log entries [FrontierGate] hid from [entries]. */

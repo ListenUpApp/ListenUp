@@ -391,6 +391,25 @@ class EntityDetailViewModelTest :
             }
         }
 
+        test("Ready exposes the entity's home world for the composer sheet") {
+            runTest {
+                val fixture = Fixture()
+                fixture.seedSeries()
+                fixture.entityRepo.setEntities(listOf(entity("char-1", "Kaladin", seriesId = "series-1")))
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe EntityDetailUiState.Idle
+                    viewModel.load("char-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EntityDetailUiState.Loading
+                    val ready = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+                    ready.world shouldBe WorldRef(seriesId = "series-1")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("rename preserves the entity's existing imageRef") {
             runTest {
                 val fixture = Fixture()

@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +33,9 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.EntityTile
+import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpSearchField
@@ -57,6 +63,8 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.story_world_empty_cta
+import listenup.composeapp.generated.resources.story_world_fab_new
 import listenup.composeapp.generated.resources.story_world_hidden_count
 import listenup.composeapp.generated.resources.story_world_hub_title
 import listenup.composeapp.generated.resources.story_world_latest_events
@@ -81,8 +89,21 @@ fun StoryWorldHubScreen(
     LaunchedEffect(seriesId, bookId) { viewModel.load(WorldRef(seriesId, bookId)) }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val world = WorldRef(seriesId, bookId)
+    var showComposer by remember { mutableStateOf(false) }
 
-    ListenUpScaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) { paddingValues ->
+    ListenUpScaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        floatingActionButton = {
+            if (state is StoryWorldHubUiState.Ready) {
+                ListenUpExtendedFab(
+                    onClick = { showComposer = true },
+                    icon = Icons.Default.Add,
+                    text = stringResource(Res.string.story_world_fab_new),
+                )
+            }
+        },
+    ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             when (val current = state) {
                 StoryWorldHubUiState.Idle, StoryWorldHubUiState.Loading -> {
@@ -102,6 +123,7 @@ fun StoryWorldHubScreen(
                             onKindClick = onKindClick,
                             onSearchQueryChange = viewModel::setSearchQuery,
                             onShowHidden = viewModel::showHidden,
+                            onAddEntryClick = { showComposer = true },
                         )
                     } else {
                         NarrowStoryWorldHubContent(
@@ -111,11 +133,16 @@ fun StoryWorldHubScreen(
                             onKindClick = onKindClick,
                             onSearchQueryChange = viewModel::setSearchQuery,
                             onShowHidden = viewModel::showHidden,
+                            onAddEntryClick = { showComposer = true },
                         )
                     }
                 }
             }
         }
+    }
+
+    if (showComposer) {
+        ComposerSheet(world = world, onDismiss = { showComposer = false })
     }
 }
 
@@ -190,6 +217,7 @@ private fun NarrowStoryWorldHubContent(
     onKindClick: (EntityKind) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onShowHidden: () -> Unit,
+    onAddEntryClick: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         StoryWorldHero(
@@ -205,7 +233,10 @@ private fun NarrowStoryWorldHubContent(
                 modifier = Modifier.padding(16.dp),
             )
         } else if (state.isEmpty) {
-            WorldEmptyState(modifier = Modifier.padding(top = 24.dp))
+            WorldEmptyState(
+                modifier = Modifier.padding(top = 24.dp),
+                cta = { EmptyStateCta(onClick = onAddEntryClick) },
+            )
         } else {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -237,6 +268,7 @@ private fun WideStoryWorldHubContent(
     onKindClick: (EntityKind) -> Unit,
     onSearchQueryChange: (String) -> Unit,
     onShowHidden: () -> Unit,
+    onAddEntryClick: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         StoryWorldHero(
@@ -252,7 +284,10 @@ private fun WideStoryWorldHubContent(
                 modifier = Modifier.padding(20.dp).fillMaxWidth(),
             )
         } else if (state.isEmpty) {
-            WorldEmptyState(modifier = Modifier.padding(top = 24.dp))
+            WorldEmptyState(
+                modifier = Modifier.padding(top = 24.dp),
+                cta = { EmptyStateCta(onClick = onAddEntryClick) },
+            )
         } else {
             Row(
                 modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -279,6 +314,18 @@ private fun WideStoryWorldHubContent(
                 }
             }
         }
+    }
+}
+
+// endregion
+
+// region empty state
+
+/** The empty world's "Add First Entry" call to action — opens the composer sheet. */
+@Composable
+private fun EmptyStateCta(onClick: () -> Unit) {
+    Button(onClick = onClick) {
+        Text(stringResource(Res.string.story_world_empty_cta))
     }
 }
 

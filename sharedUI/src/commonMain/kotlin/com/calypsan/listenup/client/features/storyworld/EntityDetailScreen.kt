@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
@@ -56,6 +57,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.client.design.components.EntityTile
+import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.features.storyworld.components.EntryTimelineRow
@@ -76,6 +78,7 @@ import listenup.composeapp.generated.resources.story_world_delete_entity
 import listenup.composeapp.generated.resources.story_world_entity_not_found
 import listenup.composeapp.generated.resources.story_world_evolution_seam_body
 import listenup.composeapp.generated.resources.story_world_evolution_seam_title
+import listenup.composeapp.generated.resources.story_world_fab_add_entry
 import listenup.composeapp.generated.resources.story_world_hidden_count
 import listenup.composeapp.generated.resources.story_world_rename_entity
 import listenup.composeapp.generated.resources.story_world_show_anyway
@@ -95,8 +98,9 @@ private enum class EntityDetailTab { Entries, Evolution }
 /**
  * The Story World entity detail screen — a hero (tile, name, kind), the frontier-gated
  * chronological log for this entity behind an Entries/Evolution segmented control, and
- * rename/delete via the hero's overflow menu. FABs and the composer arrive in a later task;
- * entry rows only offer delete for now.
+ * rename/delete via the hero's overflow menu. The "Add entry" FAB and each row's Edit action
+ * both open [ComposerSheet], prefilled with a mention of this entity for the FAB and loaded for
+ * edit for a row.
  */
 @Composable
 fun EntityDetailScreen(
@@ -119,8 +123,24 @@ fun EntityDetailScreen(
     var showRenameDialog by rememberSaveable { mutableStateOf(false) }
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
     var selectedTab by rememberSaveable { mutableStateOf(EntityDetailTab.Entries) }
+    var showComposer by rememberSaveable { mutableStateOf(false) }
+    var composerEditEventId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    ListenUpScaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) { paddingValues ->
+    ListenUpScaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        floatingActionButton = {
+            if (state is EntityDetailUiState.Ready) {
+                ListenUpExtendedFab(
+                    onClick = {
+                        composerEditEventId = null
+                        showComposer = true
+                    },
+                    icon = Icons.Default.Add,
+                    text = stringResource(Res.string.story_world_fab_add_entry),
+                )
+            }
+        },
+    ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             when (val current = state) {
                 EntityDetailUiState.Idle, EntityDetailUiState.Loading -> {
@@ -136,6 +156,10 @@ fun EntityDetailScreen(
                         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
                             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
                         )
+                    val onEditEntry: (String) -> Unit = { eventId ->
+                        composerEditEventId = eventId
+                        showComposer = true
+                    }
                     if (wide) {
                         WideEntityDetailContent(
                             state = current,
@@ -145,6 +169,7 @@ fun EntityDetailScreen(
                             onRenameClick = { showRenameDialog = true },
                             onDeleteClick = { showDeleteDialog = true },
                             onShowHidden = viewModel::showHidden,
+                            onEditEntry = onEditEntry,
                             onDeleteEntry = viewModel::deleteEntry,
                         )
                     } else {
@@ -156,6 +181,7 @@ fun EntityDetailScreen(
                             onRenameClick = { showRenameDialog = true },
                             onDeleteClick = { showDeleteDialog = true },
                             onShowHidden = viewModel::showHidden,
+                            onEditEntry = onEditEntry,
                             onDeleteEntry = viewModel::deleteEntry,
                         )
                     }
@@ -178,6 +204,14 @@ fun EntityDetailScreen(
                                 showDeleteDialog = false
                                 viewModel.deleteEntity()
                             },
+                        )
+                    }
+                    if (showComposer) {
+                        ComposerSheet(
+                            world = current.world,
+                            prefillMentionEntityId = if (composerEditEventId == null) entityId else null,
+                            editEventId = composerEditEventId,
+                            onDismiss = { showComposer = false },
                         )
                     }
                 }
@@ -224,6 +258,7 @@ private fun NarrowEntityDetailContent(
     onRenameClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onShowHidden: () -> Unit,
+    onEditEntry: (String) -> Unit,
     onDeleteEntry: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -255,6 +290,7 @@ private fun NarrowEntityDetailContent(
                 selectedTab = selectedTab,
                 state = state,
                 onShowHidden = onShowHidden,
+                onEditEntry = onEditEntry,
                 onDeleteEntry = onDeleteEntry,
             )
         }
@@ -274,6 +310,7 @@ private fun WideEntityDetailContent(
     onRenameClick: () -> Unit,
     onDeleteClick: () -> Unit,
     onShowHidden: () -> Unit,
+    onEditEntry: (String) -> Unit,
     onDeleteEntry: (String) -> Unit,
 ) {
     Row(
@@ -323,6 +360,7 @@ private fun WideEntityDetailContent(
                     selectedTab = selectedTab,
                     state = state,
                     onShowHidden = onShowHidden,
+                    onEditEntry = onEditEntry,
                     onDeleteEntry = onDeleteEntry,
                 )
             }
@@ -477,6 +515,7 @@ private fun EntityDetailTabContent(
     selectedTab: EntityDetailTab,
     state: EntityDetailUiState.Ready,
     onShowHidden: () -> Unit,
+    onEditEntry: (String) -> Unit,
     onDeleteEntry: (String) -> Unit,
 ) {
     when (selectedTab) {
@@ -486,6 +525,7 @@ private fun EntityDetailTabContent(
                 hiddenCount = state.hiddenCount,
                 revealed = state.revealed,
                 onShowHidden = onShowHidden,
+                onEditEntry = onEditEntry,
                 onDeleteEntry = onDeleteEntry,
             )
         }
@@ -502,6 +542,7 @@ private fun EntriesTabContent(
     hiddenCount: Int,
     revealed: Boolean,
     onShowHidden: () -> Unit,
+    onEditEntry: (String) -> Unit,
     onDeleteEntry: (String) -> Unit,
 ) {
     Column {
@@ -511,6 +552,7 @@ private fun EntriesTabContent(
                 renderedText = entry.renderedText,
                 anchorLabel = anchorLabelText(entry.anchor),
                 isLast = index == entries.lastIndex,
+                onEdit = { onEditEntry(entry.id) },
                 onDelete = { onDeleteEntry(entry.id) },
             )
         }
@@ -518,7 +560,8 @@ private fun EntriesTabContent(
             HiddenCountRow(hiddenCount = hiddenCount, onShowHidden = onShowHidden)
         }
         if (entries.isEmpty() && hiddenCount == 0) {
-            // Task 10 adds the "Add entry" FAB — this quiet placeholder is deliberate.
+            // The "Add entry" FAB is the empty entries tab's only affordance — this quiet
+            // placeholder is deliberate rather than a bespoke empty state.
             Spacer(modifier = Modifier.height(1.dp))
         }
     }

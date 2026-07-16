@@ -40,8 +40,8 @@ private val TITLE_FONT_SIZE = 23.sp
 
 /**
  * Empty state shown when a Story World has no entities and no events at all. [cta] is an optional
- * trailing slot the composer task (Task 10) fills with an "Add First Entry" action; left null,
- * only the illustration/title/body/kind-pills render.
+ * trailing slot the hub screen fills with an "Add First Entry" action opening the composer; left
+ * null, only the illustration/title/body/kind-pills render.
  */
 @Composable
 fun WorldEmptyState(

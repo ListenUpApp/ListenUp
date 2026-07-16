@@ -74,6 +74,22 @@ sealed interface AnchorSelection {
 }
 
 /**
+ * One of this world's books, exposed for the composer's anchor picker (see
+ * [ComposerUiState.worldBooks]). The UI maps this to
+ * [com.calypsan.listenup.client.features.storyworld.AnchorBook] — that type lives in `sharedUI`,
+ * so this ViewModel can't reference it directly.
+ *
+ * @property sequenceLabel The series-sequence number label (e.g. "1"), or null for a
+ *   standalone-book world.
+ */
+data class ComposerWorldBook(
+    val id: String,
+    val title: String,
+    val sequenceLabel: String?,
+    val durationMs: Long,
+)
+
+/**
  * A live-parsed or stored typed assertion the composer chip renders, resolved to display names.
  *
  * @property subjectName [com.calypsan.listenup.client.domain.model.WorldEvent.subjectEntityId]'s
@@ -104,6 +120,17 @@ data class AssertionUi(
  * @property anchorSummary A human-facing description of [anchor]'s position in its book.
  * @property canSave Whether [WorldComposerViewModel.save] would produce a non-trivial event.
  * @property isEditMode Whether the sheet is editing an existing event rather than creating one.
+ * @property worldBooks This world's books in reading order, for the anchor picker's
+ *   "beginning of the book" list and the position scrubber's book switcher.
+ * @property worldBookChapters [worldBooks]' chapters, keyed by book id — lets the position
+ *   scrubber sheet switch books locally without a VM round trip per drag.
+ * @property playheadSnapshot The live "where you are now" anchor, or null when the listener
+ *   isn't currently playing a book in this world. Independent of [anchor] — offered by the
+ *   anchor picker even after the author has picked something else.
+ * @property playheadLabel [playheadSnapshot]'s resolved label, or null alongside it.
+ * @property endOfChapterOption The "end of the current chapter" anchor derived from
+ *   [playheadSnapshot], or null when unavailable (nothing playing, or the position falls
+ *   outside every known chapter).
  */
 data class ComposerUiState(
     val displayText: String,
@@ -118,6 +145,11 @@ data class ComposerUiState(
     val anchorSummary: AnchorLabel,
     val canSave: Boolean,
     val isEditMode: Boolean,
+    val worldBooks: List<ComposerWorldBook>,
+    val worldBookChapters: Map<String, List<Chapter>>,
+    val playheadSnapshot: AnchorSelection.Playhead?,
+    val playheadLabel: AnchorLabel?,
+    val endOfChapterOption: AnchorSelection.EndOfCurrentChapter?,
 ) {
     companion object {
         /** The sheet's state before [WorldComposerViewModel.start] has produced anything. */
@@ -135,6 +167,11 @@ data class ComposerUiState(
                 anchorSummary = AnchorLabel.AlwaysVisible,
                 canSave = false,
                 isEditMode = false,
+                worldBooks = emptyList(),
+                worldBookChapters = emptyMap(),
+                playheadSnapshot = null,
+                playheadLabel = null,
+                endOfChapterOption = null,
             )
     }
 }
@@ -227,14 +264,97 @@ class WorldComposerViewModel(
             }
         }
 
+    private val worldBooksFlow: Flow<List<ComposerWorldBook>> =
+        worldFlow.flatMapLatest { world -> world?.let(::observeWorldBooks) ?: flowOf(emptyList()) }
+
     private val worldBookLabelsFlow: Flow<Map<String, String>> =
-        worldFlow.flatMapLatest { world -> world?.let(::observeWorldBookLabels) ?: flowOf(emptyMap()) }
+        worldBooksFlow.map { books -> books.associate { it.id to (it.sequenceLabel ?: it.title) } }
 
     private val anchorChaptersFlow: Flow<List<Chapter>> =
         editorFlow
             .map { it.anchor.toAnchorPair().first }
             .distinctUntilChanged()
             .flatMapLatest { bookId -> bookId?.let(bookRepository::observeChapters) ?: flowOf(emptyList()) }
+
+    /**
+     * All of this world's books' chapters, keyed by book id — lets the position scrubber sheet
+     * switch books locally (see [ComposerUiState.worldBookChapters]) without a VM round trip.
+     */
+    private val worldBookChaptersFlow: Flow<Map<String, List<Chapter>>> =
+        worldBooksFlow.flatMapLatest { books ->
+            if (books.isEmpty()) {
+                flowOf(emptyMap())
+            } else {
+                combine(
+                    books.map { book ->
+                        bookRepository.observeChapters(book.id).map { chapters -> book.id to chapters }
+                    },
+                ) { pairs -> pairs.toMap() }
+            }
+        }
+
+    /** The live playhead anchor, offered by the picker independent of the author's chosen [AnchorSelection]. */
+    private val playheadSnapshotFlow: Flow<AnchorSelection.Playhead?> =
+        combine(
+            worldBooksFlow,
+            playbackManager.currentBookId,
+            playbackManager.currentPositionMs,
+        ) { books, bookId, positionMs ->
+            if (bookId != null && books.any { it.id == bookId.value }) {
+                AnchorSelection.Playhead(bookId.value, positionMs)
+            } else {
+                null
+            }
+        }.distinctUntilChanged()
+
+    private val playheadChaptersFlow: Flow<List<Chapter>> =
+        playheadSnapshotFlow
+            .map { it?.bookId }
+            .distinctUntilChanged()
+            .flatMapLatest { bookId -> bookId?.let(bookRepository::observeChapters) ?: flowOf(emptyList()) }
+
+    private val playheadLabelFlow: Flow<AnchorLabel?> =
+        combine(playheadSnapshotFlow, worldBookLabelsFlow, playheadChaptersFlow) { playhead, bookLabels, chapters ->
+            playhead?.let { AnchorLabeler.label(bookLabels[it.bookId], chapters, it.positionMs) }
+        }
+
+    /** "End of the current chapter" derived from the live playhead — null when unavailable. */
+    private val endOfChapterOptionFlow: Flow<AnchorSelection.EndOfCurrentChapter?> =
+        combine(playheadSnapshotFlow, playheadChaptersFlow) { playhead, chapters ->
+            if (playhead == null) {
+                null
+            } else {
+                chapters
+                    .lastOrNull { it.startTime <= playhead.positionMs }
+                    ?.takeIf { playhead.positionMs < it.startTime + it.duration }
+                    ?.let { chapter ->
+                        AnchorSelection.EndOfCurrentChapter(
+                            playhead.bookId,
+                            chapter.startTime + chapter.duration,
+                        )
+                    }
+            }
+        }
+
+    /** Everything the anchor picker/scrubber sheets need, bundled to keep [state]'s combine within arity. */
+    private data class PickerData(
+        val worldBooks: List<ComposerWorldBook>,
+        val worldBookChapters: Map<String, List<Chapter>>,
+        val playheadSnapshot: AnchorSelection.Playhead?,
+        val playheadLabel: AnchorLabel?,
+        val endOfChapterOption: AnchorSelection.EndOfCurrentChapter?,
+    )
+
+    private val pickerDataFlow: Flow<PickerData> =
+        combine(
+            worldBooksFlow,
+            worldBookChaptersFlow,
+            playheadSnapshotFlow,
+            playheadLabelFlow,
+            endOfChapterOptionFlow,
+        ) { books, bookChapters, playhead, playheadLabel, endOfChapter ->
+            PickerData(books, bookChapters, playhead, playheadLabel, endOfChapter)
+        }
 
     /** The composer sheet's current UI state. */
     val state: StateFlow<ComposerUiState> =
@@ -243,8 +363,10 @@ class WorldComposerViewModel(
             worldEntitiesFlow,
             worldBookLabelsFlow,
             anchorChaptersFlow,
-        ) { editor, entities, bookLabels, chapters -> buildUiState(editor, entities, bookLabels, chapters) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), ComposerUiState.empty())
+            pickerDataFlow,
+        ) { editor, entities, bookLabels, chapters, picker ->
+            buildUiState(editor, entities, bookLabels, chapters, picker)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), ComposerUiState.empty())
 
     /**
      * Load the sheet for [world] — a brand-new note (optionally pre-mentioning
@@ -369,6 +491,23 @@ class WorldComposerViewModel(
         editorFlow.update { it.copy(anchor = selection) }
     }
 
+    /**
+     * Resolves the [AnchorLabel] the position scrubber sheet's confirm bar shows while the author
+     * is still dragging — computed from [state]'s already-loaded [ComposerUiState.worldBooks] /
+     * [ComposerUiState.worldBookChapters] without touching [selectAnchor]'s committed anchor. The
+     * scrubber sheet holds its in-progress `(bookId, positionMs)` as sheet-local UI state (not
+     * routed through the VM per drag), so this is a synchronous read, not a [Flow].
+     */
+    fun previewAnchorLabel(
+        bookId: String,
+        positionMs: Long,
+    ): AnchorLabel {
+        val current = state.value
+        val bookLabel = current.worldBooks.firstOrNull { it.id == bookId }?.let { it.sequenceLabel ?: it.title }
+        val chapters = current.worldBookChapters[bookId].orEmpty()
+        return AnchorLabeler.label(bookLabel, chapters, positionMs)
+    }
+
     /** Record (create mode) or update (edit mode) the note. No-ops while a save is already in flight. */
     fun save() {
         val editor = editorFlow.value
@@ -448,17 +587,31 @@ class WorldComposerViewModel(
     private fun EditorState.currentAssertion(): Assertion? =
         if (usingStoredAssertion) storedAssertion else AssertionParser.parse(document.segments)
 
-    private fun observeWorldBookLabels(world: WorldRef): Flow<Map<String, String>> =
+    /** This world's books in reading order — see [ComposerUiState.worldBooks]. */
+    private fun observeWorldBooks(world: WorldRef): Flow<List<ComposerWorldBook>> =
         if (world.seriesId != null) {
             seriesRepository.observeSeriesWithBooks(world.seriesId).map { seriesWithBooks ->
                 seriesWithBooks
-                    ?.books
-                    ?.associate { book -> book.id.value to (seriesWithBooks.sequenceFor(book.id.value) ?: book.title) }
-                    .orEmpty()
+                    ?.booksSortedBySequence()
+                    ?.map { book ->
+                        ComposerWorldBook(
+                            id = book.id.value,
+                            title = book.title,
+                            sequenceLabel = seriesWithBooks.sequenceFor(book.id.value),
+                            durationMs = book.duration,
+                        )
+                    }.orEmpty()
             }
         } else {
             bookRepository.observeBookListItems(listOf(world.bookId!!)).map { books ->
-                books.associate { it.id.value to it.title }
+                books.map { book ->
+                    ComposerWorldBook(
+                        id = book.id.value,
+                        title = book.title,
+                        sequenceLabel = null,
+                        durationMs = book.duration,
+                    )
+                }
             }
         }
 
@@ -467,6 +620,7 @@ class WorldComposerViewModel(
         entities: List<Entity>,
         bookLabels: Map<String, String>,
         chapters: List<Chapter>,
+        picker: PickerData,
     ): ComposerUiState {
         val document = editor.document
         val trigger = document.activeTrigger()
@@ -485,6 +639,11 @@ class WorldComposerViewModel(
             anchor = editor.anchor,
             anchorSummary = AnchorLabeler.label(anchorBookId?.let { bookLabels[it] }, chapters, anchorPositionMs),
             canSave = (currentAssertion != null && !editor.dismissed) || document.displayText().isNotBlank(),
+            worldBooks = picker.worldBooks,
+            worldBookChapters = picker.worldBookChapters,
+            playheadSnapshot = picker.playheadSnapshot,
+            playheadLabel = picker.playheadLabel,
+            endOfChapterOption = picker.endOfChapterOption,
             isEditMode = editor.isEditMode,
         )
     }
