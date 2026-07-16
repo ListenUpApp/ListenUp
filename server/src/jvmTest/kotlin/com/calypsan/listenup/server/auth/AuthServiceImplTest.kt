@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
@@ -202,6 +203,29 @@ class AuthServiceImplTest :
                 svc
                     .register(RegisterRequest("ALICE@X", "x".repeat(8), "Alice2"))
                     .shouldFail<AuthError.EmailAlreadyExists>()
+            }
+        }
+
+        test("register rejects a whitespace-only password with WeakPassword(BLANK)") {
+            val svc = newSvc()
+            runTest {
+                svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                val failure =
+                    svc
+                        .register(RegisterRequest("alice@x", " ".repeat(8), "Alice"))
+                        .shouldFail<AuthError.WeakPassword>()
+                failure.reason shouldBe WeakPasswordReason.BLANK
+            }
+        }
+
+        test("setupRoot rejects a whitespace-only password with WeakPassword(BLANK)") {
+            val svc = newSvc()
+            runTest {
+                val failure =
+                    svc
+                        .setupRoot(RegisterRequest("root@x", " ".repeat(8), "Root"))
+                        .shouldFail<AuthError.WeakPassword>()
+                failure.reason shouldBe WeakPasswordReason.BLANK
             }
         }
 

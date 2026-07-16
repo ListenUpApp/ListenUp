@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.Argon2Limiter
+import com.calypsan.listenup.server.auth.PasswordPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -60,6 +61,12 @@ internal class ProfileServiceImpl(
     override suspend fun updateMyProfile(request: UpdateProfileRequest): AppResult<Profile> {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
         val userId = caller.userId.value
+        request.password?.let { pc ->
+            when (val policyCheck = PasswordPolicy.validate(pc.newPassword)) {
+                is AppResult.Failure -> return policyCheck
+                is AppResult.Success -> Unit
+            }
+        }
         // Hash outside the transaction — Argon2 is CPU-bound and must not hold a DB connection.
         val newHash = request.password?.let { argon2Limiter.hash(it.newPassword) }
         // Read the current row first. The password verify and the write are split across two

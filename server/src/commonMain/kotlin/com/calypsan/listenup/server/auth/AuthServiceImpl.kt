@@ -167,6 +167,11 @@ class AuthServiceImpl(
             }
         if (existing) return AppResult.Failure(AuthError.EmailAlreadyExists())
 
+        when (val policyCheck = PasswordPolicy.validate(request.password)) {
+            is AppResult.Failure -> return policyCheck
+            is AppResult.Success -> Unit
+        }
+
         // Argon2 is CPU-bound and slow on purpose — run it before opening the
         // transaction so we don't hold a DB connection during the hash.
         val passwordHashed = hasher.hash(request.password)
@@ -225,6 +230,11 @@ class AuthServiceImpl(
                 !db.usersQueries.hasAnyUser().executeAsOne()
             }
         if (!empty) return AppResult.Failure(AuthError.SetupAlreadyComplete())
+
+        when (val policyCheck = PasswordPolicy.validate(request.password)) {
+            is AppResult.Failure -> return policyCheck
+            is AppResult.Success -> Unit
+        }
 
         val passwordHashed = hasher.hash(request.password)
         val normalized = Email.normalize(request.email)

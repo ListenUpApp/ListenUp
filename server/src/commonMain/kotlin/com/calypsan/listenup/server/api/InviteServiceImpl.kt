@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.auth.Email
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.InviteRateBucket
 import com.calypsan.listenup.server.auth.InviteRateLimiter
+import com.calypsan.listenup.server.auth.PasswordPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RateDecision
 import com.calypsan.listenup.server.auth.SessionIssuer
@@ -221,6 +222,12 @@ class InviteServiceImpl(
         // re-validates the same conditions inside its own transaction, which stays the single-use
         // authority for a genuinely racing claim.
         precheckInviteCode(code, now)?.let { return AppResult.Failure(it) }
+        // Reject a weak password before hashing — the invited user's password has no DTO-level
+        // gate (unlike register/change), so this is its only length/blank check.
+        when (val policyCheck = PasswordPolicy.validate(password)) {
+            is AppResult.Failure -> return policyCheck
+            is AppResult.Success -> Unit
+        }
         // Argon2 is CPU-bound and slow on purpose — hash before opening the
         // transaction so we don't hold a DB connection during it (mirrors register).
         val passwordHashed = hasher.hash(password)
