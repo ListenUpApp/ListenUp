@@ -242,19 +242,15 @@ class PlaybackPositionRepository(
         val existing = getPosition(userId, bookId)
         // Clamp #2 (comparison-only, never rewrites the stored row): a row poisoned before this
         // clamp existed — or written by any path that bypasses it — can carry a raw `lastPlayedAt`
-        // arbitrarily far in the future. Holding it to the SAME `now + SKEW_TOLERANCE` ceiling the
-        // incoming side is held to keeps every comparison symmetric: neither side can ever hold a
-        // bigger "budget" than the other is allowed. It never makes a currently-poisoned row lose
-        // any sooner (a still-future raw value pins to the identical ceiling on both sides, so the
-        // guard below still no-ops until the row is genuinely superseded) — its job is to prevent a
-        // legacy/foreign-written row from being trusted MORE than a row this method would itself
-        // produce, so nothing about the write path's own guarantees is undermined by data it didn't
-        // write. Recovery for such a row still runs on ordinary lastPlayedAt-wins once an honest
-        // write's own timestamp genuinely overtakes the raw stored value (clamp #1 guarantees THAT
-        // never takes longer than SKEW_TOLERANCE for any row written through this method).
-        val existingForComparison = existing?.let { min(it.lastPlayedAt, now + SKEW_TOLERANCE_MS) }
+        // arbitrarily far in the future. No row this method writes can EVER legitimately exceed
+        // `now + SKEW_TOLERANCE` (clamp #1 guarantees that), so a stored value beyond that ceiling
+        // is definitionally corrupt — it can only have gotten there some other way. Such a row
+        // unconditionally LOSES to a fresh honest write, immediately, regardless of how far in the
+        // future its raw value is: healing must not depend on real time closing a gap that could be
+        // years wide.
+        val existingIsPoisoned = existing != null && existing.lastPlayedAt > now + SKEW_TOLERANCE_MS
         // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
-        if (existing != null && existingForComparison!! >= clampedLastPlayedAt) {
+        if (existing != null && !existingIsPoisoned && existing.lastPlayedAt >= clampedLastPlayedAt) {
             return AppResult.Success(existing)
         }
 
@@ -363,10 +359,10 @@ class PlaybackPositionRepository(
             val key = row.userId to row.bookId
             val existing = existingByKey[key]
             val clampedLastPlayedAt = min(row.lastPlayedAt, now + SKEW_TOLERANCE_MS)
-            // Comparison-only clamp on the existing side — see recordPosition's Clamp #2 comment.
-            val existingForComparison = existing?.let { min(it.lastPlayedAt, now + SKEW_TOLERANCE_MS) }
+            // Poisoned-row override — see recordPosition's Clamp #2 comment.
+            val existingIsPoisoned = existing != null && existing.lastPlayedAt > now + SKEW_TOLERANCE_MS
             // lastPlayedAt-wins: a stale write is a no-op, exactly as recordPosition returns early.
-            if (existing != null && existingForComparison!! >= clampedLastPlayedAt) continue
+            if (existing != null && !existingIsPoisoned && existing.lastPlayedAt >= clampedLastPlayedAt) continue
 
             val payload =
                 PlaybackPositionSyncPayload(

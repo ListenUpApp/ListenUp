@@ -47,12 +47,11 @@ class PlaybackPositionClockSkewTest :
                     val poisoned = repo.getPosition("u1", "book-1").shouldNotBeNull()
                     poisoned.lastPlayedAt shouldBe now0 + 5 * 60 * 1000L
 
-                    // Distinct clock instant — the server clock advances past the clamp ceiling
-                    // before the next (honest) write arrives, exactly as it would once real wall-clock
-                    // time passes. Since the clamp already bounded the stored value to now0 + 5min,
-                    // any later write with a genuinely honest (near-current) timestamp beats it via
-                    // ordinary lastPlayedAt-wins — no waiting for the clock to catch up to the raw
-                    // 3-day skew the device originally reported.
+                    // A row THIS METHOD wrote is never classified poisoned by the guard (it can never
+                    // exceed writeTimeNow + SKEW_TOLERANCE <= currentNow + SKEW_TOLERANCE) — so this is
+                    // ordinary lastPlayedAt-wins, not the poisoned-row override: the later honest write
+                    // must genuinely exceed the clamped now0 + 5min ceiling to win. Advance the clock so
+                    // the honest write's own (near-current) timestamp does.
                     clock.instant = Instant.fromEpochMilliseconds(now0 + 6 * 60 * 1000L)
                     val honestLastPlayedAt = clock.instant.toEpochMilliseconds() + 1_000L
                     val result =
@@ -74,17 +73,17 @@ class PlaybackPositionClockSkewTest :
             }
         }
 
-        test("recordPosition heals a pre-poisoned row inserted directly with a far-future lastPlayedAt") {
+        test("recordPosition immediately overrides a pre-poisoned row inserted directly with a far-future lastPlayedAt") {
             withSqlDatabase {
+                val now0 = 1_730_000_000_000L
                 // Simulates a row poisoned before this clamp existed (or written by a path that
                 // bypasses recordPosition entirely) — inserted straight through SQLDelight, never
-                // touching the write-time clamp. Clamp #2 bounds this row's comparison "budget" to
-                // now + SKEW_TOLERANCE just like a fresh write, but can never make it LOSE any sooner
-                // than plain lastPlayedAt-wins already would (both sides collapse to the same ceiling
-                // while still in the future, so nothing ever beats it until real time reaches the raw
-                // value) — this pins that a pre-fix poisoned row is still eventually recoverable once
-                // an honest write's own timestamp genuinely supersedes it, not stuck forever.
-                val poisonedAt = 1_730_300_000_000L
+                // touching the write-time clamp. No row this method writes could ever be 3 days in
+                // the future, so this raw value is definitionally corrupt: the poisoned-row override
+                // must reject it OUTRIGHT, at the CURRENT wall-clock time — a device clock a year fast
+                // must not poison a row for a year while honest writes wait for real time to close a
+                // gap that could be arbitrarily wide.
+                val poisonedAt = now0 + 3L * 24 * 60 * 60 * 1000
                 sql.playbackPositionsQueries.insert(
                     id = "pos-1",
                     user_id = "u1",
@@ -101,18 +100,19 @@ class PlaybackPositionClockSkewTest :
                     client_op_id = null,
                 )
 
-                // The server clock has caught up to (just past) the raw poisoned timestamp — modeling
-                // wall-clock time genuinely reaching it. An honest write dated after it must win.
-                val clock = MutableClock(Instant.fromEpochMilliseconds(poisonedAt))
+                // The clock stays at a realistic "now", days before the poisoned timestamp — no
+                // waiting for wall-clock time to close the gap.
+                val clock = MutableClock(Instant.fromEpochMilliseconds(now0))
                 val repo =
                     PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
                 runTest {
+                    val honestLastPlayedAt = now0 + 1_000L
                     val result =
                         repo.recordPosition(
                             userId = "u1",
                             bookId = "book-1",
                             positionMs = 5_000L,
-                            lastPlayedAt = poisonedAt + 1_000L,
+                            lastPlayedAt = honestLastPlayedAt,
                             finished = false,
                             playbackSpeed = 1.0f,
                             currentChapterId = null,
@@ -120,7 +120,7 @@ class PlaybackPositionClockSkewTest :
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
 
                     val healed = repo.getPosition("u1", "book-1").shouldNotBeNull()
-                    healed.lastPlayedAt shouldBe poisonedAt + 1_000L
+                    healed.lastPlayedAt shouldBe honestLastPlayedAt
                     healed.positionMs shouldBe 5_000L
                 }
             }
