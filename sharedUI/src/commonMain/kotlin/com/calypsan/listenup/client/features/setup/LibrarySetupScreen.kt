@@ -52,14 +52,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.library_setup_choose_audiobook_folders
-import listenup.composeapp.generated.resources.library_setup_choose_folders_title
-import listenup.composeapp.generated.resources.library_setup_no_subfolders_here
-import listenup.composeapp.generated.resources.library_setup_no_subfolders_select_hint
-import listenup.composeapp.generated.resources.library_setup_point_at_audiobooks
-import listenup.composeapp.generated.resources.library_setup_select_one_or_more
-import org.jetbrains.compose.resources.stringResource
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -71,6 +63,16 @@ import com.calypsan.listenup.client.features.setup.components.SetupHeroBlob
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupUiState
 import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_setup_choose_audiobook_folders
+import listenup.composeapp.generated.resources.library_setup_choose_folders_title
+import listenup.composeapp.generated.resources.library_setup_folder_selected_count
+import listenup.composeapp.generated.resources.library_setup_folders_selected_count
+import listenup.composeapp.generated.resources.library_setup_no_subfolders_here
+import listenup.composeapp.generated.resources.library_setup_no_subfolders_select_hint
+import listenup.composeapp.generated.resources.library_setup_point_at_audiobooks
+import listenup.composeapp.generated.resources.library_setup_select_one_or_more
+import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -226,7 +228,17 @@ private fun DockedSelectionBar(
             Column(modifier = Modifier.weight(1f)) {
                 val n = state.selectedPaths.size
                 Text(
-                    text = if (n == 1) "1 folder selected" else "$n folders selected",
+                    text =
+                        stringResource(
+                            if (n ==
+                                1
+                            ) {
+                                Res.string.library_setup_folder_selected_count
+                            } else {
+                                Res.string.library_setup_folders_selected_count
+                            },
+                            n,
+                        ),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -371,7 +383,17 @@ private fun DesktopPickerPanel(
             Column(modifier = Modifier.weight(1f)) {
                 val n = state.selectedPaths.size
                 Text(
-                    text = if (n == 1) "1 folder selected" else "$n folders selected",
+                    text =
+                        stringResource(
+                            if (n ==
+                                1
+                            ) {
+                                Res.string.library_setup_folder_selected_count
+                            } else {
+                                Res.string.library_setup_folders_selected_count
+                            },
+                            n,
+                        ),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )

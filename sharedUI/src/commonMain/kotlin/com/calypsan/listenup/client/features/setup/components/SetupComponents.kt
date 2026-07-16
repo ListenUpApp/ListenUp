@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_setup_item_count
+import listenup.composeapp.generated.resources.library_setup_item_count_one
 import listenup.composeapp.generated.resources.library_setup_open_folder
 import org.jetbrains.compose.resources.stringResource
 
@@ -202,7 +204,17 @@ fun FolderRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = if (entry.itemCount == 1) "1 item" else "${entry.itemCount} items",
+                text =
+                    stringResource(
+                        if (entry.itemCount ==
+                            1
+                        ) {
+                            Res.string.library_setup_item_count_one
+                        } else {
+                            Res.string.library_setup_item_count
+                        },
+                        entry.itemCount,
+                    ),
                 style = MaterialTheme.typography.bodyMedium,
                 fontSize = 13.sp,
                 color = subtitleColor,

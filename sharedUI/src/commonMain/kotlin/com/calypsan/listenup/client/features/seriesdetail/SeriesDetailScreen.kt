@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -64,26 +63,28 @@ import com.calypsan.listenup.client.design.components.FannedDeck
 import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.features.contributors.FullCastSheet
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
-import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_authors
 import listenup.composeapp.generated.resources.book_detail_cast_count_authors
 import listenup.composeapp.generated.resources.book_detail_other_authors
 import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.series_books_in_series
 import listenup.composeapp.generated.resources.series_book_position
+import listenup.composeapp.generated.resources.series_books_in_series
 import listenup.composeapp.generated.resources.series_continue_book
+import listenup.composeapp.generated.resources.series_duration_finished
 import listenup.composeapp.generated.resources.series_edit_series
 import listenup.composeapp.generated.resources.series_label
 import listenup.composeapp.generated.resources.series_progress_duration
 import listenup.composeapp.generated.resources.series_start_book
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -634,7 +635,12 @@ private fun SeriesBookRow(
                 }
             } else {
                 Text(
-                    text = if (finished) "${book.formatDuration()} · Finished" else book.formatDuration(),
+                    text =
+                        if (finished) {
+                            stringResource(Res.string.series_duration_finished, book.formatDuration())
+                        } else {
+                            book.formatDuration()
+                        },
                     style = MaterialTheme.typography.bodyMedium,
                     color = subColor,
                 )
@@ -791,7 +797,12 @@ private fun SeriesBookCardFooter(
         )
     } else {
         Text(
-            text = if (finished) "${book.formatDuration()} · Finished" else book.formatDuration(),
+            text =
+                if (finished) {
+                    stringResource(Res.string.series_duration_finished, book.formatDuration())
+                } else {
+                    book.formatDuration()
+                },
             style = MaterialTheme.typography.bodyMedium,
             color = subColor,
             maxLines = 1,

@@ -46,7 +46,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,17 +61,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
-import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
-
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
-import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.features.library.BookCard
@@ -81,24 +79,27 @@ import com.calypsan.listenup.client.presentation.contributordetail.ContributorDe
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
 import com.calypsan.listenup.client.presentation.contributordetail.RoleSection
 import com.calypsan.listenup.client.util.formatDateLong
+import com.calypsan.listenup.core.BookId
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
-import org.koin.compose.viewmodel.koinViewModel
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_more_options
+import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_book_count
 import listenup.composeapp.generated.resources.common_books_count
-import listenup.composeapp.generated.resources.contributor_aka
 import listenup.composeapp.generated.resources.common_delete
-import listenup.composeapp.generated.resources.common_about
-import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.common_delete_name
-import listenup.composeapp.generated.resources.contributor_download_metadata
 import listenup.composeapp.generated.resources.common_edit
+import listenup.composeapp.generated.resources.common_read_less
+import listenup.composeapp.generated.resources.common_read_more
+import listenup.composeapp.generated.resources.common_view_all
+import listenup.composeapp.generated.resources.contributor_aka
+import listenup.composeapp.generated.resources.contributor_download_metadata
 import listenup.composeapp.generated.resources.contributor_from_your_library_this_action
 import listenup.composeapp.generated.resources.contributor_name_profile_image
-import listenup.composeapp.generated.resources.common_view_all
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Artist Portfolio screen - an immersive contributor detail experience.
@@ -469,7 +470,7 @@ private fun ColumnScope.WideHeroInfoColumn(
                 onClick = onToggleDescription,
                 contentPadding = PaddingValues(0.dp),
             ) {
-                Text(if (isDescriptionExpanded) "Read less" else "Read more")
+                Text(stringResource(if (isDescriptionExpanded) Res.string.common_read_less else Res.string.common_read_more))
             }
         }
     }
@@ -934,7 +935,7 @@ private fun BiographySection(
                 onClick = onToggleExpanded,
                 contentPadding = PaddingValues(0.dp),
             ) {
-                Text(if (isExpanded) "Read less" else "Read more")
+                Text(stringResource(if (isExpanded) Res.string.common_read_less else Res.string.common_read_more))
             }
         }
     }

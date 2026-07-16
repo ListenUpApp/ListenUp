@@ -108,7 +108,11 @@
     "try_again": "Try Again",
     "users": "Users",
     "version": "Version",
-    "view_all": "View All"
+    "view_all": "View All",
+    "read_more": "Read more",
+    "read_less": "Read less",
+    "expand": "Expand",
+    "collapse": "Collapse"
   },
   "error": {
     "conflict": "That resource is in use or already exists.",
@@ -118,7 +122,8 @@
     "transport_timeout": "The request took too long. Please try again.",
     "auth_session_expired": "Your session expired. Please sign in again.",
     "book_wrong_server": "This book is on a different ListenUp server than the one you're signed in to.",
-    "book_not_connected": "Sign in to the server that hosts this book to open it."
+    "book_not_connected": "Sign in to the server that hosts this book to open it.",
+    "unknown": "Something went wrong."
   },
   "auth": {
     "admin_account_subtitle": "You're creating the first account on this server.",
@@ -286,8 +291,6 @@
     "detail_remove_the_downloaded_files_for": "Remove the downloaded files for “%1$s”? ",
     "detail_retry_download": "Retry download",
     "detail_scan_warning": "This book had a scanning error — double-check the files aren’t corrupted.",
-    "detail_read_less": "Read less",
-    "detail_read_more": "Read more",
     "detail_show_less": "Show Less",
     "detail_cast_author": "Author",
     "detail_cast_authors": "Authors",
@@ -316,7 +319,6 @@
     "detail_retry": "Retry",
     "detail_unavailable_offline": "Unavailable offline",
     "detail_waiting_for_wifi": "Waiting for WiFi",
-    "detail_written_by": "Written by",
     "detail_you_can_redownload_anytime_by": "You can re-download anytime by playing the book.",
     "edit_abridged": "Abridged",
     "edit_add_role": "Add Role",
@@ -423,7 +425,8 @@
     "edit_title": "Edit Series",
     "edit_name": "Name",
     "edit_description": "Description",
-    "edit_description_placeholder": "Add a description"
+    "edit_description_placeholder": "Add a description",
+    "duration_finished": "%1$s · Finished"
   },
   "contributor": {
     "aka": "aka %1$s",
@@ -712,7 +715,8 @@
     "unavailable_title": "Shelf unavailable",
     "visibility": "Visibility",
     "visible_to_anyone": "Visible to anyone on the server.",
-    "whats_this_shelf_for": "What's this shelf for?"
+    "whats_this_shelf_for": "What's this shelf for?",
+    "title_fallback": "Shelf"
   },
   "shell": {
     "all_synced": "All synced",
@@ -791,7 +795,9 @@
     "view_and_manage_downloaded_audiobooks": "View and manage downloaded audiobooks",
     "view_thirdparty_licenses": "View third-party licenses",
     "wifi_only_downloads": "Download on Wi-Fi Only",
-    "you_can_redownload_books_anytime": "You can re-download books anytime."
+    "you_can_redownload_books_anytime": "You can re-download books anytime.",
+    "book_downloaded_count": "%1$d book downloaded",
+    "books_downloaded_count": "%1$d books downloaded"
   },
   "devices": {
     "active": "Active",
@@ -978,7 +984,9 @@
     "inbox_review_edit": "Review & edit",
     "inbox_release_count": "Release %1$d",
     "inbox_released_count": "Released %1$d book",
-    "inbox_released_count_plural": "Released %1$d books"
+    "inbox_released_count_plural": "Released %1$d books",
+    "expand_all": "Expand All",
+    "collapse_all": "Collapse All"
   },
   "import": {
     "title": "Import from Audiobookshelf",
@@ -1122,7 +1130,11 @@
     "go_to_book": "Go to Book",
     "open_pdf": "Open PDF",
     "go_to_series": "Go to Series",
-    "close_book": "Close Book"
+    "close_book": "Close Book",
+    "go_to_author": "Go to Author",
+    "go_to_author_multiple": "Go to Author…",
+    "go_to_narrator": "Go to Narrator",
+    "go_to_narrator_multiple": "Go to Narrator…"
   },
   "library_setup": {
     "choose_audiobook_folders": "Choose your audiobook folders",
@@ -1146,7 +1158,10 @@
     "folder_opens_hint": "Opens folder",
     "folder_select_hint": "Double tap to select",
     "folder_deselect_hint": "Selected, double tap to deselect",
-    "building_title": "Building your library"
+    "building_title": "Building your library",
+    "item_count_one": "%1$d item",
+    "folder_selected_count": "%1$d folder selected",
+    "folders_selected_count": "%1$d folders selected"
   },
   "scan": {
     "building_subtitle": "Building your library.",
@@ -1166,7 +1181,9 @@
     "progress_a11y": "Building your library, %1$d percent complete",
     "stalled_message": "This is taking longer than expected. You can continue to your library now — the rest will keep appearing as it syncs.",
     "continue": "Continue",
-    "stalled_settings_hint": "You can re-run the scan anytime from Settings."
+    "stalled_settings_hint": "You can re-run the scan anytime from Settings.",
+    "progress_percent": "%1$d% complete",
+    "progress_percent_eta": "%1$d% complete  ·  about %2$d min left"
   },
   "genre": {
     "browse_title": "Browse by Genre",
@@ -1190,7 +1207,10 @@
     "book_count": "%1$d book",
     "books_count": "%1$d books",
     "no_books": "No books with this tag.",
-    "unavailable_title": "Tag unavailable"
+    "unavailable_title": "Tag unavailable",
+    "title_fallback": "Tag",
+    "book_unit": "Book",
+    "books_unit": "Books"
   },
   "edit": {
     "remove_image": "Remove image",

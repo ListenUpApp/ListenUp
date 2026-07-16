@@ -26,27 +26,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.UnfoldLess
 import androidx.compose.material.icons.outlined.UnfoldMore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import com.calypsan.listenup.client.design.components.ListenUpFab
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -55,7 +54,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,40 +66,46 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.components.ListenUpFab
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.domain.model.Genre
-import androidx.compose.material3.AlertDialog
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.GenreTreeNode
 import com.calypsan.listenup.client.presentation.admin.genreMoveCandidates
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_genre
 import listenup.composeapp.generated.resources.admin_add_subgenre
 import listenup.composeapp.generated.resources.admin_book_count
 import listenup.composeapp.generated.resources.admin_categories_books_count
+import listenup.composeapp.generated.resources.admin_collapse_all
 import listenup.composeapp.generated.resources.admin_confirm_delete_item
+import listenup.composeapp.generated.resources.admin_expand_all
+import listenup.composeapp.generated.resources.admin_genre_name
 import listenup.composeapp.generated.resources.admin_merge_into
 import listenup.composeapp.generated.resources.admin_merge_into_named
 import listenup.composeapp.generated.resources.admin_move_to
 import listenup.composeapp.generated.resources.admin_move_to_named
 import listenup.composeapp.generated.resources.admin_no_merge_target_available
 import listenup.composeapp.generated.resources.admin_no_move_target_top_level_only
-import listenup.composeapp.generated.resources.admin_top_level
-import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.common_categories
-import listenup.composeapp.generated.resources.common_delete
-import listenup.composeapp.generated.resources.common_delete_name
-import listenup.composeapp.generated.resources.admin_genre_name
-import listenup.composeapp.generated.resources.common_no_items
-import listenup.composeapp.generated.resources.common_rename
 import listenup.composeapp.generated.resources.admin_rename_genre
 import listenup.composeapp.generated.resources.admin_tap_to_create_your_first
+import listenup.composeapp.generated.resources.admin_top_level
+import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.common_categories
+import listenup.composeapp.generated.resources.common_collapse
+import listenup.composeapp.generated.resources.common_delete
+import listenup.composeapp.generated.resources.common_delete_name
+import listenup.composeapp.generated.resources.common_expand
+import listenup.composeapp.generated.resources.common_no_items
+import listenup.composeapp.generated.resources.common_rename
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Admin screen for managing the category (genre) tree.
@@ -275,7 +279,10 @@ private fun CategoriesTopBar(
                     ) {
                         Icon(
                             imageVector = if (allExpanded) Icons.Outlined.UnfoldLess else Icons.Outlined.UnfoldMore,
-                            contentDescription = if (allExpanded) "Collapse All" else "Expand All",
+                            contentDescription =
+                                stringResource(
+                                    if (allExpanded) Res.string.admin_collapse_all else Res.string.admin_expand_all,
+                                ),
                         )
                     }
                 }
@@ -850,7 +857,10 @@ private fun CategoryRowContent(
         if (hasChildren) {
             Icon(
                 imageVector = Icons.Outlined.ExpandMore,
-                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                contentDescription =
+                    stringResource(
+                        if (isExpanded) Res.string.common_collapse else Res.string.common_expand,
+                    ),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier =
                     Modifier

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.contributoredit
 
-import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,15 +13,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
-import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import androidx.compose.material3.MaterialTheme
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,12 +29,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpDatePicker
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.contributoredit.components.AliasesSection
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorBackdrop
@@ -52,14 +52,12 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorEdit
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
 import com.calypsan.listenup.client.util.rememberImagePicker
-import org.koin.compose.viewmodel.koinViewModel
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_discard
-import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.book_edit_keep_editing
 import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
+import listenup.composeapp.generated.resources.common_discard
+import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.contributor_biography
 import listenup.composeapp.generated.resources.contributor_birth_date
 import listenup.composeapp.generated.resources.contributor_dates
@@ -68,6 +66,9 @@ import listenup.composeapp.generated.resources.contributor_enter_a_biography
 import listenup.composeapp.generated.resources.contributor_links
 import listenup.composeapp.generated.resources.contributor_select_birth_date
 import listenup.composeapp.generated.resources.contributor_select_death_date
+import listenup.composeapp.generated.resources.error_unknown
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Artist Studio - immersive contributor editing experience.
@@ -264,7 +265,7 @@ private fun ErrorContent(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = error ?: "Unknown error",
+            text = error ?: stringResource(Res.string.error_unknown),
             color = MaterialTheme.colorScheme.error,
         )
         TextButton(onClick = onDismiss) {

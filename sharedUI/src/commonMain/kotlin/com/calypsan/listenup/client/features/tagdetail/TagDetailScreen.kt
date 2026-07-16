@@ -25,14 +25,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,17 +39,22 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.tagdetail.TagDetailUiState
 import com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel
-import org.koin.compose.viewmodel.koinViewModel
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.library_bookcount
 import listenup.composeapp.generated.resources.library_books
+import listenup.composeapp.generated.resources.tag_book_unit
+import listenup.composeapp.generated.resources.tag_books_unit
+import listenup.composeapp.generated.resources.tag_title_fallback
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Screen displaying tag details with its books.
@@ -87,7 +90,7 @@ fun TagDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = readyState?.tagName ?: "Tag",
+                        text = readyState?.tagName ?: stringResource(Res.string.tag_title_fallback),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -227,7 +230,7 @@ private fun TagStatsSection(
             )
         }
         Text(
-            text = if (bookCount == 1) "Book" else "Books",
+            text = stringResource(if (bookCount == 1) Res.string.tag_book_unit else Res.string.tag_books_unit),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

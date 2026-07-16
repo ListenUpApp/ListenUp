@@ -29,6 +29,7 @@
     <string name="admin_can_manage_users_and_invites">Can manage users and invites</string>
     <string name="admin_can_share">Can Share</string>
     <string name="admin_categories_books_count">%1$d categories • %2$d books</string>
+    <string name="admin_collapse_all">Collapse All</string>
     <string name="admin_collection_count">%1$d collection</string>
     <string name="admin_collection_details">Collection Details</string>
     <string name="admin_collection_members_count">%1$d members</string>
@@ -58,6 +59,7 @@
     <string name="admin_download_backup">Download</string>
     <string name="admin_email_already_in_use">A user with this email already exists.</string>
     <string name="admin_enter_a_name_for_the">Enter a name for the collection</string>
+    <string name="admin_expand_all">Expand All</string>
     <string name="admin_expires_in">Expires in</string>
     <string name="admin_folder_saved_scanning">Folder saved. Scanning it now…</string>
     <string name="admin_genre_name">Genre name</string>
@@ -291,8 +293,6 @@ One beautiful library.</string>
     <string name="book_detail_published">Published</string>
     <string name="book_detail_publisher">Publisher</string>
     <string name="book_detail_queued">Queued...</string>
-    <string name="book_detail_read_less">Read less</string>
-    <string name="book_detail_read_more">Read more</string>
     <string name="book_detail_readers">Readers</string>
     <string name="book_detail_readers_a11y_finished">%1$s, finished %2$s</string>
     <string name="book_detail_readers_a11y_reading">%1$s, %2$d percent</string>
@@ -400,6 +400,7 @@ One beautiful library.</string>
     <string name="common_clear_date">Clear date</string>
     <string name="common_clear_search">Clear search</string>
     <string name="common_clear_selection">Clear selection</string>
+    <string name="common_collapse">Collapse</string>
     <string name="common_collection_name_hint">e.g., Staff Picks, Sci-Fi, New Releases...</string>
     <string name="common_collections">Collections</string>
     <string name="common_completed">Completed</string>
@@ -424,6 +425,7 @@ One beautiful library.</string>
     <string name="common_email_address">Email address</string>
     <string name="common_entity_information">%1$s Information</string>
     <string name="common_error">Error</string>
+    <string name="common_expand">Expand</string>
     <string name="common_genres">Genres</string>
     <string name="common_home">Home</string>
     <string name="common_image">Image</string>
@@ -456,6 +458,8 @@ One beautiful library.</string>
     <string name="common_playback">Playback</string>
     <string name="common_private">Private</string>
     <string name="common_profile">Profile</string>
+    <string name="common_read_less">Read less</string>
+    <string name="common_read_more">Read more</string>
     <string name="common_refresh">Refresh</string>
     <string name="common_remove">Remove</string>
     <string name="common_remove_name">Remove %1$s</string>
@@ -644,6 +648,7 @@ One beautiful library.</string>
     <string name="error_not_found">Not found.</string>
     <string name="error_transport_network_unavailable">Can't reach the server. Check your connection.</string>
     <string name="error_transport_timeout">The request took too long. Please try again.</string>
+    <string name="error_unknown">Something went wrong.</string>
     <string name="genre_book_count">%1$d book</string>
     <string name="genre_books_count">%1$d books</string>
     <string name="genre_browse_title">Browse by Genre</string>
@@ -822,6 +827,8 @@ One beautiful library.</string>
     <string name="library_scan_eta">about %1$d min left</string>
     <string name="library_scan_hours">Hours</string>
     <string name="library_scan_progress_a11y">Building your library, %1$d percent complete</string>
+    <string name="library_scan_progress_percent">%1$d% complete</string>
+    <string name="library_scan_progress_percent_eta">%1$d% complete  ·  about %2$d min left</string>
     <string name="library_scan_stalled_message">This is taking longer than expected. You can continue to your library now — the rest will keep appearing as it syncs.</string>
     <string name="library_scan_stalled_settings_hint">You can re-run the scan anytime from Settings.</string>
     <string name="library_scan_subtitle_analyzing">Analyzing %1$d of %2$d files — your shelves are filling in.</string>
@@ -837,8 +844,11 @@ One beautiful library.</string>
     <string name="library_setup_folder_deselect_hint">Selected, double tap to deselect</string>
     <string name="library_setup_folder_opens_hint">Opens folder</string>
     <string name="library_setup_folder_select_hint">Double tap to select</string>
+    <string name="library_setup_folder_selected_count">%1$d folder selected</string>
     <string name="library_setup_folders_selected">%1$d folder(s) selected</string>
+    <string name="library_setup_folders_selected_count">%1$d folders selected</string>
     <string name="library_setup_item_count">%1$d items</string>
+    <string name="library_setup_item_count_one">%1$d item</string>
     <string name="library_setup_loading_folders">Loading folders...</string>
     <string name="library_setup_no_subfolders_here">No subfolders here</string>
     <string name="library_setup_no_subfolders_select_hint">This folder has no subfolders. You can select it as a library location.</string>
@@ -958,7 +968,11 @@ One beautiful library.</string>
     <string name="player_expand">Expand</string>
     <string name="player_extend_minutes">+%1$d min</string>
     <string name="player_fading_out">Fading out…</string>
+    <string name="player_go_to_author">Go to Author</string>
+    <string name="player_go_to_author_multiple">Go to Author…</string>
     <string name="player_go_to_book">Go to Book</string>
+    <string name="player_go_to_narrator">Go to Narrator</string>
+    <string name="player_go_to_narrator_multiple">Go to Narrator…</string>
     <string name="player_go_to_series">Go to Series</string>
     <string name="player_more_options">More options</string>
     <string name="player_next_chapter">Next chapter</string>
@@ -1038,6 +1052,7 @@ One beautiful library.</string>
     <string name="series_complete">Complete</string>
     <string name="series_continue">Continue</string>
     <string name="series_continue_book">Continue Book %1$s</string>
+    <string name="series_duration_finished">%1$s · Finished</string>
     <string name="series_edit_description">Description</string>
     <string name="series_edit_description_placeholder">Add a description</string>
     <string name="series_edit_name">Name</string>
@@ -1069,6 +1084,8 @@ One beautiful library.</string>
     <string name="settings_auto_remove_finished">Remove Finished Downloads</string>
     <string name="settings_autorewind_on_resume">Auto-rewind on resume</string>
     <string name="settings_autostart_sleep_timer_when_playing">Auto-start sleep timer when playing</string>
+    <string name="settings_book_downloaded_count">%1$d book downloaded</string>
+    <string name="settings_books_downloaded_count">%1$d books downloaded</string>
     <string name="settings_choose_light_dark_or_follow">Choose light, dark, or follow system</string>
     <string name="settings_clear_all">Clear All</string>
     <string name="settings_clear_all_downloads">Clear All Downloads?</string>
@@ -1138,6 +1155,7 @@ One beautiful library.</string>
     <string name="shelf_private_shelf_description">Only you can see this shelf.</string>
     <string name="shelf_shelf_details">Shelf details</string>
     <string name="shelf_this_will_permanently_delete_this">This will permanently delete this shelf. Books in the shelf will not be affected.</string>
+    <string name="shelf_title_fallback">Shelf</string>
     <string name="shelf_unavailable_title">Shelf unavailable</string>
     <string name="shelf_visibility">Visibility</string>
     <string name="shelf_visible_to_anyone">Visible to anyone on the server.</string>
@@ -1169,7 +1187,10 @@ One beautiful library.</string>
     <string name="startup_setup_check_failed_message">We couldn't reach your server to check your library setup. Check your connection and try again.</string>
     <string name="startup_setup_check_failed_title">Couldn't check library setup</string>
     <string name="tag_book_count">%1$d book</string>
+    <string name="tag_book_unit">Book</string>
     <string name="tag_books_count">%1$d books</string>
+    <string name="tag_books_unit">Books</string>
     <string name="tag_no_books">No books with this tag.</string>
+    <string name="tag_title_fallback">Tag</string>
     <string name="tag_unavailable_title">Tag unavailable</string>
 </resources>
