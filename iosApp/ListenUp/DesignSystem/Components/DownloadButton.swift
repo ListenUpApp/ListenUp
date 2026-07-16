@@ -171,17 +171,17 @@ struct DownloadButtonExpanded: View {
     private var labelText: some View {
         switch state {
         case .notDownloaded:
-            Text(String(localized: "book_detail.download"))
+            Text(String(localized: "book.detail_download"))
                 .foregroundStyle(.primary)
         case .queued:
-            Text(String(localized: "book_detail.queued"))
+            Text(String(localized: "book.detail_queued"))
                 .foregroundStyle(.secondary)
         case .downloading:
             Text("\(Int(progress * 100))%")
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         case .completed:
-            Text(String(localized: "book_detail.downloaded"))
+            Text(String(localized: "book.detail_downloaded"))
                 .foregroundStyle(.primary)
         case .partial, .failed:
             Text(String(localized: "common.retry"))

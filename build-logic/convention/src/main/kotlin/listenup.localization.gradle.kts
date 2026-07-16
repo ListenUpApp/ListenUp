@@ -1,4 +1,6 @@
 import com.calypsan.listenup.gradle.LocalizationArtifacts
+import com.calypsan.listenup.gradle.LocalizationGenerator
+import com.calypsan.listenup.gradle.SwiftStringKeys
 import java.io.File
 
 // --- Localization: generate native string resources from the shared JSON source of truth ---
@@ -80,6 +82,58 @@ tasks.register("verifyStrings") {
                 "Localization artifacts are out of sync with the shared JSON source:\n" +
                     offenders +
                     "\nRun ./gradlew :sharedUI:generateStrings and commit the result.",
+            )
+        }
+    }
+}
+
+// The Swift side of the localization contract. `verifyStrings` above proves the generated
+// artifacts match `en.json`; it cannot see which keys Swift actually asks for. iOS resolves a
+// missing key by rendering the key itself, so a typo'd or deleted key ships as visible garbage
+// ("admin.add_this_folder" rendered to admins) with nothing red anywhere — and Xcode hides it
+// locally by scraping Swift and writing the missing key back into the generated catalog as an
+// empty entry. This gate is the missing half: every statically-resolvable
+// `String(localized: "…")` key must exist in en.json.
+val iosSwiftDir: File = rootProject.file("iosApp/ListenUp")
+
+tasks.register("verifySwiftStringKeys") {
+    group = "localization"
+    description = "Fail if iOS Swift references a localization key that does not exist in en.json"
+
+    // Inputs only, no outputs — a gate that must always re-verify, never report UP-TO-DATE.
+    inputs.dir(stringsDir)
+    inputs.dir(iosSwiftDir)
+
+    val enJson = File(stringsDir, "en.json")
+    val swiftDir = iosSwiftDir
+    val projectRoot = rootDir
+
+    doLast {
+        val knownKeys = LocalizationGenerator.parse(enJson.readText()).keys
+        check(knownKeys.isNotEmpty()) {
+            "No keys parsed from ${enJson.relativeTo(projectRoot)} — the gate would pass vacuously."
+        }
+
+        val swiftSources =
+            swiftDir
+                .walkTopDown()
+                .filter { it.isFile && it.extension == "swift" }
+                .associate { it.relativeTo(projectRoot).path to it.readText() }
+        check(swiftSources.isNotEmpty()) {
+            "No .swift files found under ${swiftDir.relativeTo(projectRoot)} — the gate would pass vacuously."
+        }
+
+        val missing = SwiftStringKeys.missingKeys(swiftSources, knownKeys)
+        if (missing.isNotEmpty()) {
+            val offenders =
+                missing.entries.joinToString("\n") { (key, files) ->
+                    " - \"$key\" referenced by ${files.joinToString(", ")}"
+                }
+            throw GradleException(
+                "iOS Swift references localization key(s) missing from en.json:\n" +
+                    offenders +
+                    "\niOS renders a missing key as its own text, so these ship as visible garbage. " +
+                    "Add the key to en.json (then ./gradlew :sharedUI:generateStrings) or fix the reference.",
             )
         }
     }

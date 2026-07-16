@@ -293,7 +293,7 @@ struct BooksContent: View {
         } description: {
             Text(message)
         } actions: {
-            PrimaryButton(title: String(localized: "library.try_again"), icon: "arrow.clockwise", action: onRefresh)
+            PrimaryButton(title: String(localized: "common.try_again"), icon: "arrow.clockwise", action: onRefresh)
                 .frame(maxWidth: 240)
         }
     }

@@ -315,7 +315,7 @@ private struct FolderBrowserSheet: View {
         Button {
             observer.addFolder(model.browserPath)
         } label: {
-            Label(String(localized: "admin.add_this_folder"), systemImage: "plus.circle.fill")
+            Label(String(localized: "admin.save_and_scan_folder"), systemImage: "plus.circle.fill")
                 .font(.body.weight(.medium))
                 .foregroundStyle(Color.luTint)
                 .frame(maxWidth: .infinity, alignment: .leading)
