@@ -243,6 +243,17 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * Created/Updated discrimination is based on whether the root row exists before
      * the write — existence is determined inside the transaction, so the decision
      * is atomic with the write. Mirrors [SyncableRepository.upsert] exactly.
+     *
+     * **Retries are intentionally re-applied, not deduplicated.** [clientOpId] is stored on the
+     * root row for audit/correlation only — it is never checked against a prior write to short-
+     * circuit this method. A retried outbox operation (the client resending an already-committed
+     * write after a dropped ack) therefore burns a fresh revision and re-publishes a duplicate
+     * [SyncEvent.Updated] here, exactly as if it were a genuinely new write. This is safe by
+     * design: every write is a full-payload overwrite (last-write-wins), so re-applying identical
+     * content converges to the same row — the cost is one burned revision and one duplicate event
+     * per retry, not a correctness gap. The client's own echo-shield (`OutboxInFlightQuery`)
+     * suppresses the local UI flicker a duplicate event would otherwise cause; it is a client-side
+     * concern, not something this method needs to protect against.
      */
     open suspend fun upsert(
         value: T,

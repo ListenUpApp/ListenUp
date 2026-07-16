@@ -6,9 +6,12 @@ import androidx.room.PrimaryKey
 
 /**
  * Local-first pending write awaiting server replay. Each row keys on a
- * client-generated UUID ([clientOpId]) which propagates to the server via the
- * write API and echoes back on the SSE [com.calypsan.listenup.api.sync.SyncEvent]
- * so the engine can match echoes to ops.
+ * client-generated UUID ([clientOpId]) — a local correlation id only: it is never sent to the
+ * server over the RPC write path and never echoes back on an SSE
+ * [com.calypsan.listenup.api.sync.SyncEvent]. The anti-flicker shield that stops an inbound
+ * echo/catch-up snapshot from reverting a still-in-flight local edit keys on entity identity
+ * `(domainName, entityId)` instead — see
+ * [com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery].
  *
  * Per-entity FIFO ordering: ops are drained in order of [enqueuedAt] within
  * `(domainName, entityId)` groups; different entities drain in parallel.
