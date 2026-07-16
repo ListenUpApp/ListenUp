@@ -532,6 +532,91 @@ class SyncEventDispatcherTest :
             }
         }
 
+        test("OptOut domain: an undecodable payload freezes the cursor exactly like a failed apply") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                // rev5's frame is undecodable — that's functionally "apply did not happen" for the
+                // hole it leaves; rev6 (another book) applies successfully but must NOT advance the
+                // cursor past the hole, or rev5's revision can never be redelivered.
+                val handler =
+                    ScriptedHandler(
+                        ArrayDeque(listOf(AppResult.Success(Unit))),
+                        hasBackstop = false,
+                    )
+                registry.register(handler)
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
+                    )
+
+                val undecodableFrame =
+                    ParsedSseFrame(id = 5L, event = "tags", data = "{not valid json for a Tag SyncEvent}")
+                dispatcher.handle(undecodableFrame) // undecodable — freezes at last-known-good
+
+                val succeededEvent =
+                    SyncEvent.Created(
+                        id = "b6",
+                        revision = 6L,
+                        occurredAt = 100L,
+                        clientOpId = null,
+                        payload = Tag("b6", "n", "n", 6L, 100L),
+                    )
+                val succeededFrame =
+                    ParsedSseFrame(
+                        id = 6L,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
+                    )
+                dispatcher.handle(succeededFrame) // applies but frozen — must not advance to 6
+
+                cursorAdvanced shouldBe null
+            }
+        }
+
+        test("digest-backed domain: an undecodable payload does not freeze — a later event still advances") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                val handler =
+                    ScriptedHandler(
+                        ArrayDeque(listOf(AppResult.Success(Unit))),
+                        hasBackstop = true,
+                    )
+                registry.register(handler)
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
+                    )
+
+                val undecodableFrame =
+                    ParsedSseFrame(id = 5L, event = "tags", data = "{not valid json for a Tag SyncEvent}")
+                dispatcher.handle(undecodableFrame) // undecodable — but digest backstop, no freeze
+
+                val succeededEvent =
+                    SyncEvent.Created(
+                        id = "b6",
+                        revision = 6L,
+                        occurredAt = 100L,
+                        clientOpId = null,
+                        payload = Tag("b6", "n", "n", 6L, 100L),
+                    )
+                val succeededFrame =
+                    ParsedSseFrame(
+                        id = 6L,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
+                    )
+                dispatcher.handle(succeededFrame)
+
+                cursorAdvanced shouldBe ("tags" to 6L)
+            }
+        }
+
         test("digest-backed domain: a failed apply does not freeze — a later event still advances (unchanged)") {
             runTest {
                 val registry = ClientSyncDomainRegistry()

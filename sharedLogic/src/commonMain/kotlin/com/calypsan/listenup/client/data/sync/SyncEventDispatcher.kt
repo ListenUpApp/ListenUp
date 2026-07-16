@@ -136,6 +136,12 @@ internal class SyncEventDispatcher(
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncEvent for domain '$domainName'" }
                 reportCompat("SSE event undecodable for domain '$domainName': ${e.message}")
+                // An undecodable frame is functionally "apply did not happen": for an OptOut domain
+                // the same freeze bookkeeping as a failed apply applies, else the un-decodable
+                // revision is permanently skipped once a later event's success would advance past it.
+                if (!typed.hasDigestBackstop) {
+                    frozenOptOutDomains += domainName
+                }
                 return
             }
         when (val result = typed.onEvent(event)) {
