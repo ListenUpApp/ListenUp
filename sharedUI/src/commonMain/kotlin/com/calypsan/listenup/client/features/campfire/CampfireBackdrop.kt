@@ -49,6 +49,8 @@ import com.calypsan.listenup.client.campfire.flameLickColor
 import com.calypsan.listenup.client.campfire.flameRadiusScale
 import com.calypsan.listenup.client.campfire.glowLayerCenteringOffsetPx
 import com.calypsan.listenup.client.campfire.glowValue
+import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.design.theme.LocalDynamicColor
 import kotlinx.coroutines.isActive
 import kotlin.math.PI
 import kotlin.math.abs
@@ -276,7 +278,16 @@ internal fun CampfireBackdrop(
         // Legibility scrim: darkest at the top where header chrome sits, fading toward the fire glow.
         Box(modifier = Modifier.fillMaxSize().background(CampfireScrimBrush))
 
-        content()
+        // The Campfire flow is always a night scene, regardless of the app's light/dark setting — so
+        // its content re-themes into the dark dynamic scheme here rather than inheriting whatever
+        // scheme is ambient at the call site (see this file's KDoc).
+        val backdropScope = this
+        ListenUpTheme(
+            darkTheme = true,
+            dynamicColor = LocalDynamicColor.current,
+        ) {
+            with(backdropScope) { content() }
+        }
     }
 }
 

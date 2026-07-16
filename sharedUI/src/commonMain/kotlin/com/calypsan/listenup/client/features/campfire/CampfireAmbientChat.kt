@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -159,14 +160,15 @@ internal fun CampfireAmbientChat(
                             Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
-                                .background(if (draft.isNotBlank()) CampfireFlowColors.Coral else Color(0x1FFFFFFF))
-                                .clickable(enabled = draft.isNotBlank()) { send() },
+                                .background(
+                                    if (draft.isNotBlank()) MaterialTheme.colorScheme.primary else Color(0x1FFFFFFF),
+                                ).clickable(enabled = draft.isNotBlank()) { send() },
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.Send,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(17.dp),
                         )
                     }
@@ -177,16 +179,16 @@ internal fun CampfireAmbientChat(
                         unfocusedTextColor = CampfireFlowColors.OnGlass,
                         focusedContainerColor = CampfireFlowColors.Glass.copy(alpha = 0.55f),
                         unfocusedContainerColor = CampfireFlowColors.Glass.copy(alpha = 0.55f),
-                        focusedBorderColor = CampfireFlowColors.Coral,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = CampfireFlowColors.GlassBorder,
                         unfocusedPlaceholderColor = CampfireFlowColors.OnGlassFaint,
                         focusedPlaceholderColor = CampfireFlowColors.OnGlassFaint,
-                        cursorColor = CampfireFlowColors.CoralBright,
+                        cursorColor = MaterialTheme.colorScheme.primary,
                     ),
             )
             val addButtonColor =
                 if (pickerOpen) {
-                    CampfireFlowColors.Coral.copy(
+                    MaterialTheme.colorScheme.primary.copy(
                         alpha = 0.3f,
                     )
                 } else {
@@ -208,7 +210,7 @@ internal fun CampfireAmbientChat(
                     Modifier
                         .size(46.dp)
                         .clip(CircleShape)
-                        .background(CampfireFlowColors.Coral.copy(alpha = 0.28f))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.28f))
                         .clickable { onQuickReact(quickEmoji) },
                 contentAlignment = Alignment.Center,
             ) {
@@ -225,7 +227,7 @@ private fun CampfireFeedRowView(row: CampfireFeedRow) {
             Box(
                 modifier =
                     Modifier.background(
-                        CampfireFlowColors.Coral.copy(alpha = 0.18f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f),
                         RoundedCornerShape(percent = 50),
                     ),
             ) {
@@ -252,7 +254,7 @@ private fun CampfireFeedRowView(row: CampfireFeedRow) {
                     Column {
                         Text(
                             text = row.senderName,
-                            color = if (row.isSelf) CampfireFlowColors.CoralBright else CampfireFlowColors.OnGlass,
+                            color = if (row.isSelf) MaterialTheme.colorScheme.primary else CampfireFlowColors.OnGlass,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
                         )

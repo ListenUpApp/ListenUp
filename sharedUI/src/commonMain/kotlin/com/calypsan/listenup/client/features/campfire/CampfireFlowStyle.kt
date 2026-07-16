@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,8 +39,6 @@ import androidx.compose.ui.unit.sp
  * always a night scene.
  */
 internal object CampfireFlowColors {
-    val Coral = Color(0xFFF0512F)
-    val CoralBright = Color(0xFFFF6A3D)
     val NightTop = Color(0xFF07060D)
     val NightBottom = Color(0xFF14101A)
     val Glass = Color(0xFF16111C)
@@ -99,9 +98,11 @@ internal fun CampfireFireButton(
     isLoading: Boolean = false,
     leadingIcon: (@Composable () -> Unit)? = null,
 ) {
+    val primary = MaterialTheme.colorScheme.primary
+    val onPrimary = MaterialTheme.colorScheme.onPrimary
     val brush =
         if (enabled) {
-            Brush.linearGradient(listOf(CampfireFlowColors.CoralBright, CampfireFlowColors.Coral))
+            Brush.linearGradient(listOf(primary, primary))
         } else {
             Brush.linearGradient(listOf(Color(0x1FFFFFFF), Color(0x1FFFFFFF)))
         }
@@ -117,7 +118,7 @@ internal fun CampfireFireButton(
             contentAlignment = Alignment.Center,
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(22.dp), color = CampfireFlowColors.OnGlass)
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), color = onPrimary)
             } else {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(9.dp),
@@ -127,7 +128,7 @@ internal fun CampfireFireButton(
                     leadingIcon?.invoke()
                     Text(
                         text = text,
-                        color = if (enabled) CampfireFlowColors.OnGlass else CampfireFlowColors.OnGlassMuted,
+                        color = if (enabled) onPrimary else CampfireFlowColors.OnGlassMuted,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.5.sp,
                     )
@@ -182,7 +183,7 @@ internal fun CampfireFlowHeader(
         androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = eyebrow,
-                color = CampfireFlowColors.CoralBright,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 11.5.sp,
                 letterSpacing = 1.4.sp,
@@ -234,12 +235,12 @@ internal fun <T> CampfireSegmentedControl(
                     onClick = { onSelect(value) },
                     modifier = Modifier.weight(1f).height(40.dp),
                     shape = RoundedCornerShape(10.dp),
-                    color = if (isSelected) CampfireFlowColors.Coral else Color.Transparent,
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = label,
-                            color = CampfireFlowColors.OnGlass,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else CampfireFlowColors.OnGlass,
                             fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
                             fontSize = 13.5.sp,
                         )
@@ -273,8 +274,8 @@ internal fun CampfireToggleRow(
             onCheckedChange = onCheckedChange,
             colors =
                 androidx.compose.material3.SwitchDefaults.colors(
-                    checkedTrackColor = CampfireFlowColors.Coral,
-                    checkedThumbColor = CampfireFlowColors.OnGlass,
+                    checkedTrackColor = MaterialTheme.colorScheme.primary,
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                     uncheckedTrackColor = Color(0x2EFFFFFF),
                     uncheckedThumbColor = CampfireFlowColors.OnGlass,
                 ),

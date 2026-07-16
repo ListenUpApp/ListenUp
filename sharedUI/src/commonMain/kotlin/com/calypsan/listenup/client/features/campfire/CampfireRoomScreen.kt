@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -156,7 +157,11 @@ internal fun CampfireRoomScreen(
                         }
                     }
                     if (isPlaying) {
-                        Icon(Icons.Default.GraphicEq, contentDescription = null, tint = CampfireFlowColors.CoralBright)
+                        Icon(
+                            Icons.Default.GraphicEq,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
             }
@@ -209,7 +214,7 @@ private fun RoomTopBar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(CampfireFlowColors.CoralBright))
+                    Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
                     Text(
                         text = stringResource(Res.string.campfire_flow_room_live),
                         color = CampfireFlowColors.OnGlass,
@@ -299,7 +304,7 @@ private fun RoomTransport(
                 colors =
                     androidx.compose.material3.SliderDefaults.colors(
                         thumbColor = CampfireFlowColors.OnGlass,
-                        activeTrackColor = CampfireFlowColors.Coral,
+                        activeTrackColor = MaterialTheme.colorScheme.primary,
                         inactiveTrackColor =
                             androidx.compose.ui.graphics
                                 .Color(0x2EFFFFFF),
@@ -319,7 +324,7 @@ private fun RoomTransport(
                             .clip(CircleShape)
                             .background(
                                 androidx.compose.ui.graphics.Brush.linearGradient(
-                                    listOf(CampfireFlowColors.CoralBright, CampfireFlowColors.Coral),
+                                    listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary),
                                 ),
                             ).clickable(onClick = onPlayPause),
                     contentAlignment = Alignment.Center,
@@ -327,7 +332,7 @@ private fun RoomTransport(
                     Icon(
                         if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = null,
-                        tint = androidx.compose.ui.graphics.Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(30.dp),
                     )
                 }
