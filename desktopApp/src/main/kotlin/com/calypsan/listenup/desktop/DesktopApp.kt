@@ -61,6 +61,9 @@ import com.calypsan.listenup.client.features.library.LibraryScreen
 import com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen
 import com.calypsan.listenup.client.features.seriesedit.SeriesEditScreen
 import com.calypsan.listenup.client.features.settings.LicensesScreen
+import com.calypsan.listenup.api.sync.EntityKind
+import com.calypsan.listenup.client.features.storyworld.StoryWorldEntityListScreen
+import com.calypsan.listenup.client.features.storyworld.StoryWorldHubScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.features.shell.AppShell
 import com.calypsan.listenup.client.features.shell.ShellDestination
@@ -173,6 +176,17 @@ sealed interface DetailDestination {
     data object AdminCategories : DetailDestination
 
     data object AdminInbox : DetailDestination
+
+    data class StoryWorldHub(
+        val seriesId: String?,
+        val bookId: String?,
+    ) : DetailDestination
+
+    data class StoryWorldEntities(
+        val seriesId: String?,
+        val bookId: String?,
+        val kind: String?,
+    ) : DetailDestination
 }
 
 /**
@@ -612,6 +626,36 @@ private fun DetailScreen(
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                 onCreateShelfClick = { navigateTo(DetailDestination.ShelfCreate) },
+            )
+        }
+
+        is DetailDestination.StoryWorldHub -> {
+            StoryWorldHubScreen(
+                seriesId = destination.seriesId,
+                bookId = destination.bookId,
+                onBackClick = navigateBack,
+                // Entity detail has no desktop destination yet — wired in the entity-detail task.
+                onEntityClick = {},
+                onKindClick = { kind ->
+                    navigateTo(
+                        DetailDestination.StoryWorldEntities(
+                            seriesId = destination.seriesId,
+                            bookId = destination.bookId,
+                            kind = kind.name,
+                        ),
+                    )
+                },
+            )
+        }
+
+        is DetailDestination.StoryWorldEntities -> {
+            StoryWorldEntityListScreen(
+                seriesId = destination.seriesId,
+                bookId = destination.bookId,
+                kindFilter = destination.kind?.let { kind -> EntityKind.entries.firstOrNull { it.name == kind } },
+                onBackClick = navigateBack,
+                // Entity detail has no desktop destination yet — wired in the entity-detail task.
+                onEntityClick = {},
             )
         }
     }
