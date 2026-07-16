@@ -62,6 +62,7 @@ import com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen
 import com.calypsan.listenup.client.features.seriesedit.SeriesEditScreen
 import com.calypsan.listenup.client.features.settings.LicensesScreen
 import com.calypsan.listenup.api.sync.EntityKind
+import com.calypsan.listenup.client.features.storyworld.EntityDetailScreen
 import com.calypsan.listenup.client.features.storyworld.StoryWorldEntityListScreen
 import com.calypsan.listenup.client.features.storyworld.StoryWorldHubScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
@@ -186,6 +187,10 @@ sealed interface DetailDestination {
         val seriesId: String?,
         val bookId: String?,
         val kind: String?,
+    ) : DetailDestination
+
+    data class StoryWorldEntityDetail(
+        val entityId: String,
     ) : DetailDestination
 }
 
@@ -634,8 +639,7 @@ private fun DetailScreen(
                 seriesId = destination.seriesId,
                 bookId = destination.bookId,
                 onBackClick = navigateBack,
-                // Entity detail has no desktop destination yet — wired in the entity-detail task.
-                onEntityClick = {},
+                onEntityClick = { entityId -> navigateTo(DetailDestination.StoryWorldEntityDetail(entityId)) },
                 onKindClick = { kind ->
                     navigateTo(
                         DetailDestination.StoryWorldEntities(
@@ -654,8 +658,14 @@ private fun DetailScreen(
                 bookId = destination.bookId,
                 kindFilter = destination.kind?.let { kind -> EntityKind.entries.firstOrNull { it.name == kind } },
                 onBackClick = navigateBack,
-                // Entity detail has no desktop destination yet — wired in the entity-detail task.
-                onEntityClick = {},
+                onEntityClick = { entityId -> navigateTo(DetailDestination.StoryWorldEntityDetail(entityId)) },
+            )
+        }
+
+        is DetailDestination.StoryWorldEntityDetail -> {
+            EntityDetailScreen(
+                entityId = destination.entityId,
+                onBackClick = navigateBack,
             )
         }
     }
