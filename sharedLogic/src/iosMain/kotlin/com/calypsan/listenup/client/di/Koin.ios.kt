@@ -76,6 +76,10 @@ import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
+import com.calypsan.listenup.client.presentation.storyworld.EntityDetailViewModel
+import com.calypsan.listenup.client.presentation.storyworld.StoryWorldEntityListViewModel
+import com.calypsan.listenup.client.presentation.storyworld.StoryWorldHubViewModel
+import com.calypsan.listenup.client.presentation.storyworld.composer.WorldComposerViewModel
 import com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel
 
 /**
@@ -309,6 +313,15 @@ object KoinHelper {
     fun getPlaybackBandwidthCoordinator(): PlaybackBandwidthCoordinator = resolve(PlaybackBandwidthCoordinator::class)
 
     fun getPlaybackPreferences(): PlaybackPreferences = resolve(PlaybackPreferences::class)
+
+    fun getStoryWorldHubViewModel(): StoryWorldHubViewModel = resolve(StoryWorldHubViewModel::class)
+
+    fun getStoryWorldEntityListViewModel(): StoryWorldEntityListViewModel =
+        resolve(StoryWorldEntityListViewModel::class)
+
+    fun getEntityDetailViewModel(): EntityDetailViewModel = resolve(EntityDetailViewModel::class)
+
+    fun getWorldComposerViewModel(): WorldComposerViewModel = resolve(WorldComposerViewModel::class)
 }
 
 /**

@@ -226,6 +226,49 @@ data class InviteRegistration(
     val inviteCode: String,
 ) : Route
 
+// Story World Routes
+
+/**
+ * Story World hub screen - the entry point into a series' or standalone book's Story World
+ * encyclopedia (entity-kind tiles, recently-updated rail, latest log entries).
+ *
+ * Exactly one of [seriesId] / [bookId] is set, mirroring
+ * [com.calypsan.listenup.client.presentation.storyworld.WorldRef].
+ *
+ * @property seriesId The series whose Story World to display, or null for a standalone book.
+ * @property bookId The standalone book whose Story World to display, or null for a series.
+ */
+@Serializable
+data class StoryWorldHub(
+    val seriesId: String? = null,
+    val bookId: String? = null,
+) : Route
+
+/**
+ * Story World entity list screen - every entity in a world, grouped by kind (or filtered to a
+ * single kind when reached from a hub kind card).
+ *
+ * @property seriesId The series whose Story World to list, or null for a standalone book.
+ * @property bookId The standalone book whose Story World to list, or null for a series.
+ * @property kind Optional [com.calypsan.listenup.api.sync.EntityKind] name to filter to a single kind.
+ */
+@Serializable
+data class StoryWorldEntities(
+    val seriesId: String? = null,
+    val bookId: String? = null,
+    val kind: String? = null,
+) : Route
+
+/**
+ * Story World entity detail screen - a single entity's page.
+ *
+ * @property entityId The unique ID of the entity to display.
+ */
+@Serializable
+data class StoryWorldEntityDetail(
+    val entityId: String,
+) : Route
+
 // Admin Routes
 
 /**

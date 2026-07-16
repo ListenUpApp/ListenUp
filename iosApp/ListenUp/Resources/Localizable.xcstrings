@@ -15141,6 +15141,606 @@
         }
       }
     },
+    "story_world.anchor_always_visible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always visible"
+          }
+        }
+      }
+    },
+    "story_world.anchor_beginning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beginning of the book"
+          }
+        }
+      }
+    },
+    "story_world.anchor_choose_position": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a specific position…"
+          }
+        }
+      }
+    },
+    "story_world.anchor_end_of_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End of the current chapter"
+          }
+        }
+      }
+    },
+    "story_world.anchor_label_always": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always visible"
+          }
+        }
+      }
+    },
+    "story_world.anchor_label_beginning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · Beginning"
+          }
+        }
+      }
+    },
+    "story_world.anchor_label_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book %1$@"
+          }
+        }
+      }
+    },
+    "story_world.anchor_label_chapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "story_world.anchor_label_time": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@ in"
+          }
+        }
+      }
+    },
+    "story_world.anchor_picker_footer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This entry stays hidden until a listener passes the point you choose. Applies instantly — no internet needed."
+          }
+        }
+      }
+    },
+    "story_world.anchor_playhead_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where you are now"
+          }
+        }
+      }
+    },
+    "story_world.anchor_visible_after": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visible after %1$@"
+          }
+        }
+      }
+    },
+    "story_world.assertion_dismiss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dismiss"
+          }
+        }
+      }
+    },
+    "story_world.books_in_world": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "story_world.composer_edit_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Entry"
+          }
+        }
+      }
+    },
+    "story_world.composer_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What happened? Mention people and places with @"
+          }
+        }
+      }
+    },
+    "story_world.composer_save": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        }
+      }
+    },
+    "story_world.composer_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Entry"
+          }
+        }
+      }
+    },
+    "story_world.delete_entity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete"
+          }
+        }
+      }
+    },
+    "story_world.delete_entity_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” and its log entries stay; entries keep mentioning the name as written. This removes the entity page."
+          }
+        }
+      }
+    },
+    "story_world.delete_entity_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete entity?"
+          }
+        }
+      }
+    },
+    "story_world.delete_entry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete entry"
+          }
+        }
+      }
+    },
+    "story_world.delete_entry_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this entry?"
+          }
+        }
+      }
+    },
+    "story_world.empty_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add the characters, locations, and items in this world. Each entry stays hidden until a listener passes the point you choose — always spoiler-safe."
+          }
+        }
+      }
+    },
+    "story_world.empty_cta": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add First Entry"
+          }
+        }
+      }
+    },
+    "story_world.empty_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Build your Story World"
+          }
+        }
+      }
+    },
+    "story_world.entity_not_found": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This entity no longer exists."
+          }
+        }
+      }
+    },
+    "story_world.entries_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d entries"
+          }
+        }
+      }
+    },
+    "story_world.entry_card_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Characters, locations & items · %1$d entries"
+          }
+        }
+      }
+    },
+    "story_world.entry_card_subtitle_empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Track characters, locations & items"
+          }
+        }
+      }
+    },
+    "story_world.entry_card_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Story World"
+          }
+        }
+      }
+    },
+    "story_world.entry_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d entry"
+          }
+        }
+      }
+    },
+    "story_world.evolution_seam_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A frontier-clipped view of this entity's arc — how each fact came to be, up to where you've listened. Arrives with Story So Far."
+          }
+        }
+      }
+    },
+    "story_world.evolution_seam_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evolution timeline"
+          }
+        }
+      }
+    },
+    "story_world.fab_add_entry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add entry"
+          }
+        }
+      }
+    },
+    "story_world.fab_new": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New"
+          }
+        }
+      }
+    },
+    "story_world.hidden_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d hidden beyond your progress"
+          }
+        }
+      }
+    },
+    "story_world.hub_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Story World"
+          }
+        }
+      }
+    },
+    "story_world.kind_character": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Character"
+          }
+        }
+      }
+    },
+    "story_world.kind_characters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Characters"
+          }
+        }
+      }
+    },
+    "story_world.kind_item": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Item"
+          }
+        }
+      }
+    },
+    "story_world.kind_items": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Items"
+          }
+        }
+      }
+    },
+    "story_world.kind_location": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Location"
+          }
+        }
+      }
+    },
+    "story_world.kind_locations": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Locations"
+          }
+        }
+      }
+    },
+    "story_world.latest_events": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latest events"
+          }
+        }
+      }
+    },
+    "story_world.quick_create_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adds a new entity to this world"
+          }
+        }
+      }
+    },
+    "story_world.quick_create_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create “%1$@”"
+          }
+        }
+      }
+    },
+    "story_world.recently_updated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recently updated"
+          }
+        }
+      }
+    },
+    "story_world.rename_entity": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename"
+          }
+        }
+      }
+    },
+    "story_world.rename_entity_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rename entity"
+          }
+        }
+      }
+    },
+    "story_world.reveal_after": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reveal after"
+          }
+        }
+      }
+    },
+    "story_world.scrubber_elapsed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$d%%"
+          }
+        }
+      }
+    },
+    "story_world.search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search characters, locations, items"
+          }
+        }
+      }
+    },
+    "story_world.show_anyway": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show anyway"
+          }
+        }
+      }
+    },
+    "story_world.spoiler_banner_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This world has books you haven't started — entity names and counts alone can reveal who and what appears."
+          }
+        }
+      }
+    },
+    "story_world.spoiler_banner_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "May contain spoilers"
+          }
+        }
+      }
+    },
+    "story_world.story_so_far_seam_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where things stand — arrives with a later update."
+          }
+        }
+      }
+    },
+    "story_world.story_so_far_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Story so far"
+          }
+        }
+      }
+    },
+    "story_world.tab_entries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entries"
+          }
+        }
+      }
+    },
+    "story_world.tab_evolution": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Evolution"
+          }
+        }
+      }
+    },
     "tag.book_count": {
       "localizations": {
         "en": {

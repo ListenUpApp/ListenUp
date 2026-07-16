@@ -120,6 +120,7 @@ import com.calypsan.listenup.client.navigation.entries.seriesEntries
 import com.calypsan.listenup.client.navigation.entries.settingsEntries
 import com.calypsan.listenup.client.navigation.entries.shelfEntries
 import com.calypsan.listenup.client.navigation.entries.shellEntry
+import com.calypsan.listenup.client.navigation.entries.storyWorldEntries
 
 private val logger = KotlinLogging.logger {}
 
@@ -787,6 +788,7 @@ private fun authenticatedNavEntries(
     librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
     bookEntries(backStack, campfireViewModel)
     seriesEntries(backStack)
+    storyWorldEntries(backStack)
     contributorEntries(backStack)
     adminEntries(backStack)
     profileEntries(

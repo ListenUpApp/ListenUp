@@ -630,6 +630,7 @@ private fun PlaybackPositionEntity.toDomain(): PlaybackPosition =
     PlaybackPosition(
         bookId = bookId.value,
         positionMs = positionMs,
+        maxPositionMs = maxPositionMs,
         playbackSpeed = playbackSpeed,
         hasCustomSpeed = hasCustomSpeed,
         updatedAtMs = updatedAt,

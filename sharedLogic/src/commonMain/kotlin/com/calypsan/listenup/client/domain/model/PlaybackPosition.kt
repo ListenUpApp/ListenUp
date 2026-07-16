@@ -8,6 +8,9 @@ package com.calypsan.listenup.client.domain.model
  *
  * @property bookId The book this position is for
  * @property positionMs Current position in the book (milliseconds)
+ * @property maxPositionMs The monotonic high-water listening frontier for this book
+ * (milliseconds) — the furthest position ever heard, used for spoiler-safe gating
+ * (Story World). Never decreases, not even when [positionMs] resets on discard/restart.
  * @property playbackSpeed Last used playback speed for this book
  * @property hasCustomSpeed Whether user explicitly set a custom speed
  * @property updatedAtMs When position was last modified locally
@@ -20,6 +23,7 @@ package com.calypsan.listenup.client.domain.model
 data class PlaybackPosition(
     val bookId: String,
     val positionMs: Long,
+    val maxPositionMs: Long = 0,
     val playbackSpeed: Float,
     val hasCustomSpeed: Boolean,
     val updatedAtMs: Long,

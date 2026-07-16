@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
@@ -431,6 +432,33 @@ class PlaybackPositionOutboxTest :
                         .shouldBeInstanceOf<AppResult.Success<*>>()
 
                     singleQueuedRequest(db).maxPositionMs shouldBe 90_000L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Story World Arc 2, Task 2: the domain-level PlaybackPosition read must carry
+        // maxPositionMs through toDomain() — the spoiler-safe frontier depends on it.
+        // ──────────────────────────────────────────────────────────────────────
+
+        test("stored maxPositionMs surfaces on the domain-level read") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(positionMs = 30_000L, maxPositionMs = 75_000L))
+
+                    val position =
+                        repo
+                            .get(bookId)
+                            .shouldBeInstanceOf<AppResult.Success<PlaybackPosition?>>()
+                            .data
+                            .shouldNotBeNull()
+
+                    position.maxPositionMs shouldBe 75_000L
                 } finally {
                     db.close()
                 }

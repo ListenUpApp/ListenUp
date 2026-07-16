@@ -179,6 +179,8 @@ fun booksModule(
             SeriesServiceImpl(
                 seriesRepo = get(),
                 bookRepo = get(),
+                entityRepo = get(),
+                worldEventRepo = get(),
                 reindexer = get(),
                 sqlDb = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),

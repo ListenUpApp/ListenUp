@@ -22,8 +22,10 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -67,6 +69,8 @@ class SeriesServiceImplAccessTest :
                 SeriesServiceImpl(
                     seriesRepo = seriesRepo,
                     bookRepo = bookRepo,
+                    entityRepo = EntityRepository(sql, bus, registry),
+                    worldEventRepo = WorldEventRepository(sql, bus, registry),
                     reindexer = reindexer,
                     sqlDb = sql,
                     accessPolicy = BookAccessPolicy(sql, driver),
