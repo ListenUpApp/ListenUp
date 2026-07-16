@@ -74,6 +74,15 @@ private const val MAX_TARGETED_IDS = 100
 // a `?bookIds=` request naming any other domain is a 400, not a query against a phantom column.
 private val BOOK_ID_MATCH_DOMAINS = setOf(ACTIVITIES_DOMAIN)
 
+// Domains whose rows carry a `collection_id` column, so a targeted `?collectionIds=` fetch (the
+// collection-membership half of the scoped AccessChanged delta) can match on it — the sibling
+// allowlist to BOOK_ID_MATCH_DOMAINS above. `collection_grants` (wire "collection_shares") also has
+// a `collection_id` column and a wired driver, so it would not SQL-error, but no client caller
+// targets it today and this route's own contract is `collectionIds` → `collection_books` only,
+// so the allowlist stays scoped to that one domain rather than growing to match every column that
+// happens to exist.
+private val COLLECTION_ID_MATCH_DOMAINS = setOf(COLLECTION_BOOKS_DOMAIN)
+
 // Admin-only domain: a row carries an absolute server filesystem path (operator disk
 // topology), which members must never see. Unlike the per-row book/collection gates, this
 // is whole-domain by role — members hold no folder rows at all, so there is nothing for them
@@ -309,6 +318,12 @@ fun Route.syncRoutes(
                 }
 
                 collectionIdsParam != null -> {
+                    if (domainName !in COLLECTION_ID_MATCH_DOMAINS) {
+                        return@get call.respond(
+                            HttpStatusCode.BadRequest,
+                            "collectionIds fetch not supported for domain: $domainName",
+                        )
+                    }
                     parseTargetedIds(collectionIdsParam)?.let { ids ->
                         typedRepo.pullByIds(
                             userId,
