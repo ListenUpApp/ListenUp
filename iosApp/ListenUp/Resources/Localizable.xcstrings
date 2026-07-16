@@ -5061,6 +5061,16 @@
         }
       }
     },
+    "campfire.return_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d around the fire"
+          }
+        }
+      }
+    },
     "campfire.spoiler_cancel": {
       "localizations": {
         "en": {
