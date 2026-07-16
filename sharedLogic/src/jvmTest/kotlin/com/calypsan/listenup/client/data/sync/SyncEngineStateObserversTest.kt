@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -21,8 +22,10 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
 
-private const val TIMEOUT_SECONDS = 5L
-private const val DEAD_LETTER_OBSERVER_TIMEOUT_SECONDS = 15L
+// Generous budget for reactive assertions that ride Room's InvalidationTracker-backed Flows,
+// whose propagation latency spikes under full-suite CI load.
+private const val OBSERVER_TIMEOUT_SECONDS = 15L
+private const val POLL_INTERVAL_MILLIS = 20L
 
 // "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
 // un-mirrored domain, matching the queue's payload-agnostic contract.
@@ -71,7 +74,7 @@ class SyncEngineStateObserversTest :
                     queue.enqueue(tagsChannel, "t2", OpKind.Upsert, "{}", "u1")
 
                     val expectedDepth = 2
-                    withTimeout(TIMEOUT_SECONDS.seconds) {
+                    withTimeout(OBSERVER_TIMEOUT_SECONDS.seconds) {
                         state.observe().first { it.pendingQueueDepth == expectedDepth }
                     }
                 } finally {
@@ -123,16 +126,22 @@ class SyncEngineStateObserversTest :
                             ),
                         )
 
-                    // Await the DAO's own visibility of the insert BEFORE asserting on the engine's
-                    // observer pipeline — Room's InvalidationTracker propagation latency is a separate
-                    // (and separately load-sensitive) concern from whether SyncEngineState correctly
-                    // forwards observeDeadLetterCount(). Splitting the two means a failure here can only
-                    // mean the engine's forwarding is broken, never that the write hadn't landed yet.
-                    withTimeout(TIMEOUT_SECONDS.seconds) {
-                        db.pendingOperationV2Dao().observeDeadLetterCount().first { it == 1 }
+                    // Confirm the insert landed BEFORE asserting on the engine's observer pipeline,
+                    // using a one-shot suspend read (countDeadLetters) rather than the reactive
+                    // observeDeadLetterCount() Flow. A direct SELECT sees the committed row at once;
+                    // collecting the Flow would instead wait on Room's InvalidationTracker, whose
+                    // propagation latency is load-sensitive and unrelated to whether the write landed —
+                    // the original source of this test's flakiness under full-suite CI load.
+                    withTimeout(OBSERVER_TIMEOUT_SECONDS.seconds) {
+                        while (db.pendingOperationV2Dao().countDeadLetters() != 1) {
+                            delay(POLL_INTERVAL_MILLIS)
+                        }
                     }
 
-                    withTimeout(DEAD_LETTER_OBSERVER_TIMEOUT_SECONDS.seconds) {
+                    // Now the genuinely reactive assertion: SyncEngineState forwards the DAO's
+                    // dead-letter count. This one legitimately rides the InvalidationTracker-backed
+                    // Flow, so it gets the same generous budget.
+                    withTimeout(OBSERVER_TIMEOUT_SECONDS.seconds) {
                         state.observe().first { it.deadLetterCount == 1 }
                     }
                 } finally {

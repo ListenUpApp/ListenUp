@@ -109,6 +109,8 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
 
     override fun observeDeadLetterCount(maxAttempts: Int): Flow<Int> = flowOf(0)
 
+    override suspend fun countDeadLetters(maxAttempts: Int): Int = 0
+
     override suspend fun deleteAllExcept(keepUserId: String) {
         inserted.removeAll { it.ownerUserId != keepUserId }
     }

@@ -627,6 +627,8 @@ private class CountingDao(
 
     override fun observeDeadLetterCount(maxAttempts: Int) = delegate.observeDeadLetterCount(maxAttempts)
 
+    override suspend fun countDeadLetters(maxAttempts: Int) = delegate.countDeadLetters(maxAttempts)
+
     override suspend fun deleteAllExcept(keepUserId: String) = delegate.deleteAllExcept(keepUserId)
 
     override suspend fun deleteAll() = delegate.deleteAll()

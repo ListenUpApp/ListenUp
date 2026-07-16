@@ -104,6 +104,15 @@ internal interface PendingOperationV2Dao {
     fun observeDeadLetterCount(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>
 
     /**
+     * One-shot dead-letter count — the same predicate as [observeDeadLetterCount] read directly.
+     * A plain suspend `SELECT` sees a committed write immediately, without waiting on Room's
+     * [androidx.room.InvalidationTracker] to notify the reactive Flow; tests use it to confirm a
+     * write landed deterministically, decoupled from invalidation-propagation latency.
+     */
+    @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount > :maxAttempts")
+    suspend fun countDeadLetters(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Int
+
+    /**
      * Live snapshots of ops still within retry budget, oldest first. Backs the
      * sync indicator's visible pending list.
      */
