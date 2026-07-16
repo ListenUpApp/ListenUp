@@ -13,11 +13,11 @@ import java.nio.file.Paths
 import kotlinx.coroutines.runBlocking
 
 /**
- * Drift guard for the committed Room schema baseline (currently **v4** — the v3 export with the
- * dormant BlurHash columns dropped).
+ * Drift guard for the committed Room schema baseline (currently **v5** — the v4 export with the
+ * dead `cover_download_queue` table dropped).
  *
  * PR #1060 collapsed the client migration chain to a single committed export; the current
- * authoritative baseline is `schemas/…/ListenUpDatabase/4.json`. Nothing else asserts that
+ * authoritative baseline is `schemas/…/ListenUpDatabase/5.json`. Nothing else asserts that
  * this JSON still matches the compiled `@Entity` set: Room's Gradle plugin *re-exports* the
  * JSON on build instead of failing, so an entity edit that forgets to commit the regenerated
  * `2.json` — or a JSON edit that doesn't match the entities — is invisible to CI.
@@ -37,7 +37,7 @@ import kotlinx.coroutines.runBlocking
  */
 class SchemaBaselineDriftTest :
     FunSpec({
-        test("compiled ListenUpDatabase opens a database created from the committed 4.json baseline") {
+        test("compiled ListenUpDatabase opens a database created from the committed 5.json baseline") {
             // Resolve the exported-schema directory the same way the shared helper does:
             // Gradle runs :sharedLogic:jvmTest with the module root as working directory,
             // so `schemas` points at the Room-plugin export folder.
@@ -65,7 +65,7 @@ class SchemaBaselineDriftTest :
             try {
                 // Create the schema in `databasePath` FROM the committed 4.json (this also
                 // writes the JSON's identity hash into room_master_table), then release it.
-                helper.createDatabase(version = 4).close()
+                helper.createDatabase(version = 5).close()
 
                 // Reopen the SAME file with the real compiled database — deliberately WITHOUT
                 // fallbackToDestructiveMigration, so Room's identity-hash validation runs
@@ -78,8 +78,8 @@ class SchemaBaselineDriftTest :
 
                 try {
                     withClue(
-                        "committed 4.json no longer matches the compiled @Entity schema — " +
-                            "regenerate sharedLogic/schemas/…/ListenUpDatabase/4.json " +
+                        "committed 5.json no longer matches the compiled @Entity schema — " +
+                            "regenerate sharedLogic/schemas/…/ListenUpDatabase/5.json " +
                             "(the build re-exports it) and commit the diff",
                     ) {
                         // First connection use forces Room to open and validate the stored
