@@ -53,6 +53,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_done
 import listenup.composeapp.generated.resources.story_world_reveal_after
+import listenup.composeapp.generated.resources.story_world_scrubber_elapsed
 
 private val TRACK_HEIGHT = 6.dp
 private val THUMB_SIZE = 28.dp
@@ -210,7 +211,7 @@ private fun PositionScrubber(
         if (trackWidthPx <= 0f) {
             0L
         } else {
-            ((px / trackWidthPx) * safeDurationMs).toLong().coerceIn(0L, durationMs)
+            (px / trackWidthPx * safeDurationMs).toLong().coerceIn(0L, durationMs)
         }
 
     fun msToFraction(ms: Long): Float = (ms.toFloat() / safeDurationMs).coerceIn(0f, 1f)
@@ -321,7 +322,10 @@ private fun ElapsedRow(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(text = "$elapsed · $percent%", style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = stringResource(Res.string.story_world_scrubber_elapsed, elapsed, percent.toInt()),
+            style = MaterialTheme.typography.bodyMedium,
+        )
         Text(
             text = total,
             style = MaterialTheme.typography.bodySmall,

@@ -15,7 +15,9 @@ data class WorldRef(
     val bookId: String? = null,
 ) {
     init {
-        require((seriesId == null) != (bookId == null)) {
+        val hasSeries = seriesId != null
+        val hasBook = bookId != null
+        require(hasSeries != hasBook) {
             "exactly one of seriesId/bookId must be set"
         }
     }

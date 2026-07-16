@@ -75,7 +75,7 @@ sealed interface AnchorSelection {
 
 /**
  * One of this world's books, exposed for the composer's anchor picker (see
- * [ComposerUiState.worldBooks]). The UI maps this to
+ * [ComposerState.worldBooks]). The UI maps this to
  * [com.calypsan.listenup.client.features.storyworld.AnchorBook] — that type lives in `sharedUI`,
  * so this ViewModel can't reference it directly.
  *
@@ -132,7 +132,7 @@ data class AssertionUi(
  *   [playheadSnapshot], or null when unavailable (nothing playing, or the position falls
  *   outside every known chapter).
  */
-data class ComposerUiState(
+data class ComposerState(
     val displayText: String,
     val cursor: Int,
     val mentionSpans: List<IntRange>,
@@ -153,8 +153,8 @@ data class ComposerUiState(
 ) {
     companion object {
         /** The sheet's state before [WorldComposerViewModel.start] has produced anything. */
-        fun empty(): ComposerUiState =
-            ComposerUiState(
+        fun empty(): ComposerState =
+            ComposerState(
                 displayText = "",
                 cursor = 0,
                 mentionSpans = emptyList(),
@@ -278,7 +278,7 @@ class WorldComposerViewModel(
 
     /**
      * All of this world's books' chapters, keyed by book id — lets the position scrubber sheet
-     * switch books locally (see [ComposerUiState.worldBookChapters]) without a VM round trip.
+     * switch books locally (see [ComposerState.worldBookChapters]) without a VM round trip.
      */
     private val worldBookChaptersFlow: Flow<Map<String, List<Chapter>>> =
         worldBooksFlow.flatMapLatest { books ->
@@ -321,15 +321,13 @@ class WorldComposerViewModel(
     /** "End of the current chapter" derived from the live playhead — null when unavailable. */
     private val endOfChapterOptionFlow: Flow<AnchorSelection.EndOfCurrentChapter?> =
         combine(playheadSnapshotFlow, playheadChaptersFlow) { playhead, chapters ->
-            if (playhead == null) {
-                null
-            } else {
+            playhead?.let { snapshot ->
                 chapters
-                    .lastOrNull { it.startTime <= playhead.positionMs }
-                    ?.takeIf { playhead.positionMs < it.startTime + it.duration }
+                    .lastOrNull { it.startTime <= snapshot.positionMs }
+                    ?.takeIf { snapshot.positionMs < it.startTime + it.duration }
                     ?.let { chapter ->
                         AnchorSelection.EndOfCurrentChapter(
-                            playhead.bookId,
+                            snapshot.bookId,
                             chapter.startTime + chapter.duration,
                         )
                     }
@@ -357,7 +355,7 @@ class WorldComposerViewModel(
         }
 
     /** The composer sheet's current UI state. */
-    val state: StateFlow<ComposerUiState> =
+    val state: StateFlow<ComposerState> =
         combine(
             editorFlow,
             worldEntitiesFlow,
@@ -366,7 +364,7 @@ class WorldComposerViewModel(
             pickerDataFlow,
         ) { editor, entities, bookLabels, chapters, picker ->
             buildUiState(editor, entities, bookLabels, chapters, picker)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), ComposerUiState.empty())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), ComposerState.empty())
 
     /**
      * Load the sheet for [world] — a brand-new note (optionally pre-mentioning
@@ -493,8 +491,8 @@ class WorldComposerViewModel(
 
     /**
      * Resolves the [AnchorLabel] the position scrubber sheet's confirm bar shows while the author
-     * is still dragging — computed from [state]'s already-loaded [ComposerUiState.worldBooks] /
-     * [ComposerUiState.worldBookChapters] without touching [selectAnchor]'s committed anchor. The
+     * is still dragging — computed from [state]'s already-loaded [ComposerState.worldBooks] /
+     * [ComposerState.worldBookChapters] without touching [selectAnchor]'s committed anchor. The
      * scrubber sheet holds its in-progress `(bookId, positionMs)` as sheet-local UI state (not
      * routed through the VM per drag), so this is a synchronous read, not a [Flow].
      */
@@ -587,7 +585,7 @@ class WorldComposerViewModel(
     private fun EditorState.currentAssertion(): Assertion? =
         if (usingStoredAssertion) storedAssertion else AssertionParser.parse(document.segments)
 
-    /** This world's books in reading order — see [ComposerUiState.worldBooks]. */
+    /** This world's books in reading order — see [ComposerState.worldBooks]. */
     private fun observeWorldBooks(world: WorldRef): Flow<List<ComposerWorldBook>> =
         if (world.seriesId != null) {
             seriesRepository.observeSeriesWithBooks(world.seriesId).map { seriesWithBooks ->
@@ -621,13 +619,13 @@ class WorldComposerViewModel(
         bookLabels: Map<String, String>,
         chapters: List<Chapter>,
         picker: PickerData,
-    ): ComposerUiState {
+    ): ComposerState {
         val document = editor.document
         val trigger = document.activeTrigger()
         val currentAssertion = editor.currentAssertion()
         val (anchorBookId, anchorPositionMs) = editor.anchor.toAnchorPair()
 
-        return ComposerUiState(
+        return ComposerState(
             displayText = document.displayText(),
             cursor = document.cursor,
             mentionSpans = document.mentionSpans(),

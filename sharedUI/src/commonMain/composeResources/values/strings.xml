@@ -1565,6 +1565,7 @@ One beautiful library.</string>
     <string name="story_world_rename_entity">Rename</string>
     <string name="story_world_rename_entity_title">Rename entity</string>
     <string name="story_world_reveal_after">Reveal after</string>
+    <string name="story_world_scrubber_elapsed">%1$s · %2$d%%</string>
     <string name="story_world_search_placeholder">Search characters, locations, items</string>
     <string name="story_world_show_anyway">Show anyway</string>
     <string name="story_world_spoiler_banner_body">This world has books you haven't started — entity names and counts alone can reveal who and what appears.</string>

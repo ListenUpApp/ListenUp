@@ -1633,6 +1633,7 @@
     "anchor_choose_position": "Choose a specific position…",
     "anchor_visible_after": "Visible after %1$s",
     "anchor_picker_footer": "This entry stays hidden until a listener passes the point you choose. Applies instantly — no internet needed.",
+    "scrubber_elapsed": "%1$s · %2$d%%",
     "anchor_label_always": "Always visible",
     "anchor_label_beginning": "%1$s · Beginning",
     "anchor_label_chapter": "%1$s · %2$s",

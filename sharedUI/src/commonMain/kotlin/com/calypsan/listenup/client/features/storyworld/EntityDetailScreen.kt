@@ -120,9 +120,6 @@ fun EntityDetailScreen(
         }
     }
 
-    var showRenameDialog by rememberSaveable { mutableStateOf(false) }
-    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
-    var selectedTab by rememberSaveable { mutableStateOf(EntityDetailTab.Entries) }
     var showComposer by rememberSaveable { mutableStateOf(false) }
     var composerEditEventId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -152,71 +149,108 @@ fun EntityDetailScreen(
                 }
 
                 is EntityDetailUiState.Ready -> {
-                    val wide =
-                        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
-                            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
-                        )
-                    val onEditEntry: (String) -> Unit = { eventId ->
-                        composerEditEventId = eventId
-                        showComposer = true
-                    }
-                    if (wide) {
-                        WideEntityDetailContent(
-                            state = current,
-                            selectedTab = selectedTab,
-                            onTabSelected = { selectedTab = it },
-                            onBackClick = onBackClick,
-                            onRenameClick = { showRenameDialog = true },
-                            onDeleteClick = { showDeleteDialog = true },
-                            onShowHidden = viewModel::showHidden,
-                            onEditEntry = onEditEntry,
-                            onDeleteEntry = viewModel::deleteEntry,
-                        )
-                    } else {
-                        NarrowEntityDetailContent(
-                            state = current,
-                            selectedTab = selectedTab,
-                            onTabSelected = { selectedTab = it },
-                            onBackClick = onBackClick,
-                            onRenameClick = { showRenameDialog = true },
-                            onDeleteClick = { showDeleteDialog = true },
-                            onShowHidden = viewModel::showHidden,
-                            onEditEntry = onEditEntry,
-                            onDeleteEntry = viewModel::deleteEntry,
-                        )
-                    }
-
-                    if (showRenameDialog) {
-                        RenameEntityDialog(
-                            currentName = current.entity.name,
-                            onDismissRequest = { showRenameDialog = false },
-                            onConfirm = { newName ->
-                                viewModel.rename(newName)
-                                showRenameDialog = false
-                            },
-                        )
-                    }
-                    if (showDeleteDialog) {
-                        DeleteEntityDialog(
-                            entityName = current.entity.name,
-                            onDismissRequest = { showDeleteDialog = false },
-                            onConfirm = {
-                                showDeleteDialog = false
-                                viewModel.deleteEntity()
-                            },
-                        )
-                    }
-                    if (showComposer) {
-                        ComposerSheet(
-                            world = current.world,
-                            prefillMentionEntityId = if (composerEditEventId == null) entityId else null,
-                            editEventId = composerEditEventId,
-                            onDismiss = { showComposer = false },
-                        )
-                    }
+                    EntityDetailReadyContent(
+                        entityId = entityId,
+                        current = current,
+                        onBackClick = onBackClick,
+                        onRename = viewModel::rename,
+                        onDeleteEntity = viewModel::deleteEntity,
+                        onDeleteEntry = viewModel::deleteEntry,
+                        onShowHidden = viewModel::showHidden,
+                        showComposer = showComposer,
+                        composerEditEventId = composerEditEventId,
+                        onEditEntry = { eventId ->
+                            composerEditEventId = eventId
+                            showComposer = true
+                        },
+                        onCloseComposer = { showComposer = false },
+                    )
                 }
             }
         }
+    }
+}
+
+/**
+ * The Ready-state body: adaptive narrow/wide content plus the rename/delete dialogs and the
+ * hosted composer sheet. Extracted from [EntityDetailScreen] to keep the screen's state
+ * dispatch simple; dialog and tab state live here because they only exist while Ready.
+ */
+@Composable
+private fun EntityDetailReadyContent(
+    entityId: String,
+    current: EntityDetailUiState.Ready,
+    onBackClick: () -> Unit,
+    onRename: (String) -> Unit,
+    onDeleteEntity: () -> Unit,
+    onDeleteEntry: (String) -> Unit,
+    onShowHidden: () -> Unit,
+    showComposer: Boolean,
+    composerEditEventId: String?,
+    onEditEntry: (String?) -> Unit,
+    onCloseComposer: () -> Unit,
+) {
+    var showRenameDialog by rememberSaveable { mutableStateOf(false) }
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableStateOf(EntityDetailTab.Entries) }
+
+    val wide =
+        currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
+            WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
+        )
+    if (wide) {
+        WideEntityDetailContent(
+            state = current,
+            selectedTab = selectedTab,
+            onTabSelected = { selectedTab = it },
+            onBackClick = onBackClick,
+            onRenameClick = { showRenameDialog = true },
+            onDeleteClick = { showDeleteDialog = true },
+            onShowHidden = onShowHidden,
+            onEditEntry = onEditEntry,
+            onDeleteEntry = onDeleteEntry,
+        )
+    } else {
+        NarrowEntityDetailContent(
+            state = current,
+            selectedTab = selectedTab,
+            onTabSelected = { selectedTab = it },
+            onBackClick = onBackClick,
+            onRenameClick = { showRenameDialog = true },
+            onDeleteClick = { showDeleteDialog = true },
+            onShowHidden = onShowHidden,
+            onEditEntry = onEditEntry,
+            onDeleteEntry = onDeleteEntry,
+        )
+    }
+
+    if (showRenameDialog) {
+        RenameEntityDialog(
+            currentName = current.entity.name,
+            onDismissRequest = { showRenameDialog = false },
+            onConfirm = { newName ->
+                onRename(newName)
+                showRenameDialog = false
+            },
+        )
+    }
+    if (showDeleteDialog) {
+        DeleteEntityDialog(
+            entityName = current.entity.name,
+            onDismissRequest = { showDeleteDialog = false },
+            onConfirm = {
+                showDeleteDialog = false
+                onDeleteEntity()
+            },
+        )
+    }
+    if (showComposer) {
+        ComposerSheet(
+            world = current.world,
+            prefillMentionEntityId = if (composerEditEventId == null) entityId else null,
+            editEventId = composerEditEventId,
+            onDismiss = onCloseComposer,
+        )
     }
 }
 

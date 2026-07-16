@@ -42,7 +42,7 @@ import com.calypsan.listenup.client.features.storyworld.components.SuggestionPop
 import com.calypsan.listenup.client.features.storyworld.components.anchorLabelText
 import com.calypsan.listenup.client.presentation.storyworld.WorldRef
 import com.calypsan.listenup.client.presentation.storyworld.composer.AnchorSelection
-import com.calypsan.listenup.client.presentation.storyworld.composer.ComposerUiState
+import com.calypsan.listenup.client.presentation.storyworld.composer.ComposerState
 import com.calypsan.listenup.client.presentation.storyworld.composer.ComposerWorldBook
 import com.calypsan.listenup.client.presentation.storyworld.composer.WorldComposerEvent
 import com.calypsan.listenup.client.presentation.storyworld.composer.WorldComposerViewModel
@@ -295,7 +295,7 @@ private fun ComposerWorldBook.toAnchorBook(): AnchorBook =
  * tapped: the current anchor's own book+position when it carries one, else the live playhead's,
  * else this world's first book at the very beginning.
  */
-private fun seedScrubber(state: ComposerUiState): Pair<String, Long> =
+private fun seedScrubber(state: ComposerState): Pair<String, Long> =
     when (val anchor = state.anchor) {
         is AnchorSelection.Custom -> anchor.bookId to anchor.positionMs
         is AnchorSelection.Playhead -> anchor.bookId to anchor.positionMs

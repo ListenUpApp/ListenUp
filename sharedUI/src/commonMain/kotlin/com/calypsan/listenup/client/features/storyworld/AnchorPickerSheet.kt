@@ -110,7 +110,6 @@ fun AnchorPickerSheet(
 
             if (playheadSnapshot != null && playheadSummary != null) {
                 PlayheadCard(
-                    snapshot = playheadSnapshot,
                     summary = playheadSummary,
                     selected = current is AnchorSelection.Playhead,
                     onClick = { onSelect(playheadSnapshot) },
@@ -145,7 +144,6 @@ private fun AnchorPickerHeader(currentSummary: String) {
 /** Highlighted "where you are now" card — the live playhead anchor, when available. */
 @Composable
 private fun PlayheadCard(
-    snapshot: AnchorSelection.Playhead,
     summary: String,
     selected: Boolean,
     onClick: () -> Unit,

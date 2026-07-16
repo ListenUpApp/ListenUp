@@ -106,7 +106,7 @@ internal data class ComposerDocument(
         for (segment in segments) {
             val length = segment.displayLength()
             if (segment is Segment.Mention) {
-                spans += offset until (offset + length)
+                spans += offset until offset + length
             }
             offset += length
         }
@@ -179,7 +179,7 @@ internal data class ComposerDocument(
     fun activeTrigger(): Trigger? {
         val display = displayText()
         val spans = mentionSpans()
-        for (index in (cursor - 1) downTo 0) {
+        for (index in cursor - 1 downTo 0) {
             if (spans.any { index in it }) continue
             val ch = display[index]
             if (ch == '\n') return null

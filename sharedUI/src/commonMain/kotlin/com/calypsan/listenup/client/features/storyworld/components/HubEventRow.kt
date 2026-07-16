@@ -35,7 +35,13 @@ import com.calypsan.listenup.client.presentation.storyworld.EventRow
 
 private val TILE_SIZE = 36.dp
 private const val TILE_TINT_ALPHA = 0.18f
-private val TILE_ICON_RATIO = 0.52f
+private const val TILE_ICON_RATIO = 0.52f
+
+private val TINT_ENTERS = Color(0xFF1F8A5B)
+private val TINT_EXITS = Color(0xFFC0562F)
+private val TINT_MOVES = Color(0xFF2E8BFF)
+private val TINT_DEPARTS = Color(0xFF5B7A8E)
+private val TINT_NOTE = Color(0xFFC98A2E)
 
 /**
  * A single "Latest events" row on the Story World hub: a type-tinted icon tile, the entry's
@@ -108,13 +114,13 @@ private fun HubEventItem(event: EventRow) {
  */
 internal fun WorldEventType.iconAndTint(): Pair<ImageVector, Color> =
     when (this) {
-        WorldEventType.ENTERS_SCENE -> Icons.AutoMirrored.Outlined.Login to Color(0xFF1F8A5B)
+        WorldEventType.ENTERS_SCENE -> Icons.AutoMirrored.Outlined.Login to TINT_ENTERS
 
-        WorldEventType.EXITS_SCENE -> Icons.AutoMirrored.Outlined.Logout to Color(0xFFC0562F)
+        WorldEventType.EXITS_SCENE -> Icons.AutoMirrored.Outlined.Logout to TINT_EXITS
 
-        WorldEventType.MOVES_TO -> Icons.AutoMirrored.Outlined.ArrowForward to Color(0xFF2E8BFF)
+        WorldEventType.MOVES_TO -> Icons.AutoMirrored.Outlined.ArrowForward to TINT_MOVES
 
-        WorldEventType.DEPARTS -> Icons.Outlined.ArrowOutward to Color(0xFF5B7A8E)
+        WorldEventType.DEPARTS -> Icons.Outlined.ArrowOutward to TINT_DEPARTS
 
         WorldEventType.NOTE,
         WorldEventType.ALIAS,
@@ -122,5 +128,5 @@ internal fun WorldEventType.iconAndTint(): Pair<ImageVector, Color> =
         WorldEventType.DIES,
         WorldEventType.ITEM_TRANSFER,
         WorldEventType.RELATIONSHIP_CHANGE,
-        -> Icons.AutoMirrored.Outlined.Notes to Color(0xFFC98A2E)
+        -> Icons.AutoMirrored.Outlined.Notes to TINT_NOTE
     }

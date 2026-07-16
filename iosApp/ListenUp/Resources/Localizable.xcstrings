@@ -15641,6 +15641,16 @@
         }
       }
     },
+    "story_world.scrubber_elapsed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$d%%"
+          }
+        }
+      }
+    },
     "story_world.search_placeholder": {
       "localizations": {
         "en": {
