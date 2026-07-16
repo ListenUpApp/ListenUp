@@ -147,8 +147,28 @@ jobs:
       # :build-logic:convention:test runs the build-logic convention tests, including
       # ReturnValueGuardCanaryTest — the compiler-flag canary that fails if a Kotlin bump
       # silently disarms the AppResult must-use guard.
+      # :rpc-guard-ksp:test and :build-logic:detekt-rules:test gate the guards themselves.
+      # Both suites previously ran nowhere gating (rpc-guard-ksp only under the
+      # continue-on-error Kover step; detekt-rules under nothing at all), so the
+      # RPC exception-guard processor and the custom detekt rules could rot green —
+      # the rules are the only thing enforcing CLAUDE.md security rule 6 (no stacktrace
+      # crosses the wire) and the en.json localization contract.
       - name: Run JVM tests
-        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest :build-logic:convention:test --no-daemon
+        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest :rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon
+
+      # Generated-and-committed artifacts must match what this build regenerates. Room's
+      # schemaDirectory points at the tracked sharedLogic/schemas/, so every KSP run rewrites
+      # the current version's JSON IN PLACE — an entity change whose regenerated schema was
+      # never committed lands green today (CI regenerates it fresh, and the migration tests
+      # run against the regenerated copy, not the committed one), leaving the NEXT migration
+      # to be authored against a stale schema. strings/licenses have verify* gates; schemas
+      # had none. This is the generic backstop: any tracked file the build rewrites fails here.
+      - name: Verify no generated-artifact drift
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Tracked files were modified by the build — commit the regenerated artifacts (see the diff above)."
+            exit 1
+          fi
 
       # The E2E retry extensions (sharedLogic + server ProjectConfig) absorb transient
       # failures, so a flaking spec can trend worse while runs stay green. Each retry is

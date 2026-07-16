@@ -49,9 +49,12 @@ if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
   [[ -z "$SHARED" ]] && SHARED="$(find sharedLogic/build -name 'Shared.swift' -path '*Shared*' 2>/dev/null | head -1)"
 fi
 if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
-  echo "WARN: Shared.swift not found — skipping export-surface inventory (run :sharedLogic:embedSwiftExportForXcode first)."
-  # A missing surface is not a regression; the framework build step gates separately.
-  exit 0
+  echo "export-surface-inventory: Shared.swift not found (run :sharedLogic:embedSwiftExportForXcode first)." >&2
+  # Fail closed, matching check-no-appresult-await.sh. The previous `exit 0` here meant a
+  # Swift-Export/Gradle change that RELOCATED the SPMPackage output would silently disarm this
+  # gate forever — leaving a WARN line in a green log. "The framework build step gates separately"
+  # does not hold: the same relocation breaks both, so neither would fail.
+  exit 2
 fi
 
 echo "== Export-surface inventory: $SHARED =="

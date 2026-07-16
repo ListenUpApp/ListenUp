@@ -121,9 +121,11 @@ tasks.register("verifyLocal") {
         ":sharedLogic:testAndroidHostTest",
         ":server:jvmTest",
         ":sharedUI:testAndroidHostTest",
+        ":rpc-guard-ksp:test",
     )
     // build-logic is an included build (settings.gradle.kts: includeBuild("build-logic")) — a plain
     // ":build-logic:convention:test" string would be resolved against this build's project tree and
     // fail, so address the task through the composite-build API.
     dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))
+    dependsOn(gradle.includedBuild("build-logic").task(":detekt-rules:test"))
 }
