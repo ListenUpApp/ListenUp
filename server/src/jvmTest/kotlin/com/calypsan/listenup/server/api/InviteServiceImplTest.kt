@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
+import com.calypsan.listenup.server.auth.InviteRateLimiter
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
@@ -31,6 +32,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotBeBlank
@@ -70,14 +72,19 @@ class InviteServiceImplTest :
             return SessionIssuer(sessions, jwt, fixedClock)
         }
 
-        fun makeInviteService(sql: ListenUpDatabase): InviteServiceImpl =
+        fun makeInviteService(
+            sql: ListenUpDatabase,
+            hasher: Argon2Limiter = Argon2Limiter(PasswordHasher()),
+            inviteRateLimiter: InviteRateLimiter? = null,
+        ): InviteServiceImpl =
             InviteServiceImpl(
                 db = sql,
                 codeGenerator = InviteCodeGenerator(),
-                hasher = Argon2Limiter(PasswordHasher()),
+                hasher = hasher,
                 sessionIssuer = sessionIssuerFor(sql),
                 serverName = serverName,
                 clock = fixedClock,
+                inviteRateLimiter = inviteRateLimiter,
             )
 
         fun InviteServiceImpl.actAs(
@@ -389,6 +396,71 @@ class InviteServiceImplTest :
                     val expired = makeInviteService(sql).lookupInvite(invite.code).shouldSucceed()
                     expired.valid shouldBe false
                     expired.invalidReason shouldBe "This invite has expired."
+                }
+            }
+        }
+
+        // ── RPC public-mount rate limiting (SEC-02) ─────────────────────────────
+
+        test("claimInvite rate-limits repeated attempts from one host; a different host is unaffected") {
+            withSqlDatabase {
+                runTest {
+                    val limiter = InviteRateLimiter(clock = fixedClock)
+                    val base = makeInviteService(sql, inviteRateLimiter = limiter)
+                    // CLAIM bucket ceiling is 5/min — the invite code doesn't need to be valid for the
+                    // throttle to count the attempt (mirrors AuthServiceImpl's login throttle, which
+                    // counts before credential validation).
+                    repeat(5) { i ->
+                        base.withRemoteHost("1.1.1.1").claimInvite("bogus-$i", "password123").shouldFail<InviteError.NotFound>()
+                    }
+                    val throttled =
+                        base
+                            .withRemoteHost("1.1.1.1")
+                            .claimInvite("bogus-6", "password123")
+                            .shouldFail<AuthError.RateLimited>()
+                    throttled.retryAfterSeconds shouldBeGreaterThan 0
+                    // A different host has its own bucket and is unaffected.
+                    base
+                        .withRemoteHost("2.2.2.2")
+                        .claimInvite("bogus-x", "password123")
+                        .shouldFail<InviteError.NotFound>()
+                }
+            }
+        }
+
+        test("lookupInvite rate-limits repeated attempts from one host; a different host is unaffected") {
+            withSqlDatabase {
+                runTest {
+                    val limiter = InviteRateLimiter(clock = fixedClock)
+                    val base = makeInviteService(sql, inviteRateLimiter = limiter)
+                    // LOOKUP bucket ceiling is 20/min.
+                    repeat(20) { i ->
+                        base.withRemoteHost("1.1.1.1").lookupInvite("bogus-$i").shouldFail<InviteError.NotFound>()
+                    }
+                    val throttled =
+                        base.withRemoteHost("1.1.1.1").lookupInvite("bogus-21").shouldFail<AuthError.RateLimited>()
+                    throttled.retryAfterSeconds shouldBeGreaterThan 0
+                    base.withRemoteHost("2.2.2.2").lookupInvite("bogus-x").shouldFail<InviteError.NotFound>()
+                }
+            }
+        }
+
+        test("claimInvite on an unknown code fails WITHOUT hashing the password") {
+            withSqlDatabase {
+                runTest {
+                    var hashCalls = 0
+                    val countingHasher =
+                        Argon2Limiter(
+                            permits = 1,
+                            hashFn = {
+                                hashCalls++
+                                "hash"
+                            },
+                            verifyFn = { _, _ -> false },
+                        )
+                    val svc = makeInviteService(sql, hasher = countingHasher)
+                    svc.claimInvite("no-such-code", "password123").shouldFail<InviteError.NotFound>()
+                    hashCalls shouldBe 0
                 }
             }
         }

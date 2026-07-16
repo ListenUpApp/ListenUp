@@ -19,7 +19,10 @@ import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.AuthUser
 import com.calypsan.listenup.server.auth.Email
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
+import com.calypsan.listenup.server.auth.InviteRateBucket
+import com.calypsan.listenup.server.auth.InviteRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RateDecision
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
@@ -79,6 +82,19 @@ class InviteServiceImpl(
      * environments, phased startup). A null value silently skips the roster-projection refresh.
      */
     private val adminUserRosterMaintainer: AdminUserRosterMaintainer? = null,
+    /**
+     * The caller's remote host, captured at the `/api/rpc/public` mount and threaded in via
+     * [withRemoteHost]. Non-null only on the RPC public path, where [inviteRateLimiter] enforces the
+     * per-IP throttle on [claimInvite] / [lookupInvite]; null on REST (throttled by the Ktor
+     * `RateLimit` plugin) and in unit tests.
+     */
+    private val remoteHost: String? = null,
+    /**
+     * The RPC-path per-IP throttle for the anonymous invite surface (SEC-02). Non-null in
+     * production; null in unit tests and on the REST path, where the throttle is a no-op (the Ktor
+     * `RateLimit` plugin covers REST).
+     */
+    private val inviteRateLimiter: InviteRateLimiter? = null,
 ) : InviteService,
     InviteServicePublic {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
@@ -93,6 +109,28 @@ class InviteServiceImpl(
             provider,
             defaultGrantIssuer,
             adminUserRosterMaintainer,
+            remoteHost,
+            inviteRateLimiter,
+        )
+
+    /**
+     * Bind the caller's [remoteHost] so the RPC public mount's per-IP throttle
+     * ([inviteRateLimiter]) keys on it. The REST path never calls this — its throttle is the Ktor
+     * `RateLimit` plugin.
+     */
+    fun withRemoteHost(remoteHost: String): InviteServiceImpl =
+        InviteServiceImpl(
+            db,
+            codeGenerator,
+            hasher,
+            sessionIssuer,
+            serverName,
+            clock,
+            principal,
+            defaultGrantIssuer,
+            adminUserRosterMaintainer,
+            remoteHost,
+            inviteRateLimiter,
         )
 
     override suspend fun createInvite(
@@ -174,10 +212,18 @@ class InviteServiceImpl(
         displayName: String?,
         deviceInfo: DeviceInfo?,
     ): AppResult<AuthSession> {
+        // Throttle BEFORE any Argon2 work so a brute-force burst can't turn into a CPU/memory DoS
+        // (SEC-02, mirrors AuthServiceImpl.login).
+        enforceRate(InviteRateBucket.CLAIM)?.let { return AppResult.Failure(it) }
+        val now = clock.now().toEpochMilliseconds()
+        // Cheap existence/expiry/claimed pre-check BEFORE the expensive Argon2 hash — stops a
+        // bogus or dead code from paying for a hash it can never use. claimUserAtomically
+        // re-validates the same conditions inside its own transaction, which stays the single-use
+        // authority for a genuinely racing claim.
+        precheckInviteCode(code, now)?.let { return AppResult.Failure(it) }
         // Argon2 is CPU-bound and slow on purpose — hash before opening the
         // transaction so we don't hold a DB connection during it (mirrors register).
         val passwordHashed = hasher.hash(password)
-        val now = clock.now().toEpochMilliseconds()
         // The validate → insert-user → mark-claimed steps run atomically in one transaction so the
         // single-use guarantee holds (a row can't be both claimed and have no user). Session issuance
         // is hoisted OUT: it opens its own session transaction, and the SQLDelight transaction body is
@@ -199,6 +245,25 @@ class InviteServiceImpl(
         adminUserRosterMaintainer?.refreshBestEffort(user.id)
         return AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
     }
+
+    /**
+     * Read-only existence/expiry/claimed probe for [code], run BEFORE [claimInvite] pays for an
+     * Argon2 hash. Returns the same typed failures [claimUserAtomically] would raise, or null when
+     * the code looks claimable — [claimUserAtomically] re-checks the identical conditions inside its
+     * own transaction and remains the single-use authority for a genuinely racing claim.
+     */
+    private suspend fun precheckInviteCode(
+        code: String,
+        now: Long,
+    ): InviteError? =
+        suspendTransaction(db) {
+            val invite =
+                db.invitesQueries.selectByCode(code = code).executeAsOneOrNull()
+                    ?: return@suspendTransaction InviteError.NotFound()
+            if (invite.claimed_at != null) return@suspendTransaction InviteError.AlreadyClaimed()
+            if (invite.expires_at < now) return@suspendTransaction InviteError.Expired()
+            null
+        }
 
     /**
      * The transactional core of [claimInvite]: validate the code, insert the new ACTIVE user, and
@@ -270,6 +335,7 @@ class InviteServiceImpl(
         }
 
     override suspend fun lookupInvite(code: String): AppResult<InvitePreview> {
+        enforceRate(InviteRateBucket.LOOKUP)?.let { return AppResult.Failure(it) }
         val now = clock.now().toEpochMilliseconds()
         return suspendTransaction(db) {
             val invite =
@@ -306,6 +372,22 @@ class InviteServiceImpl(
     private fun requireAdmin(): AppResult.Failure? {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
+    }
+
+    /**
+     * Per-IP throttle probe for [bucket]. Returns an [AuthError.RateLimited] to short-circuit the
+     * caller when over the ceiling, or null to proceed. A no-op (null) unless BOTH the remote host
+     * and the limiter are bound — i.e. only on the RPC public mount (SEC-02). Reuses the shared
+     * [AuthError.RateLimited] shape (same one [com.calypsan.listenup.server.auth.AuthServiceImpl]
+     * raises) rather than a dedicated [InviteError] subtype — one 429 shape for the client to fold.
+     */
+    private suspend fun enforceRate(bucket: InviteRateBucket): AuthError? {
+        val host = remoteHost ?: return null
+        val limiter = inviteRateLimiter ?: return null
+        return when (val decision = limiter.check(bucket, host)) {
+            RateDecision.Allowed -> null
+            is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
+        }
     }
 
     /** Lifecycle status derived from claim then expiry; PENDING when neither applies. */

@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.DEFAULT_ARGON2_PARALLELISM
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
+import com.calypsan.listenup.server.auth.InviteRateLimiter
 import com.calypsan.listenup.server.auth.LoginRateLimiter
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
@@ -174,6 +175,10 @@ fun authModule(config: ApplicationConfig): Module {
 
         single { InviteCodeGenerator() }
 
+        // SEC-02: per-IP RPC-path throttle for claimInvite/lookupInvite — the counterpart to the
+        // REST `RateLimit` plugin's InviteClaim/InviteLookup buckets.
+        single { InviteRateLimiter(clock = get()) }
+
         single {
             InviteServiceImpl(
                 db = get<ListenUpDatabase>(),
@@ -184,6 +189,9 @@ fun authModule(config: ApplicationConfig): Module {
                 clock = get(),
                 defaultGrantIssuer = getOrNull(),
                 adminUserRosterMaintainer = getOrNull(),
+                // Per-IP RPC throttle (SEC-02). The per-call remote host is bound at the mount via
+                // withRemoteHost; the singleton carries the limiter but no host (throttle inert).
+                inviteRateLimiter = get(),
             )
         }
 
