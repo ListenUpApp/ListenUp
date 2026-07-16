@@ -129,9 +129,18 @@ internal val clientAuthModule: Module
                 RegistrationPolicyStreamImpl(apiClientFactory = get(), serverConfig = get())
             }
 
-            // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here
-            // by the concrete PlaybackManager that implements it — we keep the
-            // long-form factory so the type narrowing is explicit.
+            // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here by the
+            // concrete PlaybackManager that implements it — long-form factory so the type
+            // narrowing is explicit.
+            //
+            // `getOrNull`, not `get`: PlaybackManager is bound by the PLATFORM playback module
+            // (PlaybackModule.android.kt / .jvm.kt) and iOS deliberately has none — it drives
+            // AVFoundation natively through PlayerCoordinator. The parameter is declared
+            // nullable for exactly this reason. A hard `get()` here threw
+            // NoDefinitionFoundException on iOS the moment anything resolved LogoutUseCase; it
+            // went unnoticed only because nothing ever did (the use case was DI-bound, fully
+            // tested, and called by nobody). AuthModuleVerifyTest stubs PlaybackManager via
+            // `extraTypes`, so the JVM Koin verification could not see it either.
             factoryOf(::LoginUseCase)
             factoryOf(::RegisterUseCase)
             factoryOf(::SetupUseCase)
@@ -142,7 +151,7 @@ internal val clientAuthModule: Module
                     userRepository = get(),
                     syncRepository = get(),
                     rpcCacheInvalidator = get(),
-                    playbackStateProvider = get<PlaybackManager>(),
+                    playbackStateProvider = getOrNull<PlaybackManager>(),
                 )
             }
         }

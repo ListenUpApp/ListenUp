@@ -39,8 +39,17 @@ final class SettingsObserver {
     private let viewModel: SettingsViewModel
     private let bridge = FlowBridge()
 
-    init(viewModel: SettingsViewModel) {
+    /// Tears down native playback. Injected rather than reaching for `Dependencies` so the
+    /// observer stays free of the player graph; the ordering it participates in is pinned by
+    /// `SignOutSequenceTests`.
+    private let stopPlayback: () async -> Void
+
+    init(
+        viewModel: SettingsViewModel,
+        stopPlayback: @escaping () async -> Void
+    ) {
         self.viewModel = viewModel
+        self.stopPlayback = stopPlayback
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
@@ -83,7 +92,18 @@ final class SettingsObserver {
     func setWifiOnlyDownloads(_ enabled: Bool) { viewModel.setWifiOnlyDownloads(enabled: enabled) }
     func setAutoRemoveFinished(_ enabled: Bool) { viewModel.setAutoRemoveFinished(enabled: enabled) }
     func setHapticFeedbackEnabled(_ enabled: Bool) { viewModel.setHapticFeedbackEnabled(enabled: enabled) }
-    func signOut() { viewModel.signOut() }
+    /// Stops native playback, then runs the shared logout (server revoke + local teardown).
+    ///
+    /// The shared `LogoutUseCase` clears playback through `PlaybackStateProvider`, which only
+    /// Android's `PlaybackManager` implements — iOS drives AVFoundation natively, so the shared
+    /// flow can't stop the engine and audio would keep playing after sign-out. See
+    /// [SignOutSequence] for why the order matters.
+    func signOut() async {
+        await SignOutSequence.run(
+            stopPlayback: stopPlayback,
+            clearSession: { self.viewModel.signOut() }
+        )
+    }
 }
 
 // MARK: - Pure formatting helpers
