@@ -30,14 +30,28 @@ internal interface PendingOperationV2Dao {
      * Earliest-enqueued op per (domainName, entityId) group with retry budget remaining.
      * Per-entity FIFO: if an op for entity `E` is in flight, the next op for `E` waits;
      * ops on other entities can drain in parallel.
+     *
+     * Same-`enqueuedAt` ties (same-millisecond enqueue) are broken deterministically by
+     * `clientOpId ASC` via the `ROW_NUMBER()` window function, rather than relying on
+     * SQLite's undocumented bare-column `GROUP BY` tie-break. In practice ties are also
+     * prevented at the source — [PendingOperationV2Dao] callers (see `PendingOperationQueue.enqueue`)
+     * bump `enqueuedAt` so a second op for an entity that already has one queued is never
+     * enqueued at the same instant — but this ordering holds even if that invariant is
+     * ever violated.
      */
     @Query(
         """
-        SELECT * FROM pending_operation
-         WHERE failureCount <= :maxAttempts
-         GROUP BY domainName, entityId
-        HAVING enqueuedAt = MIN(enqueuedAt)
-         ORDER BY enqueuedAt ASC
+        SELECT clientOpId, domainName, entityId, opType, payload, enqueuedAt, lastAttemptAt, failureCount, lastError, ownerUserId
+          FROM (
+              SELECT *, ROW_NUMBER() OVER (
+                  PARTITION BY domainName, entityId
+                  ORDER BY enqueuedAt ASC, clientOpId ASC
+              ) AS rn
+                FROM pending_operation
+               WHERE failureCount <= :maxAttempts
+          )
+         WHERE rn = 1
+         ORDER BY enqueuedAt ASC, clientOpId ASC
         """,
     )
     suspend fun nextDispatchable(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): List<PendingOperationV2Entity>
@@ -45,6 +59,17 @@ internal interface PendingOperationV2Dao {
     /** Count of ops still within retry budget — i.e. rows a future drain wave could dispatch. */
     @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount <= :maxAttempts")
     suspend fun countDispatchable(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Int
+
+    /**
+     * Latest `enqueuedAt` among all ops (dispatchable or dead-lettered) for (domainName, entityId),
+     * or null if none are queued. Backs the enqueue-time monotonic bump in `PendingOperationQueue.enqueue`
+     * that keeps same-entity ops from ever tying on `enqueuedAt`.
+     */
+    @Query("SELECT MAX(enqueuedAt) FROM pending_operation WHERE domainName = :domainName AND entityId = :entityId")
+    suspend fun maxEnqueuedAtFor(
+        domainName: String,
+        entityId: String,
+    ): Long?
 
     /**
      * True when a still-dispatchable (within retry budget) op exists for (domainName, entityId).

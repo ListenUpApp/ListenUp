@@ -610,6 +610,11 @@ private class CountingDao(
 
     override suspend fun deleteAll() = delegate.deleteAll()
 
+    override suspend fun maxEnqueuedAtFor(
+        domainName: String,
+        entityId: String,
+    ) = delegate.maxEnqueuedAtFor(domainName, entityId)
+
     override suspend fun gcDeadLetters(
         cutoffMillis: Long,
         maxAttempts: Int,

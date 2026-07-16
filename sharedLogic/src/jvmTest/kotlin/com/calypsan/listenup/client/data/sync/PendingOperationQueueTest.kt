@@ -27,6 +27,16 @@ import kotlinx.serialization.builtins.serializer
 private val upsertOnlyChannel =
     OutboxChannel("undeclared_test_domain", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 
+// A second synthetic channel (also not one of OutboxChannels.all) for tests that need both
+// Update and Delete op kinds on the same entity.
+private val updateDeleteChannel =
+    OutboxChannel(
+        "undeclared_update_delete_domain",
+        String.serializer(),
+        setOf(OpKind.Update, OpKind.Delete),
+        idempotent = true,
+    )
+
 class PendingOperationQueueTest :
     FunSpec({
 
@@ -172,6 +182,49 @@ class PendingOperationQueueTest :
                 val second = queue.drain()
                 second.sent shouldBe 1
                 second.remainingDispatchable shouldBe 0
+                db.close()
+            }
+        }
+
+        test("enqueue bumps enqueuedAt so two same-clock ops for one entity never tie") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { 1_000L },
+                    )
+                val first = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val second = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val firstRow = db.pendingOperationV2Dao().get(first)!!
+                val secondRow = db.pendingOperationV2Dao().get(second)!!
+                (secondRow.enqueuedAt > firstRow.enqueuedAt) shouldBe true
+                db.close()
+            }
+        }
+
+        test("update then delete for the same entity at the same instant drains update first, delete second") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val sent = mutableListOf<String>()
+                val sender =
+                    PendingOperationSender { op ->
+                        sent += op.opType
+                        AppResult.Success(Unit)
+                    }
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = sender,
+                        nowMillis = { 1_000L },
+                    )
+                queue.enqueue(updateDeleteChannel, "t1", OpKind.Update, "{}", "u1")
+                queue.enqueue(updateDeleteChannel, "t1", OpKind.Delete, "{}", "u1")
+                queue.drain()
+                sent shouldContainExactly listOf("update")
+                queue.drain()
+                sent shouldContainExactly listOf("update", "delete")
                 db.close()
             }
         }

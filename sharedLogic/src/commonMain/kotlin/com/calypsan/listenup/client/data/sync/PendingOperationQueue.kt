@@ -158,8 +158,12 @@ private fun classifyFailure(
  *   so the caller can correlate later echoes.
  * - [drain] dispatches one op per (domain, entityId) group via [PendingOperationSender]
  *   sequentially within a single call; cross-entity parallelism emerges across
- *   concurrent drain() schedulings, not within one. Per-entity FIFO comes from
- *   the SQL filter, not Mutex coordination.
+ *   concurrent drain() schedulings, not within one. Per-entity FIFO is a two-part
+ *   guarantee: [enqueue] bumps `enqueuedAt` strictly past any op already queued for
+ *   the same entity so same-entity ops never tie at the source, and
+ *   [PendingOperationV2Dao.nextDispatchable]'s window-function query breaks any
+ *   remaining tie deterministically by `clientOpId` — neither depends on Mutex
+ *   coordination or SQLite's undocumented bare-column `GROUP BY` tie-break.
  * - [hasQueuedOpFor] is the anti-flicker shield's primitive: a still-dispatchable
  *   op for (domain, entity) means a local edit is in flight, so an inbound echo/
  *   catch-up for that entity is shielded rather than clobbering the optimistic state.
@@ -254,6 +258,13 @@ internal class PendingOperationQueue(
             dao.deleteQueuedOps(channel.name, entityId, op.wire)
         }
         val opId = Uuid.random().toString()
+        val requestedAt = nowMillis()
+        val lastEnqueuedAt = dao.maxEnqueuedAtFor(channel.name, entityId)
+        // Bump strictly past any op already queued for this entity so two ops for the same
+        // entity never tie on enqueuedAt, even when enqueued in the same clock millisecond
+        // (fast double-actions, batch paths). Makes per-entity FIFO hold by construction at
+        // the source, ahead of nextDispatchable()'s own clientOpId tie-break.
+        val enqueuedAt = if (lastEnqueuedAt != null) maxOf(requestedAt, lastEnqueuedAt + 1) else requestedAt
         dao.insert(
             PendingOperationV2Entity(
                 clientOpId = opId,
@@ -261,7 +272,7 @@ internal class PendingOperationQueue(
                 entityId = entityId,
                 opType = op.wire,
                 payload = payload,
-                enqueuedAt = nowMillis(),
+                enqueuedAt = enqueuedAt,
                 lastAttemptAt = null,
                 failureCount = 0,
                 lastError = null,
