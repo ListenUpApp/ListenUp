@@ -269,6 +269,32 @@ data class StoryWorldEntityDetail(
     val entityId: String,
 ) : Route
 
+// Reading Order Routes
+
+/**
+ * Reading orders screen - a series' reading orders (the caller's own plus other users'
+ * discoverable ones), reached from the series detail hero's overflow menu.
+ *
+ * @property seriesId The series whose reading orders to display.
+ */
+@Serializable
+data class ReadingOrders(
+    val seriesId: String,
+) : Route
+
+/**
+ * Reading order detail screen - a single reading order's member books, follow (active-order)
+ * state, and owner-gated editing (reorder/add/remove/delete).
+ *
+ * @property orderId The unique ID of the reading order to display.
+ * @property seriesId The series this order belongs to, for active-order follow-state context.
+ */
+@Serializable
+data class ReadingOrderDetail(
+    val orderId: String,
+    val seriesId: String,
+) : Route
+
 // Admin Routes
 
 /**

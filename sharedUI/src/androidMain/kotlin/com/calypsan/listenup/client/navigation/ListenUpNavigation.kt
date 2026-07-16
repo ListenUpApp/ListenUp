@@ -116,6 +116,7 @@ import com.calypsan.listenup.client.navigation.entries.bookEntries
 import com.calypsan.listenup.client.navigation.entries.contributorEntries
 import com.calypsan.listenup.client.navigation.entries.librarySetupEntry
 import com.calypsan.listenup.client.navigation.entries.profileEntries
+import com.calypsan.listenup.client.navigation.entries.readingOrderEntries
 import com.calypsan.listenup.client.navigation.entries.seriesEntries
 import com.calypsan.listenup.client.navigation.entries.settingsEntries
 import com.calypsan.listenup.client.navigation.entries.shelfEntries
@@ -789,6 +790,7 @@ private fun authenticatedNavEntries(
     bookEntries(backStack, campfireViewModel)
     seriesEntries(backStack)
     storyWorldEntries(backStack)
+    readingOrderEntries(backStack)
     contributorEntries(backStack)
     adminEntries(backStack)
     profileEntries(
