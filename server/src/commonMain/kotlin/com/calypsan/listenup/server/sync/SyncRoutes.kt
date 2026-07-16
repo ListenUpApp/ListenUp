@@ -30,6 +30,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
@@ -433,19 +434,10 @@ private suspend fun ServerSSESession.streamFirehose(
                 return
             }
         }
-    val oldestRetained = bus.oldestRetainedRevision()
-
-    // Stale if client cursor is older than the bus's replay-buffer floor:
-    // the bus has already evicted the events the client needs.
-    // "clientCursor < oldestRetained" → stale; "null" → fresh subscriber, stream normally.
-    if (lastEventId != null && oldestRetained != null && lastEventId < oldestRetained) {
-        log.debug {
-            "sync stream cursor stale: userId=$userId lastEventId=$lastEventId " +
-                "oldestRetained=$oldestRetained; sending CursorStale"
-        }
-        sendCursorStale(oldestRetained)
-        return
-    }
+    // Fast-path pre-check: reject an already-stale cursor before spinning up the
+    // heartbeat/control side-jobs. [collectFirehoseEvents] re-runs the same check at actual
+    // subscription attach, closing the race window between this snapshot and that attach.
+    if (sendCursorStaleIfBehind(bus, lastEventId, userId)) return
 
     log.info { "sync stream opened: userId=$userId" }
 
@@ -521,8 +513,19 @@ private suspend fun ServerSSESession.streamFirehose(
  * the firehose's core delivery loop. Extracted from [streamFirehose] so the C2 liveness gate and the
  * keepalive/control side-jobs don't inflate that function's cognitive complexity. Skips events at or
  * below [lastEventId] (already-delivered replay), events for other users, and access-gated content.
+ *
+ * [ChangeBus] is a hot `MutableSharedFlow` (`replay = 256`, `DROP_OLDEST`): a subscriber sees the
+ * replay cache starting from wherever the floor sits at the moment its collector actually attaches
+ * — not at [streamFirehose]'s pre-subscribe staleness snapshot, taken before this `launch` even
+ * starts. Writes landing in that gap can evict past the client's [lastEventId] and the client would
+ * see a silent gap instead of `CursorStale`. `onSubscription` fires exactly when the [ChangeBus]
+ * subscription attaches, so re-running [sendCursorStaleIfBehind] there closes the window: it throws
+ * a plain [CancellationException] on a stale floor, which — thrown from a `launch`ed job's own
+ * coroutine rather than delivered via an external `cancel()` — completes that job as cancelled
+ * without propagating a failure to [streamFirehose]'s `coroutineScope`, exactly like the C2
+ * liveness-revoked path's `streamJob.cancel()`.
  */
-private suspend fun ServerSSESession.collectFirehoseEvents(
+internal suspend fun ServerSSESession.collectFirehoseEvents(
     bus: ChangeBus,
     bookAccessPolicy: () -> BookAccessPolicy,
     userId: String,
@@ -531,6 +534,11 @@ private suspend fun ServerSSESession.collectFirehoseEvents(
 ) {
     bus
         .subscribe()
+        .onSubscription {
+            if (sendCursorStaleIfBehind(bus, lastEventId, userId)) {
+                throw CancellationException("SSE cursor stale at ChangeBus subscription attach")
+            }
+        }
         // Skip events the client already received. With replay=256, a reconnecting
         // client would otherwise see events from the replay cache that it already
         // processed in a previous session.
@@ -803,6 +811,47 @@ private suspend fun ServerSSESession.sendSessionRevoked() {
 /** Emits a [SyncControl.CursorStale] control frame on the firehose. */
 private suspend fun ServerSSESession.sendCursorStale(lastKnownRevision: Long) {
     sendControl(SyncControl.CursorStale(lastKnownRevision = lastKnownRevision))
+}
+
+/**
+ * Pure predicate: is [lastEventId] behind [bus]'s CURRENT replay-buffer floor? Returns the floor
+ * revision (the value a [SyncControl.CursorStale] frame should carry) when stale, `null` when the
+ * cursor is fresh. "clientCursor < oldestRetained" → stale; a `null` [lastEventId] or a `null`
+ * [ChangeBus.oldestRetainedRevision] (empty buffer) is never stale.
+ *
+ * Extracted from [sendCursorStaleIfBehind] so the staleness check itself — the exact race the
+ * attach-time re-check in [collectFirehoseEvents] closes — is unit-testable without an SSE
+ * session: [ChangeBus] is a hot `MutableSharedFlow` (`replay = 256`, `DROP_OLDEST`), so a
+ * subscriber sees the replay cache starting from wherever the floor sits at actual subscription
+ * attach, not at [streamFirehose]'s pre-subscribe snapshot taken before that subscription even
+ * exists. A burst landing in that gap can evict past [lastEventId] with no live signal.
+ */
+internal fun staleCursorFloor(
+    bus: ChangeBus,
+    lastEventId: Long?,
+): Long? {
+    val oldestRetained = bus.oldestRetainedRevision()
+    return if (lastEventId != null && oldestRetained != null && lastEventId < oldestRetained) oldestRetained else null
+}
+
+/**
+ * Checks [lastEventId] against [bus] via [staleCursorFloor] and, if stale, sends
+ * [SyncControl.CursorStale] and returns `true`. Shared by two call sites that must agree on the
+ * same check: [streamFirehose]'s pre-subscribe fast path (rejects an already-stale cursor before
+ * the heartbeat/control side-jobs spin up) and [collectFirehoseEvents]'s attach-time re-check.
+ */
+private suspend fun ServerSSESession.sendCursorStaleIfBehind(
+    bus: ChangeBus,
+    lastEventId: Long?,
+    userId: String,
+): Boolean {
+    val floor = staleCursorFloor(bus, lastEventId) ?: return false
+    log.debug {
+        "sync stream cursor stale: userId=$userId lastEventId=$lastEventId " +
+            "oldestRetained=$floor; sending CursorStale"
+    }
+    sendCursorStale(floor)
+    return true
 }
 
 /** Emits an arbitrary [SyncControl] frame on the firehose's `event: control` line. */
