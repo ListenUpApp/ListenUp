@@ -6,15 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.ThemeMode
-import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
-import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
+import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -88,9 +86,7 @@ class SettingsViewModel(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val instanceRepository: InstanceRepository,
     private val serverConfig: ServerConfig,
-    private val authSession: AuthSession,
-    private val syncRepository: SyncRepository,
-    private val rpcCacheInvalidator: RpcCacheInvalidator,
+    private val logoutUseCase: LogoutUseCase,
 ) : ViewModel() {
     // Internal mutable state for settings that aren't reactive StateFlows
     private val internalState = MutableStateFlow(SettingsUiState())
@@ -385,14 +381,17 @@ class SettingsViewModel(
     /**
      * Sign out the current user.
      *
-     * Stops real-time sync first — otherwise the engine keeps reconnecting against
-     * the now-unauthenticated endpoint — then clears tokens and returns to login.
+     * Delegates to [LogoutUseCase], which revokes the session server-side (best-effort)
+     * before tearing down local state — stopping real-time sync first so the engine
+     * can't reconnect against the now-unauthenticated endpoint, dropping every cached
+     * principal-bound RPC proxy, and clearing playback, tokens and cached users.
+     *
+     * A local-only teardown would leave the refresh token valid server-side and the
+     * device listed under Devices, so "Sign Out" would not mean signed out.
      */
     fun signOut() {
         viewModelScope.launch {
-            syncRepository.disconnect()
-            rpcCacheInvalidator.invalidateAll()
-            authSession.clearAuthTokens()
+            logoutUseCase()
         }
     }
 

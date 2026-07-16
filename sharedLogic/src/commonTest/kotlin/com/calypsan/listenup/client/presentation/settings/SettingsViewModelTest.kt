@@ -2,15 +2,13 @@ package com.calypsan.listenup.client.presentation.settings
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ThemeMode
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
-import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferences
+import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
@@ -54,9 +52,7 @@ class SettingsViewModelTest :
             val userPreferencesRepository: UserPreferencesRepository = mock()
             val instanceRepository: InstanceRepository = mock()
             val serverConfig: ServerConfig = mock()
-            val authSession: AuthSession = mock()
-            val syncRepository: SyncRepository = mock()
-            val rpcCacheInvalidator: RpcCacheInvalidator = mock()
+            val logoutUseCase: LogoutUseCase = mock()
 
             // StateFlows for local preferences (mocked as MutableStateFlow)
             val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
@@ -87,9 +83,7 @@ class SettingsViewModelTest :
                     userPreferencesRepository = userPreferencesRepository,
                     instanceRepository = instanceRepository,
                     serverConfig = serverConfig,
-                    authSession = authSession,
-                    syncRepository = syncRepository,
-                    rpcCacheInvalidator = rpcCacheInvalidator,
+                    logoutUseCase = logoutUseCase,
                 )
         }
 
@@ -139,9 +133,7 @@ class SettingsViewModelTest :
             everySuspend { fixture.serverConfig.getServerUrl() } returns null
             everySuspend { fixture.instanceRepository.getServerInfo() } returns
                 Failure(Exception("Not configured"))
-            everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
-            everySuspend { fixture.syncRepository.disconnect() } returns Unit
-            everySuspend { fixture.rpcCacheInvalidator.invalidateAll() } returns Unit
+            everySuspend { fixture.logoutUseCase.invoke() } returns AppResult.Success(Unit)
 
             return fixture
         }
@@ -342,7 +334,13 @@ class SettingsViewModelTest :
             }
         }
 
-        test("signOut stops the sync engine before clearing tokens") {
+        // Regression: signOut used to clear LOCAL tokens only — it disconnected sync,
+        // invalidated the RPC caches and dropped the tokens, but never asked the server
+        // to revoke the session. The refresh token stayed valid server-side and the
+        // device lingered in the Devices list, so "Sign Out" did not mean signed out.
+        // LogoutUseCase (which does the best-effort server revoke *and* the full local
+        // teardown) existed, was DI-bound and fully tested — but nothing ever called it.
+        test("signOut revokes the server session, not just local tokens") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -353,11 +351,8 @@ class SettingsViewModelTest :
                 viewModel.signOut()
                 advanceUntilIdle()
 
-                // Then — the engine is stopped (no reconnect loop), cached RPC connections
-                // are dropped (no cross-user reuse), and tokens are cleared.
-                verifySuspend { fixture.syncRepository.disconnect() }
-                verifySuspend { fixture.rpcCacheInvalidator.invalidateAll() }
-                verifySuspend { fixture.authSession.clearAuthTokens() }
+                // Then — the whole logout flow runs, server revoke included.
+                verifySuspend { fixture.logoutUseCase.invoke() }
             }
         }
     })
