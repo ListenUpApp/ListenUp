@@ -507,6 +507,7 @@ One beautiful library.</string>
     <string name="campfire_rejoin_message">The room has moved on without you. Jump to where everyone else is listening.</string>
     <string name="campfire_rejoin_title">Catch up with the room</string>
     <string name="campfire_return">Return to campfire</string>
+    <string name="campfire_return_count">%1$d around the fire</string>
     <string name="campfire_spoiler_cancel">Not yet</string>
     <string name="campfire_spoiler_confirm">Join anyway</string>
     <string name="campfire_spoiler_message">This room is further along in the story than you are. Joining will move your progress forward.</string>

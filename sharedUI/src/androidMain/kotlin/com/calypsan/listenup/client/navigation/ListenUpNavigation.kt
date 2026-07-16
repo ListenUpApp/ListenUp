@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -18,13 +20,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -50,6 +53,7 @@ import listenup.composeapp.generated.resources.campfire_leave_to_play_body
 import listenup.composeapp.generated.resources.campfire_leave_to_play_confirm
 import listenup.composeapp.generated.resources.campfire_leave_to_play_title
 import listenup.composeapp.generated.resources.campfire_return
+import listenup.composeapp.generated.resources.campfire_return_count
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_retry
 import listenup.composeapp.generated.resources.error_book_not_connected
@@ -77,6 +81,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
 import com.calypsan.listenup.client.design.components.latchFootprint
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -94,6 +99,7 @@ import com.calypsan.listenup.client.presentation.nowplaying.PlaybackGuardEvent
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.ConnectionHealthBanner
+import com.calypsan.listenup.client.features.shell.components.NavigationBarHeight
 import com.calypsan.listenup.client.features.shell.shellDestinationSaver
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
@@ -814,6 +820,7 @@ private fun authenticatedNavEntries(
 private class CampfireMinimizeState(
     val sessionActive: Boolean,
     val minimized: Boolean,
+    val memberCount: Int,
     val setMinimized: (Boolean) -> Unit,
 )
 
@@ -821,24 +828,44 @@ private class CampfireMinimizeState(
 private fun rememberCampfireMinimizeState(campfireViewModel: CampfireViewModel): CampfireMinimizeState {
     var minimized by rememberSaveable { mutableStateOf(false) }
     val campfireState by campfireViewModel.state.collectAsStateWithLifecycle()
-    val sessionActive = campfireState is CampfireScreenUiState.Active
+    val active = campfireState as? CampfireScreenUiState.Active
+    val sessionActive = active != null
     LaunchedEffect(sessionActive) {
         if (!sessionActive) minimized = false
     }
-    return CampfireMinimizeState(sessionActive, minimized) { minimized = it }
+    return CampfireMinimizeState(sessionActive, minimized, active?.members?.size ?: 0) { minimized = it }
 }
 
-/** Return-to-campfire affordance (B1 non-stranding placeholder; styled ember FAB is deferred). */
+/**
+ * Return-to-campfire affordance (B2): a warm ember Extended FAB shown whenever a live campfire is
+ * backgrounded. It doubles as a presence indicator ("N around the fire") — the only signal that a
+ * fire is still burning when there's no now-playing bar (the silent-lobby case) — and jumps back
+ * into the session on tap. The ember palette is intentionally warm rather than the app's Material
+ * You accent, so it reads as "a fire is lit" on any normal app surface.
+ *
+ * [bottomClearance] floats it above whatever occupies the bottom edge — the shell's bottom nav bar,
+ * the now-playing bar, or just the system nav inset — so it never occludes the navigation.
+ */
 @Composable
-private fun BoxScope.CampfireReturnFab(state: CampfireMinimizeState) {
-    if (state.sessionActive && state.minimized) {
-        FloatingActionButton(
-            onClick = { state.setMinimized(false) },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-        ) {
-            Icon(Icons.Default.LocalFireDepartment, contentDescription = stringResource(Res.string.campfire_return))
-        }
-    }
+private fun BoxScope.CampfireReturnFab(state: CampfireMinimizeState, bottomClearance: Dp) {
+    if (!state.sessionActive || !state.minimized) return
+    val ember = Color(0xFFF0512F)
+    ExtendedFloatingActionButton(
+        onClick = { state.setMinimized(false) },
+        icon = {
+            Icon(
+                Icons.Default.LocalFireDepartment,
+                contentDescription = stringResource(Res.string.campfire_return),
+                tint = Color.White,
+            )
+        },
+        text = {
+            Text(stringResource(Res.string.campfire_return_count, state.memberCount), color = Color.White)
+        },
+        expanded = true,
+        containerColor = ember,
+        modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = bottomClearance + 16.dp),
+    )
 }
 
 /**
@@ -950,7 +977,15 @@ private fun BoxScope.AuthenticatedNavOverlays(
         onBarFootprintChanged = onBarFootprintChanged,
     )
 
-    CampfireReturnFab(campfireMinimize)
+    // Float the return FAB above whatever holds the bottom edge so it never occludes the nav: the
+    // now-playing bar's animated inset when one is showing, otherwise the shell's bottom nav bar
+    // (only on Shell screens) plus the system nav inset.
+    val onShell = backStack.lastOrNull() == Shell
+    val systemNavBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val nowPlayingInset = LocalNowPlayingInsets.current.asPaddingValues().calculateBottomPadding()
+    val fabBottomClearance =
+        maxOf(nowPlayingInset, (if (onShell) NavigationBarHeight else 0.dp) + systemNavBottom)
+    CampfireReturnFab(campfireMinimize, fabBottomClearance)
     PlayOverCampfireDialog(
         nowPlayingViewModel = nowPlayingViewModel,
         campfireViewModel = campfireViewModel,
