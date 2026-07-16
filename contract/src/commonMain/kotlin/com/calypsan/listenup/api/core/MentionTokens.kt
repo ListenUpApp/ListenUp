@@ -59,13 +59,13 @@ object MentionTokens {
      *
      * The id group excludes `|`, `[`, `]` so it can never itself swallow the delimiter or a
      * stray bracket — this is what makes an unpiped sequence like `[[e:abc]]` fail to match
-     * (correctly malformed) rather than mis-parse. The name group is lazy (`.*?`) so it stops at
-     * the first `]]` it finds, matching the class KDoc's "greedy to the first `]]` after the
-     * `|`" rule; [RegexOption.DOT_MATCHES_ALL] lets a cached name span an embedded newline
-     * without changing that behavior.
+     * (correctly malformed) rather than mis-parse. The name group is lazy (`[\s\S]*?`) so it
+     * stops at the first `]]` it finds, matching the class KDoc's "greedy to the first `]]`
+     * after the `|`" rule; the `[\s\S]` class (rather than `.` + `DOT_MATCHES_ALL`, which is
+     * JVM-only) lets a cached name span an embedded newline on every Kotlin target.
      */
     private val MENTION_TOKEN_REGEX =
-        Regex("""\[\[e:([^|\[\]]+)\|(.*?)\]\]""", RegexOption.DOT_MATCHES_ALL)
+        Regex("""\[\[e:([^|\[\]]+)\|([\s\S]*?)\]\]""")
 
     /**
      * Returns the entity ids of every well-formed mention token in [text], deduplicated.

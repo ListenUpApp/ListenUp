@@ -197,7 +197,12 @@ class WorldEventServiceImplTest :
                                 ops =
                                     listOf(
                                         WorldEventOp.Upsert(
-                                            WorldEventUpsert(id = "e1", homeSeriesId = "mistborn", type = WorldEventType.NOTE, text = "   "),
+                                            WorldEventUpsert(
+                                                id = "e1",
+                                                homeSeriesId = "mistborn",
+                                                type = WorldEventType.NOTE,
+                                                text = "   ",
+                                            ),
                                         ),
                                     ),
                             ),
