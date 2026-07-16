@@ -244,6 +244,65 @@ class AdminUserServiceImplTest :
             }
         }
 
+        test("updateUser by an ADMIN caller promoting a MEMBER to ROOT is denied") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("a1", UserRole.ADMIN)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(role = UserRole.ROOT))
+                        .shouldFail<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("updateUser by an ADMIN caller promoting themselves to ROOT is denied") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("a1", UserRole.ADMIN)
+                    svc
+                        .updateUser(UserId("a1"), AdminUserPatch(role = UserRole.ROOT))
+                        .shouldFail<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("updateUser by a ROOT caller promoting a MEMBER to ROOT succeeds") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(role = UserRole.ROOT))
+                        .shouldSucceed()
+                        .role shouldBe UserRole.ROOT
+                }
+            }
+        }
+
+        test("updateUser by an ADMIN caller can still change MEMBER<->ADMIN roles") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("a1", UserRole.ADMIN)
+                    svc
+                        .updateUser(UserId("m1"), AdminUserPatch(role = UserRole.ADMIN))
+                        .shouldSucceed()
+                        .role shouldBe UserRole.ADMIN
+                }
+            }
+        }
+
         test("updateUser by a non-admin is rejected with PermissionDenied") {
             withSqlDatabase {
                 val db = this

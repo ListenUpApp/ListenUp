@@ -152,6 +152,39 @@ class InviteServiceImplTest :
             }
         }
 
+        test("createInvite with role=ROOT by an ADMIN caller is denied") {
+            withSqlDatabase {
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                runTest {
+                    val svc = makeInviteService(sql).actAs("a1", UserRole.ADMIN)
+                    svc
+                        .createInvite("a@b.c", "A", UserRole.ROOT, null)
+                        .shouldFail<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("createInvite with role=ROOT by a ROOT caller succeeds") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val svc = makeInviteService(sql).actAs("root1", UserRole.ROOT)
+                    svc.createInvite("a@b.c", "A", UserRole.ROOT, null).shouldSucceed().role shouldBe UserRole.ROOT
+                }
+            }
+        }
+
+        test("createInvite by an ADMIN caller can still mint MEMBER and ADMIN invites") {
+            withSqlDatabase {
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                runTest {
+                    val svc = makeInviteService(sql).actAs("a1", UserRole.ADMIN)
+                    svc.createInvite("m@b.c", "M", UserRole.MEMBER, null).shouldSucceed().role shouldBe UserRole.MEMBER
+                    svc.createInvite("a2@b.c", "A2", UserRole.ADMIN, null).shouldSucceed().role shouldBe UserRole.ADMIN
+                }
+            }
+        }
+
         test("listInvites returns created invites with derived status PENDING") {
             withSqlDatabase {
                 sql.seedTestUser("root1", UserRoleColumn.ROOT)

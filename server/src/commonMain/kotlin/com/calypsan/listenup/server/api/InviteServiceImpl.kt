@@ -106,6 +106,10 @@ class InviteServiceImpl(
         if (!Email.isLikelyEmail(email)) return AppResult.Failure(InviteError.InvalidInput())
         if (displayName.isBlank()) return AppResult.Failure(InviteError.InvalidInput())
         if (expiresInDays != null && expiresInDays <= 0) return AppResult.Failure(InviteError.InvalidInput())
+        // ROOT is a protected tier: only a ROOT caller may mint a ROOT-granting invite.
+        if (role == UserRole.ROOT && caller.role != UserRole.ROOT) {
+            return AppResult.Failure(AuthError.PermissionDenied())
+        }
         val now = clock.now()
         val invite =
             Invites(
