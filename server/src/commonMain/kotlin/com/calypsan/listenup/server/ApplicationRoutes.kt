@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server
 
-import com.calypsan.listenup.api.ActivityService
 import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
@@ -131,7 +130,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val collectionService by inject<CollectionService>()
     val shelfService by inject<ShelfService>()
     val socialService by inject<SocialService>()
-    val activityService by inject<ActivityService>()
     val profileService by inject<ProfileService>()
     val userPreferencesService by inject<UserPreferencesService>()
     val backupService by inject<BackupService>()
@@ -226,7 +224,6 @@ private fun Application.rpcServiceBundle(): RpcServices =
         collectionService = koinGet<CollectionService>(),
         shelfService = koinGet<ShelfService>(),
         socialService = koinGet<SocialService>(),
-        activityService = koinGet<ActivityService>(),
         adminUserService = koinGet<AdminUserServiceImpl>(),
         adminSettingsService = koinGet<AdminSettingsServiceImpl>(),
         inviteService = koinGet<InviteServiceImpl>(),

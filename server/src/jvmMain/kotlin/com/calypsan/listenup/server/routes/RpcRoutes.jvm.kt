@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.api.ActivityService
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.AuthServiceAuthed
@@ -29,7 +28,6 @@ import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.server.api.ActivityServiceImpl
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BackupServiceImpl
@@ -129,7 +127,6 @@ private fun Route.authedRpc(services: RpcServices) {
         registerScoped<CollectionService> { guard((services.collectionService as CollectionServiceImpl).copyWith(it)) }
         registerScoped<ShelfService> { guard((services.shelfService as ShelfServiceImpl).copyWith(it)) }
         registerScoped<SocialService> { guard((services.socialService as SocialServiceImpl).copyWith(it)) }
-        registerScoped<ActivityService> { guard((services.activityService as ActivityServiceImpl).copyWith(it)) }
         registerScoped<AdminUserService> { guard((services.adminUserService as AdminUserServiceImpl).copyWith(it)) }
         registerScoped<AdminSettingsService> {
             guard(

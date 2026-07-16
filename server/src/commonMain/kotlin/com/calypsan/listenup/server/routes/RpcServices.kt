@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.api.ActivityService
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.BackupService
@@ -51,7 +50,6 @@ data class RpcServices(
     val collectionService: CollectionService,
     val shelfService: ShelfService,
     val socialService: SocialService,
-    val activityService: ActivityService,
     val adminUserService: AdminUserService,
     val adminSettingsService: AdminSettingsService,
     val inviteService: InviteServiceImpl,
