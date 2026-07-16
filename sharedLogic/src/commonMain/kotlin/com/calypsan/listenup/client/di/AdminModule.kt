@@ -21,9 +21,7 @@ import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
@@ -87,16 +85,6 @@ internal val adminModule: Module =
         }
 
         // Admin user management use cases
-        factory {
-            LoadUsersUseCase(
-                adminRepository = get(),
-            )
-        }
-        factory {
-            LoadPendingUsersUseCase(
-                adminRepository = get(),
-            )
-        }
         factory {
             LoadInvitesUseCase(
                 adminRepository = get(),
