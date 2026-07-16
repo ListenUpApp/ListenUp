@@ -115,6 +115,7 @@ tasks.register("verifyLocal") {
         "detekt",
         ":sharedUI:verifyStrings",
         ":sharedUI:verifyLicenses",
+        ":sharedUI:verifySwiftStringKeys",
         ":sharedLogic:compileCommonMainKotlinMetadata",
         ":contract:jvmTest",
         ":sharedLogic:jvmTest",

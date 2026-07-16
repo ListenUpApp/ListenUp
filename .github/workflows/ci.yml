@@ -138,6 +138,14 @@ jobs:
       - name: Verify license manifest in sync
         run: ./gradlew :sharedUI:verifyLicenses --no-daemon
 
+      # The Swift half of the localization contract. verifyStrings proves the generated
+      # artifacts match en.json but cannot see which keys Swift asks for; iOS renders a
+      # missing key as its own text, so a typo ships as visible garbage with nothing red.
+      # Xcode also hides it locally by writing the missing key back into the generated
+      # catalog as an empty entry. Found 5 live raw-key bugs the day it was added.
+      - name: Verify iOS Swift localization keys exist
+        run: ./gradlew :sharedUI:verifySwiftStringKeys --no-daemon
+
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :sharedLogic), and the server. :sharedUI host tests are Robolectric (JVM, no
       # emulator) — included here so Compose-UI test rot can't land unnoticed.
