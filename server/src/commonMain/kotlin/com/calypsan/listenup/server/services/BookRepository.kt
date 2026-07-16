@@ -194,8 +194,6 @@ class BookRepository(
     override val BookSyncPayload.id: BookId
         get() = BookId(this.id)
 
-    override fun BookSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.booksQueries].
      * Mirrors the canonical Tag/Contributor shape.

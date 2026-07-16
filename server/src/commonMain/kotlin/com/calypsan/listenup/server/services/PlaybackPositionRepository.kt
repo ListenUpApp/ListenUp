@@ -87,8 +87,6 @@ class PlaybackPositionRepository(
     override val PlaybackPositionSyncPayload.id: PlaybackPositionId
         get() = PlaybackPositionId(this.id)
 
-    override fun PlaybackPositionSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.playbackPositionsQueries].
      * Canonical user-scoped adapter shape (see [ShelfRepository]).

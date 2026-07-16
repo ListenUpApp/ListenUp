@@ -72,8 +72,6 @@ class ShelfBookRepository(
 
     override val ShelfBookSyncPayload.id: ShelfBookId get() = ShelfBookId(shelfId, bookId)
 
-    override fun ShelfBookSyncPayload.revisionOf(): Long = revision
-
     /** Converts a [ShelfBookId] to the stored `"$shelfId:$bookId"` string. */
     override fun idAsString(id: ShelfBookId): String = id.asString()
 

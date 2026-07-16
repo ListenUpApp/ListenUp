@@ -46,8 +46,6 @@ class ActivitySyncRepository(
     override val ActivitySyncPayload.id: String
         get() = this.id
 
-    override fun ActivitySyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.activitiesQueries].
      * Global (non-userScoped) shape — only the base variants; the *ForUser variants stay unimplemented

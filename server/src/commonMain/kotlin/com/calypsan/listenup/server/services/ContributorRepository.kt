@@ -26,7 +26,7 @@ import kotlin.time.Clock
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `contributorsQueries`
  *  - [readPayload] / [readPayloads] — root row + alias child rows by id
  *  - [writePayload] — insert-or-update root row, then replace the alias set
- *  - `ContributorSyncPayload.id` / `revisionOf`
+ *  - `ContributorSyncPayload.id`
  *
  * `idAsString(ContributorId) = id.value` is load-bearing — the base's default
  * `toString()` on a value class returns `"ContributorId(value=foo)"`, which would
@@ -51,8 +51,6 @@ class ContributorRepository(
 
     override val ContributorSyncPayload.id: ContributorId
         get() = ContributorId(this.id)
-
-    override fun ContributorSyncPayload.revisionOf(): Long = revision
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.contributorsQueries].

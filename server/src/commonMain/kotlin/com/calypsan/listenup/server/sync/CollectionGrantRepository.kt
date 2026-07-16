@@ -59,8 +59,6 @@ class CollectionGrantRepository(
     ) {
     override val CollectionShareSyncPayload.id: String get() = this.id
 
-    override fun CollectionShareSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.collectionGrantsQueries].
      * Global aggregate — the `*ForUser` variants stay the base's throwing defaults.

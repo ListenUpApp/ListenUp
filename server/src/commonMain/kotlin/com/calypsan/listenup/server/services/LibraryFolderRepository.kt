@@ -28,7 +28,7 @@ import kotlin.time.Clock
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `libraryFoldersQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id (tombstone-inclusive)
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - `LibraryFolderSyncPayload.id` / `LibraryFolderSyncPayload.revisionOf`
+ *  - `LibraryFolderSyncPayload.id`
  *
  * `idAsString(FolderId) = id.value` is load-bearing — Kotlin's default `toString()`
  * on a value class returns `"FolderId(value=foo)"`, which would corrupt every column
@@ -61,8 +61,6 @@ class LibraryFolderRepository(
     override fun idAsString(id: FolderId): String = id.value
 
     override val LibraryFolderSyncPayload.id: FolderId get() = FolderId(this.id)
-
-    override fun LibraryFolderSyncPayload.revisionOf(): Long = revision
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.libraryFoldersQueries].

@@ -23,7 +23,7 @@ import kotlin.time.Clock
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `tagsQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - `Tag.id` / `Tag.revisionOf`
+ *  - `Tag.id`
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted tag by id
@@ -39,8 +39,6 @@ class TagRepository(
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<Tag, String>(db, bus, registry, SyncDomains.TAGS, clock) {
     override val Tag.id: String get() = this.id
-
-    override fun Tag.revisionOf(): Long = revision
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.tagsQueries].

@@ -61,8 +61,6 @@ class BookMoodRepository(
     ) {
     override val BookMoodSyncPayload.id: BookMoodId get() = BookMoodId(bookId, moodId)
 
-    override fun BookMoodSyncPayload.revisionOf(): Long = revision
-
     /** Converts a [BookMoodId] to the stored `"$bookId:$moodId"` string. */
     override fun idAsString(id: BookMoodId): String = id.asString()
 

@@ -190,8 +190,6 @@ class ListeningEventRepository(
     override val ListeningEventSyncPayload.id: ListeningEventId
         get() = ListeningEventId(this.id)
 
-    override fun ListeningEventSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.listeningEventsQueries].
      * Canonical user-scoped adapter shape (see [ShelfRepository]).

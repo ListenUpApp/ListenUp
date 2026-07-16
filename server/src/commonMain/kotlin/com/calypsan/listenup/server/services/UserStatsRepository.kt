@@ -56,8 +56,6 @@ class UserStatsRepository(
     override val UserStatsSyncPayload.id: UserStatsId
         get() = UserStatsId(this.id)
 
-    override fun UserStatsSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.userStatsQueries].
      * The canonical user-scoped adapter shape (see [ShelfRepository]): the four global methods
