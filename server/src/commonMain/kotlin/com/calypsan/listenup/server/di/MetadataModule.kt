@@ -216,6 +216,7 @@ fun metadataModule(imageHome: Path): Module =
                 permissionPolicy = get<UserPermissionPolicy>(),
                 sqlDb = get<ListenUpDatabase>(),
                 genreRepository = get<GenreRepository>(),
+                probeDimensions = { url -> get<ImageDimensionProbe>().probe(url) },
                 principal =
                     PrincipalProvider {
                         error("Unscoped MetadataLookupService — call copyWith(PrincipalProvider) at the route")

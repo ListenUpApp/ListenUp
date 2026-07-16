@@ -66,6 +66,8 @@ internal data class ComposedBook(
     val series: List<SeriesMeta>,
     /** The winning provider per resolved field — the source that supplied that field's value. */
     val fieldProviders: Map<BookField, MetadataProviderId>,
+    /** The provider whose covers supply the applied max-size cover URL, or `null` when none. */
+    val coverMaxSizeWinner: MetadataProviderId? = null,
 )
 
 /**
@@ -90,7 +92,7 @@ internal data class ComposedBook(
  */
 internal class EnrichmentCoordinator(
     private val registry: MetadataProviderRegistry,
-    private val routes: EnrichmentRoutes,
+    val routes: EnrichmentRoutes,
 ) {
     /**
      * Composes the full book preview for [identity] in [locale] — core fields, cover,
@@ -170,10 +172,11 @@ internal class EnrichmentCoordinator(
                     fieldProviders =
                         coreWinners +
                             listOfNotNull(
-                                coverWinner(coversByProvider)?.let { BookField.COVER to it },
+                                coverWinnerBy(coversByProvider) { it.url }?.let { BookField.COVER to it },
                                 listWinner(BookField.GENRES, genresByProvider)?.let { BookField.GENRES to it },
                                 listWinner(BookField.SERIES, seriesByProvider)?.let { BookField.SERIES to it },
                             ),
+                    coverMaxSizeWinner = coverWinnerBy(coversByProvider) { it.maxSizeUrl },
                 ),
             )
         }
@@ -358,10 +361,13 @@ internal class EnrichmentCoordinator(
             covers[id]?.firstNotNullOfOrNull { pick(it)?.takeIf(String::isNotBlank) }
         }
 
-    /** The provider whose covers supply the first non-blank primary URL walking the cover chain. */
-    private fun coverWinner(covers: Map<MetadataProviderId, List<CoverMeta>>): MetadataProviderId? =
+    /** The provider whose covers supply the first non-blank URL (selected by [pick]) walking the cover chain. */
+    private fun coverWinnerBy(
+        covers: Map<MetadataProviderId, List<CoverMeta>>,
+        pick: (CoverMeta) -> String?,
+    ): MetadataProviderId? =
         routes.orderFor(BookField.COVER).firstOrNull { id ->
-            covers[id]?.any { it.url.isNotBlank() } == true
+            covers[id]?.any { pick(it)?.isNotBlank() == true } == true
         }
 
     /** The first non-empty list walking [field]'s chain, else empty. */

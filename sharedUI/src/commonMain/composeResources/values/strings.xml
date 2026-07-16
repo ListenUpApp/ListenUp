@@ -1048,7 +1048,7 @@ One beautiful library.</string>
     <string name="metadata_apply_metadata">Apply Metadata</string>
     <string name="metadata_apply_selected_metadata">Apply Selected Metadata</string>
     <string name="metadata_audible_catalog_try_a_different">Audible catalog. Try a different region:</string>
-    <string name="metadata_audible_region">Audible region</string>
+    <string name="metadata_audible_region">Region</string>
     <string name="metadata_audible_source">Audible · %1$s</string>
     <string name="metadata_audible_source_region">Audible · %1$s</string>
     <string name="metadata_book_not_found_on_audible">Book not found on Audible</string>
@@ -1065,6 +1065,7 @@ One beautiful library.</string>
     <string name="metadata_clear_all">Clear all</string>
     <string name="metadata_cover">Cover</string>
     <string name="metadata_cover_from_source">Cover from %1$s</string>
+    <string name="metadata_cover_source_resolution">%1$s · %2$s</string>
     <string name="metadata_current_cover">Current cover</string>
     <string name="metadata_enter_a_term_to_search">Enter a title, author, narrator, or ASIN to search</string>
     <string name="metadata_failed_to_load_metadata_preview">Failed to load metadata preview</string>
@@ -1079,6 +1080,7 @@ One beautiful library.</string>
     <string name="metadata_field_publisher">Publisher</string>
     <string name="metadata_field_release_date">Release date</string>
     <string name="metadata_field_series">Series</string>
+    <string name="metadata_field_source">from %1$s</string>
     <string name="metadata_field_subtitle">Subtitle</string>
     <string name="metadata_field_tags">Tags</string>
     <string name="metadata_field_title">Title</string>
@@ -1088,10 +1090,11 @@ One beautiful library.</string>
     <string name="metadata_loading_match">Loading match…</string>
     <string name="metadata_match_count">%1$d match found</string>
     <string name="metadata_match_metadata">Match metadata</string>
-    <string name="metadata_match_on_audible">Match on Audible</string>
+    <string name="metadata_match_on_audible">Match metadata</string>
     <string name="metadata_matched_by_asin">Matched by ASIN on Audible %1$s</string>
     <string name="metadata_matches_count">%1$d matches found</string>
     <string name="metadata_matching">Matching</string>
+    <string name="metadata_merged_from">Merged from %1$s</string>
     <string name="metadata_metadata_is_up_to_date">Metadata is up to date</string>
     <string name="metadata_more_chapters">+ %1$d more chapters</string>
     <string name="metadata_no_matches_found">No matches found</string>

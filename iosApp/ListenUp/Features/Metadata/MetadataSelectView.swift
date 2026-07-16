@@ -61,6 +61,7 @@ struct MetadataSelectView: View {
                 isApplying: ready.isApplying,
                 isEnabled: ready.selectedCount > 0,
                 applyError: ready.applyError,
+                contributingSources: ready.contributingSources,
                 action: { observer.applyMatch() }
             )
         }
@@ -138,7 +139,12 @@ struct MetadataSelectBody: View {
             isOn: preview.coverEnabled,
             onToggle: { observer.toggleField(.cover) }
         ) {
-            Text(preview.coverValueText).font(.callout).foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(preview.coverValueText).font(.callout).foregroundStyle(.primary)
+                if let coverLine = coverSourceLine {
+                    Text(coverLine).font(.caption2).foregroundStyle(.secondary)
+                }
+            }
         } thumb: {
             MetadataRemoteCover(url: preview.coverURL)
                 .frame(width: 36, height: 36)
@@ -150,10 +156,14 @@ struct MetadataSelectBody: View {
         MetadataFieldRow(
             systemImage: field.systemImage,
             label: field.label,
-            value: field.value,
             isOn: field.isSelected,
             onToggle: { observer.toggleField(field.field) }
-        )
+        ) {
+            VStack(alignment: .leading, spacing: 4) {
+                MetadataValueText(field.value)
+                MetadataSourceChip(source: field.sourceLabel)
+            }
+        }
     }
 
     private func descriptionRow(_ field: MetadataFieldSelection) -> some View {
@@ -163,7 +173,10 @@ struct MetadataSelectBody: View {
             isOn: field.isSelected,
             onToggle: { observer.toggleField(field.field) }
         ) {
-            Text(field.value).font(.footnote).foregroundStyle(.primary).lineLimit(3)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(field.value).font(.footnote).foregroundStyle(.primary).lineLimit(3)
+                MetadataSourceChip(source: field.sourceLabel)
+            }
         }
     }
 
@@ -171,30 +184,42 @@ struct MetadataSelectBody: View {
         MetadataFieldRow(
             systemImage: "person",
             label: String(localized: "metadata.field_authors"),
-            value: author.name,
             isOn: author.isSelected,
             onToggle: { observer.toggleAuthor(author.id) }
-        )
+        ) {
+            VStack(alignment: .leading, spacing: 4) {
+                MetadataValueText(author.name)
+                MetadataSourceChip(source: author.sourceLabel)
+            }
+        }
     }
 
     private func narratorRow(_ narrator: MetadataContributorSelection) -> some View {
         MetadataFieldRow(
             systemImage: "mic",
             label: String(localized: "metadata.field_narrators"),
-            value: narrator.name,
             isOn: narrator.isSelected,
             onToggle: { observer.toggleNarrator(narrator.id) }
-        )
+        ) {
+            VStack(alignment: .leading, spacing: 4) {
+                MetadataValueText(narrator.name)
+                MetadataSourceChip(source: narrator.sourceLabel)
+            }
+        }
     }
 
     private func seriesRow(_ series: MetadataSeriesSelection) -> some View {
         MetadataFieldRow(
             systemImage: "books.vertical",
             label: String(localized: "metadata.field_series"),
-            value: series.displayText,
             isOn: series.isSelected,
             onToggle: { observer.toggleSeries(series.id) }
-        )
+        ) {
+            VStack(alignment: .leading, spacing: 4) {
+                MetadataValueText(series.displayText)
+                MetadataSourceChip(source: series.sourceLabel)
+            }
+        }
     }
 
     private var genresRow: some View {
@@ -204,10 +229,13 @@ struct MetadataSelectBody: View {
             isOn: preview.genres.contains { $0.isSelected },
             onToggle: { toggleAllGenres() }
         ) {
-            FlowLayout(spacing: 8) {
-                ForEach(preview.genres) { genre in
-                    MetadataGenreChip(label: genre.label, isOn: genre.isSelected) {
-                        observer.toggleGenre(genre.id)
+            VStack(alignment: .leading, spacing: 4) {
+                MetadataSourceChip(source: preview.genres.first?.sourceLabel)
+                FlowLayout(spacing: 8) {
+                    ForEach(preview.genres) { genre in
+                        MetadataGenreChip(label: genre.label, isOn: genre.isSelected) {
+                            observer.toggleGenre(genre.id)
+                        }
                     }
                 }
             }
@@ -222,10 +250,13 @@ struct MetadataSelectBody: View {
             isOn: preview.moods.contains { $0.isSelected },
             onToggle: { toggleAllMoods() }
         ) {
-            FlowLayout(spacing: 8) {
-                ForEach(preview.moods) { mood in
-                    MetadataGenreChip(label: mood.label, isOn: mood.isSelected) {
-                        observer.toggleMood(mood.id)
+            VStack(alignment: .leading, spacing: 4) {
+                MetadataSourceChip(source: preview.moods.first?.sourceLabel)
+                FlowLayout(spacing: 8) {
+                    ForEach(preview.moods) { mood in
+                        MetadataGenreChip(label: mood.label, isOn: mood.isSelected) {
+                            observer.toggleMood(mood.id)
+                        }
                     }
                 }
             }
@@ -240,10 +271,13 @@ struct MetadataSelectBody: View {
             isOn: preview.tags.contains { $0.isSelected },
             onToggle: { toggleAllTags() }
         ) {
-            FlowLayout(spacing: 8) {
-                ForEach(preview.tags) { tag in
-                    MetadataGenreChip(label: tag.label, isOn: tag.isSelected) {
-                        observer.toggleTag(tag.id)
+            VStack(alignment: .leading, spacing: 4) {
+                MetadataSourceChip(source: preview.tags.first?.sourceLabel)
+                FlowLayout(spacing: 8) {
+                    ForEach(preview.tags) { tag in
+                        MetadataGenreChip(label: tag.label, isOn: tag.isSelected) {
+                            observer.toggleTag(tag.id)
+                        }
                     }
                 }
             }
@@ -289,6 +323,14 @@ struct MetadataSelectBody: View {
     private var chapterCountText: String {
         guard case .available(let available) = preview.chapters else { return "" }
         return String(format: String(localized: "metadata.chapters_matched"), available.totalCount)
+    }
+
+    /// The probed cover's provenance line: "{source} · {W×H}" when the resolution is known,
+    /// otherwise just the source. `nil` when the cover source is unknown (hides the line).
+    private var coverSourceLine: String? {
+        guard let source = preview.coverSourceLabel else { return nil }
+        guard let resolution = preview.coverResolution else { return source }
+        return String(format: String(localized: "metadata.cover_source_resolution"), source, resolution)
     }
 
     private func toggleAllGenres() {
@@ -363,6 +405,24 @@ struct MetadataMatchedEditionCard: View {
     }
 }
 
+/// A small "from {source}" provenance capsule shown under a field whose value fell back to a
+/// non-primary provider. Renders nothing when `source` is `nil`, so callers can pass an optional
+/// straight through. `luFill` (not `luSurface2`) keeps it visible against the row's grouped
+/// surface. Uses the semantic `.caption2` font so it scales with Dynamic Type.
+struct MetadataSourceChip: View {
+    let source: String?
+
+    var body: some View {
+        if let source {
+            Text(String(format: String(localized: "metadata.field_source"), source))
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Capsule().fill(Color.luFill))
+        }
+    }
+}
+
 /// A single genre opt-in chip: a coral check + label when on, neutral when off.
 struct MetadataGenreChip: View {
     let label: String
@@ -391,12 +451,24 @@ struct MetadataApplyTray: View {
     let isApplying: Bool
     let isEnabled: Bool
     let applyError: String?
+    /// Providers that contributed a winning field. More than one drives the "Merged from …"
+    /// footer above the apply button. Empty (the chapter-apply reuse) hides it.
+    var contributingSources: [String] = []
     let action: () -> Void
+
+    private var mergedFromText: String? {
+        guard contributingSources.count > 1 else { return nil }
+        return String(format: String(localized: "metadata.merged_from"), contributingSources.joined(separator: ", "))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             Divider()
             VStack(spacing: 8) {
+                if let mergedFromText {
+                    Text(mergedFromText).font(.footnote).foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 if let applyError {
                     Text(applyError).font(.caption).foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)

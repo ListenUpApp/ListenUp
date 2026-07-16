@@ -10476,7 +10476,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Audible region"
+            "value": "Region"
           }
         }
       }
@@ -10641,6 +10641,16 @@
         }
       }
     },
+    "metadata.cover_source_resolution": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "metadata.current_cover": {
       "localizations": {
         "en": {
@@ -10781,6 +10791,16 @@
         }
       }
     },
+    "metadata.field_source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "from %1$@"
+          }
+        }
+      }
+    },
     "metadata.field_subtitle": {
       "localizations": {
         "en": {
@@ -10876,7 +10896,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Match on Audible"
+            "value": "Match metadata"
           }
         }
       }
@@ -10907,6 +10927,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Matching"
+          }
+        }
+      }
+    },
+    "metadata.merged_from": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merged from %1$@"
           }
         }
       }

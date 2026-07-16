@@ -4,8 +4,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Wire shape for an Audible book lookup result, projected to the minimal surface
- * clients need. This is a subset of the server's internal `AudibleBook` type —
+ * Wire shape for a merged metadata match result (multi-provider enrichment, Audible-keyed).
+ * This is a subset of the server's internal `AudibleBook` type —
  * the raw Audible response shape is never exposed across the contract boundary.
  *
  * [asin] is the Audible identifier; clients pass it back to refresh or apply
@@ -48,6 +48,33 @@ data class MetadataBook(
     val coverUrl: String?,
     /** High-resolution cover URL from iTunes (up to 7000×7000), or `null` if unavailable. */
     val coverUrlMaxSize: String?,
+    /** Per-field provider provenance for this merged match; null on lean search hits and legacy payloads. */
+    val matchProvenance: MatchProvenance? = null,
+)
+
+/**
+ * Provider provenance for a merged match preview — display labels only, for the wizard.
+ *
+ * The server merges each field across a configured provider chain; this reports where the merged
+ * record's values came from. Values are human display labels ("Audible", "iTunes", "Audnexus", or a
+ * custom provider's title-cased name), never stable codes — clients display them, never switch on them.
+ */
+@Serializable
+@SerialName("MatchProvenance")
+data class MatchProvenance(
+    /** Distinct display labels of every provider that supplied a field, in BookField order. The footer. */
+    val contributingSources: List<String> = emptyList(),
+    /**
+     * Text/list fields whose winner is NOT that field's configured primary provider ("fell through to a
+     * fallback"). Keyed by the on-wire [com.calypsan.listenup.api.metadata.BookField]; value is a display
+     * label. Sparse — a present entry means "came from a fallback." Excludes COVER (see cover fields below).
+     */
+    val fallbackFields: Map<com.calypsan.listenup.api.metadata.BookField, String> = emptyMap(),
+    /** Display label of the provider supplying the applied (max-size) cover; set whenever a cover exists. */
+    val coverSource: String? = null,
+    /** Probed pixel width/height of the applied cover, or null when the probe found nothing. */
+    val coverWidth: Int? = null,
+    val coverHeight: Int? = null,
 )
 
 /**

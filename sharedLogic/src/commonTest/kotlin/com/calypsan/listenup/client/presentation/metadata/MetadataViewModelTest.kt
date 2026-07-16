@@ -5,10 +5,12 @@ import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataChapter
 import com.calypsan.listenup.api.dto.MetadataChapters
+import com.calypsan.listenup.api.dto.MatchProvenance
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Genre
@@ -56,6 +58,7 @@ class MetadataViewModelTest :
             asin: String = "B001",
             title: String = "Test Book",
             authorAsin: String? = "A1",
+            matchProvenance: MatchProvenance? = null,
         ): MetadataBook =
             MetadataBook(
                 asin = asin,
@@ -74,6 +77,7 @@ class MetadataViewModelTest :
                 tags = listOf("Found Family", "Slow Burn"),
                 coverUrl = "https://example.com/cover.jpg",
                 coverUrlMaxSize = "https://example.com/cover-max.jpg",
+                matchProvenance = matchProvenance,
             )
 
         fun buildVm(
@@ -1031,6 +1035,40 @@ class MetadataViewModelTest :
                         .shouldBeInstanceOf<PreviewLoadState.Ready>()
                 ready.coverEntries.size shouldBe 1
                 ready.coverEntries.single().label shouldBe "Audible"
+            }
+        }
+
+        // ── match provenance ──────────────────────────────────────────────────
+
+        test("preview Ready exposes provenance: fallback chips, cover source+resolution, footer") {
+            runTest {
+                val book =
+                    makeBook(asin = "B001", title = "Dune").copy(
+                        matchProvenance =
+                            MatchProvenance(
+                                contributingSources = listOf("Audible", "Audnexus", "iTunes"),
+                                fallbackFields = mapOf(BookField.DESCRIPTION to "Audnexus"),
+                                coverSource = "iTunes",
+                                coverWidth = 3000,
+                                coverHeight = 3000,
+                            ),
+                    )
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookChapters(any(), any()) } returns AppResult.Success(MetadataChapters(emptyList()))
+                val vm = buildVm(repo)
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val ready = (vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready
+                ready.fallbackSources shouldBe mapOf(BookField.DESCRIPTION to "Audnexus")
+                ready.coverSourceLabel shouldBe "iTunes"
+                ready.coverResolution shouldBe "3000×3000"
+                ready.contributingSources shouldBe listOf("Audible", "Audnexus", "iTunes")
             }
         }
     })

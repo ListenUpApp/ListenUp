@@ -52,6 +52,7 @@ import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -233,6 +234,24 @@ class MetadataLookupServiceImplTest :
                     book.genres shouldContainExactly listOf("Fantasy", "Epic")
                     book.moods shouldHaveSize 0
                     book.tags shouldHaveSize 0
+                }
+            }
+        }
+
+        test("getBookMetadata attaches merged provenance and probed cover dimensions") {
+            withSqlDatabase {
+                val service =
+                    makeService(
+                        audible = ComposeStubAudibleApi(),
+                        itunes = StubITunesApi(),
+                        dbs = this,
+                        probeDimensions = { 4000 to 4000 },
+                    )
+                runTest {
+                    val book = (service.getBookMetadata("B001", MetadataLocale("us")) as AppResult.Success).data!!
+                    book.matchProvenance!!.coverSource shouldBe "iTunes"
+                    book.matchProvenance!!.coverWidth shouldBe 4000
+                    book.matchProvenance!!.contributingSources.shouldContain("Audible")
                 }
             }
         }
@@ -435,6 +454,7 @@ private fun makeService(
     dbs: SqlTestDatabases,
     itunes: ITunesApi = NoOpITunesApi(),
     extraProviders: List<MetadataCapability> = emptyList(),
+    probeDimensions: suspend (String) -> Pair<Int, Int>? = { null },
 ): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-test-").toAbsolutePath()
     val metadataService =
@@ -481,6 +501,7 @@ private fun makeService(
         permissionPolicy = UserPermissionPolicy(dbs.sql),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,
+        probeDimensions = probeDimensions,
     )
 }
 
@@ -526,7 +547,7 @@ private class FakeContributorSource(
 }
 
 private class ComposeStubAudibleApi(
-    private val book: AudibleBook,
+    private val book: AudibleBook = audibleBook(),
     private val searchResults: List<AudibleSearchResult> = emptyList(),
 ) : AudibleApi {
     override suspend fun search(
@@ -563,7 +584,16 @@ private class NoOpITunesApi : ITunesApi {
 }
 
 private class StubITunesApi(
-    private val searchCoversResult: AppResult<List<ITunesCoverHit>>,
+    private val searchCoversResult: AppResult<List<ITunesCoverHit>> =
+        AppResult.Success(
+            listOf(
+                ITunesCoverHit(
+                    coverUrl = "https://itunes.test/100x100bb.jpg",
+                    maxSizeUrl = "https://itunes.test/7000x7000bb.jpg",
+                    sourceId = "12345",
+                ),
+            ),
+        ),
 ) : ITunesApi {
     override suspend fun findCover(
         title: String,

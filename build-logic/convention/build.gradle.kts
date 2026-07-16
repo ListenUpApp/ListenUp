@@ -36,6 +36,17 @@ val expectedKotlinVersion =
         .findVersion("kotlin")
         .get()
         .requiredVersion
+
+// kctfork bundles a kotlin-compiler-embeddable that can lag the catalog after a Kotlin bump
+// (e.g. kctfork 0.13.0 ships 2.4.0 while the catalog is on a newer patch). Force it to the catalog
+// Kotlin so the return-value-guard tests compile with the same compiler production uses — and so
+// ReturnValueGuardCanaryTest's version assertion stays green without waiting on a kctfork release.
+dependencies {
+    constraints {
+        testImplementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:$expectedKotlinVersion")
+    }
+}
+
 // In this build script rootDir is build-logic/ (it's an included build), so the
 // repository root is one level up. VerifyLocalParityTest parses these repo-root
 // files; hand the root over via a system property (the test JVM's working dir is

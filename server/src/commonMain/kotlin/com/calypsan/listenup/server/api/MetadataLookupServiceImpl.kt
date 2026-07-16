@@ -73,6 +73,7 @@ internal class MetadataLookupServiceImpl(
     private val permissionPolicy: UserPermissionPolicy,
     private val sqlDb: ListenUpDatabase,
     private val genreRepository: GenreRepository,
+    private val probeDimensions: suspend (String) -> Pair<Int, Int>? = { _ -> null },
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MetadataLookupService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
@@ -89,6 +90,7 @@ internal class MetadataLookupServiceImpl(
             permissionPolicy = permissionPolicy,
             sqlDb = sqlDb,
             genreRepository = genreRepository,
+            probeDimensions = probeDimensions,
             principal = principal,
         )
 
@@ -132,7 +134,11 @@ internal class MetadataLookupServiceImpl(
     override suspend fun getBookMetadata(
         asin: String,
         region: MetadataLocale,
-    ): AppResult<MetadataBook?> = composeBook(asin, region).map { it?.toMetadataBook() }
+    ): AppResult<MetadataBook?> =
+        when (val composed = composeBook(asin, region)) {
+            is AppResult.Success -> AppResult.Success(composed.data?.toMetadataBookWithProvenance())
+            is AppResult.Failure -> composed
+        }
 
     override suspend fun getBookChapters(
         asin: String,
@@ -165,7 +171,10 @@ internal class MetadataLookupServiceImpl(
         region: MetadataLocale,
     ): AppResult<MetadataBook?> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return composeBook(asin, region, refresh = true).map { it?.toMetadataBook() }
+        return when (val composed = composeBook(asin, region, refresh = true)) {
+            is AppResult.Success -> AppResult.Success(composed.data?.toMetadataBookWithProvenance())
+            is AppResult.Failure -> composed
+        }
     }
 
     /**
@@ -179,6 +188,12 @@ internal class MetadataLookupServiceImpl(
         locale: MetadataLocale,
         refresh: Boolean = false,
     ): AppResult<ComposedBook?> = coordinator.composeBook(bookIdentity(asin), locale, refresh)
+
+    /** Compose → probe the applied cover's dimensions → attach [com.calypsan.listenup.api.dto.MatchProvenance]. */
+    private suspend fun ComposedBook.toMetadataBookWithProvenance(): MetadataBook {
+        val dims = probeDimensions(coverUrlMaxSize ?: coverUrl ?: "")
+        return toMetadataBook().copy(matchProvenance = buildMatchProvenance(this, coordinator.routes, dims))
+    }
 
     /**
      * The lookup key for an ASIN-keyed compose. The title is unknown at this point — the coordinator

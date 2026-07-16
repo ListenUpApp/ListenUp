@@ -56,6 +56,7 @@ import coil3.compose.AsyncImage
 import com.calypsan.listenup.api.dto.MetadataBook
 import com.calypsan.listenup.api.dto.MetadataContributorRef
 import com.calypsan.listenup.api.dto.MetadataSeriesRef
+import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ExpressiveCheckbox
@@ -83,6 +84,7 @@ import listenup.composeapp.generated.resources.metadata_chapters_matched
 import listenup.composeapp.generated.resources.metadata_cover
 import listenup.composeapp.generated.resources.metadata_cover_from_source
 import listenup.composeapp.generated.resources.metadata_current_cover
+import listenup.composeapp.generated.resources.metadata_cover_source_resolution
 import listenup.composeapp.generated.resources.metadata_field_authors
 import listenup.composeapp.generated.resources.metadata_field_description
 import listenup.composeapp.generated.resources.metadata_field_genres
@@ -90,9 +92,11 @@ import listenup.composeapp.generated.resources.metadata_field_language
 import listenup.composeapp.generated.resources.metadata_field_moods
 import listenup.composeapp.generated.resources.metadata_field_narrators
 import listenup.composeapp.generated.resources.metadata_field_publisher
+import listenup.composeapp.generated.resources.metadata_field_source
 import listenup.composeapp.generated.resources.metadata_field_tags
 import listenup.composeapp.generated.resources.metadata_field_subtitle
 import listenup.composeapp.generated.resources.metadata_field_title
+import listenup.composeapp.generated.resources.metadata_merged_from
 import listenup.composeapp.generated.resources.metadata_metadata_is_up_to_date
 import listenup.composeapp.generated.resources.metadata_no_metadata_available
 import listenup.composeapp.generated.resources.metadata_release_date
@@ -137,6 +141,11 @@ fun MatchPreviewScreen(
     // Chapter names
     chapterSuggestion: ChapterSuggestion,
     onReviewChapters: () -> Unit,
+    // Provenance
+    fallbackSources: Map<BookField, String>,
+    coverSourceLabel: String?,
+    coverResolution: String?,
+    contributingSources: List<String>,
     // Callbacks
     onRegionSelected: (MetadataLocale) -> Unit,
     onToggleField: (MetadataField) -> Unit,
@@ -164,6 +173,7 @@ fun MatchPreviewScreen(
                 applyError = applyError,
                 isApplying = isApplying,
                 hasAnySelected = hasAnySelected,
+                contributingSources = contributingSources,
                 onApply = onApply,
             )
         },
@@ -223,6 +233,9 @@ fun MatchPreviewScreen(
                         onSelectCover = onSelectCover,
                         chapterSuggestion = chapterSuggestion,
                         onReviewChapters = onReviewChapters,
+                        fallbackSources = fallbackSources,
+                        coverSourceLabel = coverSourceLabel,
+                        coverResolution = coverResolution,
                         onToggleField = onToggleField,
                         onToggleAuthor = onToggleAuthor,
                         onToggleNarrator = onToggleNarrator,
@@ -391,6 +404,7 @@ private fun ApplyBottomBar(
     applyError: String?,
     isApplying: Boolean,
     hasAnySelected: Boolean,
+    contributingSources: List<String>,
     onApply: () -> Unit,
 ) {
     Surface(
@@ -402,6 +416,15 @@ private fun ApplyBottomBar(
                     .fillMaxWidth()
                     .padding(18.dp),
         ) {
+            if (contributingSources.size > 1) {
+                Text(
+                    text = stringResource(Res.string.metadata_merged_from, contributingSources.joinToString(", ")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+
             applyError?.let { error ->
                 Text(
                     text = error,
@@ -435,6 +458,9 @@ private fun LazyListScope.metadataFieldsSection(
     onSelectCover: (String?) -> Unit,
     chapterSuggestion: ChapterSuggestion,
     onReviewChapters: () -> Unit,
+    fallbackSources: Map<BookField, String>,
+    coverSourceLabel: String?,
+    coverResolution: String?,
     onToggleField: (MetadataField) -> Unit,
     onToggleAuthor: (String) -> Unit,
     onToggleNarrator: (String) -> Unit,
@@ -457,6 +483,9 @@ private fun LazyListScope.metadataFieldsSection(
                 isLoadingCovers = isLoadingCovers,
                 selectedCoverUrl = selectedCoverUrl,
                 onSelectCover = onSelectCover,
+                fallbackSources = fallbackSources,
+                coverSourceLabel = coverSourceLabel,
+                coverResolution = coverResolution,
                 onToggleField = onToggleField,
                 onToggleAuthor = onToggleAuthor,
                 onToggleNarrator = onToggleNarrator,
@@ -482,6 +511,7 @@ private fun LazyListScope.metadataFieldsSection(
                         genres = newMetadata.genres,
                         selectedGenres = selections.selectedGenres,
                         onToggle = onToggleGenre,
+                        sourceLabel = fallbackSources[BookField.GENRES],
                     )
                 }
                 if (newMetadata.moods.isNotEmpty()) {
@@ -518,6 +548,7 @@ private fun LazyListScope.metadataFieldsSection(
                 DetailsSectionContent(
                     newMetadata = newMetadata,
                     selections = selections,
+                    fallbackSources = fallbackSources,
                     onToggleField = onToggleField,
                 )
             }
@@ -539,6 +570,9 @@ private fun IdentitySectionContent(
     isLoadingCovers: Boolean,
     selectedCoverUrl: String?,
     onSelectCover: (String?) -> Unit,
+    fallbackSources: Map<BookField, String>,
+    coverSourceLabel: String?,
+    coverResolution: String?,
     onToggleField: (MetadataField) -> Unit,
     onToggleAuthor: (String) -> Unit,
     onToggleNarrator: (String) -> Unit,
@@ -554,6 +588,8 @@ private fun IdentitySectionContent(
         isCoverEnabled = selections.cover,
         onSelectCover = onSelectCover,
         onToggleCover = { onToggleField(MetadataField.COVER) },
+        coverSourceLabel = coverSourceLabel,
+        coverResolution = coverResolution,
         showDivider = !first,
     )
     first = false
@@ -564,6 +600,7 @@ private fun IdentitySectionContent(
             value = newMetadata.title,
             isSelected = selections.title,
             onToggle = { onToggleField(MetadataField.TITLE) },
+            sourceLabel = fallbackSources[BookField.TITLE],
             showDivider = !first,
         )
         first = false
@@ -575,6 +612,7 @@ private fun IdentitySectionContent(
             value = subtitle,
             isSelected = selections.subtitle,
             onToggle = { onToggleField(MetadataField.SUBTITLE) },
+            sourceLabel = fallbackSources[BookField.SUBTITLE],
             showDivider = !first,
         )
         first = false
@@ -586,6 +624,7 @@ private fun IdentitySectionContent(
             contributors = newMetadata.authors,
             selectedAsins = selections.selectedAuthors,
             onToggle = onToggleAuthor,
+            sourceLabel = fallbackSources[BookField.AUTHORS],
             showTopDivider = !first,
         )
         first = false
@@ -597,6 +636,7 @@ private fun IdentitySectionContent(
             contributors = newMetadata.narrators,
             selectedAsins = selections.selectedNarrators,
             onToggle = onToggleNarrator,
+            sourceLabel = fallbackSources[BookField.NARRATORS],
             showTopDivider = !first,
         )
         first = false
@@ -607,6 +647,7 @@ private fun IdentitySectionContent(
             series = newMetadata.series,
             selectedAsins = selections.selectedSeries,
             onToggle = onToggleSeries,
+            sourceLabel = fallbackSources[BookField.SERIES],
             showTopDivider = !first,
         )
     }
@@ -617,6 +658,7 @@ private fun IdentitySectionContent(
 private fun DetailsSectionContent(
     newMetadata: MetadataBook,
     selections: MetadataSelections,
+    fallbackSources: Map<BookField, String>,
     onToggleField: (MetadataField) -> Unit,
 ) {
     var first = true
@@ -633,6 +675,7 @@ private fun DetailsSectionContent(
             value = displayText,
             isSelected = selections.description,
             onToggle = { onToggleField(MetadataField.DESCRIPTION) },
+            sourceLabel = fallbackSources[BookField.DESCRIPTION],
             showDivider = !first,
         )
         first = false
@@ -644,6 +687,7 @@ private fun DetailsSectionContent(
             value = publisher,
             isSelected = selections.publisher,
             onToggle = { onToggleField(MetadataField.PUBLISHER) },
+            sourceLabel = fallbackSources[BookField.PUBLISHER],
             showDivider = !first,
         )
         first = false
@@ -655,6 +699,7 @@ private fun DetailsSectionContent(
             value = releaseDate,
             isSelected = selections.releaseDate,
             onToggle = { onToggleField(MetadataField.RELEASE_DATE) },
+            sourceLabel = fallbackSources[BookField.PUBLISH_YEAR],
             showDivider = !first,
         )
         first = false
@@ -666,6 +711,7 @@ private fun DetailsSectionContent(
             value = language,
             isSelected = selections.language,
             onToggle = { onToggleField(MetadataField.LANGUAGE) },
+            sourceLabel = fallbackSources[BookField.LANGUAGE],
             showDivider = !first,
         )
     }
@@ -841,6 +887,8 @@ private fun CoverFieldRow(
     isCoverEnabled: Boolean,
     onSelectCover: (String?) -> Unit,
     onToggleCover: () -> Unit,
+    coverSourceLabel: String?,
+    coverResolution: String?,
     showDivider: Boolean,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -851,12 +899,25 @@ private fun CoverFieldRow(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             ExpressiveCheckbox(checked = isCoverEnabled, onCheckedChange = { onToggleCover() })
-            Text(
-                text = stringResource(Res.string.metadata_cover),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Column {
+                Text(
+                    text = stringResource(Res.string.metadata_cover),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                if (coverSourceLabel != null) {
+                    Text(
+                        text =
+                            coverResolution?.let {
+                                stringResource(Res.string.metadata_cover_source_resolution, coverSourceLabel, it)
+                            } ?: coverSourceLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
         }
 
         LazyRow(
@@ -1039,8 +1100,29 @@ private fun FieldRowDivider(show: Boolean) {
 }
 
 /**
+ * Per-field provenance chip: "from iTunes", shown beside a field's label when the value was
+ * sourced from a non-primary provider (a fallback fill). Distinct from the hero [SourceChip],
+ * which always shows the primary matched-edition source regardless of per-field fallbacks.
+ */
+@Composable
+private fun FieldSourceChip(label: String?) {
+    if (label == null) return
+    Text(
+        text = stringResource(Res.string.metadata_field_source, label),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier =
+            Modifier
+                .padding(start = 6.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(percent = 50))
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+/**
  * A simple selectable field row (title, subtitle, description, …): a leading [ExpressiveCheckbox], an
- * accent label, and the matched value. The whole row is the toggle target.
+ * accent label, and the matched value. The whole row is the toggle target. [sourceLabel] renders a
+ * [FieldSourceChip] beside the label when this field's value came from a fallback provider.
  */
 @Composable
 private fun SimpleFieldRow(
@@ -1049,6 +1131,7 @@ private fun SimpleFieldRow(
     isSelected: Boolean,
     onToggle: () -> Unit,
     showDivider: Boolean,
+    sourceLabel: String? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         FieldRowDivider(show = showDivider)
@@ -1059,12 +1142,15 @@ private fun SimpleFieldRow(
         ) {
             ExpressiveCheckbox(checked = isSelected)
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    FieldSourceChip(sourceLabel)
+                }
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodyMedium,
@@ -1080,7 +1166,8 @@ private fun SimpleFieldRow(
 
 /**
  * Contributor (authors/narrators) field rows: an accent sub-label header followed by one
- * [ExpressiveCheckbox] row per contributor.
+ * [ExpressiveCheckbox] row per contributor. [sourceLabel] renders a [FieldSourceChip] beside
+ * the header when this field's values came from a fallback provider.
  */
 @Composable
 private fun ContributorFieldRows(
@@ -1089,16 +1176,22 @@ private fun ContributorFieldRows(
     selectedAsins: Set<String>,
     onToggle: (String) -> Unit,
     showTopDivider: Boolean,
+    sourceLabel: String? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         FieldRowDivider(show = showTopDivider)
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 56.dp, top = 15.dp, bottom = 4.dp),
-        )
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            FieldSourceChip(sourceLabel)
+        }
         contributors.forEach { contributor ->
             val asin = contributor.asin ?: contributor.name // Fallback to name if no ASIN
             ValueCheckRow(
@@ -1113,6 +1206,7 @@ private fun ContributorFieldRows(
 
 /**
  * Series field rows: an accent sub-label header followed by one [ExpressiveCheckbox] row per series.
+ * [sourceLabel] renders a [FieldSourceChip] beside the header when series came from a fallback provider.
  */
 @Composable
 private fun SeriesFieldRows(
@@ -1120,16 +1214,22 @@ private fun SeriesFieldRows(
     selectedAsins: Set<String>,
     onToggle: (String) -> Unit,
     showTopDivider: Boolean,
+    sourceLabel: String? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         FieldRowDivider(show = showTopDivider)
-        Text(
-            text = stringResource(Res.string.common_series),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(start = 56.dp, top = 15.dp, bottom = 4.dp),
-        )
+        ) {
+            Text(
+                text = stringResource(Res.string.common_series),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            FieldSourceChip(sourceLabel)
+        }
         series.forEach { seriesEntry ->
             val asin = seriesEntry.asin ?: seriesEntry.title // Fallback to title if no ASIN
             val displayText =
@@ -1171,6 +1271,7 @@ private fun ValueCheckRow(
 
 /**
  * Genre field row: the matched genres as toggleable filled chips with a leading check when selected.
+ * [sourceLabel] renders a [FieldSourceChip] beside the header when genres came from a fallback provider.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -1178,15 +1279,18 @@ private fun GenreFieldRow(
     genres: List<String>,
     selectedGenres: Set<String>,
     onToggle: (String) -> Unit,
+    sourceLabel: String? = null,
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-        Text(
-            text = stringResource(Res.string.metadata_field_genres),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.tertiary,
-            modifier = Modifier.padding(bottom = 10.dp),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 10.dp)) {
+            Text(
+                text = stringResource(Res.string.metadata_field_genres),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+            FieldSourceChip(sourceLabel)
+        }
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
