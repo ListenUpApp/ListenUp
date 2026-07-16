@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.core
+package com.calypsan.listenup.core
 
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.FunSpec
