@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.auth.AuthFailureObserver
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager

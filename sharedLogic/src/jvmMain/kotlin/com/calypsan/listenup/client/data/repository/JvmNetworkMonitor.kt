@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import io.github.oshai.kotlinlogging.KotlinLogging

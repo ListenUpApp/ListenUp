@@ -27,11 +27,19 @@ import kotlinx.coroutines.launch
  * - Always use `[weak self]` in the Swift callback to prevent retain cycles
  * - Cancel the returned Job in the Swift wrapper's `deinit`
  *
+ * Crash safety:
+ * - The scope installs [appCoroutineExceptionHandler]. On Kotlin/Native an uncaught coroutine
+ *   exception routes to `propagateExceptionFinalResort`, which **terminates the process** — and
+ *   this bridge is on the path of every Swift observer in the app, running an arbitrary Swift
+ *   callback (`onEach`) that reads bridged Kotlin properties. Without the handler a single
+ *   throwable from any observer's callback would kill the app rather than log. That is the #728
+ *   crash class; scope *lifetime* is irrelevant to it — one throw is fatal either way.
+ *
  * @param onEach Callback invoked for each state emission (runs on Main thread)
  * @return Job that can be cancelled to stop collection
  */
 fun <T> StateFlow<T>.collect(onEach: (T) -> Unit): Job =
-    CoroutineScope(Dispatchers.Main).launch {
+    CoroutineScope(Dispatchers.Main + appCoroutineExceptionHandler).launch {
         collect { value ->
             onEach(value)
         }

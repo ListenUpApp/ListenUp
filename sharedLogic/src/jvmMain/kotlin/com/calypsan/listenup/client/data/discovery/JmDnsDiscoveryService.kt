@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.discovery
 
-import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

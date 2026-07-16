@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.core
+package com.calypsan.listenup.core
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineExceptionHandler
