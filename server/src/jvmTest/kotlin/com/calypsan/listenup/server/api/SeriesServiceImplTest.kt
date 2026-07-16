@@ -23,8 +23,10 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -317,6 +319,8 @@ private fun makeSeriesServiceAndDeps(dbs: SqlTestDatabases): SeriesServiceDeps {
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
+            entityRepo = EntityRepository(dbs.sql, bus, syncRegistry),
+            worldEventRepo = WorldEventRepository(dbs.sql, bus, syncRegistry),
             reindexer = reindexer,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),

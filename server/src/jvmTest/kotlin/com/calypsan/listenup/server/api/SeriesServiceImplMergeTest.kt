@@ -4,12 +4,17 @@ package com.calypsan.listenup.server.api
 
 import app.cash.sqldelight.db.QueryResult
 
+import com.calypsan.listenup.api.dto.world.WorldEventOp
+import com.calypsan.listenup.api.dto.world.WorldEventUpsert
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.EntityKind
+import com.calypsan.listenup.api.sync.EntitySyncPayload
+import com.calypsan.listenup.api.sync.WorldEventType
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -21,13 +26,16 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -189,6 +197,81 @@ class SeriesServiceImplMergeTest :
                 }
             }
         }
+
+        // ── Story World re-home (spec §10 pre-ship item) ────────────────────────
+
+        test("merge re-homes live entities from source to target") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
+                runTest {
+                    val sourceId = deps.seriesRepo.resolveOrCreate("Source Series")
+                    val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
+                    deps.entityRepo.upsertEntity(entityFixtureForSeriesMerge("vin", sourceId.value))
+                    val revisionBeforeMerge = deps.entityRepo.findById("vin")!!.revision
+
+                    val result = deps.service.mergeSeries(sourceId, targetId)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val rehomed = deps.entityRepo.findById("vin")
+                    rehomed shouldNotBe null
+                    rehomed!!.homeSeriesId shouldBe targetId.value
+                    rehomed.revision shouldBeGreaterThan revisionBeforeMerge
+                }
+            }
+        }
+
+        test("merge re-homes live world events from source to target") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
+                runTest {
+                    val sourceId = deps.seriesRepo.resolveOrCreate("Source Series")
+                    val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
+                    deps.worldEventRepo.applyBatch(
+                        listOf(WorldEventOp.Upsert(worldEventFixtureForSeriesMerge("e1", sourceId.value))),
+                    )
+
+                    val result = deps.service.mergeSeries(sourceId, targetId)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val rehomed = deps.worldEventRepo.findById("e1")
+                    rehomed shouldNotBe null
+                    rehomed!!.homeSeriesId shouldBe targetId.value
+                }
+            }
+        }
+
+        test("merge leaves entities and events of other series untouched") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
+                runTest {
+                    val sourceId = deps.seriesRepo.resolveOrCreate("Source Series")
+                    val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
+                    val otherId = deps.seriesRepo.resolveOrCreate("Unrelated Series")
+                    deps.entityRepo.upsertEntity(entityFixtureForSeriesMerge("elend", otherId.value))
+                    deps.worldEventRepo.applyBatch(
+                        listOf(WorldEventOp.Upsert(worldEventFixtureForSeriesMerge("e2", otherId.value))),
+                    )
+                    val entityRevisionBefore = deps.entityRepo.findById("elend")!!.revision
+                    val eventRevisionBefore = deps.worldEventRepo.findById("e2")!!.revision
+
+                    val result = deps.service.mergeSeries(sourceId, targetId)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val entityAfter = deps.entityRepo.findById("elend")
+                    entityAfter shouldNotBe null
+                    entityAfter!!.homeSeriesId shouldBe otherId.value
+                    entityAfter.revision shouldBe entityRevisionBefore
+
+                    val eventAfter = deps.worldEventRepo.findById("e2")
+                    eventAfter shouldNotBe null
+                    eventAfter!!.homeSeriesId shouldBe otherId.value
+                    eventAfter.revision shouldBe eventRevisionBefore
+                }
+            }
+        }
     })
 
 // ── Test fixtures and helpers ──────────────────────────────────────────────────
@@ -197,6 +280,8 @@ private data class MergeSeriesServiceDeps(
     val service: SeriesServiceImpl,
     val seriesRepo: SeriesRepository,
     val bookRepo: BookRepository,
+    val entityRepo: EntityRepository,
+    val worldEventRepo: WorldEventRepository,
 )
 
 private fun makeMergeSeriesServiceAndDeps(dbs: SqlTestDatabases): MergeSeriesServiceDeps {
@@ -217,17 +302,58 @@ private fun makeMergeSeriesServiceAndDeps(dbs: SqlTestDatabases): MergeSeriesSer
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
     val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
+    val entityRepo = EntityRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
+    val worldEventRepo = WorldEventRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
+            entityRepo = entityRepo,
+            worldEventRepo = worldEventRepo,
             reindexer = reindexer,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             principal = rootPrincipal(),
         )
-    return MergeSeriesServiceDeps(service, seriesRepo, bookRepo)
+    return MergeSeriesServiceDeps(service, seriesRepo, bookRepo, entityRepo, worldEventRepo)
 }
+
+/** Minimal series-homed [EntitySyncPayload], mirroring [EntityRepositoryTest]'s fixture idiom. */
+private fun entityFixtureForSeriesMerge(
+    id: String,
+    seriesId: String,
+    name: String = id,
+    updatedAt: Long = 1_000L,
+): EntitySyncPayload =
+    EntitySyncPayload(
+        id = id,
+        kind = EntityKind.CHARACTER,
+        name = name,
+        homeSeriesId = seriesId,
+        homeBookId = null,
+        imageRef = null,
+        revision = 0L,
+        updatedAt = updatedAt,
+        createdAt = updatedAt,
+        deletedAt = null,
+    )
+
+/**
+ * Minimal series-homed [WorldEventUpsert] — a plain NOTE with no mention tokens and no
+ * subject/object, so it carries no entity FK dependency (mirrors [WorldEventRepositoryTest]'s
+ * simplest-valid-seed idiom).
+ */
+private fun worldEventFixtureForSeriesMerge(
+    id: String,
+    seriesId: String,
+    text: String = "A quiet moment.",
+): WorldEventUpsert =
+    WorldEventUpsert(
+        id = id,
+        homeSeriesId = seriesId,
+        type = WorldEventType.NOTE,
+        text = text,
+    )
 
 /** Minimal [BookSyncPayload] linked to a single series. */
 private fun bookFixtureForSeriesMerge(

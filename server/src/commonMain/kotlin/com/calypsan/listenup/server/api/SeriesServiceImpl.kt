@@ -2,6 +2,8 @@ package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.dto.SeriesUpdate
+import com.calypsan.listenup.api.dto.world.WorldEventOp
+import com.calypsan.listenup.api.dto.world.WorldEventUpsert
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.SeriesError
@@ -16,8 +18,11 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTrans
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
+import com.calypsan.listenup.server.sync.EntityRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlin.time.Clock
 
 private val logger = loggerFor<SeriesServiceImpl>()
 
@@ -64,15 +69,29 @@ private val logger = loggerFor<SeriesServiceImpl>()
 internal class SeriesServiceImpl(
     private val seriesRepo: SeriesRepository,
     private val bookRepo: BookRepository,
+    private val entityRepo: EntityRepository,
+    private val worldEventRepo: WorldEventRepository,
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    private val clock: Clock = Clock.System,
 ) : SeriesService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
-        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, accessPolicy, permissionPolicy, principal)
+        SeriesServiceImpl(
+            seriesRepo,
+            bookRepo,
+            entityRepo,
+            worldEventRepo,
+            reindexer,
+            sqlDb,
+            accessPolicy,
+            permissionPolicy,
+            principal,
+            clock,
+        )
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -149,9 +168,13 @@ internal class SeriesServiceImpl(
 
     /**
      * The merge write sequence (no FTS reindex). The snapshot + membership relink are the one
-     * pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the source
-     * soft-delete are sequential aggregate writes over the single SQLDelight connection —
-     * matching the established cutover shape.
+     * pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts, the entity/
+     * world-event re-home, and the source soft-delete are sequential aggregate writes over the
+     * single SQLDelight connection — matching the established cutover shape. After the book
+     * re-upserts, every LIVE entity and world event homed to source is re-homed to target
+     * through the standard repository write paths ([EntityRepository.upsertEntity] /
+     * [WorldEventRepository.applyBatch]), inheriting the same revision-bump and sync-propagation
+     * guarantees, before source is soft-deleted.
      */
     private suspend fun mergeCore(
         source: SeriesId,
@@ -183,6 +206,50 @@ internal class SeriesServiceImpl(
             when (val upsertResult = bookRepo.upsert(book)) {
                 is AppResult.Success -> Unit
                 is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
+            }
+        }
+
+        // Re-home every LIVE entity namespaced under source to target through the standard
+        // upsertEntity path — same revision-bump + change-bus propagation the book re-upserts
+        // above get. upsertEntity's LWW guard is strict-older-only, so a fresh `updatedAt` stamp
+        // is what makes the re-home win over the entity's own stored value. Tombstoned entities
+        // are left pointing at source — harmless, since minimizeTombstone blanks homeSeriesId on
+        // every tombstone regardless of which series it names.
+        val now = clock.now().toEpochMilliseconds()
+        for (entity in entityRepo.listBySeries(source.value)) {
+            val rehomed = entity.copy(homeSeriesId = target.value, updatedAt = now)
+            when (val upsertResult = entityRepo.upsertEntity(rehomed)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
+            }
+        }
+
+        // Re-home every LIVE world event namespaced under source to target in one atomic batch.
+        // applyBatch/applyUpsert stamps its own fresh `updatedAt` internally, so no explicit stamp
+        // is needed here (unlike the entity loop above). Tombstoned events also keep their stale
+        // home — harmless, since they only serve as tombstones — and the upsert path re-stamps
+        // `source` to MANUAL per its own rules (IMPORTED is reserved and unused pre-v1).
+        val liveWorldEvents = worldEventRepo.listForWorld(homeSeriesId = source.value, homeBookId = null)
+        if (liveWorldEvents.isNotEmpty()) {
+            val rehomeOps =
+                liveWorldEvents.map { event ->
+                    WorldEventOp.Upsert(
+                        WorldEventUpsert(
+                            id = event.id,
+                            homeSeriesId = target.value,
+                            homeBookId = null,
+                            bookId = event.bookId,
+                            positionMs = event.positionMs,
+                            type = event.type,
+                            text = event.text,
+                            subjectEntityId = event.subjectEntityId,
+                            objectEntityId = event.objectEntityId,
+                        ),
+                    )
+                }
+            when (val batchResult = worldEventRepo.applyBatch(rehomeOps)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return AppResult.Failure(batchResult.error)
             }
         }
 
@@ -244,10 +311,21 @@ internal class SeriesServiceImpl(
 fun createSeriesService(
     seriesRepo: SeriesRepository,
     bookRepo: BookRepository,
+    entityRepo: EntityRepository,
+    worldEventRepo: WorldEventRepository,
     reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
-): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, BookAccessPolicy(sqlDb, driver))
+): SeriesService =
+    SeriesServiceImpl(
+        seriesRepo = seriesRepo,
+        bookRepo = bookRepo,
+        entityRepo = entityRepo,
+        worldEventRepo = worldEventRepo,
+        reindexer = reindexer,
+        sqlDb = sqlDb,
+        accessPolicy = BookAccessPolicy(sqlDb, driver),
+    )
 
 /**
  * Scopes a [SeriesService] built by [createSeriesService] to [principal] for one request.

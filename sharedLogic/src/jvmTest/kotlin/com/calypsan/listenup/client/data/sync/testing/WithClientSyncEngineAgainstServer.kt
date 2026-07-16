@@ -81,6 +81,8 @@ import com.calypsan.listenup.server.api.seriesServiceScopedTo
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
+import com.calypsan.listenup.server.sync.EntityRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.DriverFactory
@@ -303,6 +305,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             createSeriesService(
                 seriesRepo = serverRepos.seriesRepo,
                 bookRepo = serverRepos.bookRepo,
+                entityRepo = serverRepos.entityRepo,
+                worldEventRepo = serverRepos.worldEventRepo,
                 reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
@@ -814,6 +818,8 @@ private data class ServerRepositories(
     val libraryRepo: LibraryRepository,
     val libraryFolderRepo: LibraryFolderRepository,
     val activityRecorder: ActivityRecorder,
+    val entityRepo: EntityRepository,
+    val worldEventRepo: WorldEventRepository,
 )
 
 /**
@@ -933,6 +939,10 @@ private fun buildServerRepositories(
             registry = registry,
             statsRecorder = statsRecorder,
         )
+    // Story World domains — needed by the mergeSeries e2e re-home coverage (SeriesServiceImpl
+    // re-homes live entities/world events from source to target on merge).
+    val entityRepo = EntityRepository(serverSqlDb, bus, registry)
+    val worldEventRepo = WorldEventRepository(serverSqlDb, bus, registry)
 
     return ServerRepositories(
         tagRepo,
@@ -947,6 +957,8 @@ private fun buildServerRepositories(
         libraryRepo,
         libraryFolderRepo,
         activityRecorder,
+        entityRepo,
+        worldEventRepo,
     )
 }
 

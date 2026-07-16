@@ -23,8 +23,10 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.sync.EntityRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.sync.WorldEventRepository
 import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -83,7 +85,16 @@ class SeriesRoutesTest :
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
-                val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sql, BookAccessPolicy(sql, driver))
+                val service =
+                    SeriesServiceImpl(
+                        seriesRepo,
+                        bookRepo,
+                        EntityRepository(sql, bus, registry),
+                        WorldEventRepository(sql, bus, registry),
+                        reindexer,
+                        sql,
+                        BookAccessPolicy(sql, driver),
+                    )
                 val collectionRepo =
                     CollectionRepository(
                         db = sql,
