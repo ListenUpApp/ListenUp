@@ -17,7 +17,10 @@ import kotlinx.coroutines.withContext
  *
  * A [PostCommitSideEffects] collector is installed for the duration of [block] so an apply
  * can defer file-system/network side effects (via [deferUntilCommit]) past commit. The
- * collected actions run only when the transaction succeeds; a rollback discards them.
+ * collected actions run only when the transaction succeeds; a rollback discards them. Those
+ * actions are inherently best-effort (see [deferUntilCommit]'s callers) — a failure there must
+ * never turn an already-committed apply into a reported [AppResult.Failure], so [runAll] is
+ * outside the try/catch that maps [block] failures to [SyncError.SyncFailed].
  */
 internal suspend fun TransactionRunner.applyEventAtomically(
     domain: String,
@@ -26,14 +29,23 @@ internal suspend fun TransactionRunner.applyEventAtomically(
     block: suspend () -> Unit,
 ): AppResult<Unit> {
     val sideEffects = PostCommitSideEffects()
-    return try {
+    try {
         withContext(sideEffects) { atomically { block() } }
-        sideEffects.runAll()
-        AppResult.Success(Unit)
     } catch (e: CancellationException) {
         throw e
     } catch (e: Exception) {
         log.warn(e) { "Failed to apply $domain sync event for $entityId" }
-        AppResult.Failure(SyncError.SyncFailed(debugInfo = "$domain/$entityId: ${e.message}"))
+        return AppResult.Failure(SyncError.SyncFailed(debugInfo = "$domain/$entityId: ${e.message}"))
     }
+
+    try {
+        sideEffects.runAll()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        // Best-effort by contract (see PostCommitSideEffects KDoc): the transaction already
+        // committed, so a deferred side effect failing here must not be reported as a failed apply.
+        log.warn(e) { "Post-commit side effect failed for $domain sync event $entityId (apply still succeeded)" }
+    }
+    return AppResult.Success(Unit)
 }

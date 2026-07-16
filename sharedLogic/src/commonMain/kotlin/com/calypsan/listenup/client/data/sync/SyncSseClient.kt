@@ -40,11 +40,14 @@ internal class SyncSseClient(
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
     connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
     onAuthExhausted: suspend () -> Unit = {},
+    // Test seam: a small capacity lets a test force `frameBus.emit` to suspend deterministically
+    // (SyncSseClientDeliveryOrderingTest) without depending on the production buffer depth.
+    frameBufferCapacity: Int = FRAME_BUFFER_CAPACITY,
 ) : SseClient {
     private val frameBus =
         MutableSharedFlow<ParsedSseFrame>(
             replay = 0,
-            extraBufferCapacity = FRAME_BUFFER_CAPACITY,
+            extraBufferCapacity = frameBufferCapacity,
             onBufferOverflow = BufferOverflow.SUSPEND,
         )
 
@@ -94,8 +97,14 @@ internal class SyncSseClient(
             }
     }
 
-    /** Fold one engine lifecycle event into the ambient [SyncEngineState] and re-broadcast frames. */
-    private suspend fun apply(event: SseEvent) {
+    /**
+     * Fold one engine lifecycle event into the ambient [SyncEngineState] and re-broadcast frames.
+     *
+     * `internal` (not `private`) so [SyncSseClientDeliveryOrderingTest] can drive it directly —
+     * exercising the real [connection]/[SseConnection] plumbing can't force a deterministic
+     * mid-emit suspension without a sleepy wall-clock race.
+     */
+    internal suspend fun apply(event: SseEvent) {
         when (event) {
             SseEvent.Connecting -> {
                 state.setConnection(ConnectionState.Connecting)
@@ -108,8 +117,12 @@ internal class SyncSseClient(
 
             is SseEvent.Frame -> {
                 val frame = event.frame
-                frame.id?.let { lastEventId = it }
+                // emit is the linearization point for "this frame will be delivered": advancing
+                // lastEventId before it returns would commit the watermark past a frame that a
+                // cancellation mid-suspend (the bounded frameBus can suspend on emit) never
+                // actually delivered — the server would then never resend it this session.
                 frameBus.emit(frame)
+                frame.id?.let { lastEventId = it }
                 state.setConnection(ConnectionState.Connected(lastEventId))
             }
 

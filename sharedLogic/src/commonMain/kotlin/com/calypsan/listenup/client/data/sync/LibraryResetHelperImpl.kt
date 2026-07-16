@@ -29,13 +29,55 @@ internal class LibraryResetHelperImpl(
         logger.info { "Clearing library data (discardPendingOperations=$discardPendingOperations)" }
 
         transactionRunner.atomically {
+            // Children/junctions first — several carry a Room foreign key onto the parent
+            // table cleared below (library_folders -> libraries; book_contributors,
+            // book_series, book_genres, audio_files, book_documents -> books/contributors/
+            // series/genres; contributor_aliases -> contributors), so clearing child-first
+            // is required, not just tidy. The junctions with no declared FK (book_tags,
+            // book_moods, shelf_books, collection_books, collection_shares) are ordered the
+            // same way for uniformity. book_readership is a server-fetched cache keyed to
+            // books, not a mirrored sync domain, but it is cleared here for the same reason
+            // the books access-gate sweeps it: a stale reader list must not survive the reset.
             database.bookContributorDao().deleteAll()
             database.bookSeriesDao().deleteAll()
+            database.genreDao().deleteAllBookGenres()
+            database.audioFileDao().deleteAll()
+            database.bookDocumentDao().deleteAll()
+            database.contributorAliasDao().deleteAll()
             database.chapterDao().deleteAll()
+            database.bookReadershipDao().deleteAll()
+            database.bookTagDao().deleteAll()
+            database.bookMoodDao().deleteAll()
+            database.shelfBookDao().deleteAll()
+            database.collectionBookDao().deleteAll()
+            database.collectionShareDao().deleteAll()
             database.playbackPositionDao().deleteAll()
+            database.listeningEventDao().deleteAll()
+            database.activityDao().deleteAll()
+            database.libraryFolderDao().deleteAll()
+
+            // Every mirrored sync domain's root table (SyncDomainCatalog — 21 domains; see
+            // LibraryResetHelperTest's drift-proof coverage test for the full accounting).
             database.bookDao().deleteAll()
             database.seriesDao().deleteAll()
             database.contributorDao().deleteAll()
+            database.genreDao().deleteAll()
+            database.tagDao().deleteAll()
+            database.moodDao().deleteAll()
+            database.shelfDao().deleteAll()
+            database.collectionDao().deleteAll()
+            database.libraryDao().deleteAll()
+            database.userStatsDao().deleteAll()
+            database.publicProfileDao().deleteAll()
+            database.adminUserRosterDao().deleteAll()
+
+            // The local FTS5 index mirrors books/contributors/series content, not a domain of
+            // its own — clear it alongside its source tables so no stale entry lingers between
+            // the reset and the next FtsPopulator rebuild.
+            database.searchDao().clearBooksFts()
+            database.searchDao().clearContributorsFts()
+            database.searchDao().clearSeriesFts()
+
             database.userDao().clear()
 
             // Sync cursors share the library's lifecycle: if the rows are wiped

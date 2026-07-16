@@ -308,6 +308,10 @@ private class FakeBookReadershipDao : BookReadershipDao {
     // not here. This repository test never triggers it, so a no-op keeps the interface satisfied.
     override suspend fun deleteWhereBookNotLive() = Unit
 
+    override suspend fun deleteAll() {
+        byBook.keys.forEach { flowFor(it).value = emptyList() }
+    }
+
     // Match the real DAO's @Transaction: one atomic replacement, not a delete-then-insert flicker.
     override suspend fun replaceForBook(
         bookId: String,

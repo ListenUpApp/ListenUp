@@ -349,6 +349,10 @@ internal interface ListeningEventDao {
      */
     @Query("UPDATE listening_events SET userId = :userId WHERE userId = ''")
     suspend fun reassignBlankUserId(userId: String): Int
+
+    /** Delete every listening event, tombstones included. Used by the sign-out / server-switch library reset. */
+    @Query("DELETE FROM listening_events")
+    suspend fun deleteAll()
 }
 
 /**
