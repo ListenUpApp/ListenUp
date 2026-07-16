@@ -157,6 +157,7 @@ class AdminUserServiceImpl(
         patch: AdminUserPatch,
     ): AppResult<User> {
         requireAdmin()?.let { return it }
+        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         // Captured inside the txn, acted on after commit: a privilege demotion must sever the
         // demoted user's live sessions so a still-valid access token can't outlive its role (≤15m
         // stale-privilege window otherwise — the access JWT embeds the role claim).
@@ -167,7 +168,7 @@ class AdminUserServiceImpl(
                     activeUser(id)
                         ?: return@suspendTransaction AppResult.Failure(AdminError.UserNotFound())
 
-                val roleChange = roleChangeFor(user, patch.role)
+                val roleChange = roleChangeFor(user, patch.role, caller.role)
                 roleChange?.let { return@suspendTransaction it }
 
                 // Merge only the non-null patch fields, then write the merged row back.
@@ -343,9 +344,14 @@ class AdminUserServiceImpl(
     private fun roleChangeFor(
         user: AuthUser,
         newRole: UserRole?,
+        callerRole: UserRole,
     ): AppResult.Failure? {
         if (newRole == null || newRole.toColumn() == user.role) return null
         if (user.role == UserRoleColumn.ROOT) return AppResult.Failure(AdminError.CannotModifyRoot())
+        // ROOT is a protected tier: only a ROOT caller may promote someone to ROOT.
+        if (newRole == UserRole.ROOT && callerRole != UserRole.ROOT) {
+            return AppResult.Failure(AuthError.PermissionDenied())
+        }
         val demotingAdmin = user.role == UserRoleColumn.ADMIN && newRole == UserRole.MEMBER
         if (demotingAdmin && countActiveAdmins() <= 1) {
             return AppResult.Failure(AdminError.CannotDemoteLastAdmin())

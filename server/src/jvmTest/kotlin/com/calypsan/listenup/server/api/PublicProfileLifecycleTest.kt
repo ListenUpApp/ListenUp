@@ -129,6 +129,7 @@ class PublicProfileLifecycleTest :
                             argon2Limiter = Argon2Limiter(PasswordHasher()),
                             publicProfileMaintainer = maintainer,
                             imageStore = tempAvatarImageStore(),
+                            sessions = SessionService(sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock),
                         ).copyWith(principalFor("u1"))
 
                     svc

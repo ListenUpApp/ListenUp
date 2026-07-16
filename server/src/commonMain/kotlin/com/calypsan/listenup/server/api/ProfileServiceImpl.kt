@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Users
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -27,7 +28,9 @@ private const val AVATAR_TYPE_AUTO = "auto"
  *
  * Password changes verify the current password inside the transaction (against the stored hash)
  * before writing the new hash. The new hash is computed outside the transaction so the
- * CPU-bound Argon2 work does not hold a DB connection.
+ * CPU-bound Argon2 work does not hold a DB connection. A successful password change revokes the
+ * caller's other live sessions — a stolen refresh token must not survive a password change — while
+ * sparing the session that made the request, so the caller isn't logged out of their own action.
  *
  * Route handlers call [copyWith] to bind each request to the authenticated principal; the
  * Koin singleton carries [PrincipalProvider.None] so an un-scoped call is denied rather than
@@ -38,6 +41,7 @@ internal class ProfileServiceImpl(
     private val argon2Limiter: Argon2Limiter,
     private val publicProfileMaintainer: PublicProfileMaintainer,
     private val imageStore: ImageStore,
+    private val sessions: SessionService,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ProfileService {
@@ -54,9 +58,8 @@ internal class ProfileServiceImpl(
     }
 
     override suspend fun updateMyProfile(request: UpdateProfileRequest): AppResult<Profile> {
-        val userId =
-            principal.current()?.userId?.value
-                ?: return AppResult.Failure(AuthError.PermissionDenied())
+        val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
+        val userId = caller.userId.value
         // Hash outside the transaction — Argon2 is CPU-bound and must not hold a DB connection.
         val newHash = request.password?.let { argon2Limiter.hash(it.newPassword) }
         // Read the current row first. The password verify and the write are split across two
@@ -101,6 +104,12 @@ internal class ProfileServiceImpl(
         if (avatarChanged && mergedAvatarType == AVATAR_TYPE_AUTO) {
             imageStore.delete(userId)
         }
+        // A stolen refresh token must not survive a password change (SEC-03). Spare the caller's
+        // own session — they just proved they hold the current password, not an attacker riding a
+        // leaked token — so this request's device isn't logged out by its own action.
+        if (request.password != null) {
+            sessions.revokeAllExcept(UserId(userId), caller.sessionId)
+        }
         // Refresh the projection after the user-row write commits — reads back from DB.
         publicProfileMaintainer.refreshBestEffort(userId)
         return AppResult.Success(
@@ -121,6 +130,7 @@ internal class ProfileServiceImpl(
             argon2Limiter = argon2Limiter,
             publicProfileMaintainer = publicProfileMaintainer,
             imageStore = imageStore,
+            sessions = sessions,
             clock = clock,
             principal = principal,
         )
@@ -148,12 +158,14 @@ fun createProfileService(
     argon2Limiter: Argon2Limiter,
     publicProfileMaintainer: PublicProfileMaintainer,
     imageStore: ImageStore,
+    sessions: SessionService,
 ): ProfileService =
     ProfileServiceImpl(
         sql = sql,
         argon2Limiter = argon2Limiter,
         publicProfileMaintainer = publicProfileMaintainer,
         imageStore = imageStore,
+        sessions = sessions,
     )
 
 /**

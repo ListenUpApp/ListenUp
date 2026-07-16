@@ -101,6 +101,12 @@ WHERE id = :id AND user_id = :user_id AND revoked_at IS NULL;
 revokeAllForUser:
 UPDATE sessions SET revoked_at = :revoked_at WHERE user_id = :user_id AND revoked_at IS NULL;
 
+-- Revoke every other live session for a user, sparing one (password change — the session that
+-- just changed the password stays live so its owner isn't logged out of their own device).
+revokeAllForUserExcept:
+UPDATE sessions SET revoked_at = :revoked_at
+WHERE user_id = :user_id AND revoked_at IS NULL AND id != :except_id;
+
 -- Active sessions for a user (listSessions): live + unexpired, newest-used first.
 selectActiveForUser:
 SELECT * FROM sessions

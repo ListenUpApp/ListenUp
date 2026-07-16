@@ -11,6 +11,9 @@ import com.calypsan.listenup.server.api.createProfileService
 import com.calypsan.listenup.server.api.profileServiceScopedTo
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
+import com.calypsan.listenup.server.auth.RefreshTokenGenerator
+import com.calypsan.listenup.server.auth.RefreshTokenHasher
+import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
@@ -118,6 +121,7 @@ class ProfileE2ETest :
                             PublicProfileRepository(serverSqlDb, ChangeBus(), SyncRegistry()),
                         ),
                     imageStore = ImageStore(IoPath(Files.createTempDirectory("e2e-avatars").toString()), AVATAR_MAX_BYTES),
+                    sessions = SessionService(serverSqlDb, RefreshTokenHasher("x".repeat(32).toByteArray()), RefreshTokenGenerator()),
                 )
 
             testApplication {
@@ -175,6 +179,7 @@ class ProfileE2ETest :
                             PublicProfileRepository(serverSqlDb, ChangeBus(), SyncRegistry()),
                         ),
                     imageStore = ImageStore(IoPath(Files.createTempDirectory("e2e-avatars").toString()), AVATAR_MAX_BYTES),
+                    sessions = SessionService(serverSqlDb, RefreshTokenHasher("x".repeat(32).toByteArray()), RefreshTokenGenerator()),
                 )
 
             testApplication {

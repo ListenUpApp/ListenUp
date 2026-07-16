@@ -19,6 +19,7 @@ fun profileModule(avatarsDir: Path): Module =
                 argon2Limiter = get(),
                 publicProfileMaintainer = get(),
                 imageStore = get(),
+                sessions = get(),
                 clock = get(),
             )
         }

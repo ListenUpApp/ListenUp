@@ -82,8 +82,12 @@ private fun Route.publicRpc(services: RpcServices) {
                 guard(services.authService.withRemoteHost(call.request.origin.remoteHost) as AuthServicePublic)
             }
         }
+        // SEC-02: bind the caller's remote host so the per-IP claim/lookup throttle inside
+        // InviteServiceImpl keys on it — mirrors the AuthServicePublic binding above.
         registerService<InviteServicePublic> {
-            guardedConstruction { guard(services.inviteService as InviteServicePublic) }
+            guardedConstruction {
+                guard(services.inviteService.withRemoteHost(call.request.origin.remoteHost) as InviteServicePublic)
+            }
         }
     }
 }

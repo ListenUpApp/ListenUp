@@ -3,6 +3,9 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.server.auth.Argon2Limiter
 import com.calypsan.listenup.server.auth.PasswordHasher
+import com.calypsan.listenup.server.auth.RefreshTokenGenerator
+import com.calypsan.listenup.server.auth.RefreshTokenHasher
+import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
@@ -29,6 +32,9 @@ class ProfileModuleVerifyTest :
                                     single { Argon2Limiter(PasswordHasher()) }
                                     single { sql.noOpPublicProfileMaintainer() }
                                     single<Clock> { Clock.System }
+                                    single {
+                                        SessionService(sql, RefreshTokenHasher("x".repeat(32).toByteArray()), RefreshTokenGenerator())
+                                    }
                                 },
                                 profileModule(IoPath(avatarsDir.toString())),
                             )

@@ -193,6 +193,25 @@ class SessionService(
     }
 
     /**
+     * Revoke every other live session for [userId], sparing [exceptSessionId] — the password
+     * change (SEC-03) counterpart to [revokeAll]. A stolen refresh token must not survive a
+     * password change, but the device that just changed the password shouldn't be logged out of
+     * its own action.
+     */
+    suspend fun revokeAllExcept(
+        userId: UserId,
+        exceptSessionId: SessionId,
+    ) {
+        suspendTransaction(db) {
+            db.sessionsQueries.revokeAllForUserExcept(
+                revoked_at = clock.now().toEpochMilliseconds(),
+                user_id = userId.value,
+                except_id = exceptSessionId.value,
+            )
+        }
+    }
+
+    /**
      * True iff [token] matches a session's `previous_hash` — i.e. an attempt
      * to reuse a token that has already been rotated. [rotate] returns null
      * for both "unknown" and "replayed-and-family-revoked"; this lets the
