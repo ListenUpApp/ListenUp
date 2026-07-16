@@ -15,14 +15,14 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v8** — a pre-1.0 baseline that squashed the accumulated migration chain
+ * Schema is at **v9** — a pre-1.0 baseline that squashed the accumulated migration chain
  * (no beta DBs existed to migrate, so the collapse is purely mechanical). There is no
  * migration chain: the pre-launch policy `fallbackToDestructiveMigration(true)` on each
  * platform `DatabaseModule` nukes and recreates the local DB on any schema change (data
  * re-syncs from the server), which is acceptable pre-release — so a version bump needs no
  * hand-written [androidx.room.migration.Migration]. Before launch, flip the fallback to `false`
  * and begin a real migration chain in `data/local/migrations/`; the `@Database.exportSchema`
- * on-disk JSON (`schemas/…/8.json`) is the authoritative baseline.
+ * on-disk JSON (`schemas/…/9.json`) is the authoritative baseline.
  *
  * v1 → v2 (nested chapters): adds nullable `partTitle` / `bookTitle` columns to `chapters` —
  * optional Book/Part header labels on the chapter that opens each section.
@@ -51,6 +51,11 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * nullable) and drops the `entity_bio_entries` child table — bio entries are removed from the
  * contract entirely for this stage. No hand-written migration — the pre-launch destructive
  * fallback recreates the schema.
+ *
+ * v8 → v9 (Story World unified event log): adds the `world_events` and `world_event_mentions`
+ * mirrors — library-shared, curated world-event rows dual-homed under a series or a standalone
+ * book, optionally anchored to a book position, with a replaced-wholesale mention junction. No
+ * hand-written migration — the pre-launch destructive fallback recreates the schema.
  */
 @Database(
     entities = [
@@ -95,8 +100,10 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
         EntityEntity::class,
+        WorldEventEntity::class,
+        WorldEventMentionEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(
@@ -106,6 +113,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
     StringListJsonConverter::class,
     UserEditedFieldsConverter::class,
     EntityEnumConverters::class,
+    WorldEventEnumConverters::class,
 )
 @ConstructedBy(ListenUpDatabaseConstructor::class)
 @Suppress("TooManyFunctions")
@@ -191,6 +199,8 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun cachedActiveSessionDao(): CachedActiveSessionDao
 
     abstract fun entityDao(): EntityDao
+
+    abstract fun worldEventDao(): WorldEventDao
 }
 
 /**

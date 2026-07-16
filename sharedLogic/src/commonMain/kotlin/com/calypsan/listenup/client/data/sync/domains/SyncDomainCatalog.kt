@@ -66,6 +66,7 @@ internal fun syncDomainCatalog(
                 collectionSharesDomain(database = database),
                 contributorsDomain(database = database, imageStorage = imageStorage),
                 entitiesDomain(database = database),
+                worldEventsDomain(database = database),
                 booksDomain(
                     database = database,
                     mapper = mapper,

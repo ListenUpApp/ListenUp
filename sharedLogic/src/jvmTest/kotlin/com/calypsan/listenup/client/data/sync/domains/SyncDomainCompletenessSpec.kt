@@ -124,6 +124,9 @@ class SyncDomainCompletenessSpec :
                 // The reading-order trio joined per Integration Foundations §5.3/§5.4. entities joined
                 // (Story World Stage 2) with EVERY write offline-first, including create — the id is
                 // client-minted, so there is no server-minted-id RPC forcing an online-only create.
+                // world_events joined (Story World unified event log) for the same reason: every op
+                // — including a brand-new event — client-mints its id, so there is no server-minted-id
+                // RPC forcing an online-only create.
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -143,6 +146,7 @@ class SyncDomainCompletenessSpec :
                         "collections",
                         "collection_books",
                         "entities",
+                        "world_events",
                     )
             } finally {
                 db.close()
