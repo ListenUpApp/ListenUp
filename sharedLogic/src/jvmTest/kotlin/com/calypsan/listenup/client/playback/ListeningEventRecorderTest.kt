@@ -504,14 +504,14 @@ class ListeningEventRecorderTest :
 // ── Fixture helpers ──────────────────────────────────────────────────────────
 
 /** Captured fields from a single [enqueue] call. */
-private data class CapturedEnqueue(
+internal data class CapturedEnqueue(
     val entityId: String,
     val payload: String,
     val ownerUserId: String,
 )
 
 /** Run [block] with a recorder wired to a fixed [nowMillis] timestamp. */
-private suspend fun withFixture(
+internal suspend fun withFixture(
     nowMillis: Long,
     block: suspend (
         ListeningEventRecorder,
@@ -520,7 +520,7 @@ private suspend fun withFixture(
     ) -> Unit,
 ) = withFixture(nowMillisProvider = { nowMillis }, block = block)
 
-private suspend fun withFixture(
+internal suspend fun withFixture(
     nowMillisProvider: () -> Long,
     failEnqueue: Boolean = false,
     processId: String = "process-fixture-default",
