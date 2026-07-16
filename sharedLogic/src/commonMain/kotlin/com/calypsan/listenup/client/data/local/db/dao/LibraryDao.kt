@@ -87,4 +87,8 @@ internal interface LibraryDao {
      */
     @Query("SELECT EXISTS(SELECT 1 FROM libraries WHERE deletedAt IS NULL AND initialScanCompletedAt IS NULL)")
     fun observeHasIncompleteInitialScan(): Flow<Boolean>
+
+    /** Delete every library row, tombstones included. Used by the sign-out / server-switch library reset. */
+    @Query("DELETE FROM libraries")
+    suspend fun deleteAll()
 }

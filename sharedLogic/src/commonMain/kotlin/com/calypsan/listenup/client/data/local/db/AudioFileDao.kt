@@ -26,4 +26,8 @@ internal interface AudioFileDao {
 
     @Query("DELETE FROM audio_files WHERE bookId = :bookId")
     suspend fun deleteForBook(bookId: String)
+
+    /** Delete every audio file row. Used by the sign-out / server-switch library reset. */
+    @Query("DELETE FROM audio_files")
+    suspend fun deleteAll()
 }

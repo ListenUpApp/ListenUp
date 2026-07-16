@@ -53,6 +53,10 @@ internal interface BookReadershipDao {
     @Query("DELETE FROM book_readership WHERE bookId NOT IN (SELECT id FROM books WHERE deletedAt IS NULL)")
     suspend fun deleteWhereBookNotLive()
 
+    /** Delete every cached readership row. Used by the sign-out / server-switch library reset. */
+    @Query("DELETE FROM book_readership")
+    suspend fun deleteAll()
+
     /** Atomically replace [bookId]'s cached readership with [rows] (the latest server snapshot). */
     @Transaction
     suspend fun replaceForBook(

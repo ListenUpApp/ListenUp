@@ -127,6 +127,14 @@ internal interface ActivityDao {
      */
     @Query("SELECT COUNT(*) FROM activities")
     suspend fun count(): Int
+
+    /**
+     * Hard-delete every activity row, tombstones included. Unlike removal (soft-delete
+     * only, per [count]'s note), this is the sign-out / server-switch reset's full wipe —
+     * there is no server digest to converge against once the whole local mirror is gone.
+     */
+    @Query("DELETE FROM activities")
+    suspend fun deleteAll()
 }
 
 /**

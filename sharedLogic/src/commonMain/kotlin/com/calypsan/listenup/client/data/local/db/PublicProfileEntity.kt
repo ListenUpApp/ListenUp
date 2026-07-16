@@ -119,4 +119,8 @@ internal interface PublicProfileDao {
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
     @Query("SELECT revision FROM public_profiles WHERE id = :id LIMIT 1")
     suspend fun revisionOf(id: String): Long?
+
+    /** Delete every public profile row. Used by the sign-out / server-switch library reset. */
+    @Query("DELETE FROM public_profiles")
+    suspend fun deleteAll()
 }

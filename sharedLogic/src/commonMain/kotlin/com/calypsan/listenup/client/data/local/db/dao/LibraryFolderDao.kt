@@ -78,4 +78,8 @@ internal interface LibraryFolderDao {
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
     @Query("SELECT revision FROM library_folders WHERE id = :id LIMIT 1")
     suspend fun revisionOf(id: String): Long?
+
+    /** Delete every folder row, tombstones included. Used by the sign-out / server-switch library reset. */
+    @Query("DELETE FROM library_folders")
+    suspend fun deleteAll()
 }

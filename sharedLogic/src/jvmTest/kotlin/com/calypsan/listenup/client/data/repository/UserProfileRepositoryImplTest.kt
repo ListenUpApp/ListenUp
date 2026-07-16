@@ -56,6 +56,8 @@ private class StubReadPublicProfileDao(
     override suspend fun digestRows(max: Long): List<IdRevision> = error("unused")
 
     override suspend fun revisionOf(id: String): Long? = error("unused")
+
+    override suspend fun deleteAll() = error("unused")
 }
 
 class UserProfileRepositoryImplTest :

@@ -256,4 +256,6 @@ private class FakePublicProfileDao(
     override suspend fun digestRows(max: Long): List<IdRevision> = error("unused in VM test")
 
     override suspend fun revisionOf(id: String): Long? = error("unused in VM test")
+
+    override suspend fun deleteAll() = error("unused in VM test")
 }

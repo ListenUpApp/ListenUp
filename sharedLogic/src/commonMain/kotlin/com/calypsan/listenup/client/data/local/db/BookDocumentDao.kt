@@ -26,4 +26,8 @@ internal interface BookDocumentDao {
 
     @Query("DELETE FROM book_documents WHERE bookId = :bookId")
     suspend fun deleteForBook(bookId: String)
+
+    /** Delete every document row. Used by the sign-out / server-switch library reset. */
+    @Query("DELETE FROM book_documents")
+    suspend fun deleteAll()
 }

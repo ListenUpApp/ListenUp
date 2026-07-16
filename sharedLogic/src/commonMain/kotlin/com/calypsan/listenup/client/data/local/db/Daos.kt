@@ -348,4 +348,8 @@ internal interface ContributorAliasDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAll(aliases: List<ContributorAliasCrossRef>)
+
+    /** Delete every alias row. Used by the sign-out / server-switch library reset. */
+    @Query("DELETE FROM contributor_aliases")
+    suspend fun deleteAll()
 }
