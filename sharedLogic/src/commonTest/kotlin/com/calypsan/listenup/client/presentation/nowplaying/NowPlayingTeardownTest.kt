@@ -3,7 +3,8 @@ package com.calypsan.listenup.client.presentation.nowplaying
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
+import com.calypsan.listenup.client.campfire.ActiveCampfire
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -101,7 +102,7 @@ class NowPlayingTeardownTest :
                 documentRepository = documentRepository,
                 downloadRepository = downloadRepository,
                 playbackPositionRepository = positionRepository,
-                activeCampfire = ActiveCampfireCoordinator(),
+                activeCampfire = MutableStateFlow<ActiveCampfire?>(null),
             )
         }
 

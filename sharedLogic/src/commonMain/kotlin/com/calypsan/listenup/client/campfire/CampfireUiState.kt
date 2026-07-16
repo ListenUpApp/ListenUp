@@ -82,10 +82,15 @@ internal sealed interface CampfireUiState {
      * unexpectedly (server-side error, or the socket simply dropped) — NOT a graceful [Ended].
      * Per the Never Stranded principle, local playback is left running exactly as it was
      * ([keepPlayingSolo]); [CampfireSessionController.rejoin] re-fetches a fresh snapshot.
+     *
+     * @property isHost The local user's last-known host role, carried across the disconnect so
+     * [CampfireSessionController.exitForPlayback] still ends-for-everyone (vs merely leaves) when a
+     * host confirms "play another book" after the stream dropped mid-dialog.
      */
     data class Disconnected(
         val sessionId: CampfireId,
         val keepPlayingSolo: Boolean = true,
+        val isHost: Boolean = false,
     ) : CampfireUiState
 
     /** The session ended for everyone (host ended it, or the server's idle sweeper reaped it). */

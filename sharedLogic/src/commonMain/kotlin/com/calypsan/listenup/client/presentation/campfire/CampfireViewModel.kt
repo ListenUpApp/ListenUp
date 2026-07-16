@@ -12,8 +12,6 @@ import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.ChatMessage
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.campfire.ActiveCampfire
-import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
 import com.calypsan.listenup.client.campfire.CampfireSessionController
 import com.calypsan.listenup.client.campfire.CampfireSessionEvent
 import com.calypsan.listenup.client.campfire.CampfireTransport
@@ -61,27 +59,18 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  * @property userRepository Backs [hostDisplayName] — the full-screen Create flow's (task L3) default
  * campfire-name builder needs the caller's own display name reactively, independent of any joined
  * session (the create screen renders before [transport.createSession] is ever called).
- * @property coordinator Process-scope liveness seam ([ActiveCampfireCoordinator]) mirrored from
- * [controller]'s hot state so the singleton `NowPlayingViewModel` can guard "play a different book"
- * against a live campfire (co-listening coexistence spec, B3).
+ *
+ * Note: the process-scope liveness mirror that lets the singleton `NowPlayingViewModel` guard
+ * "play a different book" (B3) now lives in [com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator]
+ * itself (F2), collecting the now-`single` [controller] on the app scope — this VM no longer owns it,
+ * so a torn-down screen can't stop the mirror.
  */
 class CampfireViewModel internal constructor(
     private val controller: CampfireSessionController,
     private val transport: CampfireTransport,
     private val errorBus: ErrorBus,
     private val userRepository: UserRepository,
-    private val coordinator: ActiveCampfireCoordinator,
 ) : ViewModel() {
-    init {
-        // Mirror the controller's hot session state into the process-scope coordinator so the
-        // singleton NowPlayingViewModel can guard "play a different book" against a live campfire
-        // (co-listening coexistence spec, B3). Always-on: liveness is independent of whether any
-        // campfire screen currently subscribes to [state].
-        viewModelScope.launch {
-            controller.state.collect { coordinator.set(it.toActiveCampfire()) }
-        }
-    }
-
     /**
      * Session id awaiting spoiler confirmation before [confirmSpoilerJoin] hands it to
      * [controller] (see [join]'s KDoc for why the gate lives here rather than in the controller).
@@ -217,15 +206,21 @@ class CampfireViewModel internal constructor(
     /** Confirms the pending large-drift resync surfaced by [rejoin] (see [CampfireScreenUiState.Active.pendingRejoinSync]). */
     fun confirmRejoinSync() = controller.confirmRejoinSync()
 
-    /** Leaves the current session. */
-    fun leave() {
-        viewModelScope.launch { controller.leave() }
-    }
+    /**
+     * Leaves the current session. Delegates directly (not via [viewModelScope]) so the controller's
+     * synchronous local teardown and its scope-dispatched leave RPC run even if this VM is being
+     * cleared in the same breath — see [CampfireSessionController.leave] (F7).
+     */
+    fun leave() = controller.leave()
 
     /** Ends the campfire for everyone (host-only — see [CampfireSessionController.endCampfire]). */
-    fun endCampfire() {
-        viewModelScope.launch { controller.endCampfire() }
-    }
+    fun endCampfire() = controller.endCampfire()
+
+    /**
+     * Exits the campfire to play a different book — ends for all if host, leaves if participant,
+     * re-reading the current role at call time (see [CampfireSessionController.exitForPlayback], F8).
+     */
+    fun exitForPlayback() = controller.exitForPlayback()
 
     /** Resumes room playback (optimistic; denied via [CampfireScreenEvent.ControlDenied] without control). */
     fun play() = controller.play()
@@ -318,14 +313,6 @@ private fun CampfireUiState.toScreenState(): CampfireScreenUiState =
         is CampfireUiState.Ended -> {
             CampfireScreenUiState.Ended(sessionId, reason)
         }
-    }
-
-private fun CampfireUiState.toActiveCampfire(): ActiveCampfire? =
-    // Only a live/lobby session is guard-worthy; Idle / Joining / Disconnected / Ended → null.
-    if (this is CampfireUiState.Active) {
-        ActiveCampfire(sessionId = sessionId, bookId = bookId, isHost = isHost, phase = phase)
-    } else {
-        null
     }
 
 private fun CampfireSessionEvent.toScreenEvent(): CampfireScreenEvent =

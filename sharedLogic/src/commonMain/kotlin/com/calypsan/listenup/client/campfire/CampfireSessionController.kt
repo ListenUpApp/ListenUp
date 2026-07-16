@@ -138,6 +138,7 @@ internal class CampfireSessionController(
     suspend fun join(sessionId: CampfireId) {
         state.value = CampfireUiState.Joining(sessionId)
         pendingCommandIds.value = emptySet()
+        drainStaleEvents()
         when (val result = transport.joinSession(sessionId)) {
             is AppResult.Success -> {
                 selfUserId = userRepository.getCurrentUser()?.idString
@@ -196,6 +197,7 @@ internal class CampfireSessionController(
         val sessionId = disconnected.sessionId
         state.value = CampfireUiState.Joining(sessionId)
         pendingCommandIds.value = emptySet()
+        drainStaleEvents()
         transport.refreshConnection()
         when (val result = transport.joinSession(sessionId)) {
             is AppResult.Success -> {
@@ -261,40 +263,75 @@ internal class CampfireSessionController(
         scope.launch { applyAnchorToPlayback(pendingAnchor, nowMs()) }
     }
 
-    /** Leaves the session: stops the frame stream + drift loop and notifies the server. */
-    suspend fun leave() {
-        val sessionId =
-            when (val current = state.value) {
-                is CampfireUiState.Active -> current.sessionId
-                is CampfireUiState.Disconnected -> current.sessionId
-                else -> null
+    /**
+     * Leaves the session: stops the frame stream + drift loop and notifies the server.
+     *
+     * The local teardown (job cancel + [state] → [CampfireUiState.Idle]) is synchronous so readers
+     * observe the exit immediately; the terminal [CampfireTransport.leaveSession] RPC is dispatched
+     * on the controller's own [scope] (appScope in prod), NOT the caller's coroutine — a screen or
+     * ViewModel torn down the instant it calls [leave] (task-swipe) must not strand a live membership
+     * server-side (co-listening coexistence spec, F7). Its result is logged on failure, never dropped.
+     */
+    fun leave() {
+        val sessionId = currentSessionId()
+        teardownLocal()
+        if (sessionId != null) {
+            scope.launch {
+                val result = transport.leaveSession(sessionId)
+                if (result is AppResult.Failure) logger.warn { "Campfire leave failed: ${result.error.code}" }
             }
-        observeJob?.cancel()
-        driftJob?.cancel()
-        pendingCommandIds.value = emptySet()
-        state.value = CampfireUiState.Idle
-        if (sessionId != null) transport.leaveSession(sessionId)
+        }
     }
 
     /**
      * Ends the session for everyone (host-only; the UI gates this behind [CampfireUiState.Active.isHost]).
      * Twin of [leave] but calls [CampfireTransport.endSession] — used when the host chooses to play a
      * different book, which tears the campfire down rather than migrating the host (co-listening
-     * coexistence spec, B3). Local state moves to [CampfireUiState.Idle] first so readers observe the
-     * teardown immediately, regardless of the network round-trip.
+     * coexistence spec, B3). The terminal RPC is dispatched on [scope] with the same anti-stranding
+     * contract as [leave] (F7).
      */
-    suspend fun endCampfire() {
-        val sessionId =
-            when (val current = state.value) {
-                is CampfireUiState.Active -> current.sessionId
-                is CampfireUiState.Disconnected -> current.sessionId
-                else -> null
+    fun endCampfire() {
+        val sessionId = currentSessionId()
+        teardownLocal()
+        if (sessionId != null) {
+            scope.launch {
+                val result = transport.endSession(sessionId)
+                if (result is AppResult.Failure) logger.warn { "Campfire end failed: ${result.error.code}" }
             }
+        }
+    }
+
+    private fun currentSessionId(): CampfireId? =
+        when (val current = state.value) {
+            is CampfireUiState.Active -> current.sessionId
+            is CampfireUiState.Disconnected -> current.sessionId
+            else -> null
+        }
+
+    /** Synchronous local teardown shared by [leave]/[endCampfire]: stop the jobs, clear pending, go Idle. */
+    private fun teardownLocal() {
         observeJob?.cancel()
         driftJob?.cancel()
         pendingCommandIds.value = emptySet()
         state.value = CampfireUiState.Idle
-        if (sessionId != null) transport.endSession(sessionId)
+    }
+
+    /**
+     * Exits the session to make room for solo playback of a different book — the co-listening
+     * coexistence spec's B3 confirm continuation. Re-reads the CURRENT role from [state] rather than
+     * a role snapshotted when the confirm dialog opened: a [CampfireFrame.HostChanged] handoff — or a
+     * drop to [CampfireUiState.Disconnected] — while the dialog is up must not make a host merely
+     * [leave] (stranding everyone else's session) nor a participant [endCampfire] it. Host → ends for
+     * all; participant → leaves only.
+     */
+    fun exitForPlayback() {
+        val isHost =
+            when (val current = state.value) {
+                is CampfireUiState.Active -> current.isHost
+                is CampfireUiState.Disconnected -> current.isHost
+                else -> false
+            }
+        if (isHost) endCampfire() else leave()
     }
 
     /** Resumes room playback (optimistic local apply; denied via [CampfireSessionEvent.ControlDenied] without control). */
@@ -524,9 +561,9 @@ internal class CampfireSessionController(
     /** Never pauses local playback — see the Never Stranded note in the class KDoc. Idempotent. */
     private fun handleDisconnect(sessionId: CampfireId) {
         driftJob?.cancel()
-        if (state.value is CampfireUiState.Active) {
-            state.value = CampfireUiState.Disconnected(sessionId = sessionId, keepPlayingSolo = true)
-        }
+        val active = state.value as? CampfireUiState.Active ?: return
+        state.value =
+            CampfireUiState.Disconnected(sessionId = sessionId, keepPlayingSolo = true, isHost = active.isHost)
     }
 
     /**
@@ -567,6 +604,16 @@ internal class CampfireSessionController(
 
     /** Whether the local caller is [hostUserId] — distinct from [hasControl] (see [CampfireUiState.Active.isHost]). */
     private fun isHost(hostUserId: String): Boolean = selfUserId == hostUserId
+
+    /**
+     * Empties any one-shot [events] left buffered by a previous session. Since F2 made this
+     * controller a process-`single`, [eventChannel] outlives individual sessions; without this a
+     * reaction/denial trySent while no screen was collecting would replay into the next session's
+     * UI. Called at each session start ([join]/[rejoin]).
+     */
+    private fun drainStaleEvents() {
+        while (eventChannel.tryReceive().isSuccess) { /* discard */ }
+    }
 
     /** Atomically removes [commandId] from [pendingCommandIds] if present; returns whether it was. */
     private fun consumePendingCommand(commandId: String?): Boolean {

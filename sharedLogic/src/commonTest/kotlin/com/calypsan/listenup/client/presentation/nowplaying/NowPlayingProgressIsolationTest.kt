@@ -3,7 +3,8 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
 import app.cash.turbine.test
-import com.calypsan.listenup.client.campfire.ActiveCampfireCoordinator
+import com.calypsan.listenup.client.campfire.ActiveCampfire
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -84,7 +85,7 @@ class NowPlayingProgressIsolationTest :
                 playbackPositionRepository =
                     com.calypsan.listenup.client.test.fake
                         .FakePlaybackPositionRepository(),
-                activeCampfire = ActiveCampfireCoordinator(),
+                activeCampfire = MutableStateFlow<ActiveCampfire?>(null),
             )
         }
 

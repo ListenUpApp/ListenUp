@@ -882,7 +882,9 @@ private fun PlayOverCampfireDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                if (event.isHost) campfireViewModel.endCampfire() else campfireViewModel.leave()
+                // Re-reads the current role (a host handoff may have happened while this dialog was
+                // open) rather than trusting event.isHost, which is only cosmetic copy here (F8).
+                campfireViewModel.exitForPlayback()
                 nowPlayingViewModel.playBookConfirmed(event.bookId)
                 playOverCampfire = null
             }) {
