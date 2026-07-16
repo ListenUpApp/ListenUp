@@ -525,9 +525,7 @@ internal val settingsPresentationModule =
                 userPreferencesRepository = get(),
                 instanceRepository = get(),
                 serverConfig = get(),
-                authSession = get(),
-                syncRepository = get(),
-                rpcCacheInvalidator = get(),
+                logoutUseCase = get<com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase>(),
             )
         }
         // DevicesViewModel for the Devices (active sessions) screen
