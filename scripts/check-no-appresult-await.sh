@@ -42,8 +42,14 @@ watch="$(perl -0777 -ne '
 ' "$SHARED")"
 
 if [[ -z "$watch" ]]; then
-  echo "check-no-appresult-await: no uniquely-AppResult exported funcs found; nothing to guard."
-  exit 0
+  # Fail closed. AppResult is the canonical fallible-suspend contract, so an empty watch list
+  # never means "nothing to guard" — it means the perl signature matcher above stopped matching
+  # the generated formatting (e.g. after a Swift-Export/Kotlin bump). The old `exit 0` turned
+  # that into a silently-disarmed gate. Same floor-the-harvest reasoning as the sealed-subtype
+  # drift check in sharedLogic/build.gradle.kts.
+  echo "check-no-appresult-await: no uniquely-AppResult exported funcs harvested from '$SHARED'." >&2
+  echo "  The signature matcher is broken (Swift Export output format changed?), not the surface." >&2
+  exit 2
 fi
 
 count="$(printf '%s\n' "$watch" | grep -c .)"
