@@ -111,16 +111,6 @@
         }
       }
     },
-    "admin.allow_anyone_to_request_an": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Allow anyone to request an account"
-          }
-        }
-      }
-    },
     "admin.allow_sharing_collections_with_other": {
       "localizations": {
         "en": {
@@ -307,16 +297,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d collection"
-          }
-        }
-      }
-    },
-    "admin.collection_created": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Collection created"
           }
         }
       }
@@ -601,16 +581,6 @@
         }
       }
     },
-    "admin.events_sessions_and_progress_data": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Events, sessions, and progress data"
-          }
-        }
-      }
-    },
     "admin.expires_in": {
       "localizations": {
         "en": {
@@ -637,46 +607,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Genre name"
-          }
-        }
-      }
-    },
-    "admin.import_books_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Books: %1$d/%2$d"
-          }
-        }
-      }
-    },
-    "admin.import_sessions_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sessions: %1$d/%2$d"
-          }
-        }
-      }
-    },
-    "admin.import_users_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Users: %1$d/%2$d"
-          }
-        }
-      }
-    },
-    "admin.in_this_collection": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "in this collection"
           }
         }
       }
@@ -891,16 +821,6 @@
         }
       }
     },
-    "admin.listening_history": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Listening history"
-          }
-        }
-      }
-    },
     "admin.management": {
       "localizations": {
         "en": {
@@ -971,16 +891,6 @@
         }
       }
     },
-    "admin.name_is_required": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Name is required."
-          }
-        }
-      }
-    },
     "admin.newly_scanned_books_will_appear": {
       "localizations": {
         "en": {
@@ -1031,16 +941,6 @@
         }
       }
     },
-    "admin.no_pending_invites": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No pending invites"
-          }
-        }
-      }
-    },
     "admin.no_pending_registrations": {
       "localizations": {
         "en": {
@@ -1057,16 +957,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No users available"
-          }
-        }
-      }
-    },
-    "admin.open_registration": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open Registration"
           }
         }
       }
@@ -1107,16 +997,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Protected User"
-          }
-        }
-      }
-    },
-    "admin.recommended_for_full_restore_capability": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recommended for full restore capability"
           }
         }
       }
@@ -1541,16 +1421,6 @@
         }
       }
     },
-    "admin.review_new_books_before_they": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Review new books before they appear in library"
-          }
-        }
-      }
-    },
     "admin.revoke_invite": {
       "localizations": {
         "en": {
@@ -1657,16 +1527,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Server settings"
-          }
-        }
-      }
-    },
-    "admin.share_this_link_with_invitename": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Share this link with %1$@:"
           }
         }
       }
@@ -1881,16 +1741,6 @@
         }
       }
     },
-    "auth.check_input": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Please check your input"
-          }
-        }
-      }
-    },
     "auth.check_status": {
       "localizations": {
         "en": {
@@ -1917,16 +1767,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Confirm Password"
-          }
-        }
-      }
-    },
-    "auth.confirm_password_placeholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm your password"
           }
         }
       }
@@ -1961,32 +1801,12 @@
         }
       }
     },
-    "auth.create_password_placeholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create a password"
-          }
-        }
-      }
-    },
     "auth.dont_have_account": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Don't have an account?"
-          }
-        }
-      }
-    },
-    "auth.email_placeholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter your email"
           }
         }
       }
@@ -2051,16 +1871,6 @@
         }
       }
     },
-    "auth.join_listenup": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Join ListenUp to start listening"
-          }
-        }
-      }
-    },
     "auth.last_name": {
       "localizations": {
         "en": {
@@ -2097,16 +1907,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Password"
-          }
-        }
-      }
-    },
-    "auth.password_placeholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter your password"
           }
         }
       }
@@ -2271,16 +2071,6 @@
         }
       }
     },
-    "auth.signing_you_in": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Signing you in..."
-          }
-        }
-      }
-    },
     "auth.unable_to_connect": {
       "localizations": {
         "en": {
@@ -2297,16 +2087,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Waiting for Approval"
-          }
-        }
-      }
-    },
-    "auth.youll_be_automatically_signed_in": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "You'll be automatically signed in once approved."
           }
         }
       }
@@ -2461,16 +2241,6 @@
         }
       }
     },
-    "book.detail_cast_lead": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "lead"
-          }
-        }
-      }
-    },
     "book.detail_cast_narrator": {
       "localizations": {
         "en": {
@@ -2541,16 +2311,6 @@
         }
       }
     },
-    "book.detail_chapters_chaptercount": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Chapters (%1$@)"
-          }
-        }
-      }
-    },
     "book.detail_collection_picker_title": {
       "localizations": {
         "en": {
@@ -2617,26 +2377,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Details"
-          }
-        }
-      }
-    },
-    "book.detail_discard_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discard Progress"
-          }
-        }
-      }
-    },
-    "book.detail_discard_progress_prompt": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discard your listening progress?"
           }
         }
       }
@@ -3121,16 +2861,6 @@
         }
       }
     },
-    "book.detail_preparing_on_server": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Preparing on server…"
-          }
-        }
-      }
-    },
     "book.detail_progresspercent": {
       "localizations": {
         "en": {
@@ -3281,26 +3011,6 @@
         }
       }
     },
-    "book.detail_restart": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restart"
-          }
-        }
-      }
-    },
-    "book.detail_restart_prompt": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restart from the beginning?"
-          }
-        }
-      }
-    },
     "book.detail_resume": {
       "localizations": {
         "en": {
@@ -3361,16 +3071,6 @@
         }
       }
     },
-    "book.detail_see_all_chapters": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "See All %1$d Chapters"
-          }
-        }
-      }
-    },
     "book.detail_series_pill_a11y": {
       "localizations": {
         "en": {
@@ -3391,16 +3091,6 @@
         }
       }
     },
-    "book.detail_stream_now": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Play Now"
-          }
-        }
-      }
-    },
     "book.detail_supplementary_materials": {
       "localizations": {
         "en": {
@@ -3411,32 +3101,12 @@
         }
       }
     },
-    "book.detail_synopsis": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Synopsis"
-          }
-        }
-      }
-    },
     "book.detail_tags": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Tags"
-          }
-        }
-      }
-    },
-    "book.detail_title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book details"
           }
         }
       }
@@ -3617,16 +3287,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book cover"
-          }
-        }
-      }
-    },
-    "book.edit_book_sequence_label": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Book #"
           }
         }
       }
@@ -4051,36 +3711,6 @@
         }
       }
     },
-    "book.tag_add": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add Tag"
-          }
-        }
-      }
-    },
-    "book.tag_add_placeholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add tag..."
-          }
-        }
-      }
-    },
-    "book.tag_popular": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Popular Tags"
-          }
-        }
-      }
-    },
     "book.time_left": {
       "localizations": {
         "en": {
@@ -4321,16 +3951,6 @@
         }
       }
     },
-    "common.change_sort": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Double tap to change sort options"
-          }
-        }
-      }
-    },
     "common.checking_server": {
       "localizations": {
         "en": {
@@ -4481,32 +4101,12 @@
         }
       }
     },
-    "common.direction": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Direction"
-          }
-        }
-      }
-    },
     "common.discard": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Discard"
-          }
-        }
-      }
-    },
-    "common.disconnect": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Disconnect"
           }
         }
       }
@@ -4811,16 +4411,6 @@
         }
       }
     },
-    "common.no": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No"
-          }
-        }
-      }
-    },
     "common.no_items": {
       "localizations": {
         "en": {
@@ -4941,16 +4531,6 @@
         }
       }
     },
-    "common.please_wait": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Please wait"
-          }
-        }
-      }
-    },
     "common.private": {
       "localizations": {
         "en": {
@@ -4981,16 +4561,6 @@
         }
       }
     },
-    "common.release": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Release"
-          }
-        }
-      }
-    },
     "common.remove": {
       "localizations": {
         "en": {
@@ -5017,16 +4587,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rename"
-          }
-        }
-      }
-    },
-    "common.restricted": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restricted"
           }
         }
       }
@@ -5201,16 +4761,6 @@
         }
       }
     },
-    "common.share_copied_to_clipboard": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Share link copied to clipboard"
-          }
-        }
-      }
-    },
     "common.shelf_name_hint": {
       "localizations": {
         "en": {
@@ -5237,16 +4787,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Something went wrong"
-          }
-        }
-      }
-    },
-    "common.sort_by": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sort by %1$@"
           }
         }
       }
@@ -5351,36 +4891,6 @@
         }
       }
     },
-    "common.view_details": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Double tap to view %1$@ details"
-          }
-        }
-      }
-    },
-    "common.website": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Website"
-          }
-        }
-      }
-    },
-    "common.yes": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Yes"
-          }
-        }
-      }
-    },
     "connect.add_server": {
       "localizations": {
         "en": {
@@ -5397,16 +4907,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add Server Manually"
-          }
-        }
-      }
-    },
-    "connect.back_to_server_list": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Back to Server List"
           }
         }
       }
@@ -5481,56 +4981,6 @@
         }
       }
     },
-    "connect.has_root_user": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Has Root User"
-          }
-        }
-      }
-    },
-    "connect.instance_id": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Instance ID"
-          }
-        }
-      }
-    },
-    "connect.instance_needs_setup": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Needs Setup"
-          }
-        }
-      }
-    },
-    "connect.instance_ready": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ready"
-          }
-        }
-      }
-    },
-    "connect.instance_status": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Status"
-          }
-        }
-      }
-    },
     "connect.listenup_server": {
       "localizations": {
         "en": {
@@ -5597,16 +5047,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose a ListenUp server on your network — or add one manually."
-          }
-        }
-      }
-    },
-    "connect.server_needs_setup": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "⚠️ Server needs initial setup"
           }
         }
       }
@@ -5707,36 +5147,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Audible Region"
-          }
-        }
-      }
-    },
-    "contributor.audiobook_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d audiobook"
-          }
-        }
-      }
-    },
-    "contributor.audiobooks_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d audiobooks"
-          }
-        }
-      }
-    },
-    "contributor.author": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Author"
           }
         }
       }
@@ -6101,16 +5511,6 @@
         }
       }
     },
-    "contributor.narrator": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Narrator"
-          }
-        }
-      }
-    },
     "contributor.new_image": {
       "localizations": {
         "en": {
@@ -6147,16 +5547,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No image available from Audible"
-          }
-        }
-      }
-    },
-    "contributor.no_pen_names_yet_add": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No pen names yet. Add aliases to merge other contributors into this one."
           }
         }
       }
@@ -6337,16 +5727,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No other devices."
-          }
-        }
-      }
-    },
-    "devices.last_active": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Last active %1$@"
           }
         }
       }
@@ -6581,16 +5961,6 @@
         }
       }
     },
-    "discover.community_stats": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Community Stats"
-          }
-        }
-      }
-    },
     "discover.could_not_load_leaderboard": {
       "localizations": {
         "en": {
@@ -6601,32 +5971,12 @@
         }
       }
     },
-    "discover.discover_screen": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discover Screen"
-          }
-        }
-      }
-    },
     "discover.discover_something_new": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Discover Something New"
-          }
-        }
-      }
-    },
-    "discover.find_next_favorite": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Find your next favorite audiobook"
           }
         }
       }
@@ -6911,16 +6261,6 @@
         }
       }
     },
-    "discover.total_time": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Total Time"
-          }
-        }
-      }
-    },
     "discover.what_others_are_listening_to": {
       "localizations": {
         "en": {
@@ -7161,16 +6501,6 @@
         }
       }
     },
-    "home.best_longeststreak": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "(best: %1$@)"
-          }
-        }
-      }
-    },
     "home.best_value": {
       "localizations": {
         "en": {
@@ -7217,46 +6547,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't load your stats."
-          }
-        }
-      }
-    },
-    "home.cover_1": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cover 1"
-          }
-        }
-      }
-    },
-    "home.cover_2": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cover 2"
-          }
-        }
-      }
-    },
-    "home.cover_3": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cover 3"
-          }
-        }
-      }
-    },
-    "home.cover_4": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cover 4"
           }
         }
       }
@@ -7421,16 +6711,6 @@
         }
       }
     },
-    "import.abs_imports": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ABS Imports"
-          }
-        }
-      }
-    },
     "import.accept": {
       "localizations": {
         "en": {
@@ -7447,56 +6727,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "All done!"
-          }
-        }
-      }
-    },
-    "import.all_set": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All set."
-          }
-        }
-      }
-    },
-    "import.analysis_in_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analysis in progress…"
-          }
-        }
-      }
-    },
-    "import.analysis_interrupted": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analysis was likely interrupted. Cancel and try again."
-          }
-        }
-      }
-    },
-    "import.analyzing_backup": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analyzing backup…"
-          }
-        }
-      }
-    },
-    "import.analyzing_contents": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analyzing backup contents and matching books"
           }
         }
       }
@@ -7521,32 +6751,12 @@
         }
       }
     },
-    "import.analyzing_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analyzing…"
-          }
-        }
-      }
-    },
     "import.analyzing_subtitle": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Matching your Audiobookshelf library against ListenUp..."
-          }
-        }
-      }
-    },
-    "import.and_more": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "...and %1$d more"
           }
         }
       }
@@ -7581,16 +6791,6 @@
         }
       }
     },
-    "import.applying_subtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Writing listening history to the database..."
-          }
-        }
-      }
-    },
     "import.audiobookshelf_imports": {
       "localizations": {
         "en": {
@@ -7617,16 +6817,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Assigned"
-          }
-        }
-      }
-    },
-    "import.book_progress_records_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d book progress records"
           }
         }
       }
@@ -7661,32 +6851,12 @@
         }
       }
     },
-    "import.book_search_placeholder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search for a ListenUp book to assign"
-          }
-        }
-      }
-    },
     "import.book_skip": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Skip book"
-          }
-        }
-      }
-    },
-    "import.books_all_matched": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All books matched automatically!"
           }
         }
       }
@@ -7701,52 +6871,12 @@
         }
       }
     },
-    "import.books_matched_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Matched (%1$d)"
-          }
-        }
-      }
-    },
     "import.books_matched_label": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Books matched"
-          }
-        }
-      }
-    },
-    "import.books_needs_review": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Books needing review: %1$@"
-          }
-        }
-      }
-    },
-    "import.books_needs_review_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Needs Review (%1$d)"
-          }
-        }
-      }
-    },
-    "import.books_skipped": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Books skipped: %1$@"
           }
         }
       }
@@ -7761,52 +6891,12 @@
         }
       }
     },
-    "import.cancel_delete_stuck": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This will delete the stuck import. You can create a new one afterwards."
-          }
-        }
-      }
-    },
-    "import.cancel_import": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancel Import"
-          }
-        }
-      }
-    },
-    "import.cancel_upload": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cancel upload"
-          }
-        }
-      }
-    },
     "import.change": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Change"
-          }
-        }
-      }
-    },
-    "import.change_selection": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change selection"
           }
         }
       }
@@ -7827,106 +6917,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Migrate your listening history from an Audiobookshelf backup. We'll match users and merge sessions into your library."
-          }
-        }
-      }
-    },
-    "import.choose_different_file": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose Different File"
-          }
-        }
-      }
-    },
-    "import.choose_file": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose file"
-          }
-        }
-      }
-    },
-    "import.clear": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clear"
-          }
-        }
-      }
-    },
-    "import.complete_a11y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Complete"
-          }
-        }
-      }
-    },
-    "import.completed_in": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Completed in %1$@"
-          }
-        }
-      }
-    },
-    "import.continue_to_import": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Continue to Import"
-          }
-        }
-      }
-    },
-    "import.count_number": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d"
-          }
-        }
-      }
-    },
-    "import.create_choose": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose how to create a new import:"
-          }
-        }
-      }
-    },
-    "import.create_to_start": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Create a new import from an Audiobookshelf backup to get started."
-          }
-        }
-      }
-    },
-    "import.created_at": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Created: %1$@"
           }
         }
       }
@@ -8001,16 +6991,6 @@
         }
       }
     },
-    "import.empty_directory": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Empty directory"
-          }
-        }
-      }
-    },
     "import.entry_subtitle": {
       "localizations": {
         "en": {
@@ -8027,26 +7007,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Import Failed"
-          }
-        }
-      }
-    },
-    "import.errors": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Errors"
-          }
-        }
-      }
-    },
-    "import.events_created": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d events created"
           }
         }
       }
@@ -8131,32 +7091,12 @@
         }
       }
     },
-    "import.for_users_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "For %1$d users"
-          }
-        }
-      }
-    },
     "import.how_it_works": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "How it works"
-          }
-        }
-      }
-    },
-    "import.how_to_export": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "How to export from Audiobookshelf"
           }
         }
       }
@@ -8211,112 +7151,12 @@
         }
       }
     },
-    "import.import_options": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import Options"
-          }
-        }
-      }
-    },
-    "import.import_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import book progress"
-          }
-        }
-      }
-    },
-    "import.import_progress_desc": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current position and completion status"
-          }
-        }
-      }
-    },
-    "import.import_ready": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import Ready"
-          }
-        }
-      }
-    },
-    "import.import_sessions": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import listening sessions"
-          }
-        }
-      }
-    },
-    "import.import_sessions_desc": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Individual listening events with timestamps"
-          }
-        }
-      }
-    },
-    "import.import_stuck": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import appears stuck"
-          }
-        }
-      }
-    },
-    "import.import_summary": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import Summary"
-          }
-        }
-      }
-    },
     "import.imported": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Imported"
-          }
-        }
-      }
-    },
-    "import.imported_sessions_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Imported %1$d sessions"
-          }
-        }
-      }
-    },
-    "import.intro": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import listening history from an Audiobookshelf backup."
           }
         }
       }
@@ -8351,16 +7191,6 @@
         }
       }
     },
-    "import.keep": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep"
-          }
-        }
-      }
-    },
     "import.keep_app_open": {
       "localizations": {
         "en": {
@@ -8377,66 +7207,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep ListenUp open until this finishes"
-          }
-        }
-      }
-    },
-    "import.listening_sessions_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d listening sessions"
-          }
-        }
-      }
-    },
-    "import.mapped_a11y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mapped"
-          }
-        }
-      }
-    },
-    "import.mapped_to": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mapped to: %1$@"
-          }
-        }
-      }
-    },
-    "import.mapped_total": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d / %2$d"
-          }
-        }
-      }
-    },
-    "import.match_books_intro": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Match Audiobookshelf books to your ListenUp library."
-          }
-        }
-      }
-    },
-    "import.match_users_intro": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Match Audiobookshelf users to ListenUp users."
           }
         }
       }
@@ -8461,16 +7231,6 @@
         }
       }
     },
-    "import.minutes_listened": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$dm listened"
-          }
-        }
-      }
-    },
     "import.n_matched": {
       "localizations": {
         "en": {
@@ -8487,26 +7247,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d to review"
-          }
-        }
-      }
-    },
-    "import.narrator": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Narr. %1$@"
-          }
-        }
-      }
-    },
-    "import.needs_attention": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Needs Attention"
           }
         }
       }
@@ -8541,72 +7281,12 @@
         }
       }
     },
-    "import.no_books_found": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No books found"
-          }
-        }
-      }
-    },
     "import.no_books_to_review": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "All books matched automatically."
-          }
-        }
-      }
-    },
-    "import.no_imports": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No Imports"
-          }
-        }
-      }
-    },
-    "import.no_sessions_found": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No sessions found"
-          }
-        }
-      }
-    },
-    "import.no_users_found": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No users found"
-          }
-        }
-      }
-    },
-    "import.options_intro": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Choose what to import from the Audiobookshelf backup."
-          }
-        }
-      }
-    },
-    "import.parent_directory": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Parent directory"
           }
         }
       }
@@ -8621,112 +7301,12 @@
         }
       }
     },
-    "import.phase_analyze": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Analyze"
-          }
-        }
-      }
-    },
-    "import.phase_upload": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Upload"
-          }
-        }
-      }
-    },
-    "import.pick_different": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pick Different"
-          }
-        }
-      }
-    },
-    "import.position_and_total": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d / %2$d"
-          }
-        }
-      }
-    },
-    "import.progress_imported": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d progress records imported (%2$d skipped)"
-          }
-        }
-      }
-    },
     "import.ready": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Ready"
-          }
-        }
-      }
-    },
-    "import.ready_to_import": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ready to Import"
-          }
-        }
-      }
-    },
-    "import.ready_to_upload": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ready to Upload"
-          }
-        }
-      }
-    },
-    "import.rebuild_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rebuild progress after import"
-          }
-        }
-      }
-    },
-    "import.rebuild_progress_desc": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recalculate listening stats from events"
-          }
-        }
-      }
-    },
-    "import.records_imported": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Records imported: %1$@"
           }
         }
       }
@@ -8747,16 +7327,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Books"
-          }
-        }
-      }
-    },
-    "import.review_subtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Match each Audiobookshelf account to a ListenUp profile, or skip it."
           }
         }
       }
@@ -8791,62 +7361,12 @@
         }
       }
     },
-    "import.search_instead": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search Instead"
-          }
-        }
-      }
-    },
-    "import.select_backup_file": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select Backup File"
-          }
-        }
-      }
-    },
-    "import.select_backup_file_device": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select a backup file from your device"
-          }
-        }
-      }
-    },
-    "import.select_backup_source": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select backup source"
-          }
-        }
-      }
-    },
     "import.sessions_importable": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Importable sessions: %1$@"
-          }
-        }
-      }
-    },
-    "import.sessions_imported": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d sessions imported (%2$d skipped)"
           }
         }
       }
@@ -8861,42 +7381,12 @@
         }
       }
     },
-    "import.sessions_written": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sessions written: %1$@"
-          }
-        }
-      }
-    },
     "import.sessions_written_stat": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sessions written"
-          }
-        }
-      }
-    },
-    "import.skip_a11y": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skip"
-          }
-        }
-      }
-    },
-    "import.skip_item": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skip this item"
           }
         }
       }
@@ -8957,16 +7447,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Users merged"
-          }
-        }
-      }
-    },
-    "import.status": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Status: %1$@"
           }
         }
       }
@@ -9041,36 +7521,6 @@
         }
       }
     },
-    "import.suggestion_available_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d suggestion available"
-          }
-        }
-      }
-    },
-    "import.suggestions_available_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d suggestions available"
-          }
-        }
-      }
-    },
-    "import.supports_formats": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Supports .audiobookshelf, .zip, .tar.gz files"
-          }
-        }
-      }
-    },
     "import.title": {
       "localizations": {
         "en": {
@@ -9091,26 +7541,6 @@
         }
       }
     },
-    "import.try_again": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Try Again"
-          }
-        }
-      }
-    },
-    "import.upload_and_analyze": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Upload & Analyze"
-          }
-        }
-      }
-    },
     "import.upload_failed": {
       "localizations": {
         "en": {
@@ -9121,62 +7551,12 @@
         }
       }
     },
-    "import.upload_from_device": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Upload from device"
-          }
-        }
-      }
-    },
-    "import.upload_intro": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Upload your Audiobookshelf backup to migrate listening history and progress."
-          }
-        }
-      }
-    },
-    "import.uploaded_analyzed": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Your backup has been uploaded and analyzed."
-          }
-        }
-      }
-    },
-    "import.uploading_backup": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uploading Backup..."
-          }
-        }
-      }
-    },
     "import.uploading_hero_subtitle": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sending your backup to the server."
-          }
-        }
-      }
-    },
-    "import.uploading_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uploading…"
           }
         }
       }
@@ -9201,26 +7581,6 @@
         }
       }
     },
-    "import.uploading_to_server": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uploading %1$@ to server"
-          }
-        }
-      }
-    },
-    "import.user_accept_suggestion": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accept"
-          }
-        }
-      }
-    },
     "import.user_assign": {
       "localizations": {
         "en": {
@@ -9237,16 +7597,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Assigned to %1$@"
-          }
-        }
-      }
-    },
-    "import.user_label": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ (%2$@)"
           }
         }
       }
@@ -9291,26 +7641,6 @@
         }
       }
     },
-    "import.user_suggested": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Suggestion: %1$@"
-          }
-        }
-      }
-    },
-    "import.users_all_matched": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "All users matched automatically!"
-          }
-        }
-      }
-    },
     "import.users_in_backup": {
       "localizations": {
         "en": {
@@ -9331,82 +7661,12 @@
         }
       }
     },
-    "import.users_matched_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Matched (%1$d)"
-          }
-        }
-      }
-    },
     "import.users_merged_stat": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Users merged"
-          }
-        }
-      }
-    },
-    "import.users_needs_review_count": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Needs Review (%1$d)"
-          }
-        }
-      }
-    },
-    "import.users_updated": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d users updated"
-          }
-        }
-      }
-    },
-    "import.view_imported_history": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "View imported history"
-          }
-        }
-      }
-    },
-    "import.warnings": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Warnings"
-          }
-        }
-      }
-    },
-    "import.wizard": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Import Wizard"
-          }
-        }
-      }
-    },
-    "import.wizard_desc": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Step-by-step import from server file"
           }
         }
       }
@@ -9581,16 +7841,6 @@
         }
       }
     },
-    "library.browse_by_genre": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Browse by genre"
-          }
-        }
-      }
-    },
     "library.collection": {
       "localizations": {
         "en": {
@@ -9607,16 +7857,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Collection Name"
-          }
-        }
-      }
-    },
-    "library.contributors": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Contributors"
           }
         }
       }
@@ -9751,16 +7991,6 @@
         }
       }
     },
-    "library.ignoring_articles": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": " · ignoring A · An · The"
-          }
-        }
-      }
-    },
     "library.index_jump": {
       "localizations": {
         "en": {
@@ -9777,16 +8007,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading your library..."
-          }
-        }
-      }
-    },
-    "library.more_options": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "More library options"
           }
         }
       }
@@ -9907,26 +8127,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%d titles"
-          }
-        }
-      }
-    },
-    "library.title_sort": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Title Sort"
-          }
-        }
-      }
-    },
-    "library.title_sort_toggle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Title sort"
           }
         }
       }
@@ -10187,16 +8387,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading folders..."
-          }
-        }
-      }
-    },
-    "library_setup.no_subfolders": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "This folder has no subfolders."
           }
         }
       }
@@ -10521,16 +8711,6 @@
         }
       }
     },
-    "metadata.change": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Change"
-          }
-        }
-      }
-    },
     "metadata.chapter_names": {
       "localizations": {
         "en": {
@@ -10567,16 +8747,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d Audible chapters → your %2$d — different edition, unavailable."
-          }
-        }
-      }
-    },
-    "metadata.chapters_match_review": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$d Audible chapters match — review and apply."
           }
         }
       }
@@ -10901,16 +9071,6 @@
         }
       }
     },
-    "metadata.matched_by_asin": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Matched by ASIN on Audible %1$@"
-          }
-        }
-      }
-    },
     "metadata.matches_count": {
       "localizations": {
         "en": {
@@ -10947,16 +9107,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Metadata is up to date"
-          }
-        }
-      }
-    },
-    "metadata.more_chapters": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "+ %1$d more chapters"
           }
         }
       }
@@ -11291,32 +9441,12 @@
         }
       }
     },
-    "player.bookmark": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bookmark"
-          }
-        }
-      }
-    },
     "player.cancel_timer": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Cancel timer"
-          }
-        }
-      }
-    },
-    "player.cast": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cast"
           }
         }
       }
@@ -11387,16 +9517,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Book cover"
-          }
-        }
-      }
-    },
-    "player.duration": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Duration"
           }
         }
       }
@@ -11731,16 +9851,6 @@
         }
       }
     },
-    "profile.books_finished": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Books Finished"
-          }
-        }
-      }
-    },
     "profile.change_password": {
       "localizations": {
         "en": {
@@ -11761,32 +9871,12 @@
         }
       }
     },
-    "profile.current_avatar": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Current avatar"
-          }
-        }
-      }
-    },
     "profile.current_password": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Current"
-          }
-        }
-      }
-    },
-    "profile.edit_photo": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit Photo"
           }
         }
       }
@@ -11807,26 +9897,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit Profile"
-          }
-        }
-      }
-    },
-    "profile.hours_listened": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hours Listened"
-          }
-        }
-      }
-    },
-    "profile.in_progress": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "In Progress"
           }
         }
       }
@@ -11861,32 +9931,12 @@
         }
       }
     },
-    "profile.no_shelves_yet_create_one": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No shelves yet. Create one to curate your favorite books!"
-          }
-        }
-      }
-    },
     "profile.password_description": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Set a new password for your account"
-          }
-        }
-      }
-    },
-    "profile.profile_saved": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Profile saved."
           }
         }
       }
@@ -12061,16 +10111,6 @@
         }
       }
     },
-    "search.coming_soon": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search functionality coming soon"
-          }
-        }
-      }
-    },
     "search.count_books": {
       "localizations": {
         "en": {
@@ -12127,16 +10167,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d results for “%2$@”"
-          }
-        }
-      }
-    },
-    "search.results_for": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Results for “%1$@”"
           }
         }
       }
@@ -12481,16 +10511,6 @@
         }
       }
     },
-    "series.narrated_by": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Narrated by %1$@"
-          }
-        }
-      }
-    },
     "series.no_cover": {
       "localizations": {
         "en": {
@@ -12641,16 +10661,6 @@
         }
       }
     },
-    "settings.auto_rewind_label": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Auto Rewind"
-          }
-        }
-      }
-    },
     "settings.autorewind_on_resume": {
       "localizations": {
         "en": {
@@ -12697,16 +10707,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear All Downloads?"
-          }
-        }
-      }
-    },
-    "settings.connected_to": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Connected to"
           }
         }
       }
@@ -12801,32 +10801,12 @@
         }
       }
     },
-    "settings.dynamic_colors": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dynamic Colors"
-          }
-        }
-      }
-    },
     "settings.haptic_feedback": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Haptic Feedback"
-          }
-        }
-      }
-    },
-    "settings.haptic_light": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Light"
           }
         }
       }
@@ -12861,82 +10841,12 @@
         }
       }
     },
-    "settings.interface": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Interface"
-          }
-        }
-      }
-    },
-    "settings.jump_backward": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jump Backward"
-          }
-        }
-      }
-    },
-    "settings.jump_forward": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jump Forward"
-          }
-        }
-      }
-    },
-    "settings.language_english": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "English"
-          }
-        }
-      }
-    },
     "settings.library": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Library"
-          }
-        }
-      }
-    },
-    "settings.licenses_by_author": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "by %1$@"
-          }
-        }
-      }
-    },
-    "settings.listenup_uses_the_following_open": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ListenUp uses the following open source libraries:"
-          }
-        }
-      }
-    },
-    "settings.lock_orientation": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lock Orientation"
           }
         }
       }
@@ -13137,16 +11047,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Off"
-          }
-        }
-      }
-    },
-    "settings.use_bookshelf_view": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use Bookshelf View"
           }
         }
       }
