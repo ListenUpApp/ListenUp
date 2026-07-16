@@ -336,6 +336,7 @@ Mood
 MoodRepository
 NanoId
 NetworkMonitor
+NewWorldEvent
 NowPlayingChapter
 NowPlayingNavAction
 NowPlayingOverlay
@@ -550,3 +551,8 @@ VerifiedServer
 VoiceHints
 VoiceIntentResolver
 WeeklyStats
+WorldEvent
+WorldEventEditRepository
+WorldEventSource
+WorldEventType
+WorldEventUpsert
