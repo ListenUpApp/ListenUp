@@ -41,7 +41,7 @@ private val log = loggerFor<SqlSyncableRepository<*, *>>()
  *    SQLDelight queries wrapper, adapted to the substrate contract)
  *  - [readPayload] / [readPayloads] — aggregate read (root + children) by id
  *  - [writePayload] — aggregate write inside the open transaction
- *  - the `T.id`, `T.revisionOf()`, and (for value-class ids) [idAsString] projections
+ *  - the `T.id` and, for value-class ids, [idAsString] projections
  *
  * Self-registers with [SyncRegistry] and publishes to [ChangeBus] through the
  * shared [SyncableRepo] interface. Live-tail emits are deferred to the SQLDelight
@@ -204,9 +204,6 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
 
     protected abstract val T.id: ID
 
-    /** Subclass-provided projection of the DTO's revision. */
-    protected abstract fun T.revisionOf(): Long
-
     /**
      * `true` for a per-user domain whose root table carries a `user_id` column:
      * every write records the owning user and every read/digest filters by it.
@@ -243,6 +240,17 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * Created/Updated discrimination is based on whether the root row exists before
      * the write — existence is determined inside the transaction, so the decision
      * is atomic with the write. Mirrors [SyncableRepository.upsert] exactly.
+     *
+     * **Retries are intentionally re-applied, not deduplicated.** [clientOpId] is stored on the
+     * root row for audit/correlation only — it is never checked against a prior write to short-
+     * circuit this method. A retried outbox operation (the client resending an already-committed
+     * write after a dropped ack) therefore burns a fresh revision and re-publishes a duplicate
+     * [SyncEvent.Updated] here, exactly as if it were a genuinely new write. This is safe by
+     * design: every write is a full-payload overwrite (last-write-wins), so re-applying identical
+     * content converges to the same row — the cost is one burned revision and one duplicate event
+     * per retry, not a correctness gap. The client's own echo-shield (`OutboxInFlightQuery`)
+     * suppresses the local UI flicker a duplicate event would otherwise cause; it is a client-side
+     * concern, not something this method needs to protect against.
      */
     open suspend fun upsert(
         value: T,
@@ -487,9 +495,9 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * the result hit the limit.
      *
      * `nextCursor` advances using the queried revision (the last id/rev pair's
-     * revision) rather than `items.last().revisionOf()` — a hard delete between the
-     * id-query and the payload-read could null a row, and the queried revision is
-     * the canonical cursor advance regardless. Mirrors [SyncableRepository.pullSince].
+     * revision) rather than re-deriving it from the hydrated payload — a hard delete
+     * between the id-query and the payload-read could null a row, and the queried
+     * revision is the canonical cursor advance regardless. Mirrors [SyncableRepository.pullSince].
      *
      * For a user-scoped domain ([userScoped] `= true`) the id query routes through
      * [SyncableSubstrateQueries.selectIdsAboveRevisionForUser] with a required non-null

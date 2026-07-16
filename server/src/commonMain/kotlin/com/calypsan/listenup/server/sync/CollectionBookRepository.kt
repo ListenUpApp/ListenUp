@@ -71,8 +71,6 @@ class CollectionBookRepository(
     ) {
     override val CollectionBookSyncPayload.id: CollectionBookId get() = CollectionBookId(collectionId, bookId)
 
-    override fun CollectionBookSyncPayload.revisionOf(): Long = revision
-
     /** Converts a [CollectionBookId] to the stored `"$collectionId:$bookId"` string. */
     override fun idAsString(id: CollectionBookId): String = id.asString()
 

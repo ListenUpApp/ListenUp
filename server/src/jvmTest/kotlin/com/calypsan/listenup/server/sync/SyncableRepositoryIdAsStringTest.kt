@@ -127,8 +127,6 @@ internal class FixtureRepository(
     ) {
     override val FixturePayload.id: FixtureId get() = this.id
 
-    override fun FixturePayload.revisionOf(): Long = revision
-
     override fun idAsString(id: FixtureId): String = id.value
 
     /** Materialises the test-only `fixture_idAsString_test` table (revision indexed). */

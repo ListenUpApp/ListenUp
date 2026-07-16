@@ -213,6 +213,45 @@ class ImportApplierTest :
             }
         }
 
+        test("a mid-burst failure after positions committed still broadcasts LibraryDataChanged") {
+            withSqlDatabase {
+                val dbs = this
+                runTest(UnconfinedTestDispatcher()) {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    val frames = mutableListOf<ControlFrame>()
+                    staged.bus
+                        .subscribeControl()
+                        .onEach { frames += it }
+                        .launchIn(backgroundScope)
+                    repeat(8) { yield() }
+
+                    // Same single-shot mid-burst injection as "an interrupted apply is detectable":
+                    // the fixture's 2 progress rows are well under APPLY_EVENT_INTERVAL (50), so the
+                    // FIRST Applying event is recordAll's tail tick — fired AFTER
+                    // recordAllForImport already committed the position rows. Throwing there
+                    // aborts recordSessions entirely while leaving a real, already-committed chunk
+                    // above every client's cursor — exactly the gap the failure-path broadcast closes.
+                    var thrown = false
+                    val result =
+                        applier.apply(staged.importId) { event ->
+                            if (event is ImportEvent.Applying && !thrown) {
+                                thrown = true
+                                throw IllegalStateException("simulated crash mid-apply")
+                            }
+                        }
+                    repeat(8) { yield() }
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    // The position row committed before the throw — a genuine partial-progress failure.
+                    staged.repo.getPosition(LU_USER, LU_KINGS).shouldNotBeNull()
+                    frames.map { it.control } shouldContain SyncControl.LibraryDataChanged
+                }
+            }
+        }
+
         test("re-apply is idempotent: sessions don't duplicate and stats are unchanged") {
             withSqlDatabase {
                 val dbs = this

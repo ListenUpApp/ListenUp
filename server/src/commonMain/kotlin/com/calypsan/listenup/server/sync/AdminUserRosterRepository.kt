@@ -43,8 +43,6 @@ class AdminUserRosterRepository(
     ) {
     override val AdminUserRosterSyncPayload.id: String get() = this.id
 
-    override fun AdminUserRosterSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.adminUserRosterQueries].
      * Global aggregate — only the four unfiltered substrate methods are wired; the `*ForUser`

@@ -19,7 +19,7 @@ import kotlin.time.Clock
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `collectionsQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id (tombstone-inclusive)
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - `CollectionSyncPayload.id` / `CollectionSyncPayload.revisionOf`
+ *  - `CollectionSyncPayload.id`
  *
  * **System collections are sync-invisible to members.** The server-only `collections.type`
  * column (`'NORMAL'` | `'ALL_BOOKS'` | `'INBOX'`) never crosses the wire — [CollectionSyncPayload.isInbox]
@@ -56,8 +56,6 @@ class CollectionRepository(
         clock = clock,
     ) {
     override val CollectionSyncPayload.id: String get() = this.id
-
-    override fun CollectionSyncPayload.revisionOf(): Long = revision
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.collectionsQueries].

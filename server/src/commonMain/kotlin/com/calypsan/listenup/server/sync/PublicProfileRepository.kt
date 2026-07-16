@@ -20,7 +20,7 @@ import kotlin.time.Clock
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `publicProfilesQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - `PublicProfileSyncPayload.id` / `revisionOf`
+ *  - `PublicProfileSyncPayload.id`
  *
  * Service-layer helper beyond the base substrate:
  *  - [identities] — batched (id, displayName, avatarType) read for the social presence surfaces.
@@ -40,8 +40,6 @@ class PublicProfileRepository(
         clock = clock,
     ) {
     override val PublicProfileSyncPayload.id: String get() = this.id
-
-    override fun PublicProfileSyncPayload.revisionOf(): Long = revision
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.publicProfilesQueries].

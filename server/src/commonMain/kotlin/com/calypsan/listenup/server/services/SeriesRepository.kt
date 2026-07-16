@@ -44,8 +44,6 @@ class SeriesRepository(
     override val SeriesSyncPayload.id: SeriesId
         get() = SeriesId(this.id)
 
-    override fun SeriesSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.seriesQueries].
      * Mirrors the canonical [com.calypsan.listenup.server.sync.TagRepository] shape.

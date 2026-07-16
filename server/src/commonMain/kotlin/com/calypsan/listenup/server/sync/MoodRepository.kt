@@ -22,7 +22,7 @@ import kotlin.time.Clock
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `moodsQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - `Mood.id` / `Mood.revisionOf`
+ *  - `Mood.id`
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted mood by id
@@ -38,8 +38,6 @@ class MoodRepository(
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<Mood, String>(db, bus, registry, SyncDomains.MOODS, clock) {
     override val Mood.id: String get() = this.id
-
-    override fun Mood.revisionOf(): Long = revision
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.moodsQueries].

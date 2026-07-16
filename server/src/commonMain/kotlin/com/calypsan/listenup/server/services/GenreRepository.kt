@@ -44,8 +44,6 @@ class GenreRepository(
     override val GenreSyncPayload.id: GenreId
         get() = GenreId(this.id)
 
-    override fun GenreSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.genresQueries] —
      * the canonical shape every aggregate copies. Genres are global (cross-user), so the

@@ -136,8 +136,6 @@ internal class UserScopedFixtureRepository(
 
     override val UserScopedPayload.id: String get() = id
 
-    override fun UserScopedPayload.revisionOf(): Long = revision
-
     /** Materialises the test-only `user_scoped_fixture_test` table (revision + user_id indexed). */
     fun createSchema() {
         driver.execute(

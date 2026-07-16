@@ -61,8 +61,6 @@ class BookTagRepository(
     ) {
     override val BookTagSyncPayload.id: BookTagId get() = BookTagId(bookId, tagId)
 
-    override fun BookTagSyncPayload.revisionOf(): Long = revision
-
     /** Converts a [BookTagId] to the stored `"$bookId:$tagId"` string. */
     override fun idAsString(id: BookTagId): String = id.asString()
 

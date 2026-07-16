@@ -224,8 +224,6 @@ private class ThrowingRepository(
     ) {
     override val ThrowingPayload.id: String get() = id
 
-    override fun ThrowingPayload.revisionOf(): Long = revision
-
     /** Materialises the test-only `throwing_streamerror_test` table (revision indexed). */
     fun createSchema() {
         driver.execute(

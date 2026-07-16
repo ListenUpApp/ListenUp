@@ -66,8 +66,6 @@ class ShelfRepository(
 
     override val ShelfSyncPayload.id: ShelfId get() = ShelfId(this.id)
 
-    override fun ShelfSyncPayload.revisionOf(): Long = revision
-
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.shelvesQueries].
      *
