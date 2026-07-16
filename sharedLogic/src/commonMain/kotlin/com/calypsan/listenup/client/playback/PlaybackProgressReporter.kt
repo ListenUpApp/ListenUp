@@ -124,6 +124,13 @@ class PlaybackProgressReporter(
         record { it.onPause(finalPositionMs) }
     }
 
+    /**
+     * Test-only accessor for the DI-wiring guard tests that resolve this class from the real
+     * platform Koin modules and assert the single-recorder invariant (`null` on Android,
+     * non-null on iOS/Desktop) — see `androidPlaybackModule` / `desktopPlaybackModule`.
+     */
+    internal fun recorderForTest(): ListeningEventRecorder? = recorder
+
     /** Resume position read at prepare time — pure position concern, no recording. */
     suspend fun getResumePosition(bookId: BookId): PlaybackPosition? = progressTracker.getResumePosition(bookId)
 

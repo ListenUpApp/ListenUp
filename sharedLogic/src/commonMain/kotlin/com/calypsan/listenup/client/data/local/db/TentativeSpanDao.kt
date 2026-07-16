@@ -24,6 +24,13 @@ internal interface TentativeSpanDao {
     suspend fun get(): TentativeSpanEntity?
 
     /**
+     * Number of rows currently in the table — asserts the single-row invariant [get] otherwise
+     * takes on faith (its `LIMIT 1` silently hides a second row instead of surfacing it).
+     */
+    @Query("SELECT COUNT(*) FROM tentative_span")
+    suspend fun countRows(): Int
+
+    /**
      * Write or replace the open span. Because there is at most one row, this
      * effectively replaces any existing row.
      */

@@ -168,6 +168,12 @@ class ListeningEventRecorder internal constructor(
      *
      * The finalized span's wire payload carries the old speed — the span covers audio played
      * at that speed from its [TentativeSpanEntity.startPositionMs] to [positionMs].
+     *
+     * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
+     * (see [finalizeCurrentSpan]) — this does NOT open a new span on top of it (that would destroy
+     * the breadcrumb and silently lose the whole original span). The player's next `onPlay` /
+     * `onPeriodicTick` re-establishes recording, and [recoverOrphan] re-promotes the breadcrumb on
+     * the next launch.
      */
     suspend fun onSpeedChange(
         positionMs: Long,
@@ -175,7 +181,14 @@ class ListeningEventRecorder internal constructor(
     ) {
         val existing = tentativeSpanDao.get() ?: return
         val nowMs = clock.now().toEpochMilliseconds()
-        finalizeCurrentSpan(endPositionMs = positionMs, endedAt = nowMs)
+        val cleared =
+            finalizeThenCheckCleared(
+                endPositionMs = positionMs,
+                endedAt = nowMs,
+                bookId = existing.bookId,
+                caller = "onSpeedChange",
+            )
+        if (!cleared) return
         onPlay(existing.bookId, positionMs, newSpeed)
     }
 
@@ -190,6 +203,12 @@ class ListeningEventRecorder internal constructor(
      * The pre-seek end is clamped to the span's own start so a backward seek reported with a
      * stale before-position can never produce an inverted span (`endPositionMs < startPositionMs`),
      * which the server has no defined handling for.
+     *
+     * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
+     * (see [finalizeCurrentSpan]) — this does NOT open a new span on top of it (that would destroy
+     * the breadcrumb and silently lose the whole original span). The player's next `onPlay` /
+     * `onPeriodicTick` re-establishes recording, and [recoverOrphan] re-promotes the breadcrumb on
+     * the next launch.
      */
     suspend fun onSeek(
         positionBeforeSeek: Long,
@@ -198,7 +217,14 @@ class ListeningEventRecorder internal constructor(
         val existing = tentativeSpanDao.get() ?: return
         val nowMs = clock.now().toEpochMilliseconds()
         val endPositionMs = maxOf(positionBeforeSeek, existing.startPositionMs)
-        finalizeCurrentSpan(endPositionMs = endPositionMs, endedAt = nowMs)
+        val cleared =
+            finalizeThenCheckCleared(
+                endPositionMs = endPositionMs,
+                endedAt = nowMs,
+                bookId = existing.bookId,
+                caller = "onSeek",
+            )
+        if (!cleared) return
         onPlay(existing.bookId, positionAfterSeek, existing.playbackSpeed)
     }
 
@@ -206,6 +232,12 @@ class ListeningEventRecorder internal constructor(
      * Finalizes the current span for the old book (using [TentativeSpanEntity.currentPositionMs]
      * as the end position), then opens a new span for [newBookId] at [newStartPositionMs].
      * No-op if no span is open.
+     *
+     * If the finalize's enqueue fails, the tentative row survives as the [recoverOrphan] breadcrumb
+     * (see [finalizeCurrentSpan]) — this does NOT open a new span on top of it (that would destroy
+     * the breadcrumb and silently lose the whole original span). The player's next `onPlay` /
+     * `onPeriodicTick` re-establishes recording, and [recoverOrphan] re-promotes the breadcrumb on
+     * the next launch.
      */
     suspend fun onMediaItemTransition(
         newBookId: String,
@@ -213,7 +245,14 @@ class ListeningEventRecorder internal constructor(
     ) {
         val existing = tentativeSpanDao.get() ?: return
         val nowMs = clock.now().toEpochMilliseconds()
-        finalizeCurrentSpan(endPositionMs = existing.currentPositionMs, endedAt = nowMs)
+        val cleared =
+            finalizeThenCheckCleared(
+                endPositionMs = existing.currentPositionMs,
+                endedAt = nowMs,
+                bookId = existing.bookId,
+                caller = "onMediaItemTransition",
+            )
+        if (!cleared) return
         onPlay(newBookId, newStartPositionMs, existing.playbackSpeed)
     }
 
@@ -246,6 +285,34 @@ class ListeningEventRecorder internal constructor(
     }
 
     // ── Private finalization ────────────────────────────────────────────────────
+
+    /**
+     * Finalizes the current span, then reports whether the tentative row actually cleared.
+     *
+     * [finalizeCurrentSpan] deliberately leaves the row in place when its enqueue fails — that
+     * survivor is the ONLY breadcrumb [recoverOrphan] can re-promote from. [onPlay]'s cross-process
+     * branch already honors that breadcrumb; every SAME-process finalize-then-reopen flow
+     * ([onSpeedChange], [onSeek], [onMediaItemTransition]) must honor it too — opening a new span
+     * on top of a survivor would silently destroy the breadcrumb and lose the whole original span,
+     * not just the failed write. Returns `false` (and logs a warning tagged with [caller]) when the
+     * row survived, so the call site can bail without opening a new span.
+     */
+    private suspend fun finalizeThenCheckCleared(
+        endPositionMs: Long,
+        endedAt: Long,
+        bookId: String,
+        caller: String,
+    ): Boolean {
+        finalizeCurrentSpan(endPositionMs = endPositionMs, endedAt = endedAt)
+        if (tentativeSpanDao.get() != null) {
+            logger.warn {
+                "[ListeningEventRecorder] Finalize did not clear the tentative span during $caller " +
+                    "(book=$bookId) — leaving it intact for recovery, new span not opened"
+            }
+            return false
+        }
+        return true
+    }
 
     /**
      * Reads the current [TentativeSpanEntity], applies zero-duration / zero-position drop

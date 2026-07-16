@@ -232,6 +232,8 @@ private class CountingTentativeSpanDao(
     override suspend fun upsertSingleton(span: TentativeSpanEntity) = delegate.upsertSingleton(span)
 
     override suspend fun delete() = delegate.delete()
+
+    override suspend fun countRows(): Int = delegate.countRows()
 }
 
 /** Minimal [CatchUp] that succeeds immediately without doing any real sync work. */
