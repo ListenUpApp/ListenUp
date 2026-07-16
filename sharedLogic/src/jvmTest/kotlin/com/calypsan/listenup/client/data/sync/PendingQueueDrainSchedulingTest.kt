@@ -12,7 +12,9 @@ import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,6 +37,31 @@ private const val TIMEOUT_SECONDS = 5L
 private const val RETRY_TIMEOUT_SECONDS = 10L
 private const val MIN_RETRY_ATTEMPTS = 2
 private const val POLL_DELAY_MILLIS = 20L
+
+/**
+ * Proves a negative — [current] stays at [expected] for the whole [windowMillis] window — by
+ * polling every [POLL_DELAY_MILLIS] and failing IMMEDIATELY the instant a deviation is observed,
+ * rather than a single point-in-time read after a fixed sleep. A fixed-sleep-then-single-read is
+ * inherently load-sensitive: it only catches a deviation that happens to still hold at the exact
+ * moment the assertion runs, and gives no information about when the deviation actually happened.
+ * Passes once the full window elapses without any deviation.
+ */
+private suspend fun assertStaysAt(
+    expected: Int,
+    windowMillis: Long = POLL_DELAY_MILLIS * 10,
+    current: () -> Int,
+) {
+    val deadline = TimeSource.Monotonic.markNow() + windowMillis.milliseconds
+    while (deadline.hasNotPassedNow()) {
+        val observed = current()
+        if (observed != expected) {
+            throw AssertionError(
+                "expected to stay at $expected for ${windowMillis}ms but observed $observed mid-window",
+            )
+        }
+        delay(POLL_DELAY_MILLIS)
+    }
+}
 
 /**
  * Verifies `SyncEngine` schedules `PendingOperationQueue.drain()` on the three
@@ -187,13 +214,10 @@ class PendingQueueDrainSchedulingTest :
                     state.setConnection(ConnectionState.Connected(lastEventId = 1L))
                     state.setConnection(ConnectionState.Connected(lastEventId = 2L))
 
-                    // Give the engine plenty of time to (incorrectly) re-fire drain.
-                    delay(POLL_DELAY_MILLIS * 10)
-
                     // The two re-emissions must NOT trigger additional drain
                     // waves: the trigger fires once per transition into
                     // Connected, not per Connected snapshot.
-                    dispatchCalls.get() shouldBe baseline
+                    assertStaysAt(expected = baseline) { dispatchCalls.get() }
                 } finally {
                     // Order matters: cancel-and-join the scope BEFORE closing
                     // the DB. Closing the DB while a runDrain is mid-transaction
@@ -308,8 +332,7 @@ class PendingQueueDrainSchedulingTest :
                         while (attempts.get() < 1) delay(POLL_DELAY_MILLIS)
                     }
                     // Parked: no busy-loop. Across many backoff windows the count must NOT climb.
-                    delay(POLL_DELAY_MILLIS * 10)
-                    attempts.get() shouldBe 1
+                    assertStaysAt(expected = 1) { attempts.get() }
                     db.pendingOperationV2Dao().get(opId)?.failureCount shouldBe 0
 
                     // Server returns; a reconnect (Disconnected→Connected edge) re-drives drain and delivers.
@@ -403,10 +426,8 @@ class PendingQueueDrainSchedulingTest :
 
                     val opId = queue.enqueue(tagsChannel, "t-offline", OpKind.Upsert, "{}", "u1")
 
-                    // Give the engine ample time to (wrongly) attempt a drain.
-                    delay(POLL_DELAY_MILLIS * 10)
-
-                    attempts.get() shouldBe 0
+                    // The engine must never attempt a drain while offline.
+                    assertStaysAt(expected = 0) { attempts.get() }
                     // The op is still queued, its retry budget untouched, ready for the next online edge.
                     db.pendingOperationV2Dao().get(opId)?.failureCount shouldBe 0
                 } finally {
@@ -609,6 +630,11 @@ private class CountingDao(
     override suspend fun deleteAllExcept(keepUserId: String) = delegate.deleteAllExcept(keepUserId)
 
     override suspend fun deleteAll() = delegate.deleteAll()
+
+    override suspend fun maxEnqueuedAtFor(
+        domainName: String,
+        entityId: String,
+    ) = delegate.maxEnqueuedAtFor(domainName, entityId)
 
     override suspend fun gcDeadLetters(
         cutoffMillis: Long,

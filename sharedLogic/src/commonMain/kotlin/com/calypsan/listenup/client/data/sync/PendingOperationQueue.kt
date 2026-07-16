@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
@@ -158,8 +160,12 @@ private fun classifyFailure(
  *   so the caller can correlate later echoes.
  * - [drain] dispatches one op per (domain, entityId) group via [PendingOperationSender]
  *   sequentially within a single call; cross-entity parallelism emerges across
- *   concurrent drain() schedulings, not within one. Per-entity FIFO comes from
- *   the SQL filter, not Mutex coordination.
+ *   concurrent drain() schedulings, not within one. Per-entity FIFO is a two-part
+ *   guarantee: [enqueue] bumps `enqueuedAt` strictly past any op already queued for
+ *   the same entity so same-entity ops never tie at the source, and
+ *   [PendingOperationV2Dao.nextDispatchable]'s window-function query breaks any
+ *   remaining tie deterministically by `clientOpId` — neither depends on Mutex
+ *   coordination or SQLite's undocumented bare-column `GROUP BY` tie-break.
  * - [hasQueuedOpFor] is the anti-flicker shield's primitive: a still-dispatchable
  *   op for (domain, entity) means a local edit is in flight, so an inbound echo/
  *   catch-up for that entity is shielded rather than clobbering the optimistic state.
@@ -188,6 +194,11 @@ internal class PendingOperationQueue(
     private val sender: PendingOperationSender,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
+    // Serializes drain() waves so the class is safe by construction against ANY caller —
+    // concurrent drain() calls both reading nextDispatchable() before either deletes its
+    // dispatched row would double-send. See [drain]'s KDoc.
+    private val drainMutex = Mutex()
+
     // The engine subscribes to this counter to schedule a drain whenever a new
     // op lands. A monotonic-counter StateFlow rather than a unit SharedFlow
     // because StateFlow's "new subscriber sees current value" semantics avoid
@@ -254,6 +265,13 @@ internal class PendingOperationQueue(
             dao.deleteQueuedOps(channel.name, entityId, op.wire)
         }
         val opId = Uuid.random().toString()
+        val requestedAt = nowMillis()
+        val lastEnqueuedAt = dao.maxEnqueuedAtFor(channel.name, entityId)
+        // Bump strictly past any op already queued for this entity so two ops for the same
+        // entity never tie on enqueuedAt, even when enqueued in the same clock millisecond
+        // (fast double-actions, batch paths). Makes per-entity FIFO hold by construction at
+        // the source, ahead of nextDispatchable()'s own clientOpId tie-break.
+        val enqueuedAt = if (lastEnqueuedAt != null) maxOf(requestedAt, lastEnqueuedAt + 1) else requestedAt
         dao.insert(
             PendingOperationV2Entity(
                 clientOpId = opId,
@@ -261,7 +279,7 @@ internal class PendingOperationQueue(
                 entityId = entityId,
                 opType = op.wire,
                 payload = payload,
-                enqueuedAt = nowMillis(),
+                enqueuedAt = enqueuedAt,
                 lastAttemptAt = null,
                 failureCount = 0,
                 lastError = null,
@@ -298,8 +316,12 @@ internal class PendingOperationQueue(
      * Per-entity FIFO is enforced by the SQL filter (one earliest op per
      * group), not by intra-call concurrency. Cross-entity parallelism emerges
      * across concurrent drain() schedulings: rows for different entities are
-     * independent and the SQL filter never picks the same row twice, so
-     * concurrent drain() calls do not contend on the same entity.
+     * independent and the SQL filter never picks the same row twice.
+     *
+     * The whole body runs under [drainMutex], so `drain()` is safe by construction
+     * against ANY caller — concurrent calls serialize rather than both reading
+     * [PendingOperationV2Dao.nextDispatchable] before either deletes its dispatched
+     * row (which would double-send). Callers do not need an external lock.
      *
      * One call = one wave. Caller schedules subsequent waves; drain() does not
      * loop. Returns a [DrainOutcome] so the engine can decide whether a retry
@@ -316,107 +338,112 @@ internal class PendingOperationQueue(
      * on the first throw would permanently lose a queued offline write. The op is
      * retried (bounded by [MAX_RETRYABLE_ATTEMPTS]) and the loop continues.
      */
-    suspend fun drain(): DrainOutcome {
-        dao.gcDeadLetters(cutoffMillis = nowMillis() - DEAD_LETTER_RETENTION_MILLIS)
-        val ops = dao.nextDispatchable()
-        var sent = 0
-        var retryableFailures = 0
-        var parkedFailures = 0
-        var terminalFailures = 0
-        val sentEntities = mutableListOf<SentEntityRef>()
-        for (entity in ops) {
-            val op = entity.toDomain()
-            val result =
-                try {
-                    sender.send(op)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // A thrown sender exception is a TRANSIENT (retryable) failure, never an instant
-                    // terminal dead-letter. A raw-proxy transport fault — a dead RpcClient after the
-                    // self-hosted server restarts, a dropped WebSocket — escapes as an untyped throwable
-                    // that ErrorMapper misclassifies as non-retryable, permanently losing a queued
-                    // position/edit on the first blip (a "never lose the user's position" violation).
-                    // Treating a throw as retryable keeps the op queued to retry once the connection
-                    // heals (the firehose reconnect invalidates the dead proxy); a genuinely buggy sender
-                    // burns the bounded retry budget and then dead-letters — the same bounded-waste
-                    // tradeoff a permanently-corrupt payload already accepts.
-                    logger.warn(e) { "Sender threw for op ${op.clientOpId} (${op.domainName}); retrying as transient" }
-                    dao.update(
-                        entity.copy(
-                            failureCount = entity.failureCount + 1,
-                            lastAttemptAt = nowMillis(),
-                            lastError = e::class.simpleName ?: "SenderException",
-                        ),
-                    )
-                    retryableFailures++
-                    continue
-                }
-            when (result) {
-                is AppResult.Success -> {
-                    dao.delete(op.clientOpId)
-                    sent++
-                    sentEntities += SentEntityRef(op.domainName, op.entityId)
-                }
+    suspend fun drain(): DrainOutcome =
+        drainMutex.withLock {
+            dao.gcDeadLetters(cutoffMillis = nowMillis() - DEAD_LETTER_RETENTION_MILLIS)
+            val ops = dao.nextDispatchable()
+            var sent = 0
+            var retryableFailures = 0
+            var parkedFailures = 0
+            var terminalFailures = 0
+            val sentEntities = mutableListOf<SentEntityRef>()
+            for (entity in ops) {
+                val op = entity.toDomain()
+                val result =
+                    try {
+                        sender.send(op)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // A thrown sender exception is a TRANSIENT (retryable) failure, never an instant
+                        // terminal dead-letter. A raw-proxy transport fault — a dead RpcClient after the
+                        // self-hosted server restarts, a dropped WebSocket — escapes as an untyped throwable
+                        // that ErrorMapper misclassifies as non-retryable, permanently losing a queued
+                        // position/edit on the first blip (a "never lose the user's position" violation).
+                        // Treating a throw as retryable keeps the op queued to retry once the connection
+                        // heals (the firehose reconnect invalidates the dead proxy); a genuinely buggy sender
+                        // burns the bounded retry budget and then dead-letters — the same bounded-waste
+                        // tradeoff a permanently-corrupt payload already accepts.
+                        logger.warn(
+                            e,
+                        ) { "Sender threw for op ${op.clientOpId} (${op.domainName}); retrying as transient" }
+                        dao.update(
+                            entity.copy(
+                                failureCount = entity.failureCount + 1,
+                                lastAttemptAt = nowMillis(),
+                                lastError = e::class.simpleName ?: "SenderException",
+                            ),
+                        )
+                        retryableFailures++
+                        continue
+                    }
+                when (result) {
+                    is AppResult.Success -> {
+                        dao.delete(op.clientOpId)
+                        sent++
+                        sentEntities += SentEntityRef(op.domainName, op.entityId)
+                    }
 
-                is AppResult.Failure -> {
-                    val error = result.error
-                    when (classifyFailure(error, op.domainName)) {
-                        FailureDisposition.Parked -> {
-                            // No server verdict (unreachable, or idempotent lost-response): record the
-                            // attempt for diagnostics but KEEP failureCount, so an outage can never
-                            // silently exhaust an op's budget. It stays dispatchable and re-sends on the
-                            // next reachability edge.
-                            dao.update(entity.copy(lastAttemptAt = nowMillis(), lastError = error.code))
-                            parkedFailures++
-                            logger.warn {
-                                "Pending op ${op.clientOpId} parked (no server verdict): ${error.code} " +
-                                    "(count=${entity.failureCount}, unburned)"
+                    is AppResult.Failure -> {
+                        val error = result.error
+                        when (classifyFailure(error, op.domainName)) {
+                            FailureDisposition.Parked -> {
+                                // No server verdict (unreachable, or idempotent lost-response): record the
+                                // attempt for diagnostics but KEEP failureCount, so an outage can never
+                                // silently exhaust an op's budget. It stays dispatchable and re-sends on the
+                                // next reachability edge.
+                                dao.update(entity.copy(lastAttemptAt = nowMillis(), lastError = error.code))
+                                parkedFailures++
+                                logger.warn {
+                                    "Pending op ${op.clientOpId} parked (no server verdict): ${error.code} " +
+                                        "(count=${entity.failureCount}, unburned)"
+                                }
                             }
-                        }
 
-                        FailureDisposition.Burn -> {
-                            // Server ANSWERED with a retryable failure (5xx): spend one attempt. A
-                            // persistently-5xx-ing op quarantines after MAX; a transient one costs ≤MAX.
-                            val newCount = entity.failureCount + 1
-                            dao.update(
-                                entity.copy(
-                                    failureCount = newCount,
-                                    lastAttemptAt = nowMillis(),
-                                    lastError = error.code,
-                                ),
-                            )
-                            retryableFailures++
-                            logger.warn {
-                                "Pending op ${op.clientOpId} failed (server-answered retryable): ${error.code} (count=$newCount)"
+                            FailureDisposition.Burn -> {
+                                // Server ANSWERED with a retryable failure (5xx): spend one attempt. A
+                                // persistently-5xx-ing op quarantines after MAX; a transient one costs ≤MAX.
+                                val newCount = entity.failureCount + 1
+                                dao.update(
+                                    entity.copy(
+                                        failureCount = newCount,
+                                        lastAttemptAt = nowMillis(),
+                                        lastError = error.code,
+                                    ),
+                                )
+                                retryableFailures++
+                                logger.warn {
+                                    "Pending op ${op.clientOpId} failed (server-answered retryable): ${error.code} (count=$newCount)"
+                                }
                             }
-                        }
 
-                        FailureDisposition.Terminal -> {
-                            // Non-retryable: leap past MAX so the SQL filter never picks it up again.
-                            dao.update(
-                                entity.copy(
-                                    failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
-                                    lastAttemptAt = nowMillis(),
-                                    lastError = error.code,
-                                ),
-                            )
-                            terminalFailures++
-                            logger.warn { "Pending op ${op.clientOpId} dead-lettered (non-retryable): ${error.code}" }
+                            FailureDisposition.Terminal -> {
+                                // Non-retryable: leap past MAX so the SQL filter never picks it up again.
+                                dao.update(
+                                    entity.copy(
+                                        failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                                        lastAttemptAt = nowMillis(),
+                                        lastError = error.code,
+                                    ),
+                                )
+                                terminalFailures++
+                                logger.warn {
+                                    "Pending op ${op.clientOpId} dead-lettered (non-retryable): ${error.code}"
+                                }
+                            }
                         }
                     }
                 }
             }
+            DrainOutcome(
+                sent = sent,
+                retryableFailures = retryableFailures,
+                parkedFailures = parkedFailures,
+                terminalFailures = terminalFailures,
+                remainingDispatchable = dao.countDispatchable(),
+                sentEntities = sentEntities,
+            )
         }
-        return DrainOutcome(
-            sent = sent,
-            retryableFailures = retryableFailures,
-            parkedFailures = parkedFailures,
-            terminalFailures = terminalFailures,
-            remainingDispatchable = dao.countDispatchable(),
-            sentEntities = sentEntities,
-        )
-    }
 
     /** Live count of ops still within retry budget. Engine forwards this to `SyncEngineState`. */
     fun observeQueueDepth(): Flow<Int> = dao.observeQueueDepth()

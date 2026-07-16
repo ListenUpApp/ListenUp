@@ -86,7 +86,11 @@ class ProfileEditRepositoryImplTest :
          * these unit tests); the transaction runner runs [OfflineEditor]'s local write inline.
          */
         fun buildOfflineEditor(
-            pendingDao: PendingOperationV2Dao = mock<PendingOperationV2Dao> { everySuspend { insert(any()) } returns Unit },
+            pendingDao: PendingOperationV2Dao =
+                mock<PendingOperationV2Dao> {
+                    everySuspend { insert(any()) } returns Unit
+                    everySuspend { maxEnqueuedAtFor(any(), any()) } returns null
+                },
             authSession: AuthSession = FakeAuthSession(userId = userId),
         ): OfflineEditor {
             val queue =
@@ -130,6 +134,7 @@ class ProfileEditRepositoryImplTest :
                 val userDao = mock<UserDao>()
                 val pendingDao = mock<PendingOperationV2Dao>()
                 everySuspend { pendingDao.insert(any()) } returns Unit
+                everySuspend { pendingDao.maxEnqueuedAtFor(any(), any()) } returns null
                 everySuspend { userDao.getCurrentUser() } returns userEntity
                 everySuspend { userDao.updateTagline(any(), any(), any()) } returns Unit
 
@@ -178,6 +183,7 @@ class ProfileEditRepositoryImplTest :
                 val userDao = mock<UserDao>()
                 val pendingDao = mock<PendingOperationV2Dao>()
                 everySuspend { pendingDao.insert(any()) } returns Unit
+                everySuspend { pendingDao.maxEnqueuedAtFor(any(), any()) } returns null
                 everySuspend { userDao.getCurrentUser() } returns userEntity
                 everySuspend { userDao.updateName(any(), any(), any(), any(), any()) } returns Unit
 

@@ -117,6 +117,11 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
         inserted.clear()
     }
 
+    override suspend fun maxEnqueuedAtFor(
+        domainName: String,
+        entityId: String,
+    ): Long? = inserted.filter { it.domainName == domainName && it.entityId == entityId }.maxOfOrNull { it.enqueuedAt }
+
     override suspend fun gcDeadLetters(
         cutoffMillis: Long,
         maxAttempts: Int,

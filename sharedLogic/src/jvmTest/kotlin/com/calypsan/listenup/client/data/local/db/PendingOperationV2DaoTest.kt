@@ -81,6 +81,21 @@ class PendingOperationV2DaoTest :
             }
         }
 
+        test("nextDispatchable breaks same-enqueuedAt ties by clientOpId, not insertion order") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                val tiedEnqueuedAt = 500L
+                // Insert the alphabetically-larger clientOpId FIRST so a pass here can't be explained
+                // by SQLite happening to pick the earliest-inserted row.
+                dao.insert(row("z-op", "tags", "t1", tiedEnqueuedAt))
+                dao.insert(row("a-op", "tags", "t1", tiedEnqueuedAt))
+                val next = dao.nextDispatchable()
+                next.map { it.clientOpId } shouldContainExactly listOf("a-op")
+                db.close()
+            }
+        }
+
         test("nextDispatchable orders globally by enqueuedAt across groups") {
             runTest {
                 val db = createInMemoryTestDatabase()

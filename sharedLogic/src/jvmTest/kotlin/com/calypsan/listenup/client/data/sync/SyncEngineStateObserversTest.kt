@@ -22,6 +22,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
 
 private const val TIMEOUT_SECONDS = 5L
+private const val DEAD_LETTER_OBSERVER_TIMEOUT_SECONDS = 15L
 
 // "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
 // un-mirrored domain, matching the queue's payload-agnostic contract.
@@ -122,7 +123,16 @@ class SyncEngineStateObserversTest :
                             ),
                         )
 
+                    // Await the DAO's own visibility of the insert BEFORE asserting on the engine's
+                    // observer pipeline — Room's InvalidationTracker propagation latency is a separate
+                    // (and separately load-sensitive) concern from whether SyncEngineState correctly
+                    // forwards observeDeadLetterCount(). Splitting the two means a failure here can only
+                    // mean the engine's forwarding is broken, never that the write hadn't landed yet.
                     withTimeout(TIMEOUT_SECONDS.seconds) {
+                        db.pendingOperationV2Dao().observeDeadLetterCount().first { it == 1 }
+                    }
+
+                    withTimeout(DEAD_LETTER_OBSERVER_TIMEOUT_SECONDS.seconds) {
                         state.observe().first { it.deadLetterCount == 1 }
                     }
                 } finally {

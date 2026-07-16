@@ -16,7 +16,12 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
+import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.serializer
 
@@ -26,6 +31,16 @@ import kotlinx.serialization.builtins.serializer
 // channel name here (it used to be "tags", which is now a declared idempotent channel).
 private val upsertOnlyChannel =
     OutboxChannel("undeclared_test_domain", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
+
+// A second synthetic channel (also not one of OutboxChannels.all) for tests that need both
+// Update and Delete op kinds on the same entity.
+private val updateDeleteChannel =
+    OutboxChannel(
+        "undeclared_update_delete_domain",
+        String.serializer(),
+        setOf(OpKind.Update, OpKind.Delete),
+        idempotent = true,
+    )
 
 class PendingOperationQueueTest :
     FunSpec({
@@ -172,6 +187,49 @@ class PendingOperationQueueTest :
                 val second = queue.drain()
                 second.sent shouldBe 1
                 second.remainingDispatchable shouldBe 0
+                db.close()
+            }
+        }
+
+        test("enqueue bumps enqueuedAt so two same-clock ops for one entity never tie") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { 1_000L },
+                    )
+                val first = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val second = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val firstRow = db.pendingOperationV2Dao().get(first)!!
+                val secondRow = db.pendingOperationV2Dao().get(second)!!
+                (secondRow.enqueuedAt > firstRow.enqueuedAt) shouldBe true
+                db.close()
+            }
+        }
+
+        test("update then delete for the same entity at the same instant drains update first, delete second") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val sent = mutableListOf<String>()
+                val sender =
+                    PendingOperationSender { op ->
+                        sent += op.opType
+                        AppResult.Success(Unit)
+                    }
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = sender,
+                        nowMillis = { 1_000L },
+                    )
+                queue.enqueue(updateDeleteChannel, "t1", OpKind.Update, "{}", "u1")
+                queue.enqueue(updateDeleteChannel, "t1", OpKind.Delete, "{}", "u1")
+                queue.drain()
+                sent shouldContainExactly listOf("update")
+                queue.drain()
+                sent shouldContainExactly listOf("update", "delete")
                 db.close()
             }
         }
@@ -339,6 +397,49 @@ class PendingOperationQueueTest :
                 dao.get("dead-ancient") shouldBe null
                 dao.get("dead-recent") shouldNotBe null
                 db.close()
+            }
+        }
+
+        test("concurrent drain() calls never dispatch the same op twice") {
+            runBlocking {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val dispatchCount = AtomicInteger(0)
+                    val firstSenderEntered = CompletableDeferred<Unit>()
+                    val releaseFirstSender = CompletableDeferred<Unit>()
+                    val sender =
+                        PendingOperationSender {
+                            // The FIRST dispatch parks mid-send (holding the op's row un-deleted) so a
+                            // concurrent second drain() gets a real chance to read the same still-queued
+                            // row before the first drain deletes it — the exact double-send window
+                            // `PendingOperationQueue.drain` must close by construction.
+                            if (dispatchCount.incrementAndGet() == 1) {
+                                firstSenderEntered.complete(Unit)
+                                releaseFirstSender.await()
+                            }
+                            AppResult.Success(Unit)
+                        }
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = sender,
+                        )
+                    queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+
+                    val firstDrain = async { queue.drain() }
+                    firstSenderEntered.await()
+                    val secondDrain = async { queue.drain() }
+                    // Give the second drain a real chance to race the first drain's still-unfinished
+                    // dispatch before releasing it.
+                    delay(50)
+                    releaseFirstSender.complete(Unit)
+                    firstDrain.await()
+                    secondDrain.await()
+
+                    dispatchCount.get() shouldBe 1
+                } finally {
+                    db.close()
+                }
             }
         }
     })
