@@ -43,7 +43,10 @@ struct SettingsView: View {
         .readableWidth(720)
         .onAppear {
             if observer == nil {
-                observer = SettingsObserver(viewModel: deps.createSettingsViewModel())
+                observer = SettingsObserver(
+                    viewModel: deps.createSettingsViewModel(),
+                    stopPlayback: { await deps.playerCoordinator.stop() }
+                )
             }
         }
         .confirmationDialog(
@@ -52,7 +55,7 @@ struct SettingsView: View {
             titleVisibility: .visible
         ) {
             Button(String(localized: "common.sign_out"), role: .destructive) {
-                observer?.signOut()
+                Task { await observer?.signOut() }
             }
             Button(String(localized: "common.cancel"), role: .cancel) {}
         } message: {
