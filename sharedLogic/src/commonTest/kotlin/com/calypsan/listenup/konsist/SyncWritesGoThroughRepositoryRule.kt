@@ -2,59 +2,53 @@ package com.calypsan.listenup.konsist
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldNotBeEmpty
 
 /**
- * Forbid direct writes against `SyncableTable`-extending table objects outside
- * `:server/.../sync/`. Reading is fine; writing must go through the repository
- * so the global revision counter is bumped, the `clientOpId` is captured, and
- * the [ChangeBus][com.calypsan.listenup.server.sync.ChangeBus] sees the event.
+ * Forbid direct SQLDelight writes against a **syncable root table** outside the repository layer
+ * (`:server/sync/` — the substrate — and `:server/services/` — where the per-domain repositories
+ * live). Reading is fine; writing must go through the repository so the global revision counter is
+ * bumped, the `clientOpId` is captured, and the
+ * [ChangeBus][com.calypsan.listenup.server.sync.ChangeBus] sees the event.
  *
- * Heuristic: strip line and block comments (so doc-string code samples don't
- * false-trigger), then scan `:server/.../` files (excluding `sync/` — the
- * substrate itself — and `services/` — where Books-A's per-domain repositories
- * live) for any of the Exposed write operators invoked on a token that matches
- * a `*Table` object known to extend `SyncableTable`.
+ * A bypass is silent: the row changes, no revision is bumped, no event is published, and **every
+ * other device simply never learns about the edit** until something unrelated re-upserts that row.
  *
- * Detected write operators are listed in [WRITE_OPERATORS]. Read-only operators
- * (`.selectAll(`, `.select(`, `.exists(`) are deliberately excluded.
+ * **Why this rule was rewritten.** It used to scan for Exposed write operators (`.insert(`,
+ * `.upsert(`, …) invoked on `*Table` objects extending `SyncableTable`. The substrate migrated to
+ * SQLDelight: the table objects vanished, so its discovery set came back empty and it hit
+ * `if (syncableTableNames.isEmpty()) return@test` — a *deliberate silent early-return*, in the rule
+ * whose own KDoc called it "the load-bearing Konsist rule for the sync substrate". It has tested
+ * nothing since the migration. The `shouldNotBeEmpty` guard below is what that early-return should
+ * always have been.
  *
- * This is the load-bearing Konsist rule for the sync substrate — it structurally
- * guarantees that the bus sees every write rather than relying on discipline alone.
+ * Detection is now `<root>Queries.<write>(` where `<root>` is a syncable repository's root queries
+ * wrapper, discovered from the repositories themselves via [syncableRepositories] rather than
+ * hard-coded — so a new domain is covered the day it lands.
  */
 class SyncWritesGoThroughRepositoryRule :
     FunSpec({
 
-        test("No Exposed writes against SyncableTable subtypes outside :server/sync/") {
-            val scope = productionScope()
+        test("no direct SQLDelight writes against a syncable root table outside the repository layer") {
+            val syncableQueries = syncableRepositories().mapNotNull { it.queriesName }.toSet()
 
-            // Discover names of objects that extend SyncableTable.
-            val syncableTableNames =
-                scope
-                    .objects()
-                    .filter { obj -> obj.parents().any { it.name == "SyncableTable" } }
-                    .map { it.name }
-                    .toSet()
-
-            // Nothing to check if no syncable tables exist yet (prevents false-green on
-            // empty codebase, but returns early rather than lying with an empty offender list).
-            if (syncableTableNames.isEmpty()) return@test
+            // Vacuity guard. Replaces the predecessor's silent `return@test` — the exact mechanism
+            // that let this rule pass green through the entire Exposed→SQLDelight migration.
+            syncableQueries.shouldNotBeEmpty()
 
             val offenders =
-                scope.files
+                productionScope()
+                    .files
                     .filter { it.path.contains("/server/") }
                     .filterNot { it.path.contains("/server/sync/") }
                     .filterNot { it.path.contains("/server/services/") }
+                    .filterNot { file -> BULK_REWRITE_ALLOWLIST.any { file.path.endsWith(it) } }
                     .flatMap { file ->
-                        val stripped = stripComments(file.text)
-                        WRITE_OPERATORS.flatMap { op ->
-                            syncableTableNames.mapNotNull { tableName ->
-                                if (stripped.contains("$tableName$op")) {
-                                    "$tableName$op in ${file.path}"
-                                } else {
-                                    null
-                                }
-                            }
-                        }
+                        WRITE_CALL
+                            .findAll(stripComments(file.text))
+                            .filter { it.groupValues[1] in syncableQueries }
+                            .map { "${it.groupValues[1]}Queries.${it.groupValues[2]}( in ${file.path}" }
+                            .toList()
                     }
 
             offenders.shouldBeEmpty()
@@ -62,28 +56,28 @@ class SyncWritesGoThroughRepositoryRule :
     }) {
     companion object {
         /**
-         * Every Exposed write operator that touches a `SyncableTable` outside the
-         * repository layer must appear here. Missing operators are silent-corruption
-         * risk — the rule will not catch a bypass that uses an operator absent from
-         * this set.
+         * Matches `<root>Queries.<write>(`. The write-verb alternation is the load-bearing part —
+         * a verb missing from it is a silent bypass — so [SyncWritesGoThroughRepositoryRuleSelfTest]
+         * exercises it against planted samples rather than asserting it equals a copy of itself.
          */
-        val WRITE_OPERATORS =
-            setOf(
-                ".upsert(",
-                ".update(",
-                ".insert(",
-                ".deleteWhere(",
-                ".batchInsert(",
-                ".replace(",
-                ".insertIgnore(",
-                ".deleteAll(",
-                ".deleteIgnoreWhere(",
-                ".batchReplace(",
-                ".upsertReturning(",
-                ".insertAndGetId(",
-                ".replaceFromQuery(",
-                ".updateReturning(",
+        val WRITE_CALL =
+            Regex(
+                """\b([A-Za-z][A-Za-z0-9]*)Queries\.([A-Za-z]*(?:insert|update|delete|upsert|replace)[A-Za-z]*)\s*\(""",
+                RegexOption.IGNORE_CASE,
             )
+
+        /**
+         * Files that write a syncable root table directly **and** re-upsert every touched row
+         * through the repository afterwards, so the revision bump and ChangeBus event still
+         * happen. Reviewed individually — each entry is a place where the sync invariant is held
+         * by hand rather than structurally, so keep this list short and justify additions.
+         *
+         *  - `GenreServiceImpl` — `executeMove` rewrites an entire subtree's `path`/`depth` in one
+         *    bulk statement (a per-row repository upsert would be O(subtree) transactions), then
+         *    re-upserts each touched genre so the substrate publishes one `genre.Updated` per row.
+         *    See its `executeMove` KDoc.
+         */
+        val BULK_REWRITE_ALLOWLIST = setOf("/server/api/GenreServiceImpl.kt")
     }
 }
 
