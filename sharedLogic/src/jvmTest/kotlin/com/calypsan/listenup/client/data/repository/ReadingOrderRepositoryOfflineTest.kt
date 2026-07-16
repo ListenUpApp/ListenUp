@@ -190,6 +190,56 @@ class ReadingOrderRepositoryOfflineTest :
             }
         }
 
+        test("observeReadingOrderBookIds emits seeded junction rows ordered by sortOrder") {
+            runTest {
+                withRepo { repo, db, _ ->
+                    db.readingOrderDao().upsert(orderEntity())
+                    repo
+                        .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1"), BookId("b2"), BookId("b3")))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo.observeReadingOrderBookIds(ReadingOrderId("ro1")).first() shouldContainExactly
+                        listOf(BookId("b1"), BookId("b2"), BookId("b3"))
+                }
+            }
+        }
+
+        test("observeReadingOrderBookIds emits the new order after reorderBooks") {
+            runTest {
+                withRepo { repo, db, _ ->
+                    db.readingOrderDao().upsert(orderEntity())
+                    repo
+                        .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1"), BookId("b2"), BookId("b3")))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo
+                        .reorderBooks(ReadingOrderId("ro1"), listOf(BookId("b3"), BookId("b1"), BookId("b2")))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo.observeReadingOrderBookIds(ReadingOrderId("ro1")).first() shouldContainExactly
+                        listOf(BookId("b3"), BookId("b1"), BookId("b2"))
+                }
+            }
+        }
+
+        test("observeReadingOrderBookIds excludes soft-deleted junction rows") {
+            runTest {
+                withRepo { repo, db, _ ->
+                    db.readingOrderDao().upsert(orderEntity())
+                    repo
+                        .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1"), BookId("b2")))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo
+                        .removeBookFromReadingOrder(ReadingOrderId("ro1"), BookId("b1"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    repo.observeReadingOrderBookIds(ReadingOrderId("ro1")).first() shouldContainExactly
+                        listOf(BookId("b2"))
+                }
+            }
+        }
+
         test("observeActiveReadingOrder falls back to null when the followed order is absent or tombstoned") {
             runTest {
                 withRepo { repo, db, service ->
