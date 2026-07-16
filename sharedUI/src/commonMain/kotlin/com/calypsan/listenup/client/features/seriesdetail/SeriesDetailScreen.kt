@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.seriesdetail
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,10 +37,13 @@ import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
@@ -51,11 +55,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
@@ -64,6 +72,7 @@ import com.calypsan.listenup.client.design.components.FannedDeck
 import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.features.contributors.FullCastSheet
@@ -84,6 +93,9 @@ import listenup.composeapp.generated.resources.series_edit_series
 import listenup.composeapp.generated.resources.series_label
 import listenup.composeapp.generated.resources.series_progress_duration
 import listenup.composeapp.generated.resources.series_start_book
+import listenup.composeapp.generated.resources.story_world_entry_card_subtitle
+import listenup.composeapp.generated.resources.story_world_entry_card_subtitle_empty
+import listenup.composeapp.generated.resources.story_world_entry_card_title
 
 /**
  * Series detail — a color-blocked hero with the expressive fanned cover deck, a "Continue"
@@ -100,6 +112,7 @@ fun SeriesDetailScreen(
     onBookClick: (String) -> Unit,
     onEditClick: (String) -> Unit,
     onContributorClick: (String) -> Unit,
+    onStoryWorldClick: (String) -> Unit = {},
     viewModel: SeriesDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(seriesId) { viewModel.loadSeries(seriesId) }
@@ -143,6 +156,7 @@ fun SeriesDetailScreen(
                             onContributorClick = onContributorClick,
                             onShowAuthors = { showAuthorsSheet = true },
                             onEditClick = { onEditClick(seriesId) },
+                            onStoryWorldClick = { onStoryWorldClick(seriesId) },
                         )
                     } else {
                         NarrowSeriesDetailContent(
@@ -152,6 +166,7 @@ fun SeriesDetailScreen(
                             onContributorClick = onContributorClick,
                             onShowAuthors = { showAuthorsSheet = true },
                             onEditClick = { onEditClick(seriesId) },
+                            onStoryWorldClick = { onStoryWorldClick(seriesId) },
                         )
                     }
 
@@ -180,6 +195,7 @@ private fun NarrowSeriesDetailContent(
     onContributorClick: (String) -> Unit,
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
+    onStoryWorldClick: () -> Unit,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(1),
@@ -200,6 +216,13 @@ private fun NarrowSeriesDetailContent(
             ContinueButton(
                 state = state,
                 onBookClick = onBookClick,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            )
+        }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            StoryWorldEntryCard(
+                entityCount = state.entityCount,
+                onClick = onStoryWorldClick,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
             )
         }
@@ -228,6 +251,7 @@ private fun WideSeriesDetailContent(
     onContributorClick: (String) -> Unit,
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
+    onStoryWorldClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -257,6 +281,12 @@ private fun WideSeriesDetailContent(
                 HeroBody(state = state, onContributorClick = onContributorClick, onShowAuthors = onShowAuthors)
                 Spacer(Modifier.height(24.dp))
                 ContinueButton(state = state, onBookClick = onBookClick, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(16.dp))
+                StoryWorldEntryCard(
+                    entityCount = state.entityCount,
+                    onClick = onStoryWorldClick,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
 
@@ -504,6 +534,71 @@ private fun ContinueButton(
         )
     }
 }
+
+/**
+ * Brand-tinted gradient CTA card linking to the series' Story World hub (characters, locations &
+ * items). Same gradient idiom as `StorySoFarSeamCard` (the Story World feature's seam card) —
+ * replicated locally rather than imported across features, since `features/seriesdetail` and
+ * `features/storyworld` are independent feature packages.
+ */
+@Composable
+private fun StoryWorldEntryCard(
+    entityCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val gradientStart =
+        MaterialTheme.colorScheme.primary
+            .copy(alpha = STORY_WORLD_CARD_GRADIENT_START_ALPHA)
+            .compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
+    val gradientEnd = MaterialTheme.colorScheme.surfaceContainerLow
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = STORY_WORLD_CARD_BORDER_ALPHA)),
+        onClick = onClick,
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .background(Brush.linearGradient(listOf(gradientStart, gradientEnd)))
+                    .padding(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TonalIconTile(icon = Icons.Outlined.Public, size = 52.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(Res.string.story_world_entry_card_title),
+                    fontSize = STORY_WORLD_CARD_TITLE_SIZE,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text =
+                        if (entityCount > 0) {
+                            stringResource(Res.string.story_world_entry_card_subtitle, entityCount)
+                        } else {
+                            stringResource(Res.string.story_world_entry_card_subtitle_empty)
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private const val STORY_WORLD_CARD_GRADIENT_START_ALPHA = 0.16f
+private const val STORY_WORLD_CARD_BORDER_ALPHA = 0.22f
+private val STORY_WORLD_CARD_TITLE_SIZE = 17.sp
 
 // endregion
 

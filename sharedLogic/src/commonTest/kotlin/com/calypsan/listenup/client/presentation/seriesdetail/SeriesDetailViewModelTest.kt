@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.seriesdetail
 
+import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -7,12 +8,14 @@ import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.domain.model.Entity
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.test.fake.FakeEntityEditRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
@@ -41,6 +44,7 @@ class SeriesDetailViewModelTest :
             val seriesRepository: SeriesRepository = mock()
             val imageRepository: ImageRepository = mock()
             val playbackPositionRepository: PlaybackPositionRepository = mock()
+            val entityEditRepository = FakeEntityEditRepository()
             val seriesFlow = MutableStateFlow<SeriesWithBooks?>(null)
             val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
 
@@ -49,6 +53,7 @@ class SeriesDetailViewModelTest :
                     seriesRepository = seriesRepository,
                     imageRepository = imageRepository,
                     playbackPositionRepository = playbackPositionRepository,
+                    entityEditRepository = entityEditRepository,
                 )
         }
 
@@ -561,6 +566,34 @@ class SeriesDetailViewModelTest :
 
                 val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
                 state.seriesNarrator shouldBe "Robert Glenister"
+            }
+        }
+
+        // ========== entityCount (Story World entry card) ==========
+
+        test("entityCount reflects entities seeded for the series; entities homed elsewhere don't count") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries(id = "series-1")
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadSeries("series-1")
+                fixture.entityEditRepository.setEntities(
+                    listOf(
+                        Entity(id = "e1", kind = EntityKind.CHARACTER, name = "Kaladin", homeSeriesId = "series-1"),
+                        Entity(id = "e2", kind = EntityKind.LOCATION, name = "Urithiru", homeSeriesId = "series-1"),
+                        // Homed under a different series — must not count toward series-1's total.
+                        Entity(id = "e3", kind = EntityKind.CHARACTER, name = "Vin", homeSeriesId = "series-2"),
+                        // Homed under a standalone book, not any series — must not count either.
+                        Entity(id = "e4", kind = EntityKind.ITEM, name = "Hemalurgic Spike", homeBookId = "book-1"),
+                    ),
+                )
+                fixture.seriesFlow.value = createSeriesWithBooks(series = series, books = emptyList())
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
+                state.entityCount shouldBe 2
             }
         }
     })

@@ -347,6 +347,9 @@ private fun DetailScreen(
                 onTagClick = { tagId, _ -> navigateTo(DetailDestination.Tag(tagId)) },
                 onMoodClick = { _, _ -> },
                 onUserProfileClick = { navigateTo(DetailDestination.UserProfile(it)) },
+                onStoryWorldClick = { seriesId, bookId ->
+                    navigateTo(DetailDestination.StoryWorldHub(seriesId = seriesId, bookId = bookId))
+                },
             )
         }
 
@@ -364,6 +367,9 @@ private fun DetailScreen(
                 onBackClick = navigateBack,
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                 onEditClick = { navigateTo(DetailDestination.SeriesEdit(it)) },
+                onStoryWorldClick = { seriesId ->
+                    navigateTo(DetailDestination.StoryWorldHub(seriesId = seriesId, bookId = null))
+                },
             )
         }
 

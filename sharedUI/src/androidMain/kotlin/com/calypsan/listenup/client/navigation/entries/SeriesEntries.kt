@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.SeriesEdit
+import com.calypsan.listenup.client.navigation.StoryWorldHub
 import com.calypsan.listenup.client.navigation.TagDetail
 
 /** Series and tag navigation entries. */
@@ -25,6 +26,9 @@ internal fun EntryProviderScope<NavKey>.seriesEntries(backStack: NavBackStack<Na
             },
             onContributorClick = { contributorId ->
                 backStack.add(ContributorDetail(contributorId))
+            },
+            onStoryWorldClick = { seriesId ->
+                backStack.add(StoryWorldHub(seriesId = seriesId))
             },
         )
     }

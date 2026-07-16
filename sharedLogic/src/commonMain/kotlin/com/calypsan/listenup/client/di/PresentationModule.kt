@@ -365,6 +365,7 @@ internal val seriesPresentationModule =
                 seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
                 imageRepository = get(),
                 playbackPositionRepository = get(),
+                entityEditRepository = get(),
             )
         }
         factory {

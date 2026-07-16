@@ -72,6 +72,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteD
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
 import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
+import com.calypsan.listenup.client.features.bookdetail.components.StoryWorldSection
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
@@ -127,6 +128,7 @@ fun BookDetailScreen(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
+    onStoryWorldClick: (seriesId: String?, bookId: String?) -> Unit = { _, _ -> },
     campfireViewModel: CampfireViewModel,
     startWithCampfireCreate: Boolean = false,
     viewModel: BookDetailViewModel = koinViewModel(),
@@ -192,6 +194,7 @@ fun BookDetailScreen(
                     onMoodClick = onMoodClick,
                     onUserProfileClick = onUserProfileClick,
                     onSeeAllReaders = onSeeAllReaders,
+                    onStoryWorldClick = onStoryWorldClick,
                 )
             }
         }
@@ -243,6 +246,7 @@ private fun BookDetailReadyContent(
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
+    onStoryWorldClick: (seriesId: String?, bookId: String?) -> Unit,
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
@@ -269,6 +273,13 @@ private fun BookDetailReadyContent(
     val book = state.book
     val hasProgress = state.progress != null
     val liveCampfires by viewModel.liveCampfires.collectAsStateWithLifecycle()
+
+    // A book's Story World lives at its series' hub when it belongs to one (characters/locations
+    // recur across the series); a standalone book gets its own book-scoped hub.
+    val onStoryWorldClickResolved: () -> Unit = {
+        val seriesId = book.series.firstOrNull()?.seriesId
+        onStoryWorldClick(seriesId, if (seriesId == null) bookId else null)
+    }
 
     BookDetailContent(
         bookId = bookId,
@@ -346,6 +357,7 @@ private fun BookDetailReadyContent(
         onTagClick = onTagClick,
         onMoodClick = onMoodClick,
         onSeeAllReaders = onSeeAllReaders,
+        onStoryWorldClick = onStoryWorldClickResolved,
     )
 
     when (val step = campfireFlowStep) {
@@ -518,6 +530,7 @@ fun BookDetailContent(
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
+    onStoryWorldClick: () -> Unit = {},
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
@@ -608,6 +621,7 @@ fun BookDetailContent(
             onMoodClick = onMoodClick,
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
+            onStoryWorldClick = onStoryWorldClick,
         )
     }
 }
@@ -664,6 +678,7 @@ private fun ImmersiveBookDetail(
     onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
+    onStoryWorldClick: () -> Unit = {},
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -789,6 +804,14 @@ private fun ImmersiveBookDetail(
                     onMoodClick = { mood -> onMoodClick(mood.id, mood.displayName()) },
                     creditsSlot = null,
                     modifier = screenPadding.padding(top = 24.dp),
+                )
+            }
+
+            // Story World — entry point into the character/location/item encyclopedia.
+            item {
+                StoryWorldSection(
+                    onClick = onStoryWorldClick,
+                    modifier = screenPadding.padding(top = 16.dp),
                 )
             }
 

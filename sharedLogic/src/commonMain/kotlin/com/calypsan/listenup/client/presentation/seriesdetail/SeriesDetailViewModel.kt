@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.client.domain.repository.EntityEditRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlin.time.Duration
@@ -37,6 +39,7 @@ class SeriesDetailViewModel(
     private val seriesRepository: SeriesRepository,
     private val imageRepository: ImageRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
+    private val entityEditRepository: EntityEditRepository,
 ) : ViewModel() {
     private val seriesIdFlow = MutableStateFlow<String?>(null)
 
@@ -49,9 +52,10 @@ class SeriesDetailViewModel(
                     combine(
                         seriesRepository.observeSeriesWithBooks(id),
                         playbackPositionRepository.observeAll(),
-                    ) { seriesWithBooks, positions ->
+                        entityEditRepository.observeEntitiesForSeries(id).map { it.size },
+                    ) { seriesWithBooks, positions, entityCount ->
                         if (seriesWithBooks != null) {
-                            buildReadyState(id, seriesWithBooks, positions)
+                            buildReadyState(id, seriesWithBooks, positions, entityCount)
                         } else {
                             SeriesDetailUiState.Error("Series not found")
                         }
@@ -76,6 +80,7 @@ class SeriesDetailViewModel(
         seriesId: String,
         seriesWithBooks: SeriesWithBooks,
         positions: Map<BookId, PlaybackPosition>,
+        entityCount: Int,
     ): SeriesDetailUiState.Ready {
         val books = seriesWithBooks.booksSortedBySequence()
         val totalDuration = books.sumOf { it.duration }.milliseconds
@@ -126,6 +131,7 @@ class SeriesDetailViewModel(
             bookProgress = bookProgress,
             finishedBookIds = finishedBookIds,
             resumeTarget = resumeTarget,
+            entityCount = entityCount,
         )
     }
 
@@ -187,6 +193,8 @@ sealed interface SeriesDetailUiState {
         val finishedBookIds: Set<BookId>,
         /** Book to resume/start via the "Continue" action; null when all are finished. */
         val resumeTarget: BookId?,
+        /** Number of Story World entities (characters/locations/items) namespaced under this series. */
+        val entityCount: Int,
     ) : SeriesDetailUiState {
         /** Number of finished books, for the hero "X finished" stat. */
         val finishedCount: Int get() = finishedBookIds.size

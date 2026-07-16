@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.navigation.DocumentViewer
 import com.calypsan.listenup.client.navigation.MatchPreview
 import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.SeriesDetail
+import com.calypsan.listenup.client.navigation.StoryWorldHub
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
 import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
@@ -65,6 +66,9 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
             },
             onOpenDocumentViewer = { localPath ->
                 backStack.add(DocumentViewer(localPath))
+            },
+            onStoryWorldClick = { seriesId, bookId ->
+                backStack.add(StoryWorldHub(seriesId = seriesId, bookId = bookId))
             },
         )
     }
