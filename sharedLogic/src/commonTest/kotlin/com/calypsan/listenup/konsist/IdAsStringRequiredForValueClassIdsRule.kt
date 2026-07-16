@@ -1,66 +1,45 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.ext.list.modifierprovider.withoutAbstractModifier
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldNotBeEmpty
 
 /**
- * Pin: any concrete `SyncableRepository<T, ID>` subclass whose `ID` type
- * argument is a `@JvmInline value class` MUST override `idAsString(id: ID):
- * String` to return the raw underlying value.
+ * Pin: any concrete `SqlSyncableRepository<T, ID>` subclass whose `ID` type argument is a
+ * `@JvmInline value class` MUST override `idAsString(id: ID): String` to return the raw
+ * underlying value.
  *
- * Without the override, the default impl in [SyncableRepository] is
- * `id.toString()` — which on a `@JvmInline value class` returns
- * `"WrapperName(value=foo)"`. That string would land in the primary-key
- * column, every WHERE clause, and the `SyncEvent.id` payload — corrupting
- * the table and breaking every soft-delete and event-echo match.
+ * Without the override the base default is `id.toString()`, which on a value class returns
+ * `"BookId(value=foo)"`. That string lands in the primary-key column, every WHERE clause and the
+ * `SyncEvent.id` payload — corrupting the table and breaking every soft-delete and event-echo
+ * match. String-id domains are exempt: `String.toString()` is the identity, so the default is
+ * correct.
  *
- * String-id domains (e.g., `TagRepository : SyncableRepository<Tag, String>`)
- * are exempt: `String.toString()` is the identity, so the default impl is
- * correct. The rule's predicate skips them.
- *
- * As of the initial roll-out, no production repository has a value-class id
- * — the rule passes trivially. It exists to fire the moment Books-A introduces
- * `BookRepository : SyncableRepository<Book, BookId>` and catches a missing
- * override at build time.
+ * **Why the rule is re-keyed.** It used to match the Exposed-era base name `SyncableRepository`.
+ * The substrate migrated to SQLDelight, the base became `SqlSyncableRepository`, and this rule
+ * matched zero declarations and passed green — while 15 repositories shipped relying purely on
+ * hand-written `idAsString` overrides. Its KDoc still claimed "no production repository has a
+ * value-class id — the rule passes trivially". Discovery now lives in [syncableRepositories] and
+ * the vacuity guard below fails the build if it ever stops matching.
  */
 class IdAsStringRequiredForValueClassIdsRule :
     FunSpec({
 
-        test("every concrete SyncableRepository with a @JvmInline value-class ID overrides idAsString") {
-            // Konsist 0.17.3 includes type arguments in `parent.name`, so a TagRepository's
-            // SyncableRepository<Tag, String> parent appears under the name
-            // "SyncableRepository<Tag, String>". Match by the type-argument-stripped name.
-            fun String.bareTypeName(): String = substringBefore('<')
+        test("every concrete SqlSyncableRepository with a @JvmInline value-class ID overrides idAsString") {
+            val repositories = syncableRepositories()
 
-            val concreteRepositories =
-                productionScope()
-                    .classes()
-                    .withoutAbstractModifier()
-                    .filter { cls ->
-                        cls.parents().any { it.name.bareTypeName() == "SyncableRepository" }
-                    }
+            // Vacuity guards: prove we found repositories at all, and that at least one has a
+            // value-class id — i.e. that this rule has live subjects rather than passing on air.
+            repositories.shouldNotBeEmpty()
+            repositories.filter { it.valueClassIdName != null }.shouldNotBeEmpty()
 
             val offenders =
-                concreteRepositories.mapNotNull { repo ->
-                    val parent = repo.parents().first { it.name.bareTypeName() == "SyncableRepository" }
-                    // SyncableRepository<T, ID> — ID is the 2nd type argument.
-                    val idArg = parent.typeArguments?.getOrNull(1) ?: return@mapNotNull null
-                    val idClass = idArg.sourceDeclaration?.asClassDeclaration() ?: return@mapNotNull null
-                    if (!idClass.hasValueModifier) {
-                        // String-id and other reference-type-id domains: default impl is fine.
-                        return@mapNotNull null
-                    }
-                    val hasOverride =
-                        repo.functions().any { fn ->
-                            fn.name == "idAsString" && fn.hasOverrideModifier
-                        }
-                    if (hasOverride) {
-                        null
-                    } else {
-                        "${repo.name} uses value-class id ${idClass.name} but does not override idAsString " +
-                            "(default `id.toString()` would write \"${idClass.name}(value=...)\" to every column)"
-                    }
+                repositories.mapNotNull { repo ->
+                    val idName = repo.valueClassIdName ?: return@mapNotNull null
+                    if (repo.overridesIdAsString) return@mapNotNull null
+                    "${repo.name} uses value-class id $idName but does not override idAsString " +
+                        "(the default `id.toString()` would write \"$idName(value=...)\" into the " +
+                        "primary key, every WHERE clause and every SyncEvent.id)"
                 }
 
             offenders.shouldBeEmpty()
