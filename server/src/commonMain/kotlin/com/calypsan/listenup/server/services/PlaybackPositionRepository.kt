@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
+import kotlin.math.min
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -207,14 +208,17 @@ class PlaybackPositionRepository(
      * returned unchanged — a stale offline write never clobbers a fresher position from another
      * device.
      *
+     * `lastPlayedAt` arrives verbatim from the client's device clock, so it is clamped against the
+     * server clock before it does anything else — see the *why* comment at the clamp site.
+     *
      * The position row commits via [SqlSyncableRepository.upsert]; the completion/start cascade hooks
      * are de-nested and fire sequentially afterwards (see the class KDoc).
      *
      * [startedBookOccurredAt] overrides ONLY the `STARTED_BOOK` activity date (both the new-start and
      * the re-read [StatsEvent.BookRestarted] branches). The ABS-import backfill uses it to date the
      * imported start strictly before the book's imported sessions; live callers leave it null and the
-     * activity keeps using [lastPlayedAt]. Position `lastPlayedAt` semantics (the wins-guard, the
-     * payload, the `BookCompleted` date) are untouched by this parameter.
+     * activity keeps using the clamped `lastPlayedAt`. Position `lastPlayedAt` semantics (the
+     * wins-guard, the payload, the `BookCompleted` date) are untouched by this parameter.
      */
     suspend fun recordPosition(
         userId: String,
@@ -226,9 +230,31 @@ class PlaybackPositionRepository(
         currentChapterId: String?,
         startedBookOccurredAt: Long? = null,
     ): AppResult<PlaybackPositionSyncPayload> {
+        val now = clock.now().toEpochMilliseconds()
+        // Clamp #1 (persisted): a device with a clock set into the future must not be able to plant
+        // a `lastPlayedAt` that permanently outranks every honest write that follows — that write
+        // would poison this row forever, since positions are digest-opt-out and nothing else ever
+        // reconciles them. SKEW_TOLERANCE is generous for honest clock drift; an offline-for-days
+        // device has an OLD timestamp, which this clamp never touches — only future-dating is capped.
+        // This clamped value is what gets persisted below and what ships in the sync payload.
+        val clampedLastPlayedAt = min(lastPlayedAt, now + SKEW_TOLERANCE_MS)
+
         val existing = getPosition(userId, bookId)
+        // Clamp #2 (comparison-only, never rewrites the stored row): a row poisoned before this
+        // clamp existed — or written by any path that bypasses it — can carry a raw `lastPlayedAt`
+        // arbitrarily far in the future. Holding it to the SAME `now + SKEW_TOLERANCE` ceiling the
+        // incoming side is held to keeps every comparison symmetric: neither side can ever hold a
+        // bigger "budget" than the other is allowed. It never makes a currently-poisoned row lose
+        // any sooner (a still-future raw value pins to the identical ceiling on both sides, so the
+        // guard below still no-ops until the row is genuinely superseded) — its job is to prevent a
+        // legacy/foreign-written row from being trusted MORE than a row this method would itself
+        // produce, so nothing about the write path's own guarantees is undermined by data it didn't
+        // write. Recovery for such a row still runs on ordinary lastPlayedAt-wins once an honest
+        // write's own timestamp genuinely overtakes the raw stored value (clamp #1 guarantees THAT
+        // never takes longer than SKEW_TOLERANCE for any row written through this method).
+        val existingForComparison = existing?.let { min(it.lastPlayedAt, now + SKEW_TOLERANCE_MS) }
         // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
-        if (existing != null && existing.lastPlayedAt >= lastPlayedAt) {
+        if (existing != null && existingForComparison!! >= clampedLastPlayedAt) {
             return AppResult.Success(existing)
         }
 
@@ -239,7 +265,7 @@ class PlaybackPositionRepository(
                 id = id,
                 bookId = bookId,
                 positionMs = positionMs,
-                lastPlayedAt = lastPlayedAt,
+                lastPlayedAt = clampedLastPlayedAt,
                 finished = finished,
                 playbackSpeed = playbackSpeed,
                 currentChapterId = currentChapterId,
@@ -260,7 +286,7 @@ class PlaybackPositionRepository(
                 StatsEvent.BookCompleted(
                     userId = userId,
                     bookId = bookId,
-                    occurredAt = Instant.fromEpochMilliseconds(lastPlayedAt),
+                    occurredAt = Instant.fromEpochMilliseconds(clampedLastPlayedAt),
                 ),
             )
         } else if (!finished) {
@@ -270,7 +296,7 @@ class PlaybackPositionRepository(
                     StatsEvent.BookRestarted(
                         userId = userId,
                         bookId = bookId,
-                        occurredAt = Instant.fromEpochMilliseconds(startedBookOccurredAt ?: lastPlayedAt),
+                        occurredAt = Instant.fromEpochMilliseconds(startedBookOccurredAt ?: clampedLastPlayedAt),
                         isReread = false,
                     ),
                 )
@@ -279,7 +305,7 @@ class PlaybackPositionRepository(
                     StatsEvent.BookRestarted(
                         userId = userId,
                         bookId = bookId,
-                        occurredAt = Instant.fromEpochMilliseconds(startedBookOccurredAt ?: lastPlayedAt),
+                        occurredAt = Instant.fromEpochMilliseconds(startedBookOccurredAt ?: clampedLastPlayedAt),
                         isReread = true,
                     ),
                 )
@@ -326,19 +352,28 @@ class PlaybackPositionRepository(
                 .forEach { existing -> existingByKey[userId to existing.bookId] = existing }
         }
 
+        // Same two-clamp reasoning as recordPosition: ABS import rows carry historical timestamps
+        // that are legitimately old (untouched by this clamp — only future-dating is capped), but a
+        // corrupt/future-dated import row must not be able to poison a row the same way a bad device
+        // clock would. One `now` reading for the whole batch — every prepared row is clamped against it.
+        val now = clock.now().toEpochMilliseconds()
+
         val prepared = ArrayList<PreparedPositionWrite>(rows.size)
         for (row in rows) {
             val key = row.userId to row.bookId
             val existing = existingByKey[key]
+            val clampedLastPlayedAt = min(row.lastPlayedAt, now + SKEW_TOLERANCE_MS)
+            // Comparison-only clamp on the existing side — see recordPosition's Clamp #2 comment.
+            val existingForComparison = existing?.let { min(it.lastPlayedAt, now + SKEW_TOLERANCE_MS) }
             // lastPlayedAt-wins: a stale write is a no-op, exactly as recordPosition returns early.
-            if (existing != null && existing.lastPlayedAt >= row.lastPlayedAt) continue
+            if (existing != null && existingForComparison!! >= clampedLastPlayedAt) continue
 
             val payload =
                 PlaybackPositionSyncPayload(
                     id = existing?.id ?: Uuid.random().toString(),
                     bookId = row.bookId,
                     positionMs = row.positionMs,
-                    lastPlayedAt = row.lastPlayedAt,
+                    lastPlayedAt = clampedLastPlayedAt,
                     finished = row.finished,
                     playbackSpeed = row.playbackSpeed,
                     currentChapterId = row.currentChapterId,
@@ -539,6 +574,14 @@ class PlaybackPositionRepository(
 
         /** Import rows per write transaction — one [suspendTransaction] commits a whole chunk. */
         const val PERSIST_CHUNK_SIZE = 200
+
+        /**
+         * How far into the future a client-reported `lastPlayedAt` is trusted, relative to the
+         * server clock — generous for honest clock drift, but nothing further out survives the
+         * clamp in [recordPosition] / [recordAllForImport]. Never bounds the past: an
+         * offline-for-days device's old timestamp is untouched.
+         */
+        const val SKEW_TOLERANCE_MS = 5 * 60 * 1000L
 
         /** SQLite stores booleans as INTEGER 0/1; map at the write boundary. */
         private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
