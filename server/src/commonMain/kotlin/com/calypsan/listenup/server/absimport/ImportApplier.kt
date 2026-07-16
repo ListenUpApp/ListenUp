@@ -178,14 +178,37 @@ class ImportApplier internal constructor(
                 throw e
             } catch (e: AbsBackupReader.AbsReadException) {
                 logger.error(e) { "ABS import apply failed reading the backup for import ${importId.value}" }
+                broadcastLibraryDataChangedBestEffort()
                 onEvent(ImportEvent.Failed(reason = e.message ?: "Failed to read the ABS backup."))
                 AppResult.Failure(ImportError.ApplyFailed(debugInfo = e.message))
             } catch (e: Exception) {
                 logger.error(e) { "ABS import apply failed unexpectedly for import ${importId.value}" }
+                broadcastLibraryDataChangedBestEffort()
                 onEvent(ImportEvent.Failed(reason = e.message ?: "Apply failed unexpectedly."))
                 AppResult.Failure(ImportError.ApplyFailed(debugInfo = e.message))
             }
         }
+
+    /**
+     * Post-failure `LibraryDataChanged` nudge for [apply]'s failure branches. `recordAll` /
+     * `recordSessions` commit in **chunked** transactions, so a failure partway through can leave
+     * already-committed rows sitting above every client cursor with no live signal (the same
+     * FirehoseSuppressed gap the success path's broadcast closes) — unconditional-on-failure is
+     * the safe default here: a spurious nudge on a zero-chunk-committed failure costs one wasted
+     * reconcile pass, whereas skipping it risks stranding real data until a client restart.
+     * Best-effort: a broadcast failure must never mask the original apply failure, so it is caught
+     * and logged rather than propagated. [CancellationException] still needs to win — the coroutine
+     * is being torn down, so nothing further should run.
+     */
+    private suspend fun broadcastLibraryDataChangedBestEffort() {
+        try {
+            changeBus.broadcastControl(SyncControl.LibraryDataChanged)
+        } catch (broadcastError: CancellationException) {
+            throw broadcastError
+        } catch (broadcastError: Exception) {
+            logger.warn(broadcastError) { "post-import-failure LibraryDataChanged broadcast failed" }
+        }
+    }
 
     /**
      * Resolves the effective item→book map: the analyzed matches, with each non-null override

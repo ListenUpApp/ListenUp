@@ -153,6 +153,21 @@ class BookPersister internal constructor(
                     (e as? PersistAbortedByOom)?.result?.let { PersistCounts(it.persisted, it.failed, removed = 0) }
                         ?: PersistCounts(0, 0, 0)
                 eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
+                // The rows persisted before the OOM already committed above the client cursor with no
+                // live signal (suppressFirehose skips the per-book publish) — without this nudge they
+                // are stranded until the next app restart, the exact bug #16 class the pairing rule in
+                // FirehoseSuppressed's KDoc exists to prevent. Best-effort: a broadcast failure on top
+                // of an OOM must never mask the original error, so it is caught and logged, never
+                // rethrown in place of `e`.
+                if (suppressFirehose && (partial.persisted > 0 || partial.removed > 0)) {
+                    try {
+                        changeBus.broadcastControl(SyncControl.LibraryDataChanged)
+                    } catch (broadcastError: CancellationException) {
+                        throw broadcastError
+                    } catch (broadcastError: Exception) {
+                        log.warn(broadcastError) { "post-OOM LibraryDataChanged broadcast failed" }
+                    }
+                }
                 throw e
             }
 
