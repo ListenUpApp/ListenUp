@@ -23,6 +23,9 @@ class FakeEntityEditRepository(
 ) : EntityEditRepository {
     private val entities = MutableStateFlow(initialEntities)
 
+    /** Test-injectable override for the next [deleteEntity] result; null (the default) succeeds. */
+    var deleteEntityResult: AppResult<Unit>? = null
+
     override fun observeEntitiesForSeries(seriesId: String): Flow<List<Entity>> =
         entities.asStateFlow().map { list -> list.filter { it.homeSeriesId == seriesId } }
 
@@ -55,6 +58,7 @@ class FakeEntityEditRepository(
     }
 
     override suspend fun deleteEntity(id: String): AppResult<Unit> {
+        deleteEntityResult?.let { return it }
         entities.value = entities.value.filterNot { it.id == id }
         return AppResult.Success(Unit)
     }
