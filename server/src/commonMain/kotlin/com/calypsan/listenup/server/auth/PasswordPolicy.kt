@@ -18,9 +18,22 @@ object PasswordPolicy {
      *  string can satisfy [PASSWORD_MIN] without being a real password. */
     fun validate(raw: String): AppResult<Unit> =
         when {
-            raw.isBlank() -> AppResult.Failure(AuthError.WeakPassword(reason = WeakPasswordReason.BLANK))
-            raw.length < PASSWORD_MIN -> AppResult.Failure(AuthError.WeakPassword(reason = WeakPasswordReason.TOO_SHORT))
-            raw.length > PASSWORD_MAX -> AppResult.Failure(AuthError.WeakPassword(reason = WeakPasswordReason.TOO_LONG))
-            else -> AppResult.Success(Unit)
+            raw.isBlank() -> {
+                AppResult.Failure(AuthError.WeakPassword(reason = WeakPasswordReason.BLANK))
+            }
+
+            raw.length < PASSWORD_MIN -> {
+                AppResult.Failure(
+                    AuthError.WeakPassword(reason = WeakPasswordReason.TOO_SHORT),
+                )
+            }
+
+            raw.length > PASSWORD_MAX -> {
+                AppResult.Failure(AuthError.WeakPassword(reason = WeakPasswordReason.TOO_LONG))
+            }
+
+            else -> {
+                AppResult.Success(Unit)
+            }
         }
 }
