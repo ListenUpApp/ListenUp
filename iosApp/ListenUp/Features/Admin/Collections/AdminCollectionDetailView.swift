@@ -145,6 +145,14 @@ struct AdminCollectionDetailView: View {
         ) {
             addMemberSheet(observer: observer, ready: ready)
         }
+        .sheet(
+            isPresented: Binding(
+                get: { ready.showAddBooks },
+                set: { if !$0 { observer.closeAddBooks() } }
+            )
+        ) {
+            addBooksSheet(observer: observer, ready: ready)
+        }
     }
 
     // MARK: - Name section
@@ -188,9 +196,17 @@ struct AdminCollectionDetailView: View {
     @ViewBuilder
     private func booksSection(observer: AdminCollectionDetailObserver, ready: AdminCollectionDetailReadyModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            AdminSectionHeader(String(localized: "admin.books_in_collection"))
+            AdminSectionHeader(String(localized: "admin.books_in_collection")) {
+                Button {
+                    observer.openAddBooks()
+                } label: {
+                    Label(String(localized: "admin.add_books"), systemImage: "plus")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color.luTint)
+                }
+            }
             if ready.books.isEmpty {
-                Text(String(localized: "admin.create_a_collection_to_organize"))
+                Text(String(localized: "admin.no_books_in_this_collection"))
                     .font(.subheadline)
                     .foregroundStyle(Color.luLabel2)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -307,6 +323,55 @@ struct AdminCollectionDetailView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    // MARK: - Add books sheet
+
+    @ViewBuilder
+    private func addBooksSheet(observer: AdminCollectionDetailObserver, ready: AdminCollectionDetailReadyModel) -> some View {
+        NavigationStack {
+            Group {
+                if ready.isSearchingBooks {
+                    LoadingStateView()
+                } else if ready.bookResults.isEmpty {
+                    ContentUnavailableView(
+                        String(localized: "admin.add_books"),
+                        systemImage: "text.book.closed",
+                        description: Text(String(localized: "admin.add_books_search_placeholder"))
+                    )
+                } else {
+                    List(ready.bookResults) { book in
+                        Button {
+                            observer.addBookFromSearch(bookId: book.id)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(book.title)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                if let author = book.author, !author.isEmpty {
+                                    Text(author)
+                                        .font(.caption)
+                                        .foregroundStyle(Color.luLabel2)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .searchable(
+                text: Binding(get: { ready.bookQuery }, set: { observer.onBookQueryChange($0) }),
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: String(localized: "admin.add_books_search_placeholder")
+            )
+            .background(Color.luSurface)
+            .navigationTitle(String(localized: "admin.add_books"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(String(localized: "common.done")) { observer.closeAddBooks() }
+                }
+            }
+        }
     }
 
     // MARK: - Add member sheet

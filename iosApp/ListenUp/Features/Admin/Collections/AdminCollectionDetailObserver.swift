@@ -39,6 +39,10 @@ final class AdminCollectionDetailObserver {
     func showAddMemberSheet() { viewModel.showAddMemberSheet() }
     func hideAddMemberSheet() { viewModel.hideAddMemberSheet() }
     func loadUsersForSharing() { viewModel.loadUsersForSharing() }
+    func openAddBooks() { viewModel.openAddBooks() }
+    func closeAddBooks() { viewModel.closeAddBooks() }
+    func onBookQueryChange(_ query: String) { viewModel.onBookQueryChange(query: query) }
+    func addBookFromSearch(bookId: String) { viewModel.addBookFromSearch(bookId: bookId) }
     func clearError() { viewModel.clearError() }
     func clearSaveSuccess() { viewModel.clearSaveSuccess() }
 
@@ -85,6 +89,10 @@ struct AdminCollectionDetailReadyModel {
     let removingShareUserId: String?
     let isLoadingUsers: Bool
     let availableUsers: [AvailableUserModel]
+    let showAddBooks: Bool
+    let bookQuery: String
+    let bookResults: [BookSearchResultModel]
+    let isSearchingBooks: Bool
     let error: String?
 
     init(from ready: AdminCollectionDetailUiStateReady) {
@@ -102,6 +110,10 @@ struct AdminCollectionDetailReadyModel {
         self.removingShareUserId = ready.removingShareUserId
         self.isLoadingUsers = ready.isLoadingUsers
         self.availableUsers = Array(ready.availableUsers).map(AvailableUserModel.init(from:))
+        self.showAddBooks = ready.showAddBooks
+        self.bookQuery = ready.bookQuery
+        self.bookResults = Array(ready.bookResults).map(BookSearchResultModel.init(from:))
+        self.isSearchingBooks = ready.isSearchingBooks
         self.error = ready.error
     }
 }
@@ -121,6 +133,20 @@ struct CollectionBookRowModel: Identifiable {
         self.author = book.author
         self.coverPath = book.coverPath
         self.coverHash = book.coverHash
+    }
+}
+
+/// A book search hit shown in the add-books sheet. Native mapping of the shared `SearchHit`, off
+/// the ForEach diff path (see iOS charter: never feed bridged Kotlin objects into a `ForEach`).
+struct BookSearchResultModel: Identifiable {
+    let id: String
+    let title: String
+    let author: String?
+
+    init(from hit: SearchHit) {
+        self.id = hit.id
+        self.title = hit.name
+        self.author = hit.author
     }
 }
 

@@ -123,6 +123,11 @@ struct LicenseDetailDestination: Hashable {
 /// The Admin Collections list (admin / root users only), reached from Administration › Management.
 struct AdminCollectionsDestination: Hashable {}
 
+/// Admin → a specific user's detail (permissions incl. Can Share).
+struct UserDetailDestination: Hashable {
+    let userId: String
+}
+
 /// A single Admin Collection detail, reached from the Admin Collections list.
 struct AdminCollectionDetailDestination: Hashable {
     let collectionId: String
