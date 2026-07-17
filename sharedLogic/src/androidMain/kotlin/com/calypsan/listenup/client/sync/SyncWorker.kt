@@ -31,8 +31,13 @@ class SyncWorker(
     /**
      * Perform background sync operation.
      *
-     * Called by WorkManager on background thread. Triggers full sync
-     * via SyncRepository and returns success/failure/retry result.
+     * Called by WorkManager on a background thread. Uses [SyncRepository.refresh], NOT `sync()`:
+     * `sync()` only calls `startEngineForCurrentUser()`, which **no-ops when the engine is already
+     * running for this user** — the common case for a backgrounded-but-alive process. So the
+     * periodic worker did nothing at all in that state: no catch-up, no digest reconcile, no outbox
+     * drain. `refresh()` forces a full lifecycle reconcile (forward catch-up → digest → refresh
+     * strategies, bypassing the debounce) — and that reconcile now also drives the pending-operation
+     * outbox — so a background wake actually pulls missed changes AND pushes parked local edits.
      */
     override suspend fun doWork(): Result {
         logger.debug { "Starting background sync (attempt ${runAttemptCount + 1})" }
@@ -43,7 +48,7 @@ class SyncWorker(
             return Result.success()
         }
 
-        return when (val result = syncRepository.sync()) {
+        return when (val result = syncRepository.refresh()) {
             is CoreResult.Success<*> -> {
                 logger.info { "Background sync completed successfully" }
                 Result.success()

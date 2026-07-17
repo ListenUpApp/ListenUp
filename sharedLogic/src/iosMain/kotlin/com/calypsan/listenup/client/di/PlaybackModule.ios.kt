@@ -20,8 +20,6 @@ import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
-import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
-import com.calypsan.listenup.client.sync.IosBackgroundSyncScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
@@ -151,7 +149,4 @@ internal val iosPlaybackModule: Module =
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
-
-        // Background sync scheduler
-        single<BackgroundSyncScheduler> { IosBackgroundSyncScheduler() }
     }
