@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -89,8 +91,11 @@ import listenup.composeapp.generated.resources.settings_default_speed
 import listenup.composeapp.generated.resources.settings_default_timer
 import listenup.composeapp.generated.resources.settings_desktop
 import listenup.composeapp.generated.resources.settings_devices
+import listenup.composeapp.generated.resources.settings_downloads
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_backward
 import listenup.composeapp.generated.resources.settings_duration_when_pressing_skip_forward
+import listenup.composeapp.generated.resources.settings_haptic_feedback
+import listenup.composeapp.generated.resources.settings_haptic_feedback_subtitle
 import listenup.composeapp.generated.resources.settings_hide_series_with_only_one
 import listenup.composeapp.generated.resources.settings_hide_singlebook_series
 import listenup.composeapp.generated.resources.settings_ignore_articles_when_sorting
@@ -105,6 +110,8 @@ import listenup.composeapp.generated.resources.settings_sort_ignoring_leading_ar
 import listenup.composeapp.generated.resources.settings_speed_used_for_new_books
 import listenup.composeapp.generated.resources.settings_view_and_manage_downloaded_audiobooks
 import listenup.composeapp.generated.resources.settings_view_thirdparty_licenses
+import listenup.composeapp.generated.resources.settings_wifi_only_downloads
+import listenup.composeapp.generated.resources.settings_wifi_only_downloads_subtitle
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -281,7 +288,10 @@ fun SettingsScreen(
                     state = state,
                     onNavigateToDevices = onNavigateToDevices,
                     onSignOutClick = { showSignOutDialog = true },
+                    viewModel = viewModel,
                 )
+
+                DownloadsSection(state = state, viewModel = viewModel)
 
                 if (onNavigateToStorage != null) {
                     StorageSection(onNavigateToStorage = onNavigateToStorage)
@@ -459,6 +469,7 @@ private fun AccountSection(
     state: SettingsUiState,
     onNavigateToDevices: (() -> Unit)?,
     onSignOutClick: () -> Unit,
+    viewModel: SettingsViewModel,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     SectionGroup(
@@ -485,8 +496,39 @@ private fun AccountSection(
                 showDivider = hasServerRow,
             )
         }
+        ToggleRow(
+            icon = Icons.Default.Vibration,
+            accent = accent,
+            title = stringResource(Res.string.settings_haptic_feedback),
+            subtitle = stringResource(Res.string.settings_haptic_feedback_subtitle),
+            checked = state.hapticFeedbackEnabled,
+            onCheckedChange = viewModel::setHapticFeedbackEnabled,
+            showDivider = hasServerRow || onNavigateToDevices != null,
+        )
     }
     SignOutTile(onClick = onSignOutClick)
+}
+
+@Composable
+private fun DownloadsSection(
+    state: SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    SectionGroup(
+        icon = Icons.Default.Download,
+        label = stringResource(Res.string.settings_downloads),
+        accent = accent,
+    ) {
+        ToggleRow(
+            icon = Icons.Default.Wifi,
+            accent = accent,
+            title = stringResource(Res.string.settings_wifi_only_downloads),
+            subtitle = stringResource(Res.string.settings_wifi_only_downloads_subtitle),
+            checked = state.wifiOnlyDownloads,
+            onCheckedChange = viewModel::setWifiOnlyDownloads,
+        )
+    }
 }
 
 @Composable

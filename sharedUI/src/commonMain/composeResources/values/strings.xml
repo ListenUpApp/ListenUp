@@ -300,6 +300,8 @@ One beautiful library.</string>
     <string name="book_detail_readers_you">%1$s (You)</string>
     <string name="book_detail_released">Released</string>
     <string name="book_detail_remove_the_downloaded_files_for">Remove the downloaded files for “%1$s”? </string>
+    <string name="book_detail_restart_book">Restart Book</string>
+    <string name="book_detail_restart_prompt">Start over from the beginning? This resets your position to the start of the book.</string>
     <string name="book_detail_resume">Resume</string>
     <string name="book_detail_resume_progress_a11y">Resume, %1$d percent</string>
     <string name="book_detail_retry">Retry</string>
@@ -1083,6 +1085,8 @@ One beautiful library.</string>
     <string name="settings_autostart_sleep_timer_when_playing">Auto-start sleep timer when playing</string>
     <string name="settings_book_downloaded_count">%1$d book downloaded</string>
     <string name="settings_books_downloaded_count">%1$d books downloaded</string>
+    <string name="settings_cant_delete_playing_message">“%1$s” is playing right now. Stop playback before deleting its download.</string>
+    <string name="settings_cant_delete_playing_title">Stop playback first</string>
     <string name="settings_choose_light_dark_or_follow">Choose light, dark, or follow system</string>
     <string name="settings_clear_all">Clear All</string>
     <string name="settings_clear_all_downloads">Clear All Downloads?</string>
@@ -1096,6 +1100,7 @@ One beautiful library.</string>
     <string name="settings_duration_when_pressing_skip_backward">Duration when pressing skip backward</string>
     <string name="settings_duration_when_pressing_skip_forward">Duration when pressing skip forward</string>
     <string name="settings_haptic_feedback">Haptic Feedback</string>
+    <string name="settings_haptic_feedback_subtitle">Vibration feedback for controls</string>
     <string name="settings_hide_series_with_only_one">Hide series with only one book</string>
     <string name="settings_hide_singlebook_series">Hide single-book series</string>
     <string name="settings_ignore_articles_when_sorting">Ignore articles when sorting</string>
@@ -1123,6 +1128,7 @@ One beautiful library.</string>
     <string name="settings_view_and_manage_downloaded_audiobooks">View and manage downloaded audiobooks</string>
     <string name="settings_view_thirdparty_licenses">View third-party licenses</string>
     <string name="settings_wifi_only_downloads">Download on Wi-Fi Only</string>
+    <string name="settings_wifi_only_downloads_subtitle">Pause downloads on cellular networks</string>
     <string name="settings_you_can_redownload_books_anytime">You can re-download books anytime.</string>
     <string name="setup_approved_title">You're approved</string>
     <string name="setup_awaiting_approval_title">Awaiting approval</string>
