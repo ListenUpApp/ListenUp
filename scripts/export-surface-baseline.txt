@@ -247,6 +247,8 @@ EntityListRow
 ErrorBus
 EventRow
 EventStreamRepository
+EvolutionRow
+EvolutionUi
 FacetCount
 FacetKind
 FileSource
@@ -358,6 +360,8 @@ NowPlayingScreenState
 NowPlayingState
 NowPlayingViewModel
 OpenCampfireSummary
+OrderBookRowUi
+OrderRowUi
 OrganizeAuthorForm
 OrganizePreset
 OrganizePreviewDto
@@ -415,6 +419,9 @@ ReaderLineKind
 ReadingOrder
 ReadingOrderBook
 ReadingOrderDetail
+ReadingOrderDetailEvent
+ReadingOrderDetailUiState
+ReadingOrderDetailViewModel
 ReadingOrderId
 ReadingOrderListUiState
 ReadingOrderListViewModel
@@ -467,6 +474,9 @@ SeriesGroup
 SeriesId
 SeriesNavigationDetector
 SeriesProgress
+SeriesReadingOrdersEvent
+SeriesReadingOrdersUiState
+SeriesReadingOrdersViewModel
 SeriesRepository
 SeriesResponse
 SeriesSearchResponse
@@ -520,11 +530,14 @@ SleepTimerState
 SortCategory
 SortDirection
 SortState
+StandRowUi
 StatsRepository
 StoragePaths
 StorageSpaceProvider
 StorageUiState
 StorageViewModel
+StorySoFarUiState
+StorySoFarViewModel
 StoryWorldEntityListUiState
 StoryWorldEntityListViewModel
 StoryWorldHubUiState
