@@ -5,9 +5,9 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -16,16 +16,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_collection
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
-import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.book_detail_edit_book
-import listenup.composeapp.generated.resources.book_detail_find_metadata
-import listenup.composeapp.generated.resources.book_detail_mark_as_complete
+import listenup.composeapp.generated.resources.book_detail_mark_as_finished
 import listenup.composeapp.generated.resources.book_detail_mark_as_not_started
+import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.common_share
+import listenup.composeapp.generated.resources.metadata_match_on_audible
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Dropdown menu for book actions.
@@ -80,7 +80,7 @@ fun BookActionsMenu(
 
         // Find Metadata
         DropdownMenuItem(
-            text = { Text(stringResource(Res.string.book_detail_find_metadata)) },
+            text = { Text(stringResource(Res.string.metadata_match_on_audible)) },
             leadingIcon = {
                 Icon(
                     imageVector = Icons.Default.Search,
@@ -95,7 +95,7 @@ fun BookActionsMenu(
         // Mark as Complete (only when not already complete)
         if (!isComplete) {
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.book_detail_mark_as_complete)) },
+                text = { Text(stringResource(Res.string.book_detail_mark_as_finished)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
