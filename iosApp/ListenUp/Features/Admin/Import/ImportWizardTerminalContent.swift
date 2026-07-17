@@ -15,6 +15,11 @@ struct ImportReviewContent: View {
     let onAccept: (ImportUserRowModel, String) -> Void
     let onAssign: (ImportUserRowModel) -> Void
     let onSkip: (ImportUserRowModel) -> Void
+    let onOpenBookSearch: (String) -> Void
+    let onCloseBookSearch: () -> Void
+    let onBookSearchQueryChange: (String) -> Void
+    let onSelectBook: (String, String) -> Void
+    let onSkipBook: (String) -> Void
     let onApply: () -> Void
 
     var body: some View {
@@ -36,6 +41,9 @@ struct ImportReviewContent: View {
                             assignPicker(for: user)
                         }
                     }
+
+                    booksSection
+
                     if review.unresolvedCount > 0 {
                         warning
                     }
@@ -46,6 +54,82 @@ struct ImportReviewContent: View {
             }
             actionTray
         }
+    }
+
+    // MARK: - Books section
+
+    @ViewBuilder
+    private var booksSection: some View {
+        booksHeader
+            .padding(.top, 6)
+
+        if review.autoMatchedCount > 0 {
+            summaryLine(
+                String(
+                    format: String(localized: "import.books_matched"),
+                    String(review.autoMatchedCount)
+                )
+            )
+        }
+        if review.importableSessionCount > 0 {
+            summaryLine(
+                String(
+                    format: String(localized: "import.sessions_importable"),
+                    String(review.importableSessionCount)
+                )
+            )
+        }
+
+        if review.books.isEmpty {
+            summaryLine(String(localized: "import.no_books_to_review"))
+        } else {
+            ForEach(review.books) { book in
+                ImportBookReviewRow(
+                    book: book,
+                    search: activeSearch(for: book),
+                    onOpenSearch: { onOpenBookSearch(book.absItemId) },
+                    onCloseSearch: onCloseBookSearch,
+                    onQueryChange: onBookSearchQueryChange,
+                    onSelectBook: { bookId in onSelectBook(book.absItemId, bookId) },
+                    onSkip: { onSkipBook(book.absItemId) }
+                )
+            }
+        }
+    }
+
+    /// The open search panel iff it belongs to this book row (only one panel open at a time).
+    private func activeSearch(for book: ImportBookRowModel) -> ImportBookSearchModel? {
+        guard let search = review.bookSearch, search.absItemId == book.absItemId else { return nil }
+        return search
+    }
+
+    private var booksHeader: some View {
+        HStack(spacing: 12) {
+            Text(String(localized: "import.review_books_section").uppercased())
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.luLabel2)
+                .tracking(0.4)
+            Spacer(minLength: 8)
+            if review.unresolvedBookCount > 0 {
+                Label(
+                    String(format: String(localized: "import.n_to_review"), review.unresolvedBookCount),
+                    systemImage: "circle.fill"
+                )
+                .labelStyle(.titleAndIcon)
+                .imageScale(.small)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+            }
+        }
+        .padding(.horizontal, 6)
+    }
+
+    private func summaryLine(_ text: String) -> some View {
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(Color.luLabel2)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 6)
     }
 
     /// A binding that is non-nil only for the row whose picker is open, so the `.popover(item:)`

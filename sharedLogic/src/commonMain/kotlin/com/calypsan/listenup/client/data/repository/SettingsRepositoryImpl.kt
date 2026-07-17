@@ -70,9 +70,6 @@ internal class SettingsRepositoryImpl(
     override val wifiOnlyDownloads: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
-    override val autoRemoveFinished: StateFlow<Boolean>
-        field = MutableStateFlow(false)
-
     override val hapticFeedbackEnabled: StateFlow<Boolean>
         field = MutableStateFlow(true)
 
@@ -118,7 +115,6 @@ internal class SettingsRepositoryImpl(
         private const val KEY_DYNAMIC_COLORS = "dynamic_colors"
         private const val KEY_AUTO_REWIND = "auto_rewind"
         private const val KEY_WIFI_ONLY_DOWNLOADS = "wifi_only_downloads"
-        private const val KEY_AUTO_REMOVE_FINISHED = "auto_remove_finished"
         private const val KEY_HAPTIC_FEEDBACK = "haptic_feedback"
 
         // Connection health (peer version + outdated-hint dismissal)
@@ -402,8 +398,6 @@ internal class SettingsRepositoryImpl(
             secureStorage.read(KEY_AUTO_REWIND)?.toBooleanStrictOrNull() ?: true
         wifiOnlyDownloads.value =
             secureStorage.read(KEY_WIFI_ONLY_DOWNLOADS)?.toBooleanStrictOrNull() ?: true
-        autoRemoveFinished.value =
-            secureStorage.read(KEY_AUTO_REMOVE_FINISHED)?.toBooleanStrictOrNull() ?: false
         hapticFeedbackEnabled.value =
             secureStorage.read(KEY_HAPTIC_FEEDBACK)?.toBooleanStrictOrNull() ?: true
         peerServerVersion.value = secureStorage.read(KEY_PEER_SERVER_VERSION)
@@ -437,11 +431,6 @@ internal class SettingsRepositoryImpl(
     override suspend fun setWifiOnlyDownloads(enabled: Boolean) {
         secureStorage.save(KEY_WIFI_ONLY_DOWNLOADS, enabled.toString())
         wifiOnlyDownloads.value = enabled
-    }
-
-    override suspend fun setAutoRemoveFinished(enabled: Boolean) {
-        secureStorage.save(KEY_AUTO_REMOVE_FINISHED, enabled.toString())
-        autoRemoveFinished.value = enabled
     }
 
     override suspend fun setHapticFeedbackEnabled(enabled: Boolean) {

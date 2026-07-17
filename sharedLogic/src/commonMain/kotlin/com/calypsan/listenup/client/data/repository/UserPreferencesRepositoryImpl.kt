@@ -26,7 +26,6 @@ private val DEFAULTS =
         defaultSkipForwardSec = 30,
         defaultSkipBackwardSec = 10,
         defaultSleepTimerMin = null,
-        shakeToResetSleepTimer = false,
     )
 
 /**
@@ -90,11 +89,6 @@ internal class UserPreferencesRepositoryImpl(
             patch = UpdateUserPreferencesRequest(defaultSleepTimerMin = minutes),
         ) { it.copy(defaultSleepTimerMin = minutes) }
 
-    override suspend fun setShakeToResetSleepTimer(enabled: Boolean): AppResult<Unit> =
-        optimisticUpdate(
-            patch = UpdateUserPreferencesRequest(shakeToResetSleepTimer = enabled),
-        ) { it.copy(shakeToResetSleepTimer = enabled) }
-
     /**
      * Offline-first write: apply [mutate] to the cached row inside the outbox transaction and
      * enqueue [patch] for durable replay on reconnect. The server's authoritative merged result
@@ -134,7 +128,6 @@ internal class UserPreferencesRepositoryImpl(
             defaultSkipForwardSec = defaultSkipForwardSec,
             defaultSkipBackwardSec = defaultSkipBackwardSec,
             defaultSleepTimerMin = defaultSleepTimerMin,
-            shakeToResetSleepTimer = shakeToResetSleepTimer,
         )
 
     private fun UserPreferencesEntity.toDomain(): UserPreferences =
@@ -143,7 +136,6 @@ internal class UserPreferencesRepositoryImpl(
             defaultSkipForwardSec = defaultSkipForwardSec,
             defaultSkipBackwardSec = defaultSkipBackwardSec,
             defaultSleepTimerMin = defaultSleepTimerMin,
-            shakeToResetSleepTimer = shakeToResetSleepTimer,
         )
 
     private fun UserPreferences.toEntity(userId: String): UserPreferencesEntity =
@@ -153,6 +145,5 @@ internal class UserPreferencesRepositoryImpl(
             defaultSkipForwardSec = defaultSkipForwardSec,
             defaultSkipBackwardSec = defaultSkipBackwardSec,
             defaultSleepTimerMin = defaultSleepTimerMin,
-            shakeToResetSleepTimer = shakeToResetSleepTimer,
         )
 }

@@ -2991,6 +2991,16 @@
         }
       }
     },
+    "book.detail_restart": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart"
+          }
+        }
+      }
+    },
     "book.detail_restart_book": {
       "localizations": {
         "en": {
@@ -10791,16 +10801,6 @@
         }
       }
     },
-    "settings.auto_remove_finished": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remove Finished Downloads"
-          }
-        }
-      }
-    },
     "settings.autorewind_on_resume": {
       "localizations": {
         "en": {
@@ -11127,16 +11127,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Server version"
-          }
-        }
-      }
-    },
-    "settings.shake_to_reset_timer": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shake to Reset Timer"
           }
         }
       }

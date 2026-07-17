@@ -300,6 +300,7 @@ One beautiful library.</string>
     <string name="book_detail_readers_you">%1$s (You)</string>
     <string name="book_detail_released">Released</string>
     <string name="book_detail_remove_the_downloaded_files_for">Remove the downloaded files for “%1$s”? </string>
+    <string name="book_detail_restart">Restart</string>
     <string name="book_detail_restart_book">Restart Book</string>
     <string name="book_detail_restart_prompt">Start over from the beginning? This resets your position to the start of the book.</string>
     <string name="book_detail_resume">Resume</string>
@@ -1080,7 +1081,6 @@ One beautiful library.</string>
     <string name="settings_app_version">App version</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_are_you_sure_you_want">Are you sure you want to sign out? You'll need to sign in again to access your library.</string>
-    <string name="settings_auto_remove_finished">Remove Finished Downloads</string>
     <string name="settings_autorewind_on_resume">Auto-rewind on resume</string>
     <string name="settings_autostart_sleep_timer_when_playing">Auto-start sleep timer when playing</string>
     <string name="settings_book_downloaded_count">%1$d book downloaded</string>
@@ -1114,7 +1114,6 @@ One beautiful library.</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_rewind_a_few_seconds_when">Rewind a few seconds when resuming playback</string>
     <string name="settings_server_version">Server version</string>
-    <string name="settings_shake_to_reset_timer">Shake to Reset Timer</string>
     <string name="settings_sign_out_confirm_title">Sign Out</string>
     <string name="settings_skip_backward">Skip backward</string>
     <string name="settings_skip_forward">Skip forward</string>

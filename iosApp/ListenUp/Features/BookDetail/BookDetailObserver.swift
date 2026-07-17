@@ -253,6 +253,10 @@ final class BookDetailObserver {
 
     func discardProgress() { viewModel.discardProgress() }
 
+    /// Restart the book from the beginning, clearing current progress. `isRestarting` reflects the
+    /// in-flight write; the shared VM resets progress/complete on success.
+    func restartBook() { viewModel.restartBook() }
+
     func markFinished() {
         let ts = Self.markCompleteTimestamps(
             startedAtMs: startedAtMs,

@@ -59,7 +59,6 @@ class SettingsViewModelTest :
             val dynamicColorsFlow = MutableStateFlow(true)
             val autoRewindFlow = MutableStateFlow(true)
             val wifiOnlyFlow = MutableStateFlow(true)
-            val autoRemoveFlow = MutableStateFlow(false)
             val hapticFeedbackFlow = MutableStateFlow(true)
 
             // The synced-preferences source the VM now observes (Room-backed in production). Tests
@@ -71,7 +70,6 @@ class SettingsViewModelTest :
                         defaultSkipForwardSec = 30,
                         defaultSkipBackwardSec = 10,
                         defaultSleepTimerMin = null,
-                        shakeToResetSleepTimer = false,
                     ),
                 )
 
@@ -95,7 +93,6 @@ class SettingsViewModelTest :
             every { fixture.localPreferences.dynamicColorsEnabled } returns fixture.dynamicColorsFlow
             every { fixture.localPreferences.autoRewindEnabled } returns fixture.autoRewindFlow
             every { fixture.localPreferences.wifiOnlyDownloads } returns fixture.wifiOnlyFlow
-            every { fixture.localPreferences.autoRemoveFinished } returns fixture.autoRemoveFlow
             every { fixture.localPreferences.hapticFeedbackEnabled } returns fixture.hapticFeedbackFlow
 
             // Default stubs for playback preferences - getters
@@ -125,7 +122,6 @@ class SettingsViewModelTest :
                         defaultSkipForwardSec = 30,
                         defaultSkipBackwardSec = 10,
                         defaultSleepTimerMin = null,
-                        shakeToResetSleepTimer = false,
                     ),
                 )
 
@@ -173,7 +169,6 @@ class SettingsViewModelTest :
                             defaultSkipForwardSec = 30,
                             defaultSkipBackwardSec = 10,
                             defaultSleepTimerMin = null,
-                            shakeToResetSleepTimer = false,
                         ),
                     )
 

@@ -236,6 +236,8 @@ ImageStagingRepository
 ImageStorage
 ImageUploadResponse
 ImportAnalysis
+ImportBookSearchHitSnapshot
+ImportBookSearchSnapshot
 ImportEvent
 ImportFlowSwiftBridge
 ImportFlowUiState
@@ -243,6 +245,7 @@ ImportFlowViewModel
 ImportId
 ImportRepository
 ImportResult
+ImportReviewBookSnapshot
 ImportReviewSnapshot
 ImportReviewUserSnapshot
 ImportStatus

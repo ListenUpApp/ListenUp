@@ -15,7 +15,6 @@ data class UserPreferences(
     val defaultSkipForwardSec: Int,
     val defaultSkipBackwardSec: Int,
     val defaultSleepTimerMin: Int?,
-    val shakeToResetSleepTimer: Boolean,
 )
 
 /**
@@ -80,12 +79,4 @@ interface UserPreferencesRepository {
      * @return Result indicating success or failure
      */
     suspend fun setDefaultSleepTimerMin(minutes: Int?): AppResult<Unit>
-
-    /**
-     * Update shake-to-reset sleep timer setting.
-     *
-     * @param enabled Whether shaking resets the sleep timer
-     * @return Result indicating success or failure
-     */
-    suspend fun setShakeToResetSleepTimer(enabled: Boolean): AppResult<Unit>
 }

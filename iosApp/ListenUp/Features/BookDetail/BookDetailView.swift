@@ -358,6 +358,15 @@ struct BookDetailView: View {
                 }
 
                 if observer?.startedAtMs != nil || observer?.isComplete == true {
+                    Button {
+                        showRestartConfirmation = true
+                    } label: {
+                        Label(
+                            String(localized: "book.detail_restart"),
+                            systemImage: "backward.end"
+                        )
+                    }
+
                     Button(role: .destructive) {
                         showDiscardConfirmation = true
                     } label: {
@@ -380,10 +389,21 @@ struct BookDetailView: View {
                 }
                 Button(String(localized: "common.cancel"), role: .cancel) {}
             }
+            .confirmationDialog(
+                String(localized: "book.detail_restart_prompt"),
+                isPresented: $showRestartConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "book.detail_restart"), role: .destructive) {
+                    observer?.restartBook()
+                }
+                Button(String(localized: "common.cancel"), role: .cancel) {}
+            }
         }
     }
 
     @State private var showDiscardConfirmation = false
+    @State private var showRestartConfirmation = false
     @State private var showEdit = false
     @State private var showMetadataMatch = false
     @State private var showCast = false

@@ -196,15 +196,6 @@ struct SettingsView: View {
                 )
             }
             .haptic(.selectionTick, trigger: observer.defaultSleepTimerMin)
-
-            Toggle(isOn: boolBinding(observer.shakeToResetSleepTimer, observer.setShakeToResetSleepTimer)) {
-                SettingsLabel(
-                    title: String(localized: "settings.shake_to_reset_timer"),
-                    systemImage: "iphone.gen3.radiowaves.left.and.right",
-                    tint: .purple
-                )
-            }
-            .haptic(.toggleOn, trigger: observer.shakeToResetSleepTimer)
         }
     }
 
@@ -257,15 +248,6 @@ struct SettingsView: View {
                 )
             }
             .haptic(.toggleOn, trigger: observer.wifiOnlyDownloads)
-
-            Toggle(isOn: boolBinding(observer.autoRemoveFinished, observer.setAutoRemoveFinished)) {
-                SettingsLabel(
-                    title: String(localized: "settings.auto_remove_finished"),
-                    systemImage: "trash",
-                    tint: .green
-                )
-            }
-            .haptic(.toggleOn, trigger: observer.autoRemoveFinished)
         }
     }
 
