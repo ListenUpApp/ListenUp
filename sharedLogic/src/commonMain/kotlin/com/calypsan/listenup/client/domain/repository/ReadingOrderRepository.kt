@@ -175,6 +175,18 @@ interface ReadingOrderRepository {
     fun observeActiveReadingOrder(seriesId: String): Flow<ReadingOrderId?>
 
     /**
+     * Observe the live (non-tombstoned) book ids for a reading order, in
+     * `sortOrder` ASC — **offline-first**, read straight from the Room junction
+     * mirror. This is the world-fold clock: Story So Far walks this ordering to
+     * determine how far into a followed reading order the caller has progressed,
+     * without ever requiring a network round-trip.
+     *
+     * @param id The reading order whose ordered member books are observed
+     * @return Flow emitting the ordered book ids; empty when the order has no live members
+     */
+    fun observeReadingOrderBookIds(id: ReadingOrderId): Flow<List<BookId>>
+
+    /**
      * Set (or clear, with null) the caller's active reading order for [seriesId]
      * — **offline-first**: optimistic Room write + durable outbox op.
      *

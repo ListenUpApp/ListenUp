@@ -62,7 +62,10 @@ import com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen
 import com.calypsan.listenup.client.features.seriesedit.SeriesEditScreen
 import com.calypsan.listenup.client.features.settings.LicensesScreen
 import com.calypsan.listenup.api.sync.EntityKind
+import com.calypsan.listenup.client.features.readingorder.ReadingOrderDetailScreen
+import com.calypsan.listenup.client.features.readingorder.ReadingOrdersScreen
 import com.calypsan.listenup.client.features.storyworld.EntityDetailScreen
+import com.calypsan.listenup.client.features.storyworld.StorySoFarScreen
 import com.calypsan.listenup.client.features.storyworld.StoryWorldEntityListScreen
 import com.calypsan.listenup.client.features.storyworld.StoryWorldHubScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
@@ -191,6 +194,19 @@ sealed interface DetailDestination {
 
     data class StoryWorldEntityDetail(
         val entityId: String,
+    ) : DetailDestination
+
+    data class StorySoFar(
+        val bookId: String,
+    ) : DetailDestination
+
+    data class ReadingOrders(
+        val seriesId: String,
+    ) : DetailDestination
+
+    data class ReadingOrderDetail(
+        val orderId: String,
+        val seriesId: String,
     ) : DetailDestination
 }
 
@@ -350,6 +366,9 @@ private fun DetailScreen(
                 onStoryWorldClick = { seriesId, bookId ->
                     navigateTo(DetailDestination.StoryWorldHub(seriesId = seriesId, bookId = bookId))
                 },
+                onStorySoFarClick = { bookId ->
+                    navigateTo(DetailDestination.StorySoFar(bookId))
+                },
             )
         }
 
@@ -369,6 +388,9 @@ private fun DetailScreen(
                 onEditClick = { navigateTo(DetailDestination.SeriesEdit(it)) },
                 onStoryWorldClick = { seriesId ->
                     navigateTo(DetailDestination.StoryWorldHub(seriesId = seriesId, bookId = null))
+                },
+                onReadingOrdersClick = { seriesId ->
+                    navigateTo(DetailDestination.ReadingOrders(seriesId = seriesId))
                 },
             )
         }
@@ -655,6 +677,9 @@ private fun DetailScreen(
                         ),
                     )
                 },
+                onStorySoFarClick = { bookId ->
+                    navigateTo(DetailDestination.StorySoFar(bookId))
+                },
             )
         }
 
@@ -672,6 +697,36 @@ private fun DetailScreen(
             EntityDetailScreen(
                 entityId = destination.entityId,
                 onBackClick = navigateBack,
+            )
+        }
+
+        is DetailDestination.StorySoFar -> {
+            StorySoFarScreen(
+                bookId = destination.bookId,
+                onBackClick = navigateBack,
+                onEntityClick = { entityId -> navigateTo(DetailDestination.StoryWorldEntityDetail(entityId)) },
+                onSetReadingOrder = { seriesId -> navigateTo(DetailDestination.ReadingOrders(seriesId)) },
+                onOpenHub = { seriesId, bookId ->
+                    navigateTo(DetailDestination.StoryWorldHub(seriesId = seriesId, bookId = bookId))
+                },
+            )
+        }
+
+        is DetailDestination.ReadingOrders -> {
+            ReadingOrdersScreen(
+                seriesId = destination.seriesId,
+                onBack = navigateBack,
+                onOrderClick = { orderId ->
+                    navigateTo(DetailDestination.ReadingOrderDetail(orderId = orderId, seriesId = destination.seriesId))
+                },
+            )
+        }
+
+        is DetailDestination.ReadingOrderDetail -> {
+            ReadingOrderDetailScreen(
+                orderId = destination.orderId,
+                seriesId = destination.seriesId,
+                onBack = navigateBack,
             )
         }
     }

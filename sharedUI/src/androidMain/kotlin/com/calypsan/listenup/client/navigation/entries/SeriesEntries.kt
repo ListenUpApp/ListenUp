@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.ContributorDetail
+import com.calypsan.listenup.client.navigation.ReadingOrders
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.SeriesEdit
 import com.calypsan.listenup.client.navigation.StoryWorldHub
@@ -29,6 +30,9 @@ internal fun EntryProviderScope<NavKey>.seriesEntries(backStack: NavBackStack<Na
             },
             onStoryWorldClick = { seriesId ->
                 backStack.add(StoryWorldHub(seriesId = seriesId))
+            },
+            onReadingOrdersClick = { seriesId ->
+                backStack.add(ReadingOrders(seriesId = seriesId))
             },
         )
     }

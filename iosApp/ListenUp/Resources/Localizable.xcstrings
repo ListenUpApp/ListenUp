@@ -13391,6 +13391,326 @@
         }
       }
     },
+    "reading_orders.active_chip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active"
+          }
+        }
+      }
+    },
+    "reading_orders.active_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active reading order"
+          }
+        }
+      }
+    },
+    "reading_orders.add_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add books"
+          }
+        }
+      }
+    },
+    "reading_orders.book_count_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book"
+          }
+        }
+      }
+    },
+    "reading_orders.books_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books"
+          }
+        }
+      }
+    },
+    "reading_orders.books_in_order": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books in order"
+          }
+        }
+      }
+    },
+    "reading_orders.by_owner": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "by %1$@"
+          }
+        }
+      }
+    },
+    "reading_orders.clear_active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop using as active"
+          }
+        }
+      }
+    },
+    "reading_orders.create_attribution": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attribution · optional"
+          }
+        }
+      }
+    },
+    "reading_orders.create_attribution_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free text — credit whoever recommends this order, or note why it exists."
+          }
+        }
+      }
+    },
+    "reading_orders.create_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "reading_orders.create_private_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only you can see this order"
+          }
+        }
+      }
+    },
+    "reading_orders.create_set_active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set as active"
+          }
+        }
+      }
+    },
+    "reading_orders.create_set_active_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make this your clock for world state"
+          }
+        }
+      }
+    },
+    "reading_orders.create_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Order"
+          }
+        }
+      }
+    },
+    "reading_orders.delete_order": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete order"
+          }
+        }
+      }
+    },
+    "reading_orders.delete_order_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” is removed for everyone following it."
+          }
+        }
+      }
+    },
+    "reading_orders.delete_order_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this order?"
+          }
+        }
+      }
+    },
+    "reading_orders.discover_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't load shared orders."
+          }
+        }
+      }
+    },
+    "reading_orders.discover_header": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared with you"
+          }
+        }
+      }
+    },
+    "reading_orders.discover_retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        }
+      }
+    },
+    "reading_orders.empty_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create an order to set the clock the world folds up to."
+          }
+        }
+      }
+    },
+    "reading_orders.empty_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No reading orders yet"
+          }
+        }
+      }
+    },
+    "reading_orders.header_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your active order is the clock the app folds the world up to."
+          }
+        }
+      }
+    },
+    "reading_orders.new_order": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New order"
+          }
+        }
+      }
+    },
+    "reading_orders.privacy_private": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private"
+          }
+        }
+      }
+    },
+    "reading_orders.privacy_visible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visible"
+          }
+        }
+      }
+    },
+    "reading_orders.remove_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from order"
+          }
+        }
+      }
+    },
+    "reading_orders.reorder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorder"
+          }
+        }
+      }
+    },
+    "reading_orders.reorder_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag the handles to reorder · saves instantly"
+          }
+        }
+      }
+    },
+    "reading_orders.set_active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set as active"
+          }
+        }
+      }
+    },
+    "reading_orders.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading Orders"
+          }
+        }
+      }
+    },
     "scan.building_subtitle": {
       "localizations": {
         "en": {
@@ -15137,6 +15457,276 @@
           "stringUnit": {
             "state": "translated",
             "value": "Couldn't check library setup"
+          }
+        }
+      }
+    },
+    "story_so_far.card_footer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See full world state"
+          }
+        }
+      }
+    },
+    "story_so_far.card_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where things stand · through %1$@"
+          }
+        }
+      }
+    },
+    "story_so_far.empty_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No world events have been added for %1$@ yet. As entries are anchored to the timeline, the state of the world will build up here."
+          }
+        }
+      }
+    },
+    "story_so_far.empty_cta": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Story World"
+          }
+        }
+      }
+    },
+    "story_so_far.empty_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to show yet"
+          }
+        }
+      }
+    },
+    "story_so_far.en_route": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En route from %1$@"
+          }
+        }
+      }
+    },
+    "story_so_far.en_route_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En route"
+          }
+        }
+      }
+    },
+    "story_so_far.evolution_caption": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How this story has unfolded up to your frontier. Later events stay sealed until you reach them."
+          }
+        }
+      }
+    },
+    "story_so_far.evolution_frontier": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YOUR FRONTIER · %1$@"
+          }
+        }
+      }
+    },
+    "story_so_far.evolution_hidden": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hidden until you listen further"
+          }
+        }
+      }
+    },
+    "story_so_far.floor_order_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No active reading order is set, so the whole series can't be folded. State is limited to %1$@."
+          }
+        }
+      }
+    },
+    "story_so_far.floor_order_cta": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a reading order"
+          }
+        }
+      }
+    },
+    "story_so_far.floor_order_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick the order you're following and the whole series folds up to your frontier."
+          }
+        }
+      }
+    },
+    "story_so_far.floor_order_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing this book only"
+          }
+        }
+      }
+    },
+    "story_so_far.here_caption": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing everything up to your current position (%1$@). Widens the spoiler horizon for this session only."
+          }
+        }
+      }
+    },
+    "story_so_far.in_this_scene": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In this scene"
+          }
+        }
+      }
+    },
+    "story_so_far.location_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Whereabouts unknown"
+          }
+        }
+      }
+    },
+    "story_so_far.new_badge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NEW"
+          }
+        }
+      }
+    },
+    "story_so_far.peek_expand": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expand"
+          }
+        }
+      }
+    },
+    "story_so_far.safe_caption": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing only what's safe at your frontier (%1$@)."
+          }
+        }
+      }
+    },
+    "story_so_far.scene_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ & %2$d more"
+          }
+        }
+      }
+    },
+    "story_so_far.scene_summary_short": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@"
+          }
+        }
+      }
+    },
+    "story_so_far.through_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · through %2$@"
+          }
+        }
+      }
+    },
+    "story_so_far.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Story so far"
+          }
+        }
+      }
+    },
+    "story_so_far.toggle_here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "As of here"
+          }
+        }
+      }
+    },
+    "story_so_far.toggle_safe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Safe"
+          }
+        }
+      }
+    },
+    "story_so_far.where_things_stand": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where things stand"
           }
         }
       }

@@ -213,6 +213,11 @@ class EntityDetailViewModel(
                 position == null || (position.startedAtMs == null && position.maxPositionMs == 0L)
             }
 
+        // Evolution's frontier split is independent of the session `showHidden()` toggle — it
+        // always gates as if reveal were false, so the divider stays the honest boundary.
+        val (evolutionRevealed, evolutionHidden) =
+            chronological.partition { event -> FrontierGate.isVisible(event.bookId, event.positionMs, positions) }
+
         return Draft(
             entityCard = entity.toCard(),
             world = WorldRef(seriesId = entity.homeSeriesId, bookId = entity.homeBookId),
@@ -222,6 +227,8 @@ class EntityDetailViewModel(
             entityById = entityById,
             worldBooksById = worldBooks.booksById,
             unstartedBooksBanner = unstartedBooksBanner,
+            evolutionRevealed = evolutionRevealed,
+            evolutionHidden = evolutionHidden,
         )
     }
 
@@ -258,7 +265,10 @@ class EntityDetailViewModel(
     }
 
     private fun resolveChapters(draft: Draft): Flow<EntityDetailUiState> {
-        val neededBookIds = draft.visibleEvents.mapNotNull { it.bookId }.distinct()
+        // Widened beyond visibleEvents' books: hidden Evolution rows still need a labeled anchor
+        // (existence-only, not text), so their books' chapters must resolve too.
+        val neededBookIds =
+            (draft.visibleEvents + draft.evolutionHidden).mapNotNull { it.bookId }.distinct()
         return if (neededBookIds.isEmpty()) {
             flowOf(finalize(draft, emptyMap()))
         } else {
@@ -276,14 +286,11 @@ class EntityDetailViewModel(
     ): EntityDetailUiState.Ready {
         val entries =
             draft.visibleEvents.map { event ->
-                val worldBook = event.bookId?.let { draft.worldBooksById[it] }
-                val bookLabel = worldBook?.let { it.sequenceLabel ?: it.title }
-                val chapters = event.bookId?.let { chaptersByBookId[it] }.orEmpty()
                 EntityEntryRow(
                     id = event.id,
                     type = event.type,
                     renderedText = MentionTokens.render(event.text) { id -> draft.entityById[id]?.name },
-                    anchor = AnchorLabeler.label(bookLabel, chapters, event.positionMs),
+                    anchor = resolveAnchor(event, draft.worldBooksById, chaptersByBookId),
                 )
             }
 
@@ -294,7 +301,58 @@ class EntityDetailViewModel(
             hiddenCount = draft.hiddenCount,
             revealed = draft.revealed,
             unstartedBooksBanner = draft.unstartedBooksBanner,
+            evolution = buildEvolution(draft, chaptersByBookId),
         )
+    }
+
+    /** Anchor label for [event] — shared by the entries tab and Evolution's revealed/hidden rows. */
+    private fun resolveAnchor(
+        event: WorldEvent,
+        worldBooksById: Map<String, WorldBook>,
+        chaptersByBookId: Map<String, List<Chapter>>,
+    ): AnchorLabel {
+        val worldBook = event.bookId?.let { worldBooksById[it] }
+        val bookLabel = worldBook?.let { it.sequenceLabel ?: it.title }
+        val chapters = event.bookId?.let { chaptersByBookId[it] }.orEmpty()
+        return AnchorLabeler.label(bookLabel, chapters, event.positionMs)
+    }
+
+    /**
+     * Builds the Evolution tab's frontier-divided timeline from [Draft.evolutionRevealed] /
+     * [Draft.evolutionHidden] — see [EvolutionUi] KDoc for the frontier-label rule.
+     */
+    private fun buildEvolution(
+        draft: Draft,
+        chaptersByBookId: Map<String, List<Chapter>>,
+    ): EvolutionUi {
+        val revealedRows =
+            draft.evolutionRevealed.mapIndexed { index, event ->
+                EvolutionRow(
+                    eventId = event.id,
+                    renderedText = MentionTokens.render(event.text) { id -> draft.entityById[id]?.name },
+                    anchor = resolveAnchor(event, draft.worldBooksById, chaptersByBookId),
+                    isLatest = index == draft.evolutionRevealed.lastIndex,
+                )
+            }
+        val hiddenRows =
+            draft.evolutionHidden.map { event ->
+                EvolutionRow(
+                    eventId = event.id,
+                    renderedText = null,
+                    anchor = resolveAnchor(event, draft.worldBooksById, chaptersByBookId),
+                    isLatest = false,
+                )
+            }
+
+        val frontierLabel =
+            if (hiddenRows.isEmpty()) {
+                null
+            } else {
+                revealedRows.lastOrNull { it.anchor !is AnchorLabel.AlwaysVisible }?.anchor
+                    ?: hiddenRows.first().anchor
+            }
+
+        return EvolutionUi(revealed = revealedRows, hidden = hiddenRows, frontierLabel = frontierLabel)
     }
 
     private fun Entity.toCard(): EntityCard = EntityCard(id = id, name = name, kind = kind)
@@ -322,6 +380,10 @@ class EntityDetailViewModel(
         val entityById: Map<String, Entity>,
         val worldBooksById: Map<String, WorldBook>,
         val unstartedBooksBanner: Boolean,
+        /** Chronologically-ordered events before the frontier, gated as if `reveal` were false. */
+        val evolutionRevealed: List<WorldEvent>,
+        /** Chronologically-ordered events beyond the frontier, gated as if `reveal` were false. */
+        val evolutionHidden: List<WorldEvent>,
     )
 }
 
@@ -350,6 +412,8 @@ sealed interface EntityDetailUiState {
         val revealed: Boolean,
         /** True when at least one of this world's books has never been started. */
         val unstartedBooksBanner: Boolean,
+        /** This entity's Evolution-tab timeline — frontier-divided independent of [revealed]. */
+        val evolution: EvolutionUi,
     ) : EntityDetailUiState
 }
 
@@ -360,6 +424,45 @@ data class EntityEntryRow(
     /** [WorldEvent.text] with every mention token resolved to a live (or cached-fallback) entity name. */
     val renderedText: String,
     val anchor: AnchorLabel,
+)
+
+/**
+ * The Evolution tab's frontier-divided timeline — built from the same chronologically-ordered
+ * event list [EntityDetailUiState.Ready.entries] draws from, but split with the frontier gate
+ * pinned to `reveal = false` always: the session-scoped [EntityDetailViewModel.showHidden]
+ * reveal never leaks event text into this tab, so the frontier divider stays an honest boundary
+ * regardless of what the entries tab is currently showing.
+ *
+ * @property revealed Rows before the frontier, in chronological order, with rendered text.
+ * @property hidden Rows beyond the frontier, in chronological order — existence only: the
+ *   anchor is still labeled, but [EvolutionRow.renderedText] is null (spec's accepted trade-off).
+ * @property frontierLabel The "through here" divider label: the anchor of the last [revealed]
+ *   row that carries a book anchor (baseline rows with no anchor are skipped), or — when no
+ *   revealed row has a book anchor — the anchor of the first [hidden] row. Null when [hidden]
+ *   is empty, since there's nothing to divide.
+ */
+data class EvolutionUi(
+    val revealed: List<EvolutionRow>,
+    val hidden: List<EvolutionRow>,
+    val frontierLabel: AnchorLabel?,
+)
+
+/**
+ * One row in [EvolutionUi]'s frontier-divided timeline.
+ *
+ * @property eventId The underlying [WorldEvent.id].
+ * @property renderedText The mention-rendered event text, or null for a row beyond the
+ *   frontier — no spoiler text crosses the divide, only the anchor.
+ * @property anchor Where this event sits in the book. Resolved the same way for revealed and
+ *   hidden rows alike, so even a hidden row can be labeled (e.g. by chapter title).
+ * @property isLatest True on the last row of [EvolutionUi.revealed] only; always false for a
+ *   [EvolutionUi.hidden] row.
+ */
+data class EvolutionRow(
+    val eventId: String,
+    val renderedText: String?,
+    val anchor: AnchorLabel,
+    val isLatest: Boolean,
 )
 
 /** One-shot events emitted by [EntityDetailViewModel] for the screen to consume exactly once. */

@@ -4,13 +4,15 @@ import com.calypsan.listenup.api.ReadingOrderService
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.ReadingOrderRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.ReadingOrderRepository
+import com.calypsan.listenup.client.presentation.readingorder.ReadingOrderDetailViewModel
 import com.calypsan.listenup.client.presentation.readingorder.ReadingOrderListViewModel
+import com.calypsan.listenup.client.presentation.readingorder.SeriesReadingOrdersViewModel
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
 /**
- * Reading-order aggregate Koin wiring — RPC proxy, offline-first repository, and
- * the list ViewModel. The sync-domain handlers are NOT wired here: they are
+ * Reading-order aggregate Koin wiring — RPC proxy, offline-first repository, and the list,
+ * per-series, and detail ViewModels. The sync-domain handlers are NOT wired here: they are
  * catalog-declared ([com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog])
  * and registered by the `ComposedHandlerRegistrar` in [clientSyncModule].
  *
@@ -23,6 +25,9 @@ import org.koin.dsl.module
  *    [com.calypsan.listenup.client.data.local.db.UserDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `clientAuthModule`
+ *  - [com.calypsan.listenup.client.domain.repository.BookRepository] /
+ *    [com.calypsan.listenup.client.domain.repository.SeriesRepository] — their own aggregate modules
+ *  - [com.calypsan.listenup.core.error.ErrorBus] — the core error module
  */
 internal val readingOrderModule: Module =
     module {
@@ -47,6 +52,23 @@ internal val readingOrderModule: Module =
         factory {
             ReadingOrderListViewModel(
                 repository = get(),
+            )
+        }
+
+        factory {
+            SeriesReadingOrdersViewModel(
+                readingOrderRepository = get(),
+                errorBus = get(),
+            )
+        }
+
+        factory {
+            ReadingOrderDetailViewModel(
+                readingOrderRepository = get(),
+                bookRepository = get(),
+                seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
+                authSession = get(),
+                errorBus = get(),
             )
         }
     }

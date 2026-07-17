@@ -21,4 +21,7 @@ sealed interface NowPlayingOverlay {
     data class ContributorPicker(
         val type: ContributorPickerType,
     ) : NowPlayingOverlay
+
+    /** The compact "Story So Far" peek panel for the playing book (see `StorySoFarPanel`). */
+    data object StorySoFar : NowPlayingOverlay
 }

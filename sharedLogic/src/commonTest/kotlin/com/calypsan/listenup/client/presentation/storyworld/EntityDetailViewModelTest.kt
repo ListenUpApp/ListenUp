@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.api.sync.WorldEventSource
 import com.calypsan.listenup.api.sync.WorldEventType
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Entity
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
@@ -506,6 +507,260 @@ class EntityDetailViewModelTest :
                     awaitItem() shouldBe EntityDetailUiState.Loading
                     val ready = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
                     ready.unstartedBooksBanner shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("evolution splits into revealed/hidden matching the per-book frontier gate, order preserved") {
+            runTest {
+                val fixture =
+                    Fixture(
+                        initialPositions =
+                            mapOf("book-1" to position("book-1", maxPositionMs = 100_000L, startedAtMs = 1L)),
+                    )
+                fixture.seedSeries()
+                fixture.entityRepo.setEntities(listOf(entity("char-1", "Kaladin")))
+                fixture.eventRepo.setEvents(
+                    listOf(
+                        event("e-late-hidden", bookId = "book-1", positionMs = 300_000L),
+                        event("e-early-hidden", bookId = "book-1", positionMs = 200_000L),
+                        event("e-visible", bookId = "book-1", positionMs = 10_000L),
+                        event("e-baseline", bookId = null),
+                    ),
+                )
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe EntityDetailUiState.Idle
+                    viewModel.load("char-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EntityDetailUiState.Loading
+                    val ready = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+
+                    ready.evolution.revealed.map { it.eventId } shouldBe listOf("e-baseline", "e-visible")
+                    ready.evolution.hidden.map { it.eventId } shouldBe listOf("e-early-hidden", "e-late-hidden")
+                    // Matches the entries tab's own default (non-revealed) gate exactly.
+                    ready.entries.map { it.id } shouldBe listOf("e-baseline", "e-visible")
+                    ready.hiddenCount shouldBe 2
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("hidden evolution rows carry null text but resolve chapter-titled anchors, even for a book absent from entries") {
+            runTest {
+                val fixture =
+                    Fixture(
+                        initialPositions =
+                            mapOf("book-1" to position("book-1", maxPositionMs = 100_000L, startedAtMs = 1L)),
+                        // book-2 has no position row: any event anchored to it is hidden outright,
+                        // so book-2 never appears in the entries tab's own visible-events set.
+                    )
+                fixture.seedSeries(books = listOf(book("book-1", "Book One"), book("book-2", "Book Two")))
+                fixture.bookRepo.setChapters(
+                    "book-2",
+                    listOf(
+                        Chapter(
+                            id = "ch-2a",
+                            title = "Interlude 1",
+                            duration = 100_000L,
+                            startTime = 0L,
+                        ),
+                    ),
+                )
+                fixture.entityRepo.setEntities(listOf(entity("char-1", "Kaladin")))
+                fixture.eventRepo.setEvents(
+                    listOf(
+                        event("e-book1", bookId = "book-1", positionMs = 1_000L),
+                        event("e-book2-hidden", text = "a secret", bookId = "book-2", positionMs = 5_000L),
+                    ),
+                )
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe EntityDetailUiState.Idle
+                    viewModel.load("char-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EntityDetailUiState.Loading
+                    val ready = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+
+                    ready.entries.map { it.id } shouldBe listOf("e-book1")
+                    val hiddenRow = ready.evolution.hidden.single { it.eventId == "e-book2-hidden" }
+                    hiddenRow.renderedText shouldBe null
+                    val anchor = hiddenRow.anchor.shouldBeInstanceOf<AnchorLabel.AtChapter>()
+                    anchor.chapterTitle shouldBe "Interlude 1"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("isLatest is true only on the last revealed evolution row") {
+            runTest {
+                val fixture =
+                    Fixture(
+                        initialPositions =
+                            mapOf("book-1" to position("book-1", maxPositionMs = 100_000L, startedAtMs = 1L)),
+                    )
+                fixture.seedSeries()
+                fixture.entityRepo.setEntities(listOf(entity("char-1", "Kaladin")))
+                fixture.eventRepo.setEvents(
+                    listOf(
+                        event("e-baseline", bookId = null),
+                        event("e-early", bookId = "book-1", positionMs = 10_000L),
+                        event("e-late", bookId = "book-1", positionMs = 50_000L),
+                    ),
+                )
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe EntityDetailUiState.Idle
+                    viewModel.load("char-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EntityDetailUiState.Loading
+                    val ready = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+
+                    ready.evolution.revealed.map { it.eventId to it.isLatest } shouldBe
+                        listOf("e-baseline" to false, "e-early" to false, "e-late" to true)
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("frontierLabel is the last book-anchored revealed row's anchor") {
+            runTest {
+                val fixture =
+                    Fixture(
+                        initialPositions =
+                            mapOf("book-1" to position("book-1", maxPositionMs = 100_000L, startedAtMs = 1L)),
+                    )
+                fixture.seedSeries()
+                fixture.bookRepo.setChapters(
+                    "book-1",
+                    listOf(
+                        Chapter(
+                            id = "ch-1",
+                            title = "Prologue",
+                            duration = 100_000L,
+                            startTime = 0L,
+                        ),
+                    ),
+                )
+                fixture.entityRepo.setEntities(listOf(entity("char-1", "Kaladin")))
+                fixture.eventRepo.setEvents(
+                    listOf(
+                        event("e-baseline", bookId = null),
+                        event("e-visible", bookId = "book-1", positionMs = 10_000L),
+                        event("e-hidden", bookId = "book-1", positionMs = 200_000L),
+                    ),
+                )
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe EntityDetailUiState.Idle
+                    viewModel.load("char-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EntityDetailUiState.Loading
+                    val ready = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+
+                    ready.evolution.frontierLabel shouldBe AnchorLabel.AtChapter("1", "Prologue")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("frontierLabel falls back to the first hidden row's anchor when no revealed row has a book anchor") {
+            runTest {
+                // No position row for book-1 at all: every book-1-anchored event is hidden,
+                // leaving only the baseline (anchor-less) entry revealed.
+                val fixture = Fixture()
+                fixture.seedSeries()
+                fixture.entityRepo.setEntities(listOf(entity("char-1", "Kaladin")))
+                fixture.eventRepo.setEvents(
+                    listOf(
+                        event("e-baseline", bookId = null),
+                        event("e-hidden-first", bookId = "book-1", positionMs = 0L),
+                        event("e-hidden-second", bookId = "book-1", positionMs = 200_000L),
+                    ),
+                )
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe EntityDetailUiState.Idle
+                    viewModel.load("char-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EntityDetailUiState.Loading
+                    val ready = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+
+                    ready.evolution.revealed.map { it.eventId } shouldBe listOf("e-baseline")
+                    ready.evolution.hidden.map { it.eventId } shouldBe
+                        listOf("e-hidden-first", "e-hidden-second")
+                    ready.evolution.frontierLabel shouldBe AnchorLabel.Beginning("1")
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("frontierLabel is null when nothing is hidden") {
+            runTest {
+                val fixture =
+                    Fixture(
+                        initialPositions =
+                            mapOf("book-1" to position("book-1", maxPositionMs = 100_000L, startedAtMs = 1L)),
+                    )
+                fixture.seedSeries()
+                fixture.entityRepo.setEntities(listOf(entity("char-1", "Kaladin")))
+                fixture.eventRepo.setEvents(
+                    listOf(event("e-visible", bookId = "book-1", positionMs = 10_000L)),
+                )
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe EntityDetailUiState.Idle
+                    viewModel.load("char-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EntityDetailUiState.Loading
+                    val ready = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+
+                    ready.evolution.hidden shouldBe emptyList()
+                    ready.evolution.frontierLabel shouldBe null
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("showHidden reveals entries but leaves evolution unchanged") {
+            runTest {
+                val fixture =
+                    Fixture(
+                        initialPositions =
+                            mapOf("book-1" to position("book-1", maxPositionMs = 100_000L, startedAtMs = 1L)),
+                    )
+                fixture.seedSeries()
+                fixture.entityRepo.setEntities(listOf(entity("char-1", "Kaladin")))
+                fixture.eventRepo.setEvents(
+                    listOf(
+                        event("e-beyond", bookId = "book-1", positionMs = 500_000L),
+                        event("e-visible", bookId = "book-1", positionMs = 50_000L),
+                    ),
+                )
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe EntityDetailUiState.Idle
+                    viewModel.load("char-1")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe EntityDetailUiState.Loading
+                    val initial = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+                    initial.hiddenCount shouldBe 1
+
+                    viewModel.showHidden()
+                    advanceUntilIdle()
+                    val revealed = awaitItem().shouldBeInstanceOf<EntityDetailUiState.Ready>()
+                    revealed.hiddenCount shouldBe 0
+                    revealed.entries.map { it.id } shouldBe listOf("e-visible", "e-beyond")
+                    // Evolution never leaks the session reveal — it's the same in both states.
+                    revealed.evolution shouldBe initial.evolution
                     cancelAndIgnoreRemainingEvents()
                 }
             }

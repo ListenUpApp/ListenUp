@@ -88,6 +88,9 @@ internal class ReadingOrderRepositoryImpl(
             bookCountOverride = dao.bookCountFor(id.value),
         )
 
+    override fun observeReadingOrderBookIds(id: ReadingOrderId): Flow<List<BookId>> =
+        bookDao.observeReadingOrderBooks(id.value).map { ids -> ids.map(::BookId) }
+
     // ── Discovery + detail (on-demand RPC) ────────────────────────────────────────
 
     override suspend fun getUserReadingOrders(userId: String): AppResult<List<ReadingOrder>> =

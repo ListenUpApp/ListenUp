@@ -672,6 +672,30 @@ class NowPlayingViewModelTest :
             }
         }
 
+        test("showStorySoFar updates screenState overlay - hideStorySoFar restores None") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+
+                val vm = fixture.newVm()
+                // screenState uses WhileSubscribed — keep an active collector so the
+                // upstream pipeline runs and .value reflects mutations.
+                backgroundScope.launch { vm.screenState.collect {} }
+                advanceUntilIdle()
+
+                vm.showStorySoFar()
+                advanceUntilIdle()
+                withClue("expected StorySoFar overlay; got: ${vm.screenState.value.overlay}") {
+                    (vm.screenState.value.overlay is NowPlayingOverlay.StorySoFar) shouldBe true
+                }
+
+                vm.hideStorySoFar()
+                advanceUntilIdle()
+                withClue("expected None overlay; got: ${vm.screenState.value.overlay}") {
+                    (vm.screenState.value.overlay is NowPlayingOverlay.None) shouldBe true
+                }
+            }
+        }
+
         test("playbackError emission surfaces as NowPlayingState Error - recovery clears it") {
             runTest(testDispatcher) {
                 val fixture = TestFixture()

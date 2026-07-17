@@ -33,12 +33,16 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FormatListNumbered
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -86,6 +90,8 @@ import listenup.composeapp.generated.resources.book_detail_authors
 import listenup.composeapp.generated.resources.book_detail_cast_count_authors
 import listenup.composeapp.generated.resources.book_detail_other_authors
 import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_more_actions
+import listenup.composeapp.generated.resources.reading_orders_title
 import listenup.composeapp.generated.resources.series_books_in_series
 import listenup.composeapp.generated.resources.series_book_position
 import listenup.composeapp.generated.resources.series_continue_book
@@ -113,6 +119,7 @@ fun SeriesDetailScreen(
     onEditClick: (String) -> Unit,
     onContributorClick: (String) -> Unit,
     onStoryWorldClick: (String) -> Unit = {},
+    onReadingOrdersClick: (String) -> Unit = {},
     viewModel: SeriesDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(seriesId) { viewModel.loadSeries(seriesId) }
@@ -157,6 +164,7 @@ fun SeriesDetailScreen(
                             onShowAuthors = { showAuthorsSheet = true },
                             onEditClick = { onEditClick(seriesId) },
                             onStoryWorldClick = { onStoryWorldClick(seriesId) },
+                            onReadingOrdersClick = { onReadingOrdersClick(seriesId) },
                         )
                     } else {
                         NarrowSeriesDetailContent(
@@ -167,6 +175,7 @@ fun SeriesDetailScreen(
                             onShowAuthors = { showAuthorsSheet = true },
                             onEditClick = { onEditClick(seriesId) },
                             onStoryWorldClick = { onStoryWorldClick(seriesId) },
+                            onReadingOrdersClick = { onReadingOrdersClick(seriesId) },
                         )
                     }
 
@@ -196,6 +205,7 @@ private fun NarrowSeriesDetailContent(
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
     onStoryWorldClick: () -> Unit,
+    onReadingOrdersClick: () -> Unit,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(1),
@@ -210,6 +220,7 @@ private fun NarrowSeriesDetailContent(
                 onContributorClick = onContributorClick,
                 onShowAuthors = onShowAuthors,
                 onEditClick = onEditClick,
+                onReadingOrdersClick = onReadingOrdersClick,
             )
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -252,6 +263,7 @@ private fun WideSeriesDetailContent(
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
     onStoryWorldClick: () -> Unit,
+    onReadingOrdersClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxSize().padding(20.dp),
@@ -276,7 +288,11 @@ private fun WideSeriesDetailContent(
                         .padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
+                HeroActionRow(
+                    onBackClick = onBackClick,
+                    onEditClick = onEditClick,
+                    onReadingOrdersClick = onReadingOrdersClick,
+                )
                 Spacer(Modifier.height(8.dp))
                 HeroBody(state = state, onContributorClick = onContributorClick, onShowAuthors = onShowAuthors)
                 Spacer(Modifier.height(24.dp))
@@ -328,6 +344,7 @@ private fun SeriesColorHero(
     onContributorClick: (String) -> Unit,
     onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
+    onReadingOrdersClick: () -> Unit,
 ) {
     Box(
         modifier =
@@ -359,6 +376,7 @@ private fun SeriesColorHero(
                             tint = MaterialTheme.colorScheme.onSurface,
                         )
                     }
+                    SeriesHeroOverflowMenu(onReadingOrdersClick = onReadingOrdersClick)
                 }
             }
             Spacer(Modifier.height(4.dp))
@@ -457,6 +475,7 @@ private fun HeroBody(
 private fun HeroActionRow(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
+    onReadingOrdersClick: () -> Unit,
 ) {
     val tint = MaterialTheme.colorScheme.onPrimaryContainer
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -468,6 +487,37 @@ private fun HeroActionRow(
             IconButton(onClick = onEditClick) {
                 Icon(Icons.Default.Edit, stringResource(Res.string.series_edit_series), tint = tint)
             }
+            SeriesHeroOverflowMenu(onReadingOrdersClick = onReadingOrdersClick)
+        }
+    }
+}
+
+/**
+ * Series hero overflow menu — a single "Reading Orders" entry point, alongside the standalone
+ * Edit action. Mirrors Story World's per-entity overflow idiom (see
+ * [com.calypsan.listenup.client.features.storyworld.EntityDetailScreen]) with one item instead of
+ * rename/delete.
+ */
+@Composable
+private fun SeriesHeroOverflowMenu(onReadingOrdersClick: () -> Unit) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { menuExpanded = true }) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = stringResource(Res.string.common_more_actions),
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.reading_orders_title)) },
+                leadingIcon = { Icon(Icons.Default.FormatListNumbered, contentDescription = null) },
+                onClick = {
+                    menuExpanded = false
+                    onReadingOrdersClick()
+                },
+            )
         }
     }
 }

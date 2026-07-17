@@ -8,7 +8,10 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcAuthRecovery
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
@@ -24,6 +27,8 @@ import org.koin.test.verify.verify
  *    — owned by `persistenceModule`.
  *  - [OfflineEditor] — owned by `clientSyncModule`.
  *  - [AuthSession] — owned by `clientAuthModule`.
+ *  - [BookRepository] / [SeriesRepository] — owned by their own aggregate modules.
+ *  - [ErrorBus] — owned by the core error module.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ReadingOrderModuleVerifyTest :
@@ -42,6 +47,9 @@ class ReadingOrderModuleVerifyTest :
                         RpcAuthRecovery::class,
                         OfflineEditor::class,
                         AuthSession::class,
+                        BookRepository::class,
+                        SeriesRepository::class,
+                        ErrorBus::class,
                     ),
             )
         }
