@@ -118,7 +118,6 @@ private object HeavyweightE2ERetryExtension :
     AfterProjectListener {
     private const val MAX_ATTEMPTS = 3
     private const val RETRY_DELAY_MS = 500L
-    private val E2E_SPEC_SUFFIXES = listOf("E2ETest", "EndToEndTest")
 
     /**
      * Trend-to-failure guard, not instant strictness: a spec may burn retries on up to this many
@@ -230,6 +229,25 @@ private object HeavyweightE2ERetryExtension :
     private fun isHeavyweightE2ELeaf(testCase: TestCase): Boolean {
         if (testCase.type != TestType.Test) return false
         val specName = testCase.spec::class.simpleName ?: return false
-        return E2E_SPEC_SUFFIXES.any { specName.endsWith(it) }
+        return retriesForFlakiness(specName)
     }
 }
+
+/**
+ * Whether a spec by [specName] is covered by the heavyweight-retry net — either a named real-thread
+ * flaky spec or a `*E2ETest`/`*EndToEndTest`. Extracted to an internal top-level function so the
+ * membership (which the whole [HeavyweightE2ERetryExtension] hinges on) is directly unit-testable
+ * without driving the Kotest lifecycle.
+ */
+internal fun retriesForFlakiness(specName: String): Boolean =
+    specName in RETRY_COVERED_NAMES || RETRY_COVERED_SUFFIXES.any { specName.endsWith(it) }
+
+internal val RETRY_COVERED_NAMES =
+    setOf(
+        "SyncEngineStateObserversTest",
+        "PendingQueueDrainSchedulingTest",
+        "ReconcileOnDrainTest",
+        "SyncEngineLifecycleTest",
+    )
+
+internal val RETRY_COVERED_SUFFIXES = listOf("E2ETest", "EndToEndTest")
