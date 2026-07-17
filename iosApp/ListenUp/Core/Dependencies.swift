@@ -126,6 +126,7 @@ final class Dependencies {
 
     func createTagDetailViewModel() -> TagDetailViewModel { KoinHelper.shared.getTagDetailViewModel() }
     func createBrowseFacetViewModel() -> BrowseFacetViewModel { KoinHelper.shared.getBrowseFacetViewModel() }
+    func createBrowseGenreViewModel() -> BrowseGenreViewModel { KoinHelper.shared.getBrowseGenreViewModel() }
     func createUserProfileViewModel() -> UserProfileViewModel { KoinHelper.shared.getUserProfileViewModel() }
     func createEditProfileViewModel() -> EditProfileViewModel { KoinHelper.shared.getEditProfileViewModel() }
     func createShelfDetailViewModel() -> ShelfDetailViewModel { KoinHelper.shared.getShelfDetailViewModel() }

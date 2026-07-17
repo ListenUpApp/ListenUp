@@ -367,11 +367,11 @@ class BookDetailViewModelTest :
 
                     // Then
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
-                    val genresList = ready.genresList
-                    genresList.size shouldBe 3
-                    genresList[0] shouldBe "Fiction"
-                    genresList[1] shouldBe "Fantasy"
-                    genresList[2] shouldBe "Adventure"
+                    val genreNames = ready.genres.map { it.name }
+                    genreNames.size shouldBe 3
+                    genreNames[0] shouldBe "Fiction"
+                    genreNames[1] shouldBe "Fantasy"
+                    genreNames[2] shouldBe "Adventure"
                     states.cancel()
                 }
             }
@@ -397,7 +397,7 @@ class BookDetailViewModelTest :
 
                     // Then
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
-                    (ready.genresList.isEmpty()) shouldBe true
+                    (ready.genres.isEmpty()) shouldBe true
                     states.cancel()
                 }
             }
@@ -425,7 +425,7 @@ class BookDetailViewModelTest :
                     // Then - book loads successfully despite genre failure
                     val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
                     ready.book shouldBe book
-                    (ready.genresList.isEmpty()) shouldBe true
+                    (ready.genres.isEmpty()) shouldBe true
                     states.cancel()
                 }
             }

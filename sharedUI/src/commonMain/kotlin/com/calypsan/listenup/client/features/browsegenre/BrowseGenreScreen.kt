@@ -79,9 +79,16 @@ fun BrowseGenreScreen(
     onBackClick: () -> Unit,
     onBookClick: (BookId) -> Unit,
     modifier: Modifier = Modifier,
+    initialGenreId: String? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Pre-select the genre the caller arrived on (e.g. a tapped genre chip). Keyed on the id so a
+    // fresh navigation re-selects; browseBooks loads by id via RPC without waiting on the tree.
+    LaunchedEffect(initialGenreId) {
+        initialGenreId?.let { viewModel.selectGenre(GenreId(it)) }
+    }
 
     val readyError = (state as? BrowseGenreUiState.Ready)?.error
     LaunchedEffect(readyError) {

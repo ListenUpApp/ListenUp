@@ -210,6 +210,9 @@ private extension View {
             .navigationDestination(for: FacetDestination.self) { destination in
                 FacetBooksView(kind: destination.kind, facetId: destination.id, facetName: destination.name)
             }
+            .navigationDestination(for: GenreDestination.self) { destination in
+                BrowseGenreView(initialGenreId: destination.genreId, initialGenreName: destination.genreName)
+            }
             .navigationDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)
             }

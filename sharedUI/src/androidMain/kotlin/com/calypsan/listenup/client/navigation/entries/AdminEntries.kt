@@ -110,10 +110,11 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             },
         )
     }
-    entry<BrowseGenre> {
+    entry<BrowseGenre> { key ->
         val viewModel: BrowseGenreViewModel = koinViewModel()
         com.calypsan.listenup.client.features.browsegenre.BrowseGenreScreen(
             viewModel = viewModel,
+            initialGenreId = key.genreId,
             onBackClick = { backStack.removeAt(backStack.lastIndex) },
             onBookClick = { bookId -> backStack.add(BookDetail(bookId.value)) },
         )

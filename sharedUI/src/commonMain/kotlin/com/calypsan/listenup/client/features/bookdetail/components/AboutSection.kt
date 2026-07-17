@@ -31,6 +31,7 @@ import com.calypsan.listenup.client.design.components.MarkdownText
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import listenup.composeapp.generated.resources.Res
@@ -62,7 +63,7 @@ private const val DESCRIPTION_EXPAND_THRESHOLD = 200
  * 6. "Moods" overline + filled-tertiary [FacetChipRow] (only when [moods] is non-empty)
  *
  * @param description   Markdown-formatted book description.
- * @param genres        Genre names to display as outlined chips.
+ * @param genres        Genres to display as outlined chips; a tap browses that genre's books.
  * @param tags          Tags to display as filled `secondaryContainer` chips.
  * @param moods         Moods to display as filled `tertiaryContainer` chips (the affective axis).
  * @param isLoadingTags True while tags are being fetched; the Tags block stays visible meanwhile.
@@ -80,14 +81,14 @@ private const val DESCRIPTION_EXPAND_THRESHOLD = 200
 @Composable
 fun AboutSection(
     description: String,
-    genres: List<String>,
+    genres: List<Genre>,
     tags: List<Tag>,
     moods: List<Mood>,
     isLoadingTags: Boolean,
     isCard: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescriptionExpanded: () -> Unit,
-    onGenreClick: ((String) -> Unit)?,
+    onGenreClick: ((Genre) -> Unit)?,
     onTagClick: (Tag) -> Unit,
     onMoodClick: (Mood) -> Unit,
     modifier: Modifier = Modifier,
@@ -241,8 +242,8 @@ private fun ClampedMarkdownPreview(
 @Composable
 private fun AboutClassificationBlocks(
     creditsSlot: (@Composable () -> Unit)?,
-    genres: List<String>,
-    onGenreClick: ((String) -> Unit)?,
+    genres: List<Genre>,
+    onGenreClick: ((Genre) -> Unit)?,
     tags: List<Tag>,
     moods: List<Mood>,
     isLoadingTags: Boolean,
@@ -261,8 +262,9 @@ private fun AboutClassificationBlocks(
         SectionOverline(text = stringResource(Res.string.common_genres))
         Spacer(modifier = Modifier.height(Spacing.titleGap))
         FacetChipRow(
-            labels = genres,
+            items = genres,
             facet = BookFacet.Genre,
+            label = { it.name },
             onClick = onGenreClick,
         )
     }
