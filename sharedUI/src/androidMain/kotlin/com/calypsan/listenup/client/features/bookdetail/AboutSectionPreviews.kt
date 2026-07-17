@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
@@ -28,7 +29,12 @@ private val PREVIEW_DESCRIPTION =
     fates entwined in ways that will reshape the world.
     """.trimIndent()
 
-private val PREVIEW_GENRES = listOf("Epic Fantasy", "High Fantasy", "Adventure")
+private val PREVIEW_GENRES =
+    listOf(
+        Genre(id = "g1", name = "Epic Fantasy", slug = "epic-fantasy", path = "/fantasy/epic-fantasy"),
+        Genre(id = "g2", name = "High Fantasy", slug = "high-fantasy", path = "/fantasy/high-fantasy"),
+        Genre(id = "g3", name = "Adventure", slug = "adventure", path = "/adventure"),
+    )
 
 private val PREVIEW_TAGS =
     listOf(

@@ -62,8 +62,8 @@ enum BookFacetKind: CaseIterable, Hashable {
 /// One tappable classification chip: its display `name` and the facet `id` the tap navigates to.
 ///
 /// A native value type mapped at the observer boundary (`BookDetailObserver.apply`) — never a
-/// bridged Kotlin object fed to a `ForEach`. Genres carry no id (they don't navigate) and are
-/// rendered from plain `[String]`; tags and moods carry their id so a tap can browse the facet.
+/// bridged Kotlin object fed to a `ForEach`. Every axis carries its id so a tap can browse it:
+/// genres to the genre-hierarchy screen, tags and moods to the flat facet-browse.
 struct FacetChip: Identifiable, Equatable, Hashable {
     let id: String
     let name: String
@@ -77,15 +77,16 @@ struct FacetChip: Identifiable, Equatable, Hashable {
 /// for moods. Each chip respects Dynamic Type and labels itself sensibly for
 /// VoiceOver; the leading symbols are decorative.
 ///
-/// When `destination` is supplied (tags and moods), each chip becomes a
-/// `NavigationLink` that browses the facet by id on the ambient stack — matching the
-/// view's other navigations; genres pass `nil` and render as static capsules.
+/// When `destination` is supplied, each chip becomes a `NavigationLink` that browses by id on the
+/// ambient stack — matching the view's other navigations. The builder is generic over the value-typed
+/// route (`GenreDestination` for genres, `FacetDestination` for tags/moods), so one component serves
+/// every axis; a `nil` builder renders static, non-navigating capsules.
 ///
 /// Pure/presentational: it takes the chips, the `kind`, and an optional destination builder.
-struct BookFacetChips: View {
+struct BookFacetChips<Destination: Hashable>: View {
     let chips: [FacetChip]
     let kind: BookFacetKind
-    var destination: ((FacetChip) -> FacetDestination)?
+    var destination: ((FacetChip) -> Destination)?
 
     var body: some View {
         FlowLayout(spacing: 8) {
@@ -145,7 +146,8 @@ struct BookFacetChips: View {
         VStack(alignment: .leading, spacing: 16) {
             BookFacetChips(
                 chips: ["Epic Fantasy", "Political", "Adventure"].map { FacetChip(id: $0, name: $0) },
-                kind: .genre
+                kind: .genre,
+                destination: { GenreDestination(genreId: $0.id, genreName: $0.name) }
             )
             BookFacetChips(
                 chips: ["Found Family", "Slow Burn", "Unreliable Narrator"].map { FacetChip(id: $0, name: $0) },

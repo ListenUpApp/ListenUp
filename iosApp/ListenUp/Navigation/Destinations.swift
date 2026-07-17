@@ -61,6 +61,14 @@ struct FacetDestination: Hashable {
     let name: String
 }
 
+/// Browse-by-Genre screen — the genre hierarchy with a per-genre book list, reached by tapping a
+/// genre chip on Book Detail. `genreName` rides the route so the title renders immediately while
+/// Room hydrates the tree and the RPC returns the genre's books.
+struct GenreDestination: Hashable {
+    let genreId: String
+    let genreName: String
+}
+
 /// Shelf detail screen — the books a user has curated onto one shelf.
 struct ShelfDestination: Hashable {
     let id: String

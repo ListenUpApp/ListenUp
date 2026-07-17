@@ -273,9 +273,14 @@ data object AdminCategories : Route
 /**
  * Browse-by-Genre screen — tree of genres with a per-genre book list and an
  * `includeDescendants` toggle for subtree expansion.
+ *
+ * @property genreId Optional genre to pre-select on open (e.g. the genre chip tapped on Book
+ *   Detail). `null` opens the screen on the full tree with no genre selected.
  */
 @Serializable
-data object BrowseGenre : Route
+data class BrowseGenre(
+    val genreId: String? = null,
+) : Route
 
 /**
  * Facet-browse screen — every book carrying a flat facet (a Tag or a Mood), reached by tapping a

@@ -366,7 +366,6 @@ class BookDetailViewModel(
             addedAt = detail.addedAt.epochMillis,
             hasScanWarning = detail.hasScanWarning,
             genres = detail.genres,
-            genresList = detail.genres.map { it.name },
             tags = detail.tags,
             moods = detail.moods,
         )
@@ -757,7 +756,6 @@ sealed interface BookDetailUiState {
         val progress: Float? = null,
         val timeRemainingFormatted: String? = null,
         val genres: List<Genre> = emptyList(),
-        val genresList: List<String> = emptyList(),
         val tags: List<Tag> = emptyList(),
         val allTags: List<Tag> = emptyList(),
         val moods: List<Mood> = emptyList(),

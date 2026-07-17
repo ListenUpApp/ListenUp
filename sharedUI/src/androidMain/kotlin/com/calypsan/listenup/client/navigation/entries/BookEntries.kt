@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
 import com.calypsan.listenup.client.navigation.BrowseFacet
+import com.calypsan.listenup.client.navigation.BrowseGenre
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.DocumentViewer
 import com.calypsan.listenup.client.navigation.MatchPreview
@@ -38,6 +39,9 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
             },
             onContributorClick = { contributorId ->
                 backStack.add(ContributorDetail(contributorId))
+            },
+            onGenreClick = { genreId ->
+                backStack.add(BrowseGenre(genreId = genreId))
             },
             onTagClick = { tagId, tagName ->
                 backStack.add(BrowseFacet(kind = FacetKind.Tag, facetId = tagId, facetName = tagName))

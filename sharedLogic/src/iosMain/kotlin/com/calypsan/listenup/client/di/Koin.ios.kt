@@ -53,6 +53,7 @@ import com.calypsan.listenup.client.presentation.auth.RegisterViewModel
 import com.calypsan.listenup.client.presentation.auth.SetupViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
+import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
@@ -269,6 +270,8 @@ object KoinHelper {
     fun getTagDetailViewModel(): TagDetailViewModel = resolve(TagDetailViewModel::class)
 
     fun getBrowseFacetViewModel(): BrowseFacetViewModel = resolve(BrowseFacetViewModel::class)
+
+    fun getBrowseGenreViewModel(): BrowseGenreViewModel = resolve(BrowseGenreViewModel::class)
 
     fun getShelfDetailViewModel(): ShelfDetailViewModel = resolve(ShelfDetailViewModel::class)
 

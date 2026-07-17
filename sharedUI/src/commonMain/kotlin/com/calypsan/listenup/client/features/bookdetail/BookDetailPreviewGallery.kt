@@ -28,6 +28,7 @@ import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookSeries
+import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
@@ -112,6 +113,14 @@ private val mockAudioFiles =
     )
 
 private val mockGenres = listOf("Fantasy", "Epic Fantasy", "Adventure", "Fiction")
+
+private val mockGenreObjects =
+    listOf(
+        Genre(id = "g1", name = "Fantasy", slug = "fantasy", path = "/fantasy"),
+        Genre(id = "g2", name = "Epic Fantasy", slug = "epic-fantasy", path = "/fantasy/epic-fantasy"),
+        Genre(id = "g3", name = "Adventure", slug = "adventure", path = "/adventure"),
+        Genre(id = "g4", name = "Fiction", slug = "fiction", path = "/fiction"),
+    )
 
 private val mockTags =
     listOf(
@@ -321,7 +330,7 @@ private fun AboutSectionGallery() {
     GalleryLabel("About — frameless (compact)")
     AboutSection(
         description = MOCK_DESCRIPTION,
-        genres = mockGenres,
+        genres = mockGenreObjects,
         tags = mockTags,
         moods = mockMoods,
         isLoadingTags = false,
@@ -337,7 +346,7 @@ private fun AboutSectionGallery() {
     GalleryLabel("About — card with credits (wide)")
     AboutSection(
         description = MOCK_DESCRIPTION,
-        genres = mockGenres,
+        genres = mockGenreObjects,
         tags = mockTags,
         moods = mockMoods,
         isLoadingTags = false,
