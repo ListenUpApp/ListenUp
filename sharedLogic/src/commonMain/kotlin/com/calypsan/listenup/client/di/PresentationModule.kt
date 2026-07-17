@@ -613,6 +613,17 @@ internal val storyWorldPresentationModule =
                 errorBus = get(),
             )
         }
+        factory {
+            com.calypsan.listenup.client.presentation.storyworld.StorySoFarViewModel(
+                worldEventEditRepository = get(),
+                entityEditRepository = get(),
+                seriesRepository = get<com.calypsan.listenup.client.domain.repository.SeriesRepository>(),
+                bookRepository = get(),
+                playbackPositionRepository = get(),
+                readingOrderRepository = get(),
+                playbackManager = get(),
+            )
+        }
     }
 
 /**

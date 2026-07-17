@@ -76,7 +76,10 @@ import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
+import com.calypsan.listenup.client.presentation.readingorder.ReadingOrderDetailViewModel
+import com.calypsan.listenup.client.presentation.readingorder.SeriesReadingOrdersViewModel
 import com.calypsan.listenup.client.presentation.storyworld.EntityDetailViewModel
+import com.calypsan.listenup.client.presentation.storyworld.StorySoFarViewModel
 import com.calypsan.listenup.client.presentation.storyworld.StoryWorldEntityListViewModel
 import com.calypsan.listenup.client.presentation.storyworld.StoryWorldHubViewModel
 import com.calypsan.listenup.client.presentation.storyworld.composer.WorldComposerViewModel
@@ -322,6 +325,12 @@ object KoinHelper {
     fun getEntityDetailViewModel(): EntityDetailViewModel = resolve(EntityDetailViewModel::class)
 
     fun getWorldComposerViewModel(): WorldComposerViewModel = resolve(WorldComposerViewModel::class)
+
+    fun getStorySoFarViewModel(): StorySoFarViewModel = resolve(StorySoFarViewModel::class)
+
+    fun getSeriesReadingOrdersViewModel(): SeriesReadingOrdersViewModel = resolve(SeriesReadingOrdersViewModel::class)
+
+    fun getReadingOrderDetailViewModel(): ReadingOrderDetailViewModel = resolve(ReadingOrderDetailViewModel::class)
 }
 
 /**
