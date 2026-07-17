@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import com.calypsan.listenup.client.data.sync.testing.awaitUntil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -116,7 +117,11 @@ class ReconcileOnDrainTest :
 
                     // Prove the op drained (the reconcile decision point was reached with a real send).
                     withTimeout(TIMEOUT_SECONDS.seconds) { sent.first { it == opId } }
-                    db.pendingOperationV2Dao().get(opId) shouldBe null
+                    // Await the row's removal rather than asserting it the instant the send is
+                    // observed: the queue deletes AFTER the sender returns, so reading the DAO
+                    // straight off `sent` races the delete — green locally, flaky under CI
+                    // contention. Await the state we actually mean.
+                    awaitUntil(TIMEOUT_SECONDS.seconds) { db.pendingOperationV2Dao().get(opId) == null }
 
                     // No registered "preferences" handler → the engine must NOT fetch. Give it ample time.
                     delay(QUIET_WINDOW_MILLIS)
