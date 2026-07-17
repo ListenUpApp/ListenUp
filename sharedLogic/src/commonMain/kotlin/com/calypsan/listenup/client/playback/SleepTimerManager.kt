@@ -31,6 +31,11 @@ private val logger = KotlinLogging.logger {}
  */
 class SleepTimerManager(
     private val scope: CoroutineScope,
+    /**
+     * Wall-clock read seam. Defaults to the system clock; tests inject a virtual clock (e.g. the
+     * coroutines-test scheduler) so the fire-after-duration behaviour can be pinned deterministically.
+     */
+    private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     val state: StateFlow<SleepTimerState>
         field = MutableStateFlow<SleepTimerState>(SleepTimerState.Inactive)
@@ -129,7 +134,7 @@ class SleepTimerManager(
 
     private fun startDurationTimer(minutes: Int) {
         val totalMs = minutes * MS_PER_MINUTE
-        val startedAt = Clock.System.now().toEpochMilliseconds()
+        val startedAt = nowMillis()
 
         state.value =
             SleepTimerState.Active(
@@ -149,7 +154,7 @@ class SleepTimerManager(
                     val current = state.value
                     if (current !is SleepTimerState.Active) break
 
-                    val elapsed = Clock.System.now().toEpochMilliseconds() - current.startedAt
+                    val elapsed = nowMillis() - current.startedAt
                     val remaining = (current.totalMs - elapsed).coerceAtLeast(0)
 
                     state.value = current.copy(remainingMs = remaining)
@@ -169,7 +174,7 @@ class SleepTimerManager(
                 mode = SleepTimerMode.EndOfChapter,
                 remainingMs = 0,
                 totalMs = 0,
-                startedAt = Clock.System.now().toEpochMilliseconds(),
+                startedAt = nowMillis(),
             )
         logger.debug { "Started end-of-chapter timer, waiting for chapter change" }
     }

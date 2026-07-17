@@ -45,11 +45,14 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class CollectionMembershipRoutingRule :
     FunSpec({
         test("every collection_books membership mutation also calls reconcileSystemMembership (#680 exclusivity)") {
-            val scope = Konsist.scopeFromProduction()
+            // Narrowed to the `server` module's production sources — this rule only inspects server
+            // repositories/services. A whole-repo `scopeFromProduction()` parsed every module's PSI
+            // (the dominant cost of the server suite) for zero added coverage.
+            val scope = Konsist.scopeFromProduction("server")
             // Gather class-member functions (the precedent shape — `KoScope.functions()` alone does
             // not descend into classes) plus any top-level ones, so no membership mutation escapes.
             val allFunctions = scope.classes().flatMap { it.functions() } + scope.functions()
-            val offenders =
+            val mutators =
                 allFunctions
                     .filter { fn ->
                         val body = stripComments(fn.text)
@@ -62,7 +65,17 @@ class CollectionMembershipRoutingRule :
                             ".softDeleteAllForCollection(" in body ||
                             ".softDeleteAllForBook(" in body ||
                             ".reviveAllForBooks(" in body
-                    }.filterNot { it.name in ALLOWLIST }
+                    }
+            // Vacuity guard: if the scope narrows to nothing (misconfigured module name, an empty
+            // parse), the offender set is trivially empty and the rule passes without ever checking
+            // its invariant. A membership-mutating codebase must always surface these call sites.
+            require(mutators.isNotEmpty()) {
+                "CollectionMembershipRoutingRule found no collection_books mutations in the `server` scope — " +
+                    "the scope is misconfigured and the rule would pass vacuously"
+            }
+            val offenders =
+                mutators
+                    .filterNot { it.name in ALLOWLIST }
                     .filterNot { "reconcileSystemMembership(" in stripComments(it.text) }
                     .map {
                         "${it.name} @ ${it.path} — mutates collection_books without reconcileSystemMembership; " +

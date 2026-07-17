@@ -10,7 +10,6 @@ import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
@@ -40,7 +39,8 @@ class FakeBookRepository(
 
     override suspend fun getChapters(bookId: String): List<Chapter> = chaptersByBookId[bookId].orEmpty()
 
-    override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(chaptersByBookId[bookId].orEmpty())
+    override fun observeChapters(bookId: String): Flow<List<Chapter>> =
+        MutableStateFlow(chaptersByBookId[bookId].orEmpty())
 
     /** A book is "live" in this fake when it is present in the current [books] list. */
     override fun observeIsBookLive(id: String): Flow<Boolean> =
@@ -68,9 +68,9 @@ class FakeBookRepository(
         return books.value.filter { it.id in wanted }
     }
 
-    override fun observeBookDetail(id: String): Flow<BookDetail?> = flowOf(null)
+    override fun observeBookDetail(id: String): Flow<BookDetail?> = MutableStateFlow(null)
 
-    override fun search(query: String): Flow<List<BookListItem>> = flowOf(emptyList())
+    override fun search(query: String): Flow<List<BookListItem>> = MutableStateFlow(emptyList())
 
     override suspend fun getBookDetail(id: String): BookDetail? = null
 

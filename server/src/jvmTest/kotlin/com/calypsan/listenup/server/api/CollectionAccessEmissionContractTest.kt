@@ -279,7 +279,10 @@ class CollectionAccessEmissionContractTest :
         test("every CollectionServiceImpl membership/grant mutation has an emission case (or an allowlist reason)") {
             val serviceFns =
                 Konsist
-                    .scopeFromProduction()
+                    // Narrowed to the `server` module's production sources: this backstop only inspects
+                    // `CollectionServiceImpl` (server code). A whole-repo `scopeFromProduction()` parsed
+                    // every module's PSI — the dominant cost of the server suite — for no added coverage.
+                    .scopeFromProduction("server")
                     .classes()
                     .filter { it.name == "CollectionServiceImpl" }
                     .flatMap { it.functions() }
