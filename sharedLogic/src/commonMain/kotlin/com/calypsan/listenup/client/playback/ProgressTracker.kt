@@ -37,6 +37,11 @@ open class ProgressTracker(
     private val downloadRepository: DownloadRepository,
     private val positionRepository: PlaybackPositionRepository,
     private val scope: CoroutineScope,
+    /**
+     * Wall-clock read seam. Defaults to the system clock; tests inject a virtual clock so
+     * session-start/pause/finish timestamps are deterministic.
+     */
+    private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     val sessionState: StateFlow<SessionState>
         field = MutableStateFlow<SessionState>(SessionState.Idle)
@@ -49,7 +54,7 @@ open class ProgressTracker(
         positionMs: Long,
         speed: Float,
     ) {
-        val now = Clock.System.now().toEpochMilliseconds()
+        val now = nowMillis()
         sessionState.value =
             SessionState.Active(
                 bookId = bookId,
@@ -93,7 +98,7 @@ open class ProgressTracker(
         positionMs: Long,
         speed: Float,
     ) {
-        val now = Clock.System.now().toEpochMilliseconds()
+        val now = nowMillis()
 
         // Atomic transition: Active(matching bookId) -> Paused; else no-op
         val priorState = sessionState.value // capture for transition logging
@@ -313,7 +318,7 @@ open class ProgressTracker(
             }
 
             // Mark book as complete
-            val finishedAt = Clock.System.now().toEpochMilliseconds()
+            val finishedAt = nowMillis()
             when (
                 val r =
                     positionRepository.markComplete(

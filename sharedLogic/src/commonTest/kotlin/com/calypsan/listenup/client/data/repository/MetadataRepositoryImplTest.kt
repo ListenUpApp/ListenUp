@@ -108,13 +108,6 @@ class MetadataRepositoryImplTest :
             buildRepo(service).getContributorMetadata("A001", MetadataLocale.DEFAULT) shouldBe AppResult.Success<MetadataContributorProfile?>(null)
         }
 
-        test("refreshBookMetadata delegates to service and returns Success") {
-            val service = mock<MetadataLookupService>()
-            everySuspend { service.refreshBookMetadata("B001", MetadataLocale.DEFAULT) } returns WireAppResult.Success<MetadataBook?>(null)
-
-            buildRepo(service).refreshBookMetadata("B001", MetadataLocale.DEFAULT) shouldBe AppResult.Success<MetadataBook?>(null)
-        }
-
         test("applyBookMetadata delegates to service and returns Success") {
             val service = mock<MetadataLookupService>()
             val sel =

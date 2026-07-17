@@ -66,13 +66,6 @@ interface CollectionRepository {
         permission: SharePermission,
     ): AppResult<CollectionShare>
 
-    /** Update the [permission] level of an existing share for [sharedWithUserId]. */
-    suspend fun updateShare(
-        collectionId: String,
-        sharedWithUserId: String,
-        permission: SharePermission,
-    ): AppResult<CollectionShare>
-
     /** Revoke the share on [collectionId] for [sharedWithUserId]. */
     suspend fun revokeShare(
         collectionId: String,

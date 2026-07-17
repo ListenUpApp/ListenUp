@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
@@ -32,16 +31,16 @@ class FakeDownloadRepository(
         statuses.value = statuses.value + (bookId to status)
     }
 
-    override fun observeForBook(bookId: BookId): Flow<List<Download>> = flowOf(emptyList())
+    override fun observeForBook(bookId: BookId): Flow<List<Download>> = MutableStateFlow(emptyList())
 
-    override fun observeAll(): Flow<List<Download>> = flowOf(emptyList())
+    override fun observeAll(): Flow<List<Download>> = MutableStateFlow(emptyList())
 
     override fun observeBookStatus(bookId: BookId): Flow<BookDownloadStatus> =
         statuses.map { it[bookId.value] ?: BookDownloadStatus.NotDownloaded(bookId.value) }
 
     override fun observeAllStatuses(): Flow<Map<String, BookDownloadStatus>> = statuses
 
-    override fun observeDownloadedBooks(): Flow<List<DownloadedBookSummary>> = flowOf(emptyList())
+    override fun observeDownloadedBooks(): Flow<List<DownloadedBookSummary>> = MutableStateFlow(emptyList())
 
     override suspend fun getLocalPath(audioFileId: String): String? = null
 

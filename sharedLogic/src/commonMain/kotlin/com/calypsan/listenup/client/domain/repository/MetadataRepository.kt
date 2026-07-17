@@ -57,12 +57,6 @@ interface MetadataRepository {
         region: MetadataLocale,
     ): AppResult<MetadataContributorProfile?>
 
-    /** Bypasses the cache and forces a fresh fetch of the Audible metadata for [asin] in [region]. */
-    suspend fun refreshBookMetadata(
-        asin: String,
-        region: MetadataLocale,
-    ): AppResult<MetadataBook?>
-
     /**
      * Applies the Audible metadata for [asin] to the book at [bookId], honoring
      * the per-field [selection].

@@ -32,7 +32,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Offline-first contract for the collection write surface. `rename`, `delete`, `addBook`, and
  * `removeBook` must write Room and enqueue a durable outbox op with no server present. `create`
- * (server-minted id) and the ACL surfaces (`share`/`updateShare`/`revokeShare`) stay online.
+ * (server-minted id) and the ACL surfaces (`share`/`revokeShare`) stay online.
  */
 class CollectionRepositoryOfflineTest :
     FunSpec({

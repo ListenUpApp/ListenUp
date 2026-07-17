@@ -56,11 +56,6 @@ internal class MetadataRepositoryImpl(
     ): AppResult<MetadataContributorProfile?> =
         channel.call(idempotent = true) { it.getContributorMetadata(asin, region) }
 
-    override suspend fun refreshBookMetadata(
-        asin: String,
-        region: MetadataLocale,
-    ): AppResult<MetadataBook?> = channel.call { it.refreshBookMetadata(asin, region) }
-
     override suspend fun applyBookMetadata(
         bookId: BookId,
         asin: String,

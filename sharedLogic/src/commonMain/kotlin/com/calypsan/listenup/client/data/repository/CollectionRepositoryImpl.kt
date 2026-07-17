@@ -44,7 +44,7 @@ import kotlinx.coroutines.flow.map
  *   junction edits on the `collection_books` channel keyed by the `"$collectionId:$bookId"` envelope
  *   id — so an edit made offline persists and replays on reconnect. The entity-level in-flight shield
  *   defers each row's own echo until its op drains.
- * - `create` stays online (the server mints the collection's id); `share`/`updateShare`/`revokeShare`
+ * - `create` stays online (the server mints the collection's id); `share`/`revokeShare`
  *   stay online (ACL changes are genuinely server-required).
  *
  * @property offlineEditor Composes the optimistic Room merge and the durable outbox enqueue into a
@@ -174,16 +174,6 @@ internal class CollectionRepositoryImpl(
         channel
             .call {
                 it.shareCollection(CollectionId(collectionId), sharedWithUserId, permission)
-            }.map { it.toDomain() }
-
-    override suspend fun updateShare(
-        collectionId: String,
-        sharedWithUserId: String,
-        permission: SharePermission,
-    ): AppResult<CollectionShare> =
-        channel
-            .call {
-                it.updateShare(CollectionId(collectionId), sharedWithUserId, permission)
             }.map { it.toDomain() }
 
     override suspend fun revokeShare(

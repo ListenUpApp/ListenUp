@@ -25,7 +25,7 @@ import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.MutableStateFlow
 
 // ========== Fake Search Repository ==========
 
@@ -101,7 +101,7 @@ class FakeHomeRepository : HomeRepository {
         AppResult.Success(continueListeningBooks.take(limit))
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
-        flowOf(
+        MutableStateFlow(
             continueListeningBooks.take(limit).map { book ->
                 ContinueListeningItem.Ready(bookId = book.bookId, book = book)
             },
@@ -134,26 +134,26 @@ class FakeBookRepository : BookRepository {
 
     override suspend fun getChapters(bookId: String): List<Chapter> = chapters[bookId] ?: emptyList()
 
-    override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(chapters[bookId].orEmpty())
+    override fun observeChapters(bookId: String): Flow<List<Chapter>> = MutableStateFlow(chapters[bookId].orEmpty())
 
-    override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(true)
+    override fun observeIsBookLive(id: String): Flow<Boolean> = MutableStateFlow(true)
 
-    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> = flowOf(emptyList())
+    override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> = MutableStateFlow(emptyList())
 
-    override fun observeRecentlyAddedBooks(limit: Int): Flow<List<DiscoveryBook>> = flowOf(emptyList())
+    override fun observeRecentlyAddedBooks(limit: Int): Flow<List<DiscoveryBook>> = MutableStateFlow(emptyList())
 
-    override fun observeBookListItems(): Flow<List<BookListItem>> = flowOf(books.values.toList())
+    override fun observeBookListItems(): Flow<List<BookListItem>> = MutableStateFlow(books.values.toList())
 
     override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> =
-        flowOf(ids.mapNotNull { books[it] })
+        MutableStateFlow(ids.mapNotNull { books[it] })
 
     override suspend fun getBookListItem(id: String): BookListItem? = books[id]
 
     override suspend fun getBookListItems(ids: List<String>): List<BookListItem> = ids.mapNotNull { books[it] }
 
-    override fun observeBookDetail(id: String): Flow<BookDetail?> = flowOf(null)
+    override fun observeBookDetail(id: String): Flow<BookDetail?> = MutableStateFlow(null)
 
-    override fun search(query: String): Flow<List<BookListItem>> = flowOf(emptyList())
+    override fun search(query: String): Flow<List<BookListItem>> = MutableStateFlow(emptyList())
 
     override suspend fun getBookDetail(id: String): BookDetail? = null
 }
@@ -204,25 +204,27 @@ class FakeSeriesRepository : SeriesRepository {
         bookSeriesMap[bookId] = seriesId
     }
 
-    override fun observeAll(): Flow<List<Series>> = flowOf(seriesMap.values.toList())
+    override fun observeAll(): Flow<List<Series>> = MutableStateFlow(seriesMap.values.toList())
 
-    override fun observeById(id: String): Flow<Series?> = flowOf(seriesMap[id])
+    override fun observeById(id: String): Flow<Series?> = MutableStateFlow(seriesMap[id])
 
     override suspend fun getById(id: String): Series? = seriesMap[id]
 
     override fun observeByBookId(bookId: String): Flow<Series?> {
         val seriesId = bookSeriesMap[bookId]
-        return flowOf(seriesId?.let { seriesMap[it] })
+        return MutableStateFlow(seriesId?.let { seriesMap[it] })
     }
 
     override suspend fun getBookIdsForSeries(seriesId: String): List<String> = seriesBooks[seriesId] ?: emptyList()
 
     override fun observeBookIdsForSeries(seriesId: String): Flow<List<String>> =
-        flowOf(seriesBooks[seriesId] ?: emptyList())
+        MutableStateFlow(seriesBooks[seriesId] ?: emptyList())
 
-    override fun observeAllWithBooks(): Flow<List<SeriesWithBooks>> = flowOf(seriesWithBooksMap.values.toList())
+    override fun observeAllWithBooks(): Flow<List<SeriesWithBooks>> =
+        MutableStateFlow(seriesWithBooksMap.values.toList())
 
-    override fun observeSeriesWithBooks(seriesId: String): Flow<SeriesWithBooks?> = flowOf(seriesWithBooksMap[seriesId])
+    override fun observeSeriesWithBooks(seriesId: String): Flow<SeriesWithBooks?> =
+        MutableStateFlow(seriesWithBooksMap[seriesId])
 
     override suspend fun searchSeries(
         query: String,
