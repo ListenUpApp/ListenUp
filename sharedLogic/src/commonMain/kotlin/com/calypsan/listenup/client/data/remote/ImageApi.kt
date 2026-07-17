@@ -14,7 +14,6 @@ import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 
 private const val COVER_REQUEST_TIMEOUT_MS = 60_000L
-private const val TAR_BLOCK_SIZE = 512
 
 /** Builds the multipart form-data body for a binary image upload (single `file` part). */
 private fun imageFormData(
@@ -49,7 +48,7 @@ private fun seriesCoverPath(seriesId: String) = "/api/v1/series/$seriesId/cover"
  */
 @NonRpcTransport(
     NonRpcReason.BINARY_TRANSFER,
-    justification = "Cover/photo/avatar bytes and the TAR image batch are raw byte streams — no JSON-RPC frame.",
+    justification = "Cover/photo/avatar bytes are raw byte streams — no JSON-RPC frame.",
 )
 internal class ImageApi(
     private val clientFactory: ApiClientFactory,
@@ -227,30 +226,6 @@ internal class ImageApi(
         }
 
     /**
-     * Download multiple contributor images in a single request.
-     *
-     * Server returns a TAR stream containing all requested images.
-     * Missing images are silently skipped by the server.
-     * Each entry in the TAR is named `{contributorId}.jpg`.
-     *
-     * Endpoint: GET /api/v1/contributors/images/batch?ids=contrib_1,contrib_2
-     * Auth: Required (Bearer token)
-     * Response: application/x-tar (TAR archive)
-     *
-     * @param contributorIds List of contributor IDs to download images for (max 100)
-     * @return Result containing map of contributorId to image bytes for successfully downloaded images
-     */
-    override suspend fun downloadContributorImageBatch(
-        contributorIds: List<String>,
-    ): AppResult<Map<String, ByteArray>> =
-        suspendRunCatching {
-            val client = clientFactory.getClient()
-            val idsParam = contributorIds.joinToString(",")
-            val tarData = client.get("/api/v1/contributors/images/batch?ids=$idsParam").body<ByteArray>()
-            parseTar(tarData)
-        }
-
-    /**
      * Download avatar image for a user.
      *
      * Returns raw image bytes which can be saved to local storage
@@ -268,86 +243,4 @@ internal class ImageApi(
             val client = clientFactory.getClient()
             client.get("/api/v1/avatars/$userId").body<ByteArray>()
         }
-
-    /**
-     * Parse TAR archive and extract files.
-     *
-     * TAR format:
-     * - Each file has a 512-byte header
-     * - Filename at offset 0 (100 bytes, null-terminated)
-     * - File size at offset 124 (12 bytes, octal ASCII)
-     * - File data follows, padded to 512-byte boundary
-     * - Archive ends with two 512-byte blocks of zeros
-     *
-     * @param tarData Raw TAR archive bytes
-     * @return Map of filename (without extension) to file bytes
-     */
-    private fun parseTar(tarData: ByteArray): Map<String, ByteArray> {
-        val result = mutableMapOf<String, ByteArray>()
-        var offset = 0
-
-        while (offset + TAR_BLOCK_SIZE <= tarData.size) {
-            // Check if we've hit the end marker (two zero blocks)
-            if (isZeroBlock(tarData, offset)) {
-                break
-            }
-
-            // Extract filename (first 100 bytes, null-terminated)
-            val filenameBytes = tarData.copyOfRange(offset, offset + 100)
-            val filenameEndIndex = filenameBytes.indexOfFirst { it == 0.toByte() }
-            val filename =
-                if (filenameEndIndex >= 0) {
-                    filenameBytes.copyOfRange(0, filenameEndIndex).decodeToString()
-                } else {
-                    filenameBytes.decodeToString()
-                }
-
-            // Extract file size (12 bytes at offset 124, octal ASCII)
-            val sizeBytes = tarData.copyOfRange(offset + 124, offset + 136)
-            val sizeStr = sizeBytes.takeWhile { it != 0.toByte() && it != 32.toByte() }.toByteArray().decodeToString()
-            val fileSize =
-                if (sizeStr.isNotEmpty()) {
-                    sizeStr.trim().toLongOrNull(8)?.toInt() ?: 0
-                } else {
-                    0
-                }
-
-            // Move past header to file data
-            offset += TAR_BLOCK_SIZE
-
-            // Extract file data
-            if (fileSize > 0 && offset + fileSize <= tarData.size) {
-                val fileData = tarData.copyOfRange(offset, offset + fileSize)
-
-                // Extract book ID from filename (remove .jpg extension)
-                val bookId = filename.removeSuffix(".jpg")
-                result[bookId] = fileData
-
-                // Move to next file (files are padded to 512-byte boundary)
-                val paddedSize = (fileSize + 511) / 512 * 512
-                offset += paddedSize
-            } else {
-                // Invalid file size or truncated data, skip
-                break
-            }
-        }
-
-        return result
-    }
-
-    /**
-     * Check if a 512-byte block is all zeros (end marker).
-     */
-    private fun isZeroBlock(
-        data: ByteArray,
-        offset: Int,
-    ): Boolean {
-        val endOffset = minOf(offset + TAR_BLOCK_SIZE, data.size)
-        for (i in offset until endOffset) {
-            if (data[i] != 0.toByte()) {
-                return false
-            }
-        }
-        return true
-    }
 }

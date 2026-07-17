@@ -77,21 +77,6 @@ interface ImageApiContract {
     ): AppResult<ImageUploadResponse>
 
     /**
-     * Download multiple contributor images in a single request.
-     *
-     * Server returns a TAR stream containing all requested images.
-     * Missing images are silently skipped by the server.
-     *
-     * Endpoint: GET /api/v1/contributors/images/batch?ids=contrib_1,contrib_2
-     * Auth: Required (Bearer token)
-     * Response: application/x-tar (TAR archive)
-     *
-     * @param contributorIds List of contributor IDs to download images for (max 100)
-     * @return Result containing map of contributorId to image bytes for successfully downloaded images
-     */
-    suspend fun downloadContributorImageBatch(contributorIds: List<String>): AppResult<Map<String, ByteArray>>
-
-    /**
      * Download avatar image for a user.
      *
      * @param userId Unique identifier for the user
