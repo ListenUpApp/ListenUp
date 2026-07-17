@@ -2991,6 +2991,26 @@
         }
       }
     },
+    "book.detail_restart_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart Book"
+          }
+        }
+      }
+    },
+    "book.detail_restart_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start over from the beginning? This resets your position to the start of the book."
+          }
+        }
+      }
+    },
     "book.detail_resume": {
       "localizations": {
         "en": {
@@ -10821,6 +10841,26 @@
         }
       }
     },
+    "settings.cant_delete_playing_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%1$@” is playing right now. Stop playback before deleting its download."
+          }
+        }
+      }
+    },
+    "settings.cant_delete_playing_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop playback first"
+          }
+        }
+      }
+    },
     "settings.choose_light_dark_or_follow": {
       "localizations": {
         "en": {
@@ -10947,6 +10987,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Haptic Feedback"
+          }
+        }
+      }
+    },
+    "settings.haptic_feedback_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vibration feedback for controls"
           }
         }
       }
@@ -11217,6 +11267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Download on Wi-Fi Only"
+          }
+        }
+      }
+    },
+    "settings.wifi_only_downloads_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause downloads on cellular networks"
           }
         }
       }

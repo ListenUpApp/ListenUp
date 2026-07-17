@@ -42,6 +42,7 @@ fun BookDetailTopBar(
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
+    onRestartClick: () -> Unit,
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -89,6 +90,10 @@ fun BookDetailTopBar(
                     onMarkNotStartedClick = {
                         showMenu = false
                         onMarkNotStartedClick()
+                    },
+                    onRestartClick = {
+                        showMenu = false
+                        onRestartClick()
                     },
                     onAddToShelfClick = {
                         showMenu = false

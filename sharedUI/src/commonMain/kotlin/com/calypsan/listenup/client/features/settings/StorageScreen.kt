@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.outlined.CloudDownload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,7 +51,10 @@ import listenup.composeapp.generated.resources.book_delete_download
 import listenup.composeapp.generated.resources.book_detail_you_can_redownload_anytime_by
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_delete
+import listenup.composeapp.generated.resources.common_ok
 import listenup.composeapp.generated.resources.common_storage
+import listenup.composeapp.generated.resources.settings_cant_delete_playing_message
+import listenup.composeapp.generated.resources.settings_cant_delete_playing_title
 import listenup.composeapp.generated.resources.settings_book_downloaded_count
 import listenup.composeapp.generated.resources.settings_books_downloaded_count
 import listenup.composeapp.generated.resources.settings_clear_all
@@ -115,6 +119,22 @@ fun StorageScreen(
                 )
             }
         }
+    }
+
+    // Never-stranded notice (B9): a delete was refused because the target book is currently
+    // playing. Surfacing the reason — instead of silently no-op'ing the delete — tells the user
+    // exactly how to proceed (stop playback, then delete).
+    state.blockedDeletionTitle?.let { title ->
+        AlertDialog(
+            onDismissRequest = viewModel::dismissDeleteBlocked,
+            title = { Text(stringResource(Res.string.settings_cant_delete_playing_title)) },
+            text = { Text(stringResource(Res.string.settings_cant_delete_playing_message, title)) },
+            confirmButton = {
+                TextButton(onClick = viewModel::dismissDeleteBlocked) {
+                    Text(stringResource(Res.string.common_ok))
+                }
+            },
+        )
     }
 
     ListenUpScaffold(

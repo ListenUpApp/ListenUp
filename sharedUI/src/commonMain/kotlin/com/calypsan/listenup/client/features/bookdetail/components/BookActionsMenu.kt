@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
@@ -16,12 +17,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.vector.ImageVector
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_collection
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
 import listenup.composeapp.generated.resources.book_detail_edit_book
 import listenup.composeapp.generated.resources.book_detail_mark_as_finished
 import listenup.composeapp.generated.resources.book_detail_mark_as_not_started
+import listenup.composeapp.generated.resources.book_detail_restart_book
 import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.common_share
 import listenup.composeapp.generated.resources.metadata_match_on_audible
@@ -41,6 +44,7 @@ import org.jetbrains.compose.resources.stringResource
  * @param onFindMetadataClick Called when Find Metadata is clicked
  * @param onMarkCompleteClick Called when Mark as Complete is clicked (shown only when not complete)
  * @param onMarkNotStartedClick Called when Mark as Not Started is clicked (shown when there is progress or it is complete)
+ * @param onRestartClick Called when Restart Book is clicked (shown when there is progress or it is complete)
  * @param onAddToShelfClick Called when Add to Shelf is clicked
  * @param onAddToCollectionClick Called when Add to Collection is clicked (admin only)
  * @param onDeleteClick Called when Delete Book is clicked (admin only)
@@ -57,6 +61,7 @@ fun BookActionsMenu(
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
+    onRestartClick: () -> Unit,
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -67,26 +72,16 @@ fun BookActionsMenu(
         onDismissRequest = onDismiss,
     ) {
         // Edit Book
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.book_detail_edit_book)) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = null,
-                )
-            },
+        ActionMenuItem(
+            label = stringResource(Res.string.book_detail_edit_book),
+            icon = Icons.Default.Edit,
             onClick = onEditClick,
         )
 
         // Find Metadata
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.metadata_match_on_audible)) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                )
-            },
+        ActionMenuItem(
+            label = stringResource(Res.string.metadata_match_on_audible),
+            icon = Icons.Default.Search,
             onClick = onFindMetadataClick,
         )
 
@@ -94,67 +89,51 @@ fun BookActionsMenu(
 
         // Mark as Complete (only when not already complete)
         if (!isComplete) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.book_detail_mark_as_finished)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                    )
-                },
+            ActionMenuItem(
+                label = stringResource(Res.string.book_detail_mark_as_finished),
+                icon = Icons.Default.CheckCircle,
                 onClick = onMarkCompleteClick,
             )
         }
 
         // Mark as Not Started (whenever there is progress or it is complete — i.e. something to clear)
         if (hasProgress || isComplete) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.book_detail_mark_as_not_started)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.RadioButtonUnchecked,
-                        contentDescription = null,
-                    )
-                },
+            ActionMenuItem(
+                label = stringResource(Res.string.book_detail_mark_as_not_started),
+                icon = Icons.Default.RadioButtonUnchecked,
                 onClick = onMarkNotStartedClick,
             )
         }
 
+        // Restart Book — resets the position to the start (shown when there is something to restart)
+        if (hasProgress || isComplete) {
+            ActionMenuItem(
+                label = stringResource(Res.string.book_detail_restart_book),
+                icon = Icons.Default.RestartAlt,
+                onClick = onRestartClick,
+            )
+        }
+
         // Add to Shelf
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.book_detail_add_to_shelf)) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                    contentDescription = null,
-                )
-            },
+        ActionMenuItem(
+            label = stringResource(Res.string.book_detail_add_to_shelf),
+            icon = Icons.AutoMirrored.Filled.PlaylistAdd,
             onClick = onAddToShelfClick,
         )
 
         // Add to Collection (admin only)
         if (isAdmin) {
-            DropdownMenuItem(
-                text = { Text(stringResource(Res.string.book_detail_add_to_collection)) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.PlaylistAdd,
-                        contentDescription = null,
-                    )
-                },
+            ActionMenuItem(
+                label = stringResource(Res.string.book_detail_add_to_collection),
+                icon = Icons.AutoMirrored.Filled.PlaylistAdd,
                 onClick = onAddToCollectionClick,
             )
         }
 
         // Share
-        DropdownMenuItem(
-            text = { Text(stringResource(Res.string.common_share)) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = null,
-                )
-            },
+        ActionMenuItem(
+            label = stringResource(Res.string.common_share),
+            icon = Icons.Default.Share,
             onClick = onShareClick,
         )
 
@@ -186,4 +165,18 @@ fun BookActionsMenu(
             )
         }
     }
+}
+
+/** A dropdown row with a leading icon — the shape every non-destructive book action shares. */
+@Composable
+private fun ActionMenuItem(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = { Text(label) },
+        leadingIcon = { Icon(imageVector = icon, contentDescription = null) },
+        onClick = onClick,
+    )
 }

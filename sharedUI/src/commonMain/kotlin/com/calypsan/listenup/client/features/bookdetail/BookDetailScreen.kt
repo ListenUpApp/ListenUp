@@ -68,6 +68,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteD
 import com.calypsan.listenup.client.features.bookdetail.components.MarkNotStartedDialog
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
+import com.calypsan.listenup.client.features.bookdetail.components.RestartBookDialog
 import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
@@ -219,6 +220,7 @@ private fun BookDetailReadyContent(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
     var showMarkNotStartedDialog by remember { mutableStateOf(false) }
+    var showRestartDialog by remember { mutableStateOf(false) }
 
     // Callback for opening metadata search
     val onFindMetadataClick: () -> Unit = {
@@ -244,6 +246,7 @@ private fun BookDetailReadyContent(
         onFindMetadataClick = onFindMetadataClick,
         onMarkCompleteClick = { showMarkCompleteDialog = true },
         onMarkNotStartedClick = { showMarkNotStartedDialog = true },
+        onRestartClick = { showRestartDialog = true },
         onAddToShelfClick = { viewModel.showShelfPicker() },
         onAddToCollectionClick = { viewModel.showCollectionPicker() },
         onShareClick = {
@@ -325,6 +328,16 @@ private fun BookDetailReadyContent(
         )
     }
 
+    if (showRestartDialog) {
+        RestartBookDialog(
+            onConfirm = {
+                viewModel.restartBook()
+                showRestartDialog = false
+            },
+            onDismiss = { showRestartDialog = false },
+        )
+    }
+
     if (showMarkCompleteDialog) {
         MarkCompleteDialog(
             startedAtMs = state.startedAtMs,
@@ -402,6 +415,7 @@ fun BookDetailContent(
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
+    onRestartClick: () -> Unit,
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -449,6 +463,7 @@ fun BookDetailContent(
             onFindMetadataClick = onFindMetadataClick,
             onMarkCompleteClick = onMarkCompleteClick,
             onMarkNotStartedClick = onMarkNotStartedClick,
+            onRestartClick = onRestartClick,
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
@@ -486,6 +501,7 @@ fun BookDetailContent(
             onFindMetadataClick = onFindMetadataClick,
             onMarkCompleteClick = onMarkCompleteClick,
             onMarkNotStartedClick = onMarkNotStartedClick,
+            onRestartClick = onRestartClick,
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
@@ -539,6 +555,7 @@ private fun ImmersiveBookDetail(
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
     onMarkNotStartedClick: () -> Unit,
+    onRestartClick: () -> Unit,
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -581,6 +598,7 @@ private fun ImmersiveBookDetail(
             onFindMetadataClick = onFindMetadataClick,
             onMarkCompleteClick = onMarkCompleteClick,
             onMarkNotStartedClick = onMarkNotStartedClick,
+            onRestartClick = onRestartClick,
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
