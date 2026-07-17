@@ -11,8 +11,6 @@ internal interface ImageDownloaderContract {
 
     suspend fun downloadContributorImage(contributorId: String): AppResult<Boolean>
 
-    suspend fun downloadContributorImages(contributorIds: List<String>): AppResult<List<String>>
-
     fun getContributorImagePath(contributorId: String): String?
 
     suspend fun downloadSeriesCover(seriesId: String): AppResult<Boolean>

@@ -13,8 +13,6 @@ import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
-private const val BATCH_SIZE = 3
-
 /**
  * Orchestrates downloading and storing book cover images during sync.
  *
@@ -162,59 +160,6 @@ internal class ImageDownloader(
 
         logger.info { "Successfully downloaded and saved image for contributor $contributorId" }
         return AppResult.Success(true)
-    }
-
-    /**
-     * Download images for multiple contributors using batch requests.
-     *
-     * Filters to only contributors missing images locally, then downloads
-     * in batches of BATCH_SIZE for efficiency.
-     *
-     * Continues on individual failures - one failed download doesn't stop the batch.
-     * Returns list of contributor IDs that had images successfully downloaded.
-     *
-     * @param contributorIds List of contributor identifiers to download images for
-     * @return Result containing list of contributor IDs that were successfully downloaded
-     */
-    override suspend fun downloadContributorImages(contributorIds: List<String>): AppResult<List<String>> {
-        // Filter to only contributors missing images locally
-        val needed = contributorIds.filter { !imageStorage.contributorImageExists(it) }
-
-        if (needed.isEmpty()) {
-            logger.debug { "All contributor images already cached" }
-            return AppResult.Success(emptyList())
-        }
-
-        logger.debug { "Downloading ${needed.size} contributor images in batches of $BATCH_SIZE" }
-
-        val successfulDownloads =
-            buildList {
-                // Download in batches
-                needed.chunked(BATCH_SIZE).forEach { batch ->
-                    when (val result = imageApi.downloadContributorImageBatch(batch)) {
-                        is AppResult.Success -> {
-                            result.data.forEach { (contributorId, bytes) ->
-                                val saveResult = imageStorage.saveContributorImage(contributorId, bytes)
-                                if (saveResult is AppResult.Success) {
-                                    add(contributorId)
-                                } else if (saveResult is AppResult.Failure) {
-                                    logger.warn {
-                                        "Failed to save image for contributor $contributorId: ${saveResult.message}"
-                                    }
-                                }
-                            }
-                            logger.debug { "Downloaded batch of ${result.data.size} contributor images" }
-                        }
-
-                        is AppResult.Failure -> {
-                            logger.warn { "Batch download failed: ${result.message}" }
-                        }
-                    }
-                }
-            }
-
-        logger.info { "Downloaded ${successfulDownloads.size} images out of ${contributorIds.size} contributors" }
-        return AppResult.Success(successfulDownloads)
     }
 
     /**

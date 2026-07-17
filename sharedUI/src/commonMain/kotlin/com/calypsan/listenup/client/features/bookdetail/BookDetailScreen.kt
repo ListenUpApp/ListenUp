@@ -65,6 +65,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
+import com.calypsan.listenup.client.features.bookdetail.components.MarkNotStartedDialog
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
 import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
@@ -217,6 +218,7 @@ private fun BookDetailReadyContent(
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
+    var showMarkNotStartedDialog by remember { mutableStateOf(false) }
 
     // Callback for opening metadata search
     val onFindMetadataClick: () -> Unit = {
@@ -241,7 +243,7 @@ private fun BookDetailReadyContent(
         onEditClick = { onEditClick(bookId) },
         onFindMetadataClick = onFindMetadataClick,
         onMarkCompleteClick = { showMarkCompleteDialog = true },
-        onMarkNotStartedClick = { viewModel.discardProgress() },
+        onMarkNotStartedClick = { showMarkNotStartedDialog = true },
         onAddToShelfClick = { viewModel.showShelfPicker() },
         onAddToCollectionClick = { viewModel.showCollectionPicker() },
         onShareClick = {
@@ -310,6 +312,16 @@ private fun BookDetailReadyContent(
                 showDeleteDialog = false
             },
             onDismiss = { showDeleteDialog = false },
+        )
+    }
+
+    if (showMarkNotStartedDialog) {
+        MarkNotStartedDialog(
+            onConfirm = {
+                viewModel.discardProgress()
+                showMarkNotStartedDialog = false
+            },
+            onDismiss = { showMarkNotStartedDialog = false },
         )
     }
 
