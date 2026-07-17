@@ -128,8 +128,9 @@ class PlaybackPreparer internal constructor(
         // 1. Ensure fresh auth token
         tokenProvider.prepareForPlayback()
 
-        // 2. Get server URL
-        val serverUrl = serverConfig.getServerUrl()?.value
+        // 2. Get server URL — the ACTIVE url, so audio streams from the remote host after a roam
+        //    off-LAN switches the active url away from the (now-unreachable) local one.
+        val serverUrl = serverConfig.getActiveUrl()?.value
         if (serverUrl == null) {
             logger.error { "No server URL configured" }
             return null

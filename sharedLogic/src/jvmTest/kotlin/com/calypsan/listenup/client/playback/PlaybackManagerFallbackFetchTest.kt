@@ -120,7 +120,7 @@ class PlaybackManagerFallbackFetchTest :
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
 
             val serverConfig: ServerConfig = mock()
-            everySuspend { serverConfig.getServerUrl() } returns ServerUrl("https://example.test")
+            everySuspend { serverConfig.getActiveUrl() } returns ServerUrl("https://example.test")
 
             val imageStorage: ImageStorage = mock()
             every { imageStorage.exists(any()) } returns false

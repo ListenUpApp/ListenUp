@@ -69,7 +69,7 @@ class ImageApiTest :
             val factory = mock<ApiClientFactory>()
             everySuspend { factory.getClient() } returns client
             val serverConfig = mock<ServerConfig>()
-            everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://server.test")
+            everySuspend { serverConfig.getActiveUrl() } returns ServerUrl("http://server.test")
             return ImageApi(clientFactory = factory, serverConfig = serverConfig)
         }
 

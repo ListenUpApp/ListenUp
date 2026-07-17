@@ -141,7 +141,7 @@ class PlaybackPreparerTest :
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
 
             val serverConfig: ServerConfig = mock()
-            everySuspend { serverConfig.getServerUrl() } returns ServerUrl(serverUrl)
+            everySuspend { serverConfig.getActiveUrl() } returns ServerUrl(serverUrl)
 
             val imageStorage: ImageStorage = mock()
             every { imageStorage.exists(any()) } returns false

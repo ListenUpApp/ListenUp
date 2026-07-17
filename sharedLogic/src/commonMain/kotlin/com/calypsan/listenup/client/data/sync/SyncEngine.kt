@@ -493,6 +493,18 @@ internal class SyncEngine(
         // Re-run every refreshed domain's declared refresh so a dropped refresh trigger (presence, server-info,
         // preferences) self-heals on this lifecycle edge — derived from the catalog, not hand-dispatched.
         refreshedRouter.refreshAll()
+        // PUSH as well as pull. Every lifecycle edge (foreground, pull-to-refresh, reconnect) funnels
+        // through here, and until now it only PULLED — catch-up + reconcile + refresh — so a parked
+        // outbox op could strand indefinitely: a single RPC timeout parks an edit while the SSE
+        // stream stays up, no Connected edge ever fires (the only other drain trigger besides a fresh
+        // enqueue), and pull-to-refresh — the one manual action the user is given — never drained it.
+        // Draining here makes every foreground and every pull-to-refresh also drive parked ops, so
+        // "N pending" can't sit forever. Gated on device reachability + a usable session exactly like
+        // the enqueue trigger (see ensureDrainScheduling); queue.drain() single-flights on its own
+        // mutex, so this can't race the connection-up / enqueue drains.
+        if (networkMonitor.isOnline() && authState.value is AuthState.Authenticated) {
+            runDrain()
+        }
     }
 
     /**

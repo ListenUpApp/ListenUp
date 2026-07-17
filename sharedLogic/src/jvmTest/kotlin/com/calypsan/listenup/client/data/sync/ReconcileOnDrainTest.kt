@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import com.calypsan.listenup.client.data.sync.testing.awaitUntil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -80,6 +81,48 @@ class ReconcileOnDrainTest :
                     // its whole sentEntities set), so tags was seen-and-skipped, not merely pending.
                     db.pendingOperationV2Dao().countDispatchable(maxAttempts = 5) shouldBe 0
                     fetches.replayCache.none { it.first == "tags" } shouldBe true
+                } finally {
+                    scope.cancel()
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
+                    db.close()
+                }
+            }
+        }
+
+        test("lifecycleReconcile drains a parked outbox op with no SSE-connected edge (never stranded)") {
+            runBlocking {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val db = createInMemoryTestDatabase()
+                try {
+                    val fetches = MutableSharedFlow<Pair<String, List<String>>>(replay = 64)
+                    val catchUp = RecordingCatchUp(fetches)
+                    val sent = MutableSharedFlow<String>(replay = 64)
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender =
+                                PendingOperationSender { op ->
+                                    sent.tryEmit(op.clientOpId)
+                                    AppResult.Success(Unit)
+                                },
+                        )
+                    val state = SyncEngineState()
+                    val sse = ReconcileFakeSseClient(state)
+                    val engine = buildReconcileEngine(db, queue, state, sse, scope, catchUp)
+
+                    // An op parks with the engine NOT started, so there is no connection-up edge and
+                    // no enqueue trigger reaches a running collector — the two drain triggers that
+                    // exist otherwise. This is the parked-and-stranded state: an edit whose one RPC
+                    // send timed out while nothing else prods the queue.
+                    val opId = queue.enqueue(reconcilePreferencesChannel, "u1", OpKind.Update, "{}", "u1")
+
+                    // The manual/foreground path. Pre-fix this only PULLED (catch-up + reconcile +
+                    // refresh) and the op stayed parked; post-fix it also drains, so the op sends.
+                    engine.lifecycleReconcile(force = true)
+
+                    withTimeout(TIMEOUT_SECONDS.seconds) { sent.first { it == opId } }
+                    awaitUntil(TIMEOUT_SECONDS.seconds) { db.pendingOperationV2Dao().get(opId) == null }
                 } finally {
                     scope.cancel()
                     scope.coroutineContext.job.children

@@ -39,6 +39,7 @@ internal class SyncSseClient(
     private val scope: CoroutineScope,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
     connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
+    readIdleTimeoutMillis: Long = DEFAULT_READ_IDLE_TIMEOUT_MS,
     onAuthExhausted: suspend () -> Unit = {},
     // Test seam: a small capacity lets a test force `frameBus.emit` to suspend deterministically
     // (SyncSseClientDeliveryOrderingTest) without depending on the production buffer depth.
@@ -64,6 +65,7 @@ internal class SyncSseClient(
             urlProvider = { serverUrlProvider()?.let { "$it$SSE_ENDPOINT" } },
             streamingClientProvider = streamingClientProvider,
             connectTimeoutMillis = connectTimeoutMillis,
+            readIdleTimeoutMillis = readIdleTimeoutMillis,
             resumeIdProvider = { lastEventId },
             parkOnAuthExhaustion = true,
             onAuthExhausted = onAuthExhausted,
