@@ -101,8 +101,16 @@ tasks.register("verifySwiftStringKeys") {
     description = "Fail if iOS Swift references a localization key that does not exist in en.json"
 
     // Inputs only, no outputs — a gate that must always re-verify, never report UP-TO-DATE.
+    // Track ONLY the .swift sources, not the whole `iosApp/ListenUp` tree: that tree also holds
+    // `Resources/Localizable.xcstrings`, which `generateStrings` writes — so `inputs.dir(iosSwiftDir)`
+    // made Gradle flag an undeclared dependency on `generateStrings` whenever both tasks were
+    // scheduled together (e.g. the CI test-jvm lane, which also runs `:sharedUI:testAndroidHostTest`
+    // → `generateStrings`). The gate reads en.json for the key set and Swift for the references; it
+    // never touches the generated catalog, so a filtered file tree is both correct and overlap-free.
     inputs.dir(stringsDir)
-    inputs.dir(iosSwiftDir)
+    inputs.files(
+        rootProject.fileTree(iosSwiftDir) { include("**/*.swift") },
+    )
 
     val enJson = File(stringsDir, "en.json")
     val swiftDir = iosSwiftDir

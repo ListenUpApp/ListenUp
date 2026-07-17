@@ -95,7 +95,7 @@ import listenup.composeapp.generated.resources.common_read_less
 import listenup.composeapp.generated.resources.common_read_more
 import listenup.composeapp.generated.resources.common_view_all
 import listenup.composeapp.generated.resources.contributor_aka
-import listenup.composeapp.generated.resources.contributor_download_metadata
+import listenup.composeapp.generated.resources.contributor_find_on_audible
 import listenup.composeapp.generated.resources.contributor_from_your_library_this_action
 import listenup.composeapp.generated.resources.contributor_name_profile_image
 import org.jetbrains.compose.resources.stringResource
@@ -800,7 +800,7 @@ private fun OverflowMenu(
                 },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.contributor_download_metadata)) },
+                text = { Text(stringResource(Res.string.contributor_find_on_audible)) },
                 leadingIcon = { Icon(Icons.Default.CloudDownload, null) },
                 onClick = {
                     showMenu = false

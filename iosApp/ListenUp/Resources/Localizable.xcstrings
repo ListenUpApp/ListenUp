@@ -2621,16 +2621,6 @@
         }
       }
     },
-    "book.detail_find_metadata": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Find Metadata"
-          }
-        }
-      }
-    },
     "book.detail_finished": {
       "localizations": {
         "en": {
@@ -2687,16 +2677,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Length"
-          }
-        }
-      }
-    },
-    "book.detail_mark_as_complete": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mark as Complete"
           }
         }
       }
@@ -5347,16 +5327,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Died %1$@"
-          }
-        }
-      }
-    },
-    "contributor.download_metadata": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Download Metadata"
           }
         }
       }

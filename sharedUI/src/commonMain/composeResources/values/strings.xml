@@ -263,14 +263,12 @@ One beautiful library.</string>
     <string name="book_detail_facet_categories">Categories</string>
     <string name="book_detail_facet_moods">Moods</string>
     <string name="book_detail_facet_tags">Tags</string>
-    <string name="book_detail_find_metadata">Find Metadata</string>
     <string name="book_detail_finished">Finished</string>
     <string name="book_detail_format">Format</string>
     <string name="book_detail_full_cast">Full cast</string>
     <string name="book_detail_insufficient_storage">Not enough storage. Need %1$dMB, have %2$dMB available.</string>
     <string name="book_detail_language">Language</string>
     <string name="book_detail_length">Length</string>
-    <string name="book_detail_mark_as_complete">Mark as Complete</string>
     <string name="book_detail_mark_as_finished">Mark as Finished</string>
     <string name="book_detail_mark_as_finished_prompt">Mark as finished?</string>
     <string name="book_detail_mark_as_not_started">Mark as Not Started</string>
@@ -536,7 +534,6 @@ One beautiful library.</string>
     <string name="contributor_dates">Dates</string>
     <string name="contributor_death_date">Death Date</string>
     <string name="contributor_died">Died %1$s</string>
-    <string name="contributor_download_metadata">Download Metadata</string>
     <string name="contributor_edit_bio">Bio</string>
     <string name="contributor_edit_bio_placeholder">Add a bio</string>
     <string name="contributor_edit_born">Born</string>
