@@ -271,7 +271,7 @@ struct ContributorDetailView: View {
     private func roleSections(observer: ContributorDetailObserver) -> some View {
         ForEach(observer.roleSections, id: \.role) { section in
             VStack(alignment: .leading, spacing: 12) {
-                SectionRow(title: section.displayName)
+                roleHeader(section, contributorName: observer.name)
                     .padding(.horizontal)
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -288,6 +288,35 @@ struct ContributorDetailView: View {
                     }
                     .padding(.horizontal)
                 }
+            }
+        }
+    }
+
+    /// Role carousel header: the role title and, when the carousel is truncated, a "See all" link
+    /// to the full `ContributorBooksView` for this contributor+role. Mirrors `SectionRow`'s look but
+    /// uses a `NavigationLink` (value-typed push) rather than `SectionRow`'s imperative action slot.
+    @ViewBuilder
+    private func roleHeader(_ section: RoleSectionRow, contributorName: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(section.displayName)
+                .font(.title2.bold())
+                .foregroundStyle(.primary)
+            Spacer()
+            if section.showViewAll {
+                NavigationLink(value: ContributorBooksDestination(
+                    contributorId: contributorId,
+                    role: section.role,
+                    contributorName: contributorName,
+                    roleDisplayName: section.displayName
+                )) {
+                    HStack(spacing: 2) {
+                        Text(String(localized: "common.see_all"))
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(Color.luTint)
+                }
+                .buttonStyle(.plain)
             }
         }
     }

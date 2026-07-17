@@ -25,6 +25,16 @@ struct TagDestination: Hashable {
     let id: String
 }
 
+/// The full "See all" list of a contributor's books for one role, reached from a truncated
+/// role carousel on `ContributorDetailView`. `contributorName` and `roleDisplayName` ride the
+/// route so the screen titles immediately while Room hydrates the authoritative list.
+struct ContributorBooksDestination: Hashable {
+    let contributorId: String
+    let role: String
+    let contributorName: String
+    let roleDisplayName: String
+}
+
 /// The flat classification axis a `FacetDestination` browses. A small native mirror of the
 /// shared `FacetKind` enum, kept `Hashable` so it can ride a `NavigationPath` (the bridged
 /// Kotlin `FacetKind` isn't `Hashable`); mapped to `Shared.FacetKind` at the VM `load` call.
@@ -97,6 +107,10 @@ struct ProfileDestination: Hashable {
 
 /// Settings.
 struct SettingsDestination: Hashable {}
+
+/// Storage management — downloaded books, per-book delete, clear-all, and free-space usage.
+/// Reached from Settings › Downloads.
+struct StorageDestination: Hashable {}
 
 /// Administration dashboard (admin / root users only).
 struct AdminDestination: Hashable {}

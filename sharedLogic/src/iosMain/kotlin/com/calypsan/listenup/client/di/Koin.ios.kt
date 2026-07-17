@@ -4,7 +4,10 @@ import com.calypsan.listenup.core.configureLogging
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksViewModel
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
+import com.calypsan.listenup.client.presentation.storage.StorageViewModel
+import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.core.parameter.parametersOf
@@ -256,6 +259,12 @@ object KoinHelper {
     fun getSeriesDetailViewModel(): SeriesDetailViewModel = resolve(SeriesDetailViewModel::class)
 
     fun getContributorDetailViewModel(): ContributorDetailViewModel = resolve(ContributorDetailViewModel::class)
+
+    fun getContributorBooksViewModel(): ContributorBooksViewModel = resolve(ContributorBooksViewModel::class)
+
+    fun getStorageViewModel(): StorageViewModel = resolve(StorageViewModel::class)
+
+    fun getSyncIndicatorViewModel(): SyncIndicatorViewModel = resolve(SyncIndicatorViewModel::class)
 
     fun getTagDetailViewModel(): TagDetailViewModel = resolve(TagDetailViewModel::class)
 

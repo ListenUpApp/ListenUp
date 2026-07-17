@@ -193,7 +193,16 @@ extension MainTabView {
 // MARK: - Navigation Destinations
 
 private extension View {
+    /// All value-typed navigation destinations for the app shell, split into a content group and an
+    /// admin group so neither builder trips the function-length lint.
     func navigationDestinations() -> some View {
+        contentDestinations()
+            .adminDestinations()
+    }
+
+    /// Library/content-facing destinations: books, series, contributors, facets, shelves, profiles,
+    /// settings, and storage.
+    func contentDestinations() -> some View {
         self
             .navigationDestination(for: BookDestination.self) { destination in
                 BookDetailView(bookId: destination.id)
@@ -206,6 +215,14 @@ private extension View {
             }
             .navigationDestination(for: TagDestination.self) { destination in
                 TagDetailView(tagId: destination.id)
+            }
+            .navigationDestination(for: ContributorBooksDestination.self) { destination in
+                ContributorBooksView(
+                    contributorId: destination.contributorId,
+                    role: destination.role,
+                    contributorName: destination.contributorName,
+                    roleDisplayName: destination.roleDisplayName
+                )
             }
             .navigationDestination(for: FacetDestination.self) { destination in
                 FacetBooksView(kind: destination.kind, facetId: destination.id, facetName: destination.name)
@@ -225,14 +242,8 @@ private extension View {
             .navigationDestination(for: SettingsDestination.self) { _ in
                 SettingsView()
             }
-            .navigationDestination(for: AdminDestination.self) { _ in
-                AdminView()
-            }
-            .navigationDestination(for: AdminInboxDestination.self) { _ in
-                AdminInboxView()
-            }
-            .navigationDestination(for: ABSImportDestination.self) { _ in
-                ABSImportHubView()
+            .navigationDestination(for: StorageDestination.self) { _ in
+                StorageView()
             }
             .navigationDestination(for: DevicesDestination.self) { _ in
                 DevicesView()
@@ -242,6 +253,20 @@ private extension View {
             }
             .navigationDestination(for: LicenseDetailDestination.self) { destination in
                 LicenseDetailView(packageName: destination.packageName)
+            }
+    }
+
+    /// Administration destinations (admin / root only surfaces).
+    func adminDestinations() -> some View {
+        self
+            .navigationDestination(for: AdminDestination.self) { _ in
+                AdminView()
+            }
+            .navigationDestination(for: AdminInboxDestination.self) { _ in
+                AdminInboxView()
+            }
+            .navigationDestination(for: ABSImportDestination.self) { _ in
+                ABSImportHubView()
             }
             .navigationDestination(for: AdminCollectionsDestination.self) { _ in
                 AdminCollectionsView()
