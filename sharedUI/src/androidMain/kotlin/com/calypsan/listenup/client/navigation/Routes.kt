@@ -269,6 +269,17 @@ data class StoryWorldEntityDetail(
     val entityId: String,
 ) : Route
 
+/**
+ * Story So Far screen - a single book's spoiler-safe recap of the Story World, folded up to the
+ * viewer's own listening frontier.
+ *
+ * @property bookId The unique ID of the book to recap.
+ */
+@Serializable
+data class StorySoFar(
+    val bookId: String,
+) : Route
+
 // Reading Order Routes
 
 /**

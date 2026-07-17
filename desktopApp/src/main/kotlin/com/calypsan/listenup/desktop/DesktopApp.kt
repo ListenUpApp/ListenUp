@@ -65,6 +65,7 @@ import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.client.features.readingorder.ReadingOrderDetailScreen
 import com.calypsan.listenup.client.features.readingorder.ReadingOrdersScreen
 import com.calypsan.listenup.client.features.storyworld.EntityDetailScreen
+import com.calypsan.listenup.client.features.storyworld.StorySoFarScreen
 import com.calypsan.listenup.client.features.storyworld.StoryWorldEntityListScreen
 import com.calypsan.listenup.client.features.storyworld.StoryWorldHubScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
@@ -193,6 +194,10 @@ sealed interface DetailDestination {
 
     data class StoryWorldEntityDetail(
         val entityId: String,
+    ) : DetailDestination
+
+    data class StorySoFar(
+        val bookId: String,
     ) : DetailDestination
 
     data class ReadingOrders(
@@ -686,6 +691,18 @@ private fun DetailScreen(
             EntityDetailScreen(
                 entityId = destination.entityId,
                 onBackClick = navigateBack,
+            )
+        }
+
+        is DetailDestination.StorySoFar -> {
+            StorySoFarScreen(
+                bookId = destination.bookId,
+                onBackClick = navigateBack,
+                onEntityClick = { entityId -> navigateTo(DetailDestination.StoryWorldEntityDetail(entityId)) },
+                onSetReadingOrder = { seriesId -> navigateTo(DetailDestination.ReadingOrders(seriesId)) },
+                onOpenHub = { seriesId, bookId ->
+                    navigateTo(DetailDestination.StoryWorldHub(seriesId = seriesId, bookId = bookId))
+                },
             )
         }
 

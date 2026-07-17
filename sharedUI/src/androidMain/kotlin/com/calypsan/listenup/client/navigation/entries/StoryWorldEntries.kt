@@ -5,13 +5,16 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.api.sync.EntityKind
 import com.calypsan.listenup.client.features.storyworld.EntityDetailScreen
+import com.calypsan.listenup.client.features.storyworld.StorySoFarScreen
 import com.calypsan.listenup.client.features.storyworld.StoryWorldEntityListScreen
 import com.calypsan.listenup.client.features.storyworld.StoryWorldHubScreen
+import com.calypsan.listenup.client.navigation.ReadingOrders
+import com.calypsan.listenup.client.navigation.StorySoFar
 import com.calypsan.listenup.client.navigation.StoryWorldEntities
 import com.calypsan.listenup.client.navigation.StoryWorldEntityDetail
 import com.calypsan.listenup.client.navigation.StoryWorldHub
 
-/** Story World navigation entries — the hub, the entity list, and the entity detail page. */
+/** Story World navigation entries — the hub, the entity list, the entity detail page, and Story So Far. */
 internal fun EntryProviderScope<NavKey>.storyWorldEntries(backStack: NavBackStack<NavKey>) {
     entry<StoryWorldHub> { args ->
         StoryWorldHubScreen(
@@ -46,6 +49,23 @@ internal fun EntryProviderScope<NavKey>.storyWorldEntries(backStack: NavBackStac
             entityId = args.entityId,
             onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
+            },
+        )
+    }
+    entry<StorySoFar> { args ->
+        StorySoFarScreen(
+            bookId = args.bookId,
+            onBackClick = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+            onEntityClick = { entityId ->
+                backStack.add(StoryWorldEntityDetail(entityId))
+            },
+            onSetReadingOrder = { seriesId ->
+                backStack.add(ReadingOrders(seriesId))
+            },
+            onOpenHub = { seriesId, bookId ->
+                backStack.add(StoryWorldHub(seriesId = seriesId, bookId = bookId))
             },
         )
     }
