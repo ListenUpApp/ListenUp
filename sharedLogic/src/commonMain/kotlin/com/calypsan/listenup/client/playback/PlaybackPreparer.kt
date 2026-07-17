@@ -65,6 +65,23 @@ data class PreparedPlayback(
     val coverPath: String?,
     val resumePositionMs: Long,
     val resumeSpeed: Float,
+    // Navigation targets for the player's overflow menu ("Go to Series / Author / Narrator"). New
+    // fields default so existing constructors (playback-prep + test fixtures) stay source-compatible.
+    val seriesId: String? = null,
+    val authors: List<PlaybackNavRef> = emptyList(),
+    val narrators: List<PlaybackNavRef> = emptyList(),
+)
+
+/**
+ * A navigable reference the native player's overflow menu turns into a "Go to …" action: the
+ * series or an individual author/narrator behind the currently-playing book.
+ *
+ * [name] is the credited display name (so it matches what the player shows); [id] is the
+ * series/contributor identifier the menu navigates to.
+ */
+data class PlaybackNavRef(
+    val id: String,
+    val name: String,
 )
 
 /**
@@ -146,8 +163,14 @@ class PlaybackPreparer internal constructor(
         val bookAuthor = deriveAuthorName(bookWithContributors)
         val bookNarrator = deriveNarratorName(bookWithContributors)
 
-        // Get series name (first series if multiple)
-        val seriesName = bookWithContributors.series.firstOrNull()?.name
+        // Get series name + id (first series if multiple) — id feeds the player's "Go to Series".
+        val firstSeries = bookWithContributors.series.firstOrNull()
+        val seriesName = firstSeries?.name
+        val seriesId = firstSeries?.id?.value
+        val authorRefs =
+            contributorRefs(bookWithContributors.contributors, bookWithContributors.contributorRoles, ContributorRole.AUTHOR)
+        val narratorRefs =
+            contributorRefs(bookWithContributors.contributors, bookWithContributors.contributorRoles, ContributorRole.NARRATOR)
 
         // Get cover path (if exists on disk)
         val coverPath =
@@ -265,6 +288,9 @@ class PlaybackPreparer internal constructor(
             bookAuthor = bookAuthor,
             bookNarrator = bookNarrator,
             seriesName = seriesName,
+            seriesId = seriesId,
+            authors = authorRefs,
+            narrators = narratorRefs,
             coverPath = coverPath,
             resumePositionMs = resumePositionMs,
             resumeSpeed = resumeSpeed,
@@ -559,6 +585,26 @@ private fun AudioFileEntity.toAudioFileResponse(): AudioFileResponse =
  * the role. Pure — split out from [PlaybackPreparer] so it is unit-testable
  * without a database.
  */
+/**
+ * The (id, name) refs for a book's contributors in the given [role] — the navigable form of
+ * [joinContributorNames], distinct-by-id and preserving credit order, for the player's "Go to
+ * Author / Narrator" menu.
+ */
+internal fun contributorRefs(
+    contributors: List<ContributorEntity>,
+    contributorRoles: List<BookContributorCrossRef>,
+    role: ContributorRole,
+): List<PlaybackNavRef> {
+    val contributorsById = contributors.associateBy { it.id }
+    return contributorRoles
+        .filter { it.role == role.apiValue }
+        .mapNotNull { crossRef ->
+            contributorsById[crossRef.contributorId]?.let { entity ->
+                PlaybackNavRef(id = entity.id.value, name = crossRef.creditedAs ?: entity.name)
+            }
+        }.distinctBy { it.id }
+}
+
 internal fun joinContributorNames(
     contributors: List<ContributorEntity>,
     contributorRoles: List<BookContributorCrossRef>,

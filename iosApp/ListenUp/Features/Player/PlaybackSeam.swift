@@ -31,6 +31,13 @@ protocol PlaybackEngine: Sendable {
 // the Shared-module `Sendable` gap as a warning is sound here.
 @preconcurrency import Shared
 
+/// A navigable series/contributor behind the playing book — the player overflow menu's
+/// "Go to Series / Author / Narrator" targets. Native mirror of the shared `PlaybackNavRef`.
+struct ContributorNavRef: Sendable, Hashable, Identifiable {
+    let id: String
+    let name: String
+}
+
 /// Native, platform-neutral snapshot of a prepared book. The Kotlin adapter maps
 /// the shared preparer's result into this so the protocol never leaks KMP types.
 struct PreparedPlayback: Sendable {
@@ -43,6 +50,14 @@ struct PreparedPlayback: Sendable {
     let resumePositionMs: Int64
     let chapters: [Chapter]
     let timeline: PreparedTimeline
+    // Overflow-menu navigation targets. Defaulted so existing constructors (fakes/tests) compile
+    // unchanged; only the Kotlin mapping populates them.
+    // `var` (not `let`) so the synthesized memberwise init includes them with defaults — a `let`
+    // with a default is treated as already-initialized and omitted from the init. Written once at
+    // construction; the value-type struct stays effectively immutable in use.
+    var seriesId: String?
+    var authors: [ContributorNavRef] = []
+    var narrators: [ContributorNavRef] = []
 }
 
 struct PreparedTimeline: Sendable {
