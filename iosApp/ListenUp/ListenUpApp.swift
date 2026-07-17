@@ -91,14 +91,19 @@ private struct RootView: View {
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
-                    // Reconnect realtime sync on every foreground (single-flight, so safe).
+                    // Reconnect realtime sync on every foreground (single-flight, so safe), and
+                    // re-run the library-setup check if we were backgrounded long enough that the
+                    // cached readiness could be stale (mirrors Android's MainActivity.onResume).
                     activateSyncIfAuthenticated()
+                    readiness.onAppForegrounded()
                     return
                 }
                 // Leaving foreground: queue the first background refresh. Subsequent ones chain
                 // from the .backgroundTask handler (BackgroundSync.run reschedules before working).
                 if newPhase == .background {
                     BackgroundSync.schedule()
+                    // Record the background timestamp so onAppForegrounded can measure the gap.
+                    readiness.onAppBackgrounded()
                 }
                 guard ScenePhasePolicy.shouldSavePosition(on: newPhase) else { return }
 
@@ -236,7 +241,11 @@ private struct RootView: View {
         case .needsSetup:
             LibrarySetupFlowCoordinator(onComplete: { readiness.onLibrarySetupComplete() })
         case .populating:
-            LibraryScanView(progress: readiness.scanProgress)
+            LibraryScanView(
+                progress: readiness.scanProgress,
+                stalled: readiness.isPopulatingStalled,
+                onContinue: { readiness.onContinueToPartialLibrary() }
+            )
         case .ready, .checkFailed:
             MainTabView()
         }

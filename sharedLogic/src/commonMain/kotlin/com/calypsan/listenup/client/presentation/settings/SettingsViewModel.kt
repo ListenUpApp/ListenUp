@@ -33,7 +33,6 @@ private data class LocalDisplaySettings(
     val dynamicColorsEnabled: Boolean,
     val autoRewindEnabled: Boolean,
     val wifiOnlyDownloads: Boolean,
-    val autoRemoveFinished: Boolean,
 )
 
 /**
@@ -53,13 +52,11 @@ data class SettingsUiState(
     val defaultSkipForwardSec: Int = 30,
     val defaultSkipBackwardSec: Int = 10,
     val defaultSleepTimerMin: Int? = null,
-    val shakeToResetSleepTimer: Boolean = false,
     // Local settings (device storage) - populated from StateFlows
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColorsEnabled: Boolean = true,
     val autoRewindEnabled: Boolean = true,
     val wifiOnlyDownloads: Boolean = true,
-    val autoRemoveFinished: Boolean = false,
     val hapticFeedbackEnabled: Boolean = true,
     // Library display settings (local)
     val ignoreTitleArticles: Boolean = true,
@@ -107,9 +104,8 @@ class SettingsViewModel(
                 localPreferences.dynamicColorsEnabled,
                 localPreferences.autoRewindEnabled,
                 localPreferences.wifiOnlyDownloads,
-                localPreferences.autoRemoveFinished,
-            ) { theme, dynamicColors, autoRewind, wifiOnly, autoRemove ->
-                LocalDisplaySettings(theme, dynamicColors, autoRewind, wifiOnly, autoRemove)
+            ) { theme, dynamicColors, autoRewind, wifiOnly ->
+                LocalDisplaySettings(theme, dynamicColors, autoRewind, wifiOnly)
             },
             localPreferences.hapticFeedbackEnabled,
             // Synced preferences from the Room-backed repository: a change made on another device
@@ -121,12 +117,10 @@ class SettingsViewModel(
                 defaultSkipForwardSec = synced.defaultSkipForwardSec,
                 defaultSkipBackwardSec = synced.defaultSkipBackwardSec,
                 defaultSleepTimerMin = synced.defaultSleepTimerMin,
-                shakeToResetSleepTimer = synced.shakeToResetSleepTimer,
                 themeMode = localDisplay.themeMode,
                 dynamicColorsEnabled = localDisplay.dynamicColorsEnabled,
                 autoRewindEnabled = localDisplay.autoRewindEnabled,
                 wifiOnlyDownloads = localDisplay.wifiOnlyDownloads,
-                autoRemoveFinished = localDisplay.autoRemoveFinished,
                 hapticFeedbackEnabled = haptics,
             )
         }.stateIn(
@@ -275,18 +269,6 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Set whether shaking the device resets the sleep timer.
-     */
-    fun setShakeToResetSleepTimer(enabled: Boolean) {
-        viewModelScope.launch {
-            // The repository's optimistic Room write drives the UI via observePreferences().
-            userPreferencesRepository
-                .setShakeToResetSleepTimer(enabled)
-                .onFailure { logger.warn { "Failed to sync shake-to-reset-sleep-timer to server: ${it.message}" } }
-        }
-    }
-
     // endregion
 
     // region Local Settings (device storage)
@@ -329,16 +311,6 @@ class SettingsViewModel(
     fun setWifiOnlyDownloads(enabled: Boolean) {
         viewModelScope.launch {
             localPreferences.setWifiOnlyDownloads(enabled)
-        }
-    }
-
-    /**
-     * Set whether to auto-remove downloads after finishing.
-     * Device-local setting, does not sync to server.
-     */
-    fun setAutoRemoveFinished(enabled: Boolean) {
-        viewModelScope.launch {
-            localPreferences.setAutoRemoveFinished(enabled)
         }
     }
 

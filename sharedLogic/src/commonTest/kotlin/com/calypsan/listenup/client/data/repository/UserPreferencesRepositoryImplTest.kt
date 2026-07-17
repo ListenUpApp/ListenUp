@@ -191,7 +191,6 @@ class UserPreferencesRepositoryImplTest :
                 result.data.defaultSkipForwardSec shouldBe 30
                 result.data.defaultSkipBackwardSec shouldBe 10
                 result.data.defaultSleepTimerMin shouldBe 20
-                result.data.shakeToResetSleepTimer shouldBe true
             }
         }
 
@@ -204,7 +203,7 @@ class UserPreferencesRepositoryImplTest :
                             AppResult.Success(UserPreferencesDto(1.5f, 45, 15, 20, true))
                     }
                 fixture(service, dao).getPreferences()
-                dao.get("u1") shouldBe UserPreferencesEntity("u1", 1.5f, 45, 15, 20, true)
+                dao.get("u1") shouldBe UserPreferencesEntity("u1", 1.5f, 45, 15, 20)
             }
         }
 
@@ -253,7 +252,6 @@ class UserPreferencesRepositoryImplTest :
             Triple("setDefaultSkipForwardSec", { setDefaultSkipForwardSec(45) }, UpdateUserPreferencesRequest(defaultSkipForwardSec = 45)),
             Triple("setDefaultSkipBackwardSec", { setDefaultSkipBackwardSec(15) }, UpdateUserPreferencesRequest(defaultSkipBackwardSec = 15)),
             Triple("setDefaultSleepTimerMin", { setDefaultSleepTimerMin(20) }, UpdateUserPreferencesRequest(defaultSleepTimerMin = 20)),
-            Triple("setShakeToResetSleepTimer", { setShakeToResetSleepTimer(true) }, UpdateUserPreferencesRequest(shakeToResetSleepTimer = true)),
         ).forEach { (name, call, expectedPatch) ->
             test("$name enqueues only its field on the patch and returns Unit") {
                 runTest {

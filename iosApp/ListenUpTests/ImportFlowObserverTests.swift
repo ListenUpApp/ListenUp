@@ -114,6 +114,27 @@ struct ImportFlowObserverTests {
         #expect(review.matchedCount == 2)
     }
 
+    @Test func reviewModelCountsUnresolvedBooks() {
+        let books = [
+            bookRow(id: "1", resolution: .needsReview),
+            bookRow(id: "2", resolution: .assigned(bookId: "b2")),
+            bookRow(id: "3", resolution: .skipped),
+            bookRow(id: "4", resolution: .needsReview)
+        ]
+        let review = ImportReviewModel(
+            users: [], books: books, listenupUsers: [], booksMatchedCount: 0,
+            ambiguousCount: 0, unmatchedCount: 0, importableSessionCount: 0
+        )
+        #expect(review.unresolvedBookCount == 2)
+    }
+
+    @Test func bookRowIdentifiersJoinAsinAndIsbn() {
+        let both = bookRow(id: "1", asin: "B001", isbn: "978")
+        #expect(both.identifiers == "ASIN: B001 · ISBN: 978")
+        let neither = bookRow(id: "2")
+        #expect(neither.identifiers.isEmpty)
+    }
+
     // MARK: - Hub stage classification
 
     /// The four real `ImportStatus` cases each map to the correct display stage. These are the
@@ -134,6 +155,18 @@ struct ImportFlowObserverTests {
         ImportUserRowModel(
             absUserId: id, username: id, email: nil,
             suggestedUserId: nil, suggestedName: nil, resolution: resolution
+        )
+    }
+
+    private func bookRow(
+        id: String,
+        asin: String? = nil,
+        isbn: String? = nil,
+        resolution: ImportBookResolution = .needsReview
+    ) -> ImportBookRowModel {
+        ImportBookRowModel(
+            absItemId: id, title: id, asin: asin, isbn: isbn,
+            isUnmatched: false, resolution: resolution
         )
     }
 }

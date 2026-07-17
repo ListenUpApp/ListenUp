@@ -98,6 +98,11 @@ struct ImportWizardView: View {
                 onAccept: { observer.assignUser(absUserId: $0.absUserId, listenUpUserId: $1) },
                 onAssign: { assigningUser = $0 },
                 onSkip: { observer.skipUser(absUserId: $0.absUserId) },
+                onOpenBookSearch: { observer.openBookSearch(absItemId: $0) },
+                onCloseBookSearch: { observer.closeBookSearch() },
+                onBookSearchQueryChange: { observer.updateBookSearchQuery($0) },
+                onSelectBook: { absItemId, bookId in observer.selectBook(absItemId: absItemId, bookId: bookId) },
+                onSkipBook: { observer.skipBook(absItemId: $0) },
                 onApply: { observer.confirmAndApply() }
             )
         case .applying(let model):

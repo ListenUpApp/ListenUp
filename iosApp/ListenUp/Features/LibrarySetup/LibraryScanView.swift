@@ -14,6 +14,10 @@ import SwiftUI
 /// automatically the instant the books land in Room and readiness flips to `ready`.
 struct LibraryScanView: View {
     let progress: ScanProgress?
+    /// True once the scan has stalled long enough to offer the never-stranded escape below.
+    var stalled: Bool = false
+    /// Enter the partial library now (only surfaced when `stalled`).
+    var onContinue: () -> Void = {}
 
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -60,6 +64,38 @@ struct LibraryScanView: View {
                 currentFileLine(file)
                     .padding(.top, 18)
             }
+
+            if stalled {
+                stalledEscape
+                    .padding(.top, 28)
+            }
+        }
+    }
+
+    // MARK: - Stalled escape
+
+    /// Never-stranded escape shown when the scan has gone quiet: an honest message, a primary
+    /// "Continue" into the partial library, and a hint pointing at the manual rescan in Settings.
+    /// Mirrors Android's `StalledEscape`.
+    private var stalledEscape: some View {
+        VStack(spacing: 12) {
+            Text(String(localized: "library_scan.stalled_message"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button(action: onContinue) {
+                Text(String(localized: "library_scan.continue"))
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+
+            Text(String(localized: "library_scan.stalled_settings_hint"))
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
     }
 

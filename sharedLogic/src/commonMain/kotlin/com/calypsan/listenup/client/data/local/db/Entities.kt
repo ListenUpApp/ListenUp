@@ -427,7 +427,6 @@ internal data class UserPreferencesEntity(
     val defaultSkipBackwardSec: Int,
     /** Null disables the default sleep timer. */
     val defaultSleepTimerMin: Int?,
-    val shakeToResetSleepTimer: Boolean,
 )
 
 /**

@@ -15,15 +15,15 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v5** — the v4 baseline with the dead `cover_download_queue` table
- * (`CoverDownloadTaskEntity`) dropped; the persistent cover-download queue it backed had no
- * production producer or consumer (live cover fetches go through `ImageRepositoryImpl` /
- * `ImageDownloaderContract` on demand). There is still no migration chain: the pre-launch policy
+ * Schema is at **v6** — the v5 baseline with the dead `shake_to_reset_sleep_timer` column dropped
+ * from `user_preferences`; the shake-to-reset-sleep-timer setting was a placebo (persisted and
+ * synced but never wired to any behaviour), so its client projection is gone. There is still no
+ * migration chain: the pre-launch policy
  * `fallbackToDestructiveMigration(true)` on each platform `DatabaseModule` nukes and recreates the
  * local DB on any schema change (data re-syncs from the server), which is acceptable pre-release
  * — so a version bump needs no hand-written [androidx.room.migration.Migration]. Before launch,
  * flip the fallback to `false` and begin a real migration chain in `data/local/migrations/`; the
- * `@Database.exportSchema` on-disk JSON (`schemas/…/5.json`) is the authoritative baseline.
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/6.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -64,7 +64,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @TypeConverters(

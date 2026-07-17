@@ -91,6 +91,11 @@ final class LibraryReadinessObserver {
     /// indeterminate "finishing up" import tail).
     private(set) var scanProgress: ScanProgress?
 
+    /// True once the initial population has gone quiet long enough to be considered stuck (see
+    /// ``LibraryReadiness/Populating/stalled``). Drives the never-stranded "Continue with partial
+    /// library" escape on ``LibraryScanView``. Always false outside `.populating`.
+    private(set) var isPopulatingStalled: Bool = false
+
     private let appStartupViewModel: AppStartupViewModel
     private let bridge = FlowBridge()
 
@@ -107,6 +112,24 @@ final class LibraryReadinessObserver {
         appStartupViewModel.onLibrarySetupComplete()
     }
 
+    /// Escape a stalled initial population into the partial library already in Room. Latches the
+    /// shared VM so readiness flips to `ready` and the shell mounts; books still scanning keep
+    /// appearing as incremental sync lands them.
+    func onContinueToPartialLibrary() {
+        appStartupViewModel.onContinueToPartialLibrary()
+    }
+
+    /// Record when the app leaves the foreground so a long background can be detected on resume.
+    func onAppBackgrounded() {
+        appStartupViewModel.onAppBackgrounded()
+    }
+
+    /// On resume, re-run the library-setup check if the app was backgrounded past the staleness
+    /// threshold; a short resume is a no-op.
+    func onAppForegrounded() {
+        appStartupViewModel.onAppForegrounded()
+    }
+
     // MARK: - Mapping
 
     private func apply(_ readiness: LibraryReadiness) {
@@ -114,22 +137,28 @@ final class LibraryReadinessObserver {
         case .checking:
             phase = .checking
             scanProgress = nil
+            isPopulatingStalled = false
         case .needsSetup:
             phase = .needsSetup
             scanProgress = nil
+            isPopulatingStalled = false
         case .populating(let populating):
             phase = .populating
             scanProgress = populating.progress.map { ScanProgress(from: $0) }
+            isPopulatingStalled = populating.stalled
         case .ready:
             phase = .ready
             scanProgress = nil
+            isPopulatingStalled = false
         case .checkFailed:
             phase = .checkFailed
             scanProgress = nil
+            isPopulatingStalled = false
         case .unknown:
             Log.error("Unexpected LibraryReadiness case")
             phase = .checkFailed
             scanProgress = nil
+            isPopulatingStalled = false
         }
     }
 }

@@ -19,14 +19,12 @@ final class SettingsObserver {
     private(set) var defaultSkipForwardSec: Int = 30
     private(set) var defaultSkipBackwardSec: Int = 10
     private(set) var defaultSleepTimerMin: Int?
-    private(set) var shakeToResetSleepTimer: Bool = false
 
     // MARK: - Flattened state (local — device storage)
 
     private(set) var themeMode: ThemeMode = .system
     private(set) var autoRewindEnabled: Bool = true
     private(set) var wifiOnlyDownloads: Bool = true
-    private(set) var autoRemoveFinished: Bool = false
     private(set) var hapticFeedbackEnabled: Bool = true
     private(set) var ignoreTitleArticles: Bool = true
     private(set) var hideSingleBookSeries: Bool = true
@@ -62,11 +60,9 @@ final class SettingsObserver {
         defaultSkipForwardSec = Int(state.defaultSkipForwardSec)
         defaultSkipBackwardSec = Int(state.defaultSkipBackwardSec)
         defaultSleepTimerMin = state.defaultSleepTimerMin.map { Int($0) }
-        shakeToResetSleepTimer = state.shakeToResetSleepTimer
         themeMode = state.themeMode
         autoRewindEnabled = state.autoRewindEnabled
         wifiOnlyDownloads = state.wifiOnlyDownloads
-        autoRemoveFinished = state.autoRemoveFinished
         hapticFeedbackEnabled = state.hapticFeedbackEnabled
         ignoreTitleArticles = state.ignoreTitleArticles
         hideSingleBookSeries = state.hideSingleBookSeries
@@ -86,11 +82,9 @@ final class SettingsObserver {
         viewModel.setDefaultSleepTimerMin(minutes: minutes.map { Int32($0) })
     }
 
-    func setShakeToResetSleepTimer(_ enabled: Bool) { viewModel.setShakeToResetSleepTimer(enabled: enabled) }
     func setIgnoreTitleArticles(_ ignore: Bool) { viewModel.setIgnoreTitleArticles(ignore: ignore) }
     func setHideSingleBookSeries(_ hide: Bool) { viewModel.setHideSingleBookSeries(hide: hide) }
     func setWifiOnlyDownloads(_ enabled: Bool) { viewModel.setWifiOnlyDownloads(enabled: enabled) }
-    func setAutoRemoveFinished(_ enabled: Bool) { viewModel.setAutoRemoveFinished(enabled: enabled) }
     func setHapticFeedbackEnabled(_ enabled: Bool) { viewModel.setHapticFeedbackEnabled(enabled: enabled) }
     /// Stops native playback, then runs the shared logout (server revoke + local teardown).
     ///

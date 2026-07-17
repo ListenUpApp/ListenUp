@@ -58,6 +58,26 @@ final class ImportFlowObserver {
         ImportFlowSwiftBridge.shared.skipUser(viewModel: viewModel, absUserId: absUserId)
     }
 
+    func openBookSearch(absItemId: String) {
+        ImportFlowSwiftBridge.shared.openBookSearch(viewModel: viewModel, absItemId: absItemId)
+    }
+
+    func closeBookSearch() {
+        ImportFlowSwiftBridge.shared.closeBookSearch(viewModel: viewModel)
+    }
+
+    func updateBookSearchQuery(_ query: String) {
+        ImportFlowSwiftBridge.shared.updateBookSearchQuery(viewModel: viewModel, query: query)
+    }
+
+    func selectBook(absItemId: String, bookId: String) {
+        ImportFlowSwiftBridge.shared.selectBook(viewModel: viewModel, absItemId: absItemId, bookId: bookId)
+    }
+
+    func skipBook(absItemId: String) {
+        ImportFlowSwiftBridge.shared.skipBook(viewModel: viewModel, absItemId: absItemId)
+    }
+
     func confirmAndApply() {
         viewModel.confirmAndApply()
     }
@@ -176,7 +196,12 @@ struct ImportProgressModel: Equatable {
 /// resolved state) plus the picker's available ListenUp users and the running counts.
 struct ImportReviewModel: Equatable {
     let users: [ImportUserRowModel]
+    /// Ambiguous / unmatched book items the admin resolves (search-assign or skip).
+    let books: [ImportBookRowModel]
+    /// The open book-search panel, or nil when none is open.
+    let bookSearch: ImportBookSearchModel?
     let listenupUsers: [ImportPickerUser]
+    let autoMatchedCount: Int
     let booksMatchedCount: Int
     let ambiguousCount: Int
     let unmatchedCount: Int
@@ -185,12 +210,18 @@ struct ImportReviewModel: Equatable {
     /// Number of ABS users still needing a decision (neither assigned nor skipped).
     var unresolvedCount: Int { users.filter { $0.resolution == .needsReview }.count }
     var matchedCount: Int { users.filter { $0.resolution != .needsReview }.count }
+    /// Number of book items still needing a decision.
+    var unresolvedBookCount: Int { books.filter { $0.resolution == .needsReview }.count }
 
     /// Build from the Kotlin-flattened snapshot + the picker users (for resolving display names).
     init(snapshot: ImportReviewSnapshot?, pickerUsers: [ImportPickerUser]) {
         let userSnapshots = snapshot?.users ?? []
         self.users = userSnapshots.map { ImportUserRowModel(snapshot: $0, pickerUsers: pickerUsers) }
+        let bookSnapshots = snapshot?.books ?? []
+        self.books = bookSnapshots.map { ImportBookRowModel(snapshot: $0) }
+        self.bookSearch = snapshot?.bookSearch.map { ImportBookSearchModel(snapshot: $0) }
         self.listenupUsers = pickerUsers
+        self.autoMatchedCount = Int(snapshot?.autoMatchedCount ?? 0)
         self.booksMatchedCount = Int(snapshot?.booksMatchedCount ?? 0)
         self.ambiguousCount = Int(snapshot?.ambiguousCount ?? 0)
         self.unmatchedCount = Int(snapshot?.unmatchedCount ?? 0)
@@ -200,18 +231,128 @@ struct ImportReviewModel: Equatable {
     /// Memberwise init for tests / previews.
     init(
         users: [ImportUserRowModel],
+        books: [ImportBookRowModel] = [],
+        bookSearch: ImportBookSearchModel? = nil,
         listenupUsers: [ImportPickerUser],
+        autoMatchedCount: Int = 0,
         booksMatchedCount: Int,
         ambiguousCount: Int,
         unmatchedCount: Int,
         importableSessionCount: Int
     ) {
         self.users = users
+        self.books = books
+        self.bookSearch = bookSearch
         self.listenupUsers = listenupUsers
+        self.autoMatchedCount = autoMatchedCount
         self.booksMatchedCount = booksMatchedCount
         self.ambiguousCount = ambiguousCount
         self.unmatchedCount = unmatchedCount
         self.importableSessionCount = importableSessionCount
+    }
+}
+
+// MARK: - Book row model
+
+/// The resolution state of one ABS book item in Review: assigned to a ListenUp book, explicitly
+/// skipped, or still needing the admin's decision.
+enum ImportBookResolution: Equatable {
+    case assigned(bookId: String)
+    case skipped
+    case needsReview
+}
+
+/// One ambiguous/unmatched ABS book item in Review, mapped from the Kotlin-flattened snapshot.
+/// `isUnmatched` selects the tier label; `resolution` reflects the admin's running choice.
+struct ImportBookRowModel: Identifiable, Equatable {
+    let absItemId: String
+    let title: String
+    let asin: String?
+    let isbn: String?
+    let isUnmatched: Bool
+    let resolution: ImportBookResolution
+
+    var id: String { absItemId }
+
+    /// "ASIN: … · ISBN: …" identifier line, or empty when neither is present.
+    var identifiers: String {
+        [asin.map { "ASIN: \($0)" }, isbn.map { "ISBN: \($0)" }]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+
+    init(snapshot: ImportReviewBookSnapshot) {
+        self.absItemId = snapshot.absItemId
+        self.title = snapshot.title
+        self.asin = snapshot.asin
+        self.isbn = snapshot.isbn
+        self.isUnmatched = snapshot.isUnmatched
+        self.resolution = Self.resolve(snapshot)
+    }
+
+    /// Memberwise init for tests / previews.
+    init(
+        absItemId: String,
+        title: String,
+        asin: String?,
+        isbn: String?,
+        isUnmatched: Bool,
+        resolution: ImportBookResolution
+    ) {
+        self.absItemId = absItemId
+        self.title = title
+        self.asin = asin
+        self.isbn = isbn
+        self.isUnmatched = isUnmatched
+        self.resolution = resolution
+    }
+
+    /// Pure: classify one item's resolution from its snapshot's `RESOLUTION_*` marker.
+    static func resolve(_ snapshot: ImportReviewBookSnapshot) -> ImportBookResolution {
+        switch snapshot.resolution {
+        case ImportUserRowModel.Marker.assigned:
+            return .assigned(bookId: snapshot.assignedBookId ?? "")
+        case ImportUserRowModel.Marker.skipped:
+            return .skipped
+        default:
+            return .needsReview
+        }
+    }
+}
+
+// MARK: - Book search
+
+/// One result row in the book-search panel.
+struct ImportBookSearchHit: Identifiable, Equatable {
+    let bookId: String
+    let title: String
+    let author: String
+
+    var id: String { bookId }
+}
+
+/// The open book-search panel for one ABS item, mapped from the Kotlin-flattened snapshot.
+struct ImportBookSearchModel: Equatable {
+    let absItemId: String
+    let query: String
+    let isSearching: Bool
+    let results: [ImportBookSearchHit]
+
+    init(snapshot: ImportBookSearchSnapshot) {
+        self.absItemId = snapshot.absItemId
+        self.query = snapshot.query
+        self.isSearching = snapshot.isSearching
+        self.results = snapshot.results.map {
+            ImportBookSearchHit(bookId: $0.bookId, title: $0.title, author: $0.author)
+        }
+    }
+
+    /// Memberwise init for tests / previews.
+    init(absItemId: String, query: String, isSearching: Bool, results: [ImportBookSearchHit]) {
+        self.absItemId = absItemId
+        self.query = query
+        self.isSearching = isSearching
+        self.results = results
     }
 }
 

@@ -395,14 +395,8 @@ interface LocalPreferences {
     /** Reactive WiFi-only downloads preference. */
     val wifiOnlyDownloads: StateFlow<Boolean>
 
-    /** Reactive auto-remove finished downloads preference. */
-    val autoRemoveFinished: StateFlow<Boolean>
-
     /** Set whether to only download on WiFi. */
     suspend fun setWifiOnlyDownloads(enabled: Boolean)
-
-    /** Set whether to auto-remove downloads after finishing a book. */
-    suspend fun setAutoRemoveFinished(enabled: Boolean)
 
     // Controls
 
