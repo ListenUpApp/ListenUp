@@ -86,6 +86,8 @@ fun NowPlayingHost(
     onNavigateToSeries: (String) -> Unit,
     onNavigateToContributor: (String) -> Unit,
     onNavigateToDocument: (localPath: String) -> Unit,
+    onNavigateToStorySoFar: (bookId: String) -> Unit,
+    onNavigateToStoryWorldHub: (seriesId: String?, bookId: String?) -> Unit,
     viewModel: NowPlayingViewModel,
     campfireViewModel: CampfireViewModel,
     campfireMinimized: Boolean,
@@ -255,6 +257,8 @@ fun NowPlayingHost(
             activeState = activeState,
             viewModel = viewModel,
             onNavigateToContributor = onNavigateToContributor,
+            onNavigateToStorySoFar = onNavigateToStorySoFar,
+            onNavigateToStoryWorldHub = onNavigateToStoryWorldHub,
         )
 
         CampfireOverlays(campfire = campfire, campfireViewModel = campfireViewModel)
@@ -306,6 +310,7 @@ private fun NowPlayingFullScreenContent(
             onSpeedClick = viewModel::showSpeedPicker,
             onChaptersClick = viewModel::showChapterPicker,
             onSleepTimerClick = viewModel::showSleepTimer,
+            onStorySoFarClick = viewModel::showStorySoFar,
             onGoToBook = {
                 viewModel.collapse()
                 onNavigateToBook(activeState.bookId)
@@ -566,6 +571,8 @@ private fun OverlayDispatch(
     activeState: NowPlayingState.Active?,
     viewModel: NowPlayingViewModel,
     onNavigateToContributor: (String) -> Unit,
+    onNavigateToStorySoFar: (bookId: String) -> Unit,
+    onNavigateToStoryWorldHub: (seriesId: String?, bookId: String?) -> Unit,
 ) {
     when (overlay) {
         NowPlayingOverlay.None -> { /* no overlay */ }
@@ -619,6 +626,24 @@ private fun OverlayDispatch(
                     onSpeedChange = viewModel::setSpeed,
                     onResetToDefault = viewModel::resetSpeedToDefault,
                     onDismiss = viewModel::hideSpeedPicker,
+                )
+            }
+        }
+
+        NowPlayingOverlay.StorySoFar -> {
+            if (activeState != null) {
+                val bookId = activeState.bookId
+                StorySoFarPanel(
+                    bookId = bookId,
+                    onExpand = {
+                        viewModel.hideStorySoFar()
+                        onNavigateToStorySoFar(bookId)
+                    },
+                    onOpenHub = { seriesId, hubBookId ->
+                        viewModel.hideStorySoFar()
+                        onNavigateToStoryWorldHub(seriesId, hubBookId)
+                    },
+                    onDismissRequest = viewModel::hideStorySoFar,
                 )
             }
         }

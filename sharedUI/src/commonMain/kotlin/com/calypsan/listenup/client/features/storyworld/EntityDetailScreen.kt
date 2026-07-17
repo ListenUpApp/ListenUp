@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.storyworld
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +24,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -48,7 +45,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,6 +57,7 @@ import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.features.storyworld.components.EntryTimelineRow
+import com.calypsan.listenup.client.features.storyworld.components.EvolutionTimeline
 import com.calypsan.listenup.client.features.storyworld.components.WorldSpoilerBanner
 import com.calypsan.listenup.client.features.storyworld.components.anchorLabelText
 import com.calypsan.listenup.client.features.storyworld.components.icon
@@ -76,8 +73,6 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.story_world_delete_entity
 import listenup.composeapp.generated.resources.story_world_entity_not_found
-import listenup.composeapp.generated.resources.story_world_evolution_seam_body
-import listenup.composeapp.generated.resources.story_world_evolution_seam_title
 import listenup.composeapp.generated.resources.story_world_fab_add_entry
 import listenup.composeapp.generated.resources.story_world_hidden_count
 import listenup.composeapp.generated.resources.story_world_rename_entity
@@ -88,11 +83,8 @@ import listenup.composeapp.generated.resources.story_world_tab_evolution
 private val HERO_TILE_SIZE = 104.dp
 private val WIDE_HERO_WIDTH = 380.dp
 private val WIDE_TAB_ROW_WIDTH = 280.dp
-private val EVOLUTION_TILE_SIZE = 66.dp
-private val EVOLUTION_ICON_SIZE = 30.dp
-private val EVOLUTION_BODY_MAX_WIDTH = 280.dp
 
-/** Which tab of the entity detail screen is showing. Evolution is an inert seam until it ships. */
+/** Which tab of the entity detail screen is showing. */
 private enum class EntityDetailTab { Entries, Evolution }
 
 /**
@@ -565,7 +557,7 @@ private fun EntityDetailTabContent(
         }
 
         EntityDetailTab.Evolution -> {
-            EvolutionSeamContent()
+            EvolutionTimeline(evolution = state.evolution)
         }
     }
 }
@@ -619,46 +611,6 @@ private fun HiddenCountRow(
         TextButton(onClick = onShowHidden) {
             Text(stringResource(Res.string.story_world_show_anyway))
         }
-    }
-}
-
-@Composable
-private fun EvolutionSeamContent() {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .size(EVOLUTION_TILE_SIZE)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.AutoAwesome,
-                contentDescription = null,
-                modifier = Modifier.size(EVOLUTION_ICON_SIZE),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Spacer(Modifier.height(18.dp))
-        Text(
-            text = stringResource(Res.string.story_world_evolution_seam_title),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = stringResource(Res.string.story_world_evolution_seam_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.widthIn(max = EVOLUTION_BODY_MAX_WIDTH),
-        )
     }
 }
 

@@ -974,6 +974,12 @@ private fun BoxScope.AuthenticatedNavOverlays(
         onNavigateToDocument = { localPath ->
             backStack.add(DocumentViewer(localPath))
         },
+        onNavigateToStorySoFar = { bookId ->
+            backStack.add(StorySoFar(bookId))
+        },
+        onNavigateToStoryWorldHub = { seriesId, bookId ->
+            backStack.add(StoryWorldHub(seriesId = seriesId, bookId = bookId))
+        },
         viewModel = nowPlayingViewModel,
         campfireViewModel = campfireViewModel,
         campfireMinimized = campfireMinimize.minimized,

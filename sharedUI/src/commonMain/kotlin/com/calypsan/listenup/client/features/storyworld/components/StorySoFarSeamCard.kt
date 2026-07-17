@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,11 +35,17 @@ private const val BORDER_ALPHA = 0.22f
 private val LEADING_TILE_SIZE = 46.dp
 
 /**
- * Brand-tinted gradient seam card teasing the "Story So Far" feature — inert (not clickable),
- * shown at the top of the Story World hub body until the feature ships.
+ * Brand-tinted gradient seam card teasing the "Story So Far" feature. Clickable (with a trailing
+ * chevron) once [onClick] is non-null — the hub passes a target only when the world has a book to
+ * recap; otherwise the card stays inert, as it did before Story So Far shipped.
+ *
+ * @param onClick Called when the card is tapped. Null keeps the card inert (no chevron, no ripple).
  */
 @Composable
-fun StorySoFarSeamCard(modifier: Modifier = Modifier) {
+fun StorySoFarSeamCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
     val gradientStart =
         MaterialTheme.colorScheme.primary
             .copy(
@@ -51,6 +58,8 @@ fun StorySoFarSeamCard(modifier: Modifier = Modifier) {
         shape = SEAM_CARD_SHAPE,
         color = Color.Transparent,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = BORDER_ALPHA)),
+        onClick = onClick ?: {},
+        enabled = onClick != null,
     ) {
         Row(
             modifier =
@@ -61,7 +70,7 @@ fun StorySoFarSeamCard(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TonalIconTile(icon = Icons.Outlined.Public, size = LEADING_TILE_SIZE)
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = stringResource(Res.string.story_world_story_so_far_title),
                     style = MaterialTheme.typography.titleMedium,
@@ -72,6 +81,13 @@ fun StorySoFarSeamCard(modifier: Modifier = Modifier) {
                     text = stringResource(Res.string.story_world_story_so_far_seam_body),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (onClick != null) {
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

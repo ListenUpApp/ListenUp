@@ -172,6 +172,13 @@ class StoryWorldHubViewModel(
                 position == null || (position.startedAtMs == null && position.maxPositionMs == 0L)
             }
 
+        val storySoFarTarget =
+            snapshot.worldBooks.books
+                .mapNotNull { book -> snapshot.positions[book.id]?.let { position -> book.id to position } }
+                .filter { (_, position) -> position.startedAtMs != null || position.maxPositionMs > 0L }
+                .maxByOrNull { (_, position) -> position.effectiveLastPlayedAtMs }
+                ?.first
+
         val searchResults =
             if (searchQuery.isBlank()) {
                 emptyList()
@@ -189,6 +196,7 @@ class StoryWorldHubViewModel(
             hiddenEventCount = gatedEvents.hiddenCount,
             revealed = snapshot.reveal,
             unstartedBooksBanner = unstartedBooksBanner,
+            storySoFarTarget = storySoFarTarget,
             searchQuery = searchQuery,
             searchResults = searchResults,
             isEmpty = snapshot.entities.isEmpty() && snapshot.events.isEmpty(),
@@ -233,6 +241,7 @@ class StoryWorldHubViewModel(
             hiddenEventCount = draft.hiddenEventCount,
             revealed = draft.revealed,
             unstartedBooksBanner = draft.unstartedBooksBanner,
+            storySoFarTarget = draft.storySoFarTarget,
             searchQuery = draft.searchQuery,
             searchResults = draft.searchResults,
             isEmpty = draft.isEmpty,
@@ -274,6 +283,7 @@ class StoryWorldHubViewModel(
         val hiddenEventCount: Int,
         val revealed: Boolean,
         val unstartedBooksBanner: Boolean,
+        val storySoFarTarget: String?,
         val searchQuery: String,
         val searchResults: List<EntityCard>,
         val isEmpty: Boolean,
@@ -315,6 +325,14 @@ sealed interface StoryWorldHubUiState {
         val revealed: Boolean,
         /** True when at least one of this world's books has never been started. */
         val unstartedBooksBanner: Boolean,
+        /**
+         * The world's most-recently-played STARTED book id — a world book with
+         * `startedAtMs != null || maxPositionMs > 0`, chosen by the highest
+         * [com.calypsan.listenup.client.domain.model.PlaybackPosition.effectiveLastPlayedAtMs]. Null
+         * when no book in this world has been started yet — the hub's Story So Far seam card stays
+         * inert (no [com.calypsan.listenup.client.presentation.storyworld.WorldRef] target to open).
+         */
+        val storySoFarTarget: String?,
         val searchQuery: String,
         /** Entities matching [searchQuery] (case-insensitive name-contains); empty when [searchQuery] is blank. */
         val searchResults: List<EntityCard>,

@@ -83,6 +83,7 @@ private val CONTROLS_MAX_WIDTH = 520.dp
  * @param onSpeedClick Called when the speed pill is tapped.
  * @param onSleepClick Called when the sleep pill is tapped.
  * @param onChaptersClick Called when the chapters pill is tapped.
+ * @param onStorySoFarClick Called when the Story So Far pill is tapped.
  * @param onGoToBook Called when "Go to Book" is selected from the overflow menu.
  * @param onGoToSeries Called with the series id when "Go to Series" is selected.
  * @param onGoToContributor Called with a contributor id when a contributor name or menu item is tapped.
@@ -106,6 +107,7 @@ fun WideNowPlaying(
     onSpeedClick: () -> Unit,
     onSleepClick: () -> Unit,
     onChaptersClick: () -> Unit,
+    onStorySoFarClick: () -> Unit,
     onGoToBook: () -> Unit,
     onGoToSeries: (String) -> Unit,
     onGoToContributor: (String) -> Unit,
@@ -274,6 +276,7 @@ fun WideNowPlaying(
                             onSpeedClick = onSpeedClick,
                             onSleepClick = onSleepClick,
                             onChaptersClick = onChaptersClick,
+                            onStorySoFarClick = onStorySoFarClick,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

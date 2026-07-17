@@ -84,6 +84,7 @@ fun StoryWorldHubScreen(
     onBackClick: () -> Unit,
     onEntityClick: (String) -> Unit,
     onKindClick: (EntityKind) -> Unit,
+    onStorySoFarClick: (bookId: String) -> Unit = {},
     viewModel: StoryWorldHubViewModel = koinViewModel(),
 ) {
     LaunchedEffect(seriesId, bookId) { viewModel.load(WorldRef(seriesId, bookId)) }
@@ -124,6 +125,7 @@ fun StoryWorldHubScreen(
                             onSearchQueryChange = viewModel::setSearchQuery,
                             onShowHidden = viewModel::showHidden,
                             onAddEntryClick = { showComposer = true },
+                            onStorySoFarClick = onStorySoFarClick,
                         )
                     } else {
                         NarrowStoryWorldHubContent(
@@ -134,6 +136,7 @@ fun StoryWorldHubScreen(
                             onSearchQueryChange = viewModel::setSearchQuery,
                             onShowHidden = viewModel::showHidden,
                             onAddEntryClick = { showComposer = true },
+                            onStorySoFarClick = onStorySoFarClick,
                         )
                     }
                 }
@@ -218,6 +221,7 @@ private fun NarrowStoryWorldHubContent(
     onSearchQueryChange: (String) -> Unit,
     onShowHidden: () -> Unit,
     onAddEntryClick: () -> Unit,
+    onStorySoFarClick: (bookId: String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         StoryWorldHero(
@@ -242,7 +246,8 @@ private fun NarrowStoryWorldHubContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                StorySoFarSeamCard()
+                val storySoFarTarget = state.storySoFarTarget
+                StorySoFarSeamCard(onClick = storySoFarTarget?.let { target -> { onStorySoFarClick(target) } })
                 if (state.unstartedBooksBanner) {
                     WorldSpoilerBanner()
                 }
@@ -269,6 +274,7 @@ private fun WideStoryWorldHubContent(
     onSearchQueryChange: (String) -> Unit,
     onShowHidden: () -> Unit,
     onAddEntryClick: () -> Unit,
+    onStorySoFarClick: (bookId: String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         StoryWorldHero(
@@ -297,7 +303,8 @@ private fun WideStoryWorldHubContent(
                     modifier = Modifier.width(380.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(24.dp),
                 ) {
-                    StorySoFarSeamCard()
+                    val storySoFarTarget = state.storySoFarTarget
+                    StorySoFarSeamCard(onClick = storySoFarTarget?.let { target -> { onStorySoFarClick(target) } })
                     if (state.unstartedBooksBanner) {
                         WorldSpoilerBanner()
                     }

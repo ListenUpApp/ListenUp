@@ -29,6 +29,9 @@ internal fun EntryProviderScope<NavKey>.storyWorldEntries(backStack: NavBackStac
             onKindClick = { kind ->
                 backStack.add(StoryWorldEntities(seriesId = args.seriesId, bookId = args.bookId, kind = kind.name))
             },
+            onStorySoFarClick = { bookId ->
+                backStack.add(StorySoFar(bookId))
+            },
         )
     }
     entry<StoryWorldEntities> { args ->

@@ -387,6 +387,14 @@ class NowPlayingViewModel internal constructor(
         overlayFlow.value = NowPlayingOverlay.None
     }
 
+    fun showStorySoFar() {
+        overlayFlow.value = NowPlayingOverlay.StorySoFar
+    }
+
+    fun hideStorySoFar() {
+        overlayFlow.value = NowPlayingOverlay.None
+    }
+
     // === Sleep Timer ===
 
     fun setSleepTimer(mode: SleepTimerMode) {

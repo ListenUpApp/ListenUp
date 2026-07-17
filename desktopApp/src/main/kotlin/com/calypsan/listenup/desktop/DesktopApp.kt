@@ -366,6 +366,9 @@ private fun DetailScreen(
                 onStoryWorldClick = { seriesId, bookId ->
                     navigateTo(DetailDestination.StoryWorldHub(seriesId = seriesId, bookId = bookId))
                 },
+                onStorySoFarClick = { bookId ->
+                    navigateTo(DetailDestination.StorySoFar(bookId))
+                },
             )
         }
 
@@ -673,6 +676,9 @@ private fun DetailScreen(
                             kind = kind.name,
                         ),
                     )
+                },
+                onStorySoFarClick = { bookId ->
+                    navigateTo(DetailDestination.StorySoFar(bookId))
                 },
             )
         }

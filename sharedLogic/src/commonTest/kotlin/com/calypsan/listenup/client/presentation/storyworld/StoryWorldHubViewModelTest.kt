@@ -74,15 +74,17 @@ class StoryWorldHubViewModelTest :
             bookId: String,
             maxPositionMs: Long,
             startedAtMs: Long?,
+            lastPlayedAtMs: Long? = null,
+            updatedAtMs: Long = 0L,
         ) = PlaybackPosition(
             bookId = bookId,
             positionMs = 0L,
             maxPositionMs = maxPositionMs,
             playbackSpeed = 1.0f,
             hasCustomSpeed = false,
-            updatedAtMs = 0L,
+            updatedAtMs = updatedAtMs,
             syncedAtMs = null,
-            lastPlayedAtMs = null,
+            lastPlayedAtMs = lastPlayedAtMs,
             startedAtMs = startedAtMs,
         )
 
@@ -452,6 +454,65 @@ class StoryWorldHubViewModelTest :
 
                     val ready = awaitItem().shouldBeInstanceOf<StoryWorldHubUiState.Ready>()
                     ready.unstartedBooksBanner shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("storySoFarTarget is the most-recently-played started book id") {
+            runTest {
+                val fixture =
+                    Fixture(
+                        initialPositions =
+                            mapOf(
+                                "book-1" to
+                                    position("book-1", maxPositionMs = 1_000L, startedAtMs = 1L, updatedAtMs = 5_000L),
+                                "book-2" to
+                                    position(
+                                        "book-2",
+                                        maxPositionMs = 500L,
+                                        startedAtMs = 2L,
+                                        updatedAtMs = 9_000L,
+                                    ),
+                            ),
+                    )
+                fixture.seedSeries(books = listOf(book("book-1", "Book One"), book("book-2", "Book Two")))
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe StoryWorldHubUiState.Idle
+                    viewModel.load(WorldRef(seriesId = "series-1"))
+                    advanceUntilIdle()
+                    awaitItem() shouldBe StoryWorldHubUiState.Loading
+
+                    val ready = awaitItem().shouldBeInstanceOf<StoryWorldHubUiState.Ready>()
+                    ready.storySoFarTarget shouldBe "book-2"
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("storySoFarTarget is null when no book in the world has been started") {
+            runTest {
+                val fixture =
+                    Fixture(
+                        initialPositions =
+                            mapOf(
+                                "book-1" to position("book-1", maxPositionMs = 0L, startedAtMs = null),
+                                "book-2" to position("book-2", maxPositionMs = 0L, startedAtMs = null),
+                            ),
+                    )
+                fixture.seedSeries(books = listOf(book("book-1", "Book One"), book("book-2", "Book Two")))
+                val viewModel = fixture.build()
+
+                viewModel.state.test {
+                    awaitItem() shouldBe StoryWorldHubUiState.Idle
+                    viewModel.load(WorldRef(seriesId = "series-1"))
+                    advanceUntilIdle()
+                    awaitItem() shouldBe StoryWorldHubUiState.Loading
+
+                    val ready = awaitItem().shouldBeInstanceOf<StoryWorldHubUiState.Ready>()
+                    ready.storySoFarTarget shouldBe null
                     cancelAndIgnoreRemainingEvents()
                 }
             }

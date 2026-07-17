@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,14 +22,15 @@ import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_chapters
 import listenup.composeapp.generated.resources.player_sleep_timer
+import listenup.composeapp.generated.resources.story_so_far_title
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Secondary action row with speed pill, sleep pill, and chapters pill.
+ * Secondary action row with speed pill, sleep pill, chapters pill, and Story So Far pill.
  *
- * All three controls use a pill shape ([CircleShape]) with [surfaceContainerHigh] background,
+ * All controls use a pill shape ([CircleShape]) with [surfaceContainerHigh] background,
  * matching the M3 Expressive design reference. The speed pill shows a text label;
- * the sleep and chapters controls are icon-only pills.
+ * the sleep, chapters, and Story So Far controls are icon-only pills.
  *
  * Bookmark and equalizer controls are intentionally omitted per design decision.
  *
@@ -36,6 +38,7 @@ import org.jetbrains.compose.resources.stringResource
  * @param onSpeedClick Called when the speed pill is tapped.
  * @param onSleepClick Called when the sleep/bedtime pill is tapped.
  * @param onChaptersClick Called when the chapters list pill is tapped.
+ * @param onStorySoFarClick Called when the Story So Far pill is tapped.
  */
 @Composable
 fun PlayerSecondaryActions(
@@ -43,6 +46,7 @@ fun PlayerSecondaryActions(
     onSpeedClick: () -> Unit,
     onSleepClick: () -> Unit,
     onChaptersClick: () -> Unit,
+    onStorySoFarClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -65,6 +69,12 @@ fun PlayerSecondaryActions(
             icon = Icons.AutoMirrored.Filled.List,
             contentDescription = stringResource(Res.string.player_chapters),
             onClick = onChaptersClick,
+        )
+
+        PillIcon(
+            icon = Icons.Outlined.Public,
+            contentDescription = stringResource(Res.string.story_so_far_title),
+            onClick = onStorySoFarClick,
         )
     }
 }

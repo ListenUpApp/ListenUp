@@ -72,6 +72,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteD
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
 import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
+import com.calypsan.listenup.client.features.bookdetail.components.StorySoFarCard
 import com.calypsan.listenup.client.features.bookdetail.components.StoryWorldSection
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
@@ -129,6 +130,7 @@ fun BookDetailScreen(
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
     onStoryWorldClick: (seriesId: String?, bookId: String?) -> Unit = { _, _ -> },
+    onStorySoFarClick: (bookId: String) -> Unit = {},
     campfireViewModel: CampfireViewModel,
     startWithCampfireCreate: Boolean = false,
     viewModel: BookDetailViewModel = koinViewModel(),
@@ -195,6 +197,7 @@ fun BookDetailScreen(
                     onUserProfileClick = onUserProfileClick,
                     onSeeAllReaders = onSeeAllReaders,
                     onStoryWorldClick = onStoryWorldClick,
+                    onStorySoFarClick = onStorySoFarClick,
                 )
             }
         }
@@ -247,6 +250,7 @@ private fun BookDetailReadyContent(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
     onStoryWorldClick: (seriesId: String?, bookId: String?) -> Unit,
+    onStorySoFarClick: (bookId: String) -> Unit,
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
@@ -358,6 +362,7 @@ private fun BookDetailReadyContent(
         onMoodClick = onMoodClick,
         onSeeAllReaders = onSeeAllReaders,
         onStoryWorldClick = onStoryWorldClickResolved,
+        onStorySoFarClick = { onStorySoFarClick(bookId) },
     )
 
     when (val step = campfireFlowStep) {
@@ -531,6 +536,7 @@ fun BookDetailContent(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onStoryWorldClick: () -> Unit = {},
+    onStorySoFarClick: () -> Unit = {},
 ) {
     val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
 
@@ -622,6 +628,7 @@ fun BookDetailContent(
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
             onStoryWorldClick = onStoryWorldClick,
+            onStorySoFarClick = onStorySoFarClick,
         )
     }
 }
@@ -679,6 +686,7 @@ private fun ImmersiveBookDetail(
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
     onStoryWorldClick: () -> Unit = {},
+    onStorySoFarClick: () -> Unit = {},
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var isChaptersExpanded by rememberSaveable { mutableStateOf(false) }
@@ -804,6 +812,16 @@ private fun ImmersiveBookDetail(
                     onMoodClick = { mood -> onMoodClick(mood.id, mood.displayName()) },
                     creditsSlot = null,
                     modifier = screenPadding.padding(top = 24.dp),
+                )
+            }
+
+            // Story So Far — a live spoiler-safe glance at the book's Story World, when it has
+            // folded in at least one row (renders nothing otherwise).
+            item {
+                StorySoFarCard(
+                    bookId = bookId,
+                    onOpenFull = { onStorySoFarClick() },
+                    modifier = screenPadding.padding(top = 16.dp),
                 )
             }
 
