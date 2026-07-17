@@ -40,9 +40,26 @@ internal const val AUTH_PARKED_DELAY_MS = 300_000L
 /**
  * Upper bound on the connection-establishment phase. A connect that hasn't produced a response
  * within this window is abandoned and retried, so a down/unreachable server can't wedge the loop on
- * engines with no finite connect timeout (Darwin/URLSession). The streaming read stays unbounded.
+ * engines with no finite connect timeout (Darwin/URLSession).
  */
 internal const val DEFAULT_CONNECT_TIMEOUT_MS = 5_000L
+
+/**
+ * Upper bound on **silence** during the streaming read — the half-open-connection watchdog.
+ *
+ * A NAT rebind, AP roam, router restart or buffering proxy can kill the TCP path with no RST: the
+ * socket is dead and nothing says so, and an unbounded `readLine()` blocks forever. The connection
+ * state then stays `Connected` — a lie that stands the whole recovery stack down, because
+ * `ReconnectionSupervisor` is gated on not-connected, the outbox drains on the connection-up edge,
+ * and the supervisor's HTTP probe *succeeds* against a half-open stream and so masks the offline
+ * banner. The app looks online and receives nothing, indefinitely.
+ *
+ * The server already emits the signal to detect it: a comment-line keepalive every 25s
+ * (`SyncRoutes.heartbeatIntervalMillis`). This bound is 3× that interval, so a live-but-idle stream
+ * is never torn down (two heartbeats may be lost before we act) while a dead one is caught quickly.
+ * Any received byte — heartbeat comment or real frame — resets the window.
+ */
+internal const val DEFAULT_READ_IDLE_TIMEOUT_MS = 75_000L
 
 private const val HTTP_UNAUTHORIZED = 401
 private const val HTTP_FORBIDDEN = 403
@@ -158,6 +175,7 @@ internal class SseConnection(
     private val urlProvider: suspend () -> String?,
     private val streamingClientProvider: suspend () -> HttpClient,
     private val connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
+    private val readIdleTimeoutMillis: Long = DEFAULT_READ_IDLE_TIMEOUT_MS,
     private val resumeIdProvider: () -> Long? = { null },
     private val parkOnAuthExhaustion: Boolean = false,
     private val authExhaustedThreshold: Int = AUTH_EXHAUSTED_THRESHOLD,
@@ -311,7 +329,25 @@ internal class SseConnection(
             }
         }
 
-    /** Read and dispatch SSE frames until the stream closes. Returns [ConnectAttempt.Established] on EOF. */
+    /**
+     * Read and dispatch SSE frames until the stream closes or goes silent.
+     *
+     * Each read is bounded by [readIdleTimeoutMillis]: any received line — including the server's
+     * comment-line heartbeat, which the parser discards but which still resets this window — proves
+     * the socket is alive. Silence past the bound means a half-open connection, so we abandon it and
+     * let the loop reconnect rather than block forever (see [DEFAULT_READ_IDLE_TIMEOUT_MS]).
+     *
+     * On EOF the result depends on whether the connection was **productive**. A stream that
+     * delivered at least one line and then ended is a healthy long-lived connection dropping, so it
+     * returns [ConnectAttempt.Established] and the loop reconnects promptly with counters reset. A
+     * stream that produced *nothing* — a crash-looping server behind a healthy proxy, an LB
+     * draining, a proxy that terminates the response — returns [ConnectAttempt.Reconnect] so the
+     * backoff ladder applies. Previously EOF always returned `Established`, which reset the
+     * counters and reconnected with **zero delay**: a connect→EOF→reconnect hot loop that also
+     * re-ran `lifecycleReconcile(force = true)` (~40 HTTP GETs) per cycle against an already
+     * struggling server, while the UI flickered Connecting/Connected fast enough that the
+     * unreachable banner never tripped.
+     */
     private suspend fun streamFrames(
         response: HttpResponse,
         emit: suspend (SseEvent) -> Unit,
@@ -319,19 +355,30 @@ internal class SseConnection(
         emit(SseEvent.Connected)
         val channel = response.bodyAsChannel()
         val buffer = StringBuilder()
+        var delivered = 0
         while (!channel.isClosedForRead) {
-            val line = channel.readLine() ?: break
-            if (line.isEmpty()) {
+            var line: String? = null
+            val readCompleted = withTimeoutOrNull(readIdleTimeoutMillis) { line = channel.readLine() } != null
+            if (!readCompleted) {
+                logger.warn {
+                    "SSE stream silent for ${readIdleTimeoutMillis}ms (heartbeat missed) — " +
+                        "treating as half-open and reconnecting"
+                }
+                return ConnectAttempt.Reconnect
+            }
+            val received = line ?: break
+            delivered++
+            if (received.isEmpty()) {
                 // Append an empty trailing line so parseSseStream commits the frame.
                 val parsed = parseSseStream(buffer.lineSequence().plus(""))
                 for (frame in parsed) emit(SseEvent.Frame(frame))
                 buffer.clear()
             } else {
                 if (buffer.isNotEmpty()) buffer.append('\n')
-                buffer.append(line)
+                buffer.append(received)
             }
         }
-        return ConnectAttempt.Established
+        return if (delivered > 0) ConnectAttempt.Established else ConnectAttempt.Reconnect
     }
 
     private enum class ConnectAttempt { Established, Reconnect, AuthFailed, GracefulClose }
