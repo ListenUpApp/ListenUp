@@ -149,6 +149,10 @@ final class Dependencies {
     func createAdminCollectionDetailViewModel(collectionId: String) -> AdminCollectionDetailViewModel {
         KoinHelper.shared.getAdminCollectionDetailViewModel(collectionId: collectionId)
     }
+
+    func createUserDetailViewModel(userId: String) -> UserDetailViewModel {
+        KoinHelper.shared.getUserDetailViewModel(userId: userId)
+    }
 }
 
 // MARK: - Locked cache

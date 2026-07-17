@@ -204,11 +204,16 @@ struct AdminView: View {
             VStack(spacing: 0) {
                 ForEach(Array(ready.users.enumerated()), id: \.element.id) { index, user in
                     if index > 0 { rowSeparator }
-                    AdminUserRow(
-                        user: user,
-                        isDeleting: ready.deletingUserId == user.id,
-                        onDelete: { pendingDelete = user }
-                    )
+                    // Tapping the row opens the user's detail (permissions incl. Can Share); the
+                    // trailing delete button keeps its own tap. Parity with Android's tappable rows.
+                    NavigationLink(value: UserDetailDestination(userId: user.id)) {
+                        AdminUserRow(
+                            user: user,
+                            isDeleting: ready.deletingUserId == user.id,
+                            onDelete: { pendingDelete = user }
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .fieldCard()

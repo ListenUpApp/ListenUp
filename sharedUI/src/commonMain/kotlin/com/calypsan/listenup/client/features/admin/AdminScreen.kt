@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CloudDownload
@@ -88,6 +89,8 @@ import listenup.composeapp.generated.resources.admin_inbox_subtitle
 import listenup.composeapp.generated.resources.admin_inbox_setting_subtitle
 import listenup.composeapp.generated.resources.admin_inbox_setting_title
 import listenup.composeapp.generated.resources.admin_backup_restore
+import listenup.composeapp.generated.resources.import_entry_subtitle
+import listenup.composeapp.generated.resources.import_title
 import listenup.composeapp.generated.resources.admin_confirm_deny_registration
 import listenup.composeapp.generated.resources.admin_copy_link
 import listenup.composeapp.generated.resources.admin_create_backups_and_restore_server
@@ -144,6 +147,7 @@ fun AdminScreen(
     onCollectionsClick: () -> Unit = {},
     onCategoriesClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
+    onImportClick: () -> Unit = {},
     onInboxClick: () -> Unit = {},
     onLibrarySettingsClick: () -> Unit = {},
     onUserClick: (String) -> Unit = {},
@@ -229,6 +233,7 @@ fun AdminScreen(
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
+                    onImportClick = onImportClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
                     serverName = serverName,
@@ -329,6 +334,7 @@ private fun AdminContent(
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
+    onImportClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
     serverName: String,
@@ -358,6 +364,7 @@ private fun AdminContent(
             onCollectionsClick = onCollectionsClick,
             onCategoriesClick = onCategoriesClick,
             onBackupClick = onBackupClick,
+            onImportClick = onImportClick,
             onInboxClick = onInboxClick,
             onLibrarySettingsClick = onLibrarySettingsClick,
             serverName = serverName,
@@ -407,6 +414,7 @@ private fun AdminContent(
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
+                    onImportClick = onImportClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
                     inboxEnabled = inboxEnabled,
@@ -432,6 +440,7 @@ private fun AdminTwoPaneContent(
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
+    onImportClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
     serverName: String,
@@ -487,6 +496,7 @@ private fun AdminTwoPaneContent(
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
+                    onImportClick = onImportClick,
                     onInboxClick = onInboxClick,
                     onLibrarySettingsClick = onLibrarySettingsClick,
                     inboxEnabled = inboxEnabled,
@@ -923,6 +933,7 @@ internal fun ManagementSection(
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
+    onImportClick: () -> Unit,
     onInboxClick: () -> Unit,
     onLibrarySettingsClick: () -> Unit,
     inboxEnabled: Boolean,
@@ -988,6 +999,15 @@ internal fun ManagementSection(
             subtitle = stringResource(Res.string.admin_create_backups_and_restore_server),
             icon = Icons.Outlined.Backup,
             onClick = onBackupClick,
+            containerColor = colors.surfaceContainerHigh,
+            badgeColor = colors.tertiary,
+            badgeContentColor = colors.onTertiary,
+        )
+        ActionTile(
+            title = stringResource(Res.string.import_title),
+            subtitle = stringResource(Res.string.import_entry_subtitle),
+            icon = Icons.Outlined.CloudDownload,
+            onClick = onImportClick,
             containerColor = colors.surfaceContainerHigh,
             badgeColor = colors.tertiary,
             badgeContentColor = colors.onTertiary,

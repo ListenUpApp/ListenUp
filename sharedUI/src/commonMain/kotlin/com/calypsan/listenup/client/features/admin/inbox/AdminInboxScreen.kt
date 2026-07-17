@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.LibraryAddCheck
@@ -79,6 +80,7 @@ import listenup.composeapp.generated.resources.admin_inbox_release_count
 import listenup.composeapp.generated.resources.admin_inbox_released_count
 import listenup.composeapp.generated.resources.admin_inbox_released_count_plural
 import listenup.composeapp.generated.resources.admin_inbox_review_edit
+import listenup.composeapp.generated.resources.metadata_match_on_audible
 import listenup.composeapp.generated.resources.admin_inbox_select_all
 import listenup.composeapp.generated.resources.admin_newly_scanned_books_will_appear
 import listenup.composeapp.generated.resources.admin_release_anyway
@@ -116,6 +118,7 @@ fun AdminInboxScreen(
     viewModel: AdminInboxViewModel,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onMatchClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -154,6 +157,7 @@ fun AdminInboxScreen(
             innerPadding = innerPadding,
             onBackClick = onBackClick,
             onBookClick = onBookClick,
+            onMatchClick = onMatchClick,
             onBookSelectionToggle = viewModel::toggleBookSelection,
             onSelectAll = viewModel::selectAll,
             onClearSelection = viewModel::clearSelection,
@@ -188,6 +192,7 @@ private fun AdminInboxBody(
     innerPadding: PaddingValues,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
     onSelectAll: () -> Unit,
     onClearSelection: () -> Unit,
@@ -218,6 +223,7 @@ private fun AdminInboxBody(
                     state = state,
                     onBackClick = onBackClick,
                     onBookClick = onBookClick,
+                    onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
                     onSelectAll = onSelectAll,
                     onClearSelection = onClearSelection,
@@ -229,6 +235,7 @@ private fun AdminInboxBody(
                     state = state,
                     onBackClick = onBackClick,
                     onBookClick = onBookClick,
+                    onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
                     onSelectAll = onSelectAll,
                     onClearSelection = onClearSelection,
@@ -247,6 +254,7 @@ private fun InboxPhoneLayout(
     state: AdminInboxUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
     onSelectAll: () -> Unit,
     onClearSelection: () -> Unit,
@@ -276,6 +284,7 @@ private fun InboxPhoneLayout(
                     state = state,
                     big = false,
                     onBookClick = onBookClick,
+                    onMatchClick = onMatchClick,
                     onBookSelectionToggle = onBookSelectionToggle,
                 )
             } else {
@@ -304,6 +313,7 @@ private fun InboxWideLayout(
     state: AdminInboxUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
     onSelectAll: () -> Unit,
     onClearSelection: () -> Unit,
@@ -333,6 +343,7 @@ private fun InboxWideLayout(
                 state = state,
                 big = true,
                 onBookClick = onBookClick,
+                onMatchClick = onMatchClick,
                 onBookSelectionToggle = onBookSelectionToggle,
             )
         } else {
@@ -349,6 +360,7 @@ private fun LazyGridScope.inboxRowItems(
     state: AdminInboxUiState.Ready,
     big: Boolean,
     onBookClick: (String) -> Unit,
+    onMatchClick: (String) -> Unit,
     onBookSelectionToggle: (String) -> Unit,
 ) {
     items(items = state.books, key = { it.id }) { book ->
@@ -358,6 +370,7 @@ private fun LazyGridScope.inboxRowItems(
             isReleasing = state.isReleasing && book.id in state.selectedBookIds,
             big = big,
             onClick = { onBookClick(book.id) },
+            onMatch = { onMatchClick(book.id) },
             onSelectionToggle = { onBookSelectionToggle(book.id) },
         )
     }
@@ -682,6 +695,7 @@ private fun InboxRow(
     isReleasing: Boolean,
     big: Boolean,
     onClick: () -> Unit,
+    onMatch: () -> Unit,
     onSelectionToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -743,6 +757,11 @@ private fun InboxRow(
         if (isReleasing) {
             ListenUpLoadingIndicatorSmall()
         } else {
+            MatchOnAudibleButton(
+                isSelected = isSelected,
+                size = editTileSize,
+                onClick = onMatch,
+            )
             ReviewEditButton(
                 isSelected = isSelected,
                 size = editTileSize,
@@ -796,6 +815,35 @@ private fun InboxRowText(
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = subColor,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MatchOnAudibleButton(
+    isSelected: Boolean,
+    size: Dp,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = MaterialTheme.shapes.medium,
+        color =
+            if (isSelected) {
+                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+        contentColor =
+            if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+        modifier = Modifier.size(size),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Outlined.AutoAwesome,
+                contentDescription = stringResource(Res.string.metadata_match_on_audible),
+                modifier = Modifier.size(if (size > 46.dp) 23.dp else 21.dp),
             )
         }
     }
