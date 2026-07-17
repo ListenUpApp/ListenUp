@@ -8,6 +8,7 @@ data class ReaderLine(
     val kind: ReaderLineKind,
 )
 
+/** What a [ReaderLine] is reporting about its person: mid-book, or done with it. */
 sealed interface ReaderLineKind {
     /** The person is currently reading; [progressPct] is known when non-null. */
     data class Reading(

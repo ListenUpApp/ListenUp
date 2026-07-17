@@ -201,7 +201,7 @@ Day-to-day rules:
 - **`isRetryable = true` only when retry middleware can blindly re-fire the same call** (transient network, rate-limit-after-wait, idempotent 5xx). `false` for everything that needs user action (re-auth, fix input, contact admin).
 - **No closures in error types.** `@Serializable` errors cross the wire — recovery actions live at the consumer based on the typed subtype.
 - **Translate once at the boundary.** `ErrorMapper` runs at the Ktor edge; downstream consumers fold the typed value. Never substring-match on `error.message` — it's a constant, so the match is either redundant or wrong.
-- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI. Adding a public commonMain type without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build.
+- **Konsist enforces it.** `NoLegacyAppErrorRule`, `NoThrowsInDataLayerRule`, `DtosLiveInCommonMainRule`, `NoTransportTypesInDomainRule`, `PublicCommonMainTypesHaveKDocRule`, `StablePropertyOrderRule` — all active in CI, and ~50 more under `sharedLogic/src/commonTest/.../konsist/` (this list is the notable ones, not the set). Adding a public commonMain class/interface/top-level object without KDoc, or a `@Serializable data class` with no `@SerialName` anywhere, fails the build — note `StablePropertyOrderRule` is satisfied by ONE `@SerialName` per class, so it does not yet pin the order of the remaining untagged properties.
 
 ### Export Surface
 

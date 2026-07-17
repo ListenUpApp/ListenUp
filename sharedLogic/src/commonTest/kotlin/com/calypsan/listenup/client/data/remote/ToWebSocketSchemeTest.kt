@@ -36,11 +36,16 @@ class ToWebSocketSchemeTest :
             toWebSocketScheme("wss://server.example.com") shouldBe "wss://server.example.com"
         }
 
-        test("unsupported scheme throws with a clear message") {
+        // Typed, not a bare IllegalStateException: ErrorMapper folds this into
+        // ServerConnectError.InvalidUrl so the user is told their URL is wrong rather than that
+        // the network is down. A stringly `error(...)` here escaped the data layer untyped,
+        // breaking the AppResult contract.
+        test("unsupported scheme throws the typed scheme exception") {
             val ex =
-                shouldThrow<IllegalStateException> {
+                shouldThrow<ServerUrlSchemeUnsupportedException> {
                     toWebSocketScheme("ftp://server.example.com")
                 }
+            ex.url shouldBe "ftp://server.example.com"
             ex.message shouldBe "Server URL has unsupported scheme: ftp://server.example.com"
         }
 
@@ -48,7 +53,7 @@ class ToWebSocketSchemeTest :
             // The contract `ServerConfig.getActiveUrl()` always emits lowercase
             // schemes (it stores normalized URLs), so we don't accept uppercase
             // variants here. If that contract loosens, the test will catch it.
-            shouldThrow<IllegalStateException> {
+            shouldThrow<ServerUrlSchemeUnsupportedException> {
                 toWebSocketScheme("HTTP://server.example.com")
             }
         }
