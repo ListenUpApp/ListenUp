@@ -27,6 +27,7 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface BookChapterSource {
+    /** No chapter signal anywhere — the book has no chapters and none could be derived. */
     @Serializable
     @SerialName("BookChapterSource.None")
     data object None : BookChapterSource

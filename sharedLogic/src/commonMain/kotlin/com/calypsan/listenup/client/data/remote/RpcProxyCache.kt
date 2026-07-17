@@ -495,5 +495,5 @@ internal fun toWebSocketScheme(httpUrl: String): String =
         httpUrl.startsWith("https://") -> "wss://" + httpUrl.removePrefix("https://")
         httpUrl.startsWith("http://") -> "ws://" + httpUrl.removePrefix("http://")
         httpUrl.startsWith("ws://") || httpUrl.startsWith("wss://") -> httpUrl
-        else -> error("Server URL has unsupported scheme: $httpUrl")
+        else -> throw ServerUrlSchemeUnsupportedException(httpUrl)
     }

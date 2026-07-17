@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
+import com.calypsan.listenup.client.data.remote.ServerUrlSchemeUnsupportedException
 import com.calypsan.listenup.client.data.remote.TransientAuthRefreshException
 import com.calypsan.listenup.client.data.remote.model.EnvelopeMismatchException
 import io.ktor.client.network.sockets.ConnectTimeoutException
@@ -111,6 +112,14 @@ internal object ErrorMapper {
             // quietly instead of surfacing a generic InternalError "server error".
             exception is ServerUrlNotConfiguredException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
+            }
+
+            // A persisted URL whose scheme the RPC transport can't use is the user's URL being
+            // wrong — not the network being down. Fold it to InvalidUrl so the message is
+            // actionable ("That URL doesn't look right") rather than a misleading "check your
+            // connection".
+            exception is ServerUrlSchemeUnsupportedException -> {
+                ServerConnectError.InvalidUrl(reason = "malformed", debugInfo = exception.message)
             }
 
             // A dead/cancelled RpcClient ("RpcClient was cancelled") or a generic non-401 WebSocket

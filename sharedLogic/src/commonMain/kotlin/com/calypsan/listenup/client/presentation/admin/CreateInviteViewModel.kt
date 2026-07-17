@@ -142,6 +142,7 @@ sealed interface CreateInviteUiState {
     ) : CreateInviteUiState
 }
 
+/** Where an invite-creation attempt currently stands, from idle through to a typed failure. */
 sealed interface CreateInviteStatus {
     data object Idle : CreateInviteStatus
 
@@ -158,6 +159,7 @@ sealed interface CreateInviteStatus {
     ) : CreateInviteStatus
 }
 
+/** Why an invite-creation attempt failed — the variant selects the message and field highlight. */
 sealed interface CreateInviteErrorType {
     /** Client-side validation failed for [field]; the form highlights that input. */
     data class ValidationError(

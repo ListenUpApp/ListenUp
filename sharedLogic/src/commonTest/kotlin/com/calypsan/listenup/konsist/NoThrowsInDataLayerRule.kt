@@ -91,9 +91,26 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
  */
 private val SANCTIONED_RETHROW = Regex("""\bthrow\s+(e|cause)\b""")
 
+/**
+ * Kotlin's stdlib throw-equivalents. `error()`/`check*()`/`require*()` raise, and `getOrThrow()`
+ * rethrows — none of them contain the token `throw `, so a matcher keyed on that word alone is
+ * blind to every one of them. That blindness shipped: `RpcProxyCache.toWebSocketScheme` ended a
+ * `when` with `else -> error("Server URL has unsupported scheme: …")`, escaping the data layer as
+ * an untyped IllegalStateException while this rule stayed green (now a typed
+ * `ServerUrlSchemeUnsupportedException` that ErrorMapper folds).
+ *
+ * `require(...)` in a `@Serializable` type's `init { }` is the sanctioned boundary-validation
+ * pattern per CLAUDE.md — but those types live in `:contract`, not under `data/remote` or
+ * `data/repository`, so this rule's scope never sees them.
+ */
+private val THROW_EQUIVALENTS =
+    listOf("error(", "check(", "checkNotNull(", "require(", "requireNotNull(", "getOrThrow()")
+
+private fun String.containsThrowToken(): Boolean = contains("throw ") || THROW_EQUIVALENTS.any { contains(it) }
+
 private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.containsDisallowedThrow(): Boolean {
     val body = text
-    if (!body.contains("throw ")) return false
+    if (!body.containsThrowToken()) return false
 
     // Strip allowed patterns line by line; if any throw survives, it's disallowed.
     return body.lineSequence().any { rawLine ->
@@ -102,7 +119,7 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
         // comment lines keeps prose from masquerading as a residual throw and pinning a file to the
         // allowlist it no longer needs.
         if (line.startsWith("//") || line.startsWith("*") || line.startsWith("/*")) return@any false
-        line.contains("throw ") &&
+        line.containsThrowToken() &&
             !SANCTIONED_RETHROW.containsMatchIn(line) && // cancellation rethrows: throw e / throw cause
             !line.contains("throw NotImplementedError(") && // placeholder
             !line.contains("throw EnvelopeMismatchException(") && // protocol contract guard
@@ -110,6 +127,12 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // URL is configured (an expected pre-connection state). ErrorMapper folds it to a
             // transient NetworkUnavailable; it is a configuration guard, not a swallowed failure.
             !line.contains("throw ServerUrlNotConfiguredException(") &&
+            // unsupported-scheme guard: the twin of the not-connected guard above. A persisted
+            // server URL the RPC transport can't upgrade to WebSocket is a bad URL, and ErrorMapper
+            // folds this typed exception to ServerConnectError.InvalidUrl so the user gets an
+            // actionable message. It replaced a stringly `error(...)` that this rule could not see
+            // at all before THROW_EQUIVALENTS existed.
+            !line.contains("throw ServerUrlSchemeUnsupportedException(") &&
             // outcome-unknown transport signal: RpcProxyCache throws this when an RPC frame was sent
             // but the response was lost, so it can't be retried. catchingRpcResult immediately folds
             // it to a typed AppResult.Failure(TransportError.OutcomeUnknown) — a transport signal, not
