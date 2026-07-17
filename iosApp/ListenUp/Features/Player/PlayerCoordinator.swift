@@ -66,6 +66,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Comma-joined narrator(s); empty when the book has no narrator (the player
     /// hides the "Narrated by" line in that case).
     private(set) var narratorName: String = ""
+    /// Overflow-menu navigation targets for the playing book. Empty/nil until a book is loaded.
+    private(set) var seriesId: String?
+    private(set) var authors: [ContributorNavRef] = []
+    private(set) var narrators: [ContributorNavRef] = []
     private(set) var coverPath: String?
     private(set) var playbackSpeed: Float = 1.0
     private(set) var chapters: [Chapter] = []
@@ -400,6 +404,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bookTitle = ""
         authorName = ""
         narratorName = ""
+        seriesId = nil
+        authors = []
+        narrators = []
         coverPath = nil
         chapters = []
         firstPdfDocId = nil
@@ -567,6 +574,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bookTitle = prepared.bookTitle
         authorName = prepared.bookAuthor
         narratorName = prepared.bookNarrator
+        seriesId = prepared.seriesId
+        authors = prepared.authors
+        narrators = prepared.narrators
         coverPath = prepared.coverPath
         chapters = prepared.chapters
         playbackSpeed = prepared.resumeSpeed

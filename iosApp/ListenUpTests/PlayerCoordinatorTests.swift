@@ -118,6 +118,35 @@ struct PlayerCoordinatorWiringTests {
         return (coordinator, engine, progress)
     }
 
+    @Test func surfacesOverflowMenuNavigationTargets() async throws {
+        let engine = FakePlaybackEngine()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A1, A2", bookNarrator: "N1", coverPath: nil,
+            resumeSpeed: 1.0, resumePositionMs: 0,
+            chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)
+            ]),
+            seriesId: "series-1",
+            authors: [ContributorNavRef(id: "a1", name: "A1"), ContributorNavRef(id: "a2", name: "A2")],
+            narrators: [ContributorNavRef(id: "n1", name: "N1")]
+        )
+        let progress = FakeProgressReporting()
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(), engine: engine
+        )
+
+        coordinator.play(bookId: "book1")
+        // onPlaybackStarted fires only after the coordinator has applied the prepared snapshot,
+        // so awaiting it guarantees seriesId/authors/narrators are populated.
+        await progress.waitForStarted(bookId: "book1")
+
+        #expect(coordinator.seriesId == "series-1")
+        #expect(coordinator.authors.map(\.id) == ["a1", "a2"])
+        #expect(coordinator.narrators.map(\.id) == ["n1"])
+    }
+
     @Test func playLoadsAndStartsEngineAtResumePosition() async throws {
         let (coordinator, engine, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")

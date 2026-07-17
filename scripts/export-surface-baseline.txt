@@ -334,6 +334,7 @@ PlaybackController
 PlaybackDynamics
 PlaybackManager
 PlaybackMediaItem
+PlaybackNavRef
 PlaybackPosition
 PlaybackPositionRepository
 PlaybackPreferences

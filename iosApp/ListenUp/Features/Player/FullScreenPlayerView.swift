@@ -1,6 +1,13 @@
 import SwiftUI
 import Shared
 
+/// A pending multi-contributor picker: the choices and the dialog title.
+private struct ContributorPickerRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let choices: [ContributorNavRef]
+}
+
 /// Full-screen audiobook player on a soft cover-tint wash.
 ///
 /// Layout:
@@ -20,6 +27,10 @@ struct FullScreenPlayerView: View {
     var onCollapse: () -> Void
     /// Collapse the player and navigate to the current book's detail screen.
     var onViewDetails: () -> Void = {}
+    /// Collapse the player and navigate to the given series.
+    var onViewSeries: (String) -> Void = { _ in }
+    /// Collapse the player and navigate to the given contributor (author or narrator).
+    var onViewContributor: (String) -> Void = { _ in }
 
     /// Live drag translation as the user swipes the header down (downward only).
     /// Attached to the header strip alone so the body's chapter `Slider` and any
@@ -32,6 +43,8 @@ struct FullScreenPlayerView: View {
     @State private var showSpeedPicker: Bool = false
     @State private var showChapterList: Bool = false
     @State private var showSleepTimer: Bool = false
+    /// Non-nil while the multi-contributor picker is shown; carries the choices + the title.
+    @State private var contributorPicker: ContributorPickerRequest?
     @State private var tint: Color = .listenUpOrange
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -271,6 +284,27 @@ struct FullScreenPlayerView: View {
                         Label(String(localized: "player.open_pdf"), systemImage: "doc.richtext")
                     }
                 }
+                if let seriesId = observer.seriesId {
+                    Button(action: { onViewSeries(seriesId) }) {
+                        Label(String(localized: "player.go_to_series"), systemImage: "books.vertical")
+                    }
+                }
+                contributorButton(
+                    observer.authors,
+                    single: "player.go_to_author",
+                    multiple: "player.go_to_author_multiple",
+                    systemImage: "person"
+                )
+                contributorButton(
+                    observer.narrators,
+                    single: "player.go_to_narrator",
+                    multiple: "player.go_to_narrator_multiple",
+                    systemImage: "mic"
+                )
+                Divider()
+                Button(role: .destructive, action: { Task { await observer.stop() } }) {
+                    Label(String(localized: "player.close_book"), systemImage: "xmark")
+                }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body.weight(.semibold))
@@ -279,8 +313,42 @@ struct FullScreenPlayerView: View {
                     .background(Color(.tertiarySystemFill), in: Circle())
             }
             .accessibilityLabel(String(localized: "player.more_options"))
+            .confirmationDialog(
+                contributorPicker?.title ?? "",
+                isPresented: Binding(get: { contributorPicker != nil }, set: { if !$0 { contributorPicker = nil } }),
+                titleVisibility: .visible
+            ) {
+                ForEach(contributorPicker?.choices ?? []) { choice in
+                    Button(choice.name) {
+                        contributorPicker = nil
+                        onViewContributor(choice.id)
+                    }
+                }
+            }
         }
         .padding(.horizontal, 18)
+    }
+
+    /// A "Go to Author/Narrator" menu button: hidden when there are none, a direct navigation for
+    /// one, and a picker for several (matching the Android overflow's single-vs-"…" behaviour).
+    @ViewBuilder
+    private func contributorButton(
+        _ refs: [ContributorNavRef],
+        single: String.LocalizationValue,
+        multiple: String.LocalizationValue,
+        systemImage: String
+    ) -> some View {
+        if refs.count == 1, let only = refs.first {
+            Button(action: { onViewContributor(only.id) }) {
+                Label(String(localized: single), systemImage: systemImage)
+            }
+        } else if refs.count > 1 {
+            Button(action: {
+                contributorPicker = ContributorPickerRequest(title: String(localized: multiple), choices: refs)
+            }) {
+                Label(String(localized: multiple), systemImage: systemImage)
+            }
+        }
     }
 
     // MARK: - Title block

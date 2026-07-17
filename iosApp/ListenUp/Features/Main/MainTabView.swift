@@ -73,7 +73,9 @@ struct MainTabView: View {
                 PlayerExpansionOverlay(
                     coordinator: coordinator,
                     tabContentBottomInset: tabContentBottomInset,
-                    onViewBookDetails: pushBookDetail
+                    onViewBookDetails: pushBookDetail,
+                    onViewSeries: pushSeries,
+                    onViewContributor: pushContributor
                 )
             }
         }
@@ -157,6 +159,14 @@ struct MainTabView: View {
     /// destination for the player overlay's "View Book Details" action.
     private func pushBookDetail(_ bookId: String) {
         paths[selectedTab, default: NavigationPath()].append(BookDestination(id: bookId))
+    }
+
+    private func pushSeries(_ seriesId: String) {
+        paths[selectedTab, default: NavigationPath()].append(SeriesDestination(id: seriesId))
+    }
+
+    private func pushContributor(_ contributorId: String) {
+        paths[selectedTab, default: NavigationPath()].append(ContributorDestination(id: contributorId))
     }
 }
 

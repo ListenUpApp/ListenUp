@@ -31,6 +31,10 @@ struct PlayerExpansionOverlay: View {
     var tabContentBottomInset: CGFloat = 0
     /// Navigate to the given book's detail screen (pushed onto the active tab's stack).
     var onViewBookDetails: (String) -> Void = { _ in }
+    /// Navigate to the given series (pushed onto the active tab's stack).
+    var onViewSeries: (String) -> Void = { _ in }
+    /// Navigate to the given contributor — author or narrator (pushed onto the active tab's stack).
+    var onViewContributor: (String) -> Void = { _ in }
 
     @Namespace private var namespace
     @State private var isExpanded = false
@@ -57,6 +61,8 @@ struct PlayerExpansionOverlay: View {
                     namespace: namespace,
                     onCollapse: collapse,
                     onViewDetails: viewBookDetails,
+                    onViewSeries: { seriesId in collapse(); onViewSeries(seriesId) },
+                    onViewContributor: { contributorId in collapse(); onViewContributor(contributorId) },
                     onDragChanged: handleDragChanged,
                     onDragEnded: handleDragEnded
                 )

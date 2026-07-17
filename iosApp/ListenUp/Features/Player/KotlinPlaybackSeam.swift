@@ -35,7 +35,10 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
                             startOffsetMs: file.startOffsetMs
                         )
                     }
-                )
+                ),
+                seriesId: prepared.seriesId,
+                authors: prepared.authors.map { ContributorNavRef(id: $0.id, name: $0.name) },
+                narrators: prepared.narrators.map { ContributorNavRef(id: $0.id, name: $0.name) }
             )
         } catch is CancellationError {
             return nil
