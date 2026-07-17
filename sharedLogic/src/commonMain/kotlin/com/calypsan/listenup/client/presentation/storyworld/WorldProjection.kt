@@ -161,9 +161,10 @@ internal object WorldProjection {
     private fun FoldClock.orderIndexOf(bookId: String?): Int? =
         when (this) {
             is FoldClock.OrderedClock -> {
-                when (bookId) {
-                    null -> -1
-                    else -> orderedBookIds.indexOf(bookId).takeIf { it >= 0 }
+                if (bookId == null) {
+                    -1
+                } else {
+                    orderedBookIds.indexOf(bookId).takeIf { it >= 0 }
                 }
             }
 
