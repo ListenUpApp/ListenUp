@@ -60,6 +60,13 @@ struct LibraryView: View {
 
     @ToolbarContentBuilder
     private var libraryToolbar: some ToolbarContent {
+        // Sync-outbox indicator — visible only when the outbox is non-empty (syncing / pending /
+        // failed). Replaces the bare `isSyncing` signal with the richer SyncIndicatorViewModel surface.
+        if !isSelecting {
+            ToolbarItem(placement: .topBarTrailing) {
+                SyncStatusIndicator()
+            }
+        }
         ToolbarItem(placement: .topBarTrailing) {
             NavigationLink(value: UserProfileDestination()) {
                 UserAvatarView(user: user, size: 32)

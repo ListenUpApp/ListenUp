@@ -757,6 +757,8 @@
     "clear_all_downloads": "Clear All Downloads?",
     "default_speed": "Default speed",
     "default_timer": "Default timer",
+    "delete_blocked_message": "Stop playback of “%1$s” before deleting its download.",
+    "delete_blocked_title": "Can't delete while playing",
     "desktop": "Desktop",
     "devices": "Devices",
     "downloaded_books": "Downloaded Books",

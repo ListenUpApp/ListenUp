@@ -1088,6 +1088,8 @@ One beautiful library.</string>
     <string name="settings_clear_all_downloads">Clear All Downloads?</string>
     <string name="settings_default_speed">Default speed</string>
     <string name="settings_default_timer">Default timer</string>
+    <string name="settings_delete_blocked_message">Stop playback of “%1$s” before deleting its download.</string>
+    <string name="settings_delete_blocked_title">Can't delete while playing</string>
     <string name="settings_desktop">Desktop</string>
     <string name="settings_devices">Devices</string>
     <string name="settings_downloaded_books">Downloaded Books</string>

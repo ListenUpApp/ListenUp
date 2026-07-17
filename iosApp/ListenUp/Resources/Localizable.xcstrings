@@ -10871,6 +10871,26 @@
         }
       }
     },
+    "settings.delete_blocked_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop playback of “%1$@” before deleting its download."
+          }
+        }
+      }
+    },
+    "settings.delete_blocked_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can't delete while playing"
+          }
+        }
+      }
+    },
     "settings.desktop": {
       "localizations": {
         "en": {

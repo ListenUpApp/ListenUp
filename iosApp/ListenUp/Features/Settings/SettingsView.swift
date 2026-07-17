@@ -9,9 +9,10 @@ import Shared
 /// field so changes reflect and persist through the shared store. Sign Out is a
 /// destructive action behind a confirmation.
 ///
-/// Only settings the VM actually exposes are shown. The mockup's storage meter,
-/// Open Source Licenses, and Now Playing wallpaper rows are intentionally omitted —
-/// they have no `SettingsViewModel` backing yet. The Administration row is shown only
+/// Only settings the VM actually exposes are shown. The Downloads section links to the
+/// `StorageView` (usage + per-book delete + clear-all, backed by `StorageViewModel`); the
+/// mockup's Now Playing wallpaper row is intentionally omitted — it has no VM backing yet.
+/// The Administration row is shown only
 /// to admin / root users (`User.isAdmin`) and pushes `AdminView`. The Devices row
 /// is now present and pushes `DevicesView`.
 struct SettingsView: View {
@@ -239,6 +240,15 @@ struct SettingsView: View {
     @ViewBuilder
     private func downloadsSection(_ observer: SettingsObserver) -> some View {
         Section(String(localized: "settings.downloads")) {
+            NavigationLink(value: StorageDestination()) {
+                SettingsLabel(
+                    title: String(localized: "settings.manage_storage"),
+                    subtitle: String(localized: "settings.view_and_manage_downloaded_audiobooks"),
+                    systemImage: "internaldrive",
+                    tint: .green
+                )
+            }
+
             Toggle(isOn: boolBinding(observer.wifiOnlyDownloads, observer.setWifiOnlyDownloads)) {
                 SettingsLabel(
                     title: String(localized: "settings.wifi_only_downloads"),
