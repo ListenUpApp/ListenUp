@@ -21,6 +21,21 @@ struct ListenUpApp: App {
             RootView()
                 .tint(Color.listenUpOrange)
         }
+        // Native background app-refresh. SwiftUI registers the handler for us (the Kotlin
+        // BackgroundSyncScheduler is Android-only; iOS wires this natively — see BackgroundSync).
+        // The closure runs detached from the view hierarchy, so it resolves Dependencies.shared
+        // directly rather than reading @Environment. connectRealtime() is a no-op when signed out
+        // (the shared engine auth gate owns that), so no auth check is needed here.
+        .backgroundTask(.appRefresh(BackgroundSync.taskIdentifier)) {
+            await BackgroundSync.run {
+                do {
+                    try await Dependencies.shared.syncRepository.connectRealtime()
+                } catch is CancellationError {
+                } catch {
+                    Log.error("Background sync failed", error: error)
+                }
+            }
+        }
     }
 }
 
@@ -79,6 +94,11 @@ private struct RootView: View {
                     // Reconnect realtime sync on every foreground (single-flight, so safe).
                     activateSyncIfAuthenticated()
                     return
+                }
+                // Leaving foreground: queue the first background refresh. Subsequent ones chain
+                // from the .backgroundTask handler (BackgroundSync.run reschedules before working).
+                if newPhase == .background {
+                    BackgroundSync.schedule()
                 }
                 guard ScenePhasePolicy.shouldSavePosition(on: newPhase) else { return }
 
