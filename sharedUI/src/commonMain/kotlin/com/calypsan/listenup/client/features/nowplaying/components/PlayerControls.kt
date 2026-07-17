@@ -28,6 +28,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_pause
+import listenup.composeapp.generated.resources.player_play
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Squircle play/pause FAB with primary background; shows the wavy circular progress indicator while
@@ -72,7 +76,10 @@ fun PlayPauseFab(
             } else {
                 Icon(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    contentDescription =
+                        stringResource(
+                            if (isPlaying) Res.string.player_pause else Res.string.player_play,
+                        ),
                     modifier = Modifier.size(size * 0.54f),
                     tint = MaterialTheme.colorScheme.onPrimary,
                 )

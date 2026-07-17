@@ -28,13 +28,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -60,27 +59,31 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.domain.model.ShelfBook
-import com.calypsan.listenup.client.features.library.BookCard
-import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.ShelfDetail
-import kotlin.time.Duration.Companion.seconds
+import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.shelf.ShelfBookSort
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
 import com.calypsan.listenup.client.presentation.shelf.ShelfGridWidth
 import com.calypsan.listenup.client.presentation.shelf.sortShelfBooks
+import kotlin.time.Duration.Companion.seconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_no_items_yet
 import listenup.composeapp.generated.resources.common_private
+import listenup.composeapp.generated.resources.common_read_less
+import listenup.composeapp.generated.resources.common_read_more
 import listenup.composeapp.generated.resources.shelf_add_books_from_the_library
 import listenup.composeapp.generated.resources.shelf_books_in_shelf
 import listenup.composeapp.generated.resources.shelf_edit_shelf
+import listenup.composeapp.generated.resources.shelf_title_fallback
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -126,7 +129,7 @@ fun ShelfDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = readyState?.detail?.name ?: "Shelf",
+                        text = readyState?.detail?.name ?: stringResource(Res.string.shelf_title_fallback),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -592,7 +595,7 @@ private fun ShelfDescription(
                 onClick = onToggle,
                 contentPadding = PaddingValues(0.dp),
             ) {
-                Text(if (isExpanded) "Read less" else "Read more")
+                Text(stringResource(if (isExpanded) Res.string.common_read_less else Res.string.common_read_more))
             }
         }
     }

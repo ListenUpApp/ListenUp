@@ -26,32 +26,33 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
-import com.calypsan.listenup.client.features.bookdetail.formatFileSize
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
+import com.calypsan.listenup.client.features.bookdetail.formatFileSize
 import com.calypsan.listenup.client.presentation.storage.DeleteConfirmation
 import com.calypsan.listenup.client.presentation.storage.StorageUiState
 import com.calypsan.listenup.client.presentation.storage.StorageViewModel
-import org.koin.compose.viewmodel.koinViewModel
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.book_delete_download
 import listenup.composeapp.generated.resources.book_detail_you_can_redownload_anytime_by
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_delete
+import listenup.composeapp.generated.resources.common_storage
+import listenup.composeapp.generated.resources.settings_book_downloaded_count
+import listenup.composeapp.generated.resources.settings_books_downloaded_count
 import listenup.composeapp.generated.resources.settings_clear_all
 import listenup.composeapp.generated.resources.settings_clear_all_downloads
 import listenup.composeapp.generated.resources.settings_downloaded_books
@@ -59,8 +60,9 @@ import listenup.composeapp.generated.resources.settings_downloaded_books_will_ap
 import listenup.composeapp.generated.resources.settings_no_downloads
 import listenup.composeapp.generated.resources.settings_storage_available
 import listenup.composeapp.generated.resources.settings_storage_size_files
-import listenup.composeapp.generated.resources.common_storage
 import listenup.composeapp.generated.resources.settings_you_can_redownload_books_anytime
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Storage management screen showing downloaded books and storage usage.
@@ -239,7 +241,17 @@ private fun StorageSummaryCard(
                         style = MaterialTheme.typography.headlineMedium,
                     )
                     Text(
-                        text = if (bookCount == 1) "1 book downloaded" else "$bookCount books downloaded",
+                        text =
+                            stringResource(
+                                if (bookCount ==
+                                    1
+                                ) {
+                                    Res.string.settings_book_downloaded_count
+                                } else {
+                                    Res.string.settings_books_downloaded_count
+                                },
+                                bookCount,
+                            ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

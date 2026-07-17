@@ -42,7 +42,11 @@ import com.calypsan.listenup.client.playback.NowPlayingState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_close_book
 import listenup.composeapp.generated.resources.player_collapse
+import listenup.composeapp.generated.resources.player_go_to_author
+import listenup.composeapp.generated.resources.player_go_to_author_multiple
 import listenup.composeapp.generated.resources.player_go_to_book
+import listenup.composeapp.generated.resources.player_go_to_narrator
+import listenup.composeapp.generated.resources.player_go_to_narrator_multiple
 import listenup.composeapp.generated.resources.player_go_to_series
 import listenup.composeapp.generated.resources.player_more_options
 import listenup.composeapp.generated.resources.player_now_playing_overline
@@ -299,7 +303,13 @@ private fun OverflowMenu(
         // Go to Author(s) — shows picker label when multiple authors exist.
         if (state.authors.isNotEmpty()) {
             DropdownMenuItem(
-                text = { Text(if (state.hasMultipleAuthors) "Go to Author…" else "Go to Author") },
+                text = {
+                    Text(
+                        stringResource(
+                            if (state.hasMultipleAuthors) Res.string.player_go_to_author_multiple else Res.string.player_go_to_author,
+                        ),
+                    )
+                },
                 onClick = {
                     onDismiss()
                     if (state.hasMultipleAuthors) {
@@ -315,7 +325,17 @@ private fun OverflowMenu(
         // Go to Narrator(s) — shows picker label when multiple narrators exist.
         if (state.narrators.isNotEmpty()) {
             DropdownMenuItem(
-                text = { Text(if (state.hasMultipleNarrators) "Go to Narrator…" else "Go to Narrator") },
+                text = {
+                    Text(
+                        stringResource(
+                            if (state.hasMultipleNarrators) {
+                                Res.string.player_go_to_narrator_multiple
+                            } else {
+                                Res.string.player_go_to_narrator
+                            },
+                        ),
+                    )
+                },
                 onClick = {
                     onDismiss()
                     if (state.hasMultipleNarrators) {

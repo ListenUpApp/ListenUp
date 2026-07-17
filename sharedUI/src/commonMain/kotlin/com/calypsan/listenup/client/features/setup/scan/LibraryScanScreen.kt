@@ -42,8 +42,14 @@ import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.etaMinutes
 import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.SetupHeroBlob
+import kotlin.math.roundToInt
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlinx.coroutines.delay
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.library_scan_continue
+import listenup.composeapp.generated.resources.library_scan_progress_percent
+import listenup.composeapp.generated.resources.library_scan_progress_percent_eta
 import listenup.composeapp.generated.resources.library_scan_stalled_message
 import listenup.composeapp.generated.resources.library_scan_stalled_settings_hint
 import listenup.composeapp.generated.resources.library_setup_building_title
@@ -51,10 +57,6 @@ import listenup.composeapp.generated.resources.scan_building_subtitle
 import listenup.composeapp.generated.resources.scan_files_total
 import listenup.composeapp.generated.resources.scan_recently_matched
 import org.jetbrains.compose.resources.stringResource
-import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 private const val ETA_TICK_MS = 1_000L
 
@@ -337,7 +339,12 @@ private fun ScanProgressLabel(progress: ScanProgressState) {
     val pct = (fraction * 100).roundToInt()
     val eta = etaMinutes(nowMs - progress.startedAtMs, fraction)
     Text(
-        text = if (eta != null) "$pct% complete  ·  about $eta min left" else "$pct% complete",
+        text =
+            if (eta != null) {
+                stringResource(Res.string.library_scan_progress_percent_eta, pct, eta)
+            } else {
+                stringResource(Res.string.library_scan_progress_percent, pct)
+            },
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

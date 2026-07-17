@@ -37,10 +37,10 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_about_this_book
 import listenup.composeapp.generated.resources.book_detail_credits
 import listenup.composeapp.generated.resources.book_detail_mood
-import listenup.composeapp.generated.resources.book_detail_read_less
-import listenup.composeapp.generated.resources.book_detail_read_more
 import listenup.composeapp.generated.resources.book_detail_tags
 import listenup.composeapp.generated.resources.common_genres
+import listenup.composeapp.generated.resources.common_read_less
+import listenup.composeapp.generated.resources.common_read_more
 import org.jetbrains.compose.resources.stringResource
 
 private const val DESCRIPTION_PREVIEW_MAX_LINES = 4
@@ -176,7 +176,7 @@ private fun AboutDescriptionBlock(
         Text(
             text =
                 stringResource(
-                    if (isExpanded) Res.string.book_detail_read_less else Res.string.book_detail_read_more,
+                    if (isExpanded) Res.string.common_read_less else Res.string.common_read_more,
                 ),
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
             color = MaterialTheme.colorScheme.primary,

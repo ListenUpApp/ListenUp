@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.seriesedit
 
-import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,23 +25,19 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.CardDefaults
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
-import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,11 +50,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.seriesedit.components.SeriesMergeDialog
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
@@ -67,25 +67,26 @@ import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel
 import com.calypsan.listenup.client.util.rememberImagePicker
-import org.koin.compose.viewmodel.koinViewModel
-import org.koin.core.parameter.parametersOf
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_more_options
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.book_edit_change_cover
-import listenup.composeapp.generated.resources.common_description
-import listenup.composeapp.generated.resources.common_discard
-import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.book_edit_keep_editing
 import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
+import listenup.composeapp.generated.resources.common_back
+import listenup.composeapp.generated.resources.common_description
+import listenup.composeapp.generated.resources.common_discard
+import listenup.composeapp.generated.resources.common_dismiss
+import listenup.composeapp.generated.resources.error_unknown
 import listenup.composeapp.generated.resources.series_edit_series
 import listenup.composeapp.generated.resources.series_enter_a_description_for_this
 import listenup.composeapp.generated.resources.series_merge_into
 import listenup.composeapp.generated.resources.series_no_cover
 import listenup.composeapp.generated.resources.series_series_cover
 import listenup.composeapp.generated.resources.series_series_name
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 /**
  * Series Edit Screen — edit series metadata and cover.
@@ -285,7 +286,7 @@ private fun ErrorContent(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = error ?: "Unknown error",
+            text = error ?: stringResource(Res.string.error_unknown),
             color = MaterialTheme.colorScheme.error,
         )
         TextButton(onClick = onDismiss) {

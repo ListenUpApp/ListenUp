@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Surface
-import com.calypsan.listenup.client.domain.model.ScanProgressState
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,7 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -41,28 +40,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
-import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
 import com.calypsan.listenup.client.util.sortLetter
+import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.common_no_items_yet
 import listenup.composeapp.generated.resources.common_retry
+import listenup.composeapp.generated.resources.error_unknown
 import listenup.composeapp.generated.resources.library_add_audiobooks_to_your_server
 import listenup.composeapp.generated.resources.library_failed_to_load_library
 import listenup.composeapp.generated.resources.library_loading_your_library
-import listenup.composeapp.generated.resources.common_no_items_yet
 import listenup.composeapp.generated.resources.library_summary
 import listenup.composeapp.generated.resources.library_your_audiobooks_will_appear_here
+import org.jetbrains.compose.resources.stringResource
 
 private const val SCAN_PROGRESS_WIDTH_FRACTION = 0.6f
 
@@ -617,7 +618,7 @@ private fun BooksErrorState(
                 color = MaterialTheme.colorScheme.error,
             )
             Text(
-                text = error.message ?: "Unknown error",
+                text = error.message ?: stringResource(Res.string.error_unknown),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

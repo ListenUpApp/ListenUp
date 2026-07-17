@@ -30,12 +30,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.domain.model.ServerWithStatus
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
@@ -43,20 +43,22 @@ import com.calypsan.listenup.client.features.permission.RequestLocalNetworkPermi
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiEvent
 import com.calypsan.listenup.client.presentation.connect.ServerSelectUiState
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
-import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_no_items_found
+import listenup.composeapp.generated.resources.common_offline
+import listenup.composeapp.generated.resources.common_online
 import listenup.composeapp.generated.resources.common_refresh
 import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.connect_add_server_manually
-import listenup.composeapp.generated.resources.connect_version_prefix
 import listenup.composeapp.generated.resources.connect_enter_server_url_directly
 import listenup.composeapp.generated.resources.connect_make_sure_your_listenup_server
 import listenup.composeapp.generated.resources.connect_on_your_network
 import listenup.composeapp.generated.resources.connect_rescan
 import listenup.composeapp.generated.resources.connect_select_server
 import listenup.composeapp.generated.resources.connect_select_server_subtitle
+import listenup.composeapp.generated.resources.connect_version_prefix
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Server selection — the first screen of the connect flow. Lists servers discovered via mDNS
@@ -314,7 +316,7 @@ private fun StatusRow(
             content = {},
         )
         Text(
-            text = if (isOnline) "Online" else "Offline",
+            text = stringResource(if (isOnline) Res.string.common_online else Res.string.common_offline),
             style = MaterialTheme.typography.bodySmall,
             color = onRowMuted,
         )

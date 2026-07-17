@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.features.bookedit
 
-import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +14,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import com.calypsan.listenup.client.design.components.ListenUpButton
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,10 +24,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.bookedit.components.ClassificationSection
 import com.calypsan.listenup.client.features.bookedit.components.IdentifiersSection
@@ -46,22 +46,23 @@ import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
 import com.calypsan.listenup.client.util.rememberImagePicker
-import org.koin.compose.viewmodel.koinViewModel
-import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_edit_classification
-import listenup.composeapp.generated.resources.common_description
-import listenup.composeapp.generated.resources.common_discard
-import listenup.composeapp.generated.resources.common_dismiss
 import listenup.composeapp.generated.resources.book_edit_enter_a_description
 import listenup.composeapp.generated.resources.book_edit_identifiers
 import listenup.composeapp.generated.resources.book_edit_keep_editing
-import listenup.composeapp.generated.resources.common_library
 import listenup.composeapp.generated.resources.book_edit_publishing
-import listenup.composeapp.generated.resources.common_series
 import listenup.composeapp.generated.resources.book_edit_talent
 import listenup.composeapp.generated.resources.book_edit_unsaved_changes
 import listenup.composeapp.generated.resources.book_edit_you_have_unsaved_changes_are
+import listenup.composeapp.generated.resources.common_description
+import listenup.composeapp.generated.resources.common_discard
+import listenup.composeapp.generated.resources.common_dismiss
+import listenup.composeapp.generated.resources.common_library
+import listenup.composeapp.generated.resources.common_series
+import listenup.composeapp.generated.resources.error_unknown
+import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Book editing screen following Material 3 Expressive Design.
@@ -143,7 +144,7 @@ fun BookEditScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Text(
-                            text = state.error ?: "Unknown error",
+                            text = state.error ?: stringResource(Res.string.error_unknown),
                             color = MaterialTheme.colorScheme.error,
                         )
                         TextButton(

@@ -63,6 +63,7 @@
     <ID>MagicNumber:ZipFormat.kt:48</ID>
     <ID>MagicNumber:ZipFormat.kt:56</ID>
     <ID>MagicNumber:ZipFormat.kt:8</ID>
+    <ID>MaxLineLength:AdminCategoriesScreen.kt:contentDescription = stringResource(if (allExpanded) Res.string.admin_collapse_all else Res.string.admin_expand_all)</ID>
     <ID>MaxLineLength:AppleDownloadService.kt:DownloadSessionDelegate$"Download $pct%: $filename (${totalBytesWritten / BYTES_PER_MEGABYTE}/${totalBytesExpectedToWrite / BYTES_PER_MEGABYTE}MB)"</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt:FakeDownloadEnqueuer$override suspend fun enqueue: AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt:JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
@@ -70,28 +71,36 @@
     <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt:private fun fakeJpeg: ByteArray</ID>
+    <ID>MaxLineLength:StorageScreen.kt:if (bookCount == 1) Res.string.settings_book_downloaded_count else Res.string.settings_books_downloaded_count</ID>
     <ID>NestedBlockDepth:BackupArchive.kt:BackupArchive$private fun extractEntries: ImageDigests</ID>
     <ID>NestedBlockDepth:Lz77.kt:internal fun lz77: IntArray</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:contentDescription = "Skip back"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:contentDescription = "Skip forward"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:"Pause"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:"Play"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:"Skip back"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:"Skip forward"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"${MAX_SPEED}x"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"${MIN_SPEED}x"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Back"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Book cover"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Close Book"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Close player"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Failed to play ${state.title}"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Go to Author"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Go to Author…"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Go to Book"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Go to Narrator"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Go to Narrator…"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Go to Series"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"More options"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Next chapter"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"No book is currently playing"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Pause"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Play"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Playback Speed"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Previous chapter"</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Reset to ${formatSpeed(1.0f)}"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Back"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Book cover"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Close player"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "More options"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Next chapter"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Previous chapter"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Skip back 10s"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Skip forward 30s"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:text = "-${formatPlaybackTime((durationMs - positionMs).coerceAtLeast(0).milliseconds)}"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:text = "Failed to play ${state.title}"</ID>
-    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:text = "No book is currently playing"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Skip back 10s"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Skip forward 30s"</ID>
     <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject { parametersOf(destination.collectionId) }</ID>
     <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject { parametersOf(destination.userId) }</ID>
     <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject()</ID>
@@ -113,7 +122,6 @@
     <ID>StringLiteralDuplication:PlatformModule.kt:"playbackScope"</ID>
     <ID>StringLiteralDuplication:PlaybackServiceImpl.kt:PlaybackServiceImpl$"principal"</ID>
     <ID>StringShouldBeRawString:MultipartFormDataTest.kt:"Content-Disposition: form-data; name=\"$name\"; filename=\"$filename\""</ID>
-    <ID>SwallowedException:CurrentUserApiResponse.kt:CurrentUserApiResponse$e: Exception</ID>
     <ID>ThrowsCount:AtomWalker.kt:AtomWalker$fun readHeader: Atom</ID>
     <ID>ThrowsCount:BackupArchive.kt:BackupArchive$private fun verifyExtractedDb</ID>
     <ID>ThrowsCount:Inflate.kt:InflateRawSource$private fun readDynamicTables: Pair&lt;HuffmanDecoder, HuffmanDecoder&gt;</ID>
