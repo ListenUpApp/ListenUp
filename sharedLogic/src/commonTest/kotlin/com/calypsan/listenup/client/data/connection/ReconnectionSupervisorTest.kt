@@ -465,4 +465,107 @@ class ReconnectionSupervisorTest :
 
             reported shouldContain false
         }
+
+        test("a throw from reevaluate does not permanently stop recovery") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState() // Disconnected
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
+                    everySuspend { getConnectedServerId() } returns "inst-1"
+                }
+            val sseClient =
+                mock<SseClient> {
+                    every { reconnectNow() } returns Unit
+                }
+            val authSession =
+                mock<AuthSession> {
+                    every { authState } returns
+                        MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                    everySuspend { clearAuthTokens() } returns Unit
+                }
+            // reevaluate throws on the FIRST iteration (an mDNS/IO sweep failing during a network
+            // change), then succeeds. Before the fix the throw ended the recovery loop for the
+            // whole process lifetime — collectLatest only re-invokes it on a Disconnected->Connected
+            // edge, which recovery itself is what produces — so reconnectNow() was never reached.
+            var reevaluateCalls = 0
+            val supervisor =
+                ReconnectionSupervisor(
+                    engineState = engineState,
+                    instanceRepository = instance,
+                    serverConfig = serverConfig,
+                    sseClient = sseClient,
+                    authSession = authSession,
+                    errorBus = ErrorBus(),
+                    reevaluate = { if (reevaluateCalls++ == 0) error("mDNS sweep blew up") },
+                    scope = scope,
+                    probeIntervalMillis = interval,
+                )
+
+            supervisor.start()
+            // Advance past the throw's backoff (interval * 2) so the loop retries reevaluate
+            // (now succeeds), probes, and reconnects.
+            scope.testScheduler.advanceTimeBy(interval * 4)
+            scope.testScheduler.runCurrent()
+
+            verify(atLeast(1)) { sseClient.reconnectNow() }
+        }
+
+        test("a persistently-throwing reevaluate keeps retrying without hot-spinning") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState() // Disconnected
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
+                    everySuspend { getConnectedServerId() } returns "inst-1"
+                }
+            val sseClient =
+                mock<SseClient> {
+                    every { reconnectNow() } returns Unit
+                }
+            val authSession =
+                mock<AuthSession> {
+                    every { authState } returns
+                        MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                    everySuspend { clearAuthTokens() } returns Unit
+                }
+            var reevaluateCalls = 0
+            val supervisor =
+                ReconnectionSupervisor(
+                    engineState = engineState,
+                    instanceRepository = instance,
+                    serverConfig = serverConfig,
+                    sseClient = sseClient,
+                    authSession = authSession,
+                    errorBus = ErrorBus(),
+                    reevaluate = {
+                        reevaluateCalls++
+                        error("mDNS down")
+                    },
+                    scope = scope,
+                    probeIntervalMillis = interval,
+                )
+
+            supervisor.start()
+            scope.testScheduler.runCurrent() // first iteration throws, backs off to interval * 2
+            val afterFirst = reevaluateCalls
+            // Advancing less than the backoff must NOT trigger another attempt (no hot-spin).
+            scope.testScheduler.advanceTimeBy(interval)
+            scope.testScheduler.runCurrent()
+            check(reevaluateCalls == afterFirst) {
+                "should back off, not hot-spin: $afterFirst -> $reevaluateCalls"
+            }
+            // After the backoff elapses it retries — recovery is still alive, not latched off.
+            scope.testScheduler.advanceTimeBy(interval * 4)
+            scope.testScheduler.runCurrent()
+            check(reevaluateCalls > afterFirst) { "recovery should keep retrying after backoff" }
+        }
     })
