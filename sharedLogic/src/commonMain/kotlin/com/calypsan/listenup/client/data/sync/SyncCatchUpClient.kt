@@ -125,6 +125,18 @@ internal class SyncCatchUpClient(
                     since = it
                 }
                 if (!page.hasMore) break
+                // hasMore == true but no cursor to advance to: `since` did not move, so a naive
+                // while(true) would re-fetch this exact `?since=` page forever — holding catchUpMutex
+                // and wedging every other catch-up/reconcile. Break on the contract violation and
+                // surface it rather than spinning (Never Stranded: no unbounded loop against a
+                // misbehaving server).
+                if (page.nextCursor == null) {
+                    logger.warn {
+                        "catchUp(${handler.domainName}): server returned hasMore=true with nextCursor=null " +
+                            "at since=$since; stopping to avoid an unbounded paging loop"
+                    }
+                    break
+                }
             }
         }
 
