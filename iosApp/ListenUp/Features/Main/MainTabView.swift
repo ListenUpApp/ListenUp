@@ -111,7 +111,7 @@ struct MainTabView: View {
         NavigationStack(path: pathBinding(tab)) {
             content()
                 .navigationDestinations()
-                .navigationDestination(for: SearchSeeAllDestination.self) { destination in
+                .pushedDestination(for: SearchSeeAllDestination.self) { destination in
                     SeeAllSearchView(destination: destination, path: pathBinding(tab))
                 }
                 // Probe the *system* bottom inset (home indicator + floating tab bar)
@@ -219,23 +219,36 @@ private extension View {
             .adminDestinations()
     }
 
+    /// Registers a pushed navigation destination that reserves the floating mini player's footprint,
+    /// so the screen's content scrolls clear of the bar. A tab-root's `.safeAreaInset` doesn't reach
+    /// pushed screens, so every destination goes through here to inherit the reservation from one
+    /// place — new screens get it for free, and none can silently regress.
+    func pushedDestination<D: Hashable, Content: View>(
+        for type: D.Type,
+        @ViewBuilder destination: @escaping (D) -> Content
+    ) -> some View {
+        navigationDestination(for: type) { value in
+            destination(value).miniPlayerBottomInset()
+        }
+    }
+
     /// Library/content-facing destinations: books, series, contributors, facets, shelves, profiles,
     /// settings, and storage.
     func contentDestinations() -> some View {
         self
-            .navigationDestination(for: BookDestination.self) { destination in
+            .pushedDestination(for: BookDestination.self) { destination in
                 BookDetailView(bookId: destination.id)
             }
-            .navigationDestination(for: SeriesDestination.self) { destination in
+            .pushedDestination(for: SeriesDestination.self) { destination in
                 SeriesDetailView(seriesId: destination.id)
             }
-            .navigationDestination(for: ContributorDestination.self) { destination in
+            .pushedDestination(for: ContributorDestination.self) { destination in
                 ContributorDetailView(contributorId: destination.id)
             }
-            .navigationDestination(for: TagDestination.self) { destination in
+            .pushedDestination(for: TagDestination.self) { destination in
                 TagDetailView(tagId: destination.id)
             }
-            .navigationDestination(for: ContributorBooksDestination.self) { destination in
+            .pushedDestination(for: ContributorBooksDestination.self) { destination in
                 ContributorBooksView(
                     contributorId: destination.contributorId,
                     role: destination.role,
@@ -243,37 +256,37 @@ private extension View {
                     roleDisplayName: destination.roleDisplayName
                 )
             }
-            .navigationDestination(for: FacetDestination.self) { destination in
+            .pushedDestination(for: FacetDestination.self) { destination in
                 FacetBooksView(kind: destination.kind, facetId: destination.id, facetName: destination.name)
             }
-            .navigationDestination(for: GenreDestination.self) { destination in
+            .pushedDestination(for: GenreDestination.self) { destination in
                 BrowseGenreView(initialGenreId: destination.genreId, initialGenreName: destination.genreName)
             }
-            .navigationDestination(for: ShelfDestination.self) { destination in
+            .pushedDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)
             }
-            .navigationDestination(for: ShelfFormDestination.self) { destination in
+            .pushedDestination(for: ShelfFormDestination.self) { destination in
                 CreateEditShelfView(shelfId: destination.shelfId)
             }
-            .navigationDestination(for: UserProfileDestination.self) { _ in
+            .pushedDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }
-            .navigationDestination(for: ProfileDestination.self) { destination in
+            .pushedDestination(for: ProfileDestination.self) { destination in
                 ProfileDestinationView(userId: destination.userId)
             }
-            .navigationDestination(for: SettingsDestination.self) { _ in
+            .pushedDestination(for: SettingsDestination.self) { _ in
                 SettingsView()
             }
-            .navigationDestination(for: StorageDestination.self) { _ in
+            .pushedDestination(for: StorageDestination.self) { _ in
                 StorageView()
             }
-            .navigationDestination(for: DevicesDestination.self) { _ in
+            .pushedDestination(for: DevicesDestination.self) { _ in
                 DevicesView()
             }
-            .navigationDestination(for: LicensesDestination.self) { _ in
+            .pushedDestination(for: LicensesDestination.self) { _ in
                 LicensesView()
             }
-            .navigationDestination(for: LicenseDetailDestination.self) { destination in
+            .pushedDestination(for: LicenseDetailDestination.self) { destination in
                 LicenseDetailView(packageName: destination.packageName)
             }
     }
@@ -281,31 +294,31 @@ private extension View {
     /// Administration destinations (admin / root only surfaces).
     func adminDestinations() -> some View {
         self
-            .navigationDestination(for: AdminDestination.self) { _ in
+            .pushedDestination(for: AdminDestination.self) { _ in
                 AdminView()
             }
-            .navigationDestination(for: AdminInboxDestination.self) { _ in
+            .pushedDestination(for: AdminInboxDestination.self) { _ in
                 AdminInboxView()
             }
-            .navigationDestination(for: ABSImportDestination.self) { _ in
+            .pushedDestination(for: ABSImportDestination.self) { _ in
                 ABSImportHubView()
             }
-            .navigationDestination(for: AdminCollectionsDestination.self) { _ in
+            .pushedDestination(for: AdminCollectionsDestination.self) { _ in
                 AdminCollectionsView()
             }
-            .navigationDestination(for: AdminCollectionDetailDestination.self) { destination in
+            .pushedDestination(for: AdminCollectionDetailDestination.self) { destination in
                 AdminCollectionDetailView(collectionId: destination.collectionId)
             }
-            .navigationDestination(for: UserDetailDestination.self) { destination in
+            .pushedDestination(for: UserDetailDestination.self) { destination in
                 UserDetailView(userId: destination.userId)
             }
-            .navigationDestination(for: LibrarySettingsDestination.self) { _ in
+            .pushedDestination(for: LibrarySettingsDestination.self) { _ in
                 LibrarySettingsView()
             }
-            .navigationDestination(for: AdminBackupsDestination.self) { _ in
+            .pushedDestination(for: AdminBackupsDestination.self) { _ in
                 AdminBackupsView()
             }
-            .navigationDestination(for: RestoreBackupDestination.self) { destination in
+            .pushedDestination(for: RestoreBackupDestination.self) { destination in
                 RestoreBackupView(backupId: destination.backupId)
             }
     }

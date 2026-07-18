@@ -39,7 +39,6 @@ struct AdminView: View {
             }
         }
         .background(Color.luSurface)
-        .miniPlayerBottomInset()
         .navigationTitle(String(localized: "common.administration"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar { saveToolbarItem }

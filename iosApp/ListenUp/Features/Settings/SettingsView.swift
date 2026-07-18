@@ -42,7 +42,6 @@ struct SettingsView: View {
         .navigationTitle(String(localized: "common.settings"))
         .navigationBarTitleDisplayMode(.large)
         .readableWidth(720)
-        .miniPlayerBottomInset()
         .onAppear {
             if observer == nil {
                 observer = SettingsObserver(
