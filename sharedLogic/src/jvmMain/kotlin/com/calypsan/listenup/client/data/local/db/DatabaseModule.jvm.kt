@@ -27,9 +27,11 @@ internal actual val platformDatabaseModule: Module =
                 ).setDriver(BundledSQLiteDriver())
                 .setQueryCoroutineContext(Dispatchers.IO)
                 .addCallback(FtsTableCallback())
-                // No public installs yet — every schema change nukes and re-creates local
-                // data. Flip back to `false` + a proper Migration chain before launch.
-                .fallbackToDestructiveMigration(true)
+                // Non-destructive: a schema mismatch throws (loudly) rather than SILENTLY wiping the
+                // local DB — which includes the unsynced outbox (queued playback positions, listening
+                // history, offline edits not yet pushed). Every schema-version bump MUST ship a Room
+                // Migration that preserves data; re-adding fallbackToDestructiveMigration here
+                // reintroduces silent data loss (MIG-1). See the ListenUpDatabase KDoc.
                 .build()
         }
     }
