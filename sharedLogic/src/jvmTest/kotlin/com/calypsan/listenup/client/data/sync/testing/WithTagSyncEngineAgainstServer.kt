@@ -15,6 +15,24 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
+import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.OutboxOpSender
+import com.calypsan.listenup.client.data.sync.orSuccessIfNotFound
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.data.repository.TagRepositoryImpl
+import com.calypsan.listenup.client.domain.repository.TagRepository as ClientTagRepository
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import com.calypsan.listenup.api.dto.TagMutation
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.core.TagId
+import com.calypsan.listenup.server.api.createTagService
+import com.calypsan.listenup.server.api.tagServiceScopedTo
+import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -58,6 +76,15 @@ internal data class TagSyncEngineScope(
     val tagRepo: TagRepository,
     val bookTagRepo: BookTagRepository,
     val clientDatabase: ListenUpDatabase,
+    /**
+     * Client-side [ClientTagRepository] wired for the offline optimistic-edit → outbox → server
+     * path (DRIFT-1 dead-letter scenarios). `renameTag`/`deleteTag` write Room optimistically and
+     * enqueue a `tags` op that the engine drains through a real in-process [createTagService] call,
+     * so a server rejection (e.g. `TagError.InvalidName`) dead-letters exactly as in production.
+     */
+    val clientTagRepo: ClientTagRepository,
+    /** The outbox queue, exposed so tests can await a dead-letter via [PendingOperationQueue.observeDeadLetterCount]. */
+    val queue: PendingOperationQueue,
 )
 
 /**
@@ -119,6 +146,11 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
 
         val tagRepo = TagRepository(serverSqlDb, bus, syncRegistry)
         val bookTagRepo = BookTagRepository(serverSqlDb, bus, syncRegistry)
+        // Real in-process TagService so the client tags outbox sender exercises the genuine
+        // server rename/delete path — including its non-retryable rejections (TagError.InvalidName /
+        // NameTooLong / NotFound) that drive the DRIFT-1 dead-letter.
+        val tagService = createTagService(tagRepo, bookTagRepo, serverSqlDb, serverDriver)
+        val rootPrincipal = UserPrincipal(UserId("u1"), SessionId("test-session-u1"), UserRole.ROOT)
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
@@ -158,10 +190,43 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
 
             val state = SyncEngineState()
             val store = SyncCursorStore(clientDb.syncCursorDao())
+            // Client tags channel over the real in-process TagService, scoped to the ROOT test
+            // principal — mirrors production's `rpcChannel<TagService>()` outbox binding, but calls
+            // the service directly (no WebSocket) exactly like the sibling Direct* senders.
+            val tagChannel = RpcChannel.forTest(tagServiceScopedTo(tagService, PrincipalProvider { rootPrincipal }))
             val queue =
                 PendingOperationQueue(
                     dao = clientDb.pendingOperationV2Dao(),
-                    sender = DomainPendingOperationSender(emptyMap()),
+                    sender =
+                        DomainPendingOperationSender(
+                            mapOf(
+                                OutboxChannels.Tags.name to
+                                    OutboxOpSender(OutboxChannels.Tags) { id, mutation ->
+                                        when (mutation) {
+                                            is TagMutation.Rename ->
+                                                tagChannel.call { it.renameTag(TagId(id), mutation.newName) }
+
+                                            is TagMutation.Delete ->
+                                                tagChannel.call { it.deleteTag(TagId(id)) }.orSuccessIfNotFound()
+                                        }
+                                    },
+                            ),
+                        ),
+                )
+            val offlineEditor =
+                OfflineEditor(
+                    pendingQueue = queue,
+                    transactionRunner = RoomTransactionRunner(clientDb),
+                    authSession = FakeAuthSession(userId = "u1"),
+                )
+            // Offline-first client tag repo: renameTag/deleteTag write Room optimistically and
+            // enqueue a `tags` op the engine drains through the outbox sender above.
+            val clientTagRepo: ClientTagRepository =
+                TagRepositoryImpl(
+                    channel = tagChannel,
+                    tagDao = clientDb.tagDao(),
+                    bookTagDao = clientDb.bookTagDao(),
+                    offlineEditor = offlineEditor,
                 )
 
             val catchUp =
@@ -216,6 +281,8 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                     tagRepo = tagRepo,
                     bookTagRepo = bookTagRepo,
                     clientDatabase = clientDb,
+                    clientTagRepo = clientTagRepo,
+                    queue = queue,
                 ).block()
             } finally {
                 engine.stopAndJoin()

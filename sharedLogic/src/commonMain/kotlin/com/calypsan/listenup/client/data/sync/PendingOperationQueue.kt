@@ -14,11 +14,13 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -229,6 +231,22 @@ internal class PendingOperationQueue(
         enqueueCounter.update { it + 1 }
     }
 
+    // Heal requests. When an op dead-letters (server rejected it non-retryably) or is dismissed, the
+    // optimistic Room edit it carried was never accepted by the server — yet its (id, revision) is
+    // unchanged, so the digest matches, catch-up (revision > cursor) skips it, and no SSE echo ever
+    // arrives. Nothing in the convergence machinery repairs a content-only divergence (DRIFT-1). The
+    // engine drains this channel to re-fetch current server truth by id and apply it over the phantom.
+    // UNLIMITED capacity so a `trySend` never fails or suspends — including from inside `drainMutex`.
+    private val healRequests = Channel<SentEntityRef>(Channel.UNLIMITED)
+
+    /**
+     * Entities whose optimistic outbox edit dead-lettered or was dismissed and must be re-fetched
+     * from current server truth to overwrite the never-accepted local value. The engine drains this
+     * under its catch-up lock, gated on the entity having no remaining dispatchable op (see
+     * [hasQueuedOpFor]) so an in-flight edit is never clobbered.
+     */
+    fun observeHealRequests(): Flow<SentEntityRef> = healRequests.receiveAsFlow()
+
     /**
      * Enqueue a new op on [channel]. Returns its generated `clientOpId`. `check`s [op] is one of
      * [OutboxChannel.ops] — the single validation choke point ensuring a queued op can never drift
@@ -300,7 +318,9 @@ internal class PendingOperationQueue(
      * in flight, the apply is shielded so the optimistic state is not clobbered by a (possibly
      * stale) server snapshot — the authoritative state arrives via the edit's own echo once it
      * drains. Dead-lettered ops do NOT count as in-flight, so a permanently-failed edit lets the
-     * entity converge to server truth (see [PendingOperationV2Dao.hasQueuedOp]).
+     * entity converge to server truth — via the dead-letter heal (see [observeHealRequests]), which
+     * this same predicate gates so an in-flight sibling edit is never clobbered
+     * (see [PendingOperationV2Dao.hasQueuedOp]).
      */
     suspend fun hasQueuedOpFor(
         domainName: String,
@@ -430,6 +450,10 @@ internal class PendingOperationQueue(
                                 logger.warn {
                                     "Pending op ${op.clientOpId} dead-lettered (non-retryable): ${error.code}"
                                 }
+                                // The server rejected this edit; its optimistic Room value is now a
+                                // phantom no reconcile/catch-up/echo will repair. Request a heal to
+                                // re-fetch server truth for the entity (DRIFT-1).
+                                healRequests.trySend(SentEntityRef(op.domainName, op.entityId))
                             }
                         }
                     }
@@ -470,11 +494,16 @@ internal class PendingOperationQueue(
     }
 
     /**
-     * Drop an op permanently. The optimistic local edit stays in Room; it
-     * reconciles to server truth on the next catch-up/reconcile pass.
+     * Drop an op permanently and heal its entity. The optimistic local edit the op carried was
+     * never confirmed by the server, and its unchanged `(id, revision)` means no reconcile,
+     * catch-up, or SSE echo would repair it — so a [SentEntityRef] heal request is emitted to
+     * re-fetch current server truth over the abandoned local value (DRIFT-1), matching the
+     * dead-letter path.
      */
     suspend fun dismissOp(clientOpId: String) {
+        val op = dao.get(clientOpId)
         dao.delete(clientOpId)
+        if (op != null) healRequests.trySend(SentEntityRef(op.domainName, op.entityId))
     }
 
     /**

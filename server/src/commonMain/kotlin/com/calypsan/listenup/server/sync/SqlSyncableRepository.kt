@@ -576,12 +576,14 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * When [extraWhere] is null but a [driver] is wired (an all-seeing role on a gated domain) the
      * access clause is dropped and every matched row returns.
      *
-     * A domain with **no wired [driver]** — every userScoped/global aggregate — cannot serve the
-     * access-filtered read this performs, so it degrades to an **empty page** rather than failing
-     * loud. Those domains are served via the `?since=` catch-up, and the client gates its
-     * reconcile-on-drain targeted fetch to access-filtered handlers so it never asks them; the empty
-     * page is the defense-in-depth backstop that keeps a stray `?ids=` request from 500ing. This is
-     * a valid "nothing to reconcile here" answer — convergence still rides `?since=`/newer-wins.
+     * A domain with **no wired [driver]** — every userScoped/global aggregate — has no per-user
+     * access filter to apply: every row is visible to every authenticated caller. Such a domain is
+     * served **directly by id** from the substrate (tombstones included and minimized, matching the
+     * gated contract), so a `?ids=` fetch converges the same rows a `since = 0` catch-up would. This
+     * is what lets the client's dead-letter **heal** re-fetch current server truth for the ungated
+     * curation domains (tags/genres/moods/series/shelves/collections) — the DRIFT-1 fix. Ungated
+     * domains are only ever queried by their `"id"` column (the `?ids=` path); a stray non-`"id"`
+     * match on an ungated domain has no meaning here and answers empty rather than 500ing.
      */
     override suspend fun pullByIds(
         userId: String?,
@@ -590,9 +592,20 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         extraWhere: SqlFragment?,
     ): Page<T> {
         if (matchValues.isEmpty()) return Page(items = emptyList(), nextCursor = null, hasMore = false)
-        // No driver → this domain has no access-filtered read capability (see KDoc): answer empty
+        // No driver → ungated domain (no per-user access filter): serve the requested ids directly.
+        // Only the "id" column is meaningful for an ungated domain; anything else answers empty
         // rather than throw, so a valid authenticated sync GET never 500s.
-        val accessFilterDriver = driver ?: return Page(items = emptyList(), nextCursor = null, hasMore = false)
+        val accessFilterDriver =
+            driver ?: run {
+                if (matchColumn != "id") return Page(items = emptyList(), nextCursor = null, hasMore = false)
+                return suspendTransaction(db) {
+                    Page(
+                        items = readPayloads(matchValues).map(::minimizedIfTombstoned),
+                        nextCursor = null,
+                        hasMore = false,
+                    )
+                }
+            }
         return suspendTransaction(db) {
             val placeholders = matchValues.joinToString(separator = ", ") { "?" }
             val idsWithRev =
