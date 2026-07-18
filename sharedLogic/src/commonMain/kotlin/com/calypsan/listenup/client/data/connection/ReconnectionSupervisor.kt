@@ -82,43 +82,57 @@ internal class ReconnectionSupervisor(
     private suspend fun recoveryLoop() {
         var interval = probeIntervalMillis
         while (currentCoroutineContext().isActive) {
-            val active =
-                run {
-                    reevaluate() // re-point the active URL at a reachable address first
-                    serverConfig.getActiveUrl()
-                } ?: return // no server configured — nothing to recover
+            try {
+                val active =
+                    run {
+                        reevaluate() // re-point the active URL at a reachable address first
+                        serverConfig.getActiveUrl()
+                    } ?: return // no server configured — nothing to recover
 
-            when (val probe = instanceRepository.verifyServer(active.value)) {
-                is AppResult.Success -> {
-                    reportProbe(true)
-                    val connectedId = serverConfig.getConnectedServerId()
-                    val serverId = probe.data.serverInfo.instanceId
-                    if (connectedId != null && serverId != connectedId) {
-                        logger.info { "Server instance changed ($connectedId -> $serverId); re-auth required" }
-                        authSession.clearAuthTokens()
-                        errorBus.emit(AuthError.ServerInstanceChanged())
-                        return // stop hammering a server we can't use this session against
+                when (val probe = instanceRepository.verifyServer(active.value)) {
+                    is AppResult.Success -> {
+                        reportProbe(true)
+                        val connectedId = serverConfig.getConnectedServerId()
+                        val serverId = probe.data.serverInfo.instanceId
+                        if (connectedId != null && serverId != connectedId) {
+                            logger.info { "Server instance changed ($connectedId -> $serverId); re-auth required" }
+                            authSession.clearAuthTokens()
+                            errorBus.emit(AuthError.ServerInstanceChanged())
+                            return // stop hammering a server we can't use this session against
+                        }
+                        if (authSession.authState.value is AuthState.SessionLapsed) {
+                            // A lapsed session can't ride reconnectNow() to recovery — the SSE connect
+                            // would only 401 again (this call was the spam amplifier, resetting the SSE
+                            // backoff on every successful unauthenticated probe). Keep probing slowly;
+                            // the engine's auth gate resumes the firehose on re-auth.
+                            interval = MAX_PROBE_INTERVAL_MS
+                        } else {
+                            // Same instance (or no stored id to compare): server is live — kick the SSE
+                            // loop now. On success the connection flips to Connected and collectLatest
+                            // cancels us.
+                            sseClient.reconnectNow()
+                            interval = probeIntervalMillis // reachable again → probe promptly until Connected
+                        }
                     }
-                    if (authSession.authState.value is AuthState.SessionLapsed) {
-                        // A lapsed session can't ride reconnectNow() to recovery — the SSE connect
-                        // would only 401 again (this call was the spam amplifier, resetting the SSE
-                        // backoff on every successful unauthenticated probe). Keep probing slowly;
-                        // the engine's auth gate resumes the firehose on re-auth.
-                        interval = MAX_PROBE_INTERVAL_MS
-                    } else {
-                        // Same instance (or no stored id to compare): server is live — kick the SSE
-                        // loop now. On success the connection flips to Connected and collectLatest
-                        // cancels us.
-                        sseClient.reconnectNow()
-                        interval = probeIntervalMillis // reachable again → probe promptly until Connected
+
+                    is AppResult.Failure -> {
+                        reportProbe(false)
+                        logger.debug { "Reconnect probe failed: ${probe.error.code}" }
+                        interval = (interval * 2).coerceAtMost(MAX_PROBE_INTERVAL_MS) // back off while down
                     }
                 }
-
-                is AppResult.Failure -> {
-                    reportProbe(false)
-                    logger.debug { "Reconnect probe failed: ${probe.error.code}" }
-                    interval = (interval * 2).coerceAtMost(MAX_PROBE_INTERVAL_MS) // back off while down
-                }
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // A failure INSIDE a recovery iteration (most likely reevaluate's mDNS/IO sweep
+                // throwing during a network change) must NOT end the loop. The collector re-invokes
+                // this only on a fresh Disconnected->Connected edge — which recovery itself is what
+                // produces — so a propagated throw latches recovery off for the whole process until
+                // relaunch. Log, back off on the same escalating schedule as a failed probe, and keep
+                // trying (the escalating delay below prevents a hot-spin on a persistently-throwing
+                // reevaluate).
+                logger.warn(e) { "Reconnect recovery iteration failed; backing off and retrying" }
+                interval = (interval * 2).coerceAtMost(MAX_PROBE_INTERVAL_MS)
             }
 
             delay(interval)
