@@ -17,12 +17,16 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Schema is at **v6** — the v5 baseline with the dead `shake_to_reset_sleep_timer` column dropped
  * from `user_preferences`; the shake-to-reset-sleep-timer setting was a placebo (persisted and
- * synced but never wired to any behaviour), so its client projection is gone. There is still no
- * migration chain: the pre-launch policy
- * `fallbackToDestructiveMigration(true)` on each platform `DatabaseModule` nukes and recreates the
- * local DB on any schema change (data re-syncs from the server), which is acceptable pre-release
- * — so a version bump needs no hand-written [androidx.room.migration.Migration]. Before launch,
- * flip the fallback to `false` and begin a real migration chain in `data/local/migrations/`; the
+ * synced but never wired to any behaviour), so its client projection is gone.
+ *
+ * **Migration policy (non-destructive).** The platform `DatabaseModule`s do NOT call
+ * `fallbackToDestructiveMigration`, so a schema mismatch with no migration throws loudly instead of
+ * silently recreating the DB. That matters because the local DB holds the **unsynced outbox**
+ * (`PendingOperationV2Entity`) plus `syncedAt`-pending playback/listening rows — data the "re-syncs
+ * from the server" story does NOT cover, because it never reached the server. **Every future
+ * schema-version bump MUST ship a hand-written [androidx.room.migration.Migration]** (register it on
+ * all three builders) that preserves the outbox and other pending rows; the guard
+ * `DatabaseMigrationPolicyTest` fails the build if the destructive fallback is ever re-added. The
  * `@Database.exportSchema` on-disk JSON (`schemas/…/6.json`) is the authoritative baseline.
  */
 @Database(
