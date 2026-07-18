@@ -119,10 +119,13 @@ internal class SyncSseClient(
 
             is SseEvent.Frame -> {
                 val frame = event.frame
-                // emit is the linearization point for "this frame will be delivered": advancing
-                // lastEventId before it returns would commit the watermark past a frame that a
-                // cancellation mid-suspend (the bounded frameBus can suspend on emit) never
-                // actually delivered — the server would then never resend it this session.
+                // emit hands the frame to the buffered collector (replay=0); it does NOT mean the
+                // frame was applied to Room. The per-domain persisted cursor — advanced only on a
+                // successful apply — is the durable applied-watermark and the redelivery backstop;
+                // lastEventId here is only the SSE-resume hint. Ordering still matters for the
+                // cancellation guard: advancing lastEventId BEFORE emit returns would move that hint
+                // past a frame a cancellation mid-suspend (the bounded frameBus can suspend on emit)
+                // never handed to the collector, so the server would not resend it this session.
                 frameBus.emit(frame)
                 frame.id?.let { lastEventId = it }
                 state.setConnection(ConnectionState.Connected(lastEventId))

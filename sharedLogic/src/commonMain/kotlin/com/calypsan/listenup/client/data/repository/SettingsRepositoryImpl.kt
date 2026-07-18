@@ -391,6 +391,11 @@ internal class SettingsRepositoryImpl(
     // Local preferences (device-specific, NOT synced)
 
     override suspend fun initializeLocalPreferences() {
+        // Seed the reactive activeUrl projection from the authoritative store (getActiveUrl) so it is
+        // not a lossy `null` at startup for an already-configured server (SOT-1). Without this, a
+        // consumer reading activeUrl.value or its first emission sees "no server configured" while
+        // one is set — the only current consumer dodges it by reading getActiveUrl() directly.
+        activeUrl.value = getActiveUrl()
         themeMode.value = ThemeMode.fromString(secureStorage.read(KEY_THEME_MODE))
         dynamicColorsEnabled.value =
             secureStorage.read(KEY_DYNAMIC_COLORS)?.toBooleanStrictOrNull() ?: true
