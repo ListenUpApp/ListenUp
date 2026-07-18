@@ -190,6 +190,25 @@ extension MainTabView {
     }
 }
 
+// MARK: - Profile Routing
+
+/// Routes a `ProfileDestination` to the full self-profile when it targets the signed-in user,
+/// and to the lean read-only `ForeignProfileView` for anyone else. Tapping your own avatar in a
+/// social surface (leaderboard, activity feed, book readers) all emit `ProfileDestination`, so the
+/// self-check lives here — one place — rather than at each tap site.
+private struct ProfileDestinationView: View {
+    let userId: String
+    @Environment(CurrentUserObserver.self) private var currentUser
+
+    var body: some View {
+        if userId == currentUser.user?.idString {
+            UserProfileView()
+        } else {
+            ForeignProfileView(userId: userId)
+        }
+    }
+}
+
 // MARK: - Navigation Destinations
 
 private extension View {
@@ -240,7 +259,7 @@ private extension View {
                 UserProfileView()
             }
             .navigationDestination(for: ProfileDestination.self) { destination in
-                ForeignProfileView(userId: destination.userId)
+                ProfileDestinationView(userId: destination.userId)
             }
             .navigationDestination(for: SettingsDestination.self) { _ in
                 SettingsView()
