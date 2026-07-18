@@ -28,3 +28,17 @@ updates:
       # Deliberate pins.
       - dependency-name: "dev.detekt*"                   # detekt 2.0.0-alpha.5 — maintainer-decided alpha pin
       - dependency-name: "org.jetbrains.compose.material3:material3"  # 1.11.0-alpha07 — upstream-blocked
+      # Transitive BUILD/TEST-tooling only — never on a shipped or runtime classpath. Verified absent
+      # from :server jvmRuntimeClasspath and all native configs (shipped artifact is a Kotlin/Native
+      # server.kexe with zero JVM jars) and from :androidApp releaseRuntimeClasspath (nothing in the
+      # APK). Versions are owned by AGP / the Kotlin Swift Export worker / a test-only JWT lib and move
+      # only when those toolchains bump, so per-artifact Dependabot PRs here are pure churn.
+      - dependency-name: "io.netty:*"                    # AGP Unified Test Platform (grpc-netty emulator control) — not our server (Ktor CIO)
+      - dependency-name: "io.grpc:*"                      # ditto (UTP emulator-control channel)
+      - dependency-name: "org.bouncycastle:*"            # AGP apksig (APK signing); GOST-cipher CVE path unused
+      - dependency-name: "org.bitbucket.b_c:jose4j"      # AGP bundletool
+      - dependency-name: "org.jdom:jdom2"                # AGP tooling
+      - dependency-name: "io.opentelemetry:*"            # Kotlin Swift Export worker classpath
+      - dependency-name: "org.apache.commons:commons-lang3"      # AGP tooling transitive
+      - dependency-name: "org.apache.httpcomponents:httpclient"  # AGP tooling transitive (4.x; not the server's httpclient5)
+      - dependency-name: "com.fasterxml.jackson.core:jackson-databind"  # :server jvmTest only (auth0 java-jwt oracle); no Jackson in prod
