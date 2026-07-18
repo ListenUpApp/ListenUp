@@ -5,6 +5,7 @@ import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PreferenceChangeEvent
+import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -86,6 +87,24 @@ class SettingsRepositoryTest :
                 val repository = createRepository(storage = storage)
 
                 repository.getServerUrl() shouldBe ServerUrl("https://api.example.com")
+            }
+        }
+
+        test("initializeLocalPreferences seeds activeUrl from the authoritative store (SOT-1)") {
+            runTest {
+                // autofill so the many unrelated preference reads return null/defaults; only the
+                // active URL matters here.
+                val storage = mock<SecureStorage>(MockMode.autofill)
+                everySuspend { storage.read("active_url") } returns "https://api.example.com"
+                val repository = createRepository(storage = storage)
+
+                // Before init, the reactive projection is the lossy `null` (SOT-1).
+                repository.activeUrl.value shouldBe null
+
+                repository.initializeLocalPreferences()
+
+                // After init, it reflects the configured server rather than a misleading null.
+                repository.activeUrl.value shouldBe ServerUrl("https://api.example.com")
             }
         }
 
