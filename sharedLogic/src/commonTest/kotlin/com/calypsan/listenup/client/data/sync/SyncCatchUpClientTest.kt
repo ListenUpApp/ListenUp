@@ -128,6 +128,44 @@ class SyncCatchUpClientTest :
             }
         }
 
+        test("catchUp stops instead of looping forever when the server returns hasMore=true with nextCursor=null") {
+            runTest {
+                val seenItems = mutableListOf<Pair<Tag, Boolean>>()
+                val handler = tagHandler(seenItems)
+                val store = SyncCursorStore(InMemorySyncCursorDao())
+                var requestCount = 0
+                val httpClient =
+                    mockClient { _, _ ->
+                        requestCount++
+                        // Cap the loop so a REGRESSION fails cleanly (returns Failure) instead of
+                        // hanging the suite. With the fix, only the first request is ever made.
+                        check(requestCount <= 3) { "paging did not terminate: made $requestCount identical requests" }
+                        contractJson.encodeToString(
+                            Page.serializer(Tag.serializer()),
+                            Page(
+                                items = listOf(Tag("a", "alpha", "alpha", 1L, 100L)),
+                                // No cursor to advance to, yet the server claims more pages — the
+                                // malformed contract that made `since` never move and spun the loop.
+                                nextCursor = null,
+                                hasMore = true,
+                            ),
+                        )
+                    }
+                val catchUp =
+                    SyncCatchUpClient(
+                        httpClientProvider = { httpClient },
+                        serverUrlProvider = { "http://test" },
+                        store = store,
+                        transactionRunner = passThroughTransactionRunner(),
+                    )
+
+                val result = catchUp.catchUp(handler)
+
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                requestCount shouldBe 1 // broke after the first page instead of re-fetching forever
+            }
+        }
+
         test("tombstone item triggers handler.onCatchUpItem with isTombstone = true") {
             runTest {
                 val seenItems = mutableListOf<Pair<Tag, Boolean>>()
