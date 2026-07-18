@@ -66,6 +66,12 @@ class ServerConnectViewModel(
                 when (val result = instanceRepository.verifyServer(url)) {
                     is AppResult.Success -> {
                         serverConfig.setServerUrl(ServerUrl(result.data.verifiedUrl))
+                        // Persist the server's stable instance id so ConnectionCoordinator can
+                        // IP-follow this manually-entered server when its LAN address changes.
+                        // Relocation matches the mDNS-advertised id, which is the SAME
+                        // InstanceIdentity as ServerInfo.instanceId — so without this, a manually
+                        // connected server has a null connectedServerId and never relocates.
+                        serverConfig.setConnectedServerId(result.data.serverInfo.instanceId)
                         ServerConnectUiState.Verified
                     }
 
