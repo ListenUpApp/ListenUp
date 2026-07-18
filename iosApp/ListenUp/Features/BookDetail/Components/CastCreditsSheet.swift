@@ -36,7 +36,10 @@ struct CastCreditsSheet: View {
                         Section {
                             ForEach(Array(group.members.enumerated()), id: \.element.id) { i, member in
                                 // offset hue per group so adjacent groups don't repeat colors
-                                row(member, hueIndex: groupIndex * 7 + i)
+                                NavigationLink(value: ContributorDestination(id: member.id)) {
+                                    row(member, hueIndex: groupIndex * 7 + i)
+                                }
+                                .buttonStyle(.plain)
                             }
                         } header: {
                             Text(header(for: group))
@@ -52,6 +55,11 @@ struct CastCreditsSheet: View {
             }
             .navigationTitle(String(localized: "book.detail_credits"))
             .navigationBarTitleDisplayMode(.inline)
+            // The sheet is its own navigation hierarchy, so the tab-level destination doesn't
+            // reach inside it — register the contributor route here so a tapped row pushes.
+            .navigationDestination(for: ContributorDestination.self) { destination in
+                ContributorDetailView(contributorId: destination.id)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(String(localized: "common.done")) { onClose() }
@@ -93,6 +101,7 @@ struct CastCreditsSheet: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 7)
+        .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
     }
 
