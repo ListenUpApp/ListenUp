@@ -18,9 +18,12 @@ struct DailyListeningChart: View {
         days.sorted { $0.dayOffset > $1.dayOffset }
     }
 
-    /// Upper bound for the y-scale; never zero, so an all-empty week still draws a clean baseline.
+    /// Upper bound for the y-scale. Derived from the tallest bar as well as `maxDaySeconds` so the
+    /// domain can never under-report the data — if the two ever desync, a bar that exceeded the
+    /// domain top would paint above the plot and into the streak pill above it. Never zero, so an
+    /// all-empty week still draws a clean baseline.
     private var yMax: Int {
-        max(maxDaySeconds, 1)
+        max(maxDaySeconds, days.map(\.seconds).max() ?? 0, 1)
     }
 
     var body: some View {
@@ -43,11 +46,13 @@ struct DailyListeningChart: View {
                     .foregroundStyle(.secondary)
             }
         }
-        // Bound the WHOLE chart, not just the plot: constraining only the plot region leaves the
-        // Chart view itself vertically greedy, so its bars could bleed upward into the streak pill
-        // sitting just above it in the stats card. A fixed overall height (plot + x-axis labels)
-        // gives the chart a deterministic footprint that never overlaps its neighbours.
+        // Give the chart a deterministic footprint (plot + x-axis labels), then clip to it. The
+        // frame alone bounds layout but not drawing — Swift Charts still paints marks outside their
+        // frame — so a bar mapping above the plot top would bleed upward into the streak pill
+        // sitting just above it in the stats card. `.clipped()` is the backstop; the self-derived
+        // `yMax` is the primary guard so a bar never maps above the plot in the first place.
         .frame(height: 150)
+        .clipped()
         .animation(reduceMotion ? nil : .easeOut(duration: 0.5), value: orderedDays)
     }
 
