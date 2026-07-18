@@ -58,6 +58,14 @@ class ClaimInviteViewModel(
             if (candidates.isNotEmpty()) {
                 val reachable = instanceRepository.findReachableUrl(candidates) ?: candidates.first()
                 serverConfig.setServerUrl(ServerUrl(reachable))
+                // Arm IP-follow for invite-claimed servers too: persist the server's stable instance
+                // id (the same InstanceIdentity the mDNS relocation matches) so a later LAN address
+                // change is followed. Best-effort — a probe failure leaves relocation disarmed, as
+                // before, and never blocks the claim.
+                when (val verify = instanceRepository.verifyServer(reachable)) {
+                    is AppResult.Success -> serverConfig.setConnectedServerId(verify.data.serverInfo.instanceId)
+                    is AppResult.Failure -> Unit
+                }
             }
             lookUp(code)
         }

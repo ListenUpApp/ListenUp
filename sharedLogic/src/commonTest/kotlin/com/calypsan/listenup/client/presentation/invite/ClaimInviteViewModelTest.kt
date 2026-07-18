@@ -9,6 +9,8 @@ import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
+import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
@@ -16,6 +18,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.VerifiedServer
 import com.calypsan.listenup.core.ServerUrl
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
@@ -207,6 +210,7 @@ class ClaimInviteViewModelTest :
                 val instanceRepository =
                     mock<InstanceRepository> {
                         everySuspend { findReachableUrl(any()) } returns "https://example.com"
+                        everySuspend { verifyServer(any()) } returns AppResult.Failure(InternalError())
                     }
                 val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository)
 
@@ -257,6 +261,7 @@ class ClaimInviteViewModelTest :
                 val instanceRepository =
                     mock<InstanceRepository> {
                         everySuspend { findReachableUrl(any()) } returns "https://remote.example.com"
+                        everySuspend { verifyServer(any()) } returns AppResult.Failure(InternalError())
                     }
                 val repo =
                     mock<InviteRepository> {
@@ -275,6 +280,48 @@ class ClaimInviteViewModelTest :
                     instanceRepository.findReachableUrl(listOf("http://192.168.1.5:8080", "https://remote.example.com"))
                 }
                 verifySuspend { serverConfig.setServerUrl(ServerUrl("https://remote.example.com")) }
+                vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Preview>()
+            }
+        }
+
+        // Arm IP-follow for invite-claimed servers: after persisting the reachable URL, the VM
+        // captures the server's stable instance id (via a best-effort verify) so ConnectionCoordinator
+        // can relocate the server on a later LAN address change — the same as the mDNS-picker path.
+        test("start persists the server's instance id for IP-follow on a successful verify") {
+            runTest(testDispatcher) {
+                val serverConfig =
+                    mock<ServerConfig> {
+                        everySuspend { setServerUrl(any()) } returns Unit
+                        everySuspend { setConnectedServerId(any()) } returns Unit
+                    }
+                val verified =
+                    VerifiedServer(
+                        serverInfo =
+                            ServerInfo(
+                                name = "ListenUp",
+                                version = "0.0.1",
+                                apiVersion = "v1",
+                                setupRequired = false,
+                                registrationPolicy = RegistrationPolicy.OPEN,
+                                instanceId = "inst-xyz",
+                            ),
+                        verifiedUrl = "https://example.com",
+                    )
+                val instanceRepository =
+                    mock<InstanceRepository> {
+                        everySuspend { findReachableUrl(any()) } returns "https://example.com"
+                        everySuspend { verifyServer(any()) } returns AppResult.Success(verified)
+                    }
+                val repo =
+                    mock<InviteRepository> {
+                        everySuspend { lookupInvite(any()) } returns AppResult.Success(fakePreview())
+                    }
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository)
+
+                vm.start(serverUrl = "https://example.com", code = INVITE_CODE)
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                verifySuspend { serverConfig.setConnectedServerId("inst-xyz") }
                 vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Preview>()
             }
         }

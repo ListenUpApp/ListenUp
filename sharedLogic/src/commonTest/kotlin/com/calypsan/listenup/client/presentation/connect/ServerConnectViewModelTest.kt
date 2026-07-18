@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.connect
 
+import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.TransportError
@@ -7,9 +9,12 @@ import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.VerifiedServer
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -221,6 +226,40 @@ class ServerConnectViewModelTest :
 
                 val errorState = viewModel.state.value.shouldBeInstanceOf<ServerConnectUiState.Error>()
                 errorState.error.shouldBeInstanceOf<ServerConnectError.VerificationFailed>()
+            }
+        }
+
+        // ========== Success arms IP-follow ==========
+
+        test("a successful verify persists the server's instance id so ConnectionCoordinator can IP-follow") {
+            runTest {
+                val fixture = createFixture()
+                val verified =
+                    VerifiedServer(
+                        serverInfo =
+                            ServerInfo(
+                                name = "ListenUp",
+                                version = "0.0.1",
+                                apiVersion = "v1",
+                                setupRequired = false,
+                                registrationPolicy = RegistrationPolicy.OPEN,
+                                instanceId = "inst-abc",
+                            ),
+                        verifiedUrl = "https://example.com",
+                    )
+                everySuspend { fixture.instanceRepository.verifyServer("https://example.com") } returns
+                    AppResult.Success(verified)
+                everySuspend { fixture.serverConfig.setServerUrl(any()) } returns Unit
+                everySuspend { fixture.serverConfig.setConnectedServerId(any()) } returns Unit
+
+                val viewModel = fixture.build(CoroutineScope(testDispatcher))
+                viewModel.submitUrl("https://example.com")
+                advanceUntilIdle()
+
+                viewModel.state.value shouldBe ServerConnectUiState.Verified
+                // Without this, a manually-entered server has a null connectedServerId and never
+                // relocates on a LAN address change (the IP-follow gap for non-picker connects).
+                verifySuspend { fixture.serverConfig.setConnectedServerId("inst-abc") }
             }
         }
     })
