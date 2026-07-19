@@ -25,7 +25,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -38,8 +37,6 @@ import com.calypsan.listenup.core.GenreId
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_not_found
-import listenup.composeapp.generated.resources.genre_destination_audiobook_count
-import listenup.composeapp.generated.resources.genre_destination_audiobooks_count
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -138,12 +135,7 @@ private fun GenreDestinationContent(
         }
 
         item(span = { GridItemSpan(maxLineSpan) }) {
-            Text(
-                text = audiobooksHeader(state.stats.bookCount),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 12.dp),
-            )
+            FacetSectionHeader(bookCount = state.stats.bookCount, modifier = Modifier.padding(bottom = 12.dp))
         }
 
         items(
@@ -158,14 +150,6 @@ private fun GenreDestinationContent(
         }
     }
 }
-
-@Composable
-private fun audiobooksHeader(bookCount: Int): String =
-    if (bookCount == 1) {
-        stringResource(Res.string.genre_destination_audiobook_count, bookCount)
-    } else {
-        stringResource(Res.string.genre_destination_audiobooks_count, bookCount)
-    }
 
 /** Floating back button shown on the Loading / NotFound states (which have no hero of their own). */
 @Composable
