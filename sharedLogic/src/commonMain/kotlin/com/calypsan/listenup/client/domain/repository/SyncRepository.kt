@@ -77,6 +77,19 @@ interface SyncRepository {
     suspend fun connectRealtime()
 
     /**
+     * Fully re-establish real-time sync — the single recovery path foreground, pull-to-refresh, and
+     * the offline-banner Retry all funnel through. Unlike [connectRealtime]'s data-only pass, this
+     * re-resolves the reachable server URL (following a moved server via mDNS, exactly as a relaunch
+     * does), then re-opens the SSE firehose **only if it has died** (no churn on a healthy
+     * connection), then runs a reconcile. This closes the "reconnects only on relaunch" gap: a
+     * firehose that died while the app was backgrounded is restored by a user action.
+     *
+     * @param forceReconcile bypass the reconcile debounce (the explicit pull-to-refresh gesture);
+     *   foreground and Retry use the default debounced pass.
+     */
+    suspend fun recoverRealtime(forceReconcile: Boolean = false)
+
+    /**
      * Stop real-time sync: cancel the SSE firehose and catch-up loops.
      *
      * Called on logout — otherwise the engine keeps reconnecting against a now

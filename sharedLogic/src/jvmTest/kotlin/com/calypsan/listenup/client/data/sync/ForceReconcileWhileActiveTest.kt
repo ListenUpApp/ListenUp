@@ -172,6 +172,7 @@ class ForceReconcileWhileActiveTest :
                     val repo =
                         SyncRepositoryImpl(
                             syncEngine = engine,
+                            reevaluateConnection = {},
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,

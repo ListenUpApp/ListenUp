@@ -53,6 +53,7 @@ import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
@@ -118,10 +119,11 @@ internal val clientSyncModule =
             SseServerReachability(
                 engineState = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
-                // Lazy SyncEngine resolution mirrors onCursorStale/onAccessChanged: the
-                // engine is only needed at retry time, not at construction, so this avoids
-                // pulling SyncEngine into SseServerReachability's construction graph.
-                reconnect = { get<SyncEngine>().reconnect() },
+                // Route the banner Retry through the unified recover seam (re-resolve URL + re-open a
+                // dead firehose + reconcile), not a bare SSE re-dial of the same endpoint. Lazy
+                // resolution mirrors onCursorStale/onAccessChanged — the repository is only needed at
+                // retry time, not at construction, so this avoids a construction-graph cycle.
+                reconnect = { get<SyncRepository>().recoverRealtime() },
             )
         }
         single { SyncCursorStore(dao = get()) }

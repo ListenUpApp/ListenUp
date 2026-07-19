@@ -109,6 +109,7 @@ class OrphanRecoveryRaceTest :
                     val repo =
                         SyncRepositoryImpl(
                             syncEngine = engine,
+                            reevaluateConnection = {},
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,
@@ -179,6 +180,7 @@ class OrphanRecoveryRaceTest :
                     val repo =
                         SyncRepositoryImpl(
                             syncEngine = engine,
+                            reevaluateConnection = {},
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,

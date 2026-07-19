@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.UserPreferencesService
+import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.HomeRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LibraryRepositoryImpl
@@ -77,6 +78,7 @@ internal val libraryModule: Module =
         single<SyncRepository> {
             SyncRepositoryImpl(
                 syncEngine = get(),
+                reevaluateConnection = { get<ConnectionCoordinator>().reevaluate() },
                 syncEngineState = get(),
                 authSession = get(),
                 listeningEventRecorder = get(),
