@@ -23,13 +23,16 @@ private val log = loggerFor<ContributorMetadataApplier>()
  * [EnrichmentCoordinator] (served by Audnexus's `ContributorSource`), then enriches
  * the existing [ContributorRepository] row in-place:
  *  - `asin` stamp
- *  - `description` (biography)
+ *  - `description` (biography) — only when the profile carries a non-blank one;
+ *    a blank incoming value keeps the existing biography
  *  - `imagePath` — downloads the photo to `contributors/{sha}.jpg` relative to
- *    [imageHome]. The OrphanImageCleanupTask reclaims the orphan file if the DB
- *    write rolls back.
+ *    [imageHome]; a failed download keeps the existing photo. The
+ *    OrphanImageCleanupTask reclaims the orphan file if the DB write rolls back.
  *
- * Returns [MetadataError.NotFound] when the contributor is absent from the DB, or
- * when no catalog has a profile for the ASIN.
+ * Returns [MetadataError.NotFound] when the contributor is absent from the DB,
+ * when no catalog has a profile for the ASIN, or when the profile is an empty
+ * regional shell (no biography AND no photo) — an honest miss, matching what
+ * Audiobookshelf does with the same Audnexus upstream.
  *
  * All writes go through the substrate's `upsert`, so revisions are bumped and
  * SSE change events are published automatically.
@@ -61,13 +64,26 @@ internal class ContributorMetadataApplier(
                     ),
                 )
 
+        // ABS-verified honest-miss guard: a profile with neither biography nor photo is an
+        // empty regional shell (Audnexus returns HTTP 200 with no content for cross-region
+        // fetches) — applying it could only stamp an ASIN while wiping nothing, so refuse.
+        if (profile.description.isNullOrBlank() && profile.imageUrl.isNullOrBlank()) {
+            return AppResult.Failure(
+                MetadataError.NotFound(
+                    debugInfo = "Profile for ASIN $asin has no data in region ${locale.region}.",
+                ),
+            )
+        }
+
         val imagePath = profile.downloadImage(contributorId)
 
+        // Never overwrite an existing field with a blank incoming value (ABS truthy-guard
+        // semantics): a missing bio or a failed photo download keeps what the user already has.
         val updated =
             existing.copy(
                 asin = asin,
-                description = profile.description,
-                imagePath = imagePath,
+                description = profile.description?.takeIf { it.isNotBlank() } ?: existing.description,
+                imagePath = imagePath ?: existing.imagePath,
             )
 
         return contributorRepository.upsert(updated, clientOpId = null).flatMap { AppResult.Success(Unit) }

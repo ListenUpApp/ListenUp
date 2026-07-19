@@ -128,7 +128,7 @@ private fun Route.bookCoverRoutes(service: MetadataLookupService) {
 
 private fun Route.contributorMetadataRoutes(service: MetadataLookupService) {
     get<MetadataResources.ContributorSearch> { resource ->
-        when (val result = service.searchContributorMetadata(resource.query)) {
+        when (val result = service.searchContributorMetadata(resource.query, resource.region.toLocaleOrNull())) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }

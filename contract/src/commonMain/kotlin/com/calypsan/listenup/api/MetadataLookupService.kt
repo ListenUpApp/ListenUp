@@ -84,20 +84,21 @@ interface MetadataLookupService {
     ): AppResult<MetadataChapters?>
 
     /**
-     * Searches Audible for contributors matching [query].
+     * Searches for contributors matching [query] — served by the CONTRIBUTORS
+     * provider chain (Audnexus today; Audible has no contributor-search API).
      *
-     * **Currently stubs to an empty list.** Audible has no official
-     * contributor-search API; the available approach is HTML
-     * scraping of `www.audible.com/search?searchAuthor=`, which requires a
-     * Kotlin-first HTML parser dependency not yet added to `:server`. A proper
-     * implementation will land later — either via HTML scraping or an
-     * alternative metadata source (e.g. MusicBrainz, OpenLibrary).
+     * If [region] is `null`, the server uses its configured default region.
+     * Pass the same region here and to [getContributorMetadata]: Audnexus author
+     * profiles are region-localized (a hit found in `us` can have an empty
+     * profile in `fr`), so searching and previewing must hit the same catalog.
      *
-     * The method signature is included in the contract now so client code can
-     * be written against it; the stub will be transparently replaced by the
-     * real implementation without a contract change.
+     * Results are deduplicated by ASIN and ranked closest-name-first against
+     * [query]. Cached for 24 hours (search TTL).
      */
-    suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>>
+    suspend fun searchContributorMetadata(
+        query: String,
+        region: MetadataLocale? = null,
+    ): AppResult<List<MetadataContributorHit>>
 
     /**
      * Fetches the canonical profile for the Audible contributor identified by
