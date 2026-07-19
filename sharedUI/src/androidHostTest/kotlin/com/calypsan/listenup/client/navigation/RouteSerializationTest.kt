@@ -65,7 +65,13 @@ private fun sampleRoutes(): List<Route> =
         add(ContributorBooks(contributorId = "test-contributor-id", role = "author"))
         add(ContributorEdit(contributorId = "test-contributor-id"))
         add(ContributorMetadataSearch(contributorId = "test-contributor-id"))
-        add(ContributorMetadataPreview(contributorId = "test-contributor-id", asin = "test-asin"))
+        add(
+            ContributorMetadataPreview(
+                contributorId = "test-contributor-id",
+                asin = "test-asin",
+                region = MetadataLocale.DEFAULT,
+            ),
+        )
         add(InviteRegistration(serverUrl = "https://example.test", inviteCode = "test-code"))
 
         // Admin

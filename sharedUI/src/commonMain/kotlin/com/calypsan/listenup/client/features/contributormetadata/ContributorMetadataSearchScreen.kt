@@ -42,6 +42,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -65,13 +66,17 @@ import listenup.composeapp.generated.resources.common_search
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContributorMetadataSearchScreen(
-    state: ContributorMetadataUiState,
+    state: ContributorMetadataUiState.Search,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onRegionSelected: (MetadataLocale) -> Unit,
     onResultClick: (MetadataContributorHit) -> Unit,
     onBack: () -> Unit,
 ) {
+    val isSearching = state.loadState is ContributorSearchLoadState.InFlight
+    val searchError = (state.loadState as? ContributorSearchLoadState.Failed)?.message
+    val searchResults = (state.loadState as? ContributorSearchLoadState.Loaded)?.results.orEmpty()
+
     ListenUpScaffold(
         topBar = {
             TopAppBar(
@@ -95,7 +100,7 @@ fun ContributorMetadataSearchScreen(
                     .padding(horizontal = 16.dp),
         ) {
             // Context - who we're searching for
-            state.currentContributor?.let { contributor ->
+            state.context.current?.let { contributor ->
                 Text(
                     text = stringResource(Res.string.metadata_searching_for, contributor.name),
                     style = MaterialTheme.typography.bodyMedium,
@@ -106,16 +111,16 @@ fun ContributorMetadataSearchScreen(
 
             // Search field
             OutlinedTextField(
-                value = state.searchQuery,
+                value = state.query,
                 onValueChange = onQueryChange,
                 label = { Text(stringResource(Res.string.contributor_contributor_name)) },
                 placeholder = { Text(stringResource(Res.string.contributor_author_or_narrator_name)) },
                 trailingIcon = {
                     IconButton(
                         onClick = onSearch,
-                        enabled = !state.isSearching && state.searchQuery.isNotBlank(),
+                        enabled = !isSearching && state.query.isNotBlank(),
                     ) {
-                        if (state.isSearching) {
+                        if (isSearching) {
                             ListenUpLoadingIndicatorSmall()
                         } else {
                             Icon(
@@ -141,14 +146,14 @@ fun ContributorMetadataSearchScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             RegionSelector(
-                selectedRegion = state.selectedRegion,
+                selectedRegion = state.region,
                 onRegionSelected = onRegionSelected,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Error message
-            state.searchError?.let { error ->
+            searchError?.let { error ->
                 Text(
                     text = error,
                     color = MaterialTheme.colorScheme.error,
@@ -159,7 +164,7 @@ fun ContributorMetadataSearchScreen(
 
             // Results
             when {
-                state.isSearching -> {
+                isSearching -> {
                     Box(
                         modifier =
                             Modifier
@@ -171,8 +176,8 @@ fun ContributorMetadataSearchScreen(
                     }
                 }
 
-                state.searchResults.isEmpty() && state.searchError == null -> {
-                    val hasSearched = state.searchQuery.isNotBlank()
+                searchResults.isEmpty() && searchError == null -> {
+                    val hasSearched = state.loadState is ContributorSearchLoadState.Loaded
                     EmptyState(
                         title = if (hasSearched) "No matches found" else "Search Audible",
                         subtitle =
@@ -190,7 +195,7 @@ fun ContributorMetadataSearchScreen(
                         modifier = Modifier.weight(1f),
                     ) {
                         items(
-                            items = state.searchResults,
+                            items = searchResults,
                             key = { it.asin },
                         ) { result ->
                             ContributorSearchResultItem(
