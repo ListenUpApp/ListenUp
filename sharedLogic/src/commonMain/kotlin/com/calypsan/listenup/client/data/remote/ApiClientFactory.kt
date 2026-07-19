@@ -125,6 +125,20 @@ internal interface ApiClientFactory : RemoteCache {
     suspend fun invalidateRequestClientOnly()
 
     /**
+     * Invalidate ONLY the authenticated streaming client, leaving the request/RPC client open.
+     *
+     * The mirror of [invalidateRequestClientOnly]. The firehose reconnect loop re-fetches
+     * [getStreamingClient] on every attempt, so on a *moved* server URL the full [invalidate] rebuilds
+     * everything. But a same-URL socket the OS silently killed during suspension leaves the cached
+     * streaming client wedged: reachability probes succeed (the server is up), yet every reconnect
+     * re-dials the same dead client and never connects — "reconnects only on relaunch". This drops just
+     * that client so the next reconnect builds a fresh one, without disturbing the request client or
+     * the RPC proxies that ride it. Caller is responsible for kicking the reconnect AFTER this returns
+     * (rebuild-before-connect), never mid-in-flight-read.
+     */
+    suspend fun invalidateStreamingClientOnly()
+
+    /**
      * Eagerly create and cache the authenticated client without exposing it.
      *
      * Lets cross-module startup code prime the lazy client (so the first real request doesn't pay the
@@ -457,6 +471,17 @@ internal class KtorApiClientFactory(
             cachedClient = null
             // Deliberately leave cachedStreamingClient / cachedUnauthenticatedStreamingClient open:
             // the firehose-reconnect sweep must not abort the SSE connection it rode in on.
+        }
+    }
+
+    override suspend fun invalidateStreamingClientOnly() {
+        mutex.withLock {
+            cachedStreamingClient?.close()
+            cachedStreamingClient = null
+            // Leave the request client and the UNauthenticated streaming client alone: only the
+            // authenticated firehose client is being rebuilt. Closing the wedged client also aborts a
+            // hung SSE read the read-idle watchdog would otherwise sit on, so the next reconnect starts
+            // fresh immediately.
         }
     }
 
