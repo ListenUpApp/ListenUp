@@ -187,7 +187,11 @@ class ConnectionHealthStoreTest :
 
         test("a positive unauth probe masks a dead firehose only briefly — Unreachable surfaces past the grace window") {
             runTest {
-                val engineState = SyncEngineState() // starts Disconnected — the firehose is down
+                val engineState = SyncEngineState()
+                // The firehose CONNECTED and then dropped (a non-null disconnect reason) — a genuinely
+                // wedged stream, distinct from the pristine "never asked to connect" start. Only an
+                // actively-down firehose arms the grace timer (see the "initial sync" test below).
+                engineState.setConnection(ConnectionState.Disconnected(reason = "transport"))
                 val authState = MutableStateFlow<AuthState>(authed())
                 val store =
                     ConnectionHealthStore(
@@ -215,6 +219,40 @@ class ConnectionHealthStoreTest :
                     store.reportProbe(true)
                     advanceTimeBy(ConnectionHealthStore.FIREHOSE_DOWN_PROBE_GRACE_MS)
                     awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("initial sync: a never-connected firehose does not surface Unreachable while probes stay fresh") {
+            runTest {
+                // The pristine engine start (`Disconnected(reason = null)`) is the ENTIRE initial
+                // catch-up / "building your library" window — SyncEngine connects the SSE firehose only
+                // AFTER catch-up completes. The firehose being down here is expected, not a wedge, so a
+                // fresh reachability probe must keep health green past the firehose-down grace. Before the
+                // fix the grace overrode the probe at 15s and surfaced a false "Can't reach server".
+                val engineState = SyncEngineState() // Disconnected(reason = null) — never asked to connect
+                val authState = MutableStateFlow<AuthState>(authed())
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = ErrorBus(),
+                        clientIdentity = FakeClientIdentity(),
+                        localPreferences = fakeLocalPreferences(),
+                        scope = backgroundScope,
+                    )
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy // eager seed
+
+                    // The supervisor probes the reachable server throughout catch-up. Advance well past
+                    // the firehose-down grace + the Unreachable debounce; health must stay Healthy.
+                    store.reportProbe(true)
+                    advanceTimeBy(ConnectionHealthStore.FIREHOSE_DOWN_PROBE_GRACE_MS + 5_000)
+                    store.reportProbe(true)
+                    advanceTimeBy(5_000)
+                    expectNoEvents() // never surfaced Unreachable — no false "Can't reach server"
                     cancelAndConsumeRemainingEvents()
                 }
             }
