@@ -24,9 +24,14 @@ struct ContributorMetadataView: View {
                     ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .navigationDestination(for: String.self) { _ in
+            .navigationDestination(for: String.self) { asin in
                 if let observer {
                     ContributorMetadataPreviewView(observer: observer, onApply: { observer.apply() })
+                        // Kick the profile fetch on arrival. Without this the view model stays in
+                        // its initial state (not loading, no profile, no error) and the preview
+                        // renders its fallthrough spinner forever. Mirrors the Compose route,
+                        // which drives the same fetch from a LaunchedEffect.
+                        .task(id: asin) { observer.selectCandidate(asin) }
                 }
             }
             .navigationTitle(String(localized: "contributor.find_on_audible"))
