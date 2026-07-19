@@ -92,7 +92,8 @@ interface MetadataLookupService {
      * profiles are region-localized (a hit found in `us` can have an empty
      * profile in `fr`), so searching and previewing must hit the same catalog.
      *
-     * Results are deduplicated by ASIN. Cached for 24 hours (search TTL).
+     * Results are deduplicated by ASIN and ranked closest-name-first against
+     * [query]. Cached for 24 hours (search TTL).
      */
     suspend fun searchContributorMetadata(
         query: String,

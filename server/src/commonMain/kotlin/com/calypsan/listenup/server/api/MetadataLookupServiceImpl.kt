@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ComposedBook
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
+import com.calypsan.listenup.server.metadata.spi.ContributorHitRanker
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
@@ -160,11 +161,8 @@ internal class MetadataLookupServiceImpl(
         region: MetadataLocale?,
     ): AppResult<List<MetadataContributorHit>> {
         val locale = region ?: MetadataLocale.DEFAULT
-        return AppResult.Success(
-            coordinator.searchContributors(query, locale).map {
-                MetadataContributorHit(asin = it.key, name = it.name)
-            },
-        )
+        val ranked = ContributorHitRanker.rank(query, coordinator.searchContributors(query, locale))
+        return AppResult.Success(ranked.map { MetadataContributorHit(asin = it.key, name = it.name) })
     }
 
     override suspend fun getContributorMetadata(

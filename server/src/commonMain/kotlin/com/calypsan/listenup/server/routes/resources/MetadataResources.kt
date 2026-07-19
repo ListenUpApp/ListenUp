@@ -78,8 +78,9 @@ class MetadataResources(
     /**
      * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.searchContributorMetadata] —
      * `GET /api/v1/metadata/contributors/search?query=…&region=us` searches for
-     * contributors matching [query], deduplicated by ASIN. When [region] is
-     * omitted the server uses its default region. Pass the same region to the profile fetch — profiles are
+     * contributors matching [query], deduplicated by ASIN and ranked
+     * closest-name-first. When [region] is omitted the server uses its default
+     * region. Pass the same region to the profile fetch — profiles are
      * region-localized.
      */
     @Resource("/api/v1/metadata/contributors/search")

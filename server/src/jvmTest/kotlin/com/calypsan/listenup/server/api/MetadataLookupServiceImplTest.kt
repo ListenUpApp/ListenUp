@@ -142,6 +142,29 @@ class MetadataLookupServiceImplTest :
             }
         }
 
+        test("searchContributorMetadata returns hits ranked closest-name-first") {
+            withSqlDatabase {
+                val source =
+                    FakeContributorSource(
+                        hits =
+                            listOf(
+                                ContributorHitMeta(key = "B1", name = "Timothy Curry Jr."),
+                                ContributorHitMeta(key = "B2", name = "Tim Curry"),
+                            ),
+                    )
+                val service = makeService(audible = StubAudibleApi(), dbs = this, extraProviders = listOf(source))
+
+                runTest {
+                    val result = service.searchContributorMetadata("Tim Curry", null)
+                    result
+                        .shouldBeInstanceOf<AppResult.Success<List<MetadataContributorHit>>>()
+                        .data
+                        .first()
+                        .asin shouldBe "B2"
+                }
+            }
+        }
+
         test("getContributorMetadata maps a ContributorMeta profile to the wire profile") {
             withSqlDatabase {
                 val source =
