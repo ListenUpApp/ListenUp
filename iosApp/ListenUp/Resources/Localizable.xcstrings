@@ -5171,6 +5171,16 @@
         }
       }
     },
+    "contributor.apply_match": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply"
+          }
+        }
+      }
+    },
     "contributor.apply_selectedcount_of_availablefieldcount": {
       "localizations": {
         "en": {
@@ -5587,6 +5597,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No image available from Audible"
+          }
+        }
+      }
+    },
+    "contributor.no_profile_in_region": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No profile data in the %1$@ catalog. Try a different region:"
           }
         }
       }
