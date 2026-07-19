@@ -102,8 +102,14 @@ final class ContributorMetadataObserver {
     func changeRegion(_ region: MetadataRegionOption) { viewModel.changeRegion(region: region.locale) }
 
     func selectCandidate(_ asin: String) {
-        guard let hit = rawHits[asin] else { return }
-        viewModel.selectCandidate(result: hit)
+        if let hit = rawHits[asin] {
+            viewModel.selectCandidate(result: hit)
+        } else {
+            // No raw hit cached (search results replaced or cleared) — fall back to loading by
+            // ASIN rather than returning silently, which would strand the preview on a spinner
+            // waiting for a fetch that never started.
+            viewModel.loadProfileByAsin(asin: asin)
+        }
     }
 
     func clearSelection() { viewModel.clearSelection() }
