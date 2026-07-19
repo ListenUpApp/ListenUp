@@ -41,6 +41,9 @@ enum class FacetIcon {
  * persisting any additional per-facet styling data.
  */
 object FacetIdentity {
+    // Odd prime multiplier for the FNV-style name hash — the classic 31 used by String.hashCode.
+    private const val HASH_PRIME = 31u
+
     private val PALETTE =
         listOf(
             "#2E5AA0",
@@ -93,7 +96,7 @@ object FacetIdentity {
     fun hue(name: String): String {
         var hash = 0u
         for (char in name) {
-            hash = hash * 31u + char.code.toUInt()
+            hash = hash * HASH_PRIME + char.code.toUInt()
         }
         return PALETTE[(hash % PALETTE.size.toUInt()).toInt()]
     }

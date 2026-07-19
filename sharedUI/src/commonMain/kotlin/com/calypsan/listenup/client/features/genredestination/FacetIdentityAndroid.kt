@@ -42,37 +42,42 @@ import com.calypsan.listenup.client.presentation.genredestination.FacetIcon
  * the category name is shared, not the glyph.
  */
 
+// 1:1 category→glyph lookup table (a `when` over all 27 cases trips detekt's complexity metric even
+// though it's a flat mapping; a map keeps it a plain data structure). A future [FacetIcon] with no
+// entry falls back to the book glyph rather than crashing.
+private val FACET_GLYPHS: Map<FacetIcon, ImageVector> =
+    mapOf(
+        FacetIcon.FANTASY to Icons.Filled.Castle,
+        FacetIcon.SCIFI to Icons.Filled.RocketLaunch,
+        FacetIcon.MYSTERY to Icons.Filled.Search,
+        FacetIcon.ROMANCE to Icons.Filled.Favorite,
+        FacetIcon.HORROR to Icons.Filled.DarkMode,
+        FacetIcon.HISTORY to Icons.Filled.History,
+        FacetIcon.BIOGRAPHY to Icons.Filled.Person,
+        FacetIcon.BUSINESS to Icons.Filled.AccountBalance,
+        FacetIcon.SCIENCE to Icons.Filled.Science,
+        FacetIcon.SELF_HELP to Icons.Filled.SelfImprovement,
+        FacetIcon.CHILDREN to Icons.Filled.ChildCare,
+        FacetIcon.YOUNG_ADULT to Icons.Filled.School,
+        FacetIcon.HEALTH to Icons.Filled.HealthAndSafety,
+        FacetIcon.FOOD to Icons.Filled.Restaurant,
+        FacetIcon.TRAVEL to Icons.Filled.Flight,
+        FacetIcon.POETRY to Icons.Filled.AutoAwesome,
+        FacetIcon.LITERARY to Icons.Filled.AutoStories,
+        FacetIcon.RELIGION to Icons.Filled.Church,
+        FacetIcon.ART to Icons.Filled.Palette,
+        FacetIcon.MUSIC to Icons.Filled.MusicNote,
+        FacetIcon.COMIC to Icons.Filled.BrushIcon,
+        FacetIcon.ANTHOLOGY to Icons.AutoMirrored.Filled.LibraryBooks,
+        FacetIcon.HUMOR to Icons.Filled.TheaterComedy,
+        FacetIcon.POLITICS to Icons.Filled.Gavel,
+        FacetIcon.TECH to Icons.Filled.Computer,
+        FacetIcon.SPORT to Icons.Filled.SportsBasketball,
+        FacetIcon.DEFAULT to Icons.AutoMirrored.Filled.MenuBook,
+    )
+
 /** Resolves this [FacetIcon] category to the Material glyph shown in a genre hero's scallop badge. */
-fun FacetIcon.toImageVector(): ImageVector =
-    when (this) {
-        FacetIcon.FANTASY -> Icons.Filled.Castle
-        FacetIcon.SCIFI -> Icons.Filled.RocketLaunch
-        FacetIcon.MYSTERY -> Icons.Filled.Search
-        FacetIcon.ROMANCE -> Icons.Filled.Favorite
-        FacetIcon.HORROR -> Icons.Filled.DarkMode
-        FacetIcon.HISTORY -> Icons.Filled.History
-        FacetIcon.BIOGRAPHY -> Icons.Filled.Person
-        FacetIcon.BUSINESS -> Icons.Filled.AccountBalance
-        FacetIcon.SCIENCE -> Icons.Filled.Science
-        FacetIcon.SELF_HELP -> Icons.Filled.SelfImprovement
-        FacetIcon.CHILDREN -> Icons.Filled.ChildCare
-        FacetIcon.YOUNG_ADULT -> Icons.Filled.School
-        FacetIcon.HEALTH -> Icons.Filled.HealthAndSafety
-        FacetIcon.FOOD -> Icons.Filled.Restaurant
-        FacetIcon.TRAVEL -> Icons.Filled.Flight
-        FacetIcon.POETRY -> Icons.Filled.AutoAwesome
-        FacetIcon.LITERARY -> Icons.Filled.AutoStories
-        FacetIcon.RELIGION -> Icons.Filled.Church
-        FacetIcon.ART -> Icons.Filled.Palette
-        FacetIcon.MUSIC -> Icons.Filled.MusicNote
-        FacetIcon.COMIC -> Icons.Filled.BrushIcon
-        FacetIcon.ANTHOLOGY -> Icons.AutoMirrored.Filled.LibraryBooks
-        FacetIcon.HUMOR -> Icons.Filled.TheaterComedy
-        FacetIcon.POLITICS -> Icons.Filled.Gavel
-        FacetIcon.TECH -> Icons.Filled.Computer
-        FacetIcon.SPORT -> Icons.Filled.SportsBasketball
-        FacetIcon.DEFAULT -> Icons.AutoMirrored.Filled.MenuBook
-    }
+fun FacetIcon.toImageVector(): ImageVector = FACET_GLYPHS[this] ?: Icons.AutoMirrored.Filled.MenuBook
 
 /** Parses a genre's accent hue (hex string, e.g. `"#2E5AA0"`, from `FacetIdentity.hue`) into a Compose [Color]. */
 fun genreHueColor(hue: String): Color = parseHexColor(hue)

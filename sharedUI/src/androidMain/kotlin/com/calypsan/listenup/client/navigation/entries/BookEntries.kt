@@ -85,22 +85,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
             viewModel = viewModel,
         )
     }
-    entry<GenreDestination> { args ->
-        val viewModel: GenreDestinationViewModel = koinViewModel()
-        GenreDestinationScreen(
-            genreId = args.genreId,
-            onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
-            },
-            onBookClick = { bookId ->
-                backStack.add(BookDetail(bookId))
-            },
-            onGenreClick = { genreId ->
-                backStack.add(GenreDestination(genreId = genreId))
-            },
-            viewModel = viewModel,
-        )
-    }
+    genreDestinationEntry(backStack)
     entry<BookReaders> { args ->
         com.calypsan.listenup.client.features.bookreaders.BookReadersScreen(
             bookId = args.bookId,
@@ -151,6 +136,26 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
                     backStack.removeAt(backStack.lastIndex)
                 }
             },
+        )
+    }
+}
+
+/** The genre destination page entry, split out to keep [bookEntries] within the method-length limit. */
+private fun EntryProviderScope<NavKey>.genreDestinationEntry(backStack: NavBackStack<NavKey>) {
+    entry<GenreDestination> { args ->
+        val viewModel: GenreDestinationViewModel = koinViewModel()
+        GenreDestinationScreen(
+            genreId = args.genreId,
+            onBackClick = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+            onBookClick = { bookId ->
+                backStack.add(BookDetail(bookId))
+            },
+            onGenreClick = { genreId ->
+                backStack.add(GenreDestination(genreId = genreId))
+            },
+            viewModel = viewModel,
         )
     }
 }
