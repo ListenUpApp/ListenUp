@@ -32,7 +32,10 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.Invites
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.Duration.Companion.days
@@ -96,6 +99,13 @@ class InviteServiceImpl(
      * `RateLimit` plugin covers REST).
      */
     private val inviteRateLimiter: InviteRateLimiter? = null,
+    /**
+     * Nullable so the invite module assembles independently of the activity/public-profile modules
+     * (test environments, phased startup). Null silently skips the join side-effects below — mirrors
+     * [AuthServiceImpl]'s `register` wiring.
+     */
+    private val activityRecorder: ActivityRecorder? = null,
+    private val publicProfileMaintainer: PublicProfileMaintainer? = null,
 ) : InviteService,
     InviteServicePublic {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
@@ -112,6 +122,8 @@ class InviteServiceImpl(
             adminUserRosterMaintainer,
             remoteHost,
             inviteRateLimiter,
+            activityRecorder,
+            publicProfileMaintainer,
         )
 
     /**
@@ -132,6 +144,8 @@ class InviteServiceImpl(
             adminUserRosterMaintainer,
             remoteHost,
             inviteRateLimiter,
+            activityRecorder,
+            publicProfileMaintainer,
         )
 
     override suspend fun createInvite(
@@ -250,6 +264,13 @@ class InviteServiceImpl(
         // publicProfileMaintainer wiring. Never throws (see refreshBestEffort); a claim that
         // fails to publish self-heals on the next backfillAll pass.
         adminUserRosterMaintainer?.refreshBestEffort(user.id)
+        // Best-effort public-profile projection + join activity — the remaining half of
+        // AuthServiceImpl.register's new-user side-effects. Without these an invited member never
+        // appears on the leaderboard until another refresh fires, and no "joined the server" event
+        // reaches the activity feed. Both are best-effort (never throw); a miss self-heals on the next
+        // backfill / login.
+        publicProfileMaintainer?.refreshBestEffort(user.id)
+        activityRecorder?.record(user.id, ActivityType.USER_JOINED)
         return AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
     }
 
