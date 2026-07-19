@@ -402,6 +402,10 @@ internal val clientSyncModule =
                 registry = get(),
                 state = get(),
                 cursorAdvance = { domain, rev -> get<SyncCursorStore>().setCursor(domain, rev) },
+                // Lets the dispatcher lift an opt-out (positions) freeze once catch-up has advanced
+                // the persisted cursor past the frozen hole — otherwise one failed apply freezes live
+                // cursor advancement for the whole session and forces a growing catch-up delta.
+                cursorOf = { domain -> get<SyncCursorStore>().getCursor(domain) },
                 // The three content-free re-fetch triggers (presence, server-info,
                 // preferences) are catalog-declared RefreshedDomains, routed here.
                 refreshedRouter = get(),

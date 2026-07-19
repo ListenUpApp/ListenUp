@@ -265,8 +265,15 @@ internal class BookMirrorApply(
         )
 
         // Best-effort cache GC — a failed delete must not fail the sync write (mirrors the
-        // cover-file cleanup in [upsert]).
-        staleDocs.forEach { documentStorage?.deleteCached(bookId, it.id, it.format) }
+        // cover-file cleanup in [upsert]). Deferred to POST-COMMIT: if a later child apply throws and
+        // this aggregate transaction rolls back, Room keeps the old document rows, so deleting the
+        // files now would strand the book with rows pointing at gone-from-disk documents. Disk I/O
+        // also has no place inside the write transaction (see [ApplyEventAtomically]).
+        if (staleDocs.isNotEmpty()) {
+            deferUntilCommit {
+                staleDocs.forEach { documentStorage?.deleteCached(bookId, it.id, it.format) }
+            }
+        }
     }
 
     /**

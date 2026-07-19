@@ -4,14 +4,19 @@ import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
+import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
 import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
+import com.calypsan.listenup.client.data.sync.testing.StubAvatarDownloadRepository
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import io.kotest.assertions.withClue
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
@@ -89,6 +94,48 @@ class DigestParityE2ETest :
                 // Both sides must agree on count and hash — this is the wire contract.
                 clientDigest.count shouldBe serverDigest.count
                 clientDigest.hash shouldBe serverDigest.hash
+            }
+        }
+
+        // ── all-domain wiring guard ───────────────────────────────────────────────────────────
+
+        test("every mirrored domain's client digest path is callable and satisfies the empty-digest contract") {
+            // Complements the per-domain server-parity tests (which cover every distinct id-mapping
+            // shape) with breadth: EVERY registered mirrored domain must expose a working client
+            // digest path. On an empty DB a digest-participating domain (non-null localDigestRows)
+            // must produce the canonical empty digest — a wholesale wiring break (wrong table,
+            // throwing query, a new domain that forgot its digest wiring) fails here across ALL
+            // domains, not just the five seeded above.
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val catalog =
+                        syncDomainCatalog(
+                            database = db,
+                            mapper = BookEntityMapper(),
+                            imageStorage = stubImageStorage(),
+                            authSession = FakeAuthSession(userId = "digest-parity-user"),
+                            avatarDownloadRepository = StubAvatarDownloadRepository(),
+                            pingPresence = {},
+                            refetchServerInfo = {},
+                            refetchPreferences = {},
+                        )
+                    val registry = ClientSyncDomainRegistry()
+                    val runner = RoomTransactionRunner(db)
+                    val emptyHash = DigestComputer.compute(cursor = Long.MAX_VALUE, rows = emptyList()).hash
+
+                    for (domain in catalog.mirrored) {
+                        val handler = domain.toHandler(runner, registry)
+                        val rows = handler.localDigestRows(Long.MAX_VALUE) ?: continue // opt-out domains
+                        val digest = DigestComputer.compute(cursor = Long.MAX_VALUE, rows = rows)
+                        withClue("domain '${handler.domainName}' empty digest") {
+                            digest.count shouldBe 0
+                            digest.hash shouldBe emptyHash
+                        }
+                    }
+                }
+            } finally {
+                db.close()
             }
         }
 

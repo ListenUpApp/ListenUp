@@ -788,22 +788,31 @@ internal class SyncEngine(
         }
     }
 
-    private fun ensureFrameCollector() {
+    private suspend fun ensureFrameCollector() {
         if (frameCollectorJob?.isActive == true) return
+        // Await active subscription before returning — [SyncSseClient] publishes frames on a
+        // `replay = 0` SharedFlow, so a frame emitted before this collector subscribes is dropped.
+        // `runStart` calls this before `connect()`, so without the barrier the first live frames
+        // (and the initial `Connected` transition) could land before the collector attaches. Mirrors
+        // the same `onSubscription`/`ready.await()` barrier `ensureDrainScheduling` uses.
+        val ready = CompletableDeferred<Unit>()
         frameCollectorJob =
             scope.launch {
-                sseClient.frames.collect { frame ->
-                    // Guard per frame so one bad event logs and the firehose collector keeps
-                    // running, rather than dying (sync stops) or killing the process on K/N.
-                    try {
-                        dispatcher.handle(frame)
-                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.warn(e) { "SSE frame handling failed; firehose collector continues" }
+                sseClient.frames
+                    .onSubscription { ready.complete(Unit) }
+                    .collect { frame ->
+                        // Guard per frame so one bad event logs and the firehose collector keeps
+                        // running, rather than dying (sync stops) or killing the process on K/N.
+                        try {
+                            dispatcher.handle(frame)
+                        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            logger.warn(e) { "SSE frame handling failed; firehose collector continues" }
+                        }
                     }
-                }
             }
+        ready.await()
     }
 
     /**
@@ -1091,26 +1100,6 @@ internal class SyncEngine(
     }
 
     /**
-     * Targeted-reconcile the entities an outbox drain wave just sent, so a server echo the in-flight
-     * anti-flicker shield dropped lands promptly instead of waiting for the next lifecycle digest.
-     *
-     * Bounded to ONE targeted fetch per access-gated domain per wave: the sent refs are grouped by
-     * domain and fetched by their id list via the existing [CatchUp.fetchTransient] `?ids=` path —
-     * the same primitive the `AccessChanged` delta uses, so the fetch inherits the domain handler's
-     * revision guard and in-flight shield. Two classes are skipped:
-     *  - A client-only channel (`profile`/`preferences`) has no registered [SyncDomainHandler] — its
-     *    inbound echo rides a different surface (the `public_profiles` mirror / `PreferencesChanged`).
-     *  - A non-[AccessFilteredSyncHandler] domain (userScoped/global — positions, tags, series, …)
-     *    can't be served by the server's access-filtered `pullByIds` (no wired driver), so a fetch
-     *    would 500 and buy nothing; its echo converges via `?since=` catch-up / newer-wins instead.
-     *
-     * Runs under the shared [catchUpMutex] so it serializes with catch-up/reconcile paging (never
-     * concurrent), and NOT under [PendingOperationQueue.drain]'s own mutex (already released by the
-     * caller before this runs, since `queue.drain()` has returned) so there is no lock-order
-     * inversion. Best-effort: a failed fetch logs and moves on — the digest reconcile is the
-     * convergence backstop.
-     */
-    /**
      * Re-fetch current server truth for [ref]'s entity and apply it over a never-accepted optimistic
      * edit (DRIFT-1). Triggered when an outbox op dead-lettered or was dismissed: the local row's
      * `(id, revision)` is unchanged, so no digest reconcile, `?since=` catch-up, or SSE echo repairs
@@ -1143,6 +1132,26 @@ internal class SyncEngine(
         }
     }
 
+    /**
+     * Targeted-reconcile the entities an outbox drain wave just sent, so a server echo the in-flight
+     * anti-flicker shield dropped lands promptly instead of waiting for the next lifecycle digest.
+     *
+     * Bounded to ONE targeted fetch per access-gated domain per wave: the sent refs are grouped by
+     * domain and fetched by their id list via the existing [CatchUp.fetchTransient] `?ids=` path —
+     * the same primitive the `AccessChanged` delta uses, so the fetch inherits the domain handler's
+     * revision guard and in-flight shield. Two classes are skipped:
+     *  - A client-only channel (`profile`/`preferences`) has no registered [SyncDomainHandler] — its
+     *    inbound echo rides a different surface (the `public_profiles` mirror / `PreferencesChanged`).
+     *  - A non-[AccessFilteredSyncHandler] domain (userScoped/global — positions, tags, series, …)
+     *    can't be served by the server's access-filtered `pullByIds` (no wired driver), so a fetch
+     *    would 500 and buy nothing; its echo converges via `?since=` catch-up / newer-wins instead.
+     *
+     * Runs under the shared [catchUpMutex] so it serializes with catch-up/reconcile paging (never
+     * concurrent), and NOT under [PendingOperationQueue.drain]'s own mutex (already released by the
+     * caller before this runs, since `queue.drain()` has returned) so there is no lock-order
+     * inversion. Best-effort: a failed fetch logs and moves on — the digest reconcile is the
+     * convergence backstop.
+     */
     private suspend fun reconcileSentEntities(sentEntities: List<SentEntityRef>) {
         if (sentEntities.isEmpty()) return
         for ((domainName, refs) in sentEntities.groupBy { it.domainName }) {

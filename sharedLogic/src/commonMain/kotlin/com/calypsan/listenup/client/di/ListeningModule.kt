@@ -67,9 +67,20 @@ internal val listeningModule: Module =
                 tentativeSpanDao = get(),
                 transactionRunner = get(),
                 enqueue = { entityId, payload, ownerUserId ->
+                    // signal = false: the enqueue runs inside the recorder's finalize transaction, so
+                    // the drain signal is deferred to signalEnqueued (post-commit) — a pre-commit tick
+                    // would strand the op (see PendingOperationQueue.enqueue / OfflineEditor).
                     get<PendingOperationQueue>()
-                        .enqueue(OutboxChannels.ListeningEvents, entityId, OpKind.Upsert, payload, ownerUserId)
+                        .enqueue(
+                            OutboxChannels.ListeningEvents,
+                            entityId,
+                            OpKind.Upsert,
+                            payload,
+                            ownerUserId,
+                            signal = false,
+                        )
                 },
+                signalEnqueued = { get<PendingOperationQueue>().signalEnqueued() },
                 currentUserId = { get<AuthSession>().getUserId() },
                 deviceInfo = get(),
             )

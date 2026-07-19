@@ -203,11 +203,13 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                                 OutboxChannels.Tags.name to
                                     OutboxOpSender(OutboxChannels.Tags) { id, mutation ->
                                         when (mutation) {
-                                            is TagMutation.Rename ->
+                                            is TagMutation.Rename -> {
                                                 tagChannel.call { it.renameTag(TagId(id), mutation.newName) }
+                                            }
 
-                                            is TagMutation.Delete ->
+                                            is TagMutation.Delete -> {
                                                 tagChannel.call { it.deleteTag(TagId(id)) }.orSuccessIfNotFound()
+                                            }
                                         }
                                     },
                             ),
