@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -45,6 +47,9 @@ private val logger = KotlinLogging.logger {}
 
 /** Backoff between scan-progress stream re-subscriptions after the stream drops or completes. */
 private const val SCAN_STREAM_RESUBSCRIBE_DELAY_MS = 2_000L
+
+/** Debounce for the live FTS refresh — coalesces a firehose burst into one reindex after it settles. */
+private const val FTS_LIVE_REFRESH_DEBOUNCE_MS = 1_000L
 
 /**
  * Bridges the domain sync facade to the renovated client sync engine.
@@ -91,6 +96,10 @@ internal class SyncRepositoryImpl(
      */
     private val scanObserverMutex = Mutex()
     private var scanObserverStarted = false
+
+    /** Guards the at-most-once launch of the live FTS refresh observer (same rationale as the scan observer). */
+    private val ftsObserverMutex = Mutex()
+    private var ftsObserverStarted = false
 
     /** Wall-clock start of the current scan, stamped on [ScanEvent.Started] and surfaced in progress. */
     private var scanStartedAtMs: Long = 0L
@@ -282,6 +291,7 @@ internal class SyncRepositoryImpl(
             }
             syncEngine.start(userId)
             startScanProgressObserver()
+            startFtsLiveRefreshObserver()
             // Self-heal: an install whose library is already in Room but whose search index was
             // never populated rebuilds it here. A no-op once the index has rows, so it is safe on
             // every start. Isolated — a failure here must not fail engine startup.
@@ -336,6 +346,46 @@ internal class SyncRepositoryImpl(
             } finally {
                 resetScanObserver()
             }
+        }
+    }
+
+    /**
+     * Launches (once) the live FTS refresh observer. The offline full-text index is refreshed at
+     * scan-completion / forceFullResync / cold-start, but a book edited on another device arrives over
+     * the live SSE firehose and lands in Room WITHOUT touching the index — so it is unsearchable or
+     * shows stale text until a scan/resync, denting the "offline FTS is the search fallback" promise.
+     * This observer follows Room: on any searchable-content write it debounce-refreshes the index from
+     * the last-indexed watermark, coalescing a firehose burst into one refresh ([refreshSince] falls
+     * back to a full rebuild above its delta threshold, so a large burst is bounded). On failure the
+     * watermark is NOT advanced, so the same rows retry on the next change instead of being stranded.
+     */
+    private suspend fun startFtsLiveRefreshObserver() {
+        val shouldStart =
+            ftsObserverMutex.withLock {
+                if (ftsObserverStarted) {
+                    false
+                } else {
+                    ftsObserverStarted = true
+                    true
+                }
+            }
+        if (!shouldStart) return
+        scope.launch {
+            var lastWatermark = ftsPopulator.snapshotWatermark()
+            ftsPopulator
+                .observeContentChanges()
+                .drop(1) // the initial replay is current state — startup rebuildIfEmpty already covered it
+                .debounce(FTS_LIVE_REFRESH_DEBOUNCE_MS)
+                .collect {
+                    try {
+                        ftsPopulator.refreshSince(lastWatermark)
+                        lastWatermark = ftsPopulator.snapshotWatermark()
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Live FTS refresh failed; will retry on the next content change" }
+                    }
+                }
         }
     }
 

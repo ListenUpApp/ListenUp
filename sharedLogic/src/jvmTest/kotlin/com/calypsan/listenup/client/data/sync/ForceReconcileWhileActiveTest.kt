@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
+import kotlinx.coroutines.flow.emptyFlow
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -163,6 +164,8 @@ class ForceReconcileWhileActiveTest :
                         mock<FtsPopulatorContract> {
                             everySuspend { rebuildIfEmpty() } returns Unit
                             everySuspend { rebuildAll() } returns Unit
+                            every { observeContentChanges() } returns emptyFlow()
+                            everySuspend { snapshotWatermark() } returns SearchIndexWatermark(0L, 0L, 0L, 0L)
                         }
                     // Un-stubbed service: observeProgress()/lastScanResult() throw, so the scan-progress
                     // observer folds to RpcEvent.Error and dies harmlessly — refreshListeningHistory under

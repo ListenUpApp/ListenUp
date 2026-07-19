@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import kotlinx.coroutines.flow.Flow
 
 /** Utility contract for local image download/cache operations. */
 internal interface ImageDownloaderContract {
@@ -63,4 +64,13 @@ internal interface FtsPopulatorContract {
      * (e.g. initial population). A no-op when nothing changed.
      */
     suspend fun refreshSince(watermark: SearchIndexWatermark)
+
+    /**
+     * A debounce-able signal that fires whenever searchable content changes in Room — a live SSE
+     * edit, a catch-up apply, anything that writes `books`/`contributors`/`series`/`genres`. The
+     * consumer snapshots a watermark and calls [refreshSince] on the debounced edge so offline search
+     * follows live edits without waiting for a scan or a full resync. The emitted value has no
+     * meaning; only the invalidation does.
+     */
+    fun observeContentChanges(): Flow<Unit>
 }

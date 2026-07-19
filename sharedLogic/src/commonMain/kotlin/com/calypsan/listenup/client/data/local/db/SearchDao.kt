@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Embedded
 import androidx.room.Query
 import androidx.room.SkipQueryVerification
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Result class for book search that includes denormalized author name.
@@ -394,6 +395,19 @@ internal interface SearchDao {
     /** Highest `revision` currently in the `genres` table — the pre-reconcile watermark. */
     @Query("SELECT COALESCE(MAX(revision), 0) FROM genres")
     suspend fun maxGenreRevision(): Long
+
+    /**
+     * A change signal for the searchable content tables. Room re-emits on ANY write to `books`,
+     * `contributors`, `series`, or `genres` (the tables [refreshSince][com.calypsan.listenup.client.data.sync.FtsPopulatorContract.refreshSince]
+     * reindexes from), so a live SSE edit that lands in Room drives a debounced FTS refresh — the
+     * emitted value is irrelevant, only the invalidation matters. Table-level, so an UPDATE (a title
+     * edit, a revision bump) fires it too, not only inserts/deletes.
+     */
+    @Query(
+        "SELECT (SELECT COUNT(*) FROM books) + (SELECT COUNT(*) FROM contributors) + " +
+            "(SELECT COUNT(*) FROM series) + (SELECT COUNT(*) FROM genres)",
+    )
+    fun observeSearchableContentSignal(): Flow<Long>
 
     /** Ids of books whose own row changed since [revision] (includes tombstones — soft-delete bumps revision). */
     @Query("SELECT id FROM books WHERE revision > :revision")

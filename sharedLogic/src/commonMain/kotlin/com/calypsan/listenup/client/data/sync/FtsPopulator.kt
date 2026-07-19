@@ -7,6 +7,8 @@ import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlin.time.measureTime
 
@@ -125,7 +127,7 @@ internal class FtsPopulator(
             }
             val duration =
                 measureTime {
-                    if (changedBookIds.isNotEmpty()) reindexBooks(changedBookIds)
+                    if (changedBookIds.isNotEmpty()) reindexWithSelfHeal(changedBookIds)
                     if (contributorsChanged) rebuildContributors()
                     if (seriesChanged) rebuildSeries()
                 }
@@ -134,13 +136,34 @@ internal class FtsPopulator(
             }
         }
 
+    override fun observeContentChanges(): Flow<Unit> = searchDao.observeSearchableContentSignal().map { }
+
+    /**
+     * Reindex [bookIds], and if any row failed to insert, retry those once, then force a full
+     * [rebuildAll] as the last-resort heal — a per-row insert failure must not leave a book MISSING
+     * from search forever (FTS-2): its old FTS row was already deleted, and advancing the watermark
+     * past it would strand it until an unrelated full rebuild. A transient failure (e.g. a lock)
+     * clears on the retry; a genuinely poison book is bounded to what rebuildAll can recover.
+     */
+    private suspend fun reindexWithSelfHeal(bookIds: Set<String>) {
+        val failed = reindexBooks(bookIds)
+        if (failed.isEmpty()) return
+        logger.warn { "FTS: ${failed.size} book(s) failed to index; retrying once" }
+        val stillFailed = reindexBooks(failed)
+        if (stillFailed.isNotEmpty()) {
+            logger.warn { "FTS: ${stillFailed.size} book(s) failed twice — forcing a full rebuild to self-heal" }
+            rebuildAll()
+        }
+    }
+
     /**
      * Delete-and-reinsert the books_fts rows for exactly [bookIds]. Tombstoned books in the set get
      * their FTS row deleted and are not re-inserted (the live fetch excludes them). Ids are chunked
      * at [FTS_ID_CHUNK_SIZE] to stay under SQLite's bound-variable limit; each chunk's delete +
      * inserts run in one write transaction so a searcher never sees a half-replaced chunk.
      */
-    internal suspend fun reindexBooks(bookIds: Set<String>) {
+    internal suspend fun reindexBooks(bookIds: Set<String>): Set<String> {
+        val failed = mutableSetOf<String>()
         for (idChunk in bookIds.chunked(FTS_ID_CHUNK_SIZE)) {
             val liveBooks = searchDao.getLiveBooksByIds(idChunk)
             val authorsByBookId = searchDao.getPrimaryAuthorNamesFor(idChunk).associate { it.bookId to it.authorName }
@@ -165,11 +188,16 @@ internal class FtsPopulator(
                     } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                         throw e
                     } catch (e: Exception) {
+                        // Its old FTS row was deleted above and the re-insert failed — the book is now
+                        // MISSING from search. Collect it so the caller can retry / force a rebuild
+                        // instead of silently advancing past a permanent index hole (FTS-2).
                         logger.warn(e) { "Failed to reindex book ${book.id} into FTS" }
+                        failed += book.id.value
                     }
                 }
             }
         }
+        return failed
     }
 
     /**
