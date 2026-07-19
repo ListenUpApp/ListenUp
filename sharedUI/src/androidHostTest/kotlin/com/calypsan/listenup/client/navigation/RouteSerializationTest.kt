@@ -58,6 +58,7 @@ private fun sampleRoutes(): List<Route> =
                 facetName = "Staff Pick",
             ),
         )
+        add(GenreDestination(genreId = "test-genre-id"))
         add(SeriesEdit(seriesId = "test-series-id"))
         add(ContributorDetail(contributorId = "test-contributor-id"))
         add(ContributorBooks(contributorId = "test-contributor-id", role = "author"))
