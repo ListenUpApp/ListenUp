@@ -77,18 +77,17 @@ class MetadataResources(
 
     /**
      * REST mirror of [com.calypsan.listenup.api.MetadataLookupService.searchContributorMetadata] —
-     * `GET /api/v1/metadata/contributors/search?query=…` searches for
-     * contributors matching [query].
-     *
-     * **Currently returns an empty list** — the underlying implementation is
-     * stubbed pending an HTML-scraping or alternative-source implementation.
-     * See [com.calypsan.listenup.api.MetadataLookupService.searchContributorMetadata]
-     * for the full deferral rationale.
+     * `GET /api/v1/metadata/contributors/search?query=…&region=us` searches for
+     * contributors matching [query], deduplicated by ASIN. When [region] is
+     * omitted the server uses its default region. Pass the same region to the profile fetch — profiles are
+     * region-localized.
      */
     @Resource("/api/v1/metadata/contributors/search")
     class ContributorSearch(
         /** Contributor name query, e.g. "Brandon Sanderson". */
         val query: String = "",
+        /** Optional region code (e.g. `"us"`, `"de"`). */
+        val region: String? = null,
     )
 
     /**
