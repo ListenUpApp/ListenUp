@@ -21,6 +21,8 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -166,6 +168,64 @@ class ConnectionCoordinatorTest :
             verifySuspend { serverConfig.setActiveUrl(ServerUrl(newLocal)) }
             verify { discoveryService.startDiscovery() }
             verify { discoveryService.stopDiscovery() }
+        }
+
+        test("reevaluate relocates even when the mDNS resolve takes ~7s (past the old 5s window)") {
+            val scope = TestScope(StandardTestDispatcher())
+            val staleLocal = "http://old:8080"
+            val newLocal = "http://192.168.1.20:8080"
+            val discoveryService =
+                mock<ServerDiscoveryService> {
+                    // The resolved server arrives ~7s in — longer than the old 5s relocate window that
+                    // killed it every cycle, within the platform's ~10s resolve timeout. Pre-fix this
+                    // relocate timed out and returned null; the moved server was never re-adopted.
+                    every { discover() } returns
+                        flow {
+                            delay(7_000)
+                            emit(
+                                listOf(
+                                    DiscoveredServer(
+                                        id = "abc",
+                                        name = "s",
+                                        host = "192.168.1.20",
+                                        port = 8080,
+                                        apiVersion = "v1",
+                                        serverVersion = "1",
+                                    ),
+                                ),
+                            )
+                        }
+                    every { startDiscovery() } returns Unit
+                    every { stopDiscovery() } returns Unit
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    every { activeUrl } returns MutableStateFlow<ServerUrl?>(null)
+                    everySuspend { getServerUrl() } returns ServerUrl(staleLocal)
+                    everySuspend { getRemoteUrl() } returns ServerUrl(remote)
+                    everySuspend { getConnectedServerId() } returns "abc"
+                    everySuspend { updateLocalUrl(any()) } returns Unit
+                    everySuspend { setActiveUrl(any()) } returns Unit
+                }
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { findReachableUrl(any()) } calls { (urls: List<String>) ->
+                        if (urls == listOf(newLocal)) newLocal else null
+                    }
+                }
+            val networkMonitor =
+                mock<NetworkMonitor> {
+                    every { isOnlineFlow } returns MutableStateFlow(true)
+                    every { isOnline() } returns true
+                }
+            val coordinator =
+                ConnectionCoordinator(serverConfig, instance, discoveryService, networkMonitor, FakeInvalidator(), scope)
+
+            scope.launch { coordinator.reevaluate() }
+            scope.testScheduler.advanceUntilIdle()
+
+            verifySuspend { serverConfig.updateLocalUrl(ServerUrl(newLocal)) }
+            verifySuspend { serverConfig.setActiveUrl(ServerUrl(newLocal)) }
         }
 
         test("reevaluate falls back to remote when LAN dead and no anchor") {

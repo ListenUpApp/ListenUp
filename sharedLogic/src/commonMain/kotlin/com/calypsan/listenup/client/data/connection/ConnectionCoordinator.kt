@@ -54,7 +54,12 @@ class ConnectionCoordinator internal constructor(
     private val relocationMutex = Mutex()
 
     private companion object {
-        const val RELOCATE_TIMEOUT_MS = 5_000L
+        // Must be >= the per-platform mDNS RESOLVE_TIMEOUT (AppleDiscoveryService / NsdDiscoveryService,
+        // ~10s): the whole relocate-via-discovery attempt is bounded by this, and its `finally`
+        // `stopDiscovery()` aborts any in-flight resolve. At 5s a resolve that legitimately needs ~10s
+        // was killed every cycle, so a moved server (DHCP change) never re-resolved and the app stayed
+        // stuck offline until relaunch. Keep this in step with the platform resolve timeouts.
+        const val RELOCATE_TIMEOUT_MS = 12_000L
     }
 
     /** Start the observers. Call once at app start. */

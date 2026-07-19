@@ -122,6 +122,11 @@ internal class NsdDiscoveryService(
         }
         discoveryListener = null
         isDiscovering = false
+        // Also drop the resolved-servers cache: a prior session's resolution of the server at its OLD
+        // IP must not linger and short-circuit the next relocate with a stale localUrl. Leaving it is
+        // why a relaunch (which starts with an empty map) recovered a moved server but a running
+        // relocate did not — 006.
+        serversState.value = emptyMap()
     }
 
     private fun resolveService(serviceInfo: NsdServiceInfo) {
