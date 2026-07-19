@@ -64,6 +64,7 @@ import com.calypsan.listenup.client.presentation.contributormetadata.Contributor
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
+import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel
@@ -272,6 +273,8 @@ object KoinHelper {
     fun getBrowseFacetViewModel(): BrowseFacetViewModel = resolve(BrowseFacetViewModel::class)
 
     fun getBrowseGenreViewModel(): BrowseGenreViewModel = resolve(BrowseGenreViewModel::class)
+
+    fun getGenreDestinationViewModel(): GenreDestinationViewModel = resolve(GenreDestinationViewModel::class)
 
     fun getShelfDetailViewModel(): ShelfDetailViewModel = resolve(ShelfDetailViewModel::class)
 

@@ -407,6 +407,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState" to 3,
             "com.calypsan.listenup.client.presentation.discover.LeaderboardUiState" to 4,
             "com.calypsan.listenup.client.presentation.discover.RecentlyAddedUiState" to 3,
+            "com.calypsan.listenup.client.presentation.genredestination.GenreDestinationUiState" to 3,
             "com.calypsan.listenup.client.presentation.home.HomeStatsUiState" to 4,
             "com.calypsan.listenup.client.presentation.home.HomeUiState" to 3,
             "com.calypsan.listenup.client.presentation.invite.ClaimInviteUiState" to 6,
