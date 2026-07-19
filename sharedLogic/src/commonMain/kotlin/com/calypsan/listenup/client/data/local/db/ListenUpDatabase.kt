@@ -27,7 +27,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * schema-version bump MUST ship a hand-written [androidx.room.migration.Migration]** (register it on
  * all three builders) that preserves the outbox and other pending rows; the guard
  * `DatabaseMigrationPolicyTest` fails the build if the destructive fallback is ever re-added. The
- * `@Database.exportSchema` on-disk JSON (`schemas/…/6.json`) is the authoritative baseline.
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/1.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -68,7 +68,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 6,
+    version = 1,
     exportSchema = true,
 )
 @TypeConverters(

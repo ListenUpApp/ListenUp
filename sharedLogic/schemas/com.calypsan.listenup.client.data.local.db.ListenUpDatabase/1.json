@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "d03804f956ab430d5ae2d39ef360183f",
+    "identityHash": "9dc3b90b3bef4932cc577108c031c213",
     "entities": [
       {
         "tableName": "users",
@@ -203,7 +203,7 @@
       },
       {
         "tableName": "books",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `libraryId` TEXT NOT NULL, `folderId` TEXT NOT NULL, `title` TEXT NOT NULL, `sortTitle` TEXT, `subtitle` TEXT, `coverHash` TEXT, `coverBlurHash` TEXT, `coverDownloadedAt` INTEGER, `totalDuration` INTEGER NOT NULL, `description` TEXT, `publishYear` INTEGER, `publisher` TEXT, `language` TEXT, `isbn` TEXT, `asin` TEXT, `abridged` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `hasScanWarning` INTEGER NOT NULL, `userEditedFields` TEXT NOT NULL DEFAULT '', `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `libraryId` TEXT NOT NULL, `folderId` TEXT NOT NULL, `title` TEXT NOT NULL, `sortTitle` TEXT, `subtitle` TEXT, `coverHash` TEXT, `coverDownloadedAt` INTEGER, `totalDuration` INTEGER NOT NULL, `description` TEXT, `publishYear` INTEGER, `publisher` TEXT, `language` TEXT, `isbn` TEXT, `asin` TEXT, `abridged` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `hasScanWarning` INTEGER NOT NULL, `fieldProvenance` TEXT NOT NULL DEFAULT '{}', `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -242,11 +242,6 @@
           {
             "fieldPath": "coverHash",
             "columnName": "coverHash",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "coverBlurHash",
-            "columnName": "coverBlurHash",
             "affinity": "TEXT"
           },
           {
@@ -314,11 +309,11 @@
             "notNull": true
           },
           {
-            "fieldPath": "userEditedFields",
-            "columnName": "userEditedFields",
+            "fieldPath": "fieldProvenance",
+            "columnName": "fieldProvenance",
             "affinity": "TEXT",
             "notNull": true,
-            "defaultValue": "''"
+            "defaultValue": "'{}'"
           },
           {
             "fieldPath": "createdAt",
@@ -415,7 +410,7 @@
       },
       {
         "tableName": "series",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortName` TEXT, `description` TEXT, `asin` TEXT, `coverPath` TEXT, `coverBlurHash` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortName` TEXT, `description` TEXT, `asin` TEXT, `coverPath` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -447,11 +442,6 @@
           {
             "fieldPath": "coverPath",
             "columnName": "coverPath",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "coverBlurHash",
-            "columnName": "coverBlurHash",
             "affinity": "TEXT"
           },
           {
@@ -487,7 +477,7 @@
       },
       {
         "tableName": "contributors",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortName` TEXT, `asin` TEXT, `description` TEXT, `imagePath` TEXT, `imageBlurHash` TEXT, `website` TEXT, `birthDate` TEXT, `deathDate` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortName` TEXT, `asin` TEXT, `description` TEXT, `imagePath` TEXT, `website` TEXT, `birthDate` TEXT, `deathDate` TEXT, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -519,11 +509,6 @@
           {
             "fieldPath": "imagePath",
             "columnName": "imagePath",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "imageBlurHash",
-            "columnName": "imageBlurHash",
             "affinity": "TEXT"
           },
           {
@@ -2239,7 +2224,7 @@
       },
       {
         "tableName": "user_preferences",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `defaultPlaybackSpeed` REAL NOT NULL, `defaultSkipForwardSec` INTEGER NOT NULL, `defaultSkipBackwardSec` INTEGER NOT NULL, `defaultSleepTimerMin` INTEGER, `shakeToResetSleepTimer` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `defaultPlaybackSpeed` REAL NOT NULL, `defaultSkipForwardSec` INTEGER NOT NULL, `defaultSkipBackwardSec` INTEGER NOT NULL, `defaultSleepTimerMin` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -2269,12 +2254,6 @@
             "fieldPath": "defaultSleepTimerMin",
             "columnName": "defaultSleepTimerMin",
             "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "shakeToResetSleepTimer",
-            "columnName": "shakeToResetSleepTimer",
-            "affinity": "INTEGER",
-            "notNull": true
           }
         ],
         "primaryKey": {
@@ -2423,7 +2402,7 @@
       },
       {
         "tableName": "tentative_span",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, `bookId` TEXT NOT NULL, `startPositionMs` INTEGER NOT NULL, `currentPositionMs` INTEGER NOT NULL, `startedAt` INTEGER NOT NULL, `lastHeartbeatAt` INTEGER NOT NULL, `playbackSpeed` REAL NOT NULL, `tz` TEXT NOT NULL, `deviceLabel` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `userId` TEXT NOT NULL, `bookId` TEXT NOT NULL, `startPositionMs` INTEGER NOT NULL, `currentPositionMs` INTEGER NOT NULL, `startedAt` INTEGER NOT NULL, `lastHeartbeatAt` INTEGER NOT NULL, `playbackSpeed` REAL NOT NULL, `tz` TEXT NOT NULL, `deviceLabel` TEXT, `processId` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -2483,58 +2462,19 @@
             "fieldPath": "deviceLabel",
             "columnName": "deviceLabel",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "processId",
+            "columnName": "processId",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
           }
         ],
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
             "id"
-          ]
-        }
-      },
-      {
-        "tableName": "cover_download_queue",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `status` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `lastAttemptAt` INTEGER, `error` TEXT, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`bookId`))",
-        "fields": [
-          {
-            "fieldPath": "bookId",
-            "columnName": "bookId",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "status",
-            "columnName": "status",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "attempts",
-            "columnName": "attempts",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "lastAttemptAt",
-            "columnName": "lastAttemptAt",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "error",
-            "columnName": "error",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "createdAt",
-            "columnName": "createdAt",
-            "affinity": "INTEGER",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "bookId"
           ]
         }
       },
@@ -2824,7 +2764,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd03804f956ab430d5ae2d39ef360183f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9dc3b90b3bef4932cc577108c031c213')"
     ]
   }
 }
