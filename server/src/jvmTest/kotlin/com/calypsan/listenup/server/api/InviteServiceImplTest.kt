@@ -304,7 +304,11 @@ class InviteServiceImplTest :
                         .claimInvite(invite.code, "password123")
                         .shouldSucceed()
 
-                    val newUserId = sql.usersQueries.selectByEmailNormalized("a@b.c").executeAsOneOrNull()!!.id
+                    val newUserId =
+                        sql.usersQueries
+                            .selectByEmailNormalized("a@b.c")
+                            .executeAsOneOrNull()!!
+                            .id
                     val joined =
                         ActivityRepository(db = sql)
                             .page(before = null, limit = 50)

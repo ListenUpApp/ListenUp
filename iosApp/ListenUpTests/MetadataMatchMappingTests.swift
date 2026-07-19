@@ -172,7 +172,7 @@ struct MetadataMatchMappingTests {
             book: book,
             coverEntries: [
                 CoverEntry(url: "https://cdn/itunes.jpg", label: "iTunes HD", resolution: "2400×2400"),
-                CoverEntry(url: "https://cdn/audible.jpg", label: "Audible", resolution: nil),
+                CoverEntry(url: "https://cdn/audible.jpg", label: "Audible", resolution: nil)
             ]
         )
         let preview = MetadataMatchMapping.preview(from: state, match: book)

@@ -76,8 +76,10 @@ internal class ConnectionHealthStore(
     private val firehoseActivelyDown: Flow<Boolean> =
         engineState
             .observe()
-            .map { it.connection !is ConnectionState.Connected && it.connection != ConnectionState.Disconnected(reason = null) }
-            .distinctUntilChanged()
+            .map {
+                it.connection !is ConnectionState.Connected &&
+                    it.connection != ConnectionState.Disconnected(reason = null)
+            }.distinctUntilChanged()
 
     private val authDead: Flow<Boolean> =
         authStateFlow.map { it is AuthState.SessionLapsed }.distinctUntilChanged()
