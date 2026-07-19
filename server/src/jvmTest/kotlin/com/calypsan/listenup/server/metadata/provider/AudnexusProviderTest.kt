@@ -236,6 +236,37 @@ class AudnexusProviderTest :
             }
         }
 
+        test("searchContributors dedupes repeated ASINs from upstream, keeping first-seen order") {
+            // Audnexus's /authors index returns one record per catalogued region/edition, so a
+            // common name comes back with the same author ASIN several times over. Shipping that
+            // straight to the client crashed a keyed LazyColumn ("Key B0F5XZ1BF2 was already
+            // used") and would have listed the same person repeatedly even without the crash.
+            // Two distinct people who share a name must both survive — dedupe is by ASIN, never
+            // by name.
+            withSqlDatabase {
+                val api =
+                    CountingAudnexusApi(
+                        authors =
+                            listOf(
+                                AudnexusAuthor(asin = "A1", name = "Tim Curry"),
+                                AudnexusAuthor(asin = "A2", name = "Tim Curry"),
+                                AudnexusAuthor(asin = "A1", name = "Tim Curry"),
+                                AudnexusAuthor(asin = "A1", name = "Tim Curry"),
+                                AudnexusAuthor(asin = "A2", name = "Tim Curry"),
+                            ),
+                    )
+                val provider = provider(api, sql)
+                runTest {
+                    val hits =
+                        provider
+                            .searchContributors("tim curry", US)
+                            .shouldBeInstanceOf<AppResult.Success<List<*>>>()
+                            .data
+                    hits.map { (it as ContributorHitMeta).key } shouldBe listOf("A1", "A2")
+                }
+            }
+        }
+
         test("id is AUDNEXUS") {
             withSqlDatabase {
                 provider(CountingAudnexusApi(), sql).id shouldBe MetadataProviderId.AUDNEXUS

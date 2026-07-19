@@ -133,7 +133,11 @@ internal class AudnexusProvider(
             SEARCH_TTL,
             ListSerializer(AudnexusAuthor.serializer()),
         ) { client.searchAuthors(name, locale.region) }
-            .map { hits -> hits.mapNotNull { it.toContributorHitMetaOrNull() } }
+            // Audnexus indexes an author once per catalogued region/edition, so a common name
+            // returns the same ASIN several times over. One hit per author is the contract our
+            // SPI promises — dedupe by ASIN (not by name: distinct people do share names).
+            // Applied after the cache read, so entries cached before this fix stay valid.
+            .map { hits -> hits.mapNotNull { it.toContributorHitMetaOrNull() }.distinctBy(ContributorHitMeta::key) }
 
     override suspend fun getContributor(
         key: String,
