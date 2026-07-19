@@ -487,6 +487,12 @@ internal val browsePresentationModule =
                 bookRepository = get(),
             )
         }
+        factory {
+            com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel(
+                genreRepository = get(),
+                bookRepository = get(),
+            )
+        }
     }
 
 /**
