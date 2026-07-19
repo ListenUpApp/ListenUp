@@ -17,7 +17,6 @@
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt:Id3v2Reader$private fun handleTextFrame</ID>
     <ID>CyclomaticComplexMethod:IlstReader.kt:IlstReader$private fun mapTextTag</ID>
     <ID>LargeClass:BookRepository.kt:BookRepository : SqlSyncableRepositoryBookIngestPortBookRevisionTouch</ID>
-    <ID>LargeClass:SyncEngine.kt:SyncEngine</ID>
     <ID>LargeClass:SyncEventDispatcherTest.kt:SyncEventDispatcherTest : FunSpec</ID>
     <ID>LongMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
     <ID>LongMethod:DesktopApp.kt:@Composable private fun DetailScreen</ID>
