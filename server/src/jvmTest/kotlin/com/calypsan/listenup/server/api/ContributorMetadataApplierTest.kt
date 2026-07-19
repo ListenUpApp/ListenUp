@@ -77,9 +77,15 @@ class ContributorMetadataApplierTest :
                 runTest {
                     repo.upsert(existingPayload)
                     val profile =
-                        ContributorMeta(key = "B0ASIN", name = "Brandon Sanderson", description = null, imageUrl = "https://img.example/p.jpg")
+                        ContributorMeta(
+                            key = "B0ASIN",
+                            name = "Brandon Sanderson",
+                            description = null,
+                            imageUrl = "https://img.example/p.jpg",
+                        )
 
-                    applier(repo, profile).apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
+                    applier(repo, profile)
+                        .apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val updated = repo.findById("c-1")
@@ -99,9 +105,15 @@ class ContributorMetadataApplierTest :
                 runTest {
                     repo.upsert(existingPayload)
                     val profile =
-                        ContributorMeta(key = "B0ASIN", name = "Brandon Sanderson", description = "   ", imageUrl = "https://img.example/p.jpg")
+                        ContributorMeta(
+                            key = "B0ASIN",
+                            name = "Brandon Sanderson",
+                            description = "   ",
+                            imageUrl = "https://img.example/p.jpg",
+                        )
 
-                    applier(repo, profile).apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
+                    applier(repo, profile)
+                        .apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val updated = repo.findById("c-1")
@@ -122,7 +134,8 @@ class ContributorMetadataApplierTest :
                     val profile =
                         ContributorMeta(key = "B0ASIN", name = "Brandon Sanderson", description = "New bio.", imageUrl = "   ")
 
-                    applier(repo, profile).apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
+                    applier(repo, profile)
+                        .apply(ContributorId("c-1"), "B0ASIN", MetadataLocale("us"))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val updated = repo.findById("c-1")
@@ -139,7 +152,12 @@ class ContributorMetadataApplierTest :
                 runTest {
                     repo.upsert(existingPayload)
                     val profile =
-                        ContributorMeta(key = "B0ASIN", name = "Brandon Sanderson", description = "New bio.", imageUrl = "https://img.example/p.jpg")
+                        ContributorMeta(
+                            key = "B0ASIN",
+                            name = "Brandon Sanderson",
+                            description = "New bio.",
+                            imageUrl = "https://img.example/p.jpg",
+                        )
                     val failingStorage = ImageStorage(HttpClient(MockEngine { throw IOException("network down") }))
 
                     applier(repo, profile, storage = failingStorage)
