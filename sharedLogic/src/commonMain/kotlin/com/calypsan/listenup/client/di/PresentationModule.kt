@@ -397,7 +397,6 @@ internal val contributorPresentationModule =
             com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel(
                 contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
                 metadataRepository = get(),
-                applyContributorMetadataUseCase = get(),
                 errorBus = get(),
             )
         }

@@ -1,27 +1,30 @@
 package com.calypsan.listenup.client.presentation.contributormetadata
 
+import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.api.dto.MetadataContributorProfile
-import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
-import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataUseCase
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -30,13 +33,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * Tests for [ContributorMetadataViewModel].
- *
- * Uses `:contract` DTOs ([MetadataContributorHit], [MetadataContributorProfile])
- * directly — legacy domain `ContributorMetadataCandidate` / `ContributorMetadataProfile`
- * have been removed in B2b.
- *
- * Note: [MetadataContributorProfile.description] is the biography field.
+ * Tests for the rebuilt [ContributorMetadataViewModel] — sealed state, timeout,
+ * stale-result guards, honest-miss preview, and one-shot apply event.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ContributorMetadataViewModelTest :
@@ -82,320 +80,523 @@ class ContributorMetadataViewModelTest :
                 website = null,
             )
 
+        fun contributorRepoWith(contributor: Contributor?): ContributorRepository =
+            mock<ContributorRepository> {
+                every { observeById(any()) } returns MutableStateFlow(contributor)
+            }
+
         fun buildVm(
-            contributorRepo: ContributorRepository = mock(),
             metadataRepo: MetadataRepository = mock(),
-            useCase: ApplyContributorMetadataUseCase = mock(),
+            contributorRepo: ContributorRepository = contributorRepoWith(createContributor()),
         ): ContributorMetadataViewModel =
             ContributorMetadataViewModel(
                 contributorRepository = contributorRepo,
                 metadataRepository = metadataRepo,
-                applyContributorMetadataUseCase = useCase,
                 errorBus = ErrorBus(),
             )
 
-        // ── Initialization Tests ───────────────────────────────────────────────
+        // ── init ───────────────────────────────────────────────────────────────
 
-        test("init synchronously resets state to prevent stale state bugs") {
+        test("init enters Search synchronously, then seeds query with the contributor's name and auto-searches") {
             runTest {
-                val contributorRepo = mock<ContributorRepository>()
                 val metadataRepo = mock<MetadataRepository>()
-                val contributor = createContributor(id = "contributor-2", name = "Neil Gaiman")
-                // Use MutableStateFlow per memory [test-stateflow-use-mutablestateflow]
-                every { contributorRepo.observeById("contributor-2") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(emptyList())
-
-                val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
-                vm.init("contributor-2")
-
-                // Synchronous reset happens before advanceUntilIdle
-                val stateBeforeAsync = vm.state.value
-                stateBeforeAsync.contributorId shouldBe "contributor-2"
-                stateBeforeAsync.applySuccess shouldBe false
-                stateBeforeAsync.currentContributor shouldBe null
-                stateBeforeAsync.searchQuery shouldBe ""
-                stateBeforeAsync.searchResults.isEmpty() shouldBe true
-            }
-        }
-
-        test("init loads contributor and pre-fills search query") {
-            runTest {
-                val contributorRepo = mock<ContributorRepository>()
-                val metadataRepo = mock<MetadataRepository>()
-                val contributor = createContributor(name = "Stephen King")
-                every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata("Stephen King", any()) } returns
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns
                     AppResult.Success(listOf(createHit()))
+                val vm = buildVm(metadataRepo)
 
-                val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
                 vm.init("contributor-1")
+                // Synchronous phase: Search entered before any coroutine runs.
+                vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Search>()
+
                 advanceUntilIdle()
 
-                vm.state.value.contributorId shouldBe "contributor-1"
-                vm.state.value.currentContributor shouldBe contributor
-                vm.state.value.searchQuery shouldBe "Stephen King"
+                val state = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Search>()
+                state.context.contributorId shouldBe "contributor-1"
+                state.context.current?.name shouldBe "Stephen King"
+                state.query shouldBe "Stephen King"
+                state.loadState.shouldBeInstanceOf<ContributorSearchLoadState.Loaded>()
+                verifySuspend { metadataRepo.searchContributorMetadata("Stephen King", MetadataLocale.DEFAULT) }
             }
         }
 
-        test("init auto-searches with contributor name") {
-            runTest {
-                val contributorRepo = mock<ContributorRepository>()
-                val metadataRepo = mock<MetadataRepository>()
-                val contributor = createContributor(name = "Stephen King")
-                val searchResults = listOf(createHit())
-                every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata("Stephen King", any()) } returns
-                    AppResult.Success(searchResults)
+        // ── search ─────────────────────────────────────────────────────────────
 
-                val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
+        test("search passes the selected region and lands in Loaded") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns
+                    AppResult.Success(listOf(createHit()))
+                val vm = buildVm(metadataRepo)
                 vm.init("contributor-1")
                 advanceUntilIdle()
 
-                vm.state.value.searchResults shouldBe searchResults
-                verifySuspend(VerifyMode.exactly(1)) {
-                    metadataRepo.searchContributorMetadata("Stephen King", any())
+                vm.changeRegion(MetadataLocale("de"))
+                advanceUntilIdle()
+
+                verifySuspend { metadataRepo.searchContributorMetadata("Stephen King", MetadataLocale("de")) }
+                val state = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Search>()
+                state.region shouldBe MetadataLocale("de")
+            }
+        }
+
+        test("search failure lands in Failed with the error's message") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                val error = TransportError.NetworkUnavailable()
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Failure(error)
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                val state = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Search>()
+                val failed = state.loadState.shouldBeInstanceOf<ContributorSearchLoadState.Failed>()
+                failed.message shouldBe error.message
+            }
+        }
+
+        test("search that never resolves surfaces Failed after the timeout, not an infinite spinner") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } calls { awaitCancellation() }
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                val state = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Search>()
+                state.loadState.shouldBeInstanceOf<ContributorSearchLoadState.Failed>()
+            }
+        }
+
+        // ── selectCandidate / preview ──────────────────────────────────────────
+
+        test("selectCandidate transitions to Preview.Ready when the profile has data") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns
+                    AppResult.Success(listOf(createHit()))
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile())
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                val ready = preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+                ready.profile.asin shouldBe "B001ASIN01"
+            }
+        }
+
+        test("an empty-shell profile (no bio, no image) lands in Missing, not Ready") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile(description = null, imageUrl = null))
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.loadState shouldBe ContributorPreviewLoadState.Missing
+            }
+        }
+
+        test("a null profile (catalog 404) lands in Missing") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns AppResult.Success(null)
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.loadState shouldBe ContributorPreviewLoadState.Missing
+            }
+        }
+
+        test("a bio-only profile (no photo) lands in Ready, not Missing") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile(description = "Has a biography.", imageUrl = null))
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+            }
+        }
+
+        test("a photo-only profile (no bio) lands in Ready, not Missing") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile(description = null, imageUrl = "https://example.com/photo.jpg"))
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+            }
+        }
+
+        test("two rapid selectCandidate calls: only the second candidate's profile lands") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata("ASIN-A", any()) } returns
+                    AppResult.Success(createProfile(asin = "ASIN-A", name = "First"))
+                everySuspend { metadataRepo.getContributorMetadata("ASIN-B", any()) } returns
+                    AppResult.Success(createProfile(asin = "ASIN-B", name = "Second"))
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectCandidate(createHit(asin = "ASIN-A", name = "First"))
+                vm.selectCandidate(createHit(asin = "ASIN-B", name = "Second"))
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.match.asin shouldBe "ASIN-B"
+                val ready = preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+                // The displayed profile can never diverge from the match ASIN apply() will send.
+                ready.profile.asin shouldBe "ASIN-B"
+            }
+        }
+
+        test("preview that never resolves surfaces Failed after the timeout") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } calls { awaitCancellation() }
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Failed>()
+            }
+        }
+
+        test("changeRegion in preview re-fetches the open profile in the new region") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile())
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                vm.changeRegion(MetadataLocale("uk"))
+                advanceUntilIdle()
+
+                verifySuspend { metadataRepo.getContributorMetadata("B001ASIN01", MetadataLocale("uk")) }
+                vm.state.value.region shouldBe MetadataLocale("uk")
+            }
+        }
+
+        test("changeRegion in preview atomically resets to Loading — never a stale Ready visible mid-transition") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile())
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                vm.changeRegion(MetadataLocale("uk"))
+
+                // Asserted BEFORE advanceUntilIdle(): region and loadState must land together, in the
+                // same state.update — never a moment where the new region pairs with the old Ready profile.
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.region shouldBe MetadataLocale("uk")
+                preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Loading>()
+            }
+        }
+
+        test("clearSelection returns to Search with retained results — a late profile fetch cannot resurrect the preview") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns
+                    AppResult.Success(listOf(createHit()))
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile())
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectCandidate(createHit())
+                // Clear BEFORE the profile fetch completes.
+                vm.clearSelection()
+                advanceUntilIdle()
+
+                val state = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Search>()
+                val loaded = state.loadState.shouldBeInstanceOf<ContributorSearchLoadState.Loaded>()
+                loaded.results.size shouldBe 1
+            }
+        }
+
+        // ── apply ──────────────────────────────────────────────────────────────
+
+        test("apply success emits a one-shot MetadataApplied event") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile())
+                everySuspend { metadataRepo.applyContributorMetadata(any(), any(), any()) } returns
+                    AppResult.Success(Unit)
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                vm.events.test {
+                    vm.apply()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe ContributorMetadataEvent.MetadataApplied
+                }
+                verifySuspend {
+                    metadataRepo.applyContributorMetadata(
+                        ContributorId("contributor-1"),
+                        "B001ASIN01",
+                        MetadataLocale.DEFAULT,
+                    )
                 }
             }
         }
 
-        test("init does not auto-search when contributor name is blank") {
+        test("apply failure overlays applyError on the Ready preview and stays Ready") {
             runTest {
-                val contributorRepo = mock<ContributorRepository>()
                 val metadataRepo = mock<MetadataRepository>()
-                val contributor = createContributor(name = "")
-                every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-
-                val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
+                val error = TransportError.NetworkUnavailable()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile())
+                everySuspend { metadataRepo.applyContributorMetadata(any(), any(), any()) } returns
+                    AppResult.Failure(error)
+                val vm = buildVm(metadataRepo)
                 vm.init("contributor-1")
                 advanceUntilIdle()
-
-                verifySuspend(VerifyMode.exactly(0)) { metadataRepo.searchContributorMetadata(any(), any()) }
-            }
-        }
-
-        // ── Search Tests ───────────────────────────────────────────────────────
-
-        test("search updates state with results") {
-            runTest {
-                val metadataRepo = mock<MetadataRepository>()
-                val results = listOf(createHit("B001", "Stephen King"), createHit("B002", "Stephen King Jr"))
-                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(results)
-
-                val vm = buildVm(metadataRepo = metadataRepo)
-                vm.state.value.let {} // ensure initial state
-                vm.updateQuery("Stephen King")
-                vm.search()
+                vm.selectCandidate(createHit())
                 advanceUntilIdle()
 
-                vm.state.value.searchResults.size shouldBe 2
-                vm.state.value.isSearching shouldBe false
-                vm.state.value.searchError shouldBe null
+                vm.apply()
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                val ready = preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+                ready.isApplying shouldBe false
+                ready.applyError shouldBe error.message
             }
         }
 
-        test("search handles failure and sets searchError") {
+        test("apply is a no-op outside Ready (Missing preview has no live apply path)") {
             runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns AppResult.Success(null)
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                vm.apply()
+                advanceUntilIdle()
+
+                verifySuspend(mode = dev.mokkery.verify.VerifyMode.exactly(0)) {
+                    metadataRepo.applyContributorMetadata(any(), any(), any())
+                }
+            }
+        }
+
+        test("apply racing against clearSelection: late apply outcome does not fire MetadataApplied or resurrect Preview") {
+            runTest {
+                val applyDeferred = CompletableDeferred<AppResult<Unit>>()
                 val metadataRepo = mock<MetadataRepository>()
                 everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns
-                    AppResult.Failure(ValidationError(message = "Network error."))
-
-                val vm = buildVm(metadataRepo = metadataRepo)
-                vm.updateQuery("Stephen King")
-                vm.search()
-                advanceUntilIdle()
-
-                vm.state.value.isSearching shouldBe false
-                vm.state.value.searchError shouldBe "Network error."
-            }
-        }
-
-        test("search with blank query does nothing") {
-            runTest {
-                val metadataRepo = mock<MetadataRepository>()
-
-                val vm = buildVm(metadataRepo = metadataRepo)
-                vm.updateQuery("   ")
-                vm.search()
-                advanceUntilIdle()
-
-                verifySuspend(VerifyMode.exactly(0)) { metadataRepo.searchContributorMetadata(any(), any()) }
-            }
-        }
-
-        // ── Candidate Selection Tests ──────────────────────────────────────────
-
-        test("selectCandidate loads profile and updates state") {
-            runTest {
-                val metadataRepo = mock<MetadataRepository>()
-                val hit = createHit()
-                val profile = createProfile()
-                everySuspend { metadataRepo.getContributorMetadata("B001ASIN01", any()) } returns
-                    AppResult.Success(profile)
-
-                val vm = buildVm(metadataRepo = metadataRepo)
-                vm.selectCandidate(hit)
-                advanceUntilIdle()
-
-                vm.state.value.selectedCandidate shouldBe hit
-                vm.state.value.previewProfile shouldBe profile
-                vm.state.value.isLoadingPreview shouldBe false
-                vm.state.value.previewError shouldBe null
-            }
-        }
-
-        test("selectCandidate initializes selections — no image when imageUrl null") {
-            runTest {
-                val metadataRepo = mock<MetadataRepository>()
-                val hit = createHit()
-                val profile = createProfile(imageUrl = null)
-                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
-                    AppResult.Success(profile)
-
-                val vm = buildVm(metadataRepo = metadataRepo)
-                vm.selectCandidate(hit)
-                advanceUntilIdle()
-
-                vm.state.value.selections.name shouldBe true
-                vm.state.value.selections.biography shouldBe true
-                vm.state.value.selections.image shouldBe false
-            }
-        }
-
-        test("selectCandidate null profile sets previewError") {
-            runTest {
-                val metadataRepo = mock<MetadataRepository>()
-                val hit = createHit()
-                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
-                    AppResult.Success(null)
-
-                val vm = buildVm(metadataRepo = metadataRepo)
-                vm.selectCandidate(hit)
-                advanceUntilIdle()
-
-                vm.state.value.isLoadingPreview shouldBe false
-                vm.state.value.previewError shouldBe "No profile found on Audible."
-            }
-        }
-
-        // ── Apply Tests ────────────────────────────────────────────────────────
-
-        test("apply sets applySuccess when use case succeeds") {
-            runTest {
-                val contributorRepo = mock<ContributorRepository>()
-                val metadataRepo = mock<MetadataRepository>()
-                val useCase = mock<ApplyContributorMetadataUseCase>()
-                val contributor = createContributor()
-                every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(emptyList())
+                    AppResult.Success(listOf(createHit()))
                 everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
                     AppResult.Success(createProfile())
-                everySuspend { useCase.invoke(any()) } returns AppResult.Success(Unit)
-
-                val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo, useCase = useCase)
+                everySuspend { metadataRepo.applyContributorMetadata(any(), any(), any()) } calls { applyDeferred.await() }
+                val vm = buildVm(metadataRepo)
                 vm.init("contributor-1")
                 advanceUntilIdle()
                 vm.selectCandidate(createHit())
                 advanceUntilIdle()
 
+                // Apply is in flight; the user abandons it by clearing the selection before it resolves.
                 vm.apply()
-                advanceUntilIdle()
+                vm.clearSelection()
 
-                vm.state.value.applySuccess shouldBe true
-                vm.state.value.isApplying shouldBe false
-                vm.state.value.applyError shouldBe null
+                vm.events.test {
+                    applyDeferred.complete(AppResult.Success(Unit))
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+
+                // Still Search — the late apply success must not resurrect the abandoned Preview.
+                vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Search>()
             }
         }
 
-        test("apply handles use case failure and sets applyError") {
+        test("apply racing against changeRegion: late apply outcome does not fire MetadataApplied for the abandoned region") {
             runTest {
-                val contributorRepo = mock<ContributorRepository>()
+                val applyDeferred = CompletableDeferred<AppResult<Unit>>()
                 val metadataRepo = mock<MetadataRepository>()
-                val useCase = mock<ApplyContributorMetadataUseCase>()
-                val contributor = createContributor()
-                every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(emptyList())
                 everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
                     AppResult.Success(createProfile())
-                everySuspend { useCase.invoke(any()) } returns
-                    AppResult.Failure(ValidationError(message = "Server error."))
-
-                val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo, useCase = useCase)
+                everySuspend { metadataRepo.applyContributorMetadata(any(), any(), any()) } calls { applyDeferred.await() }
+                val vm = buildVm(metadataRepo)
                 vm.init("contributor-1")
                 advanceUntilIdle()
                 vm.selectCandidate(createHit())
                 advanceUntilIdle()
 
+                // Apply targets the DEFAULT region; the user switches region before it resolves.
                 vm.apply()
-                advanceUntilIdle()
-
-                vm.state.value.applySuccess shouldBe false
-                vm.state.value.isApplying shouldBe false
-                vm.state.value.applyError shouldBe "Server error."
-            }
-        }
-
-        test("apply does nothing when no fields selected") {
-            runTest {
-                val metadataRepo = mock<MetadataRepository>()
-                val useCase = mock<ApplyContributorMetadataUseCase>()
-                // Profile with no data — all selections false
-                val emptyProfile = createProfile(name = "", description = null, imageUrl = null)
-                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
-                    AppResult.Success(emptyProfile)
-
-                val vm = buildVm(metadataRepo = metadataRepo, useCase = useCase)
-                vm.selectCandidate(createHit())
-                advanceUntilIdle()
-
-                vm.apply()
-                advanceUntilIdle()
-
-                verifySuspend(VerifyMode.exactly(0)) { useCase.invoke(any()) }
-            }
-        }
-
-        // ── Field Toggle Tests ─────────────────────────────────────────────────
-
-        test("toggleField updates selections") {
-            runTest {
-                val vm = buildVm()
-                vm.state.value.selections.name shouldBe true
-
-                vm.toggleField(ContributorMetadataField.NAME)
-                vm.state.value.selections.name shouldBe false
-
-                vm.toggleField(ContributorMetadataField.NAME)
-                vm.state.value.selections.name shouldBe true
-            }
-        }
-
-        // ── Region Change Tests ────────────────────────────────────────────────
-
-        test("changeRegion updates state and re-searches") {
-            runTest {
-                val contributorRepo = mock<ContributorRepository>()
-                val metadataRepo = mock<MetadataRepository>()
-                val contributor = createContributor()
-                val usResults = listOf(createHit(name = "Stephen King US"))
-                val ukResults = listOf(createHit(name = "Stephen King UK"))
-                every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata("Stephen King", any()) } returns
-                    AppResult.Success(usResults)
-
-                val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
-                vm.init("contributor-1")
-                advanceUntilIdle()
-                vm.state.value.selectedRegion shouldBe MetadataLocale.DEFAULT
-                vm.state.value.searchResults shouldBe usResults
-
-                // Update mock for UK re-search
-                everySuspend { metadataRepo.searchContributorMetadata("Stephen King", any()) } returns
-                    AppResult.Success(ukResults)
                 vm.changeRegion(MetadataLocale("uk"))
+                advanceUntilIdle() // the new-region profile fetch resolves; apply is still pending
+
+                vm.events.test {
+                    applyDeferred.complete(AppResult.Success(Unit))
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.region shouldBe MetadataLocale("uk")
+                val ready = preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+                ready.isApplying shouldBe false
+                ready.applyError shouldBe null
+            }
+        }
+
+        test(
+            "apply racing against selectCandidate: stale apply outcome fires no event and does not overlay onto the newly selected candidate",
+        ) {
+            runTest {
+                val applyDeferred = CompletableDeferred<AppResult<Unit>>()
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata("ASIN-A", any()) } returns
+                    AppResult.Success(createProfile(asin = "ASIN-A", name = "First"))
+                everySuspend { metadataRepo.getContributorMetadata("ASIN-B", any()) } returns
+                    AppResult.Success(createProfile(asin = "ASIN-B", name = "Second"))
+                everySuspend { metadataRepo.applyContributorMetadata(any(), any(), any()) } calls { applyDeferred.await() }
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+                vm.selectCandidate(createHit(asin = "ASIN-A", name = "First"))
                 advanceUntilIdle()
 
-                vm.state.value.selectedRegion shouldBe MetadataLocale("uk")
-                vm.state.value.searchResults shouldBe ukResults
+                // Apply targets ASIN-A; the user picks a different candidate before it resolves —
+                // ASIN-B's Ready lands first, THEN the stale ASIN-A apply outcome arrives.
+                vm.apply()
+                vm.selectCandidate(createHit(asin = "ASIN-B", name = "Second"))
+                advanceUntilIdle()
+
+                vm.events.test {
+                    applyDeferred.complete(AppResult.Failure(TransportError.NetworkUnavailable()))
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.match.asin shouldBe "ASIN-B"
+                val ready = preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+                // The stale ASIN-A failure must not overlay an error onto the currently-viewed ASIN-B profile.
+                ready.applyError shouldBe null
+                ready.isApplying shouldBe false
+            }
+        }
+
+        test(
+            "apply racing against a fresh re-select of the SAME candidate: the abandoned attempt's late outcome " +
+                "does not fire MetadataApplied — identity alone cannot distinguish two attempts at the same target",
+        ) {
+            runTest {
+                val applyDeferred = CompletableDeferred<AppResult<Unit>>()
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns
+                    AppResult.Success(listOf(createHit()))
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile())
+                everySuspend { metadataRepo.applyContributorMetadata(any(), any(), any()) } calls { applyDeferred.await() }
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                // Step 1: apply on candidate A (default region), left in flight.
+                vm.apply()
+
+                // Step 2: abandon it by returning to search.
+                vm.clearSelection()
+
+                // Step 3: re-select the SAME candidate, same region — a fresh Ready, isApplying=false.
+                // Its identity (contributorId, asin, region) is IDENTICAL to the abandoned attempt's.
+                vm.selectCandidate(createHit())
+                advanceUntilIdle()
+
+                val freshReady =
+                    vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                        .loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+                freshReady.isApplying shouldBe false
+                freshReady.applyError shouldBe null
+
+                // Step 4: the ABANDONED apply from step 1 resolves late. Same identity as the fresh
+                // state, but a DIFFERENT attempt — must not fire the event or overlay the fresh Ready.
+                vm.events.test {
+                    applyDeferred.complete(AppResult.Success(Unit))
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                val ready = preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+                ready.isApplying shouldBe false
+                ready.applyError shouldBe null
+            }
+        }
+
+        // ── selectAsin (route entry) ───────────────────────────────────────────
+
+        test("selectAsin fetches by ASIN and backfills the match name from the profile") {
+            runTest {
+                val metadataRepo = mock<MetadataRepository>()
+                everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
+                    AppResult.Success(createProfile(name = "Backfilled Name"))
+                val vm = buildVm(metadataRepo)
+                vm.init("contributor-1")
+                advanceUntilIdle()
+
+                vm.selectAsin("B001ASIN01")
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                preview.match.name shouldBe "Backfilled Name"
+                preview.loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
             }
         }
     })
