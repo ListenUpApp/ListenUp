@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.genredestination
 
 import com.calypsan.listenup.api.dto.FacetStats
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.client.domain.model.Genre
@@ -186,6 +187,27 @@ class GenreDestinationViewModelTest :
                         GenreCrumb(genreId = GenreId("fiction"), name = "Fiction"),
                         GenreCrumb(genreId = GenreId("fantasy"), name = "Fantasy"),
                     )
+            }
+        }
+
+        test("stats RPC failure falls back to the local book-list count, not zero") {
+            runTest {
+                val fixture = createFixture()
+                // Server stats fail while books load fine — the page must approximate from the local
+                // list, never render "0 books" above a populated grid (never-stranded).
+                everySuspend { fixture.genreRepository.getGenreStats(GenreId("fantasy"), true) } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                backgroundScope.launch { fixture.viewModel.state.collect { } }
+
+                fixture.viewModel.load(GenreId("fantasy"))
+                advanceUntilIdle()
+
+                val ready =
+                    fixture.viewModel.state.value
+                        .shouldBeInstanceOf<GenreDestinationUiState.Ready>()
+                ready.stats.bookCount shouldBe subtreeBooks.size
+                ready.stats.totalDurationMs shouldBe subtreeBooks.sumOf { it.duration }
+                ready.books shouldBe subtreeBooks
             }
         }
 

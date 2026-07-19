@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.genredestination
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.FacetStats
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Genre
@@ -114,10 +115,15 @@ class GenreDestinationViewModel(
                     SubGenre(genreId = GenreId(it.id), name = it.name, bookCount = it.bookCount)
                 }
 
-            val stats =
-                genreRepository.getGenreStats(req.genreId, includeSubGenres).getOrElse { error ->
-                    logger.warn { "Failed to load genre stats for ${req.genreId}: ${error.message}" }
-                    FacetStats.EMPTY
+            // Server-aggregate stats (uncapped, subtree-correct), or null on a typed failure — the
+            // book-list fallback below covers that case.
+            val serverStats =
+                when (val result = genreRepository.getGenreStats(req.genreId, includeSubGenres)) {
+                    is AppResult.Success -> result.data
+                    is AppResult.Failure -> {
+                        logger.warn { "Failed to load genre stats for ${req.genreId}: ${result.error.message}" }
+                        null
+                    }
                 }
             val bookIds =
                 genreRepository.browseBooks(req.genreId, includeSubGenres).getOrElse { error ->
@@ -133,7 +139,15 @@ class GenreDestinationViewModel(
                         subGenres = subGenres,
                         hasSubs = hasSubs,
                         includeSubGenres = includeSubGenres,
-                        stats = stats,
+                        // Never-stranded: if the stats RPC failed, approximate from the local book
+                        // list rather than render "0 books" above a populated grid (mirrors
+                        // BrowseFacetViewModel). The list is access-filtered + capped, so this can
+                        // undercount a large subtree — acceptable as a degraded fallback only.
+                        stats =
+                            serverStats ?: FacetStats(
+                                bookCount = books.size,
+                                totalDurationMs = books.sumOf { it.duration },
+                            ),
                         books = books,
                     )
                 },
