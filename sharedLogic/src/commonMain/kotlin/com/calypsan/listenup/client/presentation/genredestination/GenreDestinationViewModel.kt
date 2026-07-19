@@ -3,8 +3,9 @@ package com.calypsan.listenup.client.presentation.genredestination
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.FacetStats
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
+import com.calypsan.listenup.api.result.getOrNull
+import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -118,13 +119,10 @@ class GenreDestinationViewModel(
             // Server-aggregate stats (uncapped, subtree-correct), or null on a typed failure — the
             // book-list fallback below covers that case.
             val serverStats =
-                when (val result = genreRepository.getGenreStats(req.genreId, includeSubGenres)) {
-                    is AppResult.Success -> result.data
-                    is AppResult.Failure -> {
-                        logger.warn { "Failed to load genre stats for ${req.genreId}: ${result.error.message}" }
-                        null
-                    }
-                }
+                genreRepository
+                    .getGenreStats(req.genreId, includeSubGenres)
+                    .onFailure { logger.warn { "Failed to load genre stats for ${req.genreId}: ${it.message}" } }
+                    .getOrNull()
             val bookIds =
                 genreRepository.browseBooks(req.genreId, includeSubGenres).getOrElse { error ->
                     logger.warn { "Failed to load books for genre ${req.genreId}: ${error.message}" }
