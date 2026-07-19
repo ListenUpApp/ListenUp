@@ -576,14 +576,16 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * When [extraWhere] is null but a [driver] is wired (an all-seeing role on a gated domain) the
      * access clause is dropped and every matched row returns.
      *
-     * A domain with **no wired [driver]** — every userScoped/global aggregate — has no per-user
-     * access filter to apply: every row is visible to every authenticated caller. Such a domain is
-     * served **directly by id** from the substrate (tombstones included and minimized, matching the
-     * gated contract), so a `?ids=` fetch converges the same rows a `since = 0` catch-up would. This
-     * is what lets the client's dead-letter **heal** re-fetch current server truth for the ungated
-     * curation domains (tags/genres/moods/series/shelves/collections) — the DRIFT-1 fix. Ungated
-     * domains are only ever queried by their `"id"` column (the `?ids=` path); a stray non-`"id"`
-     * match on an ungated domain has no meaning here and answers empty rather than 500ing.
+     * A domain with **no wired [driver]** is ungated. A **global** ungated aggregate (the curation
+     * domains: tags/genres/moods/series/shelves/collections) has every row visible to every
+     * authenticated caller, so it is served **directly by id** from the substrate (tombstones
+     * included and minimized, matching the gated contract) — a `?ids=` fetch converges the same rows
+     * a `since = 0` catch-up would. This is what lets the client's dead-letter **heal** re-fetch
+     * current server truth for those domains — the DRIFT-1 fix. A **[userScoped]** ungated aggregate
+     * (positions/stats/listening_events) must NOT be served unfiltered by id — that would leak another
+     * user's rows — so it keeps answering an empty page (its `?ids=` path is unused; convergence rides
+     * `?since=`). A stray non-`"id"` match on an ungated domain has no meaning here and also answers
+     * empty rather than 500ing.
      */
     override suspend fun pullByIds(
         userId: String?,
@@ -592,12 +594,17 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         extraWhere: SqlFragment?,
     ): Page<T> {
         if (matchValues.isEmpty()) return Page(items = emptyList(), nextCursor = null, hasMore = false)
-        // No driver → ungated domain (no per-user access filter): serve the requested ids directly.
-        // Only the "id" column is meaningful for an ungated domain; anything else answers empty
-        // rather than throw, so a valid authenticated sync GET never 500s.
+        // No driver → an ungated domain (no per-user access filter). Serve a GLOBAL ungated domain
+        // (the curation domains) by id directly — every row is visible to every authenticated caller,
+        // which is what the DRIFT-1 dead-letter heal re-fetches. A userScoped domain must NOT be
+        // served unfiltered by id — that would leak another user's rows — so it keeps answering empty
+        // (its `?ids=` path is unused; convergence rides `?since=`). A non-"id" match on an ungated
+        // domain is meaningless here and also answers empty rather than 500ing.
         val accessFilterDriver =
             driver ?: run {
-                if (matchColumn != "id") return Page(items = emptyList(), nextCursor = null, hasMore = false)
+                if (matchColumn != "id" || userScoped) {
+                    return Page(items = emptyList(), nextCursor = null, hasMore = false)
+                }
                 return suspendTransaction(db) {
                     Page(
                         items = readPayloads(matchValues).map(::minimizedIfTombstoned),
