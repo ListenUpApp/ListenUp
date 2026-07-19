@@ -85,8 +85,31 @@ internal class ConnectionHealthStore(
                 }
             }.distinctUntilChanged()
 
+    // Fires `true` once the firehose has been continuously down for [FIREHOSE_DOWN_PROBE_GRACE_MS],
+    // resetting to `false` the instant it recovers. This bounds how long a positive UNAUTHENTICATED
+    // probe may mask a dead firehose: such a probe proves the server is reachable, NOT that the SSE
+    // stream is alive (an SSE-specific failure or an auth wedge keeps the firehose dead while the
+    // 2s unauth probe keeps `probeFresh` pinned true → the banner stayed Healthy/Hidden forever, no
+    // Retry offered). The grace preserves the probe's original no-flicker purpose for the *healthy*
+    // reconnect flap; beyond it, a dead firehose surfaces as Unreachable regardless of the probe.
+    private val firehoseDownBeyondGrace: Flow<Boolean> =
+        connectionDown
+            .flatMapLatest { down ->
+                if (!down) {
+                    flowOf(false)
+                } else {
+                    flow {
+                        emit(false)
+                        delay(FIREHOSE_DOWN_PROBE_GRACE_MS)
+                        emit(true)
+                    }
+                }
+            }.distinctUntilChanged()
+
     private val rawUnreachable: Flow<Boolean> =
-        combine(connectionDown, probeFresh) { down, fresh -> down && !fresh }.distinctUntilChanged()
+        combine(connectionDown, probeFresh, firehoseDownBeyondGrace) { down, fresh, beyondGrace ->
+            down && (!fresh || beyondGrace)
+        }.distinctUntilChanged()
 
     // Debounced: a brief connectivity blip must not surface as Unreachable, but a sustained
     // outage does — and resolves the instant reachability returns (no debounce on the way out).
@@ -218,6 +241,14 @@ internal class ConnectionHealthStore(
 
         /** How long a positive reachability probe counts as fresh evidence against Unreachable. */
         const val PROBE_FRESHNESS_MS = 90_000L
+
+        /**
+         * How long the firehose may stay down while a positive (unauthenticated) probe suppresses
+         * Unreachable, before the probe is overridden and Unreachable surfaces anyway. Shorter than
+         * [PROBE_FRESHNESS_MS] — a probe proves the server is reachable, not that the firehose is
+         * alive, so it may only mask a *transient* reconnect flap, not a sustained dead stream.
+         */
+        const val FIREHOSE_DOWN_PROBE_GRACE_MS = 15_000L
     }
 }
 

@@ -214,6 +214,8 @@ private class RecordingSyncRepository : SyncRepository {
 
     override suspend fun connectRealtime() = Unit
 
+    override suspend fun recoverRealtime(forceReconcile: Boolean) = Unit
+
     override suspend fun disconnect() = Unit
 
     override suspend fun resetForNewLibrary(newLibraryId: String): AppResult<Unit> = AppResult.Success(Unit)

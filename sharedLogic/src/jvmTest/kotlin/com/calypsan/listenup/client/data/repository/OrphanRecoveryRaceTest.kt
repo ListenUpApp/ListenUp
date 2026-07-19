@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
+import com.calypsan.listenup.client.data.sync.SearchIndexWatermark
 import com.calypsan.listenup.client.data.sync.ParsedSseFrame
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -33,6 +34,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
+import kotlinx.coroutines.flow.emptyFlow
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -103,12 +105,15 @@ class OrphanRecoveryRaceTest :
                         mock<FtsPopulatorContract> {
                             everySuspend { rebuildIfEmpty() } returns Unit
                             everySuspend { rebuildAll() } returns Unit
+                            every { observeContentChanges() } returns emptyFlow()
+                            everySuspend { snapshotWatermark() } returns SearchIndexWatermark(0L, 0L, 0L, 0L)
                         }
                     val scannerChannel = RpcChannel.forTest(mock<ScannerService>())
 
                     val repo =
                         SyncRepositoryImpl(
                             syncEngine = engine,
+                            reevaluateConnection = {},
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,
@@ -173,12 +178,15 @@ class OrphanRecoveryRaceTest :
                         mock<FtsPopulatorContract> {
                             everySuspend { rebuildIfEmpty() } returns Unit
                             everySuspend { rebuildAll() } returns Unit
+                            every { observeContentChanges() } returns emptyFlow()
+                            everySuspend { snapshotWatermark() } returns SearchIndexWatermark(0L, 0L, 0L, 0L)
                         }
                     val scannerChannel = RpcChannel.forTest(mock<ScannerService>())
 
                     val repo =
                         SyncRepositoryImpl(
                             syncEngine = engine,
+                            reevaluateConnection = {},
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,

@@ -34,6 +34,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -45,6 +47,9 @@ private val logger = KotlinLogging.logger {}
 
 /** Backoff between scan-progress stream re-subscriptions after the stream drops or completes. */
 private const val SCAN_STREAM_RESUBSCRIBE_DELAY_MS = 2_000L
+
+/** Debounce for the live FTS refresh — coalesces a firehose burst into one reindex after it settles. */
+private const val FTS_LIVE_REFRESH_DEBOUNCE_MS = 1_000L
 
 /**
  * Bridges the domain sync facade to the renovated client sync engine.
@@ -58,6 +63,10 @@ private const val SCAN_STREAM_RESUBSCRIBE_DELAY_MS = 2_000L
  */
 internal class SyncRepositoryImpl(
     private val syncEngine: SyncEngine,
+    // Re-resolve the reachable server URL (LAN-first, mDNS relocate) — wired to
+    // ConnectionCoordinator.reevaluate in DI. A lambda (not the coordinator) keeps this seam
+    // trivially testable and avoids pulling the whole coordinator graph into the repository.
+    private val reevaluateConnection: suspend () -> Unit,
     private val syncEngineState: SyncEngineState,
     private val authSession: AuthSession,
     private val listeningEventRecorder: ListeningEventRecorder,
@@ -87,6 +96,10 @@ internal class SyncRepositoryImpl(
      */
     private val scanObserverMutex = Mutex()
     private var scanObserverStarted = false
+
+    /** Guards the at-most-once launch of the live FTS refresh observer (same rationale as the scan observer). */
+    private val ftsObserverMutex = Mutex()
+    private var ftsObserverStarted = false
 
     /** Wall-clock start of the current scan, stamped on [ScanEvent.Started] and surfaced in progress. */
     private var scanStartedAtMs: Long = 0L
@@ -143,13 +156,24 @@ internal class SyncRepositoryImpl(
 
     override suspend fun connectRealtime() {
         // Every platform's app-foreground path funnels through here (MainActivity.onResume, the
-        // auth-transition collector, shell entry, the offline-banner retry). Starting the engine
-        // no-ops when it's already running for this user — so foregrounding used to do ZERO
-        // reconciliation, and anything a live event dropped while backgrounded sat invisible until a
-        // cold restart. lifecycleReconcile closes that hole: it's debounced (the cold-start
-        // double-run right after start() is skipped) and heals anything missed on every foreground.
-        startEngineForCurrentUser()
-        syncEngine.lifecycleReconcile()
+        // auth-transition collector, shell entry). It routes through the unified recover seam so a
+        // firehose that died while backgrounded is actually re-opened — not just reconciled over REST
+        // while the dead SSE stream stays dead (the "reconnects only on relaunch" gap). The seam
+        // no-ops the reconnect when the firehose is already healthy, so a normal foreground on a live
+        // connection does not churn it; lifecycleReconcile stays debounced.
+        recoverRealtime()
+    }
+
+    override suspend fun recoverRealtime(forceReconcile: Boolean) {
+        // Not authenticated → nothing to recover (URL re-resolution / reconnect are moot).
+        if (startEngineForCurrentUser() is AppResult.Failure) return
+        // Re-resolve the reachable server URL (LAN-first, mDNS relocate) as a relaunch would — a
+        // server that moved (DHCP) needs its new address before we re-dial. A host:port change here
+        // invalidates the streaming client (ConnectionCoordinator.observeActiveUrl → invalidateAll),
+        // so the engine's reconnect below re-dials the new URL.
+        reevaluateConnection()
+        // Re-open the firehose if it died (no-op when healthy) + reconcile.
+        syncEngine.recoverRealtime(forceReconcile = forceReconcile)
     }
 
     override suspend fun disconnect() {
@@ -194,7 +218,11 @@ internal class SyncRepositoryImpl(
 
     override suspend fun refresh(): AppResult<Unit> =
         when (val started = startEngineForCurrentUser()) {
-            is AppResult.Success -> suspendRunCatching { syncEngine.lifecycleReconcile(force = true) }
+            // Pull-to-refresh routes through the recover seam too, so the reflexive "swipe down" also
+            // restores a dead firehose (not only a forced data pull). forceReconcile bypasses the
+            // debounce for the explicit gesture.
+            is AppResult.Success -> suspendRunCatching { recoverRealtime(forceReconcile = true) }
+
             is AppResult.Failure -> started
         }
 
@@ -263,6 +291,7 @@ internal class SyncRepositoryImpl(
             }
             syncEngine.start(userId)
             startScanProgressObserver()
+            startFtsLiveRefreshObserver()
             // Self-heal: an install whose library is already in Room but whose search index was
             // never populated rebuilds it here. A no-op once the index has rows, so it is safe on
             // every start. Isolated — a failure here must not fail engine startup.
@@ -317,6 +346,46 @@ internal class SyncRepositoryImpl(
             } finally {
                 resetScanObserver()
             }
+        }
+    }
+
+    /**
+     * Launches (once) the live FTS refresh observer. The offline full-text index is refreshed at
+     * scan-completion / forceFullResync / cold-start, but a book edited on another device arrives over
+     * the live SSE firehose and lands in Room WITHOUT touching the index — so it is unsearchable or
+     * shows stale text until a scan/resync, denting the "offline FTS is the search fallback" promise.
+     * This observer follows Room: on any searchable-content write it debounce-refreshes the index from
+     * the last-indexed watermark, coalescing a firehose burst into one refresh ([refreshSince] falls
+     * back to a full rebuild above its delta threshold, so a large burst is bounded). On failure the
+     * watermark is NOT advanced, so the same rows retry on the next change instead of being stranded.
+     */
+    private suspend fun startFtsLiveRefreshObserver() {
+        val shouldStart =
+            ftsObserverMutex.withLock {
+                if (ftsObserverStarted) {
+                    false
+                } else {
+                    ftsObserverStarted = true
+                    true
+                }
+            }
+        if (!shouldStart) return
+        scope.launch {
+            var lastWatermark = ftsPopulator.snapshotWatermark()
+            ftsPopulator
+                .observeContentChanges()
+                .drop(1) // the initial replay is current state — startup rebuildIfEmpty already covered it
+                .debounce(FTS_LIVE_REFRESH_DEBOUNCE_MS)
+                .collect {
+                    try {
+                        ftsPopulator.refreshSince(lastWatermark)
+                        lastWatermark = ftsPopulator.snapshotWatermark()
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Live FTS refresh failed; will retry on the next content change" }
+                    }
+                }
         }
     }
 

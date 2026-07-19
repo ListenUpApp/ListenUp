@@ -377,6 +377,28 @@ internal class SyncEngine(
     }
 
     /**
+     * The firehose half of the unified recover seam (see
+     * [com.calypsan.listenup.client.data.repository.SyncRepository.recoverRealtime]): re-open a dead
+     * SSE firehose, then run a data pull. Re-opens the connection ONLY when it is not already
+     * [ConnectionState.Connected], so a normal foreground on a live firehose does not churn it (no
+     * flicker) — the "reconnects only on relaunch" gap was that no user action re-opened a firehose
+     * that died while backgrounded. [reconnect] resumes from the stored `Last-Event-Id`, so no events
+     * are missed. [lifecycleReconcile] runs regardless (it's the debounced catch-up + digest pass).
+     *
+     * URL re-resolution and any streaming-client rebuild are the repository seam's responsibility
+     * (it owns [com.calypsan.listenup.client.data.connection.ConnectionCoordinator]); this method
+     * owns the firehose lifecycle + reconcile. [forceReconcile] bypasses the reconcile debounce for
+     * the explicit pull-to-refresh gesture (foreground/Retry keep the default debounced pass).
+     */
+    suspend fun recoverRealtime(forceReconcile: Boolean = false) {
+        if (state.value.connection !is ConnectionState.Connected) {
+            logger.info { "recoverRealtime: firehose is ${state.value.connection}; re-opening" }
+            reconnect()
+        }
+        lifecycleReconcile(force = forceReconcile)
+    }
+
+    /**
      * Force a digest reconciliation across all registered domains, re-pulling any that
      * have drifted from the server. Unlike [start], this runs even when the engine is
      * already active — used after a server-side restore (a wholesale DB swap that is not
