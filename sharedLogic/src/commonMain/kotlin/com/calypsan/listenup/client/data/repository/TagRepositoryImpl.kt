@@ -150,7 +150,9 @@ internal class TagRepositoryImpl(
             BookTagMutation.Remove(bookId = bookId, tagId = tagId),
             op = OpKind.Delete,
         ) {
-            bookTagDao.tombstone(bookId = bookId, tagId = tagId, deletedAt = currentEpochMilliseconds())
+            // Optimistic tombstone at revision 0 — the server's Deleted echo carries the authoritative
+            // revision and overwrites it (mirrors the collection_books junction write path).
+            bookTagDao.tombstone(bookId = bookId, tagId = tagId, deletedAt = currentEpochMilliseconds(), revision = 0)
         }
 
     /**

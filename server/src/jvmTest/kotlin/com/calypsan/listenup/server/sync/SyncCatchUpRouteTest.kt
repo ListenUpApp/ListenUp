@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.api.sync.Tag
@@ -77,27 +78,40 @@ class SyncCatchUpRouteTest :
             }
         }
 
-        test("a targeted ?ids= fetch on a global ungated domain (tags) returns 200 with an empty page, not 500") {
+        test("a targeted ?ids= fetch on a GLOBAL ungated domain (tags) returns the requested row (DRIFT-1 heal path)") {
             withTestApplication {
                 tagRepo.upsert(Tag("a", "alpha", "alpha", 0, 0))
+                tagRepo.upsert(Tag("b", "beta", "beta", 0, 0))
 
-                // `tags` is not access-gated, so it wires no SqlDriver and cannot serve the
-                // access-filtered targeted read `pullByIds` performs. It degrades to an empty page
-                // rather than throwing (which surfaced as a 500): these domains are served via the
-                // `?since=` catch-up, and the client no longer issues `?ids=` for them (reconcile-on-
-                // drain is gated to access-filtered domains). The invariant that matters here is that a
-                // valid authenticated sync GET never 500s.
+                // `tags` is a GLOBAL ungated domain: every row is visible to every authenticated
+                // caller, so a by-id fetch serves the rows directly — this is the read the client's
+                // DRIFT-1 dead-letter heal uses to re-fetch current server truth for a curation entity.
+                // Only the requested id comes back.
                 val response = client.get("/api/v1/sync/tags?ids=a")
                 response.status shouldBe HttpStatusCode.OK
-                response.body<Page<Tag>>().items.shouldBeEmpty()
+                response.body<Page<Tag>>().items.map { it.id } shouldBe listOf("a")
             }
         }
 
-        test("a targeted ?ids= fetch on the userScoped playback_positions domain returns 200 empty, not 500") {
-            // Reproduces the reconcile-on-drain 500: every position push triggered a client
-            // `GET /api/v1/sync/playback_positions?ids=…`, and the userScoped repo has no driver.
+        test("a ?ids= fetch on a userScoped domain returns 200 empty even for an existing row (no cross-user leak)") {
+            // A userScoped domain has no access-filter driver, so an unfiltered by-id read would leak
+            // another user's rows. It must therefore answer an EMPTY page for `?ids=` — even when the
+            // row genuinely exists — rather than serving it (its convergence rides `?since=`). Also the
+            // original invariant: a valid authenticated sync GET never 500s.
             withTestApplication(playbackPositions = true) {
-                val response = client.get("/api/v1/sync/playback_positions?ids=some-position-id")
+                val seeded =
+                    playbackPositionRepo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 1_000L,
+                        lastPlayedAt = 0L,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                val positionId = (seeded as AppResult.Success).data.id
+
+                val response = client.get("/api/v1/sync/playback_positions?ids=$positionId")
                 response.status shouldBe HttpStatusCode.OK
                 response.body<Page<PlaybackPositionSyncPayload>>().items.shouldBeEmpty()
             }

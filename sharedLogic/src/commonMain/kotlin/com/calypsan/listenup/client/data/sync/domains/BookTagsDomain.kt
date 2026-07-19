@@ -44,8 +44,16 @@ internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagS
                     }
                 },
             ),
-        // The DAO advances its own revision on tombstone, so the event revision is dropped (`_`).
-        deletes = DeleteSemantics.SoftDelete { id, deletedAt, _ -> apply.tombstoneById(id, deletedAt) },
+        // Write the event's own revision so a replayed Deleted frame is a true no-op (matches
+        // collection_books). The revision is the server-authoritative value from the frame.
+        deletes =
+            DeleteSemantics.SoftDelete {
+                id,
+                deletedAt,
+                revision,
+                ->
+                apply.tombstoneById(id, deletedAt, revision)
+            },
         digest = fullDigest(database.bookTagDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.BookTags),
     )
@@ -71,18 +79,19 @@ internal class BookTagMirrorApply(
      * Tombstone from an SSE `Deleted` frame. The server synthesises `"$bookId:$tagId"`
      * as the stable envelope id (see `BookTagId.asString()` server-side); the `:`
      * delimiter cannot appear in either part because book/tag ids are UUIDv7 strings.
-     * The DAO advances its own revision, so the event revision is not taken here.
+     * The event's own [revision] is written (not `revision + 1`) so a replay is a no-op.
      */
     suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
+        revision: Long,
     ) {
         val parts = id.split(":")
         if (parts.size != 2) {
             logger.warn { "book_tags Deleted event has unexpected id format: '$id' — skipping tombstone" }
             return
         }
-        database.bookTagDao().tombstone(bookId = parts[0], tagId = parts[1], deletedAt = deletedAt)
+        database.bookTagDao().tombstone(bookId = parts[0], tagId = parts[1], deletedAt = deletedAt, revision = revision)
     }
 
     override suspend fun tombstoneFromItem(item: BookTagSyncPayload) {
@@ -90,6 +99,7 @@ internal class BookTagMirrorApply(
             bookId = item.bookId,
             tagId = item.tagId,
             deletedAt = item.deletedAt ?: item.createdAt,
+            revision = item.revision,
         )
     }
 }

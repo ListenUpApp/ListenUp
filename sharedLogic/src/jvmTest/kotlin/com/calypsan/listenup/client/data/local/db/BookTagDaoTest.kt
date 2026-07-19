@@ -59,19 +59,33 @@ class BookTagDaoTest :
 
         // ── tombstone ─────────────────────────────────────────────────────────
 
-        test("tombstone sets deletedAt on an existing junction row") {
+        test("tombstone sets deletedAt and the server-authoritative revision on an existing junction row") {
             runTest {
                 dao.upsert(bookTag("b1", "t1", revision = 1L))
-                dao.tombstone("b1", "t1", deletedAt = 500L)
+                dao.tombstone("b1", "t1", deletedAt = 500L, revision = 2L)
                 val row = dao.findByKey("b1", "t1")
                 row!!.deletedAt shouldBe 500L
+                // Writes the event's own revision (not revision + 1) so a replay is a no-op.
+                row.revision shouldBe 2L
+            }
+        }
+
+        test("replaying a tombstone at the same revision is a no-op (idempotent, no double-increment)") {
+            runTest {
+                dao.upsert(bookTag("b1", "t1", revision = 1L))
+                dao.tombstone("b1", "t1", deletedAt = 500L, revision = 2L)
+                // The server re-delivers the same Deleted frame (revision 2) — the row must not drift.
+                dao.tombstone("b1", "t1", deletedAt = 500L, revision = 2L)
+                val row = dao.findByKey("b1", "t1")
+                row!!.revision shouldBe 2L
+                row.deletedAt shouldBe 500L
             }
         }
 
         test("upsert after tombstone can clear the tombstone (re-add semantics)") {
             runTest {
                 dao.upsert(bookTag("b1", "t1", revision = 1L))
-                dao.tombstone("b1", "t1", deletedAt = 500L)
+                dao.tombstone("b1", "t1", deletedAt = 500L, revision = 2L)
                 // Server creates a new event clearing the tombstone
                 dao.upsert(bookTag("b1", "t1", createdAt = 600L, revision = 3L, deletedAt = null))
                 val row = dao.findByKey("b1", "t1")
@@ -112,7 +126,7 @@ class BookTagDaoTest :
                 dao.upsert(bookTag("b1", "t1"))
                 dao.observeForBook("b1").test {
                     awaitItem().map { it.tagId } shouldContainExactly listOf("t1")
-                    dao.tombstone("b1", "t1", deletedAt = 800L)
+                    dao.tombstone("b1", "t1", deletedAt = 800L, revision = 2L)
                     awaitItem().shouldBeEmpty()
                     cancelAndIgnoreRemainingEvents()
                 }

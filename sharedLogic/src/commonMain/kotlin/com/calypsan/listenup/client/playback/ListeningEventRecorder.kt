@@ -51,7 +51,12 @@ private val logger = KotlinLogging.logger {}
  * @property transactionRunner Runs the finalize writes (event upsert + enqueue + tentative
  *   delete) in one all-or-nothing transaction, so a failed enqueue rolls back the delete and
  *   the tentative span survives as the recovery breadcrumb for [recoverOrphan].
- * @property enqueue Suspend function that persists a pending op for the finalized span.
+ * @property enqueue Suspend function that persists a pending op for the finalized span. It runs
+ *   INSIDE the finalize transaction and must NOT signal the drain itself (pass `signal = false` in
+ *   the DI wiring) — the pre-commit signal would wake a drain that reads WAL state where the new row
+ *   is not yet visible, stranding the op. [signalEnqueued] fires the drain post-commit instead.
+ * @property signalEnqueued Ticks the outbox drain signal. Called only AFTER the finalize transaction
+ *   commits, so the drain sees the freshly-committed op. On rollback it is never called.
  * @property currentUserId Returns the signed-in user's ID, or null if unauthenticated.
  *   A null result causes all write operations to no-op silently — no pending write without
  *   an owner.
@@ -73,6 +78,9 @@ class ListeningEventRecorder internal constructor(
     private val tentativeSpanDao: TentativeSpanDao,
     private val transactionRunner: TransactionRunner,
     private val enqueue: suspend (entityId: String, payload: String, ownerUserId: String) -> Unit,
+    // Defaults to a no-op so unit tests that don't assert drain timing need no change; production DI
+    // MUST wire it to `PendingOperationQueue.signalEnqueued` (see [signalEnqueued]).
+    private val signalEnqueued: () -> Unit = {},
     private val currentUserId: suspend () -> String?,
     private val deviceInfo: DeviceInfoProvider,
     private val processId: String = Uuid.random().toString(),
@@ -389,6 +397,10 @@ class ListeningEventRecorder internal constructor(
                 enqueue(entity.id, payload, tentative.userId)
                 tentativeSpanDao.delete()
             }
+            // Signal the drain only AFTER the transaction commits — a pre-commit signal (the
+            // enqueue's default) wakes the drain against WAL state that can't yet see the new row,
+            // stranding the op until an unrelated later trigger. Never runs on rollback (below).
+            signalEnqueued()
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {

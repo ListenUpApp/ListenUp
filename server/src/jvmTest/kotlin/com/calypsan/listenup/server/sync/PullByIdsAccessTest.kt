@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -22,6 +23,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -138,6 +140,64 @@ class PullByIdsAccessTest :
             }
         }
 
+        test("tags pullByIds returns the requested tag by id (ungated domain, no access driver)") {
+            // The DRIFT-1 dead-letter heal re-fetches a curation entity by id. Tags is an ungated
+            // (userScoped/global) domain with no wired access driver — this used to short-circuit to
+            // an empty page, so the heal had nothing to apply. It must now serve the row directly.
+            withSqlDatabase {
+                val tagRepo = TagRepository(sql, ChangeBus(), SyncRegistry())
+                runTest {
+                    tagRepo.upsert(pbiTag("tag-x", "Fantasy", "fantasy"))
+                    val page =
+                        tagRepo.pullByIds(
+                            userId = "member",
+                            matchColumn = "id",
+                            matchValues = listOf("tag-x"),
+                            extraWhere = null,
+                        )
+                    page.items.map { it.id } shouldContain "tag-x"
+                }
+            }
+        }
+
+        test("tags pullByIds delivers a tombstone for a soft-deleted tag so a heal converges") {
+            withSqlDatabase {
+                val tagRepo = TagRepository(sql, ChangeBus(), SyncRegistry())
+                runTest {
+                    tagRepo.upsert(pbiTag("tag-d", "Doomed", "doomed"))
+                    tagRepo.softDelete("tag-d", clientOpId = null)
+                    val page =
+                        tagRepo.pullByIds(
+                            userId = "member",
+                            matchColumn = "id",
+                            matchValues = listOf("tag-d"),
+                            extraWhere = null,
+                        )
+                    // The soft-deleted row comes back (minimized) so a heal of a server-deleted entity
+                    // learns to tombstone the local phantom rather than resurrecting it.
+                    page.items.map { it.id } shouldContain "tag-d"
+                }
+            }
+        }
+
+        test("tags pullByIds returns empty for a non-id match column on an ungated domain") {
+            withSqlDatabase {
+                val tagRepo = TagRepository(sql, ChangeBus(), SyncRegistry())
+                runTest {
+                    tagRepo.upsert(pbiTag("tag-x", "Fantasy", "fantasy"))
+                    val page =
+                        tagRepo.pullByIds(
+                            userId = "member",
+                            matchColumn = "book_id",
+                            matchValues = listOf("tag-x"),
+                            extraWhere = null,
+                        )
+                    // Ungated domains are only queried by "id"; anything else answers empty, never 500s.
+                    page.items shouldBe emptyList()
+                }
+            }
+        }
+
         test("collection_books pullByIds by collection_id returns only accessible memberships") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -175,6 +235,12 @@ private data class PbiFixture(
     val grantRepo: CollectionGrantRepository,
     val policy: BookAccessPolicy,
 )
+
+private fun pbiTag(
+    id: String,
+    name: String,
+    slug: String,
+): Tag = Tag(id = id, name = name, slug = slug, revision = 0L, updatedAt = 0L, deletedAt = null)
 
 private fun pbiCollection(
     id: String,

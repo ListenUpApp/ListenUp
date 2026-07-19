@@ -13,7 +13,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
 
 // A synthetic channel whose name is deliberately NOT one of OutboxChannels.all — several tests below
@@ -362,6 +365,45 @@ class PendingOperationDrainDispositionTest :
                 stored shouldNotBe null
                 ((stored?.failureCount ?: 0) > MAX_RETRYABLE_ATTEMPTS) shouldBe true
                 db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly emptyList()
+                db.close()
+            }
+        }
+
+        test("DRIFT-1: a Terminal dead-letter emits a heal request for the op's entity") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        // A non-retryable business rejection dead-letters on the first wave.
+                        sender = PendingOperationSender { AppResult.Failure(SyncError.NotFound(domain = "tags", entityId = "t1")) },
+                        nowMillis = { 1_000L },
+                    )
+                queue.enqueue(OutboxChannels.Tags, "t1", OpKind.Update, "{}", "u1")
+                queue.drain()
+                // The dead-letter must signal a heal so the phantom optimistic edit re-fetches server truth.
+                val healed = withTimeout(5.seconds) { queue.observeHealRequests().first() }
+                healed shouldBe SentEntityRef(OutboxChannels.Tags.name, "t1")
+                db.close()
+            }
+        }
+
+        test("DRIFT-1: dismissOp emits a heal request for the dismissed op's entity") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(OutboxChannels.Tags, "t9", OpKind.Update, "{}", "u1")
+                queue.dismissOp(opId)
+                // Dismissing abandons the optimistic edit; the entity must heal to server truth.
+                val healed = withTimeout(5.seconds) { queue.observeHealRequests().first() }
+                healed shouldBe SentEntityRef(OutboxChannels.Tags.name, "t9")
+                // The op row is gone.
+                db.pendingOperationV2Dao().get(opId) shouldBe null
                 db.close()
             }
         }

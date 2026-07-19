@@ -121,15 +121,19 @@ internal interface BookTagDao {
     suspend fun upsert(entity: BookTagEntity)
 
     /**
-     * Tombstone a junction row: set [BookTagEntity.deletedAt] and advance [BookTagEntity.revision].
+     * Tombstone a junction row: set [BookTagEntity.deletedAt] and its [BookTagEntity.revision] to the
+     * server-authoritative [revision]. Writing the event's own revision (rather than `revision + 1`)
+     * makes a replayed `Deleted` frame a true no-op, converging with the `collection_books` junction
+     * (previously this double-incremented on replay).
      */
     @Query(
-        "UPDATE book_tags SET deletedAt = :deletedAt, revision = revision + 1 WHERE bookId = :bookId AND tagId = :tagId",
+        "UPDATE book_tags SET deletedAt = :deletedAt, revision = :revision WHERE bookId = :bookId AND tagId = :tagId",
     )
     suspend fun tombstone(
         bookId: String,
         tagId: String,
         deletedAt: Long,
+        revision: Long,
     )
 
     /**

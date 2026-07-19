@@ -24,6 +24,10 @@ internal class SyncEventDispatcher(
     private val registry: ClientSyncDomainRegistry,
     private val state: SyncEngineState,
     private val cursorAdvance: suspend (domainName: String, revision: Long) -> Unit,
+    // Reads the persisted per-domain cursor. Used to lift an opt-out freeze once catch-up has
+    // advanced the cursor past the frozen watermark (see [frozenOptOutDomains]). Defaults to a
+    // no-op reader so the freeze never auto-lifts in tests that don't wire it (unchanged behaviour).
+    private val cursorOf: suspend (domainName: String) -> Long? = { null },
     private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
     private val onCursorStale: suspend () -> Unit = {},
     private val onAccessChanged: suspend (scope: AccessScope?) -> Unit = {},
@@ -33,14 +37,27 @@ internal class SyncEventDispatcher(
 ) {
     /**
      * Digest OPT-OUT domains (positions) whose live cursor advancement is frozen because an apply
-     * failed. For a domain with no digest backstop the cursor is the ONLY redelivery path, so once
-     * a hole opens we must not let a *later* event (a different book at a higher revision) step the
-     * cursor past the failed revision — that would strand it forever. Frozen entries stay put for
-     * the session; the next catch-up re-pulls from the held cursor and heals the hole (its own
-     * `setCursor` then advances the real cursor, which is monotonic, so the freeze never regresses
-     * it). SSE frames are processed by a single collector, so a plain set needs no synchronisation.
+     * failed, mapped to the persisted-cursor **watermark** captured at freeze time. For a domain
+     * with no digest backstop the cursor is the ONLY redelivery path, so once a hole opens we must
+     * not let a *later* event (a different book at a higher revision) step the cursor past the failed
+     * revision — that would strand it forever.
+     *
+     * The freeze lifts as soon as catch-up heals the hole: while a domain is frozen, live SSE never
+     * advances its persisted cursor, so a persisted cursor that has moved **above** the watermark can
+     * only be the work of a catch-up re-pull (which is monotonic). On the next successful live frame
+     * we detect that and clear the freeze, so steady-state SSE advancement resumes instead of forcing
+     * catch-up to re-pull a growing delta every reconnect for the rest of the session. A new apply
+     * failure re-arms the freeze. SSE frames are processed by a single collector, so a plain map
+     * needs no synchronisation.
      */
-    private val frozenOptOutDomains = mutableSetOf<String>()
+    private val frozenOptOutDomains = mutableMapOf<String, Long>()
+
+    /** Record the frozen watermark for [domainName] at the current persisted cursor, once (lowest hole wins). */
+    private suspend fun freeze(domainName: String) {
+        if (domainName !in frozenOptOutDomains) {
+            frozenOptOutDomains[domainName] = cursorOf(domainName) ?: Long.MIN_VALUE
+        }
+    }
 
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
     suspend fun handle(frame: ParsedSseFrame) {
@@ -140,7 +157,7 @@ internal class SyncEventDispatcher(
                 // the same freeze bookkeeping as a failed apply applies, else the un-decodable
                 // revision is permanently skipped once a later event's success would advance past it.
                 if (!typed.hasDigestBackstop) {
-                    frozenOptOutDomains += domainName
+                    freeze(domainName)
                 }
                 return
             }
@@ -150,7 +167,19 @@ internal class SyncEventDispatcher(
                 // watermark: doing so on this later event would strand the earlier failed
                 // revision that only the cursor can redeliver. Digest-backed domains always
                 // advance (a missed apply self-heals on the next reconcile).
-                if (typed.hasDigestBackstop || domainName !in frozenOptOutDomains) {
+                val frozenAt = frozenOptOutDomains[domainName]
+                // While frozen, live SSE never advances this domain's persisted cursor, so a cursor
+                // now ABOVE the watermark can only be a catch-up re-pull that healed the hole — lift
+                // the freeze and resume steady-state advancement.
+                val healed = frozenAt != null && (cursorOf(domainName) ?: Long.MIN_VALUE) > frozenAt
+                if (typed.hasDigestBackstop || frozenAt == null || healed) {
+                    if (healed) {
+                        frozenOptOutDomains.remove(domainName)
+                        logger.info {
+                            "[$domainName] opt-out freeze lifted: catch-up advanced the cursor past the " +
+                                "frozen hole; resuming live cursor advancement"
+                        }
+                    }
                     frame.id?.let { rev -> cursorAdvance(domainName, rev) }
                 } else {
                     logger.debug {
@@ -170,7 +199,7 @@ internal class SyncEventDispatcher(
                     // No reconcile backstop: freeze cursor advancement at the last successfully
                     // applied revision (SSE frames are revision-ordered, so the cursor already
                     // sits just below this hole). Only catch-up re-pull can advance past it now.
-                    frozenOptOutDomains += domainName
+                    freeze(domainName)
                 }
                 logger.warn {
                     "Apply failed for domain '$domainName' (revision=${frame.id}): " +

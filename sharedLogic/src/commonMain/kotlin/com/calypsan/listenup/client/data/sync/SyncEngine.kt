@@ -95,6 +95,7 @@ internal class SyncEngine(
     private var deadLetterCountJob: Job? = null
     private var reconnectRefreshJob: Job? = null
     private var authGateJob: Job? = null
+    private var healDrainJob: Job? = null
 
     // The ONE shared choke point for cursor-advancing catch-up + digest reconcile — the same
     // "single dispatch seam" move the RpcChannel seam made for RPC. Every reconcile/catch-up entry
@@ -282,7 +283,12 @@ internal class SyncEngine(
         // replayed value at subscribe time gets dropped, and there's nothing
         // after it).
         ensureDrainScheduling()
-        // Step 5b: refresh the Discover surfaces on every reconnect. Subscribed before connect so
+        // Step 5b: drain dead-letter/dismiss heal requests — re-fetch server truth for an entity
+        // whose optimistic edit the server rejected, so a content-only phantom the digest can't see
+        // is repaired (DRIFT-1). Subscribed before connect so a dead-letter during startup catch-up
+        // drain is not missed.
+        ensureHealDrain()
+        // Step 5c: refresh the Discover surfaces on every reconnect. Subscribed before connect so
         // the initial start-connect is the dropped first edge (start already primed + reconciled).
         ensureReconnectRefresh()
         // Step 6: forward queue-depth and dead-letter-count observers into
@@ -352,6 +358,8 @@ internal class SyncEngine(
         reconnectRefreshJob = null
         authGateJob?.cancel()
         authGateJob = null
+        healDrainJob?.cancel()
+        healDrainJob = null
         sseClient.disconnect()
     }
 
@@ -755,6 +763,7 @@ internal class SyncEngine(
             val deadLetters = deadLetterCountJob
             val reconnectRefresh = reconnectRefreshJob
             val authGate = authGateJob
+            val healDrain = healDrainJob
             engineJob = null
             currentUser = null
             currentUserStarted = false
@@ -765,6 +774,7 @@ internal class SyncEngine(
             deadLetterCountJob = null
             reconnectRefreshJob = null
             authGateJob = null
+            healDrainJob = null
             engine?.cancelAndJoin()
             collector?.cancelAndJoin()
             connectionUp?.cancelAndJoin()
@@ -773,26 +783,36 @@ internal class SyncEngine(
             deadLetters?.cancelAndJoin()
             reconnectRefresh?.cancelAndJoin()
             authGate?.cancelAndJoin()
+            healDrain?.cancelAndJoin()
             sseClient.disconnect()
         }
     }
 
-    private fun ensureFrameCollector() {
+    private suspend fun ensureFrameCollector() {
         if (frameCollectorJob?.isActive == true) return
+        // Await active subscription before returning — [SyncSseClient] publishes frames on a
+        // `replay = 0` SharedFlow, so a frame emitted before this collector subscribes is dropped.
+        // `runStart` calls this before `connect()`, so without the barrier the first live frames
+        // (and the initial `Connected` transition) could land before the collector attaches. Mirrors
+        // the same `onSubscription`/`ready.await()` barrier `ensureDrainScheduling` uses.
+        val ready = CompletableDeferred<Unit>()
         frameCollectorJob =
             scope.launch {
-                sseClient.frames.collect { frame ->
-                    // Guard per frame so one bad event logs and the firehose collector keeps
-                    // running, rather than dying (sync stops) or killing the process on K/N.
-                    try {
-                        dispatcher.handle(frame)
-                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        logger.warn(e) { "SSE frame handling failed; firehose collector continues" }
+                sseClient.frames
+                    .onSubscription { ready.complete(Unit) }
+                    .collect { frame ->
+                        // Guard per frame so one bad event logs and the firehose collector keeps
+                        // running, rather than dying (sync stops) or killing the process on K/N.
+                        try {
+                            dispatcher.handle(frame)
+                        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            logger.warn(e) { "SSE frame handling failed; firehose collector continues" }
+                        }
                     }
-                }
             }
+        ready.await()
     }
 
     /**
@@ -866,6 +886,24 @@ internal class SyncEngine(
                 }
             ready.await()
         }
+    }
+
+    /**
+     * Drain [PendingOperationQueue.observeHealRequests]: each entry is an entity whose optimistic
+     * outbox edit dead-lettered or was dismissed, leaving a value the server never accepted. Because
+     * the local `(id, revision)` is unchanged, no digest reconcile, `?since=` catch-up, or SSE echo
+     * repairs a content-only divergence — a targeted by-id re-fetch is the only thing that does
+     * (DRIFT-1). The heal channel is UNLIMITED-buffered, so a dead-letter that happens before this
+     * collector starts is queued, not lost — no subscribe-readiness handshake is needed. Not gated
+     * on connectivity here: [healEntity]'s fetch fails cleanly when offline, and dropping the request
+     * would strand the phantom.
+     */
+    private fun ensureHealDrain() {
+        if (healDrainJob?.isActive == true) return
+        healDrainJob =
+            scope.launch {
+                queue.observeHealRequests().collect { ref -> healEntity(ref) }
+            }
     }
 
     /**
@@ -1058,6 +1096,39 @@ internal class SyncEngine(
                 }
             }
             return
+        }
+    }
+
+    /**
+     * Re-fetch current server truth for [ref]'s entity and apply it over a never-accepted optimistic
+     * edit (DRIFT-1). Triggered when an outbox op dead-lettered or was dismissed: the local row's
+     * `(id, revision)` is unchanged, so no digest reconcile, `?since=` catch-up, or SSE echo repairs
+     * a content-only divergence — only a targeted by-id re-fetch does. The equal-revision re-fetch
+     * applies through the normal `ServerWins` strict-`>` guard (equal revisions are not stale), so no
+     * force override is needed.
+     *
+     * Gated on [PendingOperationQueue.hasQueuedOpFor] so a fresh in-flight edit for the same entity
+     * is never clobbered — its own echo is the authority then. Runs the fetch under [catchUpMutex]
+     * like every other server pull. Unlike [reconcileSentEntities], this does NOT skip ungated
+     * (userScoped/global) domains: the server's by-id read now serves the curation domains, which is
+     * exactly where this heal is needed.
+     */
+    private suspend fun healEntity(ref: SentEntityRef) {
+        if (queue.hasQueuedOpFor(ref.domainName, ref.entityId)) return
+        val handler =
+            registry.lookup(ref.domainName) ?: run {
+                logger.debug { "heal: '${ref.domainName}' has no sync handler; skipping (client-only channel)" }
+                return
+            }
+
+        @Suppress("UNCHECKED_CAST")
+        val typed = handler as SyncDomainHandler<Any>
+        val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, TargetedFetch.ByIds(listOf(ref.entityId))) }
+        if (result is AppResult.Failure) {
+            logger.warn {
+                "heal fetch failed for '${ref.domainName}' entity ${ref.entityId}: ${result.error.code}; " +
+                    "the phantom persists until the next heal trigger"
+            }
         }
     }
 

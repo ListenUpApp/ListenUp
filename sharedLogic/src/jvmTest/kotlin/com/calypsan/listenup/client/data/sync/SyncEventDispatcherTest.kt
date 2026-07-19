@@ -617,6 +617,72 @@ class SyncEventDispatcherTest :
             }
         }
 
+        test("OptOut domain: the freeze lifts once catch-up advances the cursor past the hole, and re-arms on a new failure") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                // Frames 4,5,6,7,8,9 → results below. 4 applies; 5 fails (freeze@4); 6 succeeds but
+                // frozen; then catch-up advances the persisted cursor to 6; 7 succeeds and, seeing the
+                // cursor now above the watermark, LIFTS the freeze and advances; 8 fails (re-freeze@7);
+                // 9 succeeds but frozen again → not advanced.
+                val handler =
+                    ScriptedHandler(
+                        ArrayDeque(
+                            listOf(
+                                AppResult.Success(Unit),
+                                AppResult.Failure(SyncError.SyncFailed()),
+                                AppResult.Success(Unit),
+                                AppResult.Success(Unit),
+                                AppResult.Failure(SyncError.SyncFailed()),
+                                AppResult.Success(Unit),
+                            ),
+                        ),
+                        hasBackstop = false,
+                    )
+                registry.register(handler)
+                var persistedCursor: Long? = null
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r ->
+                            persistedCursor = r
+                            cursorAdvanced = d to r
+                        },
+                        cursorOf = { persistedCursor },
+                    )
+
+                fun frameAt(rev: Long): ParsedSseFrame {
+                    val event =
+                        SyncEvent.Created(
+                            id = "b$rev",
+                            revision = rev,
+                            occurredAt = 100L,
+                            clientOpId = null,
+                            payload = Tag("b$rev", "n", "n", rev, 100L),
+                        )
+                    return ParsedSseFrame(
+                        id = rev,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    )
+                }
+
+                dispatcher.handle(frameAt(4L)) // applies → cursor 4
+                dispatcher.handle(frameAt(5L)) // fails → freeze@4
+                dispatcher.handle(frameAt(6L)) // frozen — not advanced
+                cursorAdvanced shouldBe ("tags" to 4L)
+
+                persistedCursor = 6L // catch-up re-pulled from 4 and healed the hole
+                dispatcher.handle(frameAt(7L)) // freeze lifts → advances to 7
+                cursorAdvanced shouldBe ("tags" to 7L)
+
+                dispatcher.handle(frameAt(8L)) // fails → re-freeze@7
+                dispatcher.handle(frameAt(9L)) // frozen again — not advanced past 7
+                cursorAdvanced shouldBe ("tags" to 7L)
+            }
+        }
+
         test("digest-backed domain: a failed apply does not freeze — a later event still advances (unchanged)") {
             runTest {
                 val registry = ClientSyncDomainRegistry()

@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -250,3 +251,41 @@ internal class TagServiceImpl(
         tagId: String,
     ): AppResult<Unit> = softDelete(bookId, tagId, clientOpId = null)
 }
+
+/**
+ * Builds a [TagService] over the given repositories, constructing the
+ * [BookSearchReindexer] the rename/delete paths need internally.
+ *
+ * Public so cross-module test harnesses can mount a real [TagService] without piercing the
+ * `internal` access on [TagServiceImpl]. Production wiring builds [TagServiceImpl] directly in
+ * the Koin graph. Mirrors [createGenreService].
+ */
+fun createTagService(
+    tagRepository: TagRepository,
+    bookTagRepository: BookTagRepository,
+    sqlDb: ListenUpDatabase,
+    driver: SqlDriver,
+): TagService =
+    TagServiceImpl(
+        tagRepository = tagRepository,
+        bookTagRepository = bookTagRepository,
+        reindexer =
+            BookSearchReindexer(
+                bookTagRepository = bookTagRepository,
+                tagRepository = tagRepository,
+                db = sqlDb,
+                driver = driver,
+            ),
+        sql = sqlDb,
+    )
+
+/**
+ * Scopes a [TagService] built by [createTagService] to [principal] for one request.
+ * Public so cross-module test harnesses can bind the authenticated caller without piercing
+ * the `internal` access on [TagServiceImpl.copyWith]. Production wiring calls
+ * [TagServiceImpl.copyWith] directly in the RPC route. Mirrors [genreServiceScopedTo].
+ */
+fun tagServiceScopedTo(
+    service: TagService,
+    principal: PrincipalProvider,
+): TagService = (service as TagServiceImpl).copyWith(principal)
