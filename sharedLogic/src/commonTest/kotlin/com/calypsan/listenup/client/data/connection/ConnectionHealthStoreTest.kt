@@ -185,6 +185,41 @@ class ConnectionHealthStoreTest :
             }
         }
 
+        test("a positive unauth probe masks a dead firehose only briefly — Unreachable surfaces past the grace window") {
+            runTest {
+                val engineState = SyncEngineState() // starts Disconnected — the firehose is down
+                val authState = MutableStateFlow<AuthState>(authed())
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = ErrorBus(),
+                        clientIdentity = FakeClientIdentity(),
+                        localPreferences = fakeLocalPreferences(),
+                        scope = backgroundScope,
+                    )
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy // eager seed
+
+                    // A positive UNAUTHENTICATED probe (the supervisor's ~2s verifyServer) says the
+                    // server is reachable — but the firehose is dead. Within the grace window the probe
+                    // still masks Unreachable (preserving the healthy-reconnect-flap behaviour).
+                    store.reportProbe(true)
+                    advanceTimeBy(3_100) // past the 3s Unreachable debounce, still inside the grace
+                    expectNoEvents() // masked → Healthy, no Retry yet
+
+                    // The firehose is STILL dead past the grace window. Even a freshly-repeated probe can
+                    // no longer hide it — Unreachable surfaces so the user is offered Retry (pre-fix this
+                    // stayed Healthy/Hidden forever).
+                    store.reportProbe(true)
+                    advanceTimeBy(ConnectionHealthStore.FIREHOSE_DOWN_PROBE_GRACE_MS)
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
         test("Unreachable debounces 3s and heals instantly") {
             runTest {
                 val engineState = SyncEngineState() // starts Disconnected

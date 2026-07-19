@@ -1,47 +1,45 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.data.sync.ConnectionState
-import com.calypsan.listenup.client.data.sync.SyncEngineState
+import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * Derives [Reachability] from the live SSE firehose connection ([SyncEngineState]).
- * A brief debounce absorbs transient reconnect flaps so the UI doesn't flicker.
+ * Book-availability reachability, projected from the ONE connection-health source
+ * ([ConnectionHealthStore]) rather than derived independently from [SyncEngineState].
  *
- * [reconnect] forces the firehose to drop and re-open (wired to `SyncEngine.reconnect`),
- * backing the never-stranded manual retry on the offline banner.
+ * Consolidating the two former oracles removes the split-brain where the shell banner could read
+ * Healthy (no Retry) for up to 90s while book-detail read Unreachable ("download only") for the same
+ * instant. Both surfaces now fold the same decision — Healthy/Outdated → [Reachability.Reachable];
+ * Unreachable / SessionExpired → [Reachability.Unreachable] (the server isn't usably reachable, so
+ * a book falls to download-only) — differing only in presentation. The health store already debounces
+ * a transient reconnect flap (its 3s Unreachable window), so no extra presentation debounce is needed.
+ *
+ * [reconnect] is the never-stranded manual retry (wired through the unified recover seam,
+ * `SyncRepository.recoverRealtime`), so the reachable-but-not-syncing case offers a working Retry.
  */
-@OptIn(FlowPreview::class)
 internal class SseServerReachability(
-    engineState: SyncEngineState,
+    connectionHealth: StateFlow<ConnectionHealth>,
     scope: CoroutineScope,
     private val reconnect: suspend () -> Unit,
 ) : ServerReachability {
     override val state: StateFlow<Reachability> =
-        engineState
-            .observe()
-            .map { snapshot ->
-                when (snapshot.connection) {
-                    is ConnectionState.Connected -> Reachability.Reachable
-                    ConnectionState.Connecting -> Reachability.Unknown
-                    is ConnectionState.Disconnected -> Reachability.Unreachable
+        connectionHealth
+            .map { health ->
+                when (health) {
+                    is ConnectionHealth.Unreachable -> Reachability.Unreachable
+                    ConnectionHealth.SessionExpired -> Reachability.Unreachable
+                    is ConnectionHealth.Outdated -> Reachability.Reachable
+                    ConnectionHealth.Healthy -> Reachability.Reachable
                 }
-            }.debounce(DEBOUNCE_MILLIS)
-            .distinctUntilChanged()
+            }.distinctUntilChanged()
             .stateIn(scope, SharingStarted.Eagerly, Reachability.Unknown)
 
     override suspend fun retry() = reconnect()
-
-    private companion object {
-        const val DEBOUNCE_MILLIS = 400L
-    }
 }
