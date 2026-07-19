@@ -3,11 +3,14 @@ import Shared
 
 /// Facet-browse screen — every book carrying a tapped Tag or Mood chip.
 ///
-/// The iOS idiom is Cupertino, not the Android color-blocked hero: a tinted icon tile +
+/// The iOS idiom is Cupertino, not the Android color-blocked hero: the same `FacetIconTile` +
 /// facet eyebrow + large title, a hairline `StatStrip` (Books · Length), then a width-responsive
-/// cover grid where the art carries the colour. Tag → neutral tile + tag glyph; Mood → coral tile
-/// + sparkles, echoing the Book Detail chips. Columns flow continuously from the available width
-/// (`GridItem(.adaptive`), so it stays right from a narrow Split View up to full-screen iPad.
+/// cover grid where the art carries the colour — the same tinted-tile identity mark as the genre
+/// destination page, so a genre, a tag, and a mood read as one visual family. The tile's hue and
+/// icon are derived from the facet's name via the shared `FacetIdentity.hue(name:)`/`.icon(name:)`
+/// (`GenrePageView`'s identity derivation), not a hand-picked tag/mood glyph. Columns flow
+/// continuously from the available width (`GridItem(.adaptive`), so it stays right from a narrow
+/// Split View up to full-screen iPad.
 struct FacetBooksView: View {
     let kind: FacetBrowseKind
     let facetId: String
@@ -97,8 +100,8 @@ struct FacetBooksView: View {
 
     private func header(_ observer: FacetBooksObserver) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 16) {
-                facetTile
+            HStack(alignment: .top, spacing: 16) {
+                FacetIconTile(symbolName: observer.symbolName, hue: observer.hue)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(kind.eyebrow)
@@ -126,20 +129,6 @@ struct FacetBooksView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
-    }
-
-    /// The tinted, rounded icon tile: neutral fill + tag glyph for tags; coral fill + sparkles
-    /// for moods — echoing the Book Detail chip treatment.
-    private var facetTile: some View {
-        RoundedRectangle(cornerRadius: 17, style: .continuous)
-            .fill(kind == .mood ? Color.listenUpOrange.opacity(0.15) : Color.luFill)
-            .frame(width: 58, height: 58)
-            .overlay {
-                Image(systemName: kind.glyphName)
-                    .font(.system(size: 26, weight: .semibold)) // decorative fixed size
-                    .foregroundStyle(kind == .mood ? Color.listenUpOrange : Color.primary)
-            }
-            .accessibilityHidden(true)
     }
 
     // MARK: - Localized copy by kind

@@ -16,13 +16,18 @@ enum FacetBooksPhase: Equatable {
 struct FacetBooksSnapshot: Equatable {
     var phase: FacetBooksPhase = .loading
     var facetName: String = ""
+    var symbolName: String = "book"
+    var hue: Color = .gray
     var books: [BookRow] = []
     var totalDurationMs: Int64 = 0
 
     var bookCount: Int { books.count }
 
     /// Flatten the sealed shared state into the flat snapshot the UI renders. The
-    /// route-supplied `fallbackName` keeps the hero titled while `Loading`.
+    /// route-supplied `fallbackName` keeps the hero titled while `Loading`. The identity tile's
+    /// hue/icon are derived from the resolved facet name via the same shared `FacetIdentity`
+    /// derivation the genre destination page uses, so a tag/mood tile reads as the same visual
+    /// family as a genre tile.
     static func from(_ state: BrowseFacetUiState, fallbackName: String) -> FacetBooksSnapshot {
         switch onEnum(of: state) {
         case .loading:
@@ -31,6 +36,8 @@ struct FacetBooksSnapshot: Equatable {
             return FacetBooksSnapshot(
                 phase: .ready,
                 facetName: r.facetName,
+                symbolName: sfSymbol(for: FacetIdentity.shared.icon(name: r.facetName)),
+                hue: hueColor(FacetIdentity.shared.hue(name: r.facetName)),
                 books: r.books.map { BookRow($0) },
                 totalDurationMs: r.totalDurationMs
             )
@@ -51,6 +58,8 @@ struct FacetBooksSnapshot: Equatable {
 final class FacetBooksObserver {
     private(set) var phase: FacetBooksPhase = .loading
     private(set) var facetName: String = ""
+    private(set) var symbolName: String = "book"
+    private(set) var hue: Color = .gray
     private(set) var books: [BookRow] = []
     private(set) var totalDurationMs: Int64 = 0
 
@@ -78,6 +87,8 @@ final class FacetBooksObserver {
         let snapshot = FacetBooksSnapshot.from(state, fallbackName: fallbackName)
         phase = snapshot.phase
         facetName = snapshot.facetName
+        symbolName = snapshot.symbolName
+        hue = snapshot.hue
         books = snapshot.books
         totalDurationMs = snapshot.totalDurationMs
     }

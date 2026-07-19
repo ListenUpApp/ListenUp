@@ -98,7 +98,7 @@ struct GenrePageView: View {
     private func header(_ observer: GenrePageObserver) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 16) {
-                identityTile(observer)
+                FacetIconTile(symbolName: observer.symbolName, hue: observer.hue)
 
                 VStack(alignment: .leading, spacing: 4) {
                     if !observer.breadcrumb.isEmpty {
@@ -130,25 +130,6 @@ struct GenrePageView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
-    }
-
-    /// The tinted, rounded icon tile: the genre's accent hue at low-opacity fill + a faint hue
-    /// border + the auto-mapped SF Symbol tinted the same hue. The clean-coral idiom's identity
-    /// mark — never a full-bleed color-block hero.
-    private func identityTile(_ observer: GenrePageObserver) -> some View {
-        RoundedRectangle(cornerRadius: 17, style: .continuous)
-            .fill(observer.hue.opacity(0.16))
-            .frame(width: 60, height: 60)
-            .overlay {
-                RoundedRectangle(cornerRadius: 17, style: .continuous)
-                    .strokeBorder(observer.hue.opacity(0.3), lineWidth: 1)
-            }
-            .overlay {
-                Image(systemName: observer.symbolName)
-                    .font(.system(size: 26, weight: .semibold)) // decorative fixed size
-                    .foregroundStyle(observer.hue)
-            }
-            .accessibilityHidden(true)
     }
 
     // MARK: - Copy

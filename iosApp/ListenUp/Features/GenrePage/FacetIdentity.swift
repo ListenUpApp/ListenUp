@@ -56,3 +56,29 @@ func sfSymbol(for icon: FacetIcon) -> String {
 func hueColor(_ hex: String) -> Color {
     Color(hex: hex)
 }
+
+/// The tinted, rounded icon tile every clean-coral facet destination page (genre, tag, mood)
+/// renders as its identity mark: the facet's accent hue at low-opacity fill + a faint hue border +
+/// the mapped SF Symbol tinted the same hue. Never a full-bleed color-block hero. Shared by
+/// `GenrePageView` and `FacetBooksView` so a genre, a tag, and a mood read as one visual family.
+struct FacetIconTile: View {
+    let symbolName: String
+    let hue: Color
+    var size: CGFloat = 60
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 17, style: .continuous)
+            .fill(hue.opacity(0.16))
+            .frame(width: size, height: size)
+            .overlay {
+                RoundedRectangle(cornerRadius: 17, style: .continuous)
+                    .strokeBorder(hue.opacity(0.3), lineWidth: 1)
+            }
+            .overlay {
+                Image(systemName: symbolName)
+                    .font(.system(size: 26, weight: .semibold)) // decorative fixed size
+                    .foregroundStyle(hue)
+            }
+            .accessibilityHidden(true)
+    }
+}
