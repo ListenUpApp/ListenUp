@@ -1197,6 +1197,17 @@
     "book_count": "%1$d book",
     "books_count": "%1$d books"
   },
+  "genre_destination": {
+    "more_options": "More options",
+    "include_sub_genres": "Include sub-genres",
+    "scope_on": "Counting %1$d books across %2$s + %3$d sub-genres",
+    "scope_off": "Just %1$d tagged %2$s directly · %3$s",
+    "scope_off_excluded_suffix": " +%1$d excluded",
+    "sub_genres_label": "Sub-genres",
+    "tap_to_narrow": "Tap to narrow",
+    "audiobook_count": "%1$d audiobook",
+    "audiobooks_count": "%1$d audiobooks"
+  },
   "browse_facet": {
     "kind_tag": "Tag",
     "kind_mood": "Mood",

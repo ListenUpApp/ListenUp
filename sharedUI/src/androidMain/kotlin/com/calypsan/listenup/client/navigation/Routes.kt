@@ -300,6 +300,19 @@ data class BrowseFacet(
 ) : Route
 
 /**
+ * Genre destination page — the standalone landing screen for a single genre, reached by tapping a
+ * genre chip on Book Detail (or a sub-genre/breadcrumb crumb on this very screen). Combines the
+ * genre's curated identity, its position in the genre hierarchy, and its book set, with a toggle
+ * to widen/narrow the book scope across the subtree.
+ *
+ * @property genreId The genre to display.
+ */
+@Serializable
+data class GenreDestination(
+    val genreId: String,
+) : Route
+
+/**
  * Admin user detail screen - view and edit a user's details and permissions.
  *
  * Shows user information and allows toggling canShare permission.

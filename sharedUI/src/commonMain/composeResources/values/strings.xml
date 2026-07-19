@@ -655,6 +655,15 @@ One beautiful library.</string>
     <string name="genre_include_subtree">Include subtree</string>
     <string name="genre_no_books_in_genre">No books in this genre.</string>
     <string name="genre_no_genres_yet">No genres yet.</string>
+    <string name="genre_destination_audiobook_count">%1$d audiobook</string>
+    <string name="genre_destination_audiobooks_count">%1$d audiobooks</string>
+    <string name="genre_destination_include_sub_genres">Include sub-genres</string>
+    <string name="genre_destination_more_options">More options</string>
+    <string name="genre_destination_scope_off">Just %1$d tagged %2$s directly · %3$s</string>
+    <string name="genre_destination_scope_off_excluded_suffix"> +%1$d excluded</string>
+    <string name="genre_destination_scope_on">Counting %1$d books across %2$s + %3$d sub-genres</string>
+    <string name="genre_destination_sub_genres_label">Sub-genres</string>
+    <string name="genre_destination_tap_to_narrow">Tap to narrow</string>
     <string name="home_best_day_streak">Best: %1$d day streak</string>
     <string name="home_best_value">Best: %1$s</string>
     <string name="home_browse_library">Browse Library</string>

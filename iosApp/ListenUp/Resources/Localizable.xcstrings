@@ -6541,6 +6541,96 @@
         }
       }
     },
+    "genre_destination.audiobook_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d audiobook"
+          }
+        }
+      }
+    },
+    "genre_destination.audiobooks_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d audiobooks"
+          }
+        }
+      }
+    },
+    "genre_destination.include_sub_genres": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include sub-genres"
+          }
+        }
+      }
+    },
+    "genre_destination.more_options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More options"
+          }
+        }
+      }
+    },
+    "genre_destination.scope_off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Just %1$d tagged %2$@ directly · %3$@"
+          }
+        }
+      }
+    },
+    "genre_destination.scope_off_excluded_suffix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": " +%1$d excluded"
+          }
+        }
+      }
+    },
+    "genre_destination.scope_on": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Counting %1$d books across %2$@ + %3$d sub-genres"
+          }
+        }
+      }
+    },
+    "genre_destination.sub_genres_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sub-genres"
+          }
+        }
+      }
+    },
+    "genre_destination.tap_to_narrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap to narrow"
+          }
+        }
+      }
+    },
     "home.best_day_streak": {
       "localizations": {
         "en": {
