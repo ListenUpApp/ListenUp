@@ -38,6 +38,8 @@ class RpcCacheInvalidatorTest :
             override suspend fun invalidateRequestClientOnly() {
                 requestOnlyInvalidations++
             }
+
+            override suspend fun invalidateStreamingClientOnly() = Unit
         }
 
         class RecordingRpcCache : RemoteCache {

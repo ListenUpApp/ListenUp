@@ -522,6 +522,7 @@ internal val clientSyncModule =
 
         single(createdAtStart = true) {
             val coordinator: ConnectionCoordinator = get()
+            val apiClientFactory: ApiClientFactory = get()
             ReconnectionSupervisor(
                 engineState = get(),
                 instanceRepository = get(),
@@ -532,6 +533,7 @@ internal val clientSyncModule =
                 reevaluate = { coordinator.reevaluate() },
                 scope = get(qualifier = named(APP_SCOPE)),
                 reportProbe = get<ConnectionHealthStore>()::reportProbe,
+                rebuildStreamingClient = { apiClientFactory.invalidateStreamingClientOnly() },
             ).apply { start() }
         }
     }

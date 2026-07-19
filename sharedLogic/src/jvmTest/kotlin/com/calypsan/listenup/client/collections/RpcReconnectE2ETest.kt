@@ -426,6 +426,8 @@ private class StubApiClientFactory(
 
     override suspend fun invalidateRequestClientOnly() {}
 
+    override suspend fun invalidateStreamingClientOnly() {}
+
     override suspend fun warmUp() {}
 
     override suspend fun invalidate() {}

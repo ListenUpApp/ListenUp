@@ -44,6 +44,9 @@ private val logger = KotlinLogging.logger {}
  *   `ConnectionCoordinator.reevaluate`); a lambda so this stays unit-testable.
  * @param reportProbe reports probe reachability into the health store's oracle; a lambda to stay
  *   unit-testable.
+ * @param rebuildStreamingClient drops the cached SSE streaming client so the next reconnect dials a
+ *   fresh one (wired to `ApiClientFactory.invalidateStreamingClientOnly`); a lambda to stay
+ *   unit-testable. See [recoveryLoop] for the wedged-socket rationale.
  */
 internal class ReconnectionSupervisor(
     private val engineState: SyncEngineState,
@@ -56,6 +59,7 @@ internal class ReconnectionSupervisor(
     private val scope: CoroutineScope,
     private val probeIntervalMillis: Long = DEFAULT_PROBE_INTERVAL_MS,
     private val reportProbe: (Boolean) -> Unit = {},
+    private val rebuildStreamingClient: suspend () -> Unit = {},
 ) {
     /** Start observing connection state. Call once at app start. */
     fun start() {
@@ -81,6 +85,11 @@ internal class ReconnectionSupervisor(
 
     private suspend fun recoveryLoop() {
         var interval = probeIntervalMillis
+        // Consecutive reconnect kicks against a *reachable* server that haven't produced a Connected
+        // firehose. A live server that just needs a moment reconnects in one or two kicks (then
+        // collectLatest cancels this loop, resetting the counter to 0 on the next Disconnected edge);
+        // a count that keeps climbing means the cached streaming client is wedged, not the server down.
+        var reachableKicks = 0
         while (currentCoroutineContext().isActive) {
             try {
                 val active =
@@ -110,7 +119,7 @@ internal class ReconnectionSupervisor(
                             // Same instance (or no stored id to compare): server is live — kick the SSE
                             // loop now. On success the connection flips to Connected and collectLatest
                             // cancels us.
-                            sseClient.reconnectNow()
+                            reachableKicks = kickReachableServer(reachableKicks)
                             interval = probeIntervalMillis // reachable again → probe promptly until Connected
                         }
                     }
@@ -139,6 +148,27 @@ internal class ReconnectionSupervisor(
         }
     }
 
+    /**
+     * Kick an immediate reconnect against a reachable, same-instance server. If [reachableKicks]
+     * (successive kicks that never produced a Connected firehose) crosses [STREAMING_REBUILD_AFTER_KICKS],
+     * the cached streaming client is wedged — an OS-suspended dead socket on an unchanged URL, which
+     * the moved-URL rebuild path never covers — so drop it BEFORE the kick (rebuild-before-connect,
+     * self-teardown-safe) so the loop's next `getStreamingClient()` dials a fresh client. Gated on
+     * repeated failure so it fires once per wedged episode, not as a per-reconnect teardown loop.
+     * Returns the updated counter: reset to 0 after a rebuild so a still-wedged client earns another
+     * rebuild after the same interval.
+     */
+    private suspend fun kickReachableServer(reachableKicks: Int): Int {
+        val kicks = reachableKicks + 1
+        val wedged = kicks >= STREAMING_REBUILD_AFTER_KICKS
+        if (wedged) {
+            logger.info { "Firehose still down after $kicks reachable kicks; rebuilding streaming client" }
+            rebuildStreamingClient()
+        }
+        sseClient.reconnectNow()
+        return if (wedged) 0 else kicks
+    }
+
     private companion object {
         /**
          * Probe floor: how soon after the firehose drops we first re-check reachability, and the
@@ -148,5 +178,13 @@ internal class ReconnectionSupervisor(
          */
         const val DEFAULT_PROBE_INTERVAL_MS = 2_000L
         const val MAX_PROBE_INTERVAL_MS = 60_000L
+
+        /**
+         * Consecutive reachable-but-still-disconnected reconnect kicks before we rebuild the streaming
+         * client. Small enough that a genuinely-wedged socket recovers in a handful of seconds
+         * (kicks pace at [DEFAULT_PROBE_INTERVAL_MS]); large enough that a server that just needs a
+         * moment reconnects on the first kick or two and never triggers a rebuild.
+         */
+        const val STREAMING_REBUILD_AFTER_KICKS = 3
     }
 }

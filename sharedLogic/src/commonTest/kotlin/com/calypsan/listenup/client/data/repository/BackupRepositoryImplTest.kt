@@ -104,6 +104,8 @@ class BackupRepositoryImplTest :
             override suspend fun invalidate() = Unit
 
             override suspend fun invalidateRequestClientOnly() = Unit
+
+            override suspend fun invalidateStreamingClientOnly() = Unit
         }
 
         /**
@@ -131,6 +133,8 @@ class BackupRepositoryImplTest :
             override suspend fun invalidate() = Unit
 
             override suspend fun invalidateRequestClientOnly() = Unit
+
+            override suspend fun invalidateStreamingClientOnly() = Unit
         }
 
         fun buildRepo(service: BackupService): BackupRepositoryImpl =

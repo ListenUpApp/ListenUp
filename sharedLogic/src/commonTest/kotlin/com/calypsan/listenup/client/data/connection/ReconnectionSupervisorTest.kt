@@ -568,4 +568,57 @@ class ReconnectionSupervisorTest :
             scope.testScheduler.runCurrent()
             check(reevaluateCalls > afterFirst) { "recovery should keep retrying after backoff" }
         }
+
+        test("reachable but never Connected: rebuilds the wedged streaming client, then kicks") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState() // Disconnected — and never flips to Connected
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
+                    everySuspend { getConnectedServerId() } returns "inst-1"
+                }
+            // One ordered log of both actions so we can assert rebuild-BEFORE-kick (self-teardown-safe).
+            val events = mutableListOf<String>()
+            val sseClient =
+                mock<SseClient> {
+                    every { reconnectNow() } calls { events.add("kick") }
+                }
+            val authSession =
+                mock<AuthSession> {
+                    every { authState } returns
+                        MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                    everySuspend { clearAuthTokens() } returns Unit
+                }
+            val supervisor =
+                ReconnectionSupervisor(
+                    engineState = engineState,
+                    instanceRepository = instance,
+                    serverConfig = serverConfig,
+                    sseClient = sseClient,
+                    authSession = authSession,
+                    errorBus = ErrorBus(),
+                    reevaluate = { },
+                    scope = scope,
+                    probeIntervalMillis = interval,
+                    rebuildStreamingClient = { events.add("rebuild") },
+                )
+
+            supervisor.start()
+            // The server answers every probe but the firehose never comes up — the wedged-socket case.
+            // Drive one kick per probe interval; the 3rd (STREAMING_REBUILD_AFTER_KICKS) must rebuild.
+            scope.testScheduler.runCurrent() // kick 1
+            scope.testScheduler.advanceTimeBy(interval + 1) // kick 2
+            scope.testScheduler.advanceTimeBy(interval + 1) // kick 3 → rebuild fires first
+            scope.testScheduler.runCurrent()
+
+            check("rebuild" in events) { "a wedged, reachable firehose must rebuild the streaming client: $events" }
+            val rebuildIdx = events.indexOf("rebuild")
+            check(events.getOrNull(rebuildIdx + 1) == "kick") {
+                "rebuild must be immediately followed by a reconnect kick (rebuild-before-connect): $events"
+            }
+        }
     })

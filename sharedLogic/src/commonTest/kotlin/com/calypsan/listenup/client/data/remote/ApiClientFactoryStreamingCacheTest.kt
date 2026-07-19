@@ -68,4 +68,19 @@ class ApiClientFactoryStreamingCacheTest :
                 factory.getStreamingClient() shouldNotBeSameInstanceAs streaming1
             }
         }
+
+        test("invalidateStreamingClientOnly rebuilds the streaming client but preserves the request client") {
+            runTest {
+                val factory = factory()
+                val streaming1 = factory.getStreamingClient()
+                val request1 = factory.getClient()
+
+                factory.invalidateStreamingClientOnly()
+
+                // The wedged streaming client was dropped, so the next reconnect builds a fresh one.
+                factory.getStreamingClient() shouldNotBeSameInstanceAs streaming1
+                // The request client — and the RPC proxies riding it — is left untouched.
+                factory.getClient() shouldBeSameInstanceAs request1
+            }
+        }
     })
