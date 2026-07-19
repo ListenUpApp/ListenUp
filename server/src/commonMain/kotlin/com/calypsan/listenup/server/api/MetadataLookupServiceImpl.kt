@@ -150,15 +150,22 @@ internal class MetadataLookupServiceImpl(
      * Contributor auto-match — search + profile fetch — composed across the provider registry through
      * the [coordinator]. The CONTRIBUTORS chain is served by Audnexus's `ContributorSource` (Audible has
      * no contributor-profile endpoint), so the wizard resolves author bios and photos from Audnexus.
+     * The caller's [region] (default US when null) is threaded through so the search hits the same
+     * regional catalog the profile preview will — Audnexus profiles are region-localized.
      * A total catalog miss returns an empty list / null, so the UI cleanly shows "no matches" and manual
      * contributor editing stays the fallback (Never-Stranded).
      */
-    override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
-        AppResult.Success(
-            coordinator.searchContributors(query, MetadataLocale.DEFAULT).map {
+    override suspend fun searchContributorMetadata(
+        query: String,
+        region: MetadataLocale?,
+    ): AppResult<List<MetadataContributorHit>> {
+        val locale = region ?: MetadataLocale.DEFAULT
+        return AppResult.Success(
+            coordinator.searchContributors(query, locale).map {
                 MetadataContributorHit(asin = it.key, name = it.name)
             },
         )
+    }
 
     override suspend fun getContributorMetadata(
         asin: String,

@@ -115,6 +115,33 @@ class MetadataLookupServiceImplTest :
             }
         }
 
+        test("searchContributorMetadata threads the caller's region into the source") {
+            withSqlDatabase {
+                val source =
+                    RegionCapturingContributorSource(
+                        hits = listOf(ContributorHitMeta(key = "B001", name = "Sebastian Fitzek")),
+                    )
+                val service = makeService(audible = StubAudibleApi(), dbs = this, extraProviders = listOf(source))
+
+                runTest {
+                    service.searchContributorMetadata("sebastian fitzek", MetadataLocale("de"))
+                    source.lastSearchRegion shouldBe "de"
+                }
+            }
+        }
+
+        test("searchContributorMetadata defaults to the US region when region is null") {
+            withSqlDatabase {
+                val source = RegionCapturingContributorSource()
+                val service = makeService(audible = StubAudibleApi(), dbs = this, extraProviders = listOf(source))
+
+                runTest {
+                    service.searchContributorMetadata("anyone", null)
+                    source.lastSearchRegion shouldBe "us"
+                }
+            }
+        }
+
         test("getContributorMetadata maps a ContributorMeta profile to the wire profile") {
             withSqlDatabase {
                 val source =
@@ -544,6 +571,28 @@ private class FakeContributorSource(
         locale: MetadataLocale,
         refresh: Boolean,
     ): AppResult<ContributorMeta?> = AppResult.Success(profile)
+}
+
+/** A [ContributorSource] that records the region of the last search, to prove region threading. */
+private class RegionCapturingContributorSource(
+    private val hits: List<ContributorHitMeta> = emptyList(),
+) : ContributorSource {
+    override val id: MetadataProviderId = MetadataProviderId.AUDNEXUS
+    var lastSearchRegion: String? = null
+
+    override suspend fun searchContributors(
+        name: String,
+        locale: MetadataLocale,
+    ): AppResult<List<ContributorHitMeta>> {
+        lastSearchRegion = locale.region
+        return AppResult.Success(hits)
+    }
+
+    override suspend fun getContributor(
+        key: String,
+        locale: MetadataLocale,
+        refresh: Boolean,
+    ): AppResult<ContributorMeta?> = AppResult.Success(null)
 }
 
 private class ComposeStubAudibleApi(
