@@ -28,7 +28,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 
 /**
  * Unit tests for [RpcProxyCache.call] — the bounded, single-flight, self-healing recovery engine.
@@ -76,10 +79,11 @@ class RpcProxyCacheCallTest :
         fun scriptedCache(
             script: ArrayDeque<suspend () -> String>,
             authRecovery: RpcAuthRecovery = RpcAuthRecovery.None,
+            preDeliveryRetryBackoff: Duration = 300.milliseconds,
         ): Pair<RpcProxyCache<FakeProxy>, () -> Int> {
             var connectCount = 0
             val cache =
-                RpcProxyCache(mockFactory(), mockServerConfig(), authRecovery) { _, _ ->
+                RpcProxyCache(mockFactory(), mockServerConfig(), authRecovery, preDeliveryRetryBackoff) { _, _ ->
                     connectCount++
                     FakeProxy(script.removeFirst())
                 }
@@ -108,6 +112,31 @@ class RpcProxyCacheCallTest :
                     .error
                     .shouldBeInstanceOf<TransportError.OutcomeUnknown>()
                 connects() shouldBe 1 // NO retry — the second scripted behavior is never reached
+            }
+        }
+
+        test("a pre-delivery transport failure waits the backoff before its single retry") {
+            val backoff = 300.milliseconds
+            runTest {
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                { throw IllegalStateException("RpcClient was cancelled") },
+                                { "healed" },
+                            ),
+                        ),
+                        preDeliveryRetryBackoff = backoff,
+                    )
+
+                val call = async { cache.call { it.work() } }
+                runCurrent() // first attempt leases + fails pre-delivery; the backoff delay is scheduled
+                connects() shouldBe 1 // the retry has NOT reconnected yet — it's settling out the backoff
+
+                advanceTimeBy(backoff.inWholeMilliseconds + 1)
+                runCurrent()
+                call.await() shouldBe "healed"
+                connects() shouldBe 2 // the single retry reconnected only after the settle
             }
         }
 

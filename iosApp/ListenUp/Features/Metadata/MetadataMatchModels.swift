@@ -59,13 +59,10 @@ struct MetadataPreview: Equatable {
 
     let descriptionField: MetadataFieldSelection?
 
-    /// Cover options (Audible / iTunes HD) plus the implicit "keep current" choice.
+    /// The selectable cover candidates (Audible, iTunes HD, …), each honestly labelled by its own
+    /// source and pixel dimensions. The user picks one; the currently-chosen url is [coverURL].
     let coverEnabled: Bool
-    let coverValueText: String
-    /// The provider the probed cover came from (e.g. "iTunes", "Audible"), when known.
-    let coverSourceLabel: String?
-    /// The probed cover's pixel dimensions as "W×H" (U+00D7), when both are known.
-    let coverResolution: String?
+    let coverOptions: [MetadataCoverOption]
 
     /// Every provider that contributed a winning field to this match, for the "Merged from …"
     /// footer. One entry means a single source (footer hidden); more than one means a blend.
@@ -80,6 +77,20 @@ struct MetadataPreview: Equatable {
     /// Count of selected fields and the total selectable — drives the "N of M selected" header.
     let selectedCount: Int
     let totalCount: Int
+}
+
+/// One selectable cover candidate for the match picker. Each carries its OWN source label and pixel
+/// dimensions so the UI is honest about where each image comes from (Audible vs iTunes), instead of
+/// a single blanket "from Audible" caption over a cover that's actually from iTunes. A native value
+/// type mapped from the shared `CoverEntry` at the observer boundary — never a bridged Kotlin object
+/// fed into a `ForEach` (per `iosApp/CLAUDE.md`).
+struct MetadataCoverOption: Identifiable, Equatable {
+    var id: String { url }
+    let url: String
+    /// The image's own source, e.g. "iTunes HD" or "Audible".
+    let label: String
+    /// Pixel dimensions as "W×H", when known.
+    let resolution: String?
 }
 
 /// A toggleable scalar metadata field (cover excluded — it has its own row). `sourceLabel` is the

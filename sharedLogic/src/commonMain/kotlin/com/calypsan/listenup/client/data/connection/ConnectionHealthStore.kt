@@ -66,6 +66,21 @@ internal class ConnectionHealthStore(
     private val connectionDown: Flow<Boolean> =
         engineState.observe().map { it.connection !is ConnectionState.Connected }.distinctUntilChanged()
 
+    // The firehose is down AND has actually been asked to connect — i.e. NOT the pristine engine-start
+    // state. `SyncEngine` connects the SSE stream only AFTER the initial catch-up ("building your
+    // library") completes, so the whole first-sync window sits in `Disconnected(reason = null)` — the
+    // one state that is set solely as the initial snapshot (every real connect/disconnect carries a
+    // non-null reason or is Connecting/Connected). Treating that expected pre-connect gap as a wedged
+    // firehose is what surfaced a false "Can't reach server" during first sync; only an actively-down
+    // firehose may arm the [firehoseDownBeyondGrace] wedge timer.
+    private val firehoseActivelyDown: Flow<Boolean> =
+        engineState
+            .observe()
+            .map {
+                it.connection !is ConnectionState.Connected &&
+                    it.connection != ConnectionState.Disconnected(reason = null)
+            }.distinctUntilChanged()
+
     private val authDead: Flow<Boolean> =
         authStateFlow.map { it is AuthState.SessionLapsed }.distinctUntilChanged()
 
@@ -93,7 +108,7 @@ internal class ConnectionHealthStore(
     // Retry offered). The grace preserves the probe's original no-flicker purpose for the *healthy*
     // reconnect flap; beyond it, a dead firehose surfaces as Unreachable regardless of the probe.
     private val firehoseDownBeyondGrace: Flow<Boolean> =
-        connectionDown
+        firehoseActivelyDown
             .flatMapLatest { down ->
                 if (!down) {
                     flowOf(false)

@@ -20,8 +20,13 @@ import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.delay
 
 private val logger = KotlinLogging.logger {}
+
+/** Default settle before the single pre-delivery retry — see [RpcProxyCache.preDeliveryRetryBackoff]. */
+private val PRE_DELIVERY_RETRY_BACKOFF = 300.milliseconds
 
 /**
  * The shared stateful body of every post-login RPC factory: a Mutex-guarded,
@@ -74,6 +79,14 @@ internal class RpcProxyCache<T : Any>(
     private val apiClientFactory: ApiClientFactory,
     private val serverConfig: ServerConfig,
     private val authRecovery: RpcAuthRecovery = RpcAuthRecovery.None,
+    /**
+     * How long to let a just-invalidated connection settle before the single pre-delivery retry. A
+     * pre-delivery transport failure is often a COLD WebSocket opened in a burst against a
+     * just-discovered host (the invite-claim "no internet on first tap" shape) — retrying instantly
+     * re-hits the same cold host and fails twice. A short settle lets it warm so the retry connects.
+     * Injectable so a virtual-time test can drive it deterministically.
+     */
+    private val preDeliveryRetryBackoff: Duration = PRE_DELIVERY_RETRY_BACKOFF,
     private val connect: suspend (rpcClient: HttpClient, wsBaseUrl: String) -> T,
 ) : RpcDispatch<T> {
     private val mutex = Mutex()
@@ -291,6 +304,9 @@ internal class RpcProxyCache<T : Any>(
                     "RPC pre-delivery transport failure (${e::class.simpleName}); reconnecting + retrying once"
                 }
                 invalidate(leasedGeneration)
+                // Let a cold/just-opened socket settle before the single retry so a freshly-discovered
+                // host isn't hit twice in a burst and failed both times. delay() honours cancellation.
+                if (preDeliveryRetryBackoff > Duration.ZERO) delay(preDeliveryRetryBackoff)
                 return retryOnce(timeout, block)
             }
 

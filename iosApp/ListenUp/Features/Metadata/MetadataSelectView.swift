@@ -132,24 +132,64 @@ struct MetadataSelectBody: View {
 
     // MARK: - Rows
 
+    // A bespoke cover section (not a MetadataFieldRow — its whole body is one toggle Button, which
+    // would swallow taps on the individual cover cards). A header toggles whether the cover applies;
+    // below it a horizontal, honestly-labelled picker of every candidate the match returned.
     private var coverRow: some View {
-        MetadataFieldRow(
-            systemImage: "photo",
-            label: String(localized: "metadata.field_cover"),
-            isOn: preview.coverEnabled,
-            onToggle: { observer.toggleField(.cover) }
-        ) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(preview.coverValueText).font(.callout).foregroundStyle(.primary)
-                if let coverLine = coverSourceLine {
-                    Text(coverLine).font(.caption2).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            Button(action: { observer.toggleField(.cover) }) {
+                HStack(spacing: 12) {
+                    IconTile(systemImage: "photo", isActive: preview.coverEnabled)
+                    Text(String(localized: "metadata.field_cover"))
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                    Spacer(minLength: 8)
+                    CircularCheckToggle(isOn: preview.coverEnabled, action: { observer.toggleField(.cover) })
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if !preview.coverOptions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(preview.coverOptions) { coverOptionCard($0) }
+                    }
+                    .padding(.horizontal, 2)
+                }
+                .opacity(preview.coverEnabled ? 1 : 0.4)
+                .disabled(!preview.coverEnabled)
+            }
+        }
+    }
+
+    private func coverOptionCard(_ option: MetadataCoverOption) -> some View {
+        let isSelected = option.url == preview.coverURL
+        return Button(action: { observer.selectCover(option.url) }) {
+            VStack(spacing: 6) {
+                MetadataRemoteCover(url: option.url)
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2.5)
+                    }
+                Text(option.label)
+                    .font(.caption2)
+                    .fontWeight(isSelected ? .semibold : .regular)
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+                if let resolution = option.resolution {
+                    Text(resolution)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
                 }
             }
-        } thumb: {
-            MetadataRemoteCover(url: preview.coverURL)
-                .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .frame(width: 96)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(option.label)
+        .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : [.isButton])
     }
 
     private func scalarRow(_ field: MetadataFieldSelection) -> some View {
@@ -323,14 +363,6 @@ struct MetadataSelectBody: View {
     private var chapterCountText: String {
         guard case .available(let available) = preview.chapters else { return "" }
         return String(format: String(localized: "metadata.chapters_matched"), available.totalCount)
-    }
-
-    /// The probed cover's provenance line: "{source} · {W×H}" when the resolution is known,
-    /// otherwise just the source. `nil` when the cover source is unknown (hides the line).
-    private var coverSourceLine: String? {
-        guard let source = preview.coverSourceLabel else { return nil }
-        guard let resolution = preview.coverResolution else { return source }
-        return String(format: String(localized: "metadata.cover_source_resolution"), source, resolution)
     }
 
     private func toggleAllGenres() {

@@ -192,6 +192,11 @@ fun authModule(config: ApplicationConfig): Module {
                 // Per-IP RPC throttle (SEC-02). The per-call remote host is bound at the mount via
                 // withRemoteHost; the singleton carries the limiter but no host (throttle inert).
                 inviteRateLimiter = get(),
+                // New-user side-effects — mirror AuthServiceImpl.register so a claimed invite also
+                // publishes the leaderboard projection and a USER_JOINED activity. getOrNull for phased
+                // startup / test graphs where these modules may be absent.
+                activityRecorder = getOrNull(),
+                publicProfileMaintainer = getOrNull(),
             )
         }
 

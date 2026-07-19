@@ -31,7 +31,12 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -77,6 +82,7 @@ class InviteServiceImplTest :
             sql: ListenUpDatabase,
             hasher: Argon2Limiter = Argon2Limiter(PasswordHasher()),
             inviteRateLimiter: InviteRateLimiter? = null,
+            activityRecorder: ActivityRecorder? = null,
         ): InviteServiceImpl =
             InviteServiceImpl(
                 db = sql,
@@ -86,6 +92,7 @@ class InviteServiceImplTest :
                 serverName = serverName,
                 clock = fixedClock,
                 inviteRateLimiter = inviteRateLimiter,
+                activityRecorder = activityRecorder,
             )
 
         fun InviteServiceImpl.actAs(
@@ -280,6 +287,34 @@ class InviteServiceImplTest :
                             .claimInvite(invite.code, "x".repeat(1025))
                             .shouldFail<AuthError.WeakPassword>()
                     failure.reason shouldBe WeakPasswordReason.TOO_LONG
+                }
+            }
+        }
+
+        test("claimInvite records a USER_JOINED activity for the new member") {
+            withSqlDatabase {
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    // A real activity recorder over the same DB — the write-path register() uses too.
+                    val recorder = activityRecorder()
+                    val admin = makeInviteService(sql, activityRecorder = recorder).actAs("root1", UserRole.ROOT)
+                    val invite = admin.createInvite("a@b.c", "A", UserRole.MEMBER, null).shouldSucceed()
+
+                    makeInviteService(sql, activityRecorder = recorder)
+                        .claimInvite(invite.code, "password123")
+                        .shouldSucceed()
+
+                    val newUserId =
+                        sql.usersQueries
+                            .selectByEmailNormalized("a@b.c")
+                            .executeAsOneOrNull()!!
+                            .id
+                    val joined =
+                        ActivityRepository(db = sql)
+                            .page(before = null, limit = 50)
+                            .filter { it.type == ActivityType.USER_JOINED }
+                    joined shouldHaveSize 1
+                    joined.single().userId shouldBe newUserId
                 }
             }
         }
