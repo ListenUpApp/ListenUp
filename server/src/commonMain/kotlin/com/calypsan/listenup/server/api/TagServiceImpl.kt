@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.TagService
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
@@ -120,6 +121,11 @@ internal class TagServiceImpl(
         // result is identical to the prior per-row mapNotNull.
         val tags = tagRepository.findByIds(junctions.map { it.tagId })
         return AppResult.Success(tags)
+    }
+
+    override suspend fun getTagStats(tagId: TagId): AppResult<FacetStats> {
+        val row = suspendTransaction(sql) { sql.bookTagsQueries.tagStats(tagId.value).executeAsOne() }
+        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms))
     }
 
     override suspend fun addTagToBook(

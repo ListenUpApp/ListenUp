@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -104,6 +105,88 @@ class TagServiceImplTest :
                     result.data.shouldNotBeNull()
                     result.data!!.name shouldBe "Sci-Fi"
                     result.data!!.bookCount shouldBe 1L
+                }
+            }
+        }
+
+        // ── getTagStats ──────────────────────────────────────────────────────
+
+        test("getTagStats returns EMPTY for a tag with no live junctions") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                runTest {
+                    val service = makeService(db)
+                    service.addTagToBook(BookId("book1"), "Sci-Fi")
+                    val result = service.getTagStats(TagId("no-such-tag"))
+                    result shouldBe AppResult.Success(FacetStats.EMPTY)
+                }
+            }
+        }
+
+        test("getTagStats sums book count and duration over live junction books") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
+                sql.booksQueries.updateTotalDuration(total_duration = 2_000L, id = "book2")
+                runTest {
+                    val service = makeService(db)
+                    val addResult = service.addTagToBook(BookId("book1"), "Sci-Fi")
+                    require(addResult is AppResult.Success)
+                    val tagId = TagId(addResult.data.id)
+                    service.addTagToBook(BookId("book2"), "Sci-Fi")
+
+                    val result = service.getTagStats(tagId)
+                    result shouldBe AppResult.Success(FacetStats(bookCount = 2, totalDurationMs = 3_000L))
+                }
+            }
+        }
+
+        test("getTagStats excludes a book whose junction row was removed") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
+                runTest {
+                    val service = makeService(db)
+                    val addResult = service.addTagToBook(BookId("book1"), "Sci-Fi")
+                    require(addResult is AppResult.Success)
+                    val tagId = TagId(addResult.data.id)
+                    service.removeTagFromBook(BookId("book1"), tagId)
+
+                    val result = service.getTagStats(tagId)
+                    result shouldBe AppResult.Success(FacetStats.EMPTY)
+                }
+            }
+        }
+
+        test("getTagStats excludes a soft-deleted book") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
+                runTest {
+                    val service = makeService(db)
+                    val addResult = service.addTagToBook(BookId("book1"), "Sci-Fi")
+                    require(addResult is AppResult.Success)
+                    val tagId = TagId(addResult.data.id)
+
+                    sql.booksQueries.softDeleteById(
+                        id = "book1",
+                        revision = 2L,
+                        updated_at = 1_700_000_000_000L,
+                        deleted_at = 1_700_000_000_000L,
+                        client_op_id = null,
+                    )
+
+                    val result = service.getTagStats(tagId)
+                    result shouldBe AppResult.Success(FacetStats.EMPTY)
                 }
             }
         }

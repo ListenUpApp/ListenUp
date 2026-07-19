@@ -105,3 +105,12 @@ liveBookCountForTag:
 SELECT COUNT(*) FROM book_tags bt
 JOIN books b ON b.id = bt.book_id AND b.deleted_at IS NULL
 WHERE bt.tag_id = :tag_id AND bt.deleted_at IS NULL;
+
+-- Aggregate book count + total length (ms) over LIVE books linked to :tag_id via a LIVE
+-- junction. Tags are flat (no subtree). The outer SELECT iterates `books` (one row per book id
+-- — its primary key), so a book can never be double-counted. Drives TagService.getTagStats.
+tagStats:
+SELECT COUNT(*) AS book_count, CAST(COALESCE(SUM(b.total_duration), 0) AS INTEGER) AS total_ms
+FROM books b
+WHERE b.deleted_at IS NULL
+  AND b.id IN (SELECT DISTINCT bt.book_id FROM book_tags bt WHERE bt.tag_id = :tag_id AND bt.deleted_at IS NULL);
