@@ -14,7 +14,7 @@ import org.koin.test.verify.verify
  * is covered by a `module.verify()` test in commonTest. The whitelist enumerates dependencies that
  * the facet-browse ViewModels pull in but other modules own:
  *
- *  - [GenreRepository] — owned by `genreTagModule` (pulled in by `BrowseGenreViewModel`).
+ *  - [GenreRepository] — owned by `genreTagModule` (pulled in by `GenreDestinationViewModel`).
  *  - [TagRepository] — owned by `genreTagModule` (pulled in by `BrowseFacetViewModel`).
  *  - [MoodRepository] — owned by `genreTagModule` (pulled in by `BrowseFacetViewModel`).
  *  - [BookRepository] — owned by `bookModule` (pulled in by `BrowseFacetViewModel`).

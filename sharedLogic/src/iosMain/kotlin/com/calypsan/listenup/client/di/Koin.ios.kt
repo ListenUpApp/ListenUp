@@ -53,7 +53,6 @@ import com.calypsan.listenup.client.presentation.auth.RegisterViewModel
 import com.calypsan.listenup.client.presentation.auth.SetupViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
-import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
@@ -64,6 +63,7 @@ import com.calypsan.listenup.client.presentation.contributormetadata.Contributor
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
+import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
 import com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel
@@ -81,7 +81,6 @@ import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
 import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
-import com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel
 
 /**
  * iOS-specific Koin initialization.
@@ -267,11 +266,9 @@ object KoinHelper {
 
     fun getSyncIndicatorViewModel(): SyncIndicatorViewModel = resolve(SyncIndicatorViewModel::class)
 
-    fun getTagDetailViewModel(): TagDetailViewModel = resolve(TagDetailViewModel::class)
-
     fun getBrowseFacetViewModel(): BrowseFacetViewModel = resolve(BrowseFacetViewModel::class)
 
-    fun getBrowseGenreViewModel(): BrowseGenreViewModel = resolve(BrowseGenreViewModel::class)
+    fun getGenreDestinationViewModel(): GenreDestinationViewModel = resolve(GenreDestinationViewModel::class)
 
     fun getShelfDetailViewModel(): ShelfDetailViewModel = resolve(ShelfDetailViewModel::class)
 

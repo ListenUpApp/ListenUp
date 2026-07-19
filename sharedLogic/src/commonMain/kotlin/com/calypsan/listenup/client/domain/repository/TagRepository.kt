@@ -2,8 +2,10 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Tag
+import com.calypsan.listenup.core.TagId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -73,6 +75,17 @@ interface TagRepository {
      * @return Flow emitting list of book ID strings; re-emits on junction changes.
      */
     fun observeBookIdsForTag(tagId: String): Flow<List<String>>
+
+    /**
+     * Aggregate book count + total length for [tagId] over live books.
+     *
+     * Dispatches through [com.calypsan.listenup.api.TagService] — not Room-backed, since total
+     * book length isn't mirrored locally.
+     *
+     * @param tagId The tag ID.
+     * @return [AppResult.Success] with the aggregate stats, or typed failure.
+     */
+    suspend fun getTagStats(tagId: TagId): AppResult<FacetStats>
 
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 

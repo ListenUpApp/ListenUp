@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.MoodSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mood
@@ -62,6 +63,9 @@ interface MoodService {
      * with the given id exists on the server.
      */
     suspend fun listMoodsForBook(bookId: BookId): AppResult<List<Mood>>
+
+    /** Aggregate book count + total length for [moodId] over live books. */
+    suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats>
 
     // ── Mutation ─────────────────────────────────────────────────────────────
 

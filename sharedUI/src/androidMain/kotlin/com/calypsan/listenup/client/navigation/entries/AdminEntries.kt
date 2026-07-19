@@ -22,8 +22,6 @@ import com.calypsan.listenup.client.navigation.AdminCollections
 import com.calypsan.listenup.client.navigation.AdminLibrarySettings
 import com.calypsan.listenup.client.navigation.AdminUserDetail
 import com.calypsan.listenup.client.navigation.BookEdit
-import com.calypsan.listenup.client.navigation.BrowseGenre
-import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.CreateBackup
 import com.calypsan.listenup.client.navigation.CreateInvite
 import com.calypsan.listenup.client.navigation.RestoreBackup
@@ -35,7 +33,6 @@ import com.calypsan.listenup.client.presentation.admin.AdminSettingsUiState
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
-import com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel
 import com.calypsan.listenup.client.presentation.error.localized
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -116,15 +113,6 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
             },
-        )
-    }
-    entry<BrowseGenre> { key ->
-        val viewModel: BrowseGenreViewModel = koinViewModel()
-        com.calypsan.listenup.client.features.browsegenre.BrowseGenreScreen(
-            viewModel = viewModel,
-            initialGenreId = key.genreId,
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
-            onBookClick = { bookId -> backStack.add(BookDetail(bookId.value)) },
         )
     }
     entry<CreateInvite> {

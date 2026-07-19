@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -93,4 +94,21 @@ interface GenreRepository {
         includeDescendants: Boolean = false,
         limit: Int = 100,
     ): AppResult<List<BookId>>
+
+    /**
+     * Aggregate book count + total length for [genreId], counting the whole subtree when
+     * [includeDescendants]. Dispatches through [com.calypsan.listenup.api.GenreService] — not
+     * Room-backed, since total book length isn't mirrored locally.
+     */
+    suspend fun getGenreStats(
+        genreId: GenreId,
+        includeDescendants: Boolean,
+    ): AppResult<FacetStats>
+
+    /**
+     * Resolve a genre by [slug] via RPC for deep-linking — server-authoritative, unlike the
+     * Room-backed [getBySlug]. Returns `null` inside [AppResult.Success] when no live genre
+     * matches.
+     */
+    suspend fun getGenreBySlug(slug: String): AppResult<Genre?>
 }

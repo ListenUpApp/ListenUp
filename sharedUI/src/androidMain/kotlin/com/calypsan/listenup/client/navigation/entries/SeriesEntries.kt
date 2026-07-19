@@ -7,9 +7,8 @@ import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.SeriesEdit
-import com.calypsan.listenup.client.navigation.TagDetail
 
-/** Series and tag navigation entries. */
+/** Series navigation entries. */
 internal fun EntryProviderScope<NavKey>.seriesEntries(backStack: NavBackStack<NavKey>) {
     entry<SeriesDetail> { args ->
         com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen(
@@ -37,17 +36,6 @@ internal fun EntryProviderScope<NavKey>.seriesEntries(backStack: NavBackStack<Na
             onSaveSuccess = {
                 // Navigate back after successful save
                 backStack.removeAt(backStack.lastIndex)
-            },
-        )
-    }
-    entry<TagDetail> { args ->
-        com.calypsan.listenup.client.features.tagdetail.TagDetailScreen(
-            tagId = args.tagId,
-            onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
-            },
-            onBookClick = { bookId ->
-                backStack.add(BookDetail(bookId))
             },
         )
     }

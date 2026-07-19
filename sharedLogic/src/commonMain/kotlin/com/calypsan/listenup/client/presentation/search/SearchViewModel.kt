@@ -84,9 +84,10 @@ sealed interface SearchNavAction {
         val seriesId: String,
     ) : SearchNavAction
 
-    /** User picked a tag hit; navigate to the tag detail screen. */
+    /** User picked a tag hit; navigate to the tag facet-browse screen. */
     data class NavigateToTag(
         val tagId: String,
+        val tagName: String,
     ) : SearchNavAction
 }
 
@@ -186,23 +187,25 @@ class SearchViewModel(
         typesFlow.value = emptySet()
     }
 
-    fun onResultClicked(hit: SearchHit) = onResultSelected(hit.id, hit.type)
+    fun onResultClicked(hit: SearchHit) = onResultSelected(hit.id, hit.type, hit.name)
 
     /**
-     * Navigate to the entity identified by [id] + [type]. The iOS native-row search path calls this
-     * directly — its `SearchRow` carries no Kotlin `SearchHit` — and [onResultClicked] delegates here,
-     * so the id+type → [SearchNavAction] mapping lives in exactly one place.
+     * Navigate to the entity identified by [id] + [type] (+ [name], used only for the Tag
+     * destination's immediate hero label). The iOS native-row search path calls this directly —
+     * its `SearchRow` carries no Kotlin `SearchHit` — and [onResultClicked] delegates here, so
+     * the id+type+name → [SearchNavAction] mapping lives in exactly one place.
      */
     fun onResultSelected(
         id: String,
         type: SearchHitType,
+        name: String,
     ) {
         val action =
             when (type) {
                 SearchHitType.BOOK -> SearchNavAction.NavigateToBook(id)
                 SearchHitType.CONTRIBUTOR -> SearchNavAction.NavigateToContributor(id)
                 SearchHitType.SERIES -> SearchNavAction.NavigateToSeries(id)
-                SearchHitType.TAG -> SearchNavAction.NavigateToTag(id)
+                SearchHitType.TAG -> SearchNavAction.NavigateToTag(id, name)
             }
         navChannel.trySend(action)
     }

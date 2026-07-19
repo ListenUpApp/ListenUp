@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
@@ -79,6 +80,13 @@ interface TagService {
      * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun listTagsForBook(bookId: BookId): AppResult<List<Tag>>
+
+    /**
+     * Aggregate book count + total length for [tagId] over live books.
+     *
+     * // TODO: gate by user permissions when Multi-user lands
+     */
+    suspend fun getTagStats(tagId: TagId): AppResult<FacetStats>
 
     // ── Mutation ─────────────────────────────────────────────────────────────
 

@@ -102,3 +102,12 @@ liveBookCountForMood:
 SELECT COUNT(*) FROM book_moods bm
 JOIN books b ON b.id = bm.book_id AND b.deleted_at IS NULL
 WHERE bm.mood_id = :mood_id AND bm.deleted_at IS NULL;
+
+-- Aggregate book count + total length (ms) over LIVE books linked to :mood_id via a LIVE
+-- junction. Moods are flat (no subtree). The outer SELECT iterates `books` (one row per book id
+-- — its primary key), so a book can never be double-counted. Drives MoodService.getMoodStats.
+moodStats:
+SELECT COUNT(*) AS book_count, CAST(COALESCE(SUM(b.total_duration), 0) AS INTEGER) AS total_ms
+FROM books b
+WHERE b.deleted_at IS NULL
+  AND b.id IN (SELECT DISTINCT bm.book_id FROM book_moods bm WHERE bm.mood_id = :mood_id AND bm.deleted_at IS NULL);

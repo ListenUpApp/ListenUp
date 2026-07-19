@@ -439,16 +439,10 @@ internal val discoverPresentationModule =
     }
 
 /**
- * Tag and shelf ViewModels.
+ * Shelf ViewModels.
  */
-internal val tagShelfPresentationModule =
+internal val shelfPresentationModule =
     module {
-        factory {
-            com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel(
-                tagRepository = get(),
-                bookRepository = get(),
-            )
-        }
         factory {
             com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel(
                 loadShelfDetailUseCase = get(),
@@ -475,15 +469,15 @@ internal val tagShelfPresentationModule =
 internal val browsePresentationModule =
     module {
         factory {
-            com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel(
-                genreRepository = get(),
-                errorBus = get(),
-            )
-        }
-        factory {
             com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel(
                 tagRepository = get(),
                 moodRepository = get(),
+                bookRepository = get(),
+            )
+        }
+        factory {
+            com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel(
+                genreRepository = get(),
                 bookRepository = get(),
             )
         }
@@ -576,7 +570,7 @@ internal val allPresentationModules =
         seriesPresentationModule,
         contributorPresentationModule,
         discoverPresentationModule,
-        tagShelfPresentationModule,
+        shelfPresentationModule,
         browsePresentationModule,
         profilePresentationModule,
         settingsPresentationModule,

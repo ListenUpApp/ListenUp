@@ -75,7 +75,7 @@ struct SeeAllSearchView: View {
         case .book(let id): path.append(BookDestination(id: id))
         case .contributor(let id): path.append(ContributorDestination(id: id))
         case .series(let id): path.append(SeriesDestination(id: id))
-        case .tag(let id): path.append(TagDestination(id: id))
+        case .tag(let id, let name): path.append(FacetDestination(kind: .tag, id: id, name: name))
         }
     }
 }

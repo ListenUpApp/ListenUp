@@ -102,8 +102,6 @@ BookWithContributorRole
 BrowseFacetUiState
 BrowseFacetViewModel
 BrowseFilesystemResponse
-BrowseGenreUiState
-BrowseGenreViewModel
 CachedAudioTokenProvider
 CachedUserProfile
 Chapter
@@ -213,11 +211,18 @@ EditProfileViewModel
 ErrorBus
 EventStreamRepository
 FacetCount
+FacetIcon
+FacetIdentity
 FacetKind
+FacetStats
 FileSource
 FolderId
 Genre
+GenreCrumb
+GenreDestinationUiState
+GenreDestinationViewModel
 GenreId
+GenreIdentity
 GenreRepository
 GenreShare
 GenreTagEditDelegate
@@ -313,6 +318,7 @@ MetadataSeriesRef
 MetadataUiState
 MetadataViewModel
 Mood
+MoodId
 MoodRepository
 NanoId
 NetworkMonitor
@@ -467,6 +473,7 @@ StorageSpaceProvider
 StorageUiState
 StorageViewModel
 StreamedRegistrationStatus
+SubGenre
 SurfaceMetadata
 SyncBooksResponse
 SyncContributorsResponse
@@ -480,8 +487,7 @@ SyncSeriesResponse
 SyncState
 SyncStatusRepository
 Tag
-TagDetailUiState
-TagDetailViewModel
+TagId
 TagRepository
 ThemeMode
 TimelineFileInput

@@ -112,3 +112,33 @@ liveBookCountForGenre:
 SELECT COUNT(DISTINCT bg.book_id) FROM book_genres bg
 JOIN books b ON b.id = bg.book_id AND b.deleted_at IS NULL
 WHERE bg.genre_id = :genre_id;
+
+-- ── facet stats ─────────────────────────────────────────────────────────────
+
+-- Aggregate book count + total length (ms) for LIVE books DIRECTLY linked to :genre_id.
+-- The outer SELECT iterates `books` (one row per book id — its primary key) and the `IN`
+-- predicate is a pure set-membership test, so a book can never be double-counted even if the
+-- inner subquery yielded duplicate ids. Drives GenreService.getGenreStats' direct-only branch.
+genreStatsDirect:
+SELECT COUNT(*) AS book_count, CAST(COALESCE(SUM(b.total_duration), 0) AS INTEGER) AS total_ms
+FROM books b
+WHERE b.deleted_at IS NULL
+  AND b.id IN (SELECT DISTINCT bg.book_id FROM book_genres bg WHERE bg.genre_id = :genre_id);
+
+-- Aggregate book count + total length (ms) for LIVE books linked to :path_prefix or any LIVE
+-- genre in its subtree. Same dedup guarantee as genreStatsDirect: the outer SELECT iterates
+-- `books` once per book id, so a book tagged with BOTH a genre and one of its descendants (e.g.
+-- Fantasy + Epic Fantasy) contributes exactly once to book_count and once to total_ms — a naive
+-- SUM over the book_genres⋈genres join would double-count it. Collision-safe
+-- `path = ? OR path LIKE ? || '/%'` predicate mirrors booksForGenrePrefix. Drives
+-- GenreService.getGenreStats' includeDescendants=true branch.
+genreStatsSubtree:
+SELECT COUNT(*) AS book_count, CAST(COALESCE(SUM(b.total_duration), 0) AS INTEGER) AS total_ms
+FROM books b
+WHERE b.deleted_at IS NULL
+  AND b.id IN (
+    SELECT DISTINCT bg.book_id
+    FROM book_genres bg
+    JOIN genres g ON g.id = bg.genre_id
+    WHERE g.deleted_at IS NULL AND (g.path = :path_prefix OR g.path LIKE :path_prefix || '/%')
+  );

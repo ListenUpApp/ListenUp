@@ -245,9 +245,6 @@ private extension View {
             .pushedDestination(for: ContributorDestination.self) { destination in
                 ContributorDetailView(contributorId: destination.id)
             }
-            .pushedDestination(for: TagDestination.self) { destination in
-                TagDetailView(tagId: destination.id)
-            }
             .pushedDestination(for: ContributorBooksDestination.self) { destination in
                 ContributorBooksView(
                     contributorId: destination.contributorId,
@@ -260,7 +257,7 @@ private extension View {
                 FacetBooksView(kind: destination.kind, facetId: destination.id, facetName: destination.name)
             }
             .pushedDestination(for: GenreDestination.self) { destination in
-                BrowseGenreView(initialGenreId: destination.genreId, initialGenreName: destination.genreName)
+                GenrePageView(genreId: destination.genreId, genreName: destination.genreName)
             }
             .pushedDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)

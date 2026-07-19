@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -99,6 +100,84 @@ class MoodServiceImplTest :
                     result.data.shouldNotBeNull()
                     result.data!!.name shouldBe "Feel-Good"
                     result.data!!.bookCount shouldBe 1L
+                }
+            }
+        }
+
+        // ── getMoodStats ─────────────────────────────────────────────────────
+
+        test("getMoodStats returns EMPTY for a mood with no live junctions") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                runTest {
+                    val service = makeService(sql)
+                    service.addMoodToBook(BookId("book1"), "Feel-Good")
+                    val result = service.getMoodStats(MoodId("no-such-mood"))
+                    result shouldBe AppResult.Success(FacetStats.EMPTY)
+                }
+            }
+        }
+
+        test("getMoodStats sums book count and duration over live junction books") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
+                sql.booksQueries.updateTotalDuration(total_duration = 2_000L, id = "book2")
+                runTest {
+                    val service = makeService(sql)
+                    val addResult = service.addMoodToBook(BookId("book1"), "Feel-Good")
+                    require(addResult is AppResult.Success)
+                    val moodId = MoodId(addResult.data.id)
+                    service.addMoodToBook(BookId("book2"), "Feel-Good")
+
+                    val result = service.getMoodStats(moodId)
+                    result shouldBe AppResult.Success(FacetStats(bookCount = 2, totalDurationMs = 3_000L))
+                }
+            }
+        }
+
+        test("getMoodStats excludes a book whose junction row was removed") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
+                runTest {
+                    val service = makeService(sql)
+                    val addResult = service.addMoodToBook(BookId("book1"), "Feel-Good")
+                    require(addResult is AppResult.Success)
+                    val moodId = MoodId(addResult.data.id)
+                    service.removeMoodFromBook(BookId("book1"), moodId)
+
+                    val result = service.getMoodStats(moodId)
+                    result shouldBe AppResult.Success(FacetStats.EMPTY)
+                }
+            }
+        }
+
+        test("getMoodStats excludes a soft-deleted book") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
+                runTest {
+                    val service = makeService(sql)
+                    val addResult = service.addMoodToBook(BookId("book1"), "Feel-Good")
+                    require(addResult is AppResult.Success)
+                    val moodId = MoodId(addResult.data.id)
+
+                    sql.booksQueries.softDeleteById(
+                        id = "book1",
+                        revision = 2L,
+                        updated_at = 1_700_000_000_000L,
+                        deleted_at = 1_700_000_000_000L,
+                        client_op_id = null,
+                    )
+
+                    val result = service.getMoodStats(moodId)
+                    result shouldBe AppResult.Success(FacetStats.EMPTY)
                 }
             }
         }

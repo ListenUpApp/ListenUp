@@ -20,11 +20,6 @@ struct ContributorDestination: Hashable {
     let id: String
 }
 
-/// Tag detail screen — the books carrying a given tag.
-struct TagDestination: Hashable {
-    let id: String
-}
-
 /// The full "See all" list of a contributor's books for one role, reached from a truncated
 /// role carousel on `ContributorDetailView`. `contributorName` and `roleDisplayName` ride the
 /// route so the screen titles immediately while Room hydrates the authoritative list.

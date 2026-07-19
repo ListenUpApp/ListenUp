@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.MoodService
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.MoodSummary
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
@@ -116,6 +117,11 @@ internal class MoodServiceImpl(
         // result is identical to the prior per-row mapNotNull.
         val moods = moodRepository.findByIds(junctions.map { it.moodId })
         return AppResult.Success(moods)
+    }
+
+    override suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats> {
+        val row = suspendTransaction(sql) { sql.bookMoodsQueries.moodStats(moodId.value).executeAsOne() }
+        return AppResult.Success(FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms))
     }
 
     override suspend fun addMoodToBook(

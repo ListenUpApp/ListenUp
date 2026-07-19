@@ -8,6 +8,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.design.LocalDeviceContext
+import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.library.LibraryScreen
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingBar
 import com.calypsan.listenup.client.features.setup.scan.LibraryScanScreen
@@ -15,12 +16,12 @@ import com.calypsan.listenup.client.features.shell.AppShell
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.BookDetail
+import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.Settings
 import com.calypsan.listenup.client.navigation.Shell
 import com.calypsan.listenup.client.navigation.ShelfDetail
-import com.calypsan.listenup.client.navigation.TagDetail
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
@@ -95,8 +96,8 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
             onContributorClick = { contributorId ->
                 backStack.add(ContributorDetail(contributorId))
             },
-            onTagClick = { tagId ->
-                backStack.add(TagDetail(tagId))
+            onTagClick = { tagId, tagName ->
+                backStack.add(BrowseFacet(kind = FacetKind.Tag, facetId = tagId, facetName = tagName))
             },
             onAdminClick =
                 if (!LocalDeviceContext.current.isLeanback) {

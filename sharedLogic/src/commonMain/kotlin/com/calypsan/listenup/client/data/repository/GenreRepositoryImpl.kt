@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.GenreMutation
+import com.calypsan.listenup.api.dto.GenreSummary
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.client.data.local.db.GenreDao
@@ -14,6 +16,7 @@ import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.currentEpochMilliseconds
@@ -137,7 +140,24 @@ internal class GenreRepositoryImpl(
         includeDescendants: Boolean,
         limit: Int,
     ): AppResult<List<BookId>> = channel.call(idempotent = true) { it.browseBooks(genreId, includeDescendants, limit) }
+
+    override suspend fun getGenreStats(
+        genreId: GenreId,
+        includeDescendants: Boolean,
+    ): AppResult<FacetStats> = channel.call(idempotent = true) { it.getGenreStats(genreId, includeDescendants) }
+
+    override suspend fun getGenreBySlug(slug: String): AppResult<Genre?> =
+        channel.call(idempotent = true) { it.getGenreBySlug(slug) }.map { it?.toDomain() }
 }
+
+private fun GenreSummary.toDomain(): Genre =
+    Genre(
+        id = id.value,
+        name = name,
+        slug = slug,
+        path = path,
+        bookCount = bookCount,
+    )
 
 private fun GenreEntity.toDomain(bookCount: Int): Genre =
     Genre(

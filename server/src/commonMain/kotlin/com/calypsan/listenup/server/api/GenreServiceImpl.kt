@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.GenreSummary
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.dto.UnmappedStringSummary
@@ -175,6 +176,49 @@ internal class GenreServiceImpl(
         val p = principal.current() ?: return emptySet()
         return accessPolicy.accessibleBookIds(p.userId.value, p.role)
     }
+
+    override suspend fun getGenreStats(
+        genreId: GenreId,
+        includeDescendants: Boolean,
+    ): AppResult<FacetStats> =
+        suspendTransaction(sqlDb) {
+            val genreRow = sqlDb.genresQueries.selectById(genreId.value).executeAsOneOrNull()
+            if (genreRow == null || genreRow.deleted_at != null) {
+                return@suspendTransaction AppResult.Failure(genreNotFound(genreId))
+            }
+            val stats =
+                if (includeDescendants) {
+                    val row = sqlDb.bookGenresQueries.genreStatsSubtree(genreRow.path).executeAsOne()
+                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms)
+                } else {
+                    val row = sqlDb.bookGenresQueries.genreStatsDirect(genreId.value).executeAsOne()
+                    FacetStats(bookCount = row.book_count.toInt(), totalDurationMs = row.total_ms)
+                }
+            AppResult.Success(stats)
+        }
+
+    override suspend fun getGenreBySlug(slug: String): AppResult<GenreSummary?> =
+        suspendTransaction(sqlDb) {
+            val id =
+                sqlDb.genresQueries.findBySlug(slug).executeAsOneOrNull()
+                    ?: return@suspendTransaction AppResult.Success(null)
+            val row =
+                sqlDb.genresQueries.selectById(id).executeAsOneOrNull()
+                    ?: return@suspendTransaction AppResult.Success(null)
+            val bookCount = sqlDb.bookGenresQueries.liveBookCountForGenre(id).executeAsOne()
+            AppResult.Success(
+                GenreSummary(
+                    id = GenreId(row.id),
+                    name = row.name,
+                    slug = row.slug,
+                    path = row.path,
+                    parentId = row.parent_id?.let(::GenreId),
+                    depth = row.depth.toInt(),
+                    sortOrder = row.sort_order.toInt(),
+                    bookCount = bookCount.toInt(),
+                ),
+            )
+        }
 
     override suspend fun createGenre(
         parentId: GenreId?,

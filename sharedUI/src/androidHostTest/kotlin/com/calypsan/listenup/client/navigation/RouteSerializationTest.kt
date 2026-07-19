@@ -51,7 +51,6 @@ private fun sampleRoutes(): List<Route> =
         add(MatchPreview(bookId = "test-book-id", asin = "test-asin", region = MetadataLocale.DEFAULT))
         add(MetadataSearch(bookId = "test-book-id"))
         add(SeriesDetail(seriesId = "test-series-id"))
-        add(TagDetail(tagId = "test-tag-id"))
         add(
             BrowseFacet(
                 kind = com.calypsan.listenup.client.domain.model.FacetKind.Tag,
@@ -59,7 +58,7 @@ private fun sampleRoutes(): List<Route> =
                 facetName = "Staff Pick",
             ),
         )
-        add(BrowseGenre(genreId = "test-genre-id"))
+        add(GenreDestination(genreId = "test-genre-id"))
         add(SeriesEdit(seriesId = "test-series-id"))
         add(ContributorDetail(contributorId = "test-contributor-id"))
         add(ContributorBooks(contributorId = "test-contributor-id", role = "author"))

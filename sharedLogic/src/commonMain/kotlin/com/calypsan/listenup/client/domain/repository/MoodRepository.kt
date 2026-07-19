@@ -2,8 +2,10 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Mood
+import com.calypsan.listenup.core.MoodId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -59,6 +61,17 @@ interface MoodRepository {
      * @return Flow emitting list of book ID strings; re-emits on junction changes.
      */
     fun observeBookIdsForMood(moodId: String): Flow<List<String>>
+
+    /**
+     * Aggregate book count + total length for [moodId] over live books.
+     *
+     * Dispatches through [com.calypsan.listenup.api.MoodService] — not Room-backed, since total
+     * book length isn't mirrored locally.
+     *
+     * @param moodId The mood ID.
+     * @return [AppResult.Success] with the aggregate stats, or typed failure.
+     */
+    suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats>
 
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 
