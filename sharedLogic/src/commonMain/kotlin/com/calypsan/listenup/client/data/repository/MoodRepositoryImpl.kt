@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.dto.BookMoodMutation
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.core.BookId
@@ -62,6 +63,9 @@ internal class MoodRepositoryImpl(
 
     override fun observeBookIdsForMood(moodId: String): Flow<List<String>> =
         bookMoodDao.observeForMood(moodId).map { rows -> rows.map { it.bookId } }
+
+    override suspend fun getMoodStats(moodId: MoodId): AppResult<FacetStats> =
+        channel.call(idempotent = true) { it.getMoodStats(moodId) }
 
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 

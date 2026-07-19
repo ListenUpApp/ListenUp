@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.TagService
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookTagEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -13,6 +14,7 @@ import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import com.calypsan.listenup.core.TagId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -196,6 +198,23 @@ class TagRepositoryOfflineTest :
                     .pendingOperationV2Dao()
                     .nextDispatchable()
                     .shouldBeEmpty()
+                f.db.close()
+            }
+        }
+
+        // Not offline-first (total book length isn't mirrored in Room) — reuses this file's fixture
+        // since getTagStats also dispatches through RpcChannel<TagService>.
+        test("getTagStats dispatches to the service and returns the aggregate stats") {
+            runTest {
+                val f = fixture()
+                val service = mock<TagService>()
+                everySuspend { service.getTagStats(TagId("t1")) } returns
+                    AppResult.Success(FacetStats(bookCount = 7, totalDurationMs = 1_800_000L))
+                val repo = f.repo(service)
+
+                val result = repo.getTagStats(TagId("t1"))
+
+                result shouldBe AppResult.Success(FacetStats(bookCount = 7, totalDurationMs = 1_800_000L))
                 f.db.close()
             }
         }

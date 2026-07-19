@@ -1,12 +1,15 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.dto.FacetStats
+import com.calypsan.listenup.api.dto.GenreSummary
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import com.calypsan.listenup.core.GenreId
 import dev.mokkery.MockMode
@@ -95,6 +98,46 @@ class GenreRepositoryImplTest :
                 repo(service = service).mergeGenres(GenreId("src"), GenreId("dst")).shouldBeInstanceOf<AppResult.Success<*>>()
 
                 verifySuspend(VerifyMode.exactly(1)) { service.mergeGenres(GenreId("src"), GenreId("dst")) }
+            }
+        }
+
+        test("getGenreStats dispatches to the service and returns the aggregate stats") {
+            runTest {
+                val service = mock<GenreService>()
+                everySuspend { service.getGenreStats(GenreId("g1"), true) } returns
+                    WireAppResult.Success(FacetStats(bookCount = 12, totalDurationMs = 3_600_000L))
+
+                val result = repo(service = service).getGenreStats(GenreId("g1"), includeDescendants = true)
+
+                val success = result.shouldBeInstanceOf<AppResult.Success<FacetStats>>()
+                success.data shouldBe FacetStats(bookCount = 12, totalDurationMs = 3_600_000L)
+            }
+        }
+
+        test("getGenreBySlug dispatches to the service and maps GenreSummary to the domain Genre") {
+            runTest {
+                val service = mock<GenreService>()
+                everySuspend { service.getGenreBySlug("sci-fi") } returns
+                    WireAppResult.Success(
+                        GenreSummary(id = GenreId("g1"), name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi", bookCount = 4),
+                    )
+
+                val result = repo(service = service).getGenreBySlug("sci-fi")
+
+                val success = result.shouldBeInstanceOf<AppResult.Success<Genre?>>()
+                success.data shouldBe Genre(id = "g1", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi", bookCount = 4)
+            }
+        }
+
+        test("getGenreBySlug returns null when the service finds no live genre") {
+            runTest {
+                val service = mock<GenreService>()
+                everySuspend { service.getGenreBySlug("missing") } returns WireAppResult.Success(null)
+
+                val result = repo(service = service).getGenreBySlug("missing")
+
+                val success = result.shouldBeInstanceOf<AppResult.Success<Genre?>>()
+                success.data shouldBe null
             }
         }
     })

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.BookTagMutation
+import com.calypsan.listenup.api.dto.FacetStats
 import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
@@ -84,6 +85,9 @@ internal class TagRepositoryImpl(
 
     override fun observeBookIdsForTag(tagId: String): Flow<List<String>> =
         bookTagDao.observeForTag(tagId).map { rows -> rows.map { it.bookId } }
+
+    override suspend fun getTagStats(tagId: TagId): AppResult<FacetStats> =
+        channel.call(idempotent = true) { it.getTagStats(tagId) }
 
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 
