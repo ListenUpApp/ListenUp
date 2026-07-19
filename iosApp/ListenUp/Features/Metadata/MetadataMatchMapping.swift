@@ -99,9 +99,11 @@ enum MetadataMatchMapping {
             tags: tags,
             descriptionField: description,
             coverEnabled: sel.cover,
-            coverValueText: String(localized: "metadata.field_cover_value"),
-            coverSourceLabel: ready.coverSourceLabel,
-            coverResolution: ready.coverResolution,
+            // Map the shared cover candidates into native value types HERE (the boundary), so the
+            // ForEach in the view never re-bridges a Kotlin list per diff (per iosApp/CLAUDE.md).
+            coverOptions: ready.coverEntries.map {
+                MetadataCoverOption(url: $0.url, label: $0.label, resolution: $0.resolution)
+            },
             // Copy into a native array at the boundary — never hold the bridged Kotlin list.
             contributingSources: Array(ready.contributingSources),
             chapters: chapterState(from: ready.chapterSuggestion),

@@ -152,8 +152,6 @@ struct MetadataMatchMappingTests {
         let state = ready(
             book: book,
             fallbackSources: [.description: "Audnexus", .authors: "iTunes", .genres: "Audnexus"],
-            coverSourceLabel: "iTunes",
-            coverResolution: "1400×1400",
             contributingSources: ["Audible", "Audnexus", "iTunes"]
         )
         let preview = MetadataMatchMapping.preview(from: state, match: book)
@@ -164,10 +162,27 @@ struct MetadataMatchMappingTests {
         #expect(preview.authors.first?.sourceLabel == "iTunes")
         #expect(preview.genres.first?.sourceLabel == "Audnexus")
 
-        // Cover + footer provenance copy through verbatim.
-        #expect(preview.coverSourceLabel == "iTunes")
-        #expect(preview.coverResolution == "1400×1400")
+        // Footer provenance copies through verbatim.
         #expect(preview.contributingSources == ["Audible", "Audnexus", "iTunes"])
+    }
+
+    @Test func previewMapsEveryCoverCandidateWithItsOwnHonestLabel() {
+        let book = makeBook(asin: "B22", title: "Title")
+        let state = ready(
+            book: book,
+            coverEntries: [
+                CoverEntry(url: "https://cdn/itunes.jpg", label: "iTunes HD", resolution: "2400×2400"),
+                CoverEntry(url: "https://cdn/audible.jpg", label: "Audible", resolution: nil),
+            ]
+        )
+        let preview = MetadataMatchMapping.preview(from: state, match: book)
+
+        // Every candidate is offered (a list, not one), each labelled by its OWN source — not a
+        // single blanket "from Audible" over an iTunes image.
+        #expect(preview.coverOptions.count == 2)
+        #expect(preview.coverOptions.map(\.label) == ["iTunes HD", "Audible"])
+        #expect(preview.coverOptions.first?.resolution == "2400×2400")
+        #expect(preview.coverOptions.first?.url == "https://cdn/itunes.jpg")
     }
 
     @Test func previewProvenanceDefaultsAreEmpty() {
@@ -175,8 +190,7 @@ struct MetadataMatchMappingTests {
         let preview = MetadataMatchMapping.preview(from: ready(book: book), match: book)
 
         #expect(preview.descriptionField?.sourceLabel == nil)
-        #expect(preview.coverSourceLabel == nil)
-        #expect(preview.coverResolution == nil)
+        #expect(preview.coverOptions.isEmpty)
         #expect(preview.contributingSources.isEmpty)
     }
 
@@ -256,6 +270,7 @@ struct MetadataMatchMappingTests {
         book: MetadataBook,
         selections: MetadataSelections? = nil,
         fallbackSources: [BookField: String] = [:],
+        coverEntries: [CoverEntry] = [],
         coverSourceLabel: String? = nil,
         coverResolution: String? = nil,
         contributingSources: [String] = []
@@ -263,7 +278,7 @@ struct MetadataMatchMappingTests {
         PreviewLoadStateReady(
             preview: book,
             selections: selections ?? makeSelections(),
-            coverEntries: [],
+            coverEntries: coverEntries,
             selectedCoverUrl: nil,
             isApplying: false,
             applyError: nil,
