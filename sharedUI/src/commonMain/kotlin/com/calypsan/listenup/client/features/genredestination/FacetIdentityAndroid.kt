@@ -34,11 +34,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.calypsan.listenup.client.design.util.parseHexColor
 import com.calypsan.listenup.client.presentation.genredestination.FacetIcon
 
-/**
- * Compose-side binding of the platform-neutral [FacetIcon] category (`sharedLogic`, defined once
+/*
+ * Compose-side binding of the platform-neutral FacetIcon category (sharedLogic, defined once
  * in commonMain across every platform) to a concrete Material glyph, plus small colour helpers for
- * rendering a genre's accent hue. Kept out of the shared `FacetIdentity` object deliberately — the
- * icon *set* is a per-platform choice (iOS binds the same [FacetIcon] enum to SF Symbols), so only
+ * rendering a genre's accent hue. Kept out of the shared FacetIdentity object deliberately — the
+ * icon *set* is a per-platform choice (iOS binds the same FacetIcon enum to SF Symbols), so only
  * the category name is shared, not the glyph.
  */
 

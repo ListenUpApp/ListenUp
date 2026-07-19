@@ -43,8 +43,18 @@ enum class FacetIcon {
 object FacetIdentity {
     private val PALETTE =
         listOf(
-            "#2E5AA0", "#B04A66", "#8A5A20", "#1F7E74", "#6E4AA6", "#3A6A3A",
-            "#C2622A", "#3F4658", "#4A5A6E", "#1F6A74", "#A6602E", "#5B3A8A",
+            "#2E5AA0",
+            "#B04A66",
+            "#8A5A20",
+            "#1F7E74",
+            "#6E4AA6",
+            "#3A6A3A",
+            "#C2622A",
+            "#3F4658",
+            "#4A5A6E",
+            "#1F6A74",
+            "#A6602E",
+            "#5B3A8A",
         )
 
     // Order matters: the first matching pattern wins (e.g. SCIENCE before SELF_HELP, SCIFI/HISTORY

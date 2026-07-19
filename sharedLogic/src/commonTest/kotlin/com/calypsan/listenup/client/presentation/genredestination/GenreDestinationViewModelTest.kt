@@ -117,7 +117,8 @@ class GenreDestinationViewModelTest :
         test("initial state is Loading before load() is called") {
             runTest {
                 val fixture = createFixture()
-                fixture.viewModel.state.value.shouldBeInstanceOf<GenreDestinationUiState.Loading>()
+                fixture.viewModel.state.value
+                    .shouldBeInstanceOf<GenreDestinationUiState.Loading>()
             }
         }
 
@@ -129,7 +130,9 @@ class GenreDestinationViewModelTest :
                 fixture.viewModel.load(GenreId("fantasy"))
                 advanceUntilIdle()
 
-                val ready = fixture.viewModel.state.value.shouldBeInstanceOf<GenreDestinationUiState.Ready>()
+                val ready =
+                    fixture.viewModel.state.value
+                        .shouldBeInstanceOf<GenreDestinationUiState.Ready>()
                 ready.identity.name shouldBe "Fantasy"
                 ready.identity.slug shouldBe "fantasy"
                 ready.breadcrumb shouldBe listOf(GenreCrumb(genreId = GenreId("fiction"), name = "Fiction"))
@@ -155,7 +158,9 @@ class GenreDestinationViewModelTest :
                 fixture.viewModel.toggleIncludeSubGenres()
                 advanceUntilIdle()
 
-                val ready = fixture.viewModel.state.value.shouldBeInstanceOf<GenreDestinationUiState.Ready>()
+                val ready =
+                    fixture.viewModel.state.value
+                        .shouldBeInstanceOf<GenreDestinationUiState.Ready>()
                 ready.includeSubGenres shouldBe false
                 ready.stats shouldBe directStats
                 ready.books shouldBe directBooks
@@ -170,7 +175,9 @@ class GenreDestinationViewModelTest :
                 fixture.viewModel.load(GenreId("epic-fantasy"))
                 advanceUntilIdle()
 
-                val ready = fixture.viewModel.state.value.shouldBeInstanceOf<GenreDestinationUiState.Ready>()
+                val ready =
+                    fixture.viewModel.state.value
+                        .shouldBeInstanceOf<GenreDestinationUiState.Ready>()
                 ready.hasSubs shouldBe false
                 ready.subGenres shouldBe emptyList()
                 ready.includeSubGenres shouldBe false
@@ -190,7 +197,8 @@ class GenreDestinationViewModelTest :
                 fixture.viewModel.load(GenreId("does-not-exist"))
                 advanceUntilIdle()
 
-                fixture.viewModel.state.value.shouldBeInstanceOf<GenreDestinationUiState.NotFound>()
+                fixture.viewModel.state.value
+                    .shouldBeInstanceOf<GenreDestinationUiState.NotFound>()
             }
         }
     })
