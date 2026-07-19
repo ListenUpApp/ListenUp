@@ -3,7 +3,7 @@ import Shared
 
 /// Observes `SettingsViewModel`, flattening the shared `SettingsUiState` into flat
 /// `@Observable` properties the SwiftUI settings screen binds to, and forwarding the
-/// VM's setters/actions. Thin over `FlowBridge`, mirroring `TagDetailObserver`.
+/// VM's setters/actions. Thin over `FlowBridge`, mirroring `FacetBooksObserver`.
 ///
 /// `SettingsUiState` is a plain Kotlin `data class` (not a sealed hierarchy), so its
 /// fields bridge directly — no `onEnum` flatten is needed. The observer exists to give

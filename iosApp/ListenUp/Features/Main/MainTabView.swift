@@ -245,9 +245,6 @@ private extension View {
             .pushedDestination(for: ContributorDestination.self) { destination in
                 ContributorDetailView(contributorId: destination.id)
             }
-            .pushedDestination(for: TagDestination.self) { destination in
-                TagDetailView(tagId: destination.id)
-            }
             .pushedDestination(for: ContributorBooksDestination.self) { destination in
                 ContributorBooksView(
                     contributorId: destination.contributorId,

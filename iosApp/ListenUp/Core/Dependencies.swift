@@ -131,9 +131,7 @@ final class Dependencies {
     func createActivityFeedViewModel() -> ActivityFeedViewModel { KoinHelper.shared.getActivityFeedViewModel() }
     func createSeeAllSearchViewModel() -> SeeAllSearchViewModel { KoinHelper.shared.getSeeAllSearchViewModel() }
 
-    func createTagDetailViewModel() -> TagDetailViewModel { KoinHelper.shared.getTagDetailViewModel() }
     func createBrowseFacetViewModel() -> BrowseFacetViewModel { KoinHelper.shared.getBrowseFacetViewModel() }
-    func createBrowseGenreViewModel() -> BrowseGenreViewModel { KoinHelper.shared.getBrowseGenreViewModel() }
     func createGenreDestinationViewModel() -> GenreDestinationViewModel {
         KoinHelper.shared.getGenreDestinationViewModel()
     }

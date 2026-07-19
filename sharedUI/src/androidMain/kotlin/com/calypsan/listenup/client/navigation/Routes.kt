@@ -107,16 +107,6 @@ data class SeriesDetail(
 ) : Route
 
 /**
- * Tag detail screen - displays tag info and books with this tag.
- *
- * @property tagId The unique ID of the tag to display.
- */
-@Serializable
-data class TagDetail(
-    val tagId: String,
-) : Route
-
-/**
  * Series edit screen - edit series metadata and cover.
  *
  * Allows editing name, description, and cover image for a series.
@@ -271,22 +261,10 @@ data object AdminInbox : Route
 data object AdminCategories : Route
 
 /**
- * Browse-by-Genre screen — tree of genres with a per-genre book list and an
- * `includeDescendants` toggle for subtree expansion.
- *
- * @property genreId Optional genre to pre-select on open (e.g. the genre chip tapped on Book
- *   Detail). `null` opens the screen on the full tree with no genre selected.
- */
-@Serializable
-data class BrowseGenre(
-    val genreId: String? = null,
-) : Route
-
-/**
  * Facet-browse screen — every book carrying a flat facet (a Tag or a Mood), reached by tapping a
- * tag/mood chip on Book Detail. One parameterized route over both flat axes; genres keep
- * [BrowseGenre]. The [facetName] travels on the route so the hero renders immediately while the
- * Room observation hydrates the authoritative name and book set.
+ * tag/mood chip on Book Detail (or a tag hit in Search). One parameterized route over both flat
+ * axes; genres keep [GenreDestination]. The [facetName] travels on the route so the hero renders
+ * immediately while the Room observation hydrates the authoritative name and book set.
  *
  * @property kind Which flat classification axis this browse lists.
  * @property facetId The tag or mood ID to list books for.

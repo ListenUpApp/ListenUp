@@ -71,7 +71,7 @@ private val logger = KotlinLogging.logger {}
  * @param onBookClick Callback when a book is clicked (navigates to detail)
  * @param onSeriesClick Callback when a series is clicked (navigates to detail)
  * @param onContributorClick Callback when a contributor is clicked (author or narrator)
- * @param onTagClick Callback when a tag is clicked
+ * @param onTagClick Callback when a tag is clicked (tag id, tag name)
  * @param onAdminClick Callback when administration is clicked (only shown for admin users)
  * @param onSettingsClick Callback when settings is clicked
  * @param onSignOut Callback when sign out is triggered
@@ -89,7 +89,7 @@ fun AppShell(
     onBookClick: (String) -> Unit,
     onSeriesClick: (String) -> Unit,
     onContributorClick: (String) -> Unit,
-    onTagClick: (String) -> Unit,
+    onTagClick: (String, String) -> Unit,
     onAdminClick: (() -> Unit)? = null,
     onSettingsClick: () -> Unit,
     onSignOut: () -> Unit,
@@ -173,7 +173,7 @@ fun AppShell(
                 is SearchNavAction.NavigateToBook -> onBookClick(action.bookId)
                 is SearchNavAction.NavigateToContributor -> onContributorClick(action.contributorId)
                 is SearchNavAction.NavigateToSeries -> onSeriesClick(action.seriesId)
-                is SearchNavAction.NavigateToTag -> onTagClick(action.tagId)
+                is SearchNavAction.NavigateToTag -> onTagClick(action.tagId, action.tagName)
             }
         }
     }

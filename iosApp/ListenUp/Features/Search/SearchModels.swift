@@ -197,7 +197,7 @@ enum SearchRoute: Hashable {
     case book(id: String)
     case contributor(id: String)
     case series(id: String)
-    case tag(id: String)
+    case tag(id: String, name: String)
 }
 
 /// The render phase of the search screen, flattened from the shared `SearchUiState`.

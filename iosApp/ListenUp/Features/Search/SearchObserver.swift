@@ -51,11 +51,11 @@ final class SearchObserver {
         }
     }
 
-    /// A row was tapped — let the VM emit the matching `SearchNavAction` (from id + kind), which
-    /// we drain back into `pendingNavigation`. The native `SearchRow` carries no Kotlin object, so
-    /// nav goes through the VM by id + type rather than the whole hit.
+    /// A row was tapped — let the VM emit the matching `SearchNavAction` (from id + kind + name),
+    /// which we drain back into `pendingNavigation`. The native `SearchRow` carries no Kotlin
+    /// object, so nav goes through the VM by id + type + name rather than the whole hit.
     func selectRow(_ row: SearchRow) {
-        viewModel.onResultSelected(id: row.id, type: row.kind.hitType)
+        viewModel.onResultSelected(id: row.id, type: row.kind.hitType, name: row.name)
     }
 
     // MARK: - State mapping
@@ -89,7 +89,7 @@ final class SearchObserver {
         case .navigateToBook(let a): pendingNavigation = .book(id: a.bookId)
         case .navigateToContributor(let a): pendingNavigation = .contributor(id: a.contributorId)
         case .navigateToSeries(let a): pendingNavigation = .series(id: a.seriesId)
-        case .navigateToTag(let a): pendingNavigation = .tag(id: a.tagId)
+        case .navigateToTag(let a): pendingNavigation = .tag(id: a.tagId, name: a.tagName)
         case .unknown: Log.error("Unexpected SearchNavAction case")
         }
     }

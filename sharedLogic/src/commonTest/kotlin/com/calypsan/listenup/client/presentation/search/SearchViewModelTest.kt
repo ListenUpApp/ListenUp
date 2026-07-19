@@ -384,10 +384,11 @@ class SearchViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.navActions.test {
-                    viewModel.onResultClicked(createTagHit(id = "tag-42"))
+                    viewModel.onResultClicked(createTagHit(id = "tag-42", name = "Staff Pick"))
                     advanceUntilIdle()
                     val action = awaitItem().shouldBeInstanceOf<SearchNavAction.NavigateToTag>()
                     action.tagId shouldBe "tag-42"
+                    action.tagName shouldBe "Staff Pick"
                 }
             }
         }

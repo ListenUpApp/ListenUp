@@ -43,6 +43,9 @@ struct FacetBooksSnapshotTests {
         #expect(snapshot.phase == .ready)
         #expect(snapshot.facetName == "Atmospheric")
         #expect(snapshot.totalDurationMs == 3_600_000)
+        // Server-aggregate `bookCount`, NOT `books.count` (which is 0 here) — the count must
+        // reflect the entire live set even when `books` is a partial/local projection.
+        #expect(snapshot.bookCount == 12)
         #expect(snapshot.books.isEmpty)
         #expect(snapshot.symbolName == sfSymbol(for: FacetIdentity.shared.icon(name: "Atmospheric")))
 

@@ -35,7 +35,7 @@ final class SeeAllSearchObserver {
     }
 
     func selectRow(_ row: SearchRow) {
-        viewModel.onResultSelected(id: row.id, type: row.kind.hitType)
+        viewModel.onResultSelected(id: row.id, type: row.kind.hitType, name: row.name)
     }
 
     // MARK: - State mapping
@@ -61,7 +61,7 @@ final class SeeAllSearchObserver {
         case .navigateToBook(let a): pendingNavigation = .book(id: a.bookId)
         case .navigateToContributor(let a): pendingNavigation = .contributor(id: a.contributorId)
         case .navigateToSeries(let a): pendingNavigation = .series(id: a.seriesId)
-        case .navigateToTag(let a): pendingNavigation = .tag(id: a.tagId)
+        case .navigateToTag(let a): pendingNavigation = .tag(id: a.tagId, name: a.tagName)
         case .unknown:
             Log.error("Unexpected SearchNavAction case")
         }

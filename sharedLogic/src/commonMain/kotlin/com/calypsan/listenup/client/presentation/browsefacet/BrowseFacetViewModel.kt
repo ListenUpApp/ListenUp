@@ -48,10 +48,9 @@ private val logger = KotlinLogging.logger {}
  * uses `flatMapLatest` to swap upstream sources when the request changes, and
  * `.stateIn(WhileSubscribed)` so the pipeline is only hot while the screen observes.
  *
- * Mirrors the reactive shape of
- * [com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel] generalized over both
- * flat facets; genres keep their own hierarchy-aware
- * [com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel].
+ * One ViewModel generalizes both flat facets (reached from Book Detail chips and, for tags, a
+ * Search hit); genres keep their own hierarchy-aware
+ * [com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel].
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BrowseFacetViewModel(
