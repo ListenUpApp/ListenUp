@@ -103,7 +103,7 @@ class ContributorMetadataViewModelTest :
                 val contributor = createContributor(id = "contributor-2", name = "Neil Gaiman")
                 // Use MutableStateFlow per memory [test-stateflow-use-mutablestateflow]
                 every { contributorRepo.observeById("contributor-2") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata(any()) } returns AppResult.Success(emptyList())
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(emptyList())
 
                 val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
                 vm.init("contributor-2")
@@ -124,7 +124,7 @@ class ContributorMetadataViewModelTest :
                 val metadataRepo = mock<MetadataRepository>()
                 val contributor = createContributor(name = "Stephen King")
                 every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata("Stephen King") } returns
+                everySuspend { metadataRepo.searchContributorMetadata("Stephen King", any()) } returns
                     AppResult.Success(listOf(createHit()))
 
                 val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
@@ -144,7 +144,7 @@ class ContributorMetadataViewModelTest :
                 val contributor = createContributor(name = "Stephen King")
                 val searchResults = listOf(createHit())
                 every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata("Stephen King") } returns
+                everySuspend { metadataRepo.searchContributorMetadata("Stephen King", any()) } returns
                     AppResult.Success(searchResults)
 
                 val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
@@ -153,7 +153,7 @@ class ContributorMetadataViewModelTest :
 
                 vm.state.value.searchResults shouldBe searchResults
                 verifySuspend(VerifyMode.exactly(1)) {
-                    metadataRepo.searchContributorMetadata("Stephen King")
+                    metadataRepo.searchContributorMetadata("Stephen King", any())
                 }
             }
         }
@@ -169,7 +169,7 @@ class ContributorMetadataViewModelTest :
                 vm.init("contributor-1")
                 advanceUntilIdle()
 
-                verifySuspend(VerifyMode.exactly(0)) { metadataRepo.searchContributorMetadata(any()) }
+                verifySuspend(VerifyMode.exactly(0)) { metadataRepo.searchContributorMetadata(any(), any()) }
             }
         }
 
@@ -179,7 +179,7 @@ class ContributorMetadataViewModelTest :
             runTest {
                 val metadataRepo = mock<MetadataRepository>()
                 val results = listOf(createHit("B001", "Stephen King"), createHit("B002", "Stephen King Jr"))
-                everySuspend { metadataRepo.searchContributorMetadata(any()) } returns AppResult.Success(results)
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(results)
 
                 val vm = buildVm(metadataRepo = metadataRepo)
                 vm.state.value.let {} // ensure initial state
@@ -196,7 +196,7 @@ class ContributorMetadataViewModelTest :
         test("search handles failure and sets searchError") {
             runTest {
                 val metadataRepo = mock<MetadataRepository>()
-                everySuspend { metadataRepo.searchContributorMetadata(any()) } returns
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns
                     AppResult.Failure(ValidationError(message = "Network error."))
 
                 val vm = buildVm(metadataRepo = metadataRepo)
@@ -218,7 +218,7 @@ class ContributorMetadataViewModelTest :
                 vm.search()
                 advanceUntilIdle()
 
-                verifySuspend(VerifyMode.exactly(0)) { metadataRepo.searchContributorMetadata(any()) }
+                verifySuspend(VerifyMode.exactly(0)) { metadataRepo.searchContributorMetadata(any(), any()) }
             }
         }
 
@@ -286,7 +286,7 @@ class ContributorMetadataViewModelTest :
                 val useCase = mock<ApplyContributorMetadataUseCase>()
                 val contributor = createContributor()
                 every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata(any()) } returns AppResult.Success(emptyList())
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(emptyList())
                 everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
                     AppResult.Success(createProfile())
                 everySuspend { useCase.invoke(any()) } returns AppResult.Success(Unit)
@@ -313,7 +313,7 @@ class ContributorMetadataViewModelTest :
                 val useCase = mock<ApplyContributorMetadataUseCase>()
                 val contributor = createContributor()
                 every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata(any()) } returns AppResult.Success(emptyList())
+                everySuspend { metadataRepo.searchContributorMetadata(any(), any()) } returns AppResult.Success(emptyList())
                 everySuspend { metadataRepo.getContributorMetadata(any(), any()) } returns
                     AppResult.Success(createProfile())
                 everySuspend { useCase.invoke(any()) } returns
@@ -379,7 +379,7 @@ class ContributorMetadataViewModelTest :
                 val usResults = listOf(createHit(name = "Stephen King US"))
                 val ukResults = listOf(createHit(name = "Stephen King UK"))
                 every { contributorRepo.observeById("contributor-1") } returns MutableStateFlow(contributor)
-                everySuspend { metadataRepo.searchContributorMetadata("Stephen King") } returns
+                everySuspend { metadataRepo.searchContributorMetadata("Stephen King", any()) } returns
                     AppResult.Success(usResults)
 
                 val vm = buildVm(contributorRepo = contributorRepo, metadataRepo = metadataRepo)
@@ -389,7 +389,7 @@ class ContributorMetadataViewModelTest :
                 vm.state.value.searchResults shouldBe usResults
 
                 // Update mock for UK re-search
-                everySuspend { metadataRepo.searchContributorMetadata("Stephen King") } returns
+                everySuspend { metadataRepo.searchContributorMetadata("Stephen King", any()) } returns
                     AppResult.Success(ukResults)
                 vm.changeRegion(MetadataLocale("uk"))
                 advanceUntilIdle()

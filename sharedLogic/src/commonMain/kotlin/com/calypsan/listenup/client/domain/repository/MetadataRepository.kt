@@ -48,8 +48,15 @@ interface MetadataRepository {
         region: MetadataLocale,
     ): AppResult<MetadataChapters?>
 
-    /** Searches Audible for contributors matching [query]. */
-    suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>>
+    /**
+     * Searches for contributors matching [query] in [region] (server default
+     * when null). Search and profile fetch must use the same region — Audnexus
+     * profiles are region-localized.
+     */
+    suspend fun searchContributorMetadata(
+        query: String,
+        region: MetadataLocale?,
+    ): AppResult<List<MetadataContributorHit>>
 
     /** Fetches the canonical profile for the Audible contributor identified by [asin] in [region]. */
     suspend fun getContributorMetadata(

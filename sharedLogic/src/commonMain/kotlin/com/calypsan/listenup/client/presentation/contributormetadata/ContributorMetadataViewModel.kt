@@ -159,7 +159,7 @@ class ContributorMetadataViewModel(
                 )
             }
 
-            when (val result = metadataRepository.searchContributorMetadata(query)) {
+            when (val result = metadataRepository.searchContributorMetadata(query, state.value.selectedRegion)) {
                 is AppResult.Success -> {
                     logger.debug { "Contributor search for '$query' returned ${result.data.size} results" }
                     state.update {

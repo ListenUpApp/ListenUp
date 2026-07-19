@@ -47,8 +47,11 @@ internal class MetadataRepositoryImpl(
         region: MetadataLocale,
     ): AppResult<MetadataChapters?> = channel.call(idempotent = true) { it.getBookChapters(asin, region) }
 
-    override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
-        channel.call(idempotent = true) { it.searchContributorMetadata(query) }
+    override suspend fun searchContributorMetadata(
+        query: String,
+        region: MetadataLocale?,
+    ): AppResult<List<MetadataContributorHit>> =
+        channel.call(idempotent = true) { it.searchContributorMetadata(query, region) }
 
     override suspend fun getContributorMetadata(
         asin: String,
