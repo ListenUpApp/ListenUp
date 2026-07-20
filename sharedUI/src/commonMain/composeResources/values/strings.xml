@@ -518,7 +518,7 @@ One beautiful library.</string>
     <string name="connect_version_prefix">v%1$s</string>
     <string name="contributor_aka">aka %1$s</string>
     <string name="contributor_also_known_as">Also Known As</string>
-    <string name="contributor_apply_selectedcount_of_availablefieldcount">Apply %1$s of %2$s</string>
+    <string name="contributor_apply_match">Apply</string>
     <string name="contributor_audible">Audible</string>
     <string name="contributor_audible_region">Audible Region</string>
     <string name="contributor_author_or_narrator_name">Author or narrator name...</string>
@@ -559,7 +559,7 @@ One beautiful library.</string>
     <string name="contributor_new_image">New image</string>
     <string name="contributor_no_aliases_hint">No alternate names yet. Merge another author to add one.</string>
     <string name="contributor_no_change">No change</string>
-    <string name="contributor_no_image_available_from_audible">No image available from Audible</string>
+    <string name="contributor_no_profile_in_region">No profile data in the %1$s catalog. Try a different region:</string>
     <string name="contributor_other_books">Other Books</string>
     <string name="contributor_preview_changes">Preview Changes</string>
     <string name="contributor_remove_aliasname">Remove %1$s</string>

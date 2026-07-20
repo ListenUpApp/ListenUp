@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.contributormetadata
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,6 +43,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.api.dto.MetadataContributorHit
 import com.calypsan.listenup.client.features.metadata.components.RegionSelector
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorSearchLoadState
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -65,13 +67,17 @@ import listenup.composeapp.generated.resources.common_search
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContributorMetadataSearchScreen(
-    state: ContributorMetadataUiState,
+    state: ContributorMetadataUiState.Search,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onRegionSelected: (MetadataLocale) -> Unit,
     onResultClick: (MetadataContributorHit) -> Unit,
     onBack: () -> Unit,
 ) {
+    val isSearching = state.loadState is ContributorSearchLoadState.InFlight
+    val searchError = (state.loadState as? ContributorSearchLoadState.Failed)?.message
+    val searchResults = (state.loadState as? ContributorSearchLoadState.Loaded)?.results.orEmpty()
+
     ListenUpScaffold(
         topBar = {
             TopAppBar(
@@ -95,7 +101,7 @@ fun ContributorMetadataSearchScreen(
                     .padding(horizontal = 16.dp),
         ) {
             // Context - who we're searching for
-            state.currentContributor?.let { contributor ->
+            state.context.current?.let { contributor ->
                 Text(
                     text = stringResource(Res.string.metadata_searching_for, contributor.name),
                     style = MaterialTheme.typography.bodyMedium,
@@ -106,16 +112,16 @@ fun ContributorMetadataSearchScreen(
 
             // Search field
             OutlinedTextField(
-                value = state.searchQuery,
+                value = state.query,
                 onValueChange = onQueryChange,
                 label = { Text(stringResource(Res.string.contributor_contributor_name)) },
                 placeholder = { Text(stringResource(Res.string.contributor_author_or_narrator_name)) },
                 trailingIcon = {
                     IconButton(
                         onClick = onSearch,
-                        enabled = !state.isSearching && state.searchQuery.isNotBlank(),
+                        enabled = !isSearching && state.query.isNotBlank(),
                     ) {
-                        if (state.isSearching) {
+                        if (isSearching) {
                             ListenUpLoadingIndicatorSmall()
                         } else {
                             Icon(
@@ -141,14 +147,14 @@ fun ContributorMetadataSearchScreen(
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             RegionSelector(
-                selectedRegion = state.selectedRegion,
+                selectedRegion = state.region,
                 onRegionSelected = onRegionSelected,
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Error message
-            state.searchError?.let { error ->
+            searchError?.let { error ->
                 Text(
                     text = error,
                     color = MaterialTheme.colorScheme.error,
@@ -158,47 +164,68 @@ fun ContributorMetadataSearchScreen(
             }
 
             // Results
-            when {
-                state.isSearching -> {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ListenUpLoadingIndicator()
-                    }
-                }
+            ContributorSearchResultsSection(
+                isSearching = isSearching,
+                hasSearched = state.loadState is ContributorSearchLoadState.Loaded,
+                searchError = searchError,
+                searchResults = searchResults,
+                onResultClick = onResultClick,
+            )
+        }
+    }
+}
 
-                state.searchResults.isEmpty() && state.searchError == null -> {
-                    val hasSearched = state.searchQuery.isNotBlank()
-                    EmptyState(
-                        title = if (hasSearched) "No matches found" else "Search Audible",
-                        subtitle =
-                            if (hasSearched) {
-                                "Try a different name or region"
-                            } else {
-                                "Enter a name to search for contributors on Audible"
-                            },
+/**
+ * The results region of [ContributorMetadataSearchScreen]: a loading spinner while a search is
+ * in flight, an [EmptyState] for "not searched yet" / "no matches", or the results list —
+ * whichever applies to the current [ContributorSearchLoadState].
+ */
+@Composable
+private fun ColumnScope.ContributorSearchResultsSection(
+    isSearching: Boolean,
+    hasSearched: Boolean,
+    searchError: String?,
+    searchResults: List<MetadataContributorHit>,
+    onResultClick: (MetadataContributorHit) -> Unit,
+) {
+    when {
+        isSearching -> {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                ListenUpLoadingIndicator()
+            }
+        }
+
+        searchResults.isEmpty() && searchError == null -> {
+            EmptyState(
+                title = if (hasSearched) "No matches found" else "Search Audible",
+                subtitle =
+                    if (hasSearched) {
+                        "Try a different name or region"
+                    } else {
+                        "Enter a name to search for contributors on Audible"
+                    },
+            )
+        }
+
+        else -> {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f),
+            ) {
+                items(
+                    items = searchResults,
+                    key = { it.asin },
+                ) { result ->
+                    ContributorSearchResultItem(
+                        result = result,
+                        onClick = { onResultClick(result) },
                     )
-                }
-
-                else -> {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        items(
-                            items = state.searchResults,
-                            key = { it.asin },
-                        ) { result ->
-                            ContributorSearchResultItem(
-                                result = result,
-                                onClick = { onResultClick(result) },
-                            )
-                        }
-                    }
                 }
             }
         }

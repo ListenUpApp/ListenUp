@@ -175,16 +175,21 @@ data class ContributorMetadataSearch(
 /**
  * Contributor metadata preview screen - preview Audible metadata before applying.
  *
- * Shows side-by-side comparison of current contributor data vs Audible data.
- * User can toggle which fields to apply (name, biography, image).
+ * Shows side-by-side comparison of current contributor data vs the fetched
+ * profile. The server applies asin + biography + photo; there is no per-field
+ * selection (matching the server's behavior).
  *
  * @property contributorId The unique ID of the contributor to update.
  * @property asin The Audible ASIN of the matched contributor.
+ * @property region The region the match was found in, carried over from the search screen so the
+ *   preview fetches from the same catalog instead of re-defaulting to US — profiles are
+ *   region-localized (mirrors [MatchPreview.region]).
  */
 @Serializable
 data class ContributorMetadataPreview(
     val contributorId: String,
     val asin: String,
+    val region: MetadataLocale,
 ) : Route
 
 /**

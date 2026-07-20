@@ -93,12 +93,14 @@ class MetadataRepositoryImplTest :
             buildRepo(service).getBookChapters("B001", MetadataLocale.DEFAULT) shouldBe AppResult.Success<MetadataChapters?>(null)
         }
 
-        test("searchContributorMetadata delegates to service and returns Success") {
-            val payload = emptyList<MetadataContributorHit>()
+        test("searchContributorMetadata delegates query and region to service") {
+            val hits = listOf(MetadataContributorHit(asin = "B1", name = "Tim Curry"))
             val service = mock<MetadataLookupService>()
-            everySuspend { service.searchContributorMetadata("query") } returns WireAppResult.Success(payload)
+            everySuspend { service.searchContributorMetadata("tim", MetadataLocale("uk")) } returns WireAppResult.Success(hits)
 
-            buildRepo(service).searchContributorMetadata("query") shouldBe AppResult.Success(payload)
+            val result = buildRepo(service).searchContributorMetadata("tim", MetadataLocale("uk"))
+
+            result shouldBe AppResult.Success(hits)
         }
 
         test("getContributorMetadata delegates to service and returns Success") {

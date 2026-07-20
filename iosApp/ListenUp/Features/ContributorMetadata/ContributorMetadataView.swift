@@ -172,21 +172,41 @@ private struct ContributorMetadataPreviewView: View {
 
     var body: some View {
         Group {
-            if observer.isLoadingPreview {
+            switch observer.previewPhase {
+            case .loading, nil:
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let error = observer.previewError {
+            case .missing:
+                // Honest miss, not an error: the catalog has no profile in this region (Audnexus
+                // localizes contributor data per region). Offer the region switch inline — the
+                // same picker the search screen uses — so the user has an immediate way forward
+                // instead of a dead end (Never-Stranded). Mirrors the Compose route's FilterChip row.
+                ContentUnavailableView {
+                    Label(String(localized: "contributor.find_on_audible"), systemImage: "magnifyingglass")
+                } description: {
+                    Text(String(
+                        format: String(localized: "contributor.no_profile_in_region"),
+                        observer.region.displayName
+                    ))
+                } actions: {
+                    RegionPicker(
+                        options: MetadataRegionOption.all,
+                        selection: observer.region,
+                        label: \.displayName
+                    ) { observer.changeRegion($0) }
+                }
+            case .failed(let message):
                 ContentUnavailableView {
                     Label(
                         String(localized: "contributor.failed_to_load_profile"),
                         systemImage: "exclamationmark.triangle"
                     )
                 } description: {
-                    Text(error)
+                    Text(message)
                 }
-            } else if let profile = observer.profile {
-                content(profile: profile)
-            } else {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .ready:
+                if let profile = observer.profile {
+                    content(profile: profile)
+                }
             }
         }
         .background(Color.luSurface)
@@ -199,11 +219,18 @@ private struct ContributorMetadataPreviewView: View {
             VStack(alignment: .leading, spacing: 16) {
                 imageComparison(profile: profile)
 
-                ForEach(observer.fieldComparisons.filter { $0.field != .image }) { comparison in
-                    ContributorComparisonRow(comparison: comparison, isMultiline: comparison.field == .biography) {
-                        observer.toggleField(comparison.field)
-                    }
-                }
+                ContributorComparisonRow(
+                    label: String(localized: "common.name"),
+                    currentValue: observer.contributorName,
+                    newValue: profile.name,
+                    isMultiline: false
+                )
+                ContributorComparisonRow(
+                    label: String(localized: "contributor.biography"),
+                    currentValue: observer.currentBio,
+                    newValue: profile.bio,
+                    isMultiline: true
+                )
 
                 metadataDates(profile: profile)
             }
@@ -214,48 +241,37 @@ private struct ContributorMetadataPreviewView: View {
         .safeAreaInset(edge: .bottom) { applyTray }
     }
 
-    @ViewBuilder
+    /// Side-by-side current vs. incoming photo. Informational — no toggle; the server keeps the
+    /// existing photo when the incoming one is absent.
     private func imageComparison(profile: ContributorProfilePreview) -> some View {
-        if let imageComparison = observer.fieldComparisons.first(where: { $0.field == .image }) {
-            Button {
-                observer.toggleField(.image)
-            } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: imageComparison.isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(imageComparison.isSelected ? Color.luTint : Color.luLabel3)
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(String(localized: "common.image"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(String(localized: "common.image"))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-
-                        HStack(spacing: 16) {
-                            labelledImage(
-                                title: String(localized: "contributor.current"),
-                                content: ContributorAvatar(
-                                    name: observer.contributorName,
-                                    imagePath: observer.currentImagePath,
-                                    id: "",
-                                    fontSize: 22
-                                )
-                            )
-                            Image(systemName: "arrow.right").foregroundStyle(Color.luLabel3)
-                            labelledImage(
-                                title: String(localized: "contributor.audible"),
-                                content: MetadataRemoteCover(url: profile.imageURL)
-                            )
-                        }
-                    }
-                    Spacer(minLength: 0)
+                HStack(spacing: 16) {
+                    labelledImage(
+                        title: String(localized: "contributor.current"),
+                        content: ContributorAvatar(
+                            name: observer.contributorName,
+                            imagePath: observer.currentImagePath,
+                            id: "",
+                            fontSize: 22
+                        )
+                    )
+                    Image(systemName: "arrow.right").foregroundStyle(Color.luLabel3)
+                    labelledImage(
+                        title: String(localized: "contributor.audible"),
+                        content: MetadataRemoteCover(url: profile.imageURL)
+                    )
                 }
-                .padding(14)
-                .background(Color.luSurface2)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .contentShape(Rectangle())
             }
-            .buttonStyle(PressScaleButtonStyle())
+            Spacer(minLength: 0)
         }
+        .padding(14)
+        .background(Color.luSurface2)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func labelledImage(title: String, content: some View) -> some View {
@@ -309,60 +325,43 @@ private struct ContributorMetadataPreviewView: View {
             )
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
-            .disabled(!observer.hasSelectedFields)
-            .opacity(observer.hasSelectedFields ? 1 : 0.5)
+            .disabled(!observer.canApply)
+            .opacity(observer.canApply ? 1 : 0.5)
         }
         .background(.bar)
     }
 }
 
-/// A name/biography comparison row: a coral check toggle, the current value, and the incoming
-/// Audible value. The toggle disables when Audible returned nothing for the field.
+/// A name/biography comparison row: the current value and the incoming Audible value, side by
+/// side. Informational only — there are no per-field toggles; the server applies asin +
+/// biography + photo as a unit (never the name), matching Audiobookshelf's apply contract.
 private struct ContributorComparisonRow: View {
-    let comparison: ContributorFieldComparison
+    let label: String
+    let currentValue: String?
+    let newValue: String?
     let isMultiline: Bool
-    let onToggle: () -> Void
 
-    private var isUnchanged: Bool { comparison.currentValue == comparison.newValue }
+    private var isUnchanged: Bool { currentValue == newValue && !(newValue ?? "").isEmpty }
 
     var body: some View {
-        Button(action: onToggle) {
-            HStack(alignment: .top, spacing: 14) {
-                Image(systemName: comparison.isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(comparison.isSelected ? Color.luTint : Color.luLabel3)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(comparison.label)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if isUnchanged, comparison.hasNewValue {
-                            Text(String(localized: "contributor.no_change"))
-                                .font(.caption2)
-                                .foregroundStyle(Color.luLabel3)
-                        }
-                    }
-                    valueLine(
-                        title: String(localized: "contributor.current"),
-                        value: comparison.currentValue,
-                        accent: false
-                    )
-                    valueLine(
-                        title: String(localized: "contributor.audible"),
-                        value: comparison.newValue,
-                        accent: true
-                    )
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(label)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Spacer()
+                if isUnchanged {
+                    Text(String(localized: "contributor.no_change"))
+                        .font(.caption2)
+                        .foregroundStyle(Color.luLabel3)
                 }
             }
-            .padding(14)
-            .background(Color.luSurface2)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .contentShape(Rectangle())
+            valueLine(title: String(localized: "contributor.current"), value: currentValue, accent: false)
+            valueLine(title: String(localized: "contributor.audible"), value: newValue, accent: true)
         }
-        .buttonStyle(PressScaleButtonStyle())
-        .disabled(!comparison.hasNewValue || isUnchanged)
+        .padding(14)
+        .background(Color.luSurface2)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func valueLine(title: String, value: String?, accent: Bool) -> some View {

@@ -5171,12 +5171,12 @@
         }
       }
     },
-    "contributor.apply_selectedcount_of_availablefieldcount": {
+    "contributor.apply_match": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Apply %1$@ of %2$@"
+            "value": "Apply"
           }
         }
       }
@@ -5581,12 +5581,12 @@
         }
       }
     },
-    "contributor.no_image_available_from_audible": {
+    "contributor.no_profile_in_region": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No image available from Audible"
+            "value": "No profile data in the %1$@ catalog. Try a different region:"
           }
         }
       }

@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImp
 import com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
-import com.calypsan.listenup.client.domain.usecase.contributor.ApplyContributorMetadataUseCase
 import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributorUseCase
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import org.koin.core.module.Module
@@ -73,11 +72,6 @@ internal val contributorModule: Module =
         factory {
             DeleteContributorUseCase(
                 contributorEditRepository = get(),
-            )
-        }
-        factory {
-            ApplyContributorMetadataUseCase(
-                metadataRepository = get(),
             )
         }
     }
