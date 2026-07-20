@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.dto.auth.WeakPasswordReason
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.ActivitySyncRepository
@@ -31,6 +32,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeBlank
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -61,6 +63,28 @@ class AuthServiceImplTest :
                 sessionIssuer = SessionIssuer(sessions, jwt, svcClock),
                 clock = svcClock,
                 settings = settings,
+            )
+        }
+
+        // Builds a service bound to a real LoginRateLimiter + remoteHost, mirroring the RPC public
+        // mount's withRemoteHost binding — the only shape that makes enforceRate() non-inert.
+        fun newSvcWithRateLimiter(remoteHost: String): AuthServiceImpl {
+            val db = migratedTestDatabase().db
+            val hasher = PasswordHasher()
+            val sessions =
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+            val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
+            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+            return AuthServiceImpl(
+                db = db,
+                sessions = sessions,
+                hasher = Argon2Limiter(hasher),
+                jwt = jwt,
+                sessionIssuer = SessionIssuer(sessions, jwt, clock),
+                clock = clock,
+                settings = settings,
+                remoteHost = remoteHost,
+                loginRateLimiter = LoginRateLimiter(clock),
             )
         }
 
@@ -506,6 +530,21 @@ class AuthServiceImplTest :
                 svc
                     .refreshSession(RefreshRequest(b.refreshToken))
                     .shouldFail<AuthError.InvalidRefreshToken>()
+            }
+        }
+
+        test("observeRegistrationStatus throttles after the OBSERVE_REGISTRATION_STATUS ceiling from one host") {
+            runTest {
+                val svc = newSvcWithRateLimiter("10.0.0.9")
+
+                repeat(AuthRateBucket.OBSERVE_REGISTRATION_STATUS.perMinuteLimit) {
+                    val events = svc.observeRegistrationStatus("whatever").toList()
+                    events.none { it is RpcEvent.Error && it.error is AuthError.RateLimited } shouldBe true
+                }
+
+                val throttled = svc.observeRegistrationStatus("whatever").toList()
+                val error = throttled.single().shouldBeInstanceOf<RpcEvent.Error>()
+                error.error.shouldBeInstanceOf<AuthError.RateLimited>()
             }
         }
     })

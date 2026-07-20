@@ -331,6 +331,13 @@ class AuthServiceImpl(
      */
     override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> =
         flow {
+            // C3-style per-IP throttle (mirrors login/register/refresh): each open subscription
+            // runs a poll loop for as long as the registration stays pending, so an unbounded
+            // stream of subscribe attempts is a resource-exhaustion vector on its own.
+            enforceRate(AuthRateBucket.OBSERVE_REGISTRATION_STATUS)?.let {
+                emit(RpcEvent.Error(it))
+                return@flow
+            }
             val initial = readRegistrationStatus(db, userId)
             if (initial == null) {
                 emit(RpcEvent.Error(AuthError.RegistrationNotFound()))
