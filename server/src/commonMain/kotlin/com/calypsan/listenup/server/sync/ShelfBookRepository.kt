@@ -178,6 +178,17 @@ class ShelfBookRepository(
         return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
     }
 
+    /**
+     * Tombstone projection (SERVER-SYNC-04) — see [SqlSyncableRepository.minimizeTombstone].
+     * The pull path delivers junction tombstones ungated so every client converges, so the
+     * pair itself must not cross the wire: a member who never had access to [shelfId] would
+     * otherwise learn the association from the tombstone alone. `id`/`revision`/`deletedAt`/
+     * `createdAt`/`sortOrder` survive — identity, sync-discipline, and non-sensitive display
+     * ordering only.
+     */
+    override fun minimizeTombstone(payload: ShelfBookSyncPayload): ShelfBookSyncPayload =
+        payload.copy(shelfId = "", bookId = "")
+
     override fun writePayload(
         value: ShelfBookSyncPayload,
         rev: Long,

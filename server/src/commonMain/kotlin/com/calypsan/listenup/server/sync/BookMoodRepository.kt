@@ -148,6 +148,16 @@ class BookMoodRepository(
         return idStrs.mapNotNull { byId[it]?.toPayload() }
     }
 
+    /**
+     * Tombstone projection (SERVER-SYNC-04) — see [SqlSyncableRepository.minimizeTombstone].
+     * The pull path delivers junction tombstones ungated so every client converges, so the
+     * pair itself must not cross the wire: a member who never had access to [bookId] would
+     * otherwise learn the association from the tombstone alone. `id`/`revision`/`deletedAt`/
+     * `createdAt` survive — identity and sync-discipline fields only.
+     */
+    override fun minimizeTombstone(payload: BookMoodSyncPayload): BookMoodSyncPayload =
+        payload.copy(bookId = "", moodId = "")
+
     override fun writePayload(
         value: BookMoodSyncPayload,
         rev: Long,
