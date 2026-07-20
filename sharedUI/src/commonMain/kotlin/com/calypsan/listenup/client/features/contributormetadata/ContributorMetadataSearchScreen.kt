@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.contributormetadata
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -163,47 +164,68 @@ fun ContributorMetadataSearchScreen(
             }
 
             // Results
-            when {
-                isSearching -> {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ListenUpLoadingIndicator()
-                    }
-                }
+            ContributorSearchResultsSection(
+                isSearching = isSearching,
+                hasSearched = state.loadState is ContributorSearchLoadState.Loaded,
+                searchError = searchError,
+                searchResults = searchResults,
+                onResultClick = onResultClick,
+            )
+        }
+    }
+}
 
-                searchResults.isEmpty() && searchError == null -> {
-                    val hasSearched = state.loadState is ContributorSearchLoadState.Loaded
-                    EmptyState(
-                        title = if (hasSearched) "No matches found" else "Search Audible",
-                        subtitle =
-                            if (hasSearched) {
-                                "Try a different name or region"
-                            } else {
-                                "Enter a name to search for contributors on Audible"
-                            },
+/**
+ * The results region of [ContributorMetadataSearchScreen]: a loading spinner while a search is
+ * in flight, an [EmptyState] for "not searched yet" / "no matches", or the results list —
+ * whichever applies to the current [ContributorSearchLoadState].
+ */
+@Composable
+private fun ColumnScope.ContributorSearchResultsSection(
+    isSearching: Boolean,
+    hasSearched: Boolean,
+    searchError: String?,
+    searchResults: List<MetadataContributorHit>,
+    onResultClick: (MetadataContributorHit) -> Unit,
+) {
+    when {
+        isSearching -> {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                ListenUpLoadingIndicator()
+            }
+        }
+
+        searchResults.isEmpty() && searchError == null -> {
+            EmptyState(
+                title = if (hasSearched) "No matches found" else "Search Audible",
+                subtitle =
+                    if (hasSearched) {
+                        "Try a different name or region"
+                    } else {
+                        "Enter a name to search for contributors on Audible"
+                    },
+            )
+        }
+
+        else -> {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f),
+            ) {
+                items(
+                    items = searchResults,
+                    key = { it.asin },
+                ) { result ->
+                    ContributorSearchResultItem(
+                        result = result,
+                        onClick = { onResultClick(result) },
                     )
-                }
-
-                else -> {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        items(
-                            items = searchResults,
-                            key = { it.asin },
-                        ) { result ->
-                            ContributorSearchResultItem(
-                                result = result,
-                                onClick = { onResultClick(result) },
-                            )
-                        }
-                    }
                 }
             }
         }

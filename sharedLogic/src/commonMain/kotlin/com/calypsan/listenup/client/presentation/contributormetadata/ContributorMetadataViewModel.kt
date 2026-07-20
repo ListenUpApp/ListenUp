@@ -474,7 +474,9 @@ class ContributorMetadataViewModel(
                         metadataRepository.getContributorMetadata(target.asin, target.region)
                     }
                 when (result) {
-                    is AppResult.Success -> projectPreviewResult(target, result.data)
+                    is AppResult.Success -> {
+                        projectPreviewResult(target, result.data)
+                    }
 
                     is AppResult.Failure -> {
                         errorBus.emit(result.error)
@@ -562,7 +564,10 @@ class ContributorMetadataViewModel(
     ): Boolean {
         var applied = false
         state.update { latest ->
-            if (latest is ContributorMetadataUiState.Preview && latest.matches(target) && latest.loadState is ContributorPreviewLoadState.Ready) {
+            if (latest is ContributorMetadataUiState.Preview &&
+                latest.matches(target) &&
+                latest.loadState is ContributorPreviewLoadState.Ready
+            ) {
                 applied = true
                 latest.copy(loadState = transform(latest.loadState))
             } else {
