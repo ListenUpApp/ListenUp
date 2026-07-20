@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transformWhile
 
 /**
  * RPC implementation of [RegistrationStatusStream], riding the public-channel
@@ -24,8 +24,31 @@ import kotlinx.coroutines.flow.map
 internal class RegistrationStatusStreamImpl(
     private val channel: RpcChannel<AuthServicePublic>,
 ) : RegistrationStatusStream {
+    /**
+     * [RpcEvent.Error] is re-thrown (rather than silently dropped, as [streamStatus] consumers
+     * elsewhere in the codebase do) so the ViewModel's existing catch-and-retry-then-poll fallback
+     * fires — a typed business failure (e.g. an unrecognised registration id) must not look like a
+     * silent "still pending".
+     */
     override fun streamStatus(userId: String): Flow<StreamedRegistrationStatus> =
-        channel.stream { it.observeRegistrationStatus(userId) }.map { it.toStreamedStatus() }
+        channel.stream { it.observeRegistrationStatus(userId) }.transformWhile { event ->
+            when (event) {
+                is RpcEvent.Data -> {
+                    emit(event.value.toDomain())
+                    true
+                }
+
+                is RpcEvent.Error -> {
+                    throw RegistrationStatusStreamFailure(event.error)
+                }
+
+                // Explicit terminal marker: honestly complete the stream. Per RpcEvent's KDoc this
+                // is an "optional explicit terminal marker" — collection completion is the signal.
+                is RpcEvent.Complete -> {
+                    false
+                }
+            }
+        }
 
     override suspend fun fetchStatus(userId: String): StreamedRegistrationStatus =
         when (val first = channel.stream { it.observeRegistrationStatus(userId) }.firstOrNull()) {
@@ -35,19 +58,6 @@ internal class RegistrationStatusStreamImpl(
             // (e.g. an unrecognised registration id) all fall back to Pending rather than throwing —
             // this is the reliable pull the ViewModel's poll and "Check Status" action lean on.
             else -> StreamedRegistrationStatus.Pending
-        }
-
-    /**
-     * [RpcEvent.Error] is re-thrown (rather than silently dropped, as [streamStatus] consumers
-     * elsewhere in the codebase do) so the ViewModel's existing catch-and-retry-then-poll fallback
-     * fires — a typed business failure (e.g. an unrecognised registration id) must not look like a
-     * silent "still pending".
-     */
-    private fun RpcEvent<RegistrationStatusEvent>.toStreamedStatus(): StreamedRegistrationStatus =
-        when (this) {
-            is RpcEvent.Data -> value.toDomain()
-            is RpcEvent.Error -> throw RegistrationStatusStreamFailure(error)
-            is RpcEvent.Complete -> error("RpcEvent.Complete is not emitted by observeRegistrationStatus")
         }
 }
 

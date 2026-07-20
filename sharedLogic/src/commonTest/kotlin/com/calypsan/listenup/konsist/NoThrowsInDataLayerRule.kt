@@ -143,6 +143,12 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // TransportError and KEEPS the session instead of misreading a network blip as logout.
             // Same category as RpcOutcomeUnknownException — a typed transport signal, not a swallowed
             // failure.
-            !line.contains("throw TransientAuthRefreshException(")
+            !line.contains("throw TransientAuthRefreshException(") &&
+            // Flow error channel: RegistrationStatusStreamImpl throws this typed failure INTO the
+            // stream so the ViewModel's catch-retry-then-poll fallback fires — a business
+            // RpcEvent.Error (e.g. an unrecognised registration id) must not look like a silent
+            // "still pending". Flow-returning APIs have no AppResult seat; the thrown value is
+            // typed and consumed at the collection site, not swallowed.
+            !line.contains("throw RegistrationStatusStreamFailure(")
     }
 }
