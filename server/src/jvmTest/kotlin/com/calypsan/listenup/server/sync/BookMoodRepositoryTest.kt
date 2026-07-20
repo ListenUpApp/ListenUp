@@ -59,7 +59,7 @@ class BookMoodRepositoryTest :
 
                     val result =
                         bookMoodRepo.upsert(
-                            BookMoodSyncPayload(bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L),
+                            BookMoodSyncPayload(id = "book1:m1", bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L),
                         )
 
                     result.shouldBeInstanceOf<AppResult.Success<BookMoodSyncPayload>>()
@@ -87,7 +87,7 @@ class BookMoodRepositoryTest :
 
                 runTest {
                     moodRepo.upsert(Mood(id = "m1", name = "Cozy", slug = "cozy", revision = 0, updatedAt = 0))
-                    val payload = BookMoodSyncPayload(bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L)
+                    val payload = BookMoodSyncPayload(id = "book1:m1", bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L)
                     bookMoodRepo.upsert(payload)
                     bookMoodRepo.softDelete("book1", "m1")
 
@@ -114,9 +114,9 @@ class BookMoodRepositoryTest :
                     moodRepo.upsert(Mood("m2", "Cozy", "cozy", 0, 0))
                     moodRepo.upsert(Mood("m3", "Hopeful", "hopeful", 0, 0))
 
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m2", 2000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m3", 3000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m2", "book1", "m2", 2000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m3", "book1", "m3", 3000L, 0L))
                     bookMoodRepo.softDelete("book1", "m3")
 
                     val rows = bookMoodRepo.findAllForBook("book1")
@@ -141,9 +141,9 @@ class BookMoodRepositoryTest :
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
 
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book2", "m1", 2000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book3", "m1", 3000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book2:m1", "book2", "m1", 2000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book3:m1", "book3", "m1", 3000L, 0L))
                     bookMoodRepo.softDelete("book3", "m1")
 
                     val rows = bookMoodRepo.findAllForMood("m1")
@@ -202,7 +202,7 @@ class BookMoodRepositoryTest :
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
 
                     val sub = async { bus.subscribe().drop(2).first() }
                     advanceUntilIdle()
@@ -251,9 +251,9 @@ class BookMoodRepositoryTest :
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
                     moodRepo.upsert(Mood("m2", "Cozy", "cozy", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m2", 2000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book2", "m1", 3000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m2", "book1", "m2", 2000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book2:m1", "book2", "m1", 3000L, 0L))
 
                     val count = bookMoodRepo.softDeleteAllForBook("book1")
                     count shouldBe 2
@@ -277,8 +277,8 @@ class BookMoodRepositoryTest :
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
                     moodRepo.upsert(Mood("m2", "Cozy", "cozy", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m2", 2000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m2", "book1", "m2", 2000L, 0L))
 
                     // Subscribe before the action; drop the 4 setup events
                     // (2 mood Created + 2 junction Created).
@@ -308,8 +308,8 @@ class BookMoodRepositoryTest :
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book2", "m1", 2000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book2:m1", "book2", "m1", 2000L, 0L))
 
                     val count = bookMoodRepo.softDeleteAllForMood("m1")
                     count shouldBe 2
@@ -334,9 +334,9 @@ class BookMoodRepositoryTest :
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Cozy", "cozy", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book2", "m1", 2000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book3", "m1", 3000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book2:m1", "book2", "m1", 2000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book3:m1", "book3", "m1", 3000L, 0L))
                     bookMoodRepo.softDelete("book3", "m1")
 
                     val bookIds = bookMoodRepo.findBookIdsForMood("m1")
@@ -359,8 +359,8 @@ class BookMoodRepositoryTest :
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
                     moodRepo.upsert(Mood("m2", "Cozy", "cozy", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m2", 2000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m2", "book1", "m2", 2000L, 0L))
 
                     val page = bookMoodRepo.pullSince(userId = null, cursor = 0L, limit = 100)
                     page.items shouldHaveSize 2
@@ -382,7 +382,7 @@ class BookMoodRepositoryTest :
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
-                    bookMoodRepo.upsert(BookMoodSyncPayload("book1", "m1", 1000L, 0L))
+                    bookMoodRepo.upsert(BookMoodSyncPayload("book1:m1", "book1", "m1", 1000L, 0L))
                     bookMoodRepo.softDelete("book1", "m1")
 
                     val page = bookMoodRepo.pullSince(userId = null, cursor = 0L, limit = 100)

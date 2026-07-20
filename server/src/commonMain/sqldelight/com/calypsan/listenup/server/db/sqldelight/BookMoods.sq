@@ -38,6 +38,13 @@ SELECT id, revision FROM book_moods WHERE deleted_at IS NULL AND revision <= :cu
 
 -- Domain queries.
 
+-- Resolves the REAL stored opaque id for an existing (live OR tombstoned) row for a natural
+-- pair, or null if no row exists yet. SqlSyncableRepository.upsert/softDelete key off this so
+-- an idempotent re-add or a revive reuses the SAME opaque id instead of minting a new one — the
+-- server-side half of "the existing row's id wins" (SERVER-SYNC-04).
+selectIdByNaturalPair:
+SELECT id FROM book_moods WHERE book_id = :book_id AND mood_id = :mood_id;
+
 -- Tombstone-inclusive read by synthetic id. Used by the base's pullSince/readPayloads,
 -- which must hydrate soft-deleted rows so clients receive tombstones.
 selectById:

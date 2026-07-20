@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.sync.ActivitySyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.DomainList
@@ -738,8 +739,9 @@ private fun isAdminRosterEventHidden(
  * Visibility matches each domain's catch-up fragment exactly so the live tail and REST
  * replay never disagree:
  *  - `collections` — the event id *is* the collection id; gated by [BookAccessPolicy.canAccessCollection].
- *  - `collection_books` — the event id is the synthetic `"$collectionId:$bookId"` key
- *    ([CollectionBookId.fromString]); gated by the parsed collection's access.
+ *  - `collection_books` — the event id is an opaque per-row value (SERVER-SYNC-04: it encodes
+ *    nothing), so the collection id comes from the [CollectionBookSyncPayload] carried by the
+ *    Created/Updated event, never parsed off the id; gated by that collection's access.
  *  - `collection_shares` — the event id is the grant row id, so the collection id and named
  *    user come from the [CollectionShareSyncPayload]; visible iff the grant names the viewer
  *    or the viewer owns the collection (the `visibleCollectionGrantIdsSql` rule).
@@ -765,12 +767,26 @@ private suspend fun isCollectionEventHidden(
 
     val collectionId =
         if (domain == COLLECTION_BOOKS_DOMAIN) {
-            CollectionBookId.fromString(busEvent.event.id).collectionId
+            collectionBookPayloadOf(busEvent.event)?.collectionId
         } else {
             busEvent.event.id
         }
-    return !bookAccessPolicy().canAccessCollection(userId, role, collectionId)
+    // A missing collection_books payload should never happen for Created/Updated (only Deleted
+    // carries none, and that already returned above) — hide defensively rather than bypass.
+    return collectionId == null || !bookAccessPolicy().canAccessCollection(userId, role, collectionId)
 }
+
+/**
+ * Extracts the [CollectionBookSyncPayload] carried by a Created/Updated `collection_books`
+ * event, or null for a Deleted event (which carries no payload — callers never reach this for
+ * Deleted, since [isCollectionEventHidden] returns early on tombstones). Mirrors [sharePayloadOf].
+ */
+private fun collectionBookPayloadOf(event: SyncEvent<*>): CollectionBookSyncPayload? =
+    when (event) {
+        is SyncEvent.Created<*> -> event.payload as CollectionBookSyncPayload
+        is SyncEvent.Updated<*> -> event.payload as CollectionBookSyncPayload
+        is SyncEvent.Deleted -> null
+    }
 
 /**
  * The [CollectionShareSyncPayload] carried by a content [event] on the `collection_shares`

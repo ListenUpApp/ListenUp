@@ -87,6 +87,7 @@ internal class BookTagWriter(
         for (tagId in targetTagIds - currentTagIds) {
             bookTagRepository.upsert(
                 BookTagSyncPayload(
+                    id = Uuid.random().toString(),
                     bookId = bookId.value,
                     tagId = tagId,
                     createdAt = now,
@@ -120,6 +121,7 @@ internal class BookTagWriter(
         val now = clock.now().toEpochMilliseconds()
         bookTagRepository.upsert(
             BookTagSyncPayload(
+                id = Uuid.random().toString(),
                 bookId = bookId.value,
                 tagId = tagId,
                 createdAt = now,

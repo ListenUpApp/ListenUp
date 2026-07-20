@@ -86,6 +86,7 @@ internal class BookMoodWriter(
         for (moodId in targetMoodIds - currentMoodIds) {
             bookMoodRepository.upsert(
                 BookMoodSyncPayload(
+                    id = Uuid.random().toString(),
                     bookId = bookId.value,
                     moodId = moodId,
                     createdAt = now,
@@ -119,6 +120,7 @@ internal class BookMoodWriter(
         val now = clock.now().toEpochMilliseconds()
         bookMoodRepository.upsert(
             BookMoodSyncPayload(
+                id = Uuid.random().toString(),
                 bookId = bookId.value,
                 moodId = moodId,
                 createdAt = now,

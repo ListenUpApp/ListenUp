@@ -197,7 +197,13 @@ private suspend fun ApplicationTestBuilder.makeBookPublic(bookId: String) {
         collectionService.getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS) as AppResult.Success
     require(
         collectionBookRepo.upsert(
-            CollectionBookSyncPayload(collectionId = allBooks.data.id.value, bookId = bookId, createdAt = 0L, revision = 0L),
+            CollectionBookSyncPayload(
+                id = "${allBooks.data.id.value}:$bookId",
+                collectionId = allBooks.data.id.value,
+                bookId = bookId,
+                createdAt = 0L,
+                revision = 0L,
+            ),
         ) is AppResult.Success,
     ) { "failed to add $bookId to ALL_BOOKS" }
 }

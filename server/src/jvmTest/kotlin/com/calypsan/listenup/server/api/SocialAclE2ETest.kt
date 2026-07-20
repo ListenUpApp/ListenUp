@@ -149,6 +149,7 @@ class SocialAclE2ETest :
             )
             collectionBooks.upsert(
                 CollectionBookSyncPayload(
+                    id = "$collectionId:$bookId",
                     collectionId = collectionId,
                     bookId = bookId,
                     createdAt = 0L,
@@ -203,6 +204,7 @@ class SocialAclE2ETest :
                         ).data.id.value
                     collectionBooks.upsert(
                         CollectionBookSyncPayload(
+                            id = "$allBooksId:public-book",
                             collectionId = allBooksId,
                             bookId = "public-book",
                             createdAt = 0L,

@@ -92,8 +92,8 @@ class TagRepositoryOfflineTest :
             runTest {
                 val f = fixture()
                 f.db.tagDao().upsert(TagEntity(id = "t1", name = "Sci Fi", slug = "sci-fi", revision = 2, updatedAt = 0L))
-                f.db.bookTagDao().upsert(BookTagEntity(bookId = "b1", tagId = "t1", createdAt = 0L, revision = 1))
-                f.db.bookTagDao().upsert(BookTagEntity(bookId = "b2", tagId = "t1", createdAt = 0L, revision = 1))
+                f.db.bookTagDao().upsert(BookTagEntity(bookId = "b1", tagId = "t1", syncId = "b1:t1", createdAt = 0L, revision = 1))
+                f.db.bookTagDao().upsert(BookTagEntity(bookId = "b2", tagId = "t1", syncId = "b2:t1", createdAt = 0L, revision = 1))
                 val repo = f.repo(mock())
 
                 val result = repo.deleteTag("t1")
@@ -129,7 +129,7 @@ class TagRepositoryOfflineTest :
         test("removeTagFromBook tombstones the junction and enqueues a book_tags op keyed by \$bookId:\$tagId") {
             runTest {
                 val f = fixture()
-                f.db.bookTagDao().upsert(BookTagEntity(bookId = "b1", tagId = "t1", createdAt = 0L, revision = 1))
+                f.db.bookTagDao().upsert(BookTagEntity(bookId = "b1", tagId = "t1", syncId = "b1:t1", createdAt = 0L, revision = 1))
                 val repo = f.repo(mock())
 
                 val result = repo.removeTagFromBook(bookId = "b1", tagId = "t1")

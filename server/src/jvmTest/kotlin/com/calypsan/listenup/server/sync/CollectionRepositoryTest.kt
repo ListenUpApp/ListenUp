@@ -337,6 +337,7 @@ class CollectionRepositoryTest :
                     )
                     junctionRepo.upsert(
                         CollectionBookSyncPayload(
+                            id = "col1:book1",
                             collectionId = "col1",
                             bookId = "book1",
                             createdAt = 1000L,
@@ -386,6 +387,7 @@ class CollectionRepositoryTest :
                     )
                     junctionRepo.upsert(
                         CollectionBookSyncPayload(
+                            id = "col1:book1",
                             collectionId = "col1",
                             bookId = "book1",
                             createdAt = 1000L,
@@ -434,10 +436,10 @@ class CollectionRepositoryTest :
                         ),
                     )
                     junctionRepo.upsert(
-                        CollectionBookSyncPayload("col1", "book1", 1000L, 0L),
+                        CollectionBookSyncPayload("col1:book1", "col1", "book1", 1000L, 0L),
                     )
                     junctionRepo.upsert(
-                        CollectionBookSyncPayload("col1", "book2", 2000L, 0L),
+                        CollectionBookSyncPayload("col1:book2", "col1", "book2", 2000L, 0L),
                     )
 
                     junctionRepo.countLiveForCollection("col1") shouldBe 2L
@@ -482,8 +484,8 @@ class CollectionRepositoryTest :
                             updatedAt = 0L,
                         ),
                     )
-                    junctionRepo.upsert(CollectionBookSyncPayload("col1", "book1", 1000L, 0L))
-                    junctionRepo.upsert(CollectionBookSyncPayload("col1", "book2", 2000L, 0L))
+                    junctionRepo.upsert(CollectionBookSyncPayload("col1:book1", "col1", "book1", 1000L, 0L))
+                    junctionRepo.upsert(CollectionBookSyncPayload("col1:book2", "col1", "book2", 2000L, 0L))
 
                     val count = junctionRepo.softDeleteAllForCollection("col1")
                     count shouldBe 2

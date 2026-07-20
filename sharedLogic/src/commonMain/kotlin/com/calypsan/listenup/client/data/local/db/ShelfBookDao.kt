@@ -37,6 +37,25 @@ internal interface ShelfBookDao {
     suspend fun findById(id: String): ShelfBookEntity?
 
     /**
+     * Return the junction row for the natural `(shelfId, bookId)` pair, or null if absent.
+     *
+     * Unlike `collection_books`/`book_tags`/`book_moods` (whose Room primary key IS the natural
+     * pair), `shelf_books`' primary key is its opaque wire [ShelfBookEntity.id] (SERVER-SYNC-04).
+     * A client-minted id and a later server-echoed id for the SAME pair are therefore different
+     * primary keys — [com.calypsan.listenup.client.data.sync.domains.ShelfBookMirrorApply.upsert]
+     * uses this lookup to reconcile the two into one row instead of leaving a duplicate.
+     */
+    @Query("SELECT * FROM shelf_books WHERE shelfId = :shelfId AND bookId = :bookId LIMIT 1")
+    suspend fun findByShelfAndBook(
+        shelfId: String,
+        bookId: String,
+    ): ShelfBookEntity?
+
+    /** Hard-delete a junction row by its synthetic [id] — used to collapse a duplicate (see [findByShelfAndBook]). */
+    @Query("DELETE FROM shelf_books WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    /**
      * The highest [sortOrder][ShelfBookEntity.sortOrder] among the shelf's live junction rows, or
      * null when the shelf has no live members. Used by the offline-first `addBookToShelf` optimistic
      * write to append the new book at the end of the current sort order (mirroring the server).

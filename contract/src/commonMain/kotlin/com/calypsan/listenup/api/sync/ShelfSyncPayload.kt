@@ -38,15 +38,18 @@ data class ShelfSyncPayload(
  *
  * One row per `(shelfId, bookId)` pair. [sortOrder] determines display ordering
  * within the shelf. Soft-deletes are tombstoned via [deletedAt]; a non-null
- * [deletedAt] indicates the book was removed from the shelf. [id] is a synthetic
- * stable identifier (`"$shelfId:$bookId"`) used as the sync-cursor identity.
+ * [deletedAt] indicates the book was removed from the shelf. [id] is an opaque
+ * per-row identity minted at creation (server-side by default; client-side for
+ * offline-first creates); it deliberately encodes nothing about [shelfId] or
+ * [bookId] — an ungated tombstone that shipped a composite id would leak the
+ * association to a user who never had access to the row (SERVER-SYNC-04).
  *
  * `userId` is NOT on the wire — it is scoped server-side via `UserScopedSyncableTable`.
  */
 @Serializable
 @SerialName("ShelfBookSyncPayload")
 data class ShelfBookSyncPayload(
-    /** Synthetic stable id for sync-cursor identity (`"$shelfId:$bookId"`). */
+    /** Opaque per-row sync identity — encodes neither [shelfId] nor [bookId]. */
     @SerialName("id") override val id: String,
     /** The shelf this book belongs to. */
     @SerialName("shelfId") val shelfId: String,

@@ -159,6 +159,43 @@ class BookTagDaoTest :
                 }
             }
         }
+
+        // ── SERVER-SYNC-04: opaque syncId ──────────────────────────────────────
+
+        test("tombstoneBySyncId tombstones only the row with that syncId, by identity — never by pair") {
+            runTest {
+                dao.upsert(bookTag("b1", "t1", syncId = "opaque-1"))
+                dao.upsert(bookTag("b1", "t2", syncId = "opaque-2"))
+
+                dao.tombstoneBySyncId("opaque-1", deletedAt = 999L, revision = 5L)
+
+                val tombstoned = dao.findByKey("b1", "t1")!!
+                tombstoned.deletedAt shouldBe 999L
+                tombstoned.revision shouldBe 5L
+                dao.findByKey("b1", "t2")!!.deletedAt shouldBe null
+            }
+        }
+
+        test("tombstoneBySyncId is a graceful no-op (0 rows affected) for an unmatched syncId") {
+            runTest {
+                dao.upsert(bookTag("b1", "t1", syncId = "opaque-1"))
+
+                dao.tombstoneBySyncId("never-seen", deletedAt = 999L, revision = 5L) shouldBe 0
+                dao.findByKey("b1", "t1")!!.deletedAt shouldBe null
+            }
+        }
+
+        test("revisionOfSyncId returns the stored revision by opaque identity, tombstones included") {
+            runTest {
+                dao.upsert(bookTag("b1", "t1", syncId = "opaque-1", revision = 3L))
+                dao.revisionOfSyncId("opaque-1") shouldBe 3L
+
+                dao.tombstoneBySyncId("opaque-1", deletedAt = 1L, revision = 9L)
+                dao.revisionOfSyncId("opaque-1") shouldBe 9L
+
+                dao.revisionOfSyncId("never-seen") shouldBe null
+            }
+        }
     })
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -169,9 +206,11 @@ private fun bookTag(
     createdAt: Long = 1L,
     revision: Long = 1L,
     deletedAt: Long? = null,
+    syncId: String = "$bookId:$tagId",
 ) = BookTagEntity(
     bookId = bookId,
     tagId = tagId,
+    syncId = syncId,
     createdAt = createdAt,
     revision = revision,
     deletedAt = deletedAt,

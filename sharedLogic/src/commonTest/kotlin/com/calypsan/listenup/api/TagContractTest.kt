@@ -50,6 +50,7 @@ class TagContractTest :
         test("BookTagSyncPayload round-trips with all fields populated") {
             val original =
                 BookTagSyncPayload(
+                    id = "a1b2c3d4e5f60718293a4b5c6d7e8f90",
                     bookId = "book-xyz",
                     tagId = "tag-abc123",
                     createdAt = 1_700_000_000_000L,
@@ -57,11 +58,13 @@ class TagContractTest :
                     deletedAt = null,
                 )
             roundTrip<BookTagSyncPayload>(original) shouldBe original
+            original.id shouldBe "a1b2c3d4e5f60718293a4b5c6d7e8f90"
         }
 
         test("BookTagSyncPayload tombstone round-trips") {
             val original =
                 BookTagSyncPayload(
+                    id = "b2c3d4e5f60718293a4b5c6d7e8f9001",
                     bookId = "book-xyz",
                     tagId = "tag-abc123",
                     createdAt = 1_700_000_000_000L,
@@ -69,6 +72,7 @@ class TagContractTest :
                     deletedAt = 1_700_001_000_000L,
                 )
             roundTrip<BookTagSyncPayload>(original) shouldBe original
+            original.id shouldBe "b2c3d4e5f60718293a4b5c6d7e8f9001"
         }
 
         // ── TagSummary ────────────────────────────────────────────────────────

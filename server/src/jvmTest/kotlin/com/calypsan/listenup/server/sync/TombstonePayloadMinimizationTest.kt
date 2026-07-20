@@ -24,11 +24,20 @@ import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import com.calypsan.listenup.api.sync.BookMoodSyncPayload
+import com.calypsan.listenup.api.sync.BookTagSyncPayload
+import com.calypsan.listenup.api.sync.Mood
+import com.calypsan.listenup.api.sync.ShelfBookSyncPayload
+import com.calypsan.listenup.api.sync.ShelfSyncPayload
+import com.calypsan.listenup.api.sync.Tag
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldNotBeEmpty
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.test.runTest
+import kotlin.uuid.Uuid
 
 /**
  * Reproduction + regression proof for plan 087: a tombstone delivered on the access-filtered pull
@@ -323,7 +332,7 @@ class TombstonePayloadMinimizationTest :
             }
         }
 
-        test("collection_books tombstone keeps its junction identity (no minimization for this domain)") {
+        test("collection_books tombstone ships only the opaque id — the pair is blanked") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser("member")
@@ -337,14 +346,118 @@ class TombstonePayloadMinimizationTest :
                     val extra = f.policy.accessibleCollectionBookIdsSql("member", UserRole.MEMBER)
                     val page = f.collectionBookRepo.pullSince("member", cursor = 0L, limit = 100, extraWhere = extra)
 
-                    val tomb =
-                        page.items
-                            .firstOrNull { it.collectionId == "private-col" && it.bookId == "some-book" }
-                            .shouldNotBeNull()
-                    // The client applies the junction tombstone by (collectionId, bookId) — identity must survive.
-                    tomb.deletedAt shouldNotBe null
-                    tomb.collectionId shouldBe "private-col"
-                    tomb.bookId shouldBe "some-book"
+                    val tomb = page.items.firstOrNull { it.deletedAt != null }.shouldNotBeNull()
+                    tomb.deletedAt.shouldNotBeNull()
+                    tomb.id.shouldNotBeEmpty()
+                    tomb.id shouldNotContain ":"
+                    tomb.collectionId shouldBe ""
+                    tomb.bookId shouldBe ""
+                }
+            }
+        }
+
+        test("book_tags tombstone ships only the opaque id — the pair is blanked") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("some-book")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                runTest {
+                    tagRepo.upsert(Tag(id = "some-tag", name = "Sci-Fi", slug = "sci-fi", revision = 0L, updatedAt = 0L))
+                    bookTagRepo.upsert(
+                        BookTagSyncPayload(
+                            id = Uuid.random().toString(),
+                            bookId = "some-book",
+                            tagId = "some-tag",
+                            createdAt = 0L,
+                            revision = 0L,
+                        ),
+                    )
+                    bookTagRepo.softDelete("some-book", "some-tag")
+
+                    // book_tags is an ungated global domain — pullSince takes no access filter.
+                    val page = bookTagRepo.pullSince(userId = null, cursor = 0L, limit = 100, extraWhere = null)
+
+                    val tomb = page.items.firstOrNull { it.deletedAt != null }.shouldNotBeNull()
+                    tomb.deletedAt.shouldNotBeNull()
+                    tomb.id.shouldNotBeEmpty()
+                    tomb.id shouldNotContain ":"
+                    tomb.bookId shouldBe ""
+                    tomb.tagId shouldBe ""
+                }
+            }
+        }
+
+        test("book_moods tombstone ships only the opaque id — the pair is blanked") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("some-book")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                runTest {
+                    moodRepo.upsert(Mood(id = "some-mood", name = "Feel-Good", slug = "feel-good", revision = 0L, updatedAt = 0L))
+                    bookMoodRepo.upsert(
+                        BookMoodSyncPayload(
+                            id = Uuid.random().toString(),
+                            bookId = "some-book",
+                            moodId = "some-mood",
+                            createdAt = 0L,
+                            revision = 0L,
+                        ),
+                    )
+                    bookMoodRepo.softDelete("some-book", "some-mood")
+
+                    // book_moods is an ungated global domain — pullSince takes no access filter.
+                    val page = bookMoodRepo.pullSince(userId = null, cursor = 0L, limit = 100, extraWhere = null)
+
+                    val tomb = page.items.firstOrNull { it.deletedAt != null }.shouldNotBeNull()
+                    tomb.deletedAt.shouldNotBeNull()
+                    tomb.id.shouldNotBeEmpty()
+                    tomb.id shouldNotContain ":"
+                    tomb.bookId shouldBe ""
+                    tomb.moodId shouldBe ""
+                }
+            }
+        }
+
+        test("shelf_books tombstone ships only the opaque id — the pair is blanked") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("owner")
+                sql.seedTestBook("some-book")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry)
+                val shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry)
+                runTest {
+                    shelfRepo.upsert(
+                        ShelfSyncPayload(
+                            id = "some-shelf",
+                            name = "To Read",
+                            description = "",
+                            isPrivate = false,
+                            revision = 0L,
+                            updatedAt = 0L,
+                            createdAt = 0L,
+                        ),
+                        userId = "owner",
+                    )
+                    shelfBookRepo.addBook("some-shelf", "some-book", "owner")
+                    shelfBookRepo.removeBook("some-shelf", "some-book", "owner")
+
+                    // shelf_books is userScoped — pullSince routes through the *ForUser substrate.
+                    val page = shelfBookRepo.pullSince(userId = "owner", cursor = 0L, limit = 100, extraWhere = null)
+
+                    val tomb = page.items.firstOrNull { it.deletedAt != null }.shouldNotBeNull()
+                    tomb.deletedAt.shouldNotBeNull()
+                    tomb.id.shouldNotBeEmpty()
+                    tomb.id shouldNotContain ":"
+                    tomb.shelfId shouldBe ""
+                    tomb.bookId shouldBe ""
                 }
             }
         }
@@ -379,6 +492,7 @@ private fun membership(
     bookId: String,
 ): CollectionBookSyncPayload =
     CollectionBookSyncPayload(
+        id = Uuid.random().toString(),
         collectionId = collectionId,
         bookId = bookId,
         createdAt = 0L,

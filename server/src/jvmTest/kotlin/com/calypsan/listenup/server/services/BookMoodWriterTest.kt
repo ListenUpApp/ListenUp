@@ -108,6 +108,7 @@ class BookMoodWriterTest :
                     moodRepository.upsert(cozy) as AppResult.Success
                     bookMoodRepository.upsert(
                         BookMoodSyncPayload(
+                            id = "book-1:${cozy.id}",
                             bookId = "book-1",
                             moodId = cozy.id,
                             createdAt = 0L,

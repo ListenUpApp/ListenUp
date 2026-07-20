@@ -137,6 +137,20 @@ internal interface BookMoodDao {
     )
 
     /**
+     * Tombstone a junction row by its opaque wire [syncId] (SERVER-SYNC-04) — the by-identity
+     * counterpart to [tombstone], used when applying a `SyncEvent.Deleted` frame whose payload
+     * has its natural pair blanked (junction tombstones ship identity only). Preserves
+     * [tombstone]'s existing `revision + 1` semantics (the event's own revision is not taken).
+     * Returns the number of rows affected (0 when [syncId] matches no local row — a graceful
+     * no-op the caller logs, since there is no longer a composite id to parse and fail on).
+     */
+    @Query("UPDATE book_moods SET deletedAt = :deletedAt, revision = revision + 1 WHERE syncId = :syncId")
+    suspend fun tombstoneBySyncId(
+        syncId: String,
+        deletedAt: Long,
+    ): Int
+
+    /**
      * Return the junction row for the given [bookId]/[moodId] pair, or null if absent.
      */
     @Query("SELECT * FROM book_moods WHERE bookId = :bookId AND moodId = :moodId LIMIT 1")
@@ -166,10 +180,11 @@ internal interface BookMoodDao {
     /**
      * All rows (including tombstones) with [revision][BookMoodEntity.revision] <= [max], for digest computation.
      *
-     * The synthetic id is `"$bookId:$moodId"` — the same form the server uses on the wire.
+     * The id is the opaque wire [BookMoodEntity.syncId] (SERVER-SYNC-04) — the same value the
+     * server uses on the wire.
      */
     @Query(
-        "SELECT bookId || ':' || moodId AS id, revision FROM book_moods WHERE deletedAt IS NULL AND revision <= :max",
+        "SELECT syncId AS id, revision FROM book_moods WHERE deletedAt IS NULL AND revision <= :max",
     )
     suspend fun digestRows(max: Long): List<IdRevision>
 
@@ -182,4 +197,13 @@ internal interface BookMoodDao {
         bookId: String,
         moodId: String,
     ): Long?
+
+    /**
+     * The stored revision of the junction row with opaque wire [syncId] (SERVER-SYNC-04),
+     * tombstones included; null when the row has never been seen. The by-identity counterpart to
+     * [revisionOf], used by the [ConflictPolicy.ServerWins] guard now that the wire id no longer
+     * decomposes into the natural pair.
+     */
+    @Query("SELECT revision FROM book_moods WHERE syncId = :syncId LIMIT 1")
+    suspend fun revisionOfSyncId(syncId: String): Long?
 }

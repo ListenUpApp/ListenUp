@@ -343,11 +343,29 @@ class DigestParityE2ETest :
                     // Seed three live book-tag junctions (no tombstones — the parity test targets
                     // the id-mapping contract, not the tombstone catch-up path).
                     val payload1 =
-                        BookTagSyncPayload(bookId = "book-1", tagId = "tag-a", createdAt = 1000L, revision = 0L)
+                        BookTagSyncPayload(
+                            id = "book-1:tag-a",
+                            bookId = "book-1",
+                            tagId = "tag-a",
+                            createdAt = 1000L,
+                            revision = 0L,
+                        )
                     val payload2 =
-                        BookTagSyncPayload(bookId = "book-2", tagId = "tag-b", createdAt = 2000L, revision = 0L)
+                        BookTagSyncPayload(
+                            id = "book-2:tag-b",
+                            bookId = "book-2",
+                            tagId = "tag-b",
+                            createdAt = 2000L,
+                            revision = 0L,
+                        )
                     val payload3 =
-                        BookTagSyncPayload(bookId = "book-3", tagId = "tag-c", createdAt = 3000L, revision = 0L)
+                        BookTagSyncPayload(
+                            id = "book-3:tag-c",
+                            bookId = "book-3",
+                            tagId = "tag-c",
+                            createdAt = 3000L,
+                            revision = 0L,
+                        )
                     bookTagRepo.upsert(payload1)
                     bookTagRepo.upsert(payload2)
                     bookTagRepo.upsert(payload3)
@@ -435,6 +453,7 @@ class DigestParityE2ETest :
                     // targets the id-mapping contract, not the tombstone catch-up path).
                     val payload1 =
                         CollectionBookSyncPayload(
+                            id = "col-1:book-1",
                             collectionId = "col-1",
                             bookId = "book-1",
                             createdAt = 1000L,
@@ -442,6 +461,7 @@ class DigestParityE2ETest :
                         )
                     val payload2 =
                         CollectionBookSyncPayload(
+                            id = "col-1:book-2",
                             collectionId = "col-1",
                             bookId = "book-2",
                             createdAt = 2000L,
@@ -449,6 +469,7 @@ class DigestParityE2ETest :
                         )
                     val payload3 =
                         CollectionBookSyncPayload(
+                            id = "col-2:book-3",
                             collectionId = "col-2",
                             bookId = "book-3",
                             createdAt = 3000L,

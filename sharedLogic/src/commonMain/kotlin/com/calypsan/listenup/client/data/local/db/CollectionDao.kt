@@ -121,6 +121,20 @@ internal interface CollectionBookDao {
         revision: Long,
     )
 
+    /**
+     * Tombstone a junction row by its opaque wire [syncId] (SERVER-SYNC-04) — the by-identity
+     * counterpart to [tombstone], used when applying a `SyncEvent.Deleted` frame whose payload
+     * has its natural pair blanked (junction tombstones ship identity only). Returns the number
+     * of rows affected (0 when [syncId] matches no local row — a graceful no-op the caller logs,
+     * since there is no longer a composite id to parse and fail on).
+     */
+    @Query("UPDATE collection_books SET deletedAt = :deletedAt, revision = :revision WHERE syncId = :syncId")
+    suspend fun tombstoneBySyncId(
+        syncId: String,
+        deletedAt: Long,
+        revision: Long,
+    ): Int
+
     /** Return the junction row for the given [collectionId]/[bookId] pair, or null if absent. */
     @Query("SELECT * FROM collection_books WHERE collectionId = :collectionId AND bookId = :bookId LIMIT 1")
     suspend fun findByKey(
@@ -172,15 +186,25 @@ internal interface CollectionBookDao {
     suspend fun liveCollectionIdsForBook(bookId: String): List<String>
 
     /**
-     * Live (non-tombstoned) junction ids in the synthetic `"$collectionId:$bookId"` form the
-     * server uses on the wire — used by the access-change reconcile so the local set lines up
-     * with `catchUpTransient`'s returned set.
+     * Live (non-tombstoned) junction ids — the opaque wire [CollectionBookEntity.syncId] values
+     * (SERVER-SYNC-04), used by the access-change reconcile so the local set lines up with
+     * `catchUpTransient`'s returned set.
      */
-    @Query("SELECT collectionId || ':' || bookId FROM collection_books WHERE deletedAt IS NULL")
-    suspend fun liveSyntheticIds(): List<String>
+    @Query("SELECT syncId FROM collection_books WHERE deletedAt IS NULL")
+    suspend fun liveSyncIds(): List<String>
 
     /**
-     * Tombstone the given live junction rows by synthetic `"$collectionId:$bookId"` id — the
+     * Live (non-tombstoned) junction [CollectionBookEntity.syncId] values whose [collectionId] is
+     * one of [collectionIds] — the scoped `AccessDeltaPolicy.Targeted` candidate set. Replaces the
+     * pre-SERVER-SYNC-04 `liveSyncIds().filter { it.substringBefore(':') in scopeCols }` trick: the
+     * opaque wire id no longer encodes [collectionId], so the scope filter must be a real column
+     * predicate instead of string-splitting the id.
+     */
+    @Query("SELECT syncId FROM collection_books WHERE collectionId IN (:collectionIds) AND deletedAt IS NULL")
+    suspend fun liveSyncIdsForCollections(collectionIds: List<String>): List<String>
+
+    /**
+     * Tombstone the given live junction rows by opaque wire [CollectionBookEntity.syncId] — the
      * chunked access-change prune.
      *
      * Local-only eviction. The existing `revision` is preserved (this is not a server tombstone).
@@ -189,7 +213,7 @@ internal interface CollectionBookDao {
      */
     @Query(
         "UPDATE collection_books SET deletedAt = :now " +
-            "WHERE deletedAt IS NULL AND (collectionId || ':' || bookId) IN (:ids)",
+            "WHERE deletedAt IS NULL AND syncId IN (:ids)",
     )
     suspend fun tombstoneByIds(
         ids: List<String>,
@@ -203,10 +227,11 @@ internal interface CollectionBookDao {
     /**
      * All rows (including tombstones) with [revision][CollectionBookEntity.revision] <= [max], for digest computation.
      *
-     * The synthetic id is `"$collectionId:$bookId"` — the same form the server uses on the wire.
+     * The id is the opaque wire [CollectionBookEntity.syncId] (SERVER-SYNC-04) — the same value
+     * the server uses on the wire.
      */
     @Query(
-        "SELECT collectionId || ':' || bookId AS id, revision FROM collection_books WHERE deletedAt IS NULL AND revision <= :max",
+        "SELECT syncId AS id, revision FROM collection_books WHERE deletedAt IS NULL AND revision <= :max",
     )
     suspend fun digestRows(max: Long): List<IdRevision>
 
@@ -219,6 +244,15 @@ internal interface CollectionBookDao {
         collectionId: String,
         bookId: String,
     ): Long?
+
+    /**
+     * The stored revision of the junction row with opaque wire [syncId] (SERVER-SYNC-04),
+     * tombstones included; null when the row has never been seen. The by-identity counterpart to
+     * [revisionOf], used by the [ConflictPolicy.ServerWins] guard now that the wire id no longer
+     * decomposes into the natural pair.
+     */
+    @Query("SELECT revision FROM collection_books WHERE syncId = :syncId LIMIT 1")
+    suspend fun revisionOfSyncId(syncId: String): Long?
 }
 
 /**

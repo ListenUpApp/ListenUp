@@ -260,6 +260,7 @@ private fun pbiMembership(
     bookId: String,
 ): CollectionBookSyncPayload =
     CollectionBookSyncPayload(
+        id = "$collectionId:$bookId",
         collectionId = collectionId,
         bookId = bookId,
         createdAt = 0L,

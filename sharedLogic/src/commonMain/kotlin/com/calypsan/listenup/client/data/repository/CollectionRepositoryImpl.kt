@@ -26,6 +26,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.api.result.map
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -136,6 +137,7 @@ internal class CollectionRepositoryImpl(
                 CollectionBookEntity(
                     collectionId = collectionId,
                     bookId = bookId,
+                    syncId = Uuid.random().toString(),
                     createdAt = currentEpochMilliseconds(),
                     revision = 0,
                     deletedAt = null,

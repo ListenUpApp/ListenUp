@@ -136,14 +136,18 @@ class LibraryResetHelperTest :
                         DomainProbe(
                             domainName = "book_tags",
                             seed = {
-                                db.bookTagDao().upsert(BookTagEntity(bookId = "b1", tagId = "t1", createdAt = 0L))
+                                db.bookTagDao().upsert(
+                                    BookTagEntity(bookId = "b1", tagId = "t1", syncId = "b1:t1", createdAt = 0L),
+                                )
                             },
                             isGone = { db.bookTagDao().findByKey("b1", "t1") == null },
                         ),
                         DomainProbe(
                             domainName = "book_moods",
                             seed = {
-                                db.bookMoodDao().upsert(BookMoodEntity(bookId = "b1", moodId = "m1", createdAt = 0L))
+                                db.bookMoodDao().upsert(
+                                    BookMoodEntity(bookId = "b1", moodId = "m1", syncId = "b1:m1", createdAt = 0L),
+                                )
                             },
                             isGone = { db.bookMoodDao().findByKey("b1", "m1") == null },
                         ),
@@ -346,6 +350,7 @@ class LibraryResetHelperTest :
                                     CollectionBookEntity(
                                         collectionId = "seed-collection",
                                         bookId = "b1",
+                                        syncId = "seed-collection:b1",
                                         createdAt = 0L,
                                     ),
                                 )

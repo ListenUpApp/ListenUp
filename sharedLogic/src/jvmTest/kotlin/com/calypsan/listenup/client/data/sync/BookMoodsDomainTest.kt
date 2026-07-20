@@ -85,12 +85,19 @@ class BookMoodsDomainTest :
             }
         }
 
-        test("Deleted event with malformed id logs and returns Success") {
-            withHandler { handler, _ ->
+        test("Deleted event for an unknown id is a graceful no-op") {
+            // SERVER-SYNC-04: the wire id is opaque and never parsed, so there is no "malformed id"
+            // failure mode anymore — the only failure mode is an id that matches no local row, which
+            // must log and return Success without touching any other row.
+            withHandler { handler, db ->
+                handler.onEvent(created(junctionPayload("b1", "m1", revision = 1L)))
+
                 handler
                     .onEvent(
-                        SyncEvent.Deleted(id = "malformed", revision = 2L, occurredAt = 900L),
+                        SyncEvent.Deleted(id = "never-seen-opaque-id", revision = 2L, occurredAt = 900L),
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.bookMoodDao().findByKey("b1", "m1")!!.deletedAt shouldBe null
             }
         }
 
@@ -138,6 +145,7 @@ private fun junctionPayload(
     revision: Long = 1L,
     deletedAt: Long? = null,
 ) = BookMoodSyncPayload(
+    id = "$bookId:$moodId",
     bookId = bookId,
     moodId = moodId,
     createdAt = createdAt,

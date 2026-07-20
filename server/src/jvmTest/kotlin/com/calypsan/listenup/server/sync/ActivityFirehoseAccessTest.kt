@@ -135,6 +135,7 @@ class ActivityFirehoseAccessTest :
                     )
                     collectionBooks.upsert(
                         CollectionBookSyncPayload(
+                            id = "alice-private:private-book",
                             collectionId = "alice-private",
                             bookId = "private-book",
                             createdAt = 0L,
@@ -154,6 +155,7 @@ class ActivityFirehoseAccessTest :
                         ).data.id.value
                     collectionBooks.upsert(
                         CollectionBookSyncPayload(
+                            id = "$allBooksId:public-book",
                             collectionId = allBooksId,
                             bookId = "public-book",
                             createdAt = 0L,

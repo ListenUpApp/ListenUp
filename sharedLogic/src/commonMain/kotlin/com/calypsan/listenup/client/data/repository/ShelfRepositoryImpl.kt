@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -179,21 +180,25 @@ internal class ShelfRepositoryImpl(
     }
 
     /**
-     * Offline-first: enqueue ONE add op per book on the `shelf_books` channel, each keyed by its own
-     * `"$shelfId:$bookId"` envelope id so each junction inherits the per-junction in-flight shield, and
-     * upsert each junction optimistically (revision-0 stub, appended after the current max sort order).
-     * Adds a book mints no server id (the book already exists). Fails fast on the first enqueue failure.
+     * Offline-first: enqueue ONE add op per book on the `shelf_books` channel, each keyed by the
+     * stable `"$shelfId:$bookId"` outbox key (per-junction in-flight-shield dedup — a LOCAL
+     * bookkeeping concept, unrelated to the wire row identity), and upsert each junction
+     * optimistically (revision-0 stub, appended after the current max sort order). The optimistic
+     * row mints its own opaque wire id (SERVER-SYNC-04) via [Uuid.random] — never the natural pair
+     * — since a server round-trip hasn't happened yet; [ShelfBookMirrorApply.upsert] reconciles it
+     * with the server's own id when the Created echo arrives (see its KDoc). Adds a book mints no
+     * server id (the book already exists). Fails fast on the first enqueue failure.
      */
     override suspend fun addBooksToShelf(
         shelfId: ShelfId,
         bookIds: List<BookId>,
     ): AppResult<Unit> {
         bookIds.forEach { bookId ->
-            val id = "${shelfId.value}:${bookId.value}"
+            val outboxKey = "${shelfId.value}:${bookId.value}"
             val result =
                 offlineEditor.edit(
                     OutboxChannels.ShelfBooks,
-                    id,
+                    outboxKey,
                     ShelfBookMutation.Add(shelfId = shelfId.value, bookId = bookId.value),
                     op = OpKind.Create,
                 ) {
@@ -201,7 +206,7 @@ internal class ShelfRepositoryImpl(
                     val nextSort = (shelfBookDao.maxSortOrderForShelf(shelfId.value) ?: -1) + 1
                     shelfBookDao.upsert(
                         ShelfBookEntity(
-                            id = id,
+                            id = Uuid.random().toString(),
                             shelfId = shelfId.value,
                             bookId = bookId.value,
                             sortOrder = nextSort,
@@ -226,15 +231,18 @@ internal class ShelfRepositoryImpl(
         shelfId: ShelfId,
         bookId: BookId,
     ): AppResult<Unit> {
-        val id = "${shelfId.value}:${bookId.value}"
+        val outboxKey = "${shelfId.value}:${bookId.value}"
         return offlineEditor.edit(
             OutboxChannels.ShelfBooks,
-            id,
+            outboxKey,
             ShelfBookMutation.Remove(shelfId = shelfId.value, bookId = bookId.value),
             op = OpKind.Delete,
         ) {
-            shelfBookDao.findById(id)?.let {
-                shelfBookDao.softDelete(id = id, deletedAt = currentEpochMilliseconds(), revision = it.revision)
+            // Looked up by the natural pair, not by a guessed id: the row's opaque wire id
+            // (SERVER-SYNC-04) is minted client-side on add and may since have been reconciled to
+            // the server's own id by ShelfBookMirrorApply.upsert — see its KDoc.
+            shelfBookDao.findByShelfAndBook(shelfId.value, bookId.value)?.let {
+                shelfBookDao.softDelete(id = it.id, deletedAt = currentEpochMilliseconds(), revision = it.revision)
             }
         }
     }

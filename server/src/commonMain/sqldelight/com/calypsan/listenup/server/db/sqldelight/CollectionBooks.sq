@@ -31,6 +31,13 @@ CREATE INDEX idx_collection_books_revision ON collection_books(revision);
 existsByCollectionAndBook:
 SELECT EXISTS(SELECT 1 FROM collection_books WHERE collection_id = :collection_id AND book_id = :book_id);
 
+-- Resolves the REAL stored opaque id for an existing (live OR tombstoned) row for a natural
+-- pair, or null if no row exists yet. SqlSyncableRepository.upsert/softDelete key off this so
+-- an idempotent re-add or a revive reuses the SAME opaque id instead of minting a new one — the
+-- server-side half of "the existing row's id wins" (SERVER-SYNC-04).
+selectIdByNaturalPair:
+SELECT id FROM collection_books WHERE collection_id = :collection_id AND book_id = :book_id;
+
 -- Inbox membership insert. The synthetic `id` is the canonical "$collectionId:$bookId" key
 -- (see CollectionBookId.asString); used by BookRepository's atomic quarantine write path.
 insertMembership:

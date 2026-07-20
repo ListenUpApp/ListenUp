@@ -251,6 +251,7 @@ internal class CollectionServiceImpl(
 
         val payload =
             CollectionBookSyncPayload(
+                id = Uuid.random().toString(),
                 collectionId = id.value,
                 bookId = bookId.value,
                 createdAt = clock.now().toEpochMilliseconds(),
@@ -337,6 +338,7 @@ internal class CollectionServiceImpl(
         for (collectionId in added) {
             collectionBookRepo.upsert(
                 CollectionBookSyncPayload(
+                    id = Uuid.random().toString(),
                     collectionId = collectionId,
                     bookId = bookId.value,
                     createdAt = clock.now().toEpochMilliseconds(),
@@ -579,6 +581,7 @@ internal class CollectionServiceImpl(
 
         val payload =
             CollectionBookSyncPayload(
+                id = Uuid.random().toString(),
                 collectionId = inbox.id.value,
                 bookId = bookId,
                 createdAt = clock.now().toEpochMilliseconds(),
@@ -655,6 +658,7 @@ internal class CollectionServiceImpl(
             for (targetId in resolvedTargets) {
                 collectionBookRepo.upsert(
                     CollectionBookSyncPayload(
+                        id = Uuid.random().toString(),
                         collectionId = targetId,
                         bookId = bookId,
                         createdAt = clock.now().toEpochMilliseconds(),
@@ -770,6 +774,7 @@ internal class CollectionServiceImpl(
                         .also { lookups.noteAllBooksCreated(libraryId, it) }
             collectionBookRepo.upsert(
                 CollectionBookSyncPayload(
+                    id = Uuid.random().toString(),
                     collectionId = id,
                     bookId = bookId,
                     createdAt = clock.now().toEpochMilliseconds(),

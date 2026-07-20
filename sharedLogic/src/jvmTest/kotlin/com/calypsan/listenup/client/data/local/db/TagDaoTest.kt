@@ -181,9 +181,11 @@ private fun bookTag(
     createdAt: Long = 1L,
     revision: Long = 1L,
     deletedAt: Long? = null,
+    syncId: String = "$bookId:$tagId",
 ) = BookTagEntity(
     bookId = bookId,
     tagId = tagId,
+    syncId = syncId,
     createdAt = createdAt,
     revision = revision,
     deletedAt = deletedAt,

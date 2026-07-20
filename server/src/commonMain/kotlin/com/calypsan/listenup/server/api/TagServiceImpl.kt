@@ -160,6 +160,7 @@ internal class TagServiceImpl(
         val now = clock.now().toEpochMilliseconds()
         val junctionPayload =
             BookTagSyncPayload(
+                id = Uuid.random().toString(),
                 bookId = bookId.value,
                 tagId = tag.id,
                 createdAt = now,

@@ -108,6 +108,7 @@ class BookTagWriterTest :
                     tagRepository.upsert(favorite) as AppResult.Success
                     bookTagRepository.upsert(
                         BookTagSyncPayload(
+                            id = "book-1:${favorite.id}",
                             bookId = "book-1",
                             tagId = favorite.id,
                             createdAt = 0L,

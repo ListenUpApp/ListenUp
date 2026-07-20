@@ -113,7 +113,14 @@ private suspend fun seedBookMood(
     bookMoodsDomain(db)
         .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
         .onCatchUpItem(
-            BookMoodSyncPayload(bookId = bookId, moodId = moodId, createdAt = 100L, revision = 1L, deletedAt = null),
+            BookMoodSyncPayload(
+                id = "$bookId:$moodId",
+                bookId = bookId,
+                moodId = moodId,
+                createdAt = 100L,
+                revision = 1L,
+                deletedAt = null,
+            ),
             isTombstone = false,
         )
 }

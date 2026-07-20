@@ -11,22 +11,22 @@ private val logger = KotlinLogging.logger {}
 
 /**
  * The `collection_books` junction domain (Collections — Room v24): composite
- * `(collectionId, bookId)` primary key mirrored under the server's synthetic
- * `"$collectionId:$bookId"` envelope id (see `CollectionBookId.asString()`
- * server-side). Server-wins apply, soft tombstones (junction rule: row + revision
- * kept for digest), full digest, outbox-backed writes, access-gated.
+ * `(collectionId, bookId)` primary key, mirrored under the server's opaque per-row wire id
+ * (SERVER-SYNC-04 — stored as [CollectionBookEntity.syncId], matched by identity, never parsed).
+ * Server-wins apply, soft tombstones (junction rule: row + revision kept for digest), full digest,
+ * outbox-backed writes, access-gated.
  *
  * **Access gate:** membership rows follow their collection's accessibility;
- * [AccessGate.liveIds] returns synthetic wire-form ids via `liveSyntheticIds()`,
- * and pruning tombstones rows outside the accessible set.
+ * [AccessGate.liveIds] returns opaque wire-form ids via `liveSyncIds()`, and pruning
+ * tombstones rows outside the accessible set.
  *
  * **Re-add semantics.** Re-adding a book arrives as Created/Updated with
  * `deletedAt = null`; the upsert clears the tombstone.
  *
  * **Outbox writes.** Adding and removing a book write the junction optimistically and queue a
- * durable op on [OutboxChannels.CollectionBooks], keyed by the same `"$collectionId:$bookId"`
- * envelope id; the in-flight shield defers the junction's own echo until that op drains. Both are
- * offline-first — the book already exists, so no server id is minted.
+ * durable op on [OutboxChannels.CollectionBooks]; the in-flight shield defers the junction's own
+ * echo until that op drains. Both are offline-first — the book already exists, so no server id is
+ * minted.
  */
 internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<CollectionBookSyncPayload> {
     val apply = CollectionBookMirrorApply(database)
@@ -35,13 +35,8 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
         apply = apply,
         conflict =
             ConflictPolicy.ServerWins(
-                RevisionGuard { id ->
-                    val parts = id.split(":")
-                    if (parts.size != 2) {
-                        null
-                    } else {
-                        database.collectionBookDao().revisionOf(collectionId = parts[0], bookId = parts[1])
-                    }
+                RevisionGuard { syncId ->
+                    database.collectionBookDao().revisionOfSyncId(syncId)
                 },
             ),
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
@@ -49,23 +44,18 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
         writes = WriteTier.Outbox(OutboxChannels.CollectionBooks),
         accessGate =
             AccessGate(
-                liveIds = database.collectionBookDao()::liveSyntheticIds,
+                liveIds = database.collectionBookDao()::liveSyncIds,
                 tombstoneByIds = database.collectionBookDao()::tombstoneByIds,
                 // Fetched by the scope's collection ids. The candidate set is the local live
-                // membership rows whose collection is in scope — derived from the synthetic
-                // `"$collectionId:$bookId"` wire id — so a membership in a collection the delta never
-                // named can never be tombstoned.
+                // membership rows whose collection is in scope — a real column predicate now that
+                // the opaque wire id (SERVER-SYNC-04) no longer encodes collectionId.
                 delta =
                     AccessDeltaPolicy.Targeted(
                         order = 1,
                         axis = ScopeAxis.Collections,
                         fetchFor = { TargetedFetch.ByCollectionIds(it) },
                         candidatesFor = { collectionIds ->
-                            val scopeCols = collectionIds.toSet()
-                            database
-                                .collectionBookDao()
-                                .liveSyntheticIds()
-                                .filterTo(mutableSetOf()) { it.substringBefore(':') in scopeCols }
+                            database.collectionBookDao().liveSyncIdsForCollections(collectionIds).toSet()
                         },
                     ),
             ),
@@ -81,6 +71,7 @@ internal class CollectionBookMirrorApply(
             CollectionBookEntity(
                 collectionId = payload.collectionId,
                 bookId = payload.bookId,
+                syncId = payload.id,
                 createdAt = payload.createdAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
@@ -89,8 +80,8 @@ internal class CollectionBookMirrorApply(
     }
 
     /**
-     * Tombstone from an SSE `Deleted` frame (`"$collectionId:$bookId"` envelope id;
-     * `:` is unambiguous — both parts are UUIDv7 strings). Unlike book_tags, this
+     * Tombstone from an SSE `Deleted` frame by the opaque wire [id] (SERVER-SYNC-04) — a graceful
+     * no-op if [id] matches no local row (nothing to reconcile locally). Unlike book_tags, this
      * DAO's tombstone advances the stored revision.
      */
     suspend fun tombstoneById(
@@ -98,25 +89,20 @@ internal class CollectionBookMirrorApply(
         deletedAt: Long,
         revision: Long,
     ) {
-        val parts = id.split(":")
-        if (parts.size != 2) {
-            logger.warn {
-                "collection_books Deleted event has unexpected id format: '$id' — skipping tombstone"
-            }
-            return
+        val affected = database.collectionBookDao().tombstoneBySyncId(id, deletedAt, revision)
+        if (affected == 0) {
+            logger.debug { "collection_books Deleted event matched no local row for id='$id' — graceful no-op" }
         }
-        database.collectionBookDao().tombstone(
-            collectionId = parts[0],
-            bookId = parts[1],
-            deletedAt = deletedAt,
-            revision = revision,
-        )
     }
 
+    /**
+     * Tombstone from a catch-up item. The pull path blanks [item]'s natural pair on a tombstone
+     * (SERVER-SYNC-04 — junction tombstones ship identity only), so this applies by [item]'s
+     * opaque wire id, never by `collectionId`/`bookId`.
+     */
     override suspend fun tombstoneFromItem(item: CollectionBookSyncPayload) {
-        database.collectionBookDao().tombstone(
-            collectionId = item.collectionId,
-            bookId = item.bookId,
+        database.collectionBookDao().tombstoneBySyncId(
+            syncId = item.id,
             deletedAt = item.deletedAt ?: item.createdAt,
             revision = item.revision,
         )
