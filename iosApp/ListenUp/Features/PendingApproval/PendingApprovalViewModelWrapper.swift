@@ -31,7 +31,13 @@ final class PendingApprovalViewModelWrapper {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
+    deinit {
+        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
+        // The Kotlin VM is resolved from a bare Koin `factory` — there is no ViewModelStore on iOS
+        // to call `onCleared()` for us, so this wrapper's teardown must do it explicitly, or the
+        // VM's stream/poll jobs orphan and run forever (the reconnect-flood bug this fixes).
+        viewModel.close()
+    }
 
     // MARK: - Actions
 
