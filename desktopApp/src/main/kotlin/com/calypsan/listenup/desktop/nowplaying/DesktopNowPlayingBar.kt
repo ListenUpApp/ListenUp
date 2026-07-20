@@ -31,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 
 /**
  * Mini player bar shown at the bottom of the desktop window during playback.
@@ -44,6 +45,7 @@ import com.calypsan.listenup.client.playback.NowPlayingState
 @Composable
 fun DesktopNowPlayingBar(
     state: NowPlayingState,
+    progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -57,13 +59,8 @@ fun DesktopNowPlayingBar(
     ) {
         Column {
             // Progress indicator at top of bar
-            val progress =
-                when (state) {
-                    is NowPlayingState.Active -> state.bookProgress.coerceIn(0f, 1f)
-                    else -> 0f
-                }
             LinearProgressIndicator(
-                progress = { progress },
+                progress = { if (state is NowPlayingState.Active) progress().bookProgress.coerceIn(0f, 1f) else 0f },
                 modifier = Modifier.fillMaxWidth().height(3.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,

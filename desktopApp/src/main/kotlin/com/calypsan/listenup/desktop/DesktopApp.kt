@@ -26,9 +26,11 @@ import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.device.DeviceContext
+import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScreen
 import com.calypsan.listenup.client.features.bookedit.BookEditScreen
+import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
 import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.UserDetailScreen
@@ -46,6 +48,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
 import com.calypsan.listenup.client.features.discover.DiscoverScreen
+import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
 import com.calypsan.listenup.client.features.home.HomeScreen
 import com.calypsan.listenup.client.features.contributordetail.ContributorBooksScreen
 import com.calypsan.listenup.client.features.contributordetail.ContributorDetailScreen
@@ -60,13 +63,16 @@ import com.calypsan.listenup.client.features.shelf.ShelfDetailScreen
 import com.calypsan.listenup.client.features.library.LibraryScreen
 import com.calypsan.listenup.client.features.seriesdetail.SeriesDetailScreen
 import com.calypsan.listenup.client.features.seriesedit.SeriesEditScreen
+import com.calypsan.listenup.client.features.settings.LicenseDetailScreen
 import com.calypsan.listenup.client.features.settings.LicensesScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.features.shell.AppShell
 import com.calypsan.listenup.client.features.shell.ShellDestination
-import com.calypsan.listenup.client.features.tagdetail.TagDetailScreen
 import com.calypsan.listenup.client.features.profile.UserProfileScreen
 import com.calypsan.listenup.client.navigation.AuthNavigation
+import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
+import com.calypsan.listenup.client.presentation.error.localized
+import com.calypsan.listenup.client.presentation.genredestination.GenreDestinationViewModel
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.desktop.nowplaying.DesktopNowPlayingBar
@@ -100,6 +106,16 @@ sealed interface DetailDestination {
 
     data class Tag(
         val tagId: String,
+        val tagName: String,
+    ) : DetailDestination
+
+    data class Mood(
+        val moodId: String,
+        val moodName: String,
+    ) : DetailDestination
+
+    data class Genre(
+        val genreId: String,
     ) : DetailDestination
 
     data class BookEdit(
@@ -142,6 +158,10 @@ sealed interface DetailDestination {
     data object Settings : DetailDestination
 
     data object Licenses : DetailDestination
+
+    data class LicenseDetail(
+        val uniqueId: String,
+    ) : DetailDestination
 
     data object Storage : DetailDestination
 
@@ -215,6 +235,7 @@ private fun DesktopAuthenticatedNavigation() {
 
     val playerScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
     val playerState = playerScreenState.state
+    val playerProgressState = nowPlayingViewModel.progress.collectAsStateWithLifecycle()
 
     var currentDestination by remember { mutableStateOf<ShellDestination>(ShellDestination.Home) }
     val backStack: SnapshotStateList<DetailDestination> =
@@ -246,7 +267,9 @@ private fun DesktopAuthenticatedNavigation() {
                         onBookClick = { navigateTo(DetailDestination.Book(it)) },
                         onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
                         onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
-                        onTagClick = { navigateTo(DetailDestination.Tag(it)) },
+                        onTagClick = { tagId, tagName ->
+                            navigateTo(DetailDestination.Tag(tagId, tagName))
+                        },
                         onAdminClick = { navigateTo(DetailDestination.Admin) },
                         onSettingsClick = {
                             navigateTo(DetailDestination.Settings)
@@ -261,8 +284,9 @@ private fun DesktopAuthenticatedNavigation() {
                         onUserProfileClick = { userId ->
                             navigateTo(DetailDestination.UserProfile(userId))
                         },
-                        homeContent = { padding, _, onNavigateToLibrary ->
+                        homeContent = { padding, appHeader, onNavigateToLibrary ->
                             HomeScreen(
+                                appHeader = appHeader,
                                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                                 onNavigateToLibrary = onNavigateToLibrary,
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
@@ -270,18 +294,19 @@ private fun DesktopAuthenticatedNavigation() {
                                 modifier = Modifier.padding(padding),
                             )
                         },
-                        libraryContent = { padding, topBarCollapseFraction ->
+                        libraryContent = { padding, appHeader ->
                             LibraryScreen(
                                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                                 onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
                                 onAuthorClick = { navigateTo(DetailDestination.Contributor(it)) },
                                 onNarratorClick = { navigateTo(DetailDestination.Contributor(it)) },
-                                topBarCollapseFraction = topBarCollapseFraction,
+                                appHeader = appHeader,
                                 modifier = Modifier.padding(padding),
                             )
                         },
-                        discoverContent = { padding ->
+                        discoverContent = { padding, appHeader ->
                             DiscoverScreen(
+                                appHeader = appHeader,
                                 onShelfClick = { navigateTo(DetailDestination.Shelf(it)) },
                                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                                 onUserProfileClick = { navigateTo(DetailDestination.UserProfile(it)) },
@@ -296,6 +321,7 @@ private fun DesktopAuthenticatedNavigation() {
             if (playerState !is NowPlayingState.Idle && !isShowingNowPlaying) {
                 DesktopNowPlayingBar(
                     state = playerState,
+                    progress = { playerProgressState.value },
                     onPlayPause = { nowPlayingViewModel.playPause() },
                     onSkipBack = { nowPlayingViewModel.skipBack() },
                     onSkipForward = { nowPlayingViewModel.skipForward() },
@@ -325,8 +351,9 @@ private fun DetailScreen(
                 onMetadataSearchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
                 onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
                 onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
-                onTagClick = { tagId, _ -> navigateTo(DetailDestination.Tag(tagId)) },
-                onMoodClick = { _, _ -> },
+                onGenreClick = { navigateTo(DetailDestination.Genre(it)) },
+                onTagClick = { tagId, tagName -> navigateTo(DetailDestination.Tag(tagId, tagName)) },
+                onMoodClick = { moodId, moodName -> navigateTo(DetailDestination.Mood(moodId, moodName)) },
                 onUserProfileClick = { navigateTo(DetailDestination.UserProfile(it)) },
             )
         }
@@ -345,6 +372,7 @@ private fun DetailScreen(
                 onBackClick = navigateBack,
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
                 onEditClick = { navigateTo(DetailDestination.SeriesEdit(it)) },
+                onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
             )
         }
 
@@ -394,10 +422,37 @@ private fun DetailScreen(
         }
 
         is DetailDestination.Tag -> {
-            TagDetailScreen(
-                tagId = destination.tagId,
+            val viewModel: BrowseFacetViewModel = koinInject()
+            FacetBooksScreen(
+                kind = FacetKind.Tag,
+                facetId = destination.tagId,
+                facetName = destination.tagName,
                 onBackClick = navigateBack,
                 onBookClick = { navigateTo(DetailDestination.Book(it)) },
+                viewModel = viewModel,
+            )
+        }
+
+        is DetailDestination.Mood -> {
+            val viewModel: BrowseFacetViewModel = koinInject()
+            FacetBooksScreen(
+                kind = FacetKind.Mood,
+                facetId = destination.moodId,
+                facetName = destination.moodName,
+                onBackClick = navigateBack,
+                onBookClick = { navigateTo(DetailDestination.Book(it)) },
+                viewModel = viewModel,
+            )
+        }
+
+        is DetailDestination.Genre -> {
+            val viewModel: GenreDestinationViewModel = koinInject()
+            GenreDestinationScreen(
+                genreId = destination.genreId,
+                onBackClick = navigateBack,
+                onBookClick = { navigateTo(DetailDestination.Book(it)) },
+                onGenreClick = { navigateTo(DetailDestination.Genre(it)) },
+                viewModel = viewModel,
             )
         }
 
@@ -474,6 +529,14 @@ private fun DetailScreen(
         is DetailDestination.Licenses -> {
             LicensesScreen(
                 onNavigateBack = navigateBack,
+                onLicenseClick = { navigateTo(DetailDestination.LicenseDetail(it)) },
+            )
+        }
+
+        is DetailDestination.LicenseDetail -> {
+            LicenseDetailScreen(
+                uniqueId = destination.uniqueId,
+                onNavigateBack = navigateBack,
             )
         }
 
@@ -486,6 +549,7 @@ private fun DetailScreen(
         is DetailDestination.NowPlaying -> {
             val screenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
             val state = screenState.state
+            val progressState = nowPlayingViewModel.progress.collectAsStateWithLifecycle()
             // "Go to Book" only meaningful when there's a known bookId — Active
             // has one; Error sometimes does; Idle never.
             val activeBookId: String? =
@@ -496,6 +560,7 @@ private fun DetailScreen(
                 }
             DesktopNowPlayingScreen(
                 state = state,
+                progress = { progressState.value },
                 onPlayPause = { nowPlayingViewModel.playPause() },
                 onSkipBack = { nowPlayingViewModel.skipBack() },
                 onSkipForward = { nowPlayingViewModel.skipForward() },
@@ -547,8 +612,10 @@ private fun DetailScreen(
                 isDirty = readySettings?.isDirty == true,
                 onSave = { settingsViewModel.saveAll() },
                 settingsError =
-                    readySettings?.error
-                        ?: (settingsState as? AdminSettingsUiState.Error)?.message,
+                    (
+                        readySettings?.error
+                            ?: (settingsState as? AdminSettingsUiState.Error)?.error
+                    )?.localized(),
                 onClearSettingsError = { settingsViewModel.clearError() },
             )
         }
@@ -600,7 +667,10 @@ private fun DetailScreen(
             AdminInboxScreen(
                 viewModel = viewModel,
                 onBackClick = navigateBack,
-                onBookClick = { navigateTo(DetailDestination.Book(it)) },
+                // Tapping a row opens book-edit to fix tags/collections before release.
+                onBookClick = { navigateTo(DetailDestination.BookEdit(it)) },
+                // Per-row "Match on Audible" — opens the metadata match wizard for that book (iOS parity).
+                onMatchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
             )
         }
 
