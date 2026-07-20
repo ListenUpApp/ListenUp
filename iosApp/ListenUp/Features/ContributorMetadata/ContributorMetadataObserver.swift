@@ -26,26 +26,25 @@ struct ContributorProfilePreview: Equatable {
     let website: String?
 }
 
-/// One toggleable preview field, paired with its current/incoming values for a comparison row.
-struct ContributorFieldComparison: Identifiable {
-    let field: ContributorMetadataField
-    let label: String
-    let currentValue: String?
-    let newValue: String?
-    let isSelected: Bool
-    /// `false` when Audible returned nothing for this field (toggle disabled).
-    let hasNewValue: Bool
-
-    var id: String { "\(field)" }
+/// Which phase the preview pane is in — a native mirror of `ContributorPreviewLoadState`.
+enum ContributorPreviewPhase: Equatable {
+    case loading
+    case ready
+    /// Honest miss: the catalog has no profile data for this ASIN in the current region.
+    case missing
+    case failed(String)
 }
 
 /// Observes `ContributorMetadataViewModel` — the "Find on Audible" contributor-scrape flow —
-/// flattening its flat `ContributorMetadataUiState` into `@Observable` Swift properties and native
-/// value types. Thin over `FlowBridge`; mirrors `ContributorDetailObserver` / `MetadataMatchObserver`.
+/// flattening its sealed `ContributorMetadataUiState` (Idle/Search/Preview) into `@Observable`
+/// Swift properties and native value types. Thin over `FlowBridge`; mirrors
+/// `ContributorDetailObserver` / `MetadataMatchObserver`. Sub-state mapping (search results,
+/// preview phase, profile) is pure and unit-tested in isolation via `ContributorMetadataMapping`.
 ///
-/// Swift Export-bridged Kotlin objects (`MetadataContributorHit`, `MetadataContributorProfile`) are mapped to
-/// native structs in `apply`; the raw hits are kept in a private `rawHits` map off the diff path so the
-/// view can hand back an ASIN on tap without exposing a Kotlin type to a `ForEach`.
+/// There are no per-field toggles: the server applies asin + biography + photo, never the name.
+/// Apply is available whenever the preview is [ContributorPreviewLoadState.Ready] and no apply is
+/// in flight — see [canApply]. `didApply` comes from the one-shot `events` flow, never a sticky
+/// state flag.
 @Observable
 @MainActor
 final class ContributorMetadataObserver {
@@ -60,36 +59,43 @@ final class ContributorMetadataObserver {
     /// The contributor we're scraping for — used for the "Searching for …" context line.
     private(set) var contributorName: String = ""
     private(set) var currentImagePath: String?
+    private(set) var currentBio: String?
 
     // MARK: - Preview
 
     private(set) var selectedAsin: String?
+    private(set) var previewPhase: ContributorPreviewPhase?
     private(set) var profile: ContributorProfilePreview?
-    private(set) var isLoadingPreview: Bool = false
-    private(set) var previewError: String?
-    private(set) var fieldComparisons: [ContributorFieldComparison] = []
-    private(set) var hasSelectedFields: Bool = false
-
-    // MARK: - Apply
-
     private(set) var isApplying: Bool = false
     private(set) var applyError: String?
-    /// Flips to `true` once the apply succeeds — drives sheet dismissal.
+    /// Flips to `true` on the one-shot `MetadataApplied` event — drives sheet dismissal.
     private(set) var didApply: Bool = false
+
+    /// Apply is available whenever the preview is Ready and no apply is in flight.
+    var canApply: Bool { previewPhase == .ready && !isApplying }
 
     // MARK: - Dependencies
 
     private let viewModel: ContributorMetadataViewModel
     private let bridge = FlowBridge()
 
+    /// Raw hits keyed by ASIN, off the diff path, so taps can hand the Kotlin object back.
+    private var rawHits: [String: MetadataContributorHit] = [:]
+
     init(viewModel: ContributorMetadataViewModel) {
         self.viewModel = viewModel
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.events) { [weak self] event in
+            if ContributorMetadataMapping.isApplySuccess(event) {
+                self?.didApply = true
+            }
+        }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func start(contributorId: String) { viewModel.`init`(contributorId: contributorId) }
+
     // MARK: - Actions
 
     func updateQuery(_ text: String) {
@@ -105,97 +111,66 @@ final class ContributorMetadataObserver {
         if let hit = rawHits[asin] {
             viewModel.selectCandidate(result: hit)
         } else {
-            // No raw hit cached (search results replaced or cleared) — fall back to loading by
-            // ASIN rather than returning silently, which would strand the preview on a spinner
-            // waiting for a fetch that never started.
-            viewModel.loadProfileByAsin(asin: asin)
+            // No raw hit cached (e.g. a deep link straight into the preview) — fall back to
+            // loading by ASIN rather than returning silently, which would strand the preview on
+            // a spinner waiting for a fetch that never started.
+            viewModel.selectAsin(asin: asin)
         }
     }
 
     func clearSelection() { viewModel.clearSelection() }
 
-    func toggleField(_ field: ContributorMetadataField) { viewModel.toggleField(field: field) }
-
     func apply() { viewModel.apply() }
-
-    // MARK: - Raw hit lookup (off the diff path)
-
-    /// Raw `MetadataContributorHit`s keyed by ASIN. The view only ever passes ASINs back; the Kotlin
-    /// objects stay here so they never enter a `ForEach`.
-    private var rawHits: [String: MetadataContributorHit] = [:]
 
     // MARK: - State mapping
 
     private func apply(_ state: ContributorMetadataUiState) {
-        region = MetadataRegionOption(state.selectedRegion)
-        query = state.searchQuery
-        contributorName = state.currentContributor?.name ?? ""
-        currentImagePath = state.currentContributor?.imagePath
+        region = MetadataRegionOption(state.region)
 
-        rawHits = Dictionary(state.searchResults.map { ($0.asin, $0) }) { first, _ in first }
-        results = state.searchResults.map { ContributorHitRow(asin: $0.asin, name: $0.name) }
-        isSearching = state.isSearching
-        searchError = state.searchError
+        switch onEnum(of: state) {
+        case .idle:
+            results = []
+            rawHits = [:]
+            previewPhase = nil
+            profile = nil
 
-        selectedAsin = state.selectedCandidate?.asin
-        isLoadingPreview = state.isLoadingPreview
-        previewError = state.previewError
-        profile = state.previewProfile.map(Self.mapProfile)
-        fieldComparisons = Self.comparisons(state: state)
-        hasSelectedFields = viewModel.hasSelectedFields()
+        case .search(let search):
+            applyContext(search.context)
+            query = search.query
 
-        isApplying = state.isApplying
-        applyError = state.applyError
-        if state.applySuccess { didApply = true }
-    }
+            let mapped = ContributorMetadataMapping.search(from: search.loadState)
+            results = mapped.results
+            rawHits = mapped.rawHits
+            isSearching = mapped.isSearching
+            searchError = mapped.searchError
 
-    private static func mapProfile(_ profile: MetadataContributorProfile) -> ContributorProfilePreview {
-        ContributorProfilePreview(
-            asin: profile.asin,
-            name: profile.name,
-            bio: profile.description_,
-            imageURL: profile.imageUrl,
-            birthDate: profile.birthDate,
-            deathDate: profile.deathDate,
-            website: profile.website
-        )
-    }
+            selectedAsin = nil
+            previewPhase = nil
+            profile = nil
+            isApplying = false
+            applyError = nil
 
-    /// Builds the per-field comparison rows from the current contributor and the fetched profile.
-    /// Image is only offered when Audible returned one (matches the Android `availableFieldCount` logic).
-    private static func comparisons(state: ContributorMetadataUiState) -> [ContributorFieldComparison] {
-        guard let contributor = state.currentContributor, let profile = state.previewProfile else { return [] }
-        let selections = state.selections
-        let hasImage = !(profile.imageUrl?.isEmpty ?? true)
+        case .preview(let preview):
+            applyContext(preview.context)
+            query = preview.query
+            isSearching = false
+            searchError = nil
+            selectedAsin = preview.match.asin
 
-        var rows: [ContributorFieldComparison] = [
-            ContributorFieldComparison(
-                field: .name,
-                label: String(localized: "common.name"),
-                currentValue: contributor.name,
-                newValue: profile.name,
-                isSelected: selections.name,
-                hasNewValue: !profile.name.isEmpty
-            ),
-            ContributorFieldComparison(
-                field: .biography,
-                label: String(localized: "contributor.biography"),
-                currentValue: contributor.description_,
-                newValue: profile.description_,
-                isSelected: selections.biography,
-                hasNewValue: !(profile.description_?.isEmpty ?? true)
-            )
-        ]
-        if hasImage {
-            rows.append(ContributorFieldComparison(
-                field: .image,
-                label: String(localized: "common.image"),
-                currentValue: nil,
-                newValue: profile.imageUrl,
-                isSelected: selections.image,
-                hasNewValue: true
-            ))
+            let mapped = ContributorMetadataMapping.preview(from: preview.loadState)
+            previewPhase = mapped.phase
+            profile = mapped.profile
+            isApplying = mapped.isApplying
+            applyError = mapped.applyError
+
+        case .unknown:
+            Log.error("Unexpected ContributorMetadataUiState case")
         }
-        return rows
+    }
+
+    private func applyContext(_ context: ContributorContext) {
+        contributorName = context.current?.name ?? ""
+        currentImagePath = context.current?.imagePath
+        currentBio = context.current?.description_
     }
 }
