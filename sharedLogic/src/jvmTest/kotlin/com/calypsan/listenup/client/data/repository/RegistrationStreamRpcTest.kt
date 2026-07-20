@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
+import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.mock
 import io.kotest.assertions.throwables.shouldThrow

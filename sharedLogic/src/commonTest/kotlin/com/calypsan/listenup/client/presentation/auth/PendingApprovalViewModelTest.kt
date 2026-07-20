@@ -139,8 +139,12 @@ class PendingApprovalViewModelTest :
                     )
                 val vm = viewModel(stream)
 
-                // The retry-with-backoff loop exhausts its bounded budget under virtual time.
-                advanceUntilIdle()
+                // The retry-with-backoff loop exhausts its bounded budget under virtual time. A
+                // BOUNDED advance, not advanceUntilIdle() — the poll loop below re-schedules itself
+                // every 5s for as long as the status stays Pending, so advanceUntilIdle() would spin
+                // forever trying to reach a "nothing left scheduled" state that never arrives.
+                advanceTimeBy(RETRY_BUDGET_EXHAUSTION_MILLIS)
+                runCurrent()
                 vm.state.value shouldBe PendingApprovalUiState.Waiting
                 val exhaustedCount = stream.subscriptionCount
                 exhaustedCount shouldBeLessThanOrEqual STREAM_RETRY_BUDGET_UPPER_BOUND
@@ -148,7 +152,7 @@ class PendingApprovalViewModelTest :
                 // The poll fallback (untouched by the stream's failures) still drives the screen.
                 stream.pullStatus = StreamedRegistrationStatus.Approved
                 advanceTimeBy(6_000)
-                advanceUntilIdle()
+                runCurrent()
 
                 vm.state.value shouldBe PendingApprovalUiState.Approved
                 // No further stream subscriptions were attempted once the retry budget was spent.
@@ -192,3 +196,10 @@ class PendingApprovalViewModelTest :
 /** Upper bound the test allows for the stream's exhausted-retry subscription count — generous
  * headroom above the ViewModel's actual budget so this test pins "bounded", not the exact constant. */
 private const val STREAM_RETRY_BUDGET_UPPER_BOUND = 20
+
+/**
+ * Virtual-time window comfortably covering the ViewModel's stream-retry backoff schedule
+ * (1s, 2s, 4s, 8s, 16s = 31s total for 5 attempts) so the retry loop fully exhausts within a single
+ * bounded [kotlinx.coroutines.test.TestScope.advanceTimeBy] call.
+ */
+private const val RETRY_BUDGET_EXHAUSTION_MILLIS = 40_000L
