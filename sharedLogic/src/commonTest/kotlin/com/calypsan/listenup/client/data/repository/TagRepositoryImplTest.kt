@@ -52,7 +52,7 @@ class TagRepositoryImplTest :
         fun bookTagEntity(
             bookId: String,
             tagId: String,
-        ) = BookTagEntity(bookId = bookId, tagId = tagId, createdAt = 1L)
+        ) = BookTagEntity(bookId = bookId, tagId = tagId, syncId = "$bookId:$tagId", createdAt = 1L)
 
         // ── observeAllTags ────────────────────────────────────────────────────
 

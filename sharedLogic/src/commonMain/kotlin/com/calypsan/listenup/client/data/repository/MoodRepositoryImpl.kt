@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.repository.MoodRepository
+import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -102,6 +103,7 @@ internal class MoodRepositoryImpl(
                     BookMoodEntity(
                         bookId = bookId,
                         moodId = existing.id,
+                        syncId = Uuid.random().toString(),
                         createdAt = currentEpochMilliseconds(),
                         revision = 0,
                         deletedAt = null,

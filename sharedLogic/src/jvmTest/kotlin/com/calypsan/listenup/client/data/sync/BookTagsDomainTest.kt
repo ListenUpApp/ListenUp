@@ -89,13 +89,19 @@ class BookTagsDomainTest :
             }
         }
 
-        test("Deleted event with malformed id logs warning and returns Success") {
-            withHandler { handler, _ ->
-                // Should not throw — just log and return Success
+        test("Deleted event for an unknown id is a graceful no-op") {
+            // SERVER-SYNC-04: the wire id is opaque and never parsed, so there is no "malformed id"
+            // failure mode anymore — the only failure mode is an id that matches no local row, which
+            // must log and return Success without touching any other row.
+            withHandler { handler, db ->
+                handler.onEvent(created(junctionPayload("b1", "t1", revision = 1L)))
+
                 handler
                     .onEvent(
-                        SyncEvent.Deleted(id = "invalid-no-colon", revision = 1L, occurredAt = 100L),
+                        SyncEvent.Deleted(id = "never-seen-opaque-id", revision = 1L, occurredAt = 100L),
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.bookTagDao().findByKey("b1", "t1")!!.deletedAt shouldBe null
             }
         }
 

@@ -87,11 +87,19 @@ class CollectionBooksDomainTest :
             }
         }
 
-        test("collection_books Deleted event with malformed id logs and returns Success") {
-            withHandler { handler, _ ->
+        test("collection_books Deleted event for an unknown id is a graceful no-op") {
+            // SERVER-SYNC-04: the wire id is opaque and never parsed, so there is no "malformed id"
+            // failure mode anymore — the only failure mode is an id that matches no local row, which
+            // must log and return Success without touching any other row.
+            withHandler { handler, db ->
+                handler.onEvent(createdJunction(junctionPayload("c1", "b1", revision = 1L)))
+
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "no-colon-here", revision = 1L, occurredAt = 100L))
+                    .onEvent(SyncEvent.Deleted(id = "never-seen-opaque-id", revision = 1L, occurredAt = 100L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // The unrelated live row is untouched.
+                db.collectionBookDao().findByKey("c1", "b1")!!.deletedAt shouldBe null
             }
         }
 

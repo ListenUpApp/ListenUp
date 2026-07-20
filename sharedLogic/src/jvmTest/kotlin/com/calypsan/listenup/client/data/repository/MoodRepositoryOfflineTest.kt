@@ -38,7 +38,9 @@ class MoodRepositoryOfflineTest :
         test("removeMoodFromBook tombstones the junction and enqueues a book_moods op keyed by \$bookId:\$moodId") {
             runTest {
                 val db = createInMemoryTestDatabase()
-                db.bookMoodDao().upsert(BookMoodEntity(bookId = "b1", moodId = "m1", createdAt = 0L, revision = 1))
+                db.bookMoodDao().upsert(
+                    BookMoodEntity(bookId = "b1", moodId = "m1", syncId = "b1:m1", createdAt = 0L, revision = 1),
+                )
                 val repo = repo(db, mock())
 
                 val result = repo.removeMoodFromBook(bookId = "b1", moodId = "m1")

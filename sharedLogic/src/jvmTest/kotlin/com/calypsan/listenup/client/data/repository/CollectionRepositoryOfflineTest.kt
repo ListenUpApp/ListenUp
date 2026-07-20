@@ -5,15 +5,21 @@ import com.calypsan.listenup.api.dto.CollectionSummary
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
 import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.CollectionId
@@ -26,6 +32,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
@@ -54,6 +61,7 @@ class CollectionRepositoryOfflineTest :
         ) = CollectionBookEntity(
             collectionId = collectionId,
             bookId = bookId,
+            syncId = "$collectionId:$bookId",
             createdAt = 50L,
             revision = 1,
             deletedAt = null,
@@ -122,10 +130,56 @@ class CollectionRepositoryOfflineTest :
                 val row = db.collectionBookDao().findByKey("c1", "b1").shouldNotBeNull()
                 row.deletedAt.shouldBeNull()
                 row.revision shouldBe 0
+                // SERVER-SYNC-04: the optimistic row already carries a non-blank, client-minted
+                // opaque syncId — never a "$collectionId:$bookId" composite (satisfies the syncId
+                // NOT NULL constraint before any server round-trip).
+                row.syncId.isBlank() shouldBe false
+                row.syncId shouldNotBe "c1:b1"
                 val op = db.pendingOperationV2Dao().nextDispatchable().single()
                 op.domainName shouldBe "collection_books"
                 op.entityId shouldBe "c1:b1"
                 op.opType shouldBe "create"
+                db.close()
+            }
+        }
+
+        test("addBook's optimistic syncId self-heals to the server's authoritative id on echo") {
+            // SERVER-SYNC-04 (Locked Decision #3): the client mints a placeholder syncId offline-first;
+            // the server mints its own authoritative id independently. Room's @Upsert is keyed on the
+            // NATURAL pair (collectionId, bookId) — not syncId — so the server's Created echo (carrying
+            // the real id) overwrites the local row in place instead of creating a duplicate.
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val repo = repo(db)
+                repo.addBook("c1", "b1")
+                val clientMintedSyncId = db.collectionBookDao().findByKey("c1", "b1")!!.syncId
+
+                val handler =
+                    collectionBooksDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                val serverSyncId = "server-authoritative-id"
+                handler.onEvent(
+                    SyncEvent.Created(
+                        id = serverSyncId,
+                        revision = 1L,
+                        occurredAt = 200L,
+                        clientOpId = null,
+                        payload =
+                            CollectionBookSyncPayload(
+                                id = serverSyncId,
+                                collectionId = "c1",
+                                bookId = "b1",
+                                createdAt = 200L,
+                                revision = 1L,
+                            ),
+                    ),
+                )
+
+                val row = db.collectionBookDao().findByKey("c1", "b1")!!
+                row.syncId shouldBe serverSyncId
+                row.syncId shouldNotBe clientMintedSyncId
+                row.revision shouldBe 1L
+                // Still exactly one row for the natural pair — no duplicate.
+                db.collectionBookDao().liveSyncIds() shouldBe listOf(serverSyncId)
                 db.close()
             }
         }

@@ -115,14 +115,54 @@ class CollectionDaoTest :
                 bookDao.upsert(member("c1", "b1"))
                 bookDao.upsert(member("c1", "b2"))
                 bookDao.upsert(member("c1", "b3"))
-                bookDao.liveSyntheticIds().toSet() shouldBe setOf("c1:b1", "c1:b2", "c1:b3")
+                bookDao.liveSyncIds().toSet() shouldBe setOf("c1:b1", "c1:b2", "c1:b3")
 
                 bookDao.tombstoneByIds(listOf("c1:b1", "c1:b2"), now = 777L)
 
-                bookDao.liveSyntheticIds() shouldBe listOf("c1:b3")
+                bookDao.liveSyncIds() shouldBe listOf("c1:b3")
                 bookDao.findByKey("c1", "b1")!!.deletedAt shouldNotBe null
                 bookDao.findByKey("c1", "b2")!!.deletedAt shouldNotBe null
                 bookDao.findByKey("c1", "b3")!!.deletedAt shouldBe null
+            }
+        }
+
+        // ── SERVER-SYNC-04: opaque syncId ──────────────────────────────────────
+
+        test("tombstoneBySyncId tombstones only the row with that syncId, by identity — never by pair") {
+            runTest {
+                bookDao.upsert(member("c1", "b1", syncId = "opaque-1"))
+                bookDao.upsert(member("c1", "b2", syncId = "opaque-2"))
+
+                bookDao.tombstoneBySyncId("opaque-1", deletedAt = 999L, revision = 5L)
+
+                val tombstoned = bookDao.findByKey("c1", "b1")!!
+                tombstoned.deletedAt shouldBe 999L
+                tombstoned.revision shouldBe 5L
+                bookDao.findByKey("c1", "b2")!!.deletedAt shouldBe null
+            }
+        }
+
+        test("liveSyncIdsForCollections returns only live syncIds for the requested collections") {
+            runTest {
+                bookDao.upsert(member("c1", "b1", syncId = "opaque-1"))
+                bookDao.upsert(member("c2", "b2", syncId = "opaque-2"))
+                bookDao.upsert(member("c3", "b3", syncId = "opaque-3"))
+                bookDao.tombstone(collectionId = "c1", bookId = "b1", deletedAt = 1L, revision = 1L)
+
+                // c1's row is tombstoned; c2 is in scope; c3 is never named — neither survives the filter.
+                bookDao.liveSyncIdsForCollections(listOf("c1", "c2")).toSet() shouldBe setOf("opaque-2")
+            }
+        }
+
+        test("revisionOfSyncId returns the stored revision by opaque identity, tombstones included") {
+            runTest {
+                bookDao.upsert(member("c1", "b1", syncId = "opaque-1"))
+                bookDao.revisionOfSyncId("opaque-1") shouldBe 1L
+
+                bookDao.tombstoneBySyncId("opaque-1", deletedAt = 1L, revision = 9L)
+                bookDao.revisionOfSyncId("opaque-1") shouldBe 9L
+
+                bookDao.revisionOfSyncId("never-seen") shouldBe null
             }
         }
 
@@ -224,9 +264,11 @@ private fun member(
     bookId: String,
     createdAt: Long = 1L,
     deletedAt: Long? = null,
+    syncId: String = "$collectionId:$bookId",
 ) = CollectionBookEntity(
     collectionId = collectionId,
     bookId = bookId,
+    syncId = syncId,
     createdAt = createdAt,
     revision = 1L,
     deletedAt = deletedAt,

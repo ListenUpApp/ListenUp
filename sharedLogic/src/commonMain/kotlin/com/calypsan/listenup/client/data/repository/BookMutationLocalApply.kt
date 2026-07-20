@@ -30,6 +30,7 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import kotlin.uuid.Uuid
 
 /**
  * The optimistic Room merge for every [BookMutation], mirroring [com.calypsan.listenup.client.data.sync.domains.BookMirrorApply]'s
@@ -209,6 +210,7 @@ internal class BookMutationLocalApply(
                 CollectionBookEntity(
                     collectionId = collectionId,
                     bookId = bookId.value,
+                    syncId = Uuid.random().toString(),
                     createdAt = now,
                     revision = 0,
                     deletedAt = null,

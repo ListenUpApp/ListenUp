@@ -26,6 +26,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
@@ -145,16 +146,14 @@ class ShelfRepositoryOfflineTest :
                 val result = repo.addBooksToShelf(ShelfId("s1"), listOf(BookId("b2"), BookId("b3")))
 
                 result shouldBe AppResult.Success(Unit)
-                db
-                    .shelfBookDao()
-                    .findById("s1:b2")
-                    .shouldNotBeNull()
-                    .sortOrder shouldBe 1
-                db
-                    .shelfBookDao()
-                    .findById("s1:b3")
-                    .shouldNotBeNull()
-                    .sortOrder shouldBe 2
+                // SERVER-SYNC-04: the optimistic row's id is a freshly-minted opaque value, not the
+                // "$shelfId:$bookId" composite — look it up by the natural pair.
+                val row2 = db.shelfBookDao().findByShelfAndBook("s1", "b2").shouldNotBeNull()
+                row2.sortOrder shouldBe 1
+                row2.id.isBlank() shouldBe false
+                row2.id shouldNotBe "s1:b2"
+                val row3 = db.shelfBookDao().findByShelfAndBook("s1", "b3").shouldNotBeNull()
+                row3.sortOrder shouldBe 2
                 val ops = db.pendingOperationV2Dao().nextDispatchable()
                 ops.map { it.entityId }.toSet() shouldBe setOf("s1:b2", "s1:b3")
                 ops.forEach {

@@ -236,6 +236,9 @@ internal data class RoleWithBookCount(
  *
  * @property bookId The book this tag is applied to.
  * @property tagId The tag applied to [bookId].
+ * @property syncId Opaque wire sync identity (SERVER-SYNC-04, Room v2) — matched against
+ *   `SyncEvent.Deleted.id`; never parsed. Client-minted for an offline-first create,
+ *   server-echoed otherwise.
  * @property createdAt Epoch millis when this junction row was first created.
  * @property revision Monotonic server revision, bumped on create or soft-delete.
  * @property deletedAt Epoch ms tombstone; null when the junction row is live.
@@ -246,11 +249,13 @@ internal data class RoleWithBookCount(
     indices = [
         Index(value = ["tagId"]),
         Index(value = ["deletedAt"]),
+        Index(value = ["syncId"], unique = true),
     ],
 )
 internal data class BookTagEntity(
     val bookId: String,
     val tagId: String,
+    val syncId: String,
     val createdAt: Long,
     val revision: Long = 0,
     val deletedAt: Long? = null,
@@ -326,6 +331,9 @@ internal data class BookWithTags(
  *
  * @property bookId The book this mood is applied to.
  * @property moodId The mood applied to [bookId].
+ * @property syncId Opaque wire sync identity (SERVER-SYNC-04, Room v2) — matched against
+ *   `SyncEvent.Deleted.id`; never parsed. Client-minted for an offline-first create,
+ *   server-echoed otherwise.
  * @property createdAt Epoch millis when this junction row was first created.
  * @property revision Monotonic server revision, bumped on create or soft-delete.
  * @property deletedAt Epoch ms tombstone; null when the junction row is live.
@@ -336,11 +344,13 @@ internal data class BookWithTags(
     indices = [
         Index(value = ["moodId"]),
         Index(value = ["deletedAt"]),
+        Index(value = ["syncId"], unique = true),
     ],
 )
 internal data class BookMoodEntity(
     val bookId: String,
     val moodId: String,
+    val syncId: String,
     val createdAt: Long,
     val revision: Long = 0,
     val deletedAt: Long? = null,

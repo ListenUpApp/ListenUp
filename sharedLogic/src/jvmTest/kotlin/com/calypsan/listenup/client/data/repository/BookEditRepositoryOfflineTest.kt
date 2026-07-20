@@ -268,7 +268,12 @@ class BookEditRepositoryOfflineTest :
                     db.seedCollection("old")
                     db.seedCollection("new")
                     db.collectionBookDao().upsert(
-                        CollectionBookEntity(collectionId = "old", bookId = bookId.value, createdAt = 1L),
+                        CollectionBookEntity(
+                            collectionId = "old",
+                            bookId = bookId.value,
+                            syncId = "old:${bookId.value}",
+                            createdAt = 1L,
+                        ),
                     )
                     val repo = db.bookEditRepository()
 

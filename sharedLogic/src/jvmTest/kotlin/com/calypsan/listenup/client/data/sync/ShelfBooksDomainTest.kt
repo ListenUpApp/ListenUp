@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.ShelfBookSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
 import com.calypsan.listenup.client.data.sync.domains.shelfBooksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -36,6 +37,37 @@ class ShelfBooksDomainTest :
                 row.sortOrder shouldBe 0
                 row.revision shouldBe 1L
                 row.deletedAt shouldBe null
+            }
+        }
+
+        test("upsert reconciles a client-minted row to the server's echoed id for the same pair — no duplicate") {
+            // SERVER-SYNC-04: shelf_books' primary key IS the opaque wire id (unlike the other three
+            // junction domains, whose PK is the natural pair), so a client-minted optimistic add and
+            // the server's later Created echo for the SAME (shelfId, bookId) carry DIFFERENT primary
+            // keys. ShelfBookMirrorApply.upsert must collapse them into one row, not leave both.
+            withHandler { handler, db ->
+                db.shelfBookDao().upsert(
+                    ShelfBookEntity(
+                        id = "client-minted-id",
+                        shelfId = "s1",
+                        bookId = "b1",
+                        sortOrder = 0,
+                        revision = 0,
+                        deletedAt = null,
+                        updatedAt = 100L,
+                        createdAt = 100L,
+                    ),
+                )
+
+                handler
+                    .onEvent(createdJunction(junctionPayload("s1", "b1", sortOrder = 0, revision = 1L, id = "server-echoed-id")))
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.shelfBookDao().findById("client-minted-id") shouldBe null
+                val row = db.shelfBookDao().findById("server-echoed-id")
+                row shouldNotBe null
+                row!!.revision shouldBe 1L
+                db.shelfBookDao().digestRows(Long.MAX_VALUE).map { it.id } shouldBe listOf("server-echoed-id")
             }
         }
 
@@ -129,8 +161,9 @@ private fun junctionPayload(
     sortOrder: Int = 0,
     revision: Long = 1L,
     deletedAt: Long? = null,
+    id: String = "$shelfId:$bookId",
 ) = ShelfBookSyncPayload(
-    id = "$shelfId:$bookId",
+    id = id,
     shelfId = shelfId,
     bookId = bookId,
     sortOrder = sortOrder,

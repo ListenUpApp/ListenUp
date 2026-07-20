@@ -39,7 +39,22 @@ internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfB
 internal class ShelfBookMirrorApply(
     private val database: ListenUpDatabase,
 ) : MirrorApply<ShelfBookSyncPayload> {
+    /**
+     * Unlike the other three junction domains — whose Room primary key IS the natural pair, so a
+     * plain `@Upsert` self-heals a client-minted id to the server-echoed one in place — `shelf_books`'
+     * primary key is its opaque wire [ShelfBookEntity.id] (SERVER-SYNC-04). A client-originated
+     * optimistic add mints its own id before any server round-trip (see
+     * `ShelfRepositoryImpl.addBooksToShelf`); if the server's later Created echo carries a
+     * DIFFERENT id for the SAME `(shelfId, bookId)` pair, a plain `@Upsert` would leave both rows —
+     * the stale client-minted one orphaned forever. Reconcile first: an existing row for the pair
+     * with a different id is deleted before the incoming payload is upserted, so the pair converges
+     * on exactly one row.
+     */
     override suspend fun upsert(payload: ShelfBookSyncPayload) {
+        val existing = database.shelfBookDao().findByShelfAndBook(payload.shelfId, payload.bookId)
+        if (existing != null && existing.id != payload.id) {
+            database.shelfBookDao().deleteById(existing.id)
+        }
         database.shelfBookDao().upsert(
             ShelfBookEntity(
                 id = payload.id,

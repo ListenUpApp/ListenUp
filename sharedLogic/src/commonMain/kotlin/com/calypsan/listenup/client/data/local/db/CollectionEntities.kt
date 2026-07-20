@@ -46,7 +46,8 @@ internal data class CollectionEntity(
 )
 
 /**
- * Junction row linking a book to a collection (Collections — Room v24).
+ * Junction row linking a book to a collection (Collections — Room v24; `syncId` added Room v2,
+ * SERVER-SYNC-04).
  *
  * One row per `(collectionId, bookId)` pair. Soft-deletes are tombstoned via
  * [deletedAt]; observation queries exclude tombstoned rows so removals reflect
@@ -59,11 +60,17 @@ internal data class CollectionEntity(
     indices = [
         Index(value = ["bookId"]),
         Index(value = ["deletedAt"]),
+        Index(value = ["syncId"], unique = true),
     ],
 )
 internal data class CollectionBookEntity(
     val collectionId: String,
     val bookId: String,
+    /**
+     * Opaque wire sync identity (SERVER-SYNC-04) — matched against `SyncEvent.Deleted.id`;
+     * never parsed. Client-minted for an offline-first create, server-echoed otherwise.
+     */
+    val syncId: String,
     /** Epoch millis when this junction row was first created. */
     val createdAt: Long,
     /** Monotonic server revision, bumped on create or soft-delete. */

@@ -15,9 +15,11 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v6** — the v5 baseline with the dead `shake_to_reset_sleep_timer` column dropped
- * from `user_preferences`; the shake-to-reset-sleep-timer setting was a placebo (persisted and
- * synced but never wired to any behaviour), so its client projection is gone.
+ * Schema is at **v2** — the post-squash v1 baseline (the pre-1.0 migration chain was squashed to a
+ * single starting point) plus the first post-squash migration: `collection_books`/`book_tags`/
+ * `book_moods` each gain a `syncId` column (SERVER-SYNC-04 — junction wire ids became opaque, so the
+ * client now stores the server-assigned id instead of deriving `"$a:$b"` at read time). See
+ * [MIGRATION_1_2].
  *
  * **Migration policy (non-destructive).** The platform `DatabaseModule`s do NOT call
  * `fallbackToDestructiveMigration`, so a schema mismatch with no migration throws loudly instead of
@@ -27,7 +29,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * schema-version bump MUST ship a hand-written [androidx.room.migration.Migration]** (register it on
  * all three builders) that preserves the outbox and other pending rows; the guard
  * `DatabaseMigrationPolicyTest` fails the build if the destructive fallback is ever re-added. The
- * `@Database.exportSchema` on-disk JSON (`schemas/…/1.json`) is the authoritative baseline.
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/2.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -68,7 +70,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(
