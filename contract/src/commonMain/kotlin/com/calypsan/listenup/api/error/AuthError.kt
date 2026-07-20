@@ -197,4 +197,16 @@ sealed interface AuthError : AppError {
         override val code: String = "AUTH_PERMISSION_DENIED"
         override val isRetryable: Boolean = false
     }
+
+    /** No registration exists for the given user id — a stale, tampered, or malformed id. */
+    @Serializable
+    @SerialName("AuthError.RegistrationNotFound")
+    data class RegistrationNotFound(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : AuthError {
+        override val message: String = "That registration could not be found."
+        override val code: String = "AUTH_REGISTRATION_NOT_FOUND"
+        override val isRetryable: Boolean = false
+    }
 }

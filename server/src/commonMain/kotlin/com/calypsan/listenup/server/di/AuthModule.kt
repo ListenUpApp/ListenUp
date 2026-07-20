@@ -143,6 +143,10 @@ fun authModule(config: ApplicationConfig): Module {
                 defaultGrantIssuer = getOrNull(),
                 // Nullable — the admin-roster module may not be loaded in minimal test containers.
                 adminUserRosterMaintainer = getOrNull(),
+                // The same singleton AdminUserServiceImpl notifies on a decision — must be shared,
+                // not the constructor's default fresh instance, or observeRegistrationStatus would
+                // never see a live approve/deny push.
+                registrationBroadcaster = get(),
             )
         }
 
