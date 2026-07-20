@@ -68,6 +68,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.WavySeekBar
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import kotlin.time.Duration
@@ -86,6 +87,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun DesktopNowPlayingScreen(
     state: NowPlayingState,
+    progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -117,6 +119,7 @@ fun DesktopNowPlayingScreen(
             is NowPlayingState.Active -> {
                 ActiveScreen(
                     state = state,
+                    progress = progress,
                     onPlayPause = onPlayPause,
                     onSkipBack = onSkipBack,
                     onSkipForward = onSkipForward,
@@ -197,6 +200,7 @@ private fun ErrorScreen(
 @Composable
 private fun ActiveScreen(
     state: NowPlayingState.Active,
+    progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -269,6 +273,7 @@ private fun ActiveScreen(
         if (isWideLayout) {
             WideLayout(
                 state = state,
+                progress = progress,
                 onPlayPause = onPlayPause,
                 onSkipBack = onSkipBack,
                 onSkipForward = onSkipForward,
@@ -285,6 +290,7 @@ private fun ActiveScreen(
         } else {
             TallLayout(
                 state = state,
+                progress = progress,
                 onPlayPause = onPlayPause,
                 onSkipBack = onSkipBack,
                 onSkipForward = onSkipForward,
@@ -307,6 +313,7 @@ private fun ActiveScreen(
 @Composable
 private fun TallLayout(
     state: NowPlayingState.Active,
+    progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -366,9 +373,7 @@ private fun TallLayout(
 
         // Wavy seek bar
         SeekSection(
-            progress = state.chapterProgress,
-            positionMs = state.chapterPositionMs,
-            durationMs = state.chapterDurationMs,
+            progress = progress,
             isPlaying = state.isPlaying,
             onSeek = onSeek,
         )
@@ -402,6 +407,7 @@ private fun TallLayout(
 @Composable
 private fun WideLayout(
     state: NowPlayingState.Active,
+    progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -462,9 +468,7 @@ private fun WideLayout(
             )
 
             SeekSection(
-                progress = state.chapterProgress,
-                positionMs = state.chapterPositionMs,
-                durationMs = state.chapterDurationMs,
+                progress = progress,
                 isPlaying = state.isPlaying,
                 onSeek = onSeek,
             )
@@ -694,16 +698,14 @@ private fun TitleSection(
  */
 @Composable
 private fun SeekSection(
-    progress: Float,
-    positionMs: Long,
-    durationMs: Long,
+    progress: () -> PlaybackProgress,
     isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth().widthIn(max = 480.dp)) {
         WavySeekBar(
-            progress = progress.coerceIn(0f, 1f),
+            progress = progress().chapterProgress.coerceIn(0f, 1f),
             onSeek = onSeek,
             isPlaying = isPlaying,
         )
@@ -713,6 +715,8 @@ private fun SeekSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            val positionMs = progress().chapterPositionMs
+            val durationMs = progress().chapterDurationMs
             Text(
                 text = formatPlaybackTime(positionMs.milliseconds),
                 style = MaterialTheme.typography.labelSmall,
