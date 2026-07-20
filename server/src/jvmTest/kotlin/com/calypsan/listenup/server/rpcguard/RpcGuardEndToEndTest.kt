@@ -120,6 +120,5 @@ private class BrokenAuthService : AuthServicePublic {
 
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> = error("not used in this test")
 
-    override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> =
-        error("not used in this test")
+    override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> = error("not used in this test")
 }

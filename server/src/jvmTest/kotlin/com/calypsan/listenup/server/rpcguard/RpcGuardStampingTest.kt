@@ -70,8 +70,7 @@ private class SessionExpiredAuthService : AuthServicePublic {
 
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> = error("not used in this test")
 
-    override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> =
-        error("not used in this test")
+    override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> = error("not used in this test")
 }
 
 /** `observeProgress()` throws synchronously while building the flow (a precondition/DI-style fault). */

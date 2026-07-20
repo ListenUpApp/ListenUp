@@ -30,6 +30,7 @@ internal class RegistrationStatusStreamImpl(
     override suspend fun fetchStatus(userId: String): StreamedRegistrationStatus =
         when (val first = channel.stream { it.observeRegistrationStatus(userId) }.firstOrNull()) {
             is RpcEvent.Data -> first.value.toDomain()
+
             // Never-stranded: an error, an unexpected empty completion, or a business RpcEvent.Error
             // (e.g. an unrecognised registration id) all fall back to Pending rather than throwing —
             // this is the reliable pull the ViewModel's poll and "Check Status" action lean on.
