@@ -69,10 +69,13 @@ struct AdminInboxView: View {
                     }
                 )
                 .alert(
-                    String(localized: "admin.inbox_release_count"),
+                    String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount),
                     isPresented: $showingReleaseConfirm,
                     actions: {
-                        Button(String(localized: "admin.inbox_release_count"), role: .destructive) {
+                        Button(
+                            String(format: String(localized: "admin.inbox_release_count"), ready.selectedCount),
+                            role: .destructive
+                        ) {
                             observer.releaseSelected()
                         }
                         Button(String(localized: "common.cancel"), role: .cancel) {}
