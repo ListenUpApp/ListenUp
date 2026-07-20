@@ -18,8 +18,9 @@ concurrency:
 
 # CI is organized into three conceptual stages — Lint, Test, Build — each spanning the
 # lanes a stage needs. Mobile-focused: Linux lane (shared Kotlin + server + Android) and
-# macOS lane (iOS). Desktop is intentionally not built — the two mobile builds already
-# compile all shared Kotlin across both backends (Android → JVM/Android; iOS → Native).
+# macOS lane (iOS). Desktop has no dedicated build/test job, but test-jvm compiles
+# :desktopApp (JVM target) so entry-point drift against shared composable signatures
+# fails fast — that surface isn't otherwise touched by the Android/iOS builds.
 jobs:
   # ── Lint ─────────────────────────────────────────────────────────────────────
   lint:
@@ -145,6 +146,13 @@ jobs:
       # catalog as an empty entry. Found 5 live raw-key bugs the day it was added.
       - name: Verify iOS Swift localization keys exist
         run: ./gradlew :sharedUI:verifySwiftStringKeys --no-daemon
+
+      # :desktopApp is a thin entry-point wrapper over :sharedUI/:sharedLogic — neither
+      # the Android nor the iOS build compiles it, so a shared composable signature
+      # change (e.g. #1183) can drift the desktop callers silently until someone builds
+      # desktop by hand. Cheap JVM compile; fails fast, ahead of the full test run.
+      - name: Compile :desktopApp
+        run: ./gradlew :desktopApp:compileKotlin --no-daemon
 
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :sharedLogic), and the server. :sharedUI host tests are Robolectric (JVM, no
