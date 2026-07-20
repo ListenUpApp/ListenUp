@@ -5181,16 +5181,6 @@
         }
       }
     },
-    "contributor.apply_selectedcount_of_availablefieldcount": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Apply %1$@ of %2$@"
-          }
-        }
-      }
-    },
     "contributor.audible": {
       "localizations": {
         "en": {
@@ -5587,16 +5577,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "No change"
-          }
-        }
-      }
-    },
-    "contributor.no_image_available_from_audible": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No image available from Audible"
           }
         }
       }
