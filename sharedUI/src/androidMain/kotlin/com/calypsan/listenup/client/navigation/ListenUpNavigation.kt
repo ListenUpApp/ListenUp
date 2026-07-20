@@ -59,8 +59,8 @@ import com.calypsan.listenup.client.share.ShareTarget
 import com.calypsan.listenup.client.share.ShareTargetResolver
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
-import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
@@ -544,7 +544,7 @@ private suspend fun handleShortcutAction(
 @Composable
 private fun AuthenticatedNavigation(
     authSession: AuthSession,
-    libraryResetHelper: LibraryResetHelper = koinInject(),
+    logoutUseCase: LogoutUseCase = koinInject(),
     syncRepository: SyncRepository = koinInject(),
     shortcutActionManager: ShortcutActionManager = koinInject(),
     homeRepository: HomeRepository = koinInject(),
@@ -608,13 +608,13 @@ private fun AuthenticatedNavigation(
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Hoisted sign-out action shared by shell and settings entries.
-    // Clear library data before signing out so the next login (same or different user)
-    // always starts with fresh data.
+    // Hoisted sign-out action shared by shell and settings entries. Delegates to LogoutUseCase —
+    // the single sign-out choke point (engine stop, RPC invalidation, library-data + pending-op
+    // clear, token clear, user clear) — so this nav-level action can't drift from what Settings'
+    // own sign-out does.
     val onSignOut: () -> Unit = {
         scope.launch {
-            libraryResetHelper.clearLibraryData()
-            authSession.clearAuthTokens()
+            logoutUseCase()
         }
     }
 

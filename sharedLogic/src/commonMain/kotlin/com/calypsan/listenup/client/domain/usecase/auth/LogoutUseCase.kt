@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
@@ -13,7 +14,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
 /**
- * Logout flow.
+ * Logout flow — the single sign-out choke point every call site (shell nav, desktop nav,
+ * Settings) routes through, so no path can partially clean up and leave stale state behind.
  *
  * Server-side session revocation is best-effort — if it fails (network
  * down, expired token), local state still clears. Local-only logout is
@@ -29,6 +31,7 @@ open class LogoutUseCase(
     private val userRepository: UserRepository,
     private val syncRepository: SyncRepository,
     private val rpcCacheInvalidator: RpcCacheInvalidator,
+    private val libraryResetHelper: LibraryResetHelper,
     private val playbackStateProvider: PlaybackStateProvider? = null,
 ) {
     open suspend operator fun invoke(): AppResult<Unit> {
@@ -52,16 +55,26 @@ open class LogoutUseCase(
     }
 
     /**
-     * Stop real-time sync first — otherwise the engine keeps reconnecting against
-     * the now-unauthenticated endpoint — then clear local auth/user/playback state.
+     * Stop real-time sync first — otherwise the engine keeps reconnecting against the
+     * now-unauthenticated endpoint (and could apply an in-flight SSE frame or drain an
+     * outbox op after the rest of this sequence has already torn down) — then clear
+     * every other piece of local state.
      */
     private suspend fun clearLocalState() {
+        // 1. Stop the engine first: no drains or SSE applies may run while the rest of
+        // this sequence tears down underneath them.
         syncRepository.disconnect()
-        // Drop every cached principal-bound RPC proxy / HttpClient so a re-login as a
+        // 2. Drop every cached principal-bound RPC proxy / HttpClient so a re-login as a
         // different user in the same process can't reuse the previous session's socket.
         rpcCacheInvalidator.invalidateAll()
         playbackStateProvider?.clearPlayback()
+        // 3. Clear library data, including any still-queued pending operations — a
+        // signed-out user's unsent edits are deliberately discarded, not carried into
+        // the next login (same or different user starts with a clean slate).
+        libraryResetHelper.clearLibraryData(discardPendingOperations = true)
+        // 4. Tokens die after the data they'd otherwise let a stray request re-fetch.
         authSession.clearAuthTokens()
+        // 5. Finally drop the cached user rows themselves.
         userRepository.clearUsers()
     }
 }
