@@ -117,6 +117,7 @@ tasks.register("verifyLocal") {
         ":sharedUI:verifyLicenses",
         ":sharedUI:verifySwiftStringKeys",
         ":sharedLogic:compileCommonMainKotlinMetadata",
+        ":desktopApp:compileKotlin",
         ":contract:jvmTest",
         ":sharedLogic:jvmTest",
         ":sharedLogic:testAndroidHostTest",
