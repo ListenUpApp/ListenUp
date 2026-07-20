@@ -19,9 +19,8 @@ import io.ktor.client.request.setBody
  *    `{ "<bookId>": ["<collectionId>", …] }` body → releases books out of the inbox
  *    into their assigned target collections (empty target list = released as public).
  *
- * The routes return raw JSON bodies (a `List<String>` and a `204 No Content`), not the
- * `ApiResponse` envelope, so the methods use [suspendRunCatching] directly rather than
- * the envelope-shaped [apiCall] helpers. The server enforces the ROOT/ADMIN gate.
+ * The routes return raw JSON bodies (a `List<String>` and a `204 No Content`), so the methods
+ * use [suspendRunCatching] directly at the request boundary. The server enforces the ROOT/ADMIN gate.
  */
 internal interface CollectionInboxApiContract {
     /** Returns the live (unreleased) book ids in the inbox for [libraryId]. */

@@ -348,7 +348,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.domain.model.DownloadOutcome" to 3,
             "com.calypsan.listenup.client.domain.model.SyncState" to 7,
             "com.calypsan.listenup.client.domain.readers.ReaderLineKind" to 2,
-            "com.calypsan.listenup.client.domain.repository.PlaybackUpdate" to 11,
+            "com.calypsan.listenup.client.domain.repository.PlaybackUpdate" to 10,
             "com.calypsan.listenup.client.domain.repository.PreferenceChangeEvent" to 1,
             "com.calypsan.listenup.client.domain.repository.Reachability" to 3,
             "com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus" to 3,

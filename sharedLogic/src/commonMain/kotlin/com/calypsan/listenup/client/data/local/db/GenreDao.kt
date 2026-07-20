@@ -342,8 +342,8 @@ internal data class BookGenreNamePair(
 /**
  * Projection for resolving genre names to IDs during sync.
  *
- * Server responses ([BookResponse.genres]) carry genre names only; the client
- * maintains genre IDs via [GenreEntity]. This projection is the minimal shape
+ * Server responses ([com.calypsan.listenup.api.sync.BookSyncPayload.genres]) carry genre names
+ * only; the client maintains genre IDs via [GenreEntity]. This projection is the minimal shape
  * Sync domain handlers need to build [BookGenreCrossRef] rows.
  */
 internal data class GenreIdName(

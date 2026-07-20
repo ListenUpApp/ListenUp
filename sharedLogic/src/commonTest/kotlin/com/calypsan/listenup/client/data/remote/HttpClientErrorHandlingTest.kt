@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.remote
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.test.http.testMockEngine
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -22,7 +23,7 @@ import kotlinx.coroutines.test.runTest
  * non-2xx responses surface as [ResponseException] (Ktor's standard exception for
  * non-success HTTP status codes).
  *
- * Error mapping (ResponseException → typed AppError) happens at the `apiCall { ... }`
+ * Error mapping (ResponseException → typed AppError) happens at the `suspendRunCatching { ... }`
  * boundary, not inside the plugin itself. These tests verify the plugin's single
  * responsibility: raise on non-2xx rather than passing error bodies to the decoder.
  */
@@ -72,15 +73,15 @@ class HttpClientErrorHandlingTest :
             }
         }
 
-        test("apiCallCatchesResponseExceptionAndProducesTypedFailure") {
+        test("suspendRunCatchingCatchesResponseExceptionAndProducesTypedFailure") {
             runTest {
                 // End-to-end: installListenUpErrorHandling raises ResponseException on non-2xx;
-                // apiCall catches it; ErrorMapper produces a typed AppError.
+                // suspendRunCatching catches it; ErrorMapper produces a typed AppError.
                 // This validates the full boundary contract without reaching any server.
                 val c = client { respondStatus("/boom", HttpStatusCode.InternalServerError) }
 
                 val result =
-                    apiCall<String>(errorMessage = "Failed to fetch") {
+                    suspendRunCatching<String> {
                         c.get("http://unit.test/boom").body()
                     }
 
@@ -91,7 +92,7 @@ class HttpClientErrorHandlingTest :
             }
         }
 
-        test("apiCallCatchesUnauthorizedAndProducesTypedSessionExpiredFailure") {
+        test("suspendRunCatchingCatchesUnauthorizedAndProducesTypedSessionExpiredFailure") {
             runTest {
                 // 401 Unauthorized → ErrorMapper upgrades to AuthError.SessionExpired at the
                 // boundary (a stale/invalid session). This is the typed signal that the global
@@ -99,7 +100,7 @@ class HttpClientErrorHandlingTest :
                 val c = client { respondStatus("/secret", HttpStatusCode.Unauthorized) }
 
                 val result =
-                    apiCall<String>(errorMessage = "Failed to fetch") {
+                    suspendRunCatching<String> {
                         c.get("http://unit.test/secret").body()
                     }
 
@@ -108,14 +109,14 @@ class HttpClientErrorHandlingTest :
             }
         }
 
-        test("apiCallCatchesForbiddenAndProducesTypedServer4xxFailure") {
+        test("suspendRunCatchingCatchesForbiddenAndProducesTypedServer4xxFailure") {
             runTest {
                 // 403 Forbidden → ErrorMapper classifies as TransportError.Server4xx(403).
                 // Auth-specific upgrade (to AuthError) happens at the repository layer.
                 val c = client { respondStatus("/forbidden", HttpStatusCode.Forbidden) }
 
                 val result =
-                    apiCall<String>(errorMessage = "Failed to fetch") {
+                    suspendRunCatching<String> {
                         c.get("http://unit.test/forbidden").body()
                     }
 

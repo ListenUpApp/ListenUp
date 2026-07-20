@@ -15,10 +15,6 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * - **Cooperative cancellation rethrows** (`throw e`, `throw cause`) — the
  *   `throw e` after `catch (e: CancellationException)` pattern that every
  *   suspend boundary needs and that AppResult does not replace.
- * - **Programmer-error contract guards** (`throw EnvelopeMismatchException(`) —
- *   the API envelope's structural canary, raised when the server has shipped a
- *   protocol-incompatible payload. This is a build-against-the-server-contract
- *   mismatch, not a runtime business error.
  * - **Placeholders** (`throw NotImplementedError(`) — `DownloadRepositoryImpl`
  *   stubs out platform code that is not yet implemented.
  *
@@ -122,7 +118,6 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
         line.containsThrowToken() &&
             !SANCTIONED_RETHROW.containsMatchIn(line) && // cancellation rethrows: throw e / throw cause
             !line.contains("throw NotImplementedError(") && // placeholder
-            !line.contains("throw EnvelopeMismatchException(") && // protocol contract guard
             // not-connected guard: RPC-proxy factories throw this typed exception when no server
             // URL is configured (an expected pre-connection state). ErrorMapper folds it to a
             // transient NetworkUnavailable; it is a configuration guard, not a swallowed failure.

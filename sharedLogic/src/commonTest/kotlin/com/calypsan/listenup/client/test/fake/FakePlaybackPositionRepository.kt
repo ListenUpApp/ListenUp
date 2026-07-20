@@ -193,12 +193,6 @@ class FakePlaybackPositionRepository(
                     )
                 }
 
-                is PlaybackUpdate.CrossDeviceSync -> {
-                    // Fake doesn't reconcile SSE timestamps — defers to whatever
-                    // existing row is present.
-                    existing
-                }
-
                 is PlaybackUpdate.MarkComplete -> {
                     (existing ?: blankPosition(key, now)).copy(
                         isFinished = true,

@@ -30,7 +30,6 @@ AdminSettingsViewModel
 AdminUiState
 AdminUserInfo
 AdminViewModel
-ApiResponse
 AppError
 AppleDownloadService
 AppleNetworkMonitor
@@ -40,7 +39,6 @@ AppStartupState
 AppStartupViewModel
 AudioFile
 AudioFileDownloader
-AudioFileResponse
 AudioFormat
 AudioFormatDisplay
 AudioPlayer
@@ -60,7 +58,6 @@ BookAvailability
 BookContext
 BookContributor
 BookContributorInput
-BookContributorResponse
 BookDetail
 BookDetailNavAction
 BookDetailUiState
@@ -77,7 +74,6 @@ BookEvent
 BookField
 BookGenreInput
 BookId
-BookListeningDuration
 BookListItem
 BookMetadata
 BookMultiSelectEvent
@@ -87,14 +83,11 @@ BookReadersRepository
 BookReadersUiState
 BookReadersViewModel
 BookRepository
-BookResponse
 BookSearchHit
 BookSearchState
 BookSeries
-BookSeriesInfoResponse
 BookSeriesInput
 BookSummaryFields
-BookTagResponse
 BookUpdate
 BookUpdateRequest
 BookWithContributorRole
@@ -107,7 +100,6 @@ Chapter
 ChapterAnchor
 ChapterInput
 ChapterNameRow
-ChapterResponse
 ChapterSuggestion
 ChapterUiModel
 ClaimInviteUiState
@@ -144,7 +136,6 @@ ContributorMetadataViewModel
 ContributorPickerType
 ContributorPreviewLoadState
 ContributorRepository
-ContributorResponse
 ContributorRole
 ContributorSearchLoadState
 ContributorSearchResponse
@@ -163,7 +154,6 @@ CreateInviteStatus
 CreateInviteUiState
 CreateInviteViewModel
 CreditRoleGroup
-CrossDevicePlaybackProgress
 CurrentlyListeningUiSession
 CurrentlyListeningUiState
 DayBucket
@@ -235,7 +225,6 @@ HomeStatsViewModel
 HomeUiState
 HomeViewModel
 ImageApiContract
-ImageFileInfoResponse
 ImagePickerResult
 ImageRepository
 ImageStagingRepository
@@ -274,7 +263,6 @@ LeaderboardSnapshot
 LeaderboardUiState
 LeaderboardViewModel
 Library
-LibraryCounts
 LibraryFolder
 LibraryFolderRef
 LibraryId
@@ -291,9 +279,7 @@ LibrarySetupViewModel
 LibraryUiEvent
 LibraryUiState
 LibraryViewModel
-ListeningEvent
 ListeningEventRecorder
-ListeningEventRepository
 LocalPreferences
 LoginErrorType
 LoginField
@@ -415,7 +401,6 @@ SeriesId
 SeriesNavigationDetector
 SeriesProgress
 SeriesRepository
-SeriesResponse
 SeriesSearchResponse
 SeriesSearchResult
 SeriesUpdate
@@ -475,15 +460,11 @@ StorageViewModel
 StreamedRegistrationStatus
 SubGenre
 SurfaceMetadata
-SyncBooksResponse
-SyncContributorsResponse
 SyncIndicatorUiEvent
 SyncIndicatorUiState
 SyncIndicatorViewModel
-SyncManifestResponse
 SyncPhase
 SyncRepository
-SyncSeriesResponse
 SyncState
 SyncStatusRepository
 Tag

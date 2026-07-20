@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
@@ -48,7 +47,6 @@ class PlaybackModuleVerifyTest :
                         BookRepository::class,
                         HomeRepository::class,
                         DownloadRepository::class,
-                        ListeningEventRepository::class,
                         PlaybackPositionRepository::class,
                         PlaybackPreferences::class,
                         DeviceContext::class,

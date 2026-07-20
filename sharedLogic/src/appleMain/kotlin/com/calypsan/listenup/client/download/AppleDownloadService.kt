@@ -16,10 +16,10 @@ import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.repository.aggregateBookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
-import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.playback.AudioFileResponse
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
 import io.github.oshai.kotlinlogging.KotlinLogging

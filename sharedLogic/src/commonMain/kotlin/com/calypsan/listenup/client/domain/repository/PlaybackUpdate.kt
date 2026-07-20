@@ -1,14 +1,5 @@
 package com.calypsan.listenup.client.domain.repository
 
-/** Server progress payload used to reconcile playback position across devices. */
-data class CrossDevicePlaybackProgress(
-    val currentPositionMs: Long,
-    val isFinished: Boolean,
-    val lastPlayedAt: String,
-    val startedAt: String?,
-    val finishedAt: String?,
-)
-
 /**
  * Sealed hierarchy describing every distinct write pattern that can mutate a
  * book's playback position. Funnels every write — player events, user commands,
@@ -67,11 +58,6 @@ sealed interface PlaybackUpdate {
     /** Player reached end of book. Sets isFinished = true; queues MarkComplete pending-op. */
     data class BookFinished(
         val finalPositionMs: Long,
-    ) : PlaybackUpdate
-
-    /** Cross-device sync merge from server progress. Reconciles with stored state. */
-    data class CrossDeviceSync(
-        val progress: CrossDevicePlaybackProgress,
     ) : PlaybackUpdate
 
     /** User command: mark complete from BookDetail menu. */
