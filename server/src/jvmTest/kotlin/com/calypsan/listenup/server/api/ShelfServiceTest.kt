@@ -247,10 +247,10 @@ class ShelfServiceTest :
                         ),
                     )
                     collectionBookRepo.upsert(
-                        CollectionBookSyncPayload(collectionId = "u1-col", bookId = "b1", createdAt = 0L, revision = 0L),
+                        CollectionBookSyncPayload(id = "u1-col:b1", collectionId = "u1-col", bookId = "b1", createdAt = 0L, revision = 0L),
                     )
                     collectionBookRepo.upsert(
-                        CollectionBookSyncPayload(collectionId = "u1-col", bookId = "b2", createdAt = 0L, revision = 0L),
+                        CollectionBookSyncPayload(id = "u1-col:b2", collectionId = "u1-col", bookId = "b2", createdAt = 0L, revision = 0L),
                     )
 
                     val service = makeService(sql, driver).actAs("u1")
@@ -315,7 +315,7 @@ class ShelfServiceTest :
                         ),
                     )
                     collectionBookRepo.upsert(
-                        CollectionBookSyncPayload(collectionId = "priv", bookId = "hidden", createdAt = 0L, revision = 0L),
+                        CollectionBookSyncPayload(id = "priv:hidden", collectionId = "priv", bookId = "hidden", createdAt = 0L, revision = 0L),
                     )
 
                     val service = makeService(sql, driver).actAs("u1")

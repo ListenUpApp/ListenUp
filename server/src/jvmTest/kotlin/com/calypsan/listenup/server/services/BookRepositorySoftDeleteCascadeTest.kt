@@ -55,7 +55,7 @@ class BookRepositorySoftDeleteCascadeTest :
                     // Seed a tag and attach it to book1.
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
                     )
 
                     // Verify junction exists before delete.
@@ -114,10 +114,10 @@ class BookRepositorySoftDeleteCascadeTest :
                     // Attach a mood and a collection membership to book1.
                     moodRepo.upsert(Mood(id = "m1", name = "Tense", slug = "tense", revision = 0, updatedAt = 0))
                     bookMoodRepo.upsert(
-                        BookMoodSyncPayload(bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L),
+                        BookMoodSyncPayload(id = "book1:m1", bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L),
                     )
                     collectionBookRepo.upsert(
-                        CollectionBookSyncPayload(collectionId = "c1", bookId = "book1", createdAt = 1000L, revision = 0L),
+                        CollectionBookSyncPayload(id = "c1:book1", collectionId = "c1", bookId = "book1", createdAt = 1000L, revision = 0L),
                     )
 
                     check(collectionBookRepo.findBookIdsForCollection("c1") == listOf("book1"))
@@ -172,10 +172,10 @@ class BookRepositorySoftDeleteCascadeTest :
 
                     moodRepo.upsert(Mood(id = "m1", name = "Tense", slug = "tense", revision = 0, updatedAt = 0))
                     bookMoodRepo.upsert(
-                        BookMoodSyncPayload(bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L),
+                        BookMoodSyncPayload(id = "book1:m1", bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L),
                     )
                     collectionBookRepo.upsert(
-                        CollectionBookSyncPayload(collectionId = "c1", bookId = "book1", createdAt = 1000L, revision = 0L),
+                        CollectionBookSyncPayload(id = "c1:book1", collectionId = "c1", bookId = "book1", createdAt = 1000L, revision = 0L),
                     )
 
                     // Remove (tombstones book + its junctions), then re-add (revive) with floor 0.

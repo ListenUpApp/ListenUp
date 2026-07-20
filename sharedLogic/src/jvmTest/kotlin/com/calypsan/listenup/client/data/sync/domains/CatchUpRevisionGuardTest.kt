@@ -124,13 +124,15 @@ class CatchUpRevisionGuardTest :
                             id = "b1:t1",
                             revision = 6L,
                             occurredAt = 2L,
-                            payload = BookTagSyncPayload(bookId = "b1", tagId = "t1", createdAt = 1L, revision = 6L),
+                            payload =
+                                BookTagSyncPayload(id = "b1:t1", bookId = "b1", tagId = "t1", createdAt = 1L, revision = 6L),
                         ),
                     )
 
                     // A stale from-zero catch-up page still carries the pre-restore tombstone at rev 5.
                     handler.onCatchUpItem(
                         BookTagSyncPayload(
+                            id = "b1:t1",
                             bookId = "b1",
                             tagId = "t1",
                             createdAt = 1L,

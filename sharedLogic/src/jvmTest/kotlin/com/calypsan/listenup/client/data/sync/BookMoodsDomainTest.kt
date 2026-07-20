@@ -138,6 +138,7 @@ private fun junctionPayload(
     revision: Long = 1L,
     deletedAt: Long? = null,
 ) = BookMoodSyncPayload(
+    id = "$bookId:$moodId",
     bookId = bookId,
     moodId = moodId,
     createdAt = createdAt,

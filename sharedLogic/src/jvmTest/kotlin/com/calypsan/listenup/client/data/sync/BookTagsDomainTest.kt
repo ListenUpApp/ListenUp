@@ -155,6 +155,7 @@ private fun junctionPayload(
     revision: Long = 1L,
     deletedAt: Long? = null,
 ) = BookTagSyncPayload(
+    id = "$bookId:$tagId",
     bookId = bookId,
     tagId = tagId,
     createdAt = createdAt,

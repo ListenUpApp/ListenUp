@@ -145,9 +145,11 @@ class ShelfRepositoryTest :
                     shelfRepo.upsert(shelfPayload("shelfA"), userId = "userA")
                     junctionRepo.addBook("shelfA", "book1", "userA")
 
+                    // The junction's wire id is opaque (SERVER-SYNC-04) — select by shelf,
+                    // not by a hardcoded "shelfId:bookId" string.
                     val storedUserId =
                         sql.shelfBooksQueries
-                            .selectById("shelfA:book1")
+                            .selectByShelf("shelfA")
                             .executeAsOne()
                             .user_id
                     storedUserId shouldBe "userA"

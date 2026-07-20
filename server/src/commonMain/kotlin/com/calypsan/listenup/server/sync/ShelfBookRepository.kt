@@ -7,18 +7,24 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Shelf_books
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 /**
- * Composite key for `shelf_books` junction rows.
+ * Natural-pair identity for `shelf_books` junction rows — the server-internal type the
+ * [SqlSyncableRepository] substrate uses to resolve the row's REAL opaque wire id.
  *
- * The wire representation is [ShelfBookSyncPayload], which carries [shelfId] and
- * [bookId] as top-level fields. [asString] produces the synthetic
- * `"$shelfId:$bookId"` key stored in the `shelf_books.id` column and used by the
- * [SqlSyncableRepository] substrate for revision-cursor identity.
+ * The wire representation is [ShelfBookSyncPayload], which carries [shelfId] and [bookId] as
+ * top-level fields, plus its own opaque `id` (SERVER-SYNC-04: minted at creation, encodes
+ * nothing). [candidateWireId] carries that candidate id through to [idAsString] —
+ * client-minted for an offline-first create, server-minted otherwise — for the case where no
+ * row exists yet for the pair. When a row already exists (live or tombstoned), [idAsString]
+ * discards the candidate and returns the EXISTING row's id instead — "the existing row's id
+ * wins" on a natural-pair conflict.
  */
 data class ShelfBookId(
     val shelfId: String,
     val bookId: String,
+    val candidateWireId: String = "",
 ) {
     fun asString(): String = "$shelfId:$bookId"
 
@@ -39,9 +45,10 @@ data class ShelfBookId(
  * `userScoped = true` — junction rows carry the owning `user_id` (the shelf owner)
  * and sync only to that user. Pull/digest route through the substrate's `*ForUser`
  * variants ([SyncableSubstrateQueries.selectIdsAboveRevisionForUser] /
- * [SyncableSubstrateQueries.selectIdRevAtMostForUser]). The `shelf_books.id` column
- * stores the synthetic `"$shelfId:$bookId"` key the base uses for revision-cursor
- * queries; the natural composite PK `(shelf_id, book_id)` is the write and lookup key.
+ * [SyncableSubstrateQueries.selectIdRevAtMostForUser]). The `shelf_books.id` column stores an
+ * opaque per-row id (SERVER-SYNC-04) the base uses for revision-cursor queries; the natural
+ * composite PK `(shelf_id, book_id)` is the write and lookup key. [idAsString] resolves between
+ * the two — see [ShelfBookId].
  *
  * `sort_order` is the denormalized display position within the shelf, preserved
  * verbatim across the conversion (Int on the wire, INTEGER in SQLite, mapped at the
@@ -70,10 +77,27 @@ class ShelfBookRepository(
     ) {
     override val userScoped: Boolean = true
 
-    override val ShelfBookSyncPayload.id: ShelfBookId get() = ShelfBookId(shelfId, bookId)
+    override val ShelfBookSyncPayload.id: ShelfBookId get() = ShelfBookId(shelfId, bookId, id)
 
-    /** Converts a [ShelfBookId] to the stored `"$shelfId:$bookId"` string. */
-    override fun idAsString(id: ShelfBookId): String = id.asString()
+    /**
+     * Resolves [id] to the REAL stored opaque wire id: an existing row's id if one already
+     * exists for the natural pair (live or tombstoned — "the existing row's id wins" on a
+     * natural-pair conflict), else [ShelfBookId.candidateWireId] as-is.
+     *
+     * The candidate is NOT minted here — minting is the call site's job (client-minted for an
+     * offline-first create, server-minted otherwise, e.g. [addBook]'s `Uuid.random().toString()`).
+     * Minting inside this function would be unsafe: [upsert] calls [idAsString] once to decide
+     * `existed` and again inside [writePayload]'s insert branch to compute the row's actual
+     * `id` — two calls that must resolve identically within the same transaction. A fresh mint
+     * per call would make them diverge, and the second (real) write would never match the first
+     * (assumed) id — see [SqlSyncableRepository.upsert]'s `readPayload` immediately after
+     * `writePayload`.
+     */
+    override fun idAsString(id: ShelfBookId): String =
+        db.shelfBooksQueries
+            .selectIdByNaturalPair(id.shelfId, id.bookId)
+            .executeAsOneOrNull()
+            ?: id.candidateWireId
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.shelfBooksQueries].
@@ -174,7 +198,10 @@ class ShelfBookRepository(
             )
         } else {
             db.shelfBooksQueries.insert(
-                id = ShelfBookId(value.shelfId, value.bookId).asString(),
+                // Deterministic re-derivation of the SAME resolution upsert() already made for
+                // this write (same natural pair, same candidate, same transaction — no row has
+                // been inserted between the two calls, so the natural-pair lookup still misses).
+                id = idAsString(ShelfBookId(value.shelfId, value.bookId, value.id)),
                 user_id = requireNotNull(userId) { "ShelfBookRepository.writePayload requires a userId" },
                 shelf_id = value.shelfId,
                 book_id = value.bookId,
@@ -222,7 +249,7 @@ class ShelfBookRepository(
         val nextSortOrder = nextSortOrderFor(shelfId)
         return upsert(
             ShelfBookSyncPayload(
-                id = ShelfBookId(shelfId, bookId).asString(),
+                id = Uuid.random().toString(),
                 shelfId = shelfId,
                 bookId = bookId,
                 sortOrder = nextSortOrder,

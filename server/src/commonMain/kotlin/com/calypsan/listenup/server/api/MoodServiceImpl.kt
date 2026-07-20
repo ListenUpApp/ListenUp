@@ -156,6 +156,7 @@ internal class MoodServiceImpl(
         val now = clock.now().toEpochMilliseconds()
         val junctionPayload =
             BookMoodSyncPayload(
+                id = Uuid.random().toString(),
                 bookId = bookId.value,
                 moodId = mood.id,
                 createdAt = now,

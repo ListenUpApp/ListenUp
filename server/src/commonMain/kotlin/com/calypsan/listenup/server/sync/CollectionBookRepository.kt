@@ -11,16 +11,26 @@ import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
 
 /**
- * Composite key for `collection_books` junction rows.
+ * Natural-pair identity for `collection_books` junction rows — the server-internal type the
+ * [SqlSyncableRepository] substrate uses to resolve the row's REAL opaque wire id.
  *
  * The wire representation is [CollectionBookSyncPayload], which carries [collectionId] and
- * [bookId] as top-level fields. [asString] produces the synthetic `"$collectionId:$bookId"`
- * key stored in the `collection_books.id` column and used by the [SqlSyncableRepository]
- * substrate for revision-cursor identity.
+ * [bookId] as top-level fields, plus its own opaque `id` (SERVER-SYNC-04: minted at creation,
+ * encodes nothing). [candidateWireId] carries that candidate id through to [idAsString] —
+ * client-minted for an offline-first create, server-minted otherwise — for the case where no
+ * row exists yet for the pair. When a row already exists (live or tombstoned), [idAsString]
+ * discards the candidate and returns the EXISTING row's id instead — "the existing row's id
+ * wins" on a natural-pair conflict.
+ *
+ * [asString] still produces the natural-pair string, unrelated to the wire id; it remains in
+ * use where the pair itself (not identity) is the thing being encoded (e.g. cross-checks in
+ * tests, [SyncRoutes]'s access-hiding lookup which reads `collectionId` off a payload/DB row,
+ * never off the opaque wire id).
  */
 data class CollectionBookId(
     val collectionId: String,
     val bookId: String,
+    val candidateWireId: String = "",
 ) {
     fun asString(): String = "$collectionId:$bookId"
 
@@ -38,9 +48,9 @@ data class CollectionBookId(
  * SQLDelight syncable repository for the `collection_books` global junction — the composite-key
  * sibling of [CollectionRepository].
  *
- * The `collection_books.id` column stores the synthetic `"$collectionId:$bookId"` key the base
- * uses for revision-cursor queries; the natural composite PK `(collection_id, book_id)` is the
- * write and lookup key.
+ * The `collection_books.id` column stores an opaque per-row id (SERVER-SYNC-04) the base uses
+ * for revision-cursor queries; the natural composite PK `(collection_id, book_id)` is the write
+ * and lookup key. [idAsString] resolves between the two — see [CollectionBookId].
  *
  * **Access-filtered sync.** A member's membership catch-up/digest must exclude membership rows
  * for collections they cannot reach (including the system collections), so the firehose arrives
@@ -69,10 +79,27 @@ class CollectionBookRepository(
         key = SyncDomains.COLLECTION_BOOKS,
         clock = clock,
     ) {
-    override val CollectionBookSyncPayload.id: CollectionBookId get() = CollectionBookId(collectionId, bookId)
+    override val CollectionBookSyncPayload.id: CollectionBookId get() = CollectionBookId(collectionId, bookId, id)
 
-    /** Converts a [CollectionBookId] to the stored `"$collectionId:$bookId"` string. */
-    override fun idAsString(id: CollectionBookId): String = id.asString()
+    /**
+     * Resolves [id] to the REAL stored opaque wire id: an existing row's id if one already
+     * exists for the natural pair (live or tombstoned — "the existing row's id wins" on a
+     * natural-pair conflict), else [CollectionBookId.candidateWireId] as-is.
+     *
+     * The candidate is NOT minted here — minting is the call site's job (client-minted for an
+     * offline-first create, server-minted otherwise, e.g. `Uuid.random().toString()` in
+     * `CollectionServiceImpl`). Minting inside this function would be unsafe: [upsert] calls
+     * [idAsString] once to decide `existed` and again inside [writePayload]'s insert branch to
+     * compute the row's actual `id` — two calls that must resolve identically within the same
+     * transaction. A fresh mint per call would make them diverge, and the second (real) write
+     * would never match the first (assumed) id — see [SqlSyncableRepository.upsert]'s
+     * `readPayload` immediately after `writePayload`.
+     */
+    override fun idAsString(id: CollectionBookId): String =
+        db.collectionBooksQueries
+            .selectIdByNaturalPair(id.collectionId, id.bookId)
+            .executeAsOneOrNull()
+            ?: id.candidateWireId
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.collectionBooksQueries].
@@ -149,7 +176,10 @@ class CollectionBookRepository(
             )
         } else {
             db.collectionBooksQueries.insert(
-                id = CollectionBookId(value.collectionId, value.bookId).asString(),
+                // Deterministic re-derivation of the SAME resolution upsert() already made for
+                // this write (same natural pair, same candidate, same transaction — no row has
+                // been inserted between the two calls, so the natural-pair lookup still misses).
+                id = idAsString(CollectionBookId(value.collectionId, value.bookId, value.id)),
                 collection_id = value.collectionId,
                 book_id = value.bookId,
                 created_at = now,
@@ -300,6 +330,7 @@ class CollectionBookRepository(
                                 clientOpId = null,
                                 payload =
                                     CollectionBookSyncPayload(
+                                        id = row.id,
                                         collectionId = row.collection_id,
                                         bookId = row.book_id,
                                         createdAt = row.created_at,
@@ -319,6 +350,7 @@ class CollectionBookRepository(
     /** Maps a generated [Collection_books] row to the wire [CollectionBookSyncPayload] DTO. */
     private fun Collection_books.toSyncPayload(): CollectionBookSyncPayload =
         CollectionBookSyncPayload(
+            id = id,
             collectionId = collection_id,
             bookId = book_id,
             createdAt = created_at,

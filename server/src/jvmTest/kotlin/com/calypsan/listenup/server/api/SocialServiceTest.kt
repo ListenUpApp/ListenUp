@@ -229,6 +229,7 @@ class SocialServiceTest :
             )
             collectionBookRepo.upsert(
                 CollectionBookSyncPayload(
+                    id = "${collectionId}:${bookId}",
                     collectionId = collectionId,
                     bookId = bookId,
                     createdAt = 0L,
@@ -290,6 +291,7 @@ class SocialServiceTest :
             )
             collectionBookRepo.upsert(
                 CollectionBookSyncPayload(
+                    id = "${allBooksId}:${bookId}",
                     collectionId = allBooksId,
                     bookId = bookId,
                     createdAt = 0L,

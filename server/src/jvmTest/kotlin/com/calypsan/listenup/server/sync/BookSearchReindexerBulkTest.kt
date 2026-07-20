@@ -137,22 +137,22 @@ class BookSearchReindexerBulkTest :
                     tagRepo.upsert(Tag(id = "u3", name = "Unique3", slug = "unique3", revision = 0, updatedAt = 0))
 
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "shared", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:shared", bookId = "book1", tagId = "shared", createdAt = 1000L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "u1", createdAt = 1001L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:u1", bookId = "book1", tagId = "u1", createdAt = 1001L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book2", tagId = "shared", createdAt = 1002L, revision = 0L),
+                        BookTagSyncPayload(id = "book2:shared", bookId = "book2", tagId = "shared", createdAt = 1002L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book2", tagId = "u2", createdAt = 1003L, revision = 0L),
+                        BookTagSyncPayload(id = "book2:u2", bookId = "book2", tagId = "u2", createdAt = 1003L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book3", tagId = "shared", createdAt = 1004L, revision = 0L),
+                        BookTagSyncPayload(id = "book3:shared", bookId = "book3", tagId = "shared", createdAt = 1004L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book3", tagId = "u3", createdAt = 1005L, revision = 0L),
+                        BookTagSyncPayload(id = "book3:u3", bookId = "book3", tagId = "u3", createdAt = 1005L, revision = 0L),
                     )
 
                     reindexer.reindexAllBooksForTag("shared")
@@ -195,13 +195,13 @@ class BookSearchReindexerBulkTest :
 
                     tagRepo.upsert(Tag(id = "shared", name = "Shared", slug = "shared", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "shared", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:shared", bookId = "book1", tagId = "shared", createdAt = 1000L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book2", tagId = "shared", createdAt = 1001L, revision = 0L),
+                        BookTagSyncPayload(id = "book2:shared", bookId = "book2", tagId = "shared", createdAt = 1001L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book3", tagId = "shared", createdAt = 1002L, revision = 0L),
+                        BookTagSyncPayload(id = "book3:shared", bookId = "book3", tagId = "shared", createdAt = 1002L, revision = 0L),
                     )
 
                     // Should complete without throwing despite book3 having no map row.
@@ -234,20 +234,20 @@ class BookSearchReindexerBulkTest :
 
                     // book1: tombstoned junction to a live tag.
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "dead1", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:dead1", bookId = "book1", tagId = "dead1", createdAt = 1000L, revision = 0L),
                     )
                     bookTagRepo.softDelete(bookId = "book1", tagId = "dead1")
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "shared", createdAt = 1001L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:shared", bookId = "book1", tagId = "shared", createdAt = 1001L, revision = 0L),
                     )
 
                     // book2: live junction to a tombstoned tag.
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book2", tagId = "dead2", createdAt = 1002L, revision = 0L),
+                        BookTagSyncPayload(id = "book2:dead2", bookId = "book2", tagId = "dead2", createdAt = 1002L, revision = 0L),
                     )
                     tagRepo.softDelete("dead2")
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book2", tagId = "shared", createdAt = 1003L, revision = 0L),
+                        BookTagSyncPayload(id = "book2:shared", bookId = "book2", tagId = "shared", createdAt = 1003L, revision = 0L),
                     )
 
                     reindexer.reindexAllBooksForTag("shared")
@@ -384,7 +384,7 @@ class BookSearchReindexerBulkTest :
                         val tagId = "tag$index"
                         tagRepo.upsert(Tag(id = tagId, name = "TagFor$bookId", slug = "tag-for-$bookId", revision = 0, updatedAt = 0))
                         bookTagRepo.upsert(
-                            BookTagSyncPayload(bookId = bookId, tagId = tagId, createdAt = 1000L + index, revision = 0L),
+                            BookTagSyncPayload(id = "${bookId}:${tagId}", bookId = bookId, tagId = tagId, createdAt = 1000L + index, revision = 0L),
                         )
                     }
 
@@ -417,10 +417,10 @@ class BookSearchReindexerBulkTest :
                     tagRepo.upsert(Tag(id = "t1", name = "AlphaTag", slug = "alpha-tag", revision = 0, updatedAt = 0))
                     tagRepo.upsert(Tag(id = "t2", name = "BetaTag", slug = "beta-tag", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book2", tagId = "t2", createdAt = 1001L, revision = 0L),
+                        BookTagSyncPayload(id = "book2:t2", bookId = "book2", tagId = "t2", createdAt = 1001L, revision = 0L),
                     )
 
                     reindexer.reindexBooks(listOf("book1", "book2"))

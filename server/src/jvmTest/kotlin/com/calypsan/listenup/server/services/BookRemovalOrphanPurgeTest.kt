@@ -110,7 +110,7 @@ class BookRemovalOrphanPurgeTest :
                     val (bookRepo, tagRepo, bookTagRepo) = buildRepo(sql, driver)
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
                     )
 
                     bookRepo.softDelete(BookId("book1"), clientOpId = null)

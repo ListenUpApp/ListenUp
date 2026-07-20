@@ -16,10 +16,17 @@ import kotlinx.serialization.Serializable
  * [createdAt] records when the junction row was first created (epoch millis). Unlike
  * [Tag] and [Book], [BookTagSyncPayload] has no [updatedAt] — the row is either live
  * or soft-deleted; partial updates do not apply.
+ *
+ * [id] is an opaque per-row identity minted at creation (server-side by default;
+ * client-side for offline-first creates). It deliberately encodes nothing about
+ * [bookId] or [tagId] — an ungated tombstone that shipped a composite id would leak
+ * the association to a user who never had access to the row (SERVER-SYNC-04).
  */
 @Serializable
 @SerialName("BookTagSyncPayload")
 data class BookTagSyncPayload(
+    /** Opaque per-row sync identity — encodes neither [bookId] nor [tagId]. */
+    @SerialName("id") override val id: String,
     /** The book this tag is linked to. */
     @SerialName("bookId") val bookId: String,
     /** The tag linked to the book. */
@@ -29,7 +36,4 @@ data class BookTagSyncPayload(
     /** Sync revision counter — bumped on every write (create or soft-delete). */
     @SerialName("revision") override val revision: Long,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : SyncPayload {
-    /** Synthetic sync identity `"$bookId:$tagId"` — matches the server's envelope id. Not serialized. */
-    override val id: String get() = "$bookId:$tagId"
-}
+) : SyncPayload

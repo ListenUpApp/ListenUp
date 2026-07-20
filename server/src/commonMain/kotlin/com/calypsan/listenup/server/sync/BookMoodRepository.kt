@@ -10,16 +10,21 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
 
 /**
- * Composite key for `book_moods` junction rows.
+ * Natural-pair identity for `book_moods` junction rows — the server-internal type the
+ * [SqlSyncableRepository] substrate uses to resolve the row's REAL opaque wire id.
  *
- * This is an internal server-side type; the wire representation is
- * [BookMoodSyncPayload], which carries [bookId] and [moodId] as top-level fields.
- * [asString] produces the synthetic `"$bookId:$moodId"` key stored in the
- * `book_moods.id` column and used by the [SqlSyncableRepository] substrate.
+ * The wire representation is [BookMoodSyncPayload], which carries [bookId] and [moodId] as
+ * top-level fields, plus its own opaque `id` (SERVER-SYNC-04: minted at creation, encodes
+ * nothing). [candidateWireId] carries that candidate id through to [idAsString] —
+ * client-minted for an offline-first create, server-minted otherwise — for the case where no
+ * row exists yet for the pair. When a row already exists (live or tombstoned), [idAsString]
+ * discards the candidate and returns the EXISTING row's id instead — "the existing row's id
+ * wins" on a natural-pair conflict.
  */
 data class BookMoodId(
     val bookId: String,
     val moodId: String,
+    val candidateWireId: String = "",
 ) {
     fun asString(): String = "$bookId:$moodId"
 
@@ -37,9 +42,10 @@ data class BookMoodId(
  * SQLDelight syncable repository for the `book_moods` global junction — the
  * composite-key sibling of [MoodRepository] and the twin of [BookTagRepository].
  *
- * Extends [SqlSyncableRepository] with composite-key awareness. The `book_moods.id`
- * column stores the synthetic `"$bookId:$moodId"` key the base uses for revision-cursor
- * queries; the natural composite PK `(book_id, mood_id)` is the write and lookup key.
+ * Extends [SqlSyncableRepository] with composite-key awareness. The `book_moods.id` column
+ * stores an opaque per-row id (SERVER-SYNC-04) the base uses for revision-cursor queries; the
+ * natural composite PK `(book_id, mood_id)` is the write and lookup key. [idAsString] resolves
+ * between the two — see [BookMoodId].
  *
  * In addition to the standard [upsert] / [softDelete], this repository provides
  * bulk cascade variants used by service-layer delete operations:
@@ -59,10 +65,27 @@ class BookMoodRepository(
         key = SyncDomains.BOOK_MOODS,
         clock = clock,
     ) {
-    override val BookMoodSyncPayload.id: BookMoodId get() = BookMoodId(bookId, moodId)
+    override val BookMoodSyncPayload.id: BookMoodId get() = BookMoodId(bookId, moodId, id)
 
-    /** Converts a [BookMoodId] to the stored `"$bookId:$moodId"` string. */
-    override fun idAsString(id: BookMoodId): String = id.asString()
+    /**
+     * Resolves [id] to the REAL stored opaque wire id: an existing row's id if one already
+     * exists for the natural pair (live or tombstoned — "the existing row's id wins" on a
+     * natural-pair conflict), else [BookMoodId.candidateWireId] as-is.
+     *
+     * The candidate is NOT minted here — minting is the call site's job (client-minted for an
+     * offline-first create, server-minted otherwise, e.g. `Uuid.random().toString()` in
+     * `MoodServiceImpl`/`BookMoodWriter`). Minting inside this function would be unsafe:
+     * [upsert] calls [idAsString] once to decide `existed` and again inside [writePayload]'s
+     * insert branch to compute the row's actual `id` — two calls that must resolve identically
+     * within the same transaction. A fresh mint per call would make them diverge, and the
+     * second (real) write would never match the first (assumed) id — see
+     * [SqlSyncableRepository.upsert]'s `readPayload` immediately after `writePayload`.
+     */
+    override fun idAsString(id: BookMoodId): String =
+        db.bookMoodsQueries
+            .selectIdByNaturalPair(id.bookId, id.moodId)
+            .executeAsOneOrNull()
+            ?: id.candidateWireId
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.bookMoodsQueries].
@@ -144,7 +167,10 @@ class BookMoodRepository(
             )
         } else {
             db.bookMoodsQueries.insert(
-                id = BookMoodId(value.bookId, value.moodId).asString(),
+                // Deterministic re-derivation of the SAME resolution upsert() already made for
+                // this write (same natural pair, same candidate, same transaction — no row has
+                // been inserted between the two calls, so the natural-pair lookup still misses).
+                id = idAsString(BookMoodId(value.bookId, value.moodId, value.id)),
                 book_id = value.bookId,
                 mood_id = value.moodId,
                 created_at = now,
@@ -258,6 +284,7 @@ class BookMoodRepository(
                                 clientOpId = null,
                                 payload =
                                     BookMoodSyncPayload(
+                                        id = row.id,
                                         bookId = row.book_id,
                                         moodId = row.mood_id,
                                         createdAt = row.created_at,
@@ -304,6 +331,7 @@ class BookMoodRepository(
     /** Maps a generated [Book_moods] row to the wire [BookMoodSyncPayload] DTO. */
     private fun Book_moods.toPayload(): BookMoodSyncPayload =
         BookMoodSyncPayload(
+            id = id,
             bookId = book_id,
             moodId = mood_id,
             createdAt = created_at,

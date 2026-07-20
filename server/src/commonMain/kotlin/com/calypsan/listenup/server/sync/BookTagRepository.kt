@@ -10,16 +10,21 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
 
 /**
- * Composite key for `book_tags` junction rows.
+ * Natural-pair identity for `book_tags` junction rows — the server-internal type the
+ * [SqlSyncableRepository] substrate uses to resolve the row's REAL opaque wire id.
  *
- * This is an internal server-side type; the wire representation is
- * [BookTagSyncPayload], which carries [bookId] and [tagId] as top-level fields.
- * [asString] produces the synthetic `"$bookId:$tagId"` key stored in the
- * `book_tags.id` column and used by the [SqlSyncableRepository] substrate.
+ * The wire representation is [BookTagSyncPayload], which carries [bookId] and [tagId] as
+ * top-level fields, plus its own opaque `id` (SERVER-SYNC-04: minted at creation, encodes
+ * nothing). [candidateWireId] carries that candidate id through to [idAsString] —
+ * client-minted for an offline-first create, server-minted otherwise — for the case where no
+ * row exists yet for the pair. When a row already exists (live or tombstoned), [idAsString]
+ * discards the candidate and returns the EXISTING row's id instead — "the existing row's id
+ * wins" on a natural-pair conflict.
  */
 data class BookTagId(
     val bookId: String,
     val tagId: String,
+    val candidateWireId: String = "",
 ) {
     fun asString(): String = "$bookId:$tagId"
 
@@ -37,9 +42,10 @@ data class BookTagId(
  * SQLDelight syncable repository for the `book_tags` global junction — the
  * composite-key sibling of [TagRepository] in the cutover template.
  *
- * Extends [SqlSyncableRepository] with composite-key awareness. The `book_tags.id`
- * column stores the synthetic `"$bookId:$tagId"` key the base uses for revision-cursor
- * queries; the natural composite PK `(book_id, tag_id)` is the write and lookup key.
+ * Extends [SqlSyncableRepository] with composite-key awareness. The `book_tags.id` column
+ * stores an opaque per-row id (SERVER-SYNC-04) the base uses for revision-cursor queries; the
+ * natural composite PK `(book_id, tag_id)` is the write and lookup key. [idAsString] resolves
+ * between the two — see [BookTagId].
  *
  * In addition to the standard [upsert] / [softDelete], this repository provides
  * bulk cascade variants used by service-layer delete operations:
@@ -59,10 +65,27 @@ class BookTagRepository(
         key = SyncDomains.BOOK_TAGS,
         clock = clock,
     ) {
-    override val BookTagSyncPayload.id: BookTagId get() = BookTagId(bookId, tagId)
+    override val BookTagSyncPayload.id: BookTagId get() = BookTagId(bookId, tagId, id)
 
-    /** Converts a [BookTagId] to the stored `"$bookId:$tagId"` string. */
-    override fun idAsString(id: BookTagId): String = id.asString()
+    /**
+     * Resolves [id] to the REAL stored opaque wire id: an existing row's id if one already
+     * exists for the natural pair (live or tombstoned — "the existing row's id wins" on a
+     * natural-pair conflict), else [BookTagId.candidateWireId] as-is.
+     *
+     * The candidate is NOT minted here — minting is the call site's job (client-minted for an
+     * offline-first create, server-minted otherwise, e.g. `Uuid.random().toString()` in
+     * `TagServiceImpl`/`BookTagWriter`). Minting inside this function would be unsafe: [upsert]
+     * calls [idAsString] once to decide `existed` and again inside [writePayload]'s insert
+     * branch to compute the row's actual `id` — two calls that must resolve identically within
+     * the same transaction. A fresh mint per call would make them diverge, and the second
+     * (real) write would never match the first (assumed) id — see
+     * [SqlSyncableRepository.upsert]'s `readPayload` immediately after `writePayload`.
+     */
+    override fun idAsString(id: BookTagId): String =
+        db.bookTagsQueries
+            .selectIdByNaturalPair(id.bookId, id.tagId)
+            .executeAsOneOrNull()
+            ?: id.candidateWireId
 
     /**
      * [SyncableSubstrateQueries] adapter over the generated [ListenUpDatabase.bookTagsQueries].
@@ -144,7 +167,10 @@ class BookTagRepository(
             )
         } else {
             db.bookTagsQueries.insert(
-                id = BookTagId(value.bookId, value.tagId).asString(),
+                // Deterministic re-derivation of the SAME resolution upsert() already made for
+                // this write (same natural pair, same candidate, same transaction — no row has
+                // been inserted between the two calls, so the natural-pair lookup still misses).
+                id = idAsString(BookTagId(value.bookId, value.tagId, value.id)),
                 book_id = value.bookId,
                 tag_id = value.tagId,
                 created_at = now,
@@ -280,6 +306,7 @@ class BookTagRepository(
                                 clientOpId = null,
                                 payload =
                                     BookTagSyncPayload(
+                                        id = row.id,
                                         bookId = row.book_id,
                                         tagId = row.tag_id,
                                         createdAt = row.created_at,
@@ -326,6 +353,7 @@ class BookTagRepository(
     /** Maps a generated [Book_tags] row to the wire [BookTagSyncPayload] DTO. */
     private fun Book_tags.toPayload(): BookTagSyncPayload =
         BookTagSyncPayload(
+            id = id,
             bookId = book_id,
             tagId = tag_id,
             createdAt = created_at,

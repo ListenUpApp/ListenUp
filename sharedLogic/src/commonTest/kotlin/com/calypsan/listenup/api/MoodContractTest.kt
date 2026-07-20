@@ -53,6 +53,7 @@ class MoodContractTest :
         test("BookMoodSyncPayload round-trips with all fields populated") {
             val original =
                 BookMoodSyncPayload(
+                    id = "a1b2c3d4e5f60718293a4b5c6d7e8f90",
                     bookId = "book-xyz",
                     moodId = "mood-abc123",
                     createdAt = 1_700_000_000_000L,
@@ -60,11 +61,13 @@ class MoodContractTest :
                     deletedAt = null,
                 )
             roundTrip<BookMoodSyncPayload>(original) shouldBe original
+            original.id shouldBe "a1b2c3d4e5f60718293a4b5c6d7e8f90"
         }
 
         test("BookMoodSyncPayload tombstone round-trips") {
             val original =
                 BookMoodSyncPayload(
+                    id = "b2c3d4e5f60718293a4b5c6d7e8f9001",
                     bookId = "book-xyz",
                     moodId = "mood-abc123",
                     createdAt = 1_700_000_000_000L,
@@ -72,6 +75,7 @@ class MoodContractTest :
                     deletedAt = 1_700_001_000_000L,
                 )
             roundTrip<BookMoodSyncPayload>(original) shouldBe original
+            original.id shouldBe "b2c3d4e5f60718293a4b5c6d7e8f9001"
         }
 
         // ── MoodSummary ───────────────────────────────────────────────────────

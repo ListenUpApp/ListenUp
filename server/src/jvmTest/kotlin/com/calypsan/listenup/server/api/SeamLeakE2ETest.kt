@@ -468,7 +468,7 @@ private suspend fun io.ktor.server.testing.ApplicationTestBuilder.makeBookPublic
                 as AppResult.Success
         ).data
     collectionBookRepo
-        .upsert(CollectionBookSyncPayload(collectionId = allBooks.id.value, bookId = bookId, createdAt = 0L, revision = 0L))
+        .upsert(CollectionBookSyncPayload(id = "${allBooks.id.value}:${bookId}", collectionId = allBooks.id.value, bookId = bookId, createdAt = 0L, revision = 0L))
         .requireSuccess()
 }
 

@@ -180,6 +180,7 @@ private fun bookTagPayload(
 ): BookTagSyncPayload {
     val now = System.currentTimeMillis()
     return BookTagSyncPayload(
+        id = "$bookId:$tagId",
         bookId = bookId,
         tagId = tagId,
         createdAt = now,

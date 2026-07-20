@@ -1595,7 +1595,9 @@ class BookRepository(
         if (db.collectionBooksQueries.existsByCollectionAndBook(systemCollectionId, bookId).executeAsOne()) {
             return
         }
-        val syntheticId = "$systemCollectionId:$bookId"
+        // Opaque per-row id — minted fresh here since the idempotency guard above already
+        // proved no row exists for this pair (SERVER-SYNC-04: never derive it from the pair).
+        val syntheticId = Uuid.random().toString()
         val membershipRev = nextRevision()
         db.collectionBooksQueries.insertMembership(
             id = syntheticId,
@@ -1614,6 +1616,7 @@ class BookRepository(
                 clientOpId = null,
                 payload =
                     CollectionBookSyncPayload(
+                        id = syntheticId,
                         collectionId = systemCollectionId,
                         bookId = bookId,
                         createdAt = now,

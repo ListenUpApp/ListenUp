@@ -101,6 +101,7 @@ class CollectionContractTest :
         test("CollectionBookSyncPayload round-trips with all fields") {
             val original =
                 CollectionBookSyncPayload(
+                    id = "a1b2c3d4e5f60718293a4b5c6d7e8f90",
                     collectionId = "col-1",
                     bookId = "book-1",
                     createdAt = 1730000000000L,
@@ -110,11 +111,13 @@ class CollectionContractTest :
             val decoded =
                 json.decodeFromString<CollectionBookSyncPayload>(json.encodeToString(original))
             decoded shouldBe original
+            decoded.id shouldBe "a1b2c3d4e5f60718293a4b5c6d7e8f90"
         }
 
         test("CollectionBookSyncPayload round-trips as tombstone") {
             val original =
                 CollectionBookSyncPayload(
+                    id = "b2c3d4e5f60718293a4b5c6d7e8f9001",
                     collectionId = "col-1",
                     bookId = "book-2",
                     createdAt = 1730000000000L,
@@ -124,6 +127,7 @@ class CollectionContractTest :
             val decoded =
                 json.decodeFromString<CollectionBookSyncPayload>(json.encodeToString(original))
             decoded shouldBe original
+            decoded.id shouldBe "b2c3d4e5f60718293a4b5c6d7e8f9001"
         }
 
         // ── CollectionShareSyncPayload ────────────────────────────────────────

@@ -133,10 +133,10 @@ class BookSearchReindexerTest :
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     tagRepo.upsert(Tag(id = "t2", name = "Fantasy", slug = "fantasy", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "t2", createdAt = 1001L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:t2", bookId = "book1", tagId = "t2", createdAt = 1001L, revision = 0L),
                     )
 
                     reindexer.reindexBook("book1")
@@ -186,7 +186,7 @@ class BookSearchReindexerTest :
 
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
                     )
                     // Soft-delete the junction.
                     bookTagRepo.softDelete(bookId = "book1", tagId = "t1")
@@ -214,7 +214,7 @@ class BookSearchReindexerTest :
 
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
                     )
                     // Soft-delete the tag itself (junction is still live).
                     tagRepo.softDelete("t1")
@@ -244,10 +244,10 @@ class BookSearchReindexerTest :
 
                     tagRepo.upsert(Tag(id = "t1", name = "SciFi", slug = "scifi", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
                     )
                     bookTagRepo.upsert(
-                        BookTagSyncPayload(bookId = "book2", tagId = "t1", createdAt = 1001L, revision = 0L),
+                        BookTagSyncPayload(id = "book2:t1", bookId = "book2", tagId = "t1", createdAt = 1001L, revision = 0L),
                     )
 
                     reindexer.reindexAllBooksForTag("t1")

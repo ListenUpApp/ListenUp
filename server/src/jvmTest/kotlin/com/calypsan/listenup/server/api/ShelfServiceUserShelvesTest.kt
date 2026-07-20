@@ -132,6 +132,7 @@ class ShelfServiceUserShelvesTest :
                 )
                 collectionBookRepo.upsert(
                     CollectionBookSyncPayload(
+                        id = "${collectionId}:${bookId}",
                         collectionId = collectionId,
                         bookId = bookId,
                         createdAt = 0L,
@@ -191,6 +192,7 @@ class ShelfServiceUserShelvesTest :
                 )
                 collectionBookRepo.upsert(
                     CollectionBookSyncPayload(
+                        id = "${collectionId}:${bookId}",
                         collectionId = collectionId,
                         bookId = bookId,
                         createdAt = 0L,

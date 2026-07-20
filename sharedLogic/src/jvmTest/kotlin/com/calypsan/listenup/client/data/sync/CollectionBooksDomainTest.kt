@@ -149,6 +149,7 @@ private fun junctionPayload(
     revision: Long = 1L,
     deletedAt: Long? = null,
 ) = CollectionBookSyncPayload(
+    id = "$collectionId:$bookId",
     collectionId = collectionId,
     bookId = bookId,
     createdAt = createdAt,
