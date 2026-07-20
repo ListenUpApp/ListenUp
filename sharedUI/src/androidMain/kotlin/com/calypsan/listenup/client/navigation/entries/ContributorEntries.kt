@@ -59,8 +59,8 @@ internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackSta
     entry<ContributorMetadataSearch> { args ->
         com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataSearchRoute(
             contributorId = args.contributorId,
-            onCandidateSelected = { asin ->
-                backStack.add(ContributorMetadataPreview(args.contributorId, asin))
+            onCandidateSelected = { asin, region ->
+                backStack.add(ContributorMetadataPreview(args.contributorId, asin, region))
             },
             onBack = {
                 backStack.removeAt(backStack.lastIndex)
@@ -71,6 +71,7 @@ internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackSta
         com.calypsan.listenup.client.features.contributormetadata.ContributorMetadataPreviewRoute(
             contributorId = args.contributorId,
             asin = args.asin,
+            region = args.region,
             onApplySuccess = {
                 // Pop both preview and search to go back to contributor detail
                 backStack.removeAt(backStack.lastIndex)

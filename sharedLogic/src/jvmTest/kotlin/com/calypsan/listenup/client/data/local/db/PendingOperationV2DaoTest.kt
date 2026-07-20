@@ -110,6 +110,32 @@ class PendingOperationV2DaoTest :
             }
         }
 
+        test("nextDispatchable with a non-null ownerUserId excludes ops owned by a different user") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                val baseTime = 100L
+                dao.insert(row("mine", "tags", "t1", baseTime, owner = "u1"))
+                dao.insert(row("theirs", "tags", "t2", baseTime, owner = "u2"))
+                val next = dao.nextDispatchable(ownerUserId = "u1")
+                next.map { it.clientOpId } shouldContainExactly listOf("mine")
+                db.close()
+            }
+        }
+
+        test("nextDispatchable with a null ownerUserId is unscoped") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                val baseTime = 100L
+                dao.insert(row("mine", "tags", "t1", baseTime, owner = "u1"))
+                dao.insert(row("theirs", "tags", "t2", baseTime, owner = "u2"))
+                val next = dao.nextDispatchable(ownerUserId = null)
+                next.map { it.clientOpId } shouldContainExactlyInAnyOrder listOf("mine", "theirs")
+                db.close()
+            }
+        }
+
         test("deleteAllExcept removes ops not owned by keepUserId") {
             runTest {
                 val db = createInMemoryTestDatabase()

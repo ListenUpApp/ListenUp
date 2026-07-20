@@ -14,11 +14,13 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -177,6 +179,10 @@ private fun classifyFailure(
  *   lost-response) leaves `failureCount` untouched and stays dispatchable so an
  *   outage never silently exhausts the budget; a **non-retryable** failure leaps
  *   past [MAX_RETRYABLE_ATTEMPTS] so it never retries — becoming a **dead letter**.
+ * - [drain] (and every observer above) is scoped to the active owner set by
+ *   [clearForUserChange]: an orphaned op — one a just-signed-out user's in-flight
+ *   write commits AFTER the sweep already ran — can never dispatch under a
+ *   different signed-in user's session, no matter when it lands in the table.
  *
  * Terminal ops are dead letters: excluded from [observeQueueDepth] (the live,
  * dispatchable count), surfaced separately via [observeDeadLetterCount] and
@@ -209,6 +215,17 @@ internal class PendingOperationQueue(
     // increments, which the engine treats as "an op was enqueued since you
     // started listening."
     private val enqueueCounter = MutableStateFlow(0L)
+
+    // The signed-in user [drain] is allowed to dispatch for, set by [clearForUserChange] — the
+    // same call the engine already makes with the current user at start(). Kept as in-memory
+    // state (not re-derived per call) so an orphaned op — one an in-flight `OfflineEditor.edit()`
+    // from the just-signed-out user commits AFTER the sweep already ran (the enqueue-time owner
+    // read races sign-out; see `OfflineEditor.edit`) — can never drain under the new user's
+    // session, regardless of when it lands in the table. `null` means no owner has been
+    // established yet (before the first [clearForUserChange]); dispatch proceeds unscoped, which
+    // matches every pre-existing caller (tests, and any drain that could theoretically race ahead
+    // of the engine's first `start()`).
+    private val currentOwnerFlow = MutableStateFlow<String?>(null)
 
     /**
      * Monotonically increasing counter that ticks each time an op is enqueued.
@@ -325,7 +342,7 @@ internal class PendingOperationQueue(
     suspend fun hasQueuedOpFor(
         domainName: String,
         entityId: String,
-    ): Boolean = dao.hasQueuedOp(domainName, entityId)
+    ): Boolean = dao.hasQueuedOp(domainName, entityId, ownerUserId = currentOwnerFlow.value)
 
     /**
      * Dispatch the earliest-enqueued op per (domain, entityId) group currently
@@ -360,8 +377,9 @@ internal class PendingOperationQueue(
      */
     suspend fun drain(): DrainOutcome =
         drainMutex.withLock {
+            val owner = currentOwnerFlow.value
             dao.gcDeadLetters(cutoffMillis = nowMillis() - DEAD_LETTER_RETENTION_MILLIS)
-            val ops = dao.nextDispatchable()
+            val ops = dao.nextDispatchable(ownerUserId = owner)
             var sent = 0
             var retryableFailures = 0
             var parkedFailures = 0
@@ -464,24 +482,48 @@ internal class PendingOperationQueue(
                 retryableFailures = retryableFailures,
                 parkedFailures = parkedFailures,
                 terminalFailures = terminalFailures,
-                remainingDispatchable = dao.countDispatchable(),
+                remainingDispatchable = dao.countDispatchable(ownerUserId = owner),
                 sentEntities = sentEntities,
             )
         }
 
-    /** Live count of ops still within retry budget. Engine forwards this to `SyncEngineState`. */
-    fun observeQueueDepth(): Flow<Int> = dao.observeQueueDepth()
+    /**
+     * Live count of ops still within retry budget. Engine forwards this to `SyncEngineState`.
+     * `flatMapLatest` over [currentOwnerFlow] so a long-lived collector (the engine's
+     * observer job survives user switches — see `SyncEngine.start`'s KDoc) re-scopes to the
+     * new owner instead of staying pinned to whichever user was active when it first
+     * subscribed.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeQueueDepth(): Flow<Int> = currentOwnerFlow.flatMapLatest { dao.observeQueueDepth(ownerUserId = it) }
 
-    /** Live count of dead letters (ops past [MAX_RETRYABLE_ATTEMPTS]). Engine forwards to `SyncEngineState`. */
-    fun observeDeadLetterCount(): Flow<Int> = dao.observeDeadLetterCount()
+    /**
+     * Live count of dead letters (ops past [MAX_RETRYABLE_ATTEMPTS]). Engine forwards to
+     * `SyncEngineState`. See [observeQueueDepth] for the owner re-scoping rationale.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeDeadLetterCount(): Flow<Int> =
+        currentOwnerFlow.flatMapLatest { dao.observeDeadLetterCount(ownerUserId = it) }
 
-    /** Live snapshots of ops still within retry budget, oldest first. */
+    /**
+     * Live snapshots of ops still within retry budget, oldest first. See [observeQueueDepth]
+     * for the owner re-scoping rationale.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun observePendingOperations(): Flow<List<PendingOperation>> =
-        dao.observePending().map { rows -> rows.map { it.toDomain() } }
+        currentOwnerFlow
+            .flatMapLatest { dao.observePending(ownerUserId = it) }
+            .map { rows -> rows.map { it.toDomain() } }
 
-    /** Live snapshots of terminally failed ops (past [MAX_RETRYABLE_ATTEMPTS]), oldest first. */
+    /**
+     * Live snapshots of terminally failed ops (past [MAX_RETRYABLE_ATTEMPTS]), oldest first.
+     * See [observeQueueDepth] for the owner re-scoping rationale.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun observeFailedOperations(): Flow<List<PendingOperation>> =
-        dao.observeFailed().map { rows -> rows.map { it.toDomain() } }
+        currentOwnerFlow
+            .flatMapLatest { dao.observeFailed(ownerUserId = it) }
+            .map { rows -> rows.map { it.toDomain() } }
 
     /**
      * Re-arm a terminally failed op and tick the enqueue signal so the engine
@@ -507,12 +549,14 @@ internal class PendingOperationQueue(
     }
 
     /**
-     * Wipe ops not owned by [currentUserId]. Called by `SyncEngine.start` when
-     * the signed-in user differs from the one whose ops are queued. Same-user
-     * sign-out is a pause, not a clear.
+     * Wipe ops not owned by [currentUserId], then adopt them as [currentOwnerFlow] — the same
+     * call already receives the exact value dispatch should scope to, at the exact point the
+     * engine learns it (`SyncEngine.start`, before catch-up begins). Called when the signed-in
+     * user differs from the one whose ops are queued. Same-user sign-out is a pause, not a clear.
      */
     suspend fun clearForUserChange(currentUserId: String) {
         dao.deleteAllExcept(currentUserId)
+        currentOwnerFlow.value = currentUserId
     }
 
     private fun PendingOperationV2Entity.toDomain() =

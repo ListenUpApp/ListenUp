@@ -35,7 +35,6 @@ AppError
 AppleDownloadService
 AppleNetworkMonitor
 AppleStoragePaths
-ApplyContributorMetadataRequest
 AppResult
 AppStartupState
 AppStartupViewModel
@@ -128,6 +127,7 @@ Contributor
 ContributorBooksUiState
 ContributorBooksViewModel
 ContributorCandidate
+ContributorContext
 ContributorDetailNavAction
 ContributorDetailUiState
 ContributorDetailViewModel
@@ -138,14 +138,15 @@ ContributorEditUiEvent
 ContributorEditUiState
 ContributorEditViewModel
 ContributorId
-ContributorMetadataField
-ContributorMetadataSelections
+ContributorMetadataEvent
 ContributorMetadataUiState
 ContributorMetadataViewModel
 ContributorPickerType
+ContributorPreviewLoadState
 ContributorRepository
 ContributorResponse
 ContributorRole
+ContributorSearchLoadState
 ContributorSearchResponse
 ContributorSearchResult
 ContributorUpdate
@@ -310,7 +311,6 @@ MetadataContributorRef
 MetadataDomain
 MetadataEvent
 MetadataField
-MetadataFieldSelections
 MetadataLocale
 MetadataRepository
 MetadataSelections

@@ -400,6 +400,83 @@ class PendingOperationQueueTest :
             }
         }
 
+        test("drain does not dispatch an op enqueued for a different owner than the active user") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val sent = mutableListOf<String>()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender =
+                            PendingOperationSender { op ->
+                                sent += op.clientOpId
+                                AppResult.Success(Unit)
+                            },
+                        nowMillis = { 1_000L },
+                    )
+                // "B" is the active user (e.g. just signed in); the table is empty so the sweep
+                // has nothing to remove.
+                queue.clearForUserChange("B")
+                // Simulate the orphan race: a just-signed-out user "A"'s in-flight
+                // OfflineEditor.edit() commits its enqueue AFTER the sweep already ran.
+                val orphan = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", ownerUserId = "A")
+
+                val outcome = queue.drain()
+
+                outcome.sent shouldBe 0
+                sent shouldBe emptyList()
+                db.pendingOperationV2Dao().get(orphan) shouldNotBe null
+                db.close()
+            }
+        }
+
+        test("a subsequent clearForUserChange sweeps an orphaned op the dispatch guard left behind") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { 1_000L },
+                    )
+                queue.clearForUserChange("B")
+                val orphan = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", ownerUserId = "A")
+                queue.drain() // blocked by the owner guard, not dispatched
+
+                // The next sweep cycle for "B" (e.g. a reconnect) is the real cleanup —
+                // the dispatch guard only prevented the wrong-session drain in between.
+                queue.clearForUserChange("B")
+
+                db.pendingOperationV2Dao().get(orphan) shouldBe null
+                db.close()
+            }
+        }
+
+        test("drain dispatches an op owned by the active user") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val sent = mutableListOf<String>()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender =
+                            PendingOperationSender { op ->
+                                sent += op.clientOpId
+                                AppResult.Success(Unit)
+                            },
+                        nowMillis = { 1_000L },
+                    )
+                queue.clearForUserChange("A")
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", ownerUserId = "A")
+
+                val outcome = queue.drain()
+
+                outcome.sent shouldBe 1
+                sent shouldContainExactly listOf(opId)
+                db.close()
+            }
+        }
+
         test("concurrent drain() calls never dispatch the same op twice") {
             runBlocking {
                 val db = createInMemoryTestDatabase()

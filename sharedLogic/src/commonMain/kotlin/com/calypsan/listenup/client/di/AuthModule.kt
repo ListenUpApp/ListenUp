@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.data.repository.RegistrationStatusStreamImpl
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InviteRepository
+import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
@@ -151,6 +152,7 @@ internal val clientAuthModule: Module
                     userRepository = get(),
                     syncRepository = get(),
                     rpcCacheInvalidator = get(),
+                    libraryResetHelper = get(),
                     playbackStateProvider = getOrNull<PlaybackManager>(),
                 )
             }

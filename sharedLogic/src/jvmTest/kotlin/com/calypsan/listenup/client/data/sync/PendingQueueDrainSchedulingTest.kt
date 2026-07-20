@@ -597,18 +597,25 @@ private class CountingDao(
 
     override suspend fun update(op: com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity) = delegate.update(op)
 
-    override suspend fun nextDispatchable(maxAttempts: Int): List<com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity> {
+    override suspend fun nextDispatchable(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ): List<com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity> {
         dispatchCalls.incrementAndGet()
-        return delegate.nextDispatchable(maxAttempts)
+        return delegate.nextDispatchable(ownerUserId, maxAttempts)
     }
 
-    override suspend fun countDispatchable(maxAttempts: Int) = delegate.countDispatchable(maxAttempts)
+    override suspend fun countDispatchable(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ) = delegate.countDispatchable(ownerUserId, maxAttempts)
 
     override suspend fun hasQueuedOp(
         domainName: String,
         entityId: String,
+        ownerUserId: String?,
         maxAttempts: Int,
-    ) = delegate.hasQueuedOp(domainName, entityId, maxAttempts)
+    ) = delegate.hasQueuedOp(domainName, entityId, ownerUserId, maxAttempts)
 
     override suspend fun deleteQueuedOps(
         domainName: String,
@@ -617,15 +624,27 @@ private class CountingDao(
         maxAttempts: Int,
     ) = delegate.deleteQueuedOps(domainName, entityId, opType, maxAttempts)
 
-    override fun observePending(maxAttempts: Int) = delegate.observePending(maxAttempts)
+    override fun observePending(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ) = delegate.observePending(ownerUserId, maxAttempts)
 
-    override fun observeFailed(maxAttempts: Int) = delegate.observeFailed(maxAttempts)
+    override fun observeFailed(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ) = delegate.observeFailed(ownerUserId, maxAttempts)
 
     override suspend fun resetFailureCount(clientOpId: String) = delegate.resetFailureCount(clientOpId)
 
-    override fun observeQueueDepth(maxAttempts: Int) = delegate.observeQueueDepth(maxAttempts)
+    override fun observeQueueDepth(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ) = delegate.observeQueueDepth(ownerUserId, maxAttempts)
 
-    override fun observeDeadLetterCount(maxAttempts: Int) = delegate.observeDeadLetterCount(maxAttempts)
+    override fun observeDeadLetterCount(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ) = delegate.observeDeadLetterCount(ownerUserId, maxAttempts)
 
     override suspend fun countDeadLetters(maxAttempts: Int) = delegate.countDeadLetters(maxAttempts)
 

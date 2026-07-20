@@ -38,6 +38,13 @@ internal interface PendingOperationV2Dao {
      * bump `enqueuedAt` so a second op for an entity that already has one queued is never
      * enqueued at the same instant — but this ordering holds even if that invariant is
      * ever violated.
+     *
+     * [ownerUserId], when non-null, is the structural guard against draining an orphaned op
+     * under the wrong user's session: an op enqueued by a just-signed-out user's in-flight
+     * write (a race the enqueue-time owner stamp alone can't close — see `OfflineEditor.edit`)
+     * simply never matches a different active owner, no matter when it lands in the table.
+     * `null` means unscoped (pre-existing behavior; every production caller passes the active
+     * owner via [PendingOperationQueue]).
      */
     @Query(
         """
@@ -49,16 +56,32 @@ internal interface PendingOperationV2Dao {
               ) AS rn
                 FROM pending_operation
                WHERE failureCount <= :maxAttempts
+                 AND (:ownerUserId IS NULL OR ownerUserId = :ownerUserId)
           )
          WHERE rn = 1
          ORDER BY enqueuedAt ASC, clientOpId ASC
         """,
     )
-    suspend fun nextDispatchable(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): List<PendingOperationV2Entity>
+    suspend fun nextDispatchable(
+        ownerUserId: String? = null,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): List<PendingOperationV2Entity>
 
-    /** Count of ops still within retry budget — i.e. rows a future drain wave could dispatch. */
-    @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount <= :maxAttempts")
-    suspend fun countDispatchable(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Int
+    /**
+     * Count of ops still within retry budget — i.e. rows a future drain wave could dispatch.
+     * See [nextDispatchable] for the [ownerUserId] scoping contract.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM pending_operation
+         WHERE failureCount <= :maxAttempts
+           AND (:ownerUserId IS NULL OR ownerUserId = :ownerUserId)
+        """,
+    )
+    suspend fun countDispatchable(
+        ownerUserId: String? = null,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): Int
 
     /**
      * Latest `enqueuedAt` among all ops (dispatchable or dead-lettered) for (domainName, entityId),
@@ -77,7 +100,8 @@ internal interface PendingOperationV2Dao {
      * local edit is skipped so the optimistic state survives until the edit's own echo lands.
      *
      * Dead letters (`failureCount > maxAttempts`) are EXCLUDED, so a terminally-failed op stops
-     * counting as in-flight — the shield lifts and the entity converges to server truth.
+     * counting as in-flight — the shield lifts and the entity converges to server truth. See
+     * [nextDispatchable] for the [ownerUserId] scoping contract.
      */
     @Query(
         """
@@ -86,22 +110,48 @@ internal interface PendingOperationV2Dao {
              WHERE domainName = :domainName
                AND entityId = :entityId
                AND failureCount <= :maxAttempts
+               AND (:ownerUserId IS NULL OR ownerUserId = :ownerUserId)
         )
         """,
     )
     suspend fun hasQueuedOp(
         domainName: String,
         entityId: String,
+        ownerUserId: String? = null,
         maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
     ): Boolean
 
-    /** Live queue depth: ops still eligible for dispatch. Dead letters are counted separately. */
-    @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount <= :maxAttempts")
-    fun observeQueueDepth(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>
+    /**
+     * Live queue depth: ops still eligible for dispatch. Dead letters are counted separately.
+     * See [nextDispatchable] for the [ownerUserId] scoping contract.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM pending_operation
+         WHERE failureCount <= :maxAttempts
+           AND (:ownerUserId IS NULL OR ownerUserId = :ownerUserId)
+        """,
+    )
+    fun observeQueueDepth(
+        ownerUserId: String? = null,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): Flow<Int>
 
-    /** Terminal ops that exhausted their retry budget — the dead-letter count. */
-    @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount > :maxAttempts")
-    fun observeDeadLetterCount(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>
+    /**
+     * Terminal ops that exhausted their retry budget — the dead-letter count.
+     * See [nextDispatchable] for the [ownerUserId] scoping contract.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM pending_operation
+         WHERE failureCount > :maxAttempts
+           AND (:ownerUserId IS NULL OR ownerUserId = :ownerUserId)
+        """,
+    )
+    fun observeDeadLetterCount(
+        ownerUserId: String? = null,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): Flow<Int>
 
     /**
      * One-shot dead-letter count — the same predicate as [observeDeadLetterCount] read directly.
@@ -114,29 +164,39 @@ internal interface PendingOperationV2Dao {
 
     /**
      * Live snapshots of ops still within retry budget, oldest first. Backs the
-     * sync indicator's visible pending list.
+     * sync indicator's visible pending list. See [nextDispatchable] for the
+     * [ownerUserId] scoping contract.
      */
     @Query(
         """
         SELECT * FROM pending_operation
          WHERE failureCount <= :maxAttempts
+           AND (:ownerUserId IS NULL OR ownerUserId = :ownerUserId)
          ORDER BY enqueuedAt ASC
         """,
     )
-    fun observePending(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<List<PendingOperationV2Entity>>
+    fun observePending(
+        ownerUserId: String? = null,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): Flow<List<PendingOperationV2Entity>>
 
     /**
      * Live snapshots of terminally failed ops (past [maxAttempts]), oldest first.
-     * Backs the sync indicator's failed-operations list.
+     * Backs the sync indicator's failed-operations list. See [nextDispatchable] for
+     * the [ownerUserId] scoping contract.
      */
     @Query(
         """
         SELECT * FROM pending_operation
          WHERE failureCount > :maxAttempts
+           AND (:ownerUserId IS NULL OR ownerUserId = :ownerUserId)
          ORDER BY enqueuedAt ASC
         """,
     )
-    fun observeFailed(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<List<PendingOperationV2Entity>>
+    fun observeFailed(
+        ownerUserId: String? = null,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    ): Flow<List<PendingOperationV2Entity>>
 
     /** Re-arm an op for dispatch: zero its retry budget and clear the stored error. */
     @Query("UPDATE pending_operation SET failureCount = 0, lastError = NULL WHERE clientOpId = :clientOpId")

@@ -4,6 +4,7 @@ import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -28,6 +29,8 @@ import org.koin.test.verify.verify
  *  - [PlaybackManager] — owned by the platform playback module
  *    (LogoutUseCase needs it as a `PlaybackStateProvider` to halt playback
  *    on logout).
+ *  - [LibraryResetHelper] — owned by `libraryModule` (LogoutUseCase clears
+ *    library data, including pending operations, on sign-out).
  *  - [DeviceInfoProvider] — owned by the per-platform playback/platform module
  *    (login/register/setup/claim send the device's structured metadata).
  *  - [kotlinx.coroutines.CoroutineScope] — the `appScope` owned by `appCoreModule`;
@@ -49,6 +52,7 @@ class AuthModuleVerifyTest :
                         PlaybackManager::class,
                         DeviceInfoProvider::class,
                         SyncRepository::class,
+                        LibraryResetHelper::class,
                         com.calypsan.listenup.client.data.remote.RpcCacheInvalidator::class,
                         kotlinx.coroutines.CoroutineScope::class,
                     ),

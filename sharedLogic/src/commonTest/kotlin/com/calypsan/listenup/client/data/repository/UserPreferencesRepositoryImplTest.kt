@@ -73,13 +73,20 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
         inserted.replaceAll { if (it.clientOpId == op.clientOpId) op else it }
     }
 
-    override suspend fun nextDispatchable(maxAttempts: Int): List<PendingOperationV2Entity> = inserted.toList()
+    override suspend fun nextDispatchable(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ): List<PendingOperationV2Entity> = inserted.toList()
 
-    override suspend fun countDispatchable(maxAttempts: Int): Int = inserted.count { it.failureCount <= maxAttempts }
+    override suspend fun countDispatchable(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ): Int = inserted.count { it.failureCount <= maxAttempts }
 
     override suspend fun hasQueuedOp(
         domainName: String,
         entityId: String,
+        ownerUserId: String?,
         maxAttempts: Int,
     ): Boolean =
         inserted.any {
@@ -97,17 +104,29 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
         }
     }
 
-    override fun observePending(maxAttempts: Int): Flow<List<PendingOperationV2Entity>> = flowOf(inserted.toList())
+    override fun observePending(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ): Flow<List<PendingOperationV2Entity>> = flowOf(inserted.toList())
 
-    override fun observeFailed(maxAttempts: Int): Flow<List<PendingOperationV2Entity>> = flowOf(emptyList())
+    override fun observeFailed(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ): Flow<List<PendingOperationV2Entity>> = flowOf(emptyList())
 
     override suspend fun resetFailureCount(clientOpId: String) {
         inserted.replaceAll { if (it.clientOpId == clientOpId) it.copy(failureCount = 0, lastError = null) else it }
     }
 
-    override fun observeQueueDepth(maxAttempts: Int): Flow<Int> = flowOf(inserted.count { it.failureCount <= maxAttempts })
+    override fun observeQueueDepth(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ): Flow<Int> = flowOf(inserted.count { it.failureCount <= maxAttempts })
 
-    override fun observeDeadLetterCount(maxAttempts: Int): Flow<Int> = flowOf(0)
+    override fun observeDeadLetterCount(
+        ownerUserId: String?,
+        maxAttempts: Int,
+    ): Flow<Int> = flowOf(0)
 
     override suspend fun countDeadLetters(maxAttempts: Int): Int = 0
 

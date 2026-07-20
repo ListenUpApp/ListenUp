@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.features.contributormetadata
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,15 +20,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -35,56 +36,51 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.calypsan.listenup.api.dto.MetadataContributorProfile
+import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
-import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataField
+import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState
-import org.jetbrains.compose.resources.stringResource
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
-import listenup.composeapp.generated.resources.contributor_apply_selectedcount_of_availablefieldcount
+import listenup.composeapp.generated.resources.common_image
+import listenup.composeapp.generated.resources.contributor_apply_match
 import listenup.composeapp.generated.resources.contributor_audible
 import listenup.composeapp.generated.resources.contributor_change_match
 import listenup.composeapp.generated.resources.contributor_current
 import listenup.composeapp.generated.resources.contributor_current_image
 import listenup.composeapp.generated.resources.contributor_failed_to_load_profile
-import listenup.composeapp.generated.resources.common_image
 import listenup.composeapp.generated.resources.contributor_new_image
-import listenup.composeapp.generated.resources.contributor_no_change
-import listenup.composeapp.generated.resources.contributor_no_image_available_from_audible
+import listenup.composeapp.generated.resources.contributor_no_profile_in_region
 import listenup.composeapp.generated.resources.contributor_preview_changes
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Full-screen preview of contributor metadata changes before applying.
  *
- * Shows current vs. Audible data with checkboxes for each field.
+ * Exhaustive over [ContributorPreviewLoadState]: Loading spinner, a Missing state offering a
+ * region switch (Never-Stranded — an empty regional shell is an honest miss, not a blank
+ * preview), a Failed state, and the Ready compare view. There are no per-field checkboxes:
+ * the server applies asin + biography + photo, never the name — the compare rows are
+ * informational. The Apply bar renders ONLY in Ready, so a non-ready state can never sit
+ * above a live Apply button.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContributorMetadataPreviewScreen(
-    state: ContributorMetadataUiState,
-    onToggleField: (ContributorMetadataField) -> Unit,
+    state: ContributorMetadataUiState.Preview,
+    onRegionSelected: (MetadataLocale) -> Unit,
     onApply: () -> Unit,
     onChangeMatch: () -> Unit,
     onBack: () -> Unit,
 ) {
-    val currentContributor = state.currentContributor
-    val profile = state.previewProfile
-    val selections = state.selections
-
-    // Image is only available if Audible provides one
-    val hasImage = !profile?.imageUrl.isNullOrBlank()
-    val availableFieldCount = if (hasImage) 3 else 2
-
-    val hasAnySelected = selections.name || selections.biography || (hasImage && selections.image)
-    val selectedCount =
-        listOfNotNull(
-            if (selections.name) true else null,
-            if (selections.biography) true else null,
-            if (hasImage && selections.image) true else null,
-        ).size
+    val ready = state.loadState as? ContributorPreviewLoadState.Ready
 
     ListenUpScaffold(
         topBar = {
@@ -101,22 +97,122 @@ fun ContributorMetadataPreviewScreen(
             )
         },
         bottomBar = {
-            PreviewBottomBar(
-                applyError = state.applyError,
-                isApplying = state.isApplying,
-                hasAnySelected = hasAnySelected,
-                selectedCount = selectedCount,
-                availableFieldCount = availableFieldCount,
-                onApply = onApply,
-                onChangeMatch = onChangeMatch,
-            )
+            if (ready != null) {
+                PreviewBottomBar(
+                    applyError = ready.applyError,
+                    isApplying = ready.isApplying,
+                    onApply = onApply,
+                    onChangeMatch = onChangeMatch,
+                )
+            }
         },
     ) { padding ->
-        PreviewContent(
-            state = state,
-            onToggleField = onToggleField,
-            padding = padding,
-        )
+        when (val loadState = state.loadState) {
+            is ContributorPreviewLoadState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ListenUpLoadingIndicator()
+                }
+            }
+
+            is ContributorPreviewLoadState.Missing -> {
+                MissingProfileContent(
+                    selectedRegion = state.region,
+                    onRegionSelected = onRegionSelected,
+                    onChangeMatch = onChangeMatch,
+                    padding = padding,
+                )
+            }
+
+            is ContributorPreviewLoadState.Failed -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp),
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.contributor_failed_to_load_profile),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = loadState.message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+
+            is ContributorPreviewLoadState.Ready -> {
+                ReadyContent(
+                    currentName = state.context.current?.name,
+                    currentDescription = state.context.current?.description,
+                    currentImagePath = state.context.current?.imagePath,
+                    profile = loadState.profile,
+                    padding = padding,
+                )
+            }
+        }
+    }
+}
+
+/** The honest-miss state: no profile data in this region, offer the other regions. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MissingProfileContent(
+    selectedRegion: MetadataLocale,
+    onRegionSelected: (MetadataLocale) -> Unit,
+    onChangeMatch: () -> Unit,
+    padding: PaddingValues,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(padding),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(32.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.SearchOff,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = stringResource(Res.string.contributor_no_profile_in_region, selectedRegion.displayName),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(16.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                MetadataLocale.SUPPORTED.forEach { region ->
+                    FilterChip(
+                        selected = region == selectedRegion,
+                        onClick = { onRegionSelected(region) },
+                        label = { Text(region.displayName) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+            OutlinedButton(onClick = onChangeMatch) {
+                Text(stringResource(Res.string.contributor_change_match))
+            }
+        }
     }
 }
 
@@ -124,21 +220,11 @@ fun ContributorMetadataPreviewScreen(
 private fun PreviewBottomBar(
     applyError: String?,
     isApplying: Boolean,
-    hasAnySelected: Boolean,
-    selectedCount: Int,
-    availableFieldCount: Int,
     onApply: () -> Unit,
     onChangeMatch: () -> Unit,
 ) {
-    Surface(
-        tonalElevation = 3.dp,
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-        ) {
+    Surface(tonalElevation = 3.dp) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
             applyError?.let { error ->
                 Text(
                     text = error,
@@ -147,35 +233,22 @@ private fun PreviewBottomBar(
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedButton(
-                    onClick = onChangeMatch,
-                    modifier = Modifier.weight(1f),
-                ) {
+                OutlinedButton(onClick = onChangeMatch, modifier = Modifier.weight(1f)) {
                     Text(stringResource(Res.string.contributor_change_match))
                 }
-
                 Button(
                     onClick = onApply,
-                    enabled = !isApplying && hasAnySelected,
+                    enabled = !isApplying,
                     modifier = Modifier.weight(1f),
                 ) {
                     if (isApplying) {
-                        ListenUpLoadingIndicatorSmall(
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
+                        ListenUpLoadingIndicatorSmall(color = MaterialTheme.colorScheme.onPrimary)
                     } else {
-                        Text(
-                            stringResource(
-                                Res.string.contributor_apply_selectedcount_of_availablefieldcount,
-                                selectedCount,
-                                availableFieldCount,
-                            ),
-                        )
+                        Text(stringResource(Res.string.contributor_apply_match))
                     }
                 }
             }
@@ -184,110 +257,47 @@ private fun PreviewBottomBar(
 }
 
 @Composable
-private fun PreviewContent(
-    state: ContributorMetadataUiState,
-    onToggleField: (ContributorMetadataField) -> Unit,
+private fun ReadyContent(
+    currentName: String?,
+    currentDescription: String?,
+    currentImagePath: String?,
+    profile: MetadataContributorProfile,
     padding: PaddingValues,
 ) {
-    val currentContributor = state.currentContributor
-    val profile = state.previewProfile
-    val selections = state.selections
-
-    when {
-        state.isLoadingPreview -> {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                ListenUpLoadingIndicator()
-            }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            ImageComparisonRow(
+                currentImagePath = currentImagePath,
+                newImageUrl = profile.imageUrl,
+            )
         }
-
-        state.previewError != null -> {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp),
-                ) {
-                    Text(
-                        text = stringResource(Res.string.contributor_failed_to_load_profile),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = state.previewError ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+        item {
+            TextComparisonRow(
+                label = "Name",
+                currentValue = currentName,
+                newValue = profile.name,
+            )
         }
-
-        currentContributor != null && profile != null -> {
-            LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                // Image comparison
-                item {
-                    ImageComparisonRow(
-                        currentImagePath = currentContributor.imagePath,
-                        newImageUrl = profile.imageUrl,
-                        isSelected = selections.image,
-                        onToggle = { onToggleField(ContributorMetadataField.IMAGE) },
-                    )
-                }
-
-                // Name comparison
-                item {
-                    TextComparisonRow(
-                        label = "Name",
-                        currentValue = currentContributor.name,
-                        newValue = profile.name,
-                        isSelected = selections.name,
-                        onToggle = { onToggleField(ContributorMetadataField.NAME) },
-                    )
-                }
-
-                // Biography comparison
-                item {
-                    TextComparisonRow(
-                        label = "Biography",
-                        currentValue = currentContributor.description,
-                        newValue = profile.description,
-                        isSelected = selections.biography,
-                        onToggle = { onToggleField(ContributorMetadataField.BIOGRAPHY) },
-                        isMultiline = true,
-                    )
-                }
-            }
+        item {
+            TextComparisonRow(
+                label = "Biography",
+                currentValue = currentDescription,
+                newValue = profile.description,
+                isMultiline = true,
+            )
         }
     }
 }
 
-/**
- * Image comparison row showing current and new images side-by-side.
- */
+/** Side-by-side current vs. incoming photo. Informational — no toggle; the server keeps the existing photo when the incoming one is absent. */
 @Composable
 private fun ImageComparisonRow(
     currentImagePath: String?,
     newImageUrl: String?,
-    isSelected: Boolean,
-    onToggle: () -> Unit,
 ) {
     val hasNewImage = !newImageUrl.isNullOrBlank()
 
@@ -295,111 +305,70 @@ private fun ImageComparisonRow(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = { onToggle() },
-                enabled = hasNewImage,
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                text = stringResource(Res.string.common_image),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-
-            Spacer(Modifier.width(8.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.common_image),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AsyncImage(
+                        model = currentImagePath,
+                        contentDescription = stringResource(Res.string.contributor_current_image),
+                        modifier = Modifier.size(80.dp).clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(Res.string.contributor_current),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
-                Spacer(Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Current image
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (hasNewImage) {
                         AsyncImage(
-                            model = currentImagePath,
-                            contentDescription = stringResource(Res.string.contributor_current_image),
-                            modifier =
-                                Modifier
-                                    .size(80.dp)
-                                    .clip(CircleShape),
+                            model = newImageUrl,
+                            contentDescription = stringResource(Res.string.contributor_new_image),
+                            modifier = Modifier.size(80.dp).clip(CircleShape),
                             contentScale = ContentScale.Crop,
                         )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(Res.string.contributor_current),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    // New image (or placeholder)
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (hasNewImage) {
-                            AsyncImage(
-                                model = newImageUrl,
-                                contentDescription = stringResource(Res.string.contributor_new_image),
-                                modifier =
-                                    Modifier
-                                        .size(80.dp)
-                                        .clip(CircleShape),
-                                contentScale = ContentScale.Crop,
-                            )
-                        } else {
-                            // Placeholder when no image available
-                            Surface(
-                                modifier =
-                                    Modifier
-                                        .size(80.dp)
-                                        .clip(CircleShape),
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(40.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                    )
-                                }
+                    } else {
+                        Surface(
+                            modifier = Modifier.size(80.dp).clip(CircleShape),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(40.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                )
                             }
                         }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = stringResource(Res.string.contributor_audible),
-                            style = MaterialTheme.typography.labelSmall,
-                            color =
-                                if (hasNewImage) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                },
-                        )
                     }
-                }
-
-                if (!hasNewImage) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        text = stringResource(Res.string.contributor_no_image_available_from_audible),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = stringResource(Res.string.contributor_audible),
+                        style = MaterialTheme.typography.labelSmall,
+                        color =
+                            if (hasNewImage) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            },
                     )
                 }
             }
@@ -409,98 +378,54 @@ private fun ImageComparisonRow(
 
 private const val EMPTY_VALUE_PLACEHOLDER = "(empty)"
 
-/**
- * Text comparison row showing current and new values.
- */
+/** Side-by-side current vs. incoming text value. Informational — no toggle. */
 @Composable
 private fun TextComparisonRow(
     label: String,
     currentValue: String?,
     newValue: String?,
-    isSelected: Boolean,
-    onToggle: () -> Unit,
     isMultiline: Boolean = false,
 ) {
-    val hasNewValue = !newValue.isNullOrBlank()
-    val isUnchanged = currentValue == newValue
-
     Surface(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = { onToggle() },
-                enabled = hasNewValue && !isUnchanged,
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-
-            Spacer(Modifier.width(8.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = label,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-
-                    if (isUnchanged && hasNewValue) {
-                        Text(
-                            text = stringResource(Res.string.contributor_no_change),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                ComparisonValue(
-                    labelText = stringResource(Res.string.contributor_current),
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    value = currentValue,
-                    isMultiline = isMultiline,
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                ComparisonValue(
-                    labelText = stringResource(Res.string.contributor_audible),
-                    labelColor = MaterialTheme.colorScheme.primary,
-                    value = newValue,
-                    isMultiline = isMultiline,
-                )
-            }
+            Spacer(Modifier.height(8.dp))
+            ComparisonValue(
+                labelText = stringResource(Res.string.contributor_current),
+                value = currentValue,
+                isMultiline = isMultiline,
+                accent = false,
+            )
+            Spacer(Modifier.height(12.dp))
+            ComparisonValue(
+                labelText = stringResource(Res.string.contributor_audible),
+                value = newValue,
+                isMultiline = isMultiline,
+                accent = true,
+            )
         }
     }
 }
 
-/**
- * A single labelled value within [TextComparisonRow] — the label line plus the
- * value line, with an empty-value placeholder and de-emphasised colour for blanks.
- */
+/** One labelled value line within [TextComparisonRow], with an empty-value placeholder. */
 @Composable
 private fun ComparisonValue(
     labelText: String,
-    labelColor: androidx.compose.ui.graphics.Color,
     value: String?,
     isMultiline: Boolean,
+    accent: Boolean,
 ) {
     Text(
         text = labelText,
         style = MaterialTheme.typography.labelSmall,
-        color = labelColor,
+        color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
     )
     Text(
         text = value?.ifBlank { EMPTY_VALUE_PLACEHOLDER } ?: EMPTY_VALUE_PLACEHOLDER,
@@ -511,7 +436,7 @@ private fun ComparisonValue(
             } else {
                 MaterialTheme.colorScheme.onSurface
             },
-        maxLines = if (isMultiline) 4 else 2,
+        maxLines = if (isMultiline) 6 else 2,
         overflow = TextOverflow.Ellipsis,
     )
 }
