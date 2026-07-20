@@ -49,7 +49,7 @@ final class PendingApprovalViewModelWrapper {
         viewModel.acknowledgeApproval()
     }
 
-    /// Manually re-check approval status — re-opens the SSE stream (never-stranded fallback).
+    /// Manually re-check approval status — re-opens the registration-status watch (never-stranded fallback).
     func checkStatus() {
         viewModel.checkStatus()
     }

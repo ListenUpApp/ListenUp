@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.domain.repository
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Domain model for SSE-streamed registration status updates.
+ * Domain model for streamed registration status updates.
  *
  * This is distinct from [RegistrationStatus] (used for polling)
  * as it provides a sealed hierarchy for type-safe when expressions.
