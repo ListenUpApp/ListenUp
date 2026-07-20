@@ -1,109 +1,63 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
-import com.calypsan.listenup.core.appJson
-import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.NonRpcReason
-import com.calypsan.listenup.client.data.remote.NonRpcTransport
-import com.calypsan.listenup.client.data.sync.DEFAULT_CONNECT_TIMEOUT_MS
-import com.calypsan.listenup.client.data.sync.SseConnection
-import com.calypsan.listenup.client.data.sync.SseEvent
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
-import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
-import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.mapNotNull
-
-private val logger = KotlinLogging.logger {}
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 
 /**
- * SSE implementation of [RegistrationStatusStream].
+ * RPC implementation of [RegistrationStatusStream], riding the public-channel
+ * `AuthServicePublic.observeRegistrationStatus` watch: a flow that emits the registrant's current
+ * status, then live updates, and COMPLETES the moment the status turns terminal
+ * (approved/denied) — the completion IS the signal, never a dropped connection to reconnect.
  *
- * A thin cold flow over the shared [SseConnection] engine: it inherits the bounded connect (so a
- * user on the pending-approval screen against a briefly-unreachable server never hangs silently),
- * exponential reconnect (so a mid-wait server restart doesn't lose approval events), and
- * spec-tolerant framing. Pre-auth, so it rides the unauthenticated streaming client.
- *
- * [fetchStatus] is the never-stranded one-shot REST fallback for the same pre-auth surface (a plain
- * GET when the stream can't be held); both ride the unauthenticated streaming client, neither is RPC.
+ * [fetchStatus] and [streamStatus] both ride the same watch: [fetchStatus] just takes its first
+ * emission and lets the subscription cancel, giving the "never stranded" one-shot pull without a
+ * second transport.
  */
-@NonRpcTransport(
-    NonRpcReason.SERVER_SENT_EVENTS,
-    justification = "Registration-status push is an HTTP/1.1 SSE stream (plus a one-shot GET fallback), pre-auth.",
-)
 internal class RegistrationStatusStreamImpl(
-    private val apiClientFactory: ApiClientFactory,
-    private val serverConfig: ServerConfig,
-    private val connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
+    private val channel: RpcChannel<AuthServicePublic>,
 ) : RegistrationStatusStream {
-    private val json = appJson
-
     override fun streamStatus(userId: String): Flow<StreamedRegistrationStatus> =
-        SseConnection(
-            urlProvider = {
-                serverConfig.getServerUrl()?.let { "$it/api/v1/auth/registration-status/$userId/stream" }
-            },
-            streamingClientProvider = { apiClientFactory.getUnauthenticatedStreamingClient() },
-            connectTimeoutMillis = connectTimeoutMillis,
-        ).events().mapNotNull { event ->
-            (event as? SseEvent.Frame)?.frame?.data?.let(::parseSSEEvent)
-        }
+        channel.stream { it.observeRegistrationStatus(userId) }.map { it.toStreamedStatus() }
 
     override suspend fun fetchStatus(userId: String): StreamedRegistrationStatus =
-        try {
-            val serverUrl =
-                serverConfig.getServerUrl()
-                    ?: return StreamedRegistrationStatus.Pending
-            val url = "$serverUrl/api/v1/auth/registration-status/$userId"
-            logger.debug { "Polling registration status (one-shot): $url" }
-            val body = apiClientFactory.getUnauthenticatedStreamingClient().get(url).bodyAsText()
-            val event = json.decodeFromString<RegistrationStatusEvent>(body)
-            when (event.status) {
-                "approved" -> StreamedRegistrationStatus.Approved
-                "denied" -> StreamedRegistrationStatus.Denied(event.message)
-                else -> StreamedRegistrationStatus.Pending
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // Never-stranded: a failed poll must not crash the waiting screen — stay pending.
-            logger.warn(e) { "registration-status one-shot fetch failed; treating as pending" }
-            StreamedRegistrationStatus.Pending
+        when (val first = channel.stream { it.observeRegistrationStatus(userId) }.firstOrNull()) {
+            is RpcEvent.Data -> first.value.toDomain()
+            // Never-stranded: an error, an unexpected empty completion, or a business RpcEvent.Error
+            // (e.g. an unrecognised registration id) all fall back to Pending rather than throwing —
+            // this is the reliable pull the ViewModel's poll and "Check Status" action lean on.
+            else -> StreamedRegistrationStatus.Pending
         }
 
-    private fun parseSSEEvent(eventJson: String): StreamedRegistrationStatus? {
-        if (eventJson.isBlank()) return null
-        return try {
-            logger.debug { "Processing SSE event: $eventJson" }
-            val event = json.decodeFromString<RegistrationStatusEvent>(eventJson)
-
-            when (event.status) {
-                "approved" -> {
-                    StreamedRegistrationStatus.Approved
-                }
-
-                "denied" -> {
-                    StreamedRegistrationStatus.Denied(event.message)
-                }
-
-                "pending" -> {
-                    StreamedRegistrationStatus.Pending
-                }
-
-                else -> {
-                    logger.warn { "Unknown registration status: ${event.status}" }
-                    null
-                }
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to parse SSE event" }
-            null
+    /**
+     * [RpcEvent.Error] is re-thrown (rather than silently dropped, as [streamStatus] consumers
+     * elsewhere in the codebase do) so the ViewModel's existing catch-and-retry-then-poll fallback
+     * fires — a typed business failure (e.g. an unrecognised registration id) must not look like a
+     * silent "still pending".
+     */
+    private fun RpcEvent<RegistrationStatusEvent>.toStreamedStatus(): StreamedRegistrationStatus =
+        when (this) {
+            is RpcEvent.Data -> value.toDomain()
+            is RpcEvent.Error -> throw RegistrationStatusStreamFailure(error)
+            is RpcEvent.Complete -> error("RpcEvent.Complete is not emitted by observeRegistrationStatus")
         }
-    }
 }
+
+private fun RegistrationStatusEvent.toDomain(): StreamedRegistrationStatus =
+    when (status) {
+        "approved" -> StreamedRegistrationStatus.Approved
+        "denied" -> StreamedRegistrationStatus.Denied(message)
+        else -> StreamedRegistrationStatus.Pending
+    }
+
+/** Wraps a server-surfaced [RpcEvent.Error] as a thrown failure at the [RegistrationStatusStream] boundary. */
+internal class RegistrationStatusStreamFailure(
+    val error: AppError,
+) : Exception(error.message)

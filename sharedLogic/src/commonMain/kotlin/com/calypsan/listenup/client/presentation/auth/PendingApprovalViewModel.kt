@@ -2,14 +2,17 @@ package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.data.sync.reconnectDelayMillis
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.repository.StreamedRegistrationStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -18,16 +21,24 @@ private val logger = KotlinLogging.logger {}
 private const val POLL_INTERVAL_MS = 5_000L
 
 /**
+ * Upper bound on consecutive stream-reconnect attempts before this loop stops and leaves the
+ * (never-stopping) poll as the sole driver. Bounded so a persistently failing stream — a
+ * mid-registration server bounce, a hostile network path — can't reconnect forever; unbounded retry
+ * on a serve-and-close-shaped endpoint is exactly the reconnect flood this migration exists to kill.
+ */
+private const val MAX_STREAM_RETRY_ATTEMPTS = 5
+
+/**
  * ViewModel for the pending-approval screen.
  *
- * Subscribes to the SSE registration-status stream keyed by user id; the
- * screen flips to `Approved` (prompting re-login) or `Denied` based on
- * server-side state changes. If SSE drops, we stay in `Waiting` — the
- * user can always retry login from the manual flow.
- *
- * No client-side polling fallback: with the F4 product change, the user
- * retries `login()` to validate approval; instant SSE notification is a
- * nice-to-have, not load-bearing.
+ * Subscribes to the RPC registration-status watch keyed by user id; the screen flips to
+ * `Approved` (prompting re-login) or `Denied` based on server-side state changes. The watch
+ * COMPLETES the moment the status turns terminal — that completion IS the signal, so a normal
+ * return from `collect` ends the loop rather than triggering a reconnect. A stream failure (a
+ * transport drop or a typed business error) retries with bounded backoff
+ * ([MAX_STREAM_RETRY_ATTEMPTS]); the 5s poll below never stops on its own, so it remains the
+ * "never stranded" fallback once that budget is exhausted or for any client where the stream never
+ * delivers at all.
  */
 class PendingApprovalViewModel(
     private val authSession: AuthSession,
@@ -38,25 +49,43 @@ class PendingApprovalViewModel(
     val state: StateFlow<PendingApprovalUiState>
         field = MutableStateFlow<PendingApprovalUiState>(PendingApprovalUiState.Waiting)
 
-    private var sseJob: Job? = null
+    private var streamJob: Job? = null
     private var pollJob: Job? = null
+    private var closed = false
 
     init {
-        connectToSSE()
+        connectToStream()
         startStatusPolling()
     }
 
     override fun onCleared() {
         super.onCleared()
-        sseJob?.cancel()
+        close()
+    }
+
+    /**
+     * Cancels the stream watch and the poll loop. Idempotent — safe to call more than once, or
+     * after [onCleared] already ran.
+     *
+     * Android/Desktop never call this directly: [onCleared] delegates here when the framework's
+     * `ViewModelStore` clears this entry. iOS has no `ViewModelStore` — a Koin `factory`-resolved
+     * `PendingApprovalViewModel` is never told its owning screen went away — so
+     * `PendingApprovalViewModelWrapper.deinit` calls [close] itself; without it, the stream/poll
+     * jobs would run forever, orphaned, exactly the "iOS watcher never torn down" half of the
+     * registration-status reconnect flood this migration exists to kill.
+     */
+    fun close() {
+        if (closed) return
+        closed = true
+        streamJob?.cancel()
         pollJob?.cancel()
     }
 
     /**
      * Automatic pull fallback: re-checks the persisted status on a fixed cadence while waiting, so
-     * an approved registrant advances even when the SSE stream never delivers (e.g. iOS Darwin).
-     * An immediate check on entry catches an already-decided registration; the loop then stops the
-     * moment a terminal decision lands. Mirrors the server-side never-stranded poll.
+     * an approved registrant advances even when the stream never delivers. An immediate check on
+     * entry catches an already-decided registration; the loop then stops the moment a terminal
+     * decision lands. Mirrors the server-side never-stranded poll.
      */
     private fun startStatusPolling() {
         pollJob?.cancel()
@@ -78,20 +107,38 @@ class PendingApprovalViewModel(
         }
     }
 
-    private fun connectToSSE() {
-        sseJob?.cancel()
-        sseJob =
+    /**
+     * Subscribes to the RPC watch. Normal completion of `collect` (a terminal status landed, or —
+     * for an edge case like an unrecognised registration id — the watch ended with nothing to
+     * report) ends the loop; there is nothing to reconnect. A thrown failure retries with bounded
+     * backoff via [reconnectDelayMillis] up to [MAX_STREAM_RETRY_ATTEMPTS], after which this loop
+     * gives up and the poll fallback carries the screen the rest of the way.
+     */
+    private fun connectToStream() {
+        streamJob?.cancel()
+        var retryAttempt = 0
+        streamJob =
             viewModelScope.launch {
-                try {
-                    registrationStatusStream.streamStatus(userId).collect { status ->
-                        handleStatusUpdate(status)
-                    }
-                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) {
-                        "SSE registration-status stream failed; staying in Waiting — " +
-                            "user can retry login from the manual flow"
+                while (isActive && state.value is PendingApprovalUiState.Waiting) {
+                    try {
+                        registrationStatusStream.streamStatus(userId).collect { status ->
+                            retryAttempt = 0
+                            handleStatusUpdate(status)
+                        }
+                        return@launch
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        if (retryAttempt >= MAX_STREAM_RETRY_ATTEMPTS) {
+                            logger.warn(e) {
+                                "registration-status stream exhausted its retry budget; " +
+                                    "relying on the poll fallback"
+                            }
+                            return@launch
+                        }
+                        logger.warn(e) { "registration-status stream failed; retrying with backoff" }
+                        delay(reconnectDelayMillis(retryAttempt))
+                        retryAttempt++
                     }
                 }
             }
@@ -100,12 +147,12 @@ class PendingApprovalViewModel(
     private suspend fun handleStatusUpdate(status: StreamedRegistrationStatus) {
         when (status) {
             is StreamedRegistrationStatus.Approved -> {
-                logger.info { "Registration approved via SSE" }
+                logger.info { "Registration approved" }
                 state.value = PendingApprovalUiState.Approved
             }
 
             is StreamedRegistrationStatus.Denied -> {
-                logger.info { "Registration denied via SSE" }
+                logger.info { "Registration denied" }
                 handleDenied(status.message)
             }
 
@@ -126,15 +173,15 @@ class PendingApprovalViewModel(
     }
 
     /**
-     * Manually re-check approval status. Uses the reliable one-shot pull first (works where the SSE
-     * stream doesn't, e.g. iOS), then re-opens the stream for instant future pushes if still
-     * waiting. The "never stranded" manual fallback; safe to tap repeatedly.
+     * Manually re-check approval status. Uses the reliable one-shot pull first (works even where
+     * the stream doesn't), then re-opens the stream for instant future pushes if still waiting.
+     * The "never stranded" manual fallback; safe to tap repeatedly.
      */
     fun checkStatus() {
         viewModelScope.launch {
             checkOnce()
             if (state.value is PendingApprovalUiState.Waiting) {
-                connectToSSE()
+                connectToStream()
             }
         }
     }

@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
+import com.calypsan.listenup.server.auth.readRegistrationStatus
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.auth.UserRoleLookup
@@ -150,22 +151,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         sseRoutes()
         authRoutes(authService)
         publicInviteRoutes(inviteService)
-        registrationStatusRoutes(registrationBroadcaster) { userId ->
-            // Persisted status is the source of truth: a registrant reconnecting after the
-            // admin's decision must learn it even though the live broadcast was a no-op drop.
-            suspendTransaction(sql) {
-                when (
-                    sql.usersQueries
-                        .selectById(userId)
-                        .executeAsOneOrNull()
-                        ?.status
-                ) {
-                    "ACTIVE" -> RegistrationStatusEvent(status = "approved")
-                    "DENIED" -> RegistrationStatusEvent(status = "denied")
-                    else -> RegistrationStatusEvent(status = "pending")
-                }
-            }
-        }
         registrationPolicyRoutes(registrationPolicyBroadcaster) { serverSettings.registrationPolicy() }
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {

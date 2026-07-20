@@ -31,23 +31,25 @@ interface RegistrationStatusStream {
     /**
      * Stream registration status updates for the given user.
      *
-     * Uses SSE (Server-Sent Events) for real-time updates.
-     * The flow will emit status changes as they occur.
+     * Rides the public-channel RPC watch (`AuthServicePublic.observeRegistrationStatus`): emits the
+     * current status, then live updates, and COMPLETES once the status turns terminal — normal flow
+     * completion is the terminal signal, not a dropped connection to reconnect.
      *
      * @param userId The user ID to monitor
-     * @return Flow of streamed registration status updates
-     * @throws Exception if the connection fails
+     * @return Flow of streamed registration status updates; completes on a terminal status
+     * @throws Exception if the underlying watch surfaces a typed business failure (e.g. an
+     *   unrecognised registration id) or the stream transport fails
      */
     fun streamStatus(userId: String): Flow<StreamedRegistrationStatus>
 
     /**
-     * One-shot pull of the registrant's current status via a plain request/response GET.
+     * One-shot pull of the registrant's current status — the first emission of the same RPC watch
+     * [streamStatus] rides.
      *
-     * The "never stranded" fallback for clients where the SSE [streamStatus] doesn't deliver
-     * (notably the iOS Darwin engine's handling of the hand-rolled stream): "Check Status", an
-     * on-screen poll, and the on-entry check all use this so an approved registrant always learns
-     * it. Never throws — any transport/parse failure resolves to [StreamedRegistrationStatus.Pending]
-     * so the screen safely stays in its waiting state.
+     * The "never stranded" fallback for clients where [streamStatus] doesn't deliver: "Check
+     * Status", an on-screen poll, and the on-entry check all use this so an approved registrant
+     * always learns it. Never throws — any transport/parse/business failure resolves to
+     * [StreamedRegistrationStatus.Pending] so the screen safely stays in its waiting state.
      *
      * @param userId The user ID to check
      * @return the current status; [StreamedRegistrationStatus.Pending] on any failure
