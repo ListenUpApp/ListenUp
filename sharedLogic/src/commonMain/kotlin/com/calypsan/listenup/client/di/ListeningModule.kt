@@ -1,13 +1,11 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
@@ -36,15 +34,6 @@ internal val listeningModule: Module =
                 genreDao = get(),
                 playbackPositionDao = get(),
                 authSession = get(),
-            )
-        }
-
-        // ListeningEventRepository — read-only DAO surface for stats/leaderboard.
-        // Listening-event writes are owned by the canonical recording path
-        // (ListeningEventRecorder, bound below).
-        single<ListeningEventRepository> {
-            ListeningEventRepositoryImpl(
-                listeningEventDao = get(),
             )
         }
 

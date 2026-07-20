@@ -65,24 +65,6 @@ internal data class ListeningEventEntity(
 @Dao
 internal interface ListeningEventDao {
     /**
-     * Get all events in a date range for stats computation.
-     * Returns Flow for automatic UI updates when events are added.
-     */
-    @Query("SELECT * FROM listening_events WHERE endedAt >= :startMs AND endedAt < :endMs ORDER BY endedAt DESC")
-    fun observeEventsInRange(
-        startMs: Long,
-        endMs: Long,
-    ): Flow<List<ListeningEventEntity>>
-
-    /**
-     * Get all events since a timestamp for stats computation.
-     * No upper bound so new events are always included.
-     * Returns Flow for automatic UI updates when events are added.
-     */
-    @Query("SELECT * FROM listening_events WHERE endedAt >= :startMs ORDER BY endedAt DESC")
-    fun observeEventsSince(startMs: Long): Flow<List<ListeningEventEntity>>
-
-    /**
      * Get all events for a specific book.
      */
     @Query("SELECT * FROM listening_events WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY endedAt DESC")
@@ -202,78 +184,6 @@ internal interface ListeningEventDao {
     suspend fun getLatestEventTimestamp(): Long?
 
     /**
-     * Get distinct dates with listening activity for streak calculation.
-     * Returns dates as epoch milliseconds (start of day).
-     */
-    @Query(
-        """
-        SELECT DISTINCT (endedAt / 86400000) * 86400000 as dayStart
-        FROM listening_events
-        WHERE endedAt >= :startMs
-        ORDER BY dayStart DESC
-    """,
-    )
-    suspend fun getDistinctDaysWithActivity(startMs: Long): List<Long>
-
-    // ==================== Leaderboard Aggregation Queries ====================
-
-    /**
-     * Observe total listening time since a timestamp.
-     * Used for leaderboard TIME category (current user).
-     * Returns Flow for reactive UI updates.
-     *
-     * Uses subquery with strict bounds to prevent overflow from corrupted data.
-     * Returns 0 if no valid events exist.
-     */
-    @Query(
-        """
-        SELECT IFNULL(
-            (SELECT SUM(duration) FROM (
-                SELECT (endPositionMs - startPositionMs) as duration
-                FROM listening_events
-                WHERE endedAt >= :sinceMs
-                  AND endPositionMs > startPositionMs
-                  AND endPositionMs < 10000000000
-                  AND startPositionMs >= 0
-                  AND startPositionMs < 10000000000
-            )),
-            0
-        )
-    """,
-    )
-    fun observeTotalDurationSince(sinceMs: Long): Flow<Long>
-
-    /**
-     * Observe distinct books listened to since a timestamp.
-     * Used for leaderboard BOOKS category (current user).
-     * Returns Flow for reactive UI updates.
-     */
-    @Query(
-        """
-        SELECT COUNT(DISTINCT bookId)
-        FROM listening_events
-        WHERE endedAt >= :sinceMs
-    """,
-    )
-    fun observeDistinctBooksSince(sinceMs: Long): Flow<Int>
-
-    /**
-     * Observe distinct days with listening activity since a timestamp.
-     * Used for streak calculation (current user).
-     * Returns day numbers (epochMs / 86400000) sorted descending.
-     * Returns Flow for reactive updates when new events are added.
-     */
-    @Query(
-        """
-        SELECT DISTINCT (endedAt / 86400000) as dayNumber
-        FROM listening_events
-        WHERE endedAt >= :sinceMs
-        ORDER BY dayNumber DESC
-    """,
-    )
-    fun observeDistinctDaysSince(sinceMs: Long): Flow<List<Long>>
-
-    /**
      * Observe events for a specific user within a time window (exclusive upper bound).
      *
      * Scoped to [userId] so cross-user events never contaminate stats. Tombstoned
@@ -302,32 +212,6 @@ internal interface ListeningEventDao {
         endMs: Long,
     ): Flow<List<ListeningEventEntity>>
 
-    /**
-     * Get total duration grouped by book for a date range.
-     * Uses bounds checking to prevent overflow from corrupted data.
-     */
-    @Query(
-        """
-        SELECT bookId, IFNULL(SUM(
-            CASE WHEN endPositionMs > startPositionMs
-                      AND endPositionMs < 10000000000
-                      AND startPositionMs >= 0
-                      AND startPositionMs < 10000000000
-                 THEN endPositionMs - startPositionMs
-                 ELSE 0
-            END
-        ), 0) as totalMs
-        FROM listening_events
-        WHERE endedAt >= :startMs AND endedAt < :endMs
-        GROUP BY bookId
-        ORDER BY totalMs DESC
-    """,
-    )
-    suspend fun getDurationByBook(
-        startMs: Long,
-        endMs: Long,
-    ): List<BookDuration>
-
     /** All rows (including tombstones) with [revision][ListeningEventEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM listening_events WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
@@ -354,11 +238,3 @@ internal interface ListeningEventDao {
     @Query("DELETE FROM listening_events")
     suspend fun deleteAll()
 }
-
-/**
- * Result class for duration-by-book query.
- */
-internal data class BookDuration(
-    val bookId: String,
-    val totalMs: Long,
-)
