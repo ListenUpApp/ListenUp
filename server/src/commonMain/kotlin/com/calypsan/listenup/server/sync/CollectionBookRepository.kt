@@ -33,15 +33,6 @@ data class CollectionBookId(
     val candidateWireId: String = "",
 ) {
     fun asString(): String = "$collectionId:$bookId"
-
-    companion object {
-        /** Parses a synthetic id string back into its composite parts. */
-        fun fromString(s: String): CollectionBookId {
-            val colon = s.indexOf(':')
-            check(colon > 0) { "Invalid CollectionBookId string: $s" }
-            return CollectionBookId(s.substring(0, colon), s.substring(colon + 1))
-        }
-    }
 }
 
 /**
