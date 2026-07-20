@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlin.time.Instant
 
 /**
  * Implementation of PlaybackPositionRepository using Room.
@@ -135,7 +134,7 @@ internal class PlaybackPositionRepositoryImpl(
         }
 
     /**
-     * Exhaustive dispatcher over the 11-variant [PlaybackUpdate] hierarchy.
+     * Exhaustive dispatcher over the 10-variant [PlaybackUpdate] hierarchy.
      *
      * Adding a new variant produces a `when` exhaustiveness compile error here —
      * the sealed-hierarchy contract every consumer must satisfy.
@@ -152,7 +151,6 @@ internal class PlaybackPositionRepositoryImpl(
             is PlaybackUpdate.PlaybackPaused -> handlePlaybackPaused(bookId, update)
             is PlaybackUpdate.PeriodicUpdate -> handlePeriodicUpdate(bookId, update)
             is PlaybackUpdate.BookFinished -> handleBookFinished(bookId, update)
-            is PlaybackUpdate.CrossDeviceSync -> handleCrossDeviceSync(bookId, update)
             is PlaybackUpdate.MarkComplete -> handleMarkComplete(bookId, update)
             PlaybackUpdate.DiscardProgress -> handleDiscardProgress(bookId)
             PlaybackUpdate.Restart -> handleRestart(bookId)
@@ -170,9 +168,6 @@ internal class PlaybackPositionRepositoryImpl(
      * (`dao.get`) therefore sees the just-written state within the same transaction, and a failed
      * enqueue rolls the whole save back rather than being swallowed — the OfflineEditor pattern.
      * The next position tick re-saves and re-enqueues, so a rolled-back save is never a lost update.
-     *
-     * [CrossDeviceSync] is excluded: it is incoming server state, so pushing it back would
-     * create an echo loop.
      *
      * No sign-in user means no server to push to — silently skipped (returns `false`).
      *
@@ -279,11 +274,6 @@ internal class PlaybackPositionRepositoryImpl(
                         playbackSpeed = entity?.playbackSpeed ?: 1.0f,
                         currentChapterId = null,
                     )
-                }
-
-                // Inbound reconciliation only — pushing it back would create an echo loop.
-                is PlaybackUpdate.CrossDeviceSync -> {
-                    return false
                 }
 
                 // User-command resets: enqueue the post-reset row so the discard/restart
@@ -445,51 +435,6 @@ internal class PlaybackPositionRepositoryImpl(
         dao.save(merged)
     }
 
-    private suspend fun handleCrossDeviceSync(
-        bookId: BookId,
-        u: PlaybackUpdate.CrossDeviceSync,
-    ) {
-        // Reconcile-with-stored: only apply if server progress is newer than stored.
-        // Canonical cross-device merge lives in the repository (Phase B's
-        // single-writer goal). The handler's caller is responsible for "is this book locally
-        // playing? skip" — that's a higher-level policy, not a per-row write rule.
-        val payload = u.progress
-        val lastPlayedAtMs = parseIsoOrNull(payload.lastPlayedAt) ?: return
-        val finishedAtMs = payload.finishedAt?.let { parseIsoOrNull(it) }
-        val startedAtMs = payload.startedAt?.let { parseIsoOrNull(it) }
-
-        val existing = dao.get(bookId)
-        if (existing != null && (existing.lastPlayedAt ?: 0L) >= lastPlayedAtMs) {
-            // Local is newer — nothing to do.
-            return
-        }
-
-        val merged =
-            existing?.copy(
-                positionMs = payload.currentPositionMs,
-                isFinished = payload.isFinished,
-                lastPlayedAt = lastPlayedAtMs,
-                updatedAt = lastPlayedAtMs,
-                syncedAt = lastPlayedAtMs,
-                // Server omits null timestamps; wire-absence means "no change".
-                finishedAt = finishedAtMs ?: existing.finishedAt,
-                startedAt = startedAtMs ?: existing.startedAt,
-                // playbackSpeed and hasCustomSpeed preserved implicitly via .copy().
-            ) ?: PlaybackPositionEntity(
-                bookId = bookId,
-                positionMs = payload.currentPositionMs,
-                playbackSpeed = 1.0f,
-                hasCustomSpeed = false,
-                isFinished = payload.isFinished,
-                lastPlayedAt = lastPlayedAtMs,
-                updatedAt = lastPlayedAtMs,
-                syncedAt = lastPlayedAtMs,
-                finishedAt = finishedAtMs,
-                startedAt = startedAtMs,
-            )
-        dao.save(merged)
-    }
-
     private suspend fun handleMarkComplete(
         bookId: BookId,
         u: PlaybackUpdate.MarkComplete,
@@ -588,17 +533,3 @@ private fun PlaybackPositionEntity.toDomain(): PlaybackPosition =
         finishedAtMs = finishedAt,
         startedAtMs = startedAt,
     )
-
-/**
- * Parse ISO 8601 to epoch ms; returns null on malformed input.
- *
- * Used by [PlaybackUpdate.CrossDeviceSync] to skip rows whose timestamps the
- * server malformed, leaving the next sync to reconcile.
- */
-@Suppress("SwallowedException", "TooGenericExceptionCaught")
-private fun parseIsoOrNull(iso: String): Long? =
-    try {
-        Instant.parse(iso).toEpochMilliseconds()
-    } catch (_: Exception) {
-        null
-    }
