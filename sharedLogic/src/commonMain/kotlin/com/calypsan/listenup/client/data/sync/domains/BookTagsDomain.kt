@@ -33,7 +33,12 @@ internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagS
     return MirroredDomain(
         key = SyncDomains.BOOK_TAGS,
         apply = apply,
-        conflict = ConflictPolicy.ServerWins(RevisionGuard { syncId -> database.bookTagDao().revisionOfSyncId(syncId) }),
+        conflict =
+            ConflictPolicy.ServerWins(
+                RevisionGuard { syncId ->
+                    database.bookTagDao().revisionOfSyncId(syncId)
+                },
+            ),
         // Write the event's own revision so a replayed Deleted frame is a true no-op (matches
         // collection_books). The revision is the server-authoritative value from the frame.
         deletes =

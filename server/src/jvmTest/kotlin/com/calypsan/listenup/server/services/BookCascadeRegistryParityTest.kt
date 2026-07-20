@@ -105,8 +105,12 @@ class BookCascadeRegistryParityTest :
                     // CASCADE_TOMBSTONED set — checked below).
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     moodRepo.upsert(Mood(id = "m1", name = "Tense", slug = "tense", revision = 0, updatedAt = 0))
-                    bookTagRepo.upsert(BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L))
-                    bookMoodRepo.upsert(BookMoodSyncPayload(id = "book1:m1", bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L))
+                    bookTagRepo.upsert(
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                    )
+                    bookMoodRepo.upsert(
+                        BookMoodSyncPayload(id = "book1:m1", bookId = "book1", moodId = "m1", createdAt = 1000L, revision = 0L),
+                    )
                     collectionBookRepo.upsert(
                         CollectionBookSyncPayload(id = "c1:book1", collectionId = "c1", bookId = "book1", createdAt = 1000L, revision = 0L),
                     )

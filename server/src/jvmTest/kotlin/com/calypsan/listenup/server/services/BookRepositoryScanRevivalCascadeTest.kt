@@ -148,10 +148,12 @@ private class RevivalHarness(
     suspend fun attachJunctions(bookId: BookId) {
         val id = bookId.value
         tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
-        bookTagRepo.upsert(BookTagSyncPayload(id = "${id}:t1", bookId = id, tagId = "t1", createdAt = 1000L, revision = 0L))
+        bookTagRepo.upsert(BookTagSyncPayload(id = "$id:t1", bookId = id, tagId = "t1", createdAt = 1000L, revision = 0L))
         moodRepo.upsert(Mood(id = "m1", name = "Tense", slug = "tense", revision = 0, updatedAt = 0))
-        bookMoodRepo.upsert(BookMoodSyncPayload(id = "${id}:m1", bookId = id, moodId = "m1", createdAt = 1000L, revision = 0L))
-        collectionBookRepo.upsert(CollectionBookSyncPayload(id = "c1:${id}", collectionId = "c1", bookId = id, createdAt = 1000L, revision = 0L))
+        bookMoodRepo.upsert(BookMoodSyncPayload(id = "$id:m1", bookId = id, moodId = "m1", createdAt = 1000L, revision = 0L))
+        collectionBookRepo.upsert(
+            CollectionBookSyncPayload(id = "c1:$id", collectionId = "c1", bookId = id, createdAt = 1000L, revision = 0L),
+        )
         check(bookTagRepo.findAllForBook(id).size == 1)
         check(bookMoodRepo.findAllForBook(id).size == 1)
         check(collectionBookRepo.findBookIdsForCollection("c1") == listOf(id))

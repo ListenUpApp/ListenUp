@@ -282,7 +282,7 @@ private fun membershipFixture(
     bookId: String,
 ): CollectionBookSyncPayload =
     CollectionBookSyncPayload(
-        id = "${collectionId}:${bookId}",
+        id = "$collectionId:$bookId",
         collectionId = collectionId,
         bookId = bookId,
         createdAt = 0L,

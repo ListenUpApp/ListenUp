@@ -767,11 +767,13 @@ private suspend fun isCollectionEventHidden(
 
     val collectionId =
         if (domain == COLLECTION_BOOKS_DOMAIN) {
-            collectionBookPayloadOf(busEvent.event)?.collectionId ?: return false
+            collectionBookPayloadOf(busEvent.event)?.collectionId
         } else {
             busEvent.event.id
         }
-    return !bookAccessPolicy().canAccessCollection(userId, role, collectionId)
+    // A missing collection_books payload should never happen for Created/Updated (only Deleted
+    // carries none, and that already returned above) — hide defensively rather than bypass.
+    return collectionId == null || !bookAccessPolicy().canAccessCollection(userId, role, collectionId)
 }
 
 /**

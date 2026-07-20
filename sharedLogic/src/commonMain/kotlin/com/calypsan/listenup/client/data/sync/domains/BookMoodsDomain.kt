@@ -29,7 +29,12 @@ internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoo
     return MirroredDomain(
         key = SyncDomains.BOOK_MOODS,
         apply = apply,
-        conflict = ConflictPolicy.ServerWins(RevisionGuard { syncId -> database.bookMoodDao().revisionOfSyncId(syncId) }),
+        conflict =
+            ConflictPolicy.ServerWins(
+                RevisionGuard { syncId ->
+                    database.bookMoodDao().revisionOfSyncId(syncId)
+                },
+            ),
         // The DAO advances its own revision on tombstone, so the event revision is dropped (`_`).
         deletes = DeleteSemantics.SoftDelete { id, deletedAt, _ -> apply.tombstoneById(id, deletedAt) },
         digest = fullDigest(database.bookMoodDao()::digestRows),

@@ -22,26 +22,31 @@ class SchemaMigrationSmokeTest :
             try {
                 val v1 = helper.createDatabase(version = 1)
                 val now = 1_700_000_000_000L
-                v1.prepare(
-                    "INSERT INTO libraries (id, name, metadataPrecedence, accessMode, createdAt, revision) " +
-                        "VALUES ('lib1', 'Lib', 'embedded,abs,sidecar', 'shared', $now, 0)",
-                ).use { it.step() }
-                v1.prepare(
-                    "INSERT INTO collections (id, libraryId, ownerId, name, isInbox, revision, updatedAt) " +
-                        "VALUES ('col1', 'lib1', 'user1', 'Collection', 0, 0, $now)",
-                ).use { it.step() }
-                v1.prepare(
-                    "INSERT INTO collection_books (collectionId, bookId, createdAt, revision, deletedAt) " +
-                        "VALUES ('col1', 'book1', $now, 0, NULL)",
-                ).use { it.step() }
-                v1.prepare(
-                    "INSERT INTO book_tags (bookId, tagId, createdAt, revision, deletedAt) " +
-                        "VALUES ('book1', 'tag1', $now, 0, NULL)",
-                ).use { it.step() }
-                v1.prepare(
-                    "INSERT INTO book_moods (bookId, moodId, createdAt, revision, deletedAt) " +
-                        "VALUES ('book1', 'mood1', $now, 0, NULL)",
-                ).use { it.step() }
+                v1
+                    .prepare(
+                        "INSERT INTO libraries (id, name, metadataPrecedence, accessMode, createdAt, revision) " +
+                            "VALUES ('lib1', 'Lib', 'embedded,abs,sidecar', 'shared', $now, 0)",
+                    ).use { it.step() }
+                v1
+                    .prepare(
+                        "INSERT INTO collections (id, libraryId, ownerId, name, isInbox, revision, updatedAt) " +
+                            "VALUES ('col1', 'lib1', 'user1', 'Collection', 0, 0, $now)",
+                    ).use { it.step() }
+                v1
+                    .prepare(
+                        "INSERT INTO collection_books (collectionId, bookId, createdAt, revision, deletedAt) " +
+                            "VALUES ('col1', 'book1', $now, 0, NULL)",
+                    ).use { it.step() }
+                v1
+                    .prepare(
+                        "INSERT INTO book_tags (bookId, tagId, createdAt, revision, deletedAt) " +
+                            "VALUES ('book1', 'tag1', $now, 0, NULL)",
+                    ).use { it.step() }
+                v1
+                    .prepare(
+                        "INSERT INTO book_moods (bookId, moodId, createdAt, revision, deletedAt) " +
+                            "VALUES ('book1', 'mood1', $now, 0, NULL)",
+                    ).use { it.step() }
                 v1.close()
 
                 val v2 = helper.runMigrationsAndValidate(version = 2, migrations = listOf(MIGRATION_1_2))
@@ -65,10 +70,11 @@ class SchemaMigrationSmokeTest :
                 }
 
                 // The syncId column + unique index now exist and accept a fresh opaque row.
-                v2.prepare(
-                    "INSERT INTO collection_books (collectionId, bookId, syncId, createdAt, revision, deletedAt) " +
-                        "VALUES ('col1', 'book1', 'opaque-id-1', $now, 0, NULL)",
-                ).use { it.step() }
+                v2
+                    .prepare(
+                        "INSERT INTO collection_books (collectionId, bookId, syncId, createdAt, revision, deletedAt) " +
+                            "VALUES ('col1', 'book1', 'opaque-id-1', $now, 0, NULL)",
+                    ).use { it.step() }
                 v2.prepare("SELECT syncId FROM collection_books WHERE collectionId = 'col1'").use { stmt ->
                     stmt.step()
                     stmt.getText(0) shouldBe "opaque-id-1"

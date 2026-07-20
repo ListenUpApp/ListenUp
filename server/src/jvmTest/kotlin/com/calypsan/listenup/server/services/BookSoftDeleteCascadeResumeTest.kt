@@ -119,10 +119,18 @@ class BookSoftDeleteCascadeResumeTest :
             )
             tagRepo.upsert(Tag(id = tagId, name = tagId, slug = tagId, revision = 0, updatedAt = 0))
             moodRepo.upsert(Mood(id = moodId, name = moodId, slug = moodId, revision = 0, updatedAt = 0))
-            bookTagRepo.upsert(BookTagSyncPayload(id = "${bookId}:${tagId}", bookId = bookId, tagId = tagId, createdAt = 1000L, revision = 0L))
-            bookMoodRepo.upsert(BookMoodSyncPayload(id = "${bookId}:${moodId}", bookId = bookId, moodId = moodId, createdAt = 1000L, revision = 0L))
+            bookTagRepo.upsert(BookTagSyncPayload(id = "$bookId:$tagId", bookId = bookId, tagId = tagId, createdAt = 1000L, revision = 0L))
+            bookMoodRepo.upsert(
+                BookMoodSyncPayload(id = "$bookId:$moodId", bookId = bookId, moodId = moodId, createdAt = 1000L, revision = 0L),
+            )
             collectionBookRepo.upsert(
-                CollectionBookSyncPayload(id = "${collectionId}:${bookId}", collectionId = collectionId, bookId = bookId, createdAt = 1000L, revision = 0L),
+                CollectionBookSyncPayload(
+                    id = "$collectionId:$bookId",
+                    collectionId = collectionId,
+                    bookId = bookId,
+                    createdAt = 1000L,
+                    revision = 0L,
+                ),
             )
         }
 
@@ -385,8 +393,12 @@ class BookSoftDeleteCascadeResumeTest :
                     val graph = CascadeGraph(sql, driver)
                     // t1 linked to book1 AND book2 (both live).
                     graph.tagRepo.upsert(Tag(id = "t1", name = "t1", slug = "t1", revision = 0, updatedAt = 0))
-                    graph.bookTagRepo.upsert(BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L))
-                    graph.bookTagRepo.upsert(BookTagSyncPayload(id = "book2:t1", bookId = "book2", tagId = "t1", createdAt = 1000L, revision = 0L))
+                    graph.bookTagRepo.upsert(
+                        BookTagSyncPayload(id = "book1:t1", bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                    )
+                    graph.bookTagRepo.upsert(
+                        BookTagSyncPayload(id = "book2:t1", bookId = "book2", tagId = "t1", createdAt = 1000L, revision = 0L),
+                    )
                     // The user detached t1 from book1 earlier: book1's junction is tombstoned BEFORE the removal.
                     graph.bookTagRepo.softDeleteAllForBook("book1")
                     graph.bookTagRepo.findAllForBook("book1").shouldBeEmpty()

@@ -33,7 +33,12 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
     return MirroredDomain(
         key = SyncDomains.COLLECTION_BOOKS,
         apply = apply,
-        conflict = ConflictPolicy.ServerWins(RevisionGuard { syncId -> database.collectionBookDao().revisionOfSyncId(syncId) }),
+        conflict =
+            ConflictPolicy.ServerWins(
+                RevisionGuard { syncId ->
+                    database.collectionBookDao().revisionOfSyncId(syncId)
+                },
+            ),
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.collectionBookDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.CollectionBooks),

@@ -384,7 +384,13 @@ class BookSearchReindexerBulkTest :
                         val tagId = "tag$index"
                         tagRepo.upsert(Tag(id = tagId, name = "TagFor$bookId", slug = "tag-for-$bookId", revision = 0, updatedAt = 0))
                         bookTagRepo.upsert(
-                            BookTagSyncPayload(id = "${bookId}:${tagId}", bookId = bookId, tagId = tagId, createdAt = 1000L + index, revision = 0L),
+                            BookTagSyncPayload(
+                                id = "$bookId:$tagId",
+                                bookId = bookId,
+                                tagId = tagId,
+                                createdAt = 1000L + index,
+                                revision = 0L,
+                            ),
                         )
                     }
 

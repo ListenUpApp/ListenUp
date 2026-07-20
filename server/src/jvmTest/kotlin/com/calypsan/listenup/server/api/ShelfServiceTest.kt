@@ -315,7 +315,13 @@ class ShelfServiceTest :
                         ),
                     )
                     collectionBookRepo.upsert(
-                        CollectionBookSyncPayload(id = "priv:hidden", collectionId = "priv", bookId = "hidden", createdAt = 0L, revision = 0L),
+                        CollectionBookSyncPayload(
+                            id = "priv:hidden",
+                            collectionId = "priv",
+                            bookId = "hidden",
+                            createdAt = 0L,
+                            revision = 0L,
+                        ),
                     )
 
                     val service = makeService(sql, driver).actAs("u1")

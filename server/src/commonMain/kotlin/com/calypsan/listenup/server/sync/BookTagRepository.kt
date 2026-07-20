@@ -146,7 +146,8 @@ class BookTagRepository(
      * otherwise learn the association from the tombstone alone. `id`/`revision`/`deletedAt`/
      * `createdAt` survive — identity and sync-discipline fields only.
      */
-    override fun minimizeTombstone(payload: BookTagSyncPayload): BookTagSyncPayload = payload.copy(bookId = "", tagId = "")
+    override fun minimizeTombstone(payload: BookTagSyncPayload): BookTagSyncPayload =
+        payload.copy(bookId = "", tagId = "")
 
     override fun writePayload(
         value: BookTagSyncPayload,
