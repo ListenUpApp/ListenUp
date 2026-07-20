@@ -147,6 +147,23 @@ sealed interface ContributorMetadataEvent {
 }
 
 /**
+ * The (contributor, match, region) triple an in-flight preview load or apply mutation was issued
+ * against — captured before the async work starts so the eventual outcome can be checked against
+ * whatever the state has moved on to, never against itself.
+ */
+private data class PreviewTarget(
+    val contributorId: String,
+    val asin: String,
+    val region: MetadataLocale,
+)
+
+/** Whether this [Preview][ContributorMetadataUiState.Preview] is still the one [target] was issued against. */
+private fun ContributorMetadataUiState.Preview.matches(target: PreviewTarget): Boolean =
+    context.contributorId == target.contributorId &&
+        match.asin == target.asin &&
+        region == target.region
+
+/**
  * ViewModel for the contributor metadata search-and-match wizard.
  *
  * Command-driven, in the image of the book wizard's
@@ -203,16 +220,20 @@ class ContributorMetadataViewModel(
             val contributor = contributorRepository.observeById(contributorId).first()
             state.update { latest ->
                 when (latest) {
-                    is ContributorMetadataUiState.Search ->
+                    is ContributorMetadataUiState.Search -> {
                         latest.copy(
                             context = latest.context.copy(current = contributor),
                             query = latest.query.ifBlank { contributor?.name.orEmpty() },
                         )
+                    }
 
-                    is ContributorMetadataUiState.Preview ->
+                    is ContributorMetadataUiState.Preview -> {
                         latest.copy(context = latest.context.copy(current = contributor))
+                    }
 
-                    is ContributorMetadataUiState.Idle -> latest
+                    is ContributorMetadataUiState.Idle -> {
+                        latest
+                    }
                 }
             }
             if (!contributor?.name.isNullOrBlank() && state.value is ContributorMetadataUiState.Search) {
@@ -251,7 +272,7 @@ class ContributorMetadataViewModel(
                 // visible paired with the old region's Ready profile, even for a single frame.
                 val next = current.copy(region = region, loadState = ContributorPreviewLoadState.Loading)
                 state.value = next
-                loadPreview(next.match.asin, region)
+                loadPreview(PreviewTarget(next.context.contributorId, next.match.asin, region))
             }
         }
     }
@@ -341,7 +362,9 @@ class ContributorMetadataViewModel(
                 baseResults = current.searchResults
             }
 
-            is ContributorMetadataUiState.Idle -> return
+            is ContributorMetadataUiState.Idle -> {
+                return
+            }
         }
 
         state.value =
@@ -354,7 +377,7 @@ class ContributorMetadataViewModel(
                 loadState = ContributorPreviewLoadState.Loading,
             )
 
-        loadPreview(result.asin, region)
+        loadPreview(PreviewTarget(context.contributorId, result.asin, region))
     }
 
     /**
@@ -404,26 +427,23 @@ class ContributorMetadataViewModel(
         val ready = preview.loadState as? ContributorPreviewLoadState.Ready ?: return
         if (ready.isApplying) return
 
-        val contributorId = preview.context.contributorId
-        val asin = preview.match.asin
-        val region = preview.region
+        val target = PreviewTarget(preview.context.contributorId, preview.match.asin, preview.region)
         val attempt = ++applyAttempt
 
-        updateReady(contributorId, asin, region) { it.copy(isApplying = true, applyError = null) }
+        updateReady(target) { it.copy(isApplying = true, applyError = null) }
 
         viewModelScope.launch {
             when (
                 val result =
                     metadataRepository.applyContributorMetadata(
-                        contributorId = ContributorId(contributorId),
-                        asin = asin,
-                        region = region,
+                        contributorId = ContributorId(target.contributorId),
+                        asin = target.asin,
+                        region = target.region,
                     )
             ) {
                 is AppResult.Success -> {
                     if (attempt == applyAttempt) {
-                        val stillCurrent =
-                            updateReady(contributorId, asin, region) { it.copy(isApplying = false, applyError = null) }
+                        val stillCurrent = updateReady(target) { it.copy(isApplying = false, applyError = null) }
                         if (stillCurrent) {
                             eventChannel.trySend(ContributorMetadataEvent.MetadataApplied)
                         }
@@ -434,7 +454,7 @@ class ContributorMetadataViewModel(
                     errorBus.emit(result.error)
                     logger.error { "Failed to apply contributor metadata: ${result.error.message}" }
                     if (attempt == applyAttempt) {
-                        updateReady(contributorId, asin, region) { it.copy(isApplying = false, applyError = result.error.message) }
+                        updateReady(target) { it.copy(isApplying = false, applyError = result.error.message) }
                     }
                 }
             }
@@ -446,63 +466,66 @@ class ContributorMetadataViewModel(
         state.value = ContributorMetadataUiState.Idle(region = state.value.region)
     }
 
-    private fun loadPreview(
-        asin: String,
-        region: MetadataLocale,
-    ) {
+    private fun loadPreview(target: PreviewTarget) {
         viewModelScope.launch {
             try {
                 val result =
                     withTimeout(CONTRIBUTOR_RPC_TIMEOUT) {
-                        metadataRepository.getContributorMetadata(asin, region)
+                        metadataRepository.getContributorMetadata(target.asin, target.region)
                     }
                 when (result) {
-                    is AppResult.Success -> {
-                        val profile = result.data
-                        state.update { latest ->
-                            if (latest !is ContributorMetadataUiState.Preview ||
-                                latest.match.asin != asin ||
-                                latest.region != region
-                            ) {
-                                return@update latest
-                            }
-                            if (profile == null || profile.isEmptyShell()) {
-                                // Decision (c): an HTTP-200 shell with no bio AND no photo is an
-                                // honest MISS — Audnexus localizes profile content per region.
-                                latest.copy(loadState = ContributorPreviewLoadState.Missing)
-                            } else {
-                                latest.copy(
-                                    match =
-                                        if (latest.match.name.isBlank()) {
-                                            latest.match.copy(name = profile.name)
-                                        } else {
-                                            latest.match
-                                        },
-                                    loadState =
-                                        ContributorPreviewLoadState.Ready(
-                                            profile = profile,
-                                            isApplying = false,
-                                            applyError = null,
-                                        ),
-                                )
-                            }
-                        }
-                    }
+                    is AppResult.Success -> projectPreviewResult(target, result.data)
 
                     is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         logger.error { "Failed to load contributor profile: ${result.error.message}" }
-                        setPreviewFailed(asin, region, result.error.message)
+                        setPreviewFailed(target, result.error.message)
                     }
                 }
             } catch (e: TimeoutCancellationException) {
-                logger.error(e) { "Contributor profile load timed out for $asin" }
-                setPreviewFailed(asin, region, PREVIEW_TIMEOUT_MESSAGE)
+                logger.error(e) { "Contributor profile load timed out for ${target.asin}" }
+                setPreviewFailed(target, PREVIEW_TIMEOUT_MESSAGE)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                logger.error(e) { "Contributor profile load failed unexpectedly for $asin" }
-                setPreviewFailed(asin, region, PREVIEW_FAILED_MESSAGE)
+                logger.error(e) { "Contributor profile load failed unexpectedly for ${target.asin}" }
+                setPreviewFailed(target, PREVIEW_FAILED_MESSAGE)
+            }
+        }
+    }
+
+    /**
+     * Project a successful [loadPreview] fetch onto the still-current preview, ignoring a preview
+     * that has since moved on to a different contributor/match/region — the same stale guard
+     * [setPreviewFailed] uses for the failure path.
+     */
+    private fun projectPreviewResult(
+        target: PreviewTarget,
+        profile: MetadataContributorProfile?,
+    ) {
+        state.update { latest ->
+            if (latest !is ContributorMetadataUiState.Preview || !latest.matches(target)) {
+                return@update latest
+            }
+            if (profile == null || profile.isEmptyShell()) {
+                // Decision (c): an HTTP-200 shell with no bio AND no photo is an
+                // honest MISS — Audnexus localizes profile content per region.
+                latest.copy(loadState = ContributorPreviewLoadState.Missing)
+            } else {
+                latest.copy(
+                    match =
+                        if (latest.match.name.isBlank()) {
+                            latest.match.copy(name = profile.name)
+                        } else {
+                            latest.match
+                        },
+                    loadState =
+                        ContributorPreviewLoadState.Ready(
+                            profile = profile,
+                            isApplying = false,
+                            applyError = null,
+                        ),
+                )
             }
         }
     }
@@ -513,12 +536,11 @@ class ContributorMetadataViewModel(
 
     /** Project a [ContributorPreviewLoadState.Failed] onto the still-current preview, ignoring a switched match/region. */
     private fun setPreviewFailed(
-        asin: String,
-        region: MetadataLocale,
+        target: PreviewTarget,
         message: String,
     ) {
         state.update { latest ->
-            if (latest is ContributorMetadataUiState.Preview && latest.match.asin == asin && latest.region == region) {
+            if (latest is ContributorMetadataUiState.Preview && latest.matches(target)) {
                 latest.copy(loadState = ContributorPreviewLoadState.Failed(message))
             } else {
                 latest
@@ -528,26 +550,19 @@ class ContributorMetadataViewModel(
 
     /**
      * Project [transform] onto the [ContributorPreviewLoadState.Ready] overlay, but only when the
-     * still-current preview is still Ready for [contributorId]/[asin]/[region] — the same stale
-     * guard [setPreviewFailed] uses, applied to the apply-mutation overlay. Returns whether the
-     * projection landed, so [apply] can gate the one-shot [ContributorMetadataEvent.MetadataApplied]
-     * on it too: a `clearSelection`/`changeRegion`/`selectCandidate` that ran while this apply was
-     * still in flight must silently drop the outcome, not fire a stale success/error.
+     * still-current preview is still Ready for [target] — the same stale guard [setPreviewFailed]
+     * uses, applied to the apply-mutation overlay. Returns whether the projection landed, so
+     * [apply] can gate the one-shot [ContributorMetadataEvent.MetadataApplied] on it too: a
+     * `clearSelection`/`changeRegion`/`selectCandidate` that ran while this apply was still in
+     * flight must silently drop the outcome, not fire a stale success/error.
      */
     private fun updateReady(
-        contributorId: String,
-        asin: String,
-        region: MetadataLocale,
+        target: PreviewTarget,
         transform: (ContributorPreviewLoadState.Ready) -> ContributorPreviewLoadState.Ready,
     ): Boolean {
         var applied = false
         state.update { latest ->
-            if (latest is ContributorMetadataUiState.Preview &&
-                latest.context.contributorId == contributorId &&
-                latest.match.asin == asin &&
-                latest.region == region &&
-                latest.loadState is ContributorPreviewLoadState.Ready
-            ) {
+            if (latest is ContributorMetadataUiState.Preview && latest.matches(target) && latest.loadState is ContributorPreviewLoadState.Ready) {
                 applied = true
                 latest.copy(loadState = transform(latest.loadState))
             } else {

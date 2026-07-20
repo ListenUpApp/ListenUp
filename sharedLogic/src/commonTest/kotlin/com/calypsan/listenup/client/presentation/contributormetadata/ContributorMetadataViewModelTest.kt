@@ -424,7 +424,11 @@ class ContributorMetadataViewModelTest :
                 vm.apply()
                 advanceUntilIdle()
 
-                verifySuspend(mode = dev.mokkery.verify.VerifyMode.exactly(0)) {
+                verifySuspend(
+                    mode =
+                        dev.mokkery.verify.VerifyMode
+                            .exactly(0),
+                ) {
                     metadataRepo.applyContributorMetadata(any(), any(), any())
                 }
             }
@@ -560,8 +564,10 @@ class ContributorMetadataViewModelTest :
                 advanceUntilIdle()
 
                 val freshReady =
-                    vm.state.value.shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
-                        .loadState.shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
+                    vm.state.value
+                        .shouldBeInstanceOf<ContributorMetadataUiState.Preview>()
+                        .loadState
+                        .shouldBeInstanceOf<ContributorPreviewLoadState.Ready>()
                 freshReady.isApplying shouldBe false
                 freshReady.applyError shouldBe null
 
