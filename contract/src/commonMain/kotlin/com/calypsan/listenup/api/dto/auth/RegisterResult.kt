@@ -20,7 +20,7 @@ sealed interface RegisterResult {
      * Account created in PENDING_APPROVAL; admin must approve before login.
      *
      * Carries the server-issued `userId` so the client can subscribe to the
-     * SSE registration-status stream (keyed by user id) and prompt re-login
+     * registration-status RPC watch (keyed by user id) and prompt re-login
      * when the account is approved.
      */
     @Serializable
