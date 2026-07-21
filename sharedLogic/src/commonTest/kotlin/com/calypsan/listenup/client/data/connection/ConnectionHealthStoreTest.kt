@@ -7,11 +7,13 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.version.FakeClientIdentity
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
@@ -20,8 +22,10 @@ import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 
@@ -36,8 +40,268 @@ private fun fakeLocalPreferences(): LocalPreferences =
         every { outdatedDismissedFor } returns MutableStateFlow(null)
     }
 
+private class FakeNetworkMonitor(
+    initialOnline: Boolean = true,
+) : NetworkMonitor {
+    val online = MutableStateFlow(initialOnline)
+
+    override fun isOnline(): Boolean = online.value
+
+    override val isOnlineFlow: StateFlow<Boolean> get() = online
+    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+}
+
+private fun CoroutineScope.buildStore(
+    engineState: SyncEngineState = SyncEngineState(),
+    authState: MutableStateFlow<AuthState> = MutableStateFlow(authed()),
+    errorBus: ErrorBus = ErrorBus(),
+    localPreferences: LocalPreferences = fakeLocalPreferences(),
+    networkMonitor: NetworkMonitor = FakeNetworkMonitor(),
+    evidence: ConnectionEvidence = ConnectionEvidence(),
+    clientIdentity: FakeClientIdentity = FakeClientIdentity(),
+): ConnectionHealthStore =
+    ConnectionHealthStore(
+        engineState = engineState,
+        authStateFlow = authState,
+        errorBus = errorBus,
+        clientIdentity = clientIdentity,
+        localPreferences = localPreferences,
+        networkMonitor = networkMonitor,
+        evidence = evidence,
+        scope = this,
+    )
+
 class ConnectionHealthStoreTest :
     FunSpec({
+
+        // ========== Evidence-based reachability ==========
+
+        test("device network loss surfaces Unreachable after debounce; heals instantly on regain") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val network = FakeNetworkMonitor(initialOnline = true)
+                val store = backgroundScope.buildStore(engineState = engineState, networkMonitor = network)
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy // eager seed
+
+                    // Airplane mode: the device itself says there is no network. Nothing else —
+                    // not even a connected-looking firehose snapshot — may override that.
+                    network.online.value = false
+                    advanceTimeBy(2_000)
+                    expectNoEvents() // inside the debounce, a blip must not surface
+
+                    advanceTimeBy(1_200)
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+
+                    network.online.value = true
+                    awaitItem() shouldBe ConnectionHealth.Healthy // heals instantly, no debounce out
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("down evidence with a down firehose surfaces Unreachable; fresh up evidence heals instantly") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Disconnected(reason = "transport"))
+                val evidence = ConnectionEvidence()
+                val store = backgroundScope.buildStore(engineState = engineState, evidence = evidence)
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    // A real network-class failure (failed probe / failed RPC) while the firehose
+                    // is also down: this is genuine unreachability evidence.
+                    evidence.reportDown()
+                    advanceTimeBy(3_100)
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+
+                    // Any later proof the server answered — a successful RPC, a positive probe —
+                    // heals the reading the instant it happens.
+                    evidence.reportUp()
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("a wedged firehose with successful traffic stays Healthy — traffic outranks the stream") {
+            runTest {
+                // THE production bug this model exists to kill: the SSE firehose is wedged
+                // (down with a reason, never recovering) while unary RPC works fine — content
+                // syncs, playback streams. The old grace-timer model surfaced a false permanent
+                // "offline" here; real traffic evidence must keep health green.
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Disconnected(reason = "transport"))
+                val evidence = ConnectionEvidence()
+                val store = backgroundScope.buildStore(engineState = engineState, evidence = evidence)
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    evidence.reportDown() // one stale failure...
+                    evidence.recordOutcome(AppResult.Success(Unit)) // ...then real traffic succeeds
+                    advanceTimeBy(60_000)
+                    expectNoEvents() // stays Healthy indefinitely — no grace window to outwait
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("a down firehose alone is never Unreachable — it is not reachability evidence") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Disconnected(reason = "transport"))
+                val store = backgroundScope.buildStore(engineState = engineState)
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    // No down evidence exists — only the stream's own opinion of itself. The
+                    // supervisor's probes will produce real evidence either way within seconds;
+                    // until then the state must not lie toward offline.
+                    advanceTimeBy(120_000)
+                    expectNoEvents()
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("a connected firehose short-circuits stale down evidence to Healthy") {
+            runTest {
+                val engineState = SyncEngineState()
+                val evidence = ConnectionEvidence()
+                evidence.reportDown() // stale down evidence from before the reconnect
+                val store = backgroundScope.buildStore(engineState = engineState, evidence = evidence)
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    // A live firehose is a heartbeat-bearing TCP connection to the server — the
+                    // strongest possible proof of reachability, regardless of older failures.
+                    engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                    advanceTimeBy(60_000)
+                    expectNoEvents()
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("recordOutcome: any server response is up evidence; only transport-class failures are down") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Disconnected(reason = "transport"))
+                val evidence = ConnectionEvidence()
+                val store = backgroundScope.buildStore(engineState = engineState, evidence = evidence)
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    // A typed BUSINESS failure still proves the server answered → no offline.
+                    evidence.recordOutcome(AppResult.Failure(AuthError.SessionExpired()))
+                    advanceTimeBy(10_000)
+                    expectNoEvents()
+
+                    // A transport-class failure is genuine down evidence.
+                    evidence.recordOutcome(AppResult.Failure(TransportError.NetworkUnavailable()))
+                    advanceTimeBy(3_100)
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("initial sync: pristine engine + no evidence stays Healthy indefinitely") {
+            runTest {
+                // The pristine engine start (`Disconnected(reason = null)`) is the ENTIRE initial
+                // catch-up window — the firehose is down because it was never asked to connect.
+                // With no down evidence, health must stay green with no probes required at all.
+                val store = backgroundScope.buildStore(engineState = SyncEngineState())
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    advanceTimeBy(120_000)
+                    expectNoEvents()
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        test("Unreachable debounces 3s and heals instantly via probe") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Disconnected(reason = "x"))
+                val store = backgroundScope.buildStore(engineState = engineState)
+
+                store.state.test {
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    store.reportProbe(false)
+                    advanceTimeBy(2_000)
+                    expectNoEvents()
+
+                    advanceTimeBy(1_200)
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+
+                    store.reportProbe(true)
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        // ========== Precedence ==========
+
+        test("precedence SessionExpired > Unreachable > Outdated, resolving as signals clear") {
+            runTest {
+                val engineState = SyncEngineState() // starts Disconnected
+                val authState = MutableStateFlow<AuthState>(lapsed())
+                val evidence = ConnectionEvidence()
+                val store =
+                    backgroundScope.buildStore(
+                        engineState = engineState,
+                        authState = authState,
+                        evidence = evidence,
+                    )
+                store.reportCompat("drift")
+
+                store.state.test {
+                    // Turbine's subscription captures the still-unpumped `Eagerly` seed value
+                    // before the internal derivation coroutine has had a chance to run.
+                    awaitItem() shouldBe ConnectionHealth.Healthy
+
+                    // Down evidence + auth dead + compat drift all at once: SessionExpired wins.
+                    // Unreachable has no ambient UI, so it must never mask the actionable
+                    // sign-in prompt.
+                    evidence.reportDown()
+                    advanceTimeBy(3_100)
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.SessionExpired>()
+
+                    // Re-authenticating reveals the armed Unreachable state.
+                    authState.value = authed()
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+
+                    // Fresh up evidence clears Unreachable; compat drift remains.
+                    store.reportProbe(true)
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Outdated>()
+
+                    cancelAndConsumeRemainingEvents()
+                }
+            }
+        }
+
+        // ========== Auth / error routing ==========
 
         test("auth error edges the ErrorBus exactly once; state → SessionExpired on lapse") {
             runTest {
@@ -46,13 +310,10 @@ class ConnectionHealthStoreTest :
                 val authState = MutableStateFlow<AuthState>(authed())
                 val errorBus = ErrorBus()
                 val store =
-                    ConnectionHealthStore(
+                    backgroundScope.buildStore(
                         engineState = engineState,
-                        authStateFlow = authState,
+                        authState = authState,
                         errorBus = errorBus,
-                        clientIdentity = FakeClientIdentity(),
-                        localPreferences = fakeLocalPreferences(),
-                        scope = backgroundScope,
                     )
 
                 errorBus.errors.test {
@@ -74,17 +335,8 @@ class ConnectionHealthStoreTest :
             runTest {
                 val engineState = SyncEngineState()
                 engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                val authState = MutableStateFlow<AuthState>(authed())
                 val errorBus = ErrorBus()
-                val store =
-                    ConnectionHealthStore(
-                        engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = errorBus,
-                        clientIdentity = FakeClientIdentity(),
-                        localPreferences = fakeLocalPreferences(),
-                        scope = backgroundScope,
-                    )
+                val store = backgroundScope.buildStore(engineState = engineState, errorBus = errorBus)
 
                 errorBus.errors.test {
                     store.reportCompat("envelope v=2")
@@ -101,17 +353,8 @@ class ConnectionHealthStoreTest :
             runTest {
                 val engineState = SyncEngineState()
                 engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                val authState = MutableStateFlow<AuthState>(authed())
                 val errorBus = ErrorBus()
-                val store =
-                    ConnectionHealthStore(
-                        engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = errorBus,
-                        clientIdentity = FakeClientIdentity(),
-                        localPreferences = fakeLocalPreferences(),
-                        scope = backgroundScope,
-                    )
+                val store = backgroundScope.buildStore(engineState = engineState, errorBus = errorBus)
 
                 errorBus.errors.test {
                     store.report(TransportError.ContractMismatch(detail = "envelope v=2"))
@@ -128,17 +371,8 @@ class ConnectionHealthStoreTest :
             runTest {
                 val engineState = SyncEngineState()
                 engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                val authState = MutableStateFlow<AuthState>(authed())
                 val errorBus = ErrorBus()
-                val store =
-                    ConnectionHealthStore(
-                        engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = errorBus,
-                        clientIdentity = FakeClientIdentity(),
-                        localPreferences = fakeLocalPreferences(),
-                        scope = backgroundScope,
-                    )
+                val store = backgroundScope.buildStore(engineState = engineState, errorBus = errorBus)
 
                 errorBus.errors.test {
                     store.report(TransportError.DataMalformed(detail = "bad body"))
@@ -151,160 +385,12 @@ class ConnectionHealthStoreTest :
             }
         }
 
-        test("precedence SessionExpired > Unreachable > Outdated, resolving as signals clear") {
-            runTest {
-                val engineState = SyncEngineState() // starts Disconnected
-                val authState = MutableStateFlow<AuthState>(lapsed())
-                val store =
-                    ConnectionHealthStore(
-                        engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(),
-                        localPreferences = fakeLocalPreferences(),
-                        scope = backgroundScope,
-                    )
-                store.reportCompat("drift")
-
-                store.state.test {
-                    // Turbine's subscription captures the still-unpumped `Eagerly` seed value
-                    // before the internal derivation coroutine has had a chance to run.
-                    awaitItem() shouldBe ConnectionHealth.Healthy
-
-                    // Firehose down + auth dead + compat drift all at once: SessionExpired wins.
-                    // Unreachable no longer has UI, so a (possibly false) unreachable reading must
-                    // never mask the actionable sign-in prompt.
-                    advanceTimeBy(3_100)
-                    awaitItem().shouldBeInstanceOf<ConnectionHealth.SessionExpired>()
-
-                    // Re-authenticating reveals the armed Unreachable state.
-                    authState.value = authed()
-                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
-
-                    // A fresh positive probe clears Unreachable; compat drift remains.
-                    store.reportProbe(true)
-                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Outdated>()
-
-                    cancelAndConsumeRemainingEvents()
-                }
-            }
-        }
-
-        test("a positive unauth probe masks a dead firehose only briefly — Unreachable surfaces past the grace window") {
-            runTest {
-                val engineState = SyncEngineState()
-                // The firehose CONNECTED and then dropped (a non-null disconnect reason) — a genuinely
-                // wedged stream, distinct from the pristine "never asked to connect" start. Only an
-                // actively-down firehose arms the grace timer (see the "initial sync" test below).
-                engineState.setConnection(ConnectionState.Disconnected(reason = "transport"))
-                val authState = MutableStateFlow<AuthState>(authed())
-                val store =
-                    ConnectionHealthStore(
-                        engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(),
-                        localPreferences = fakeLocalPreferences(),
-                        scope = backgroundScope,
-                    )
-
-                store.state.test {
-                    awaitItem() shouldBe ConnectionHealth.Healthy // eager seed
-
-                    // A positive UNAUTHENTICATED probe (the supervisor's ~2s verifyServer) says the
-                    // server is reachable — but the firehose is dead. Within the grace window the probe
-                    // still masks Unreachable (preserving the healthy-reconnect-flap behaviour).
-                    store.reportProbe(true)
-                    advanceTimeBy(3_100) // past the 3s Unreachable debounce, still inside the grace
-                    expectNoEvents() // masked → Healthy, no Retry yet
-
-                    // The firehose is STILL dead past the grace window. Even a freshly-repeated probe can
-                    // no longer hide it — Unreachable surfaces so the user is offered Retry (pre-fix this
-                    // stayed Healthy/Hidden forever).
-                    store.reportProbe(true)
-                    advanceTimeBy(ConnectionHealthStore.FIREHOSE_DOWN_PROBE_GRACE_MS)
-                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
-                    cancelAndConsumeRemainingEvents()
-                }
-            }
-        }
-
-        test("initial sync: a never-connected firehose does not surface Unreachable while probes stay fresh") {
-            runTest {
-                // The pristine engine start (`Disconnected(reason = null)`) is the ENTIRE initial
-                // catch-up / "building your library" window — SyncEngine connects the SSE firehose only
-                // AFTER catch-up completes. The firehose being down here is expected, not a wedge, so a
-                // fresh reachability probe must keep health green past the firehose-down grace. Before the
-                // fix the grace overrode the probe at 15s and surfaced a false "Can't reach server".
-                val engineState = SyncEngineState() // Disconnected(reason = null) — never asked to connect
-                val authState = MutableStateFlow<AuthState>(authed())
-                val store =
-                    ConnectionHealthStore(
-                        engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(),
-                        localPreferences = fakeLocalPreferences(),
-                        scope = backgroundScope,
-                    )
-
-                store.state.test {
-                    awaitItem() shouldBe ConnectionHealth.Healthy // eager seed
-
-                    // The supervisor probes the reachable server throughout catch-up. Advance well past
-                    // the firehose-down grace + the Unreachable debounce; health must stay Healthy.
-                    store.reportProbe(true)
-                    advanceTimeBy(ConnectionHealthStore.FIREHOSE_DOWN_PROBE_GRACE_MS + 5_000)
-                    store.reportProbe(true)
-                    advanceTimeBy(5_000)
-                    expectNoEvents() // never surfaced Unreachable — no false "Can't reach server"
-                    cancelAndConsumeRemainingEvents()
-                }
-            }
-        }
-
-        test("Unreachable debounces 3s and heals instantly") {
-            runTest {
-                val engineState = SyncEngineState() // starts Disconnected
-                val authState = MutableStateFlow<AuthState>(authed())
-                val store =
-                    ConnectionHealthStore(
-                        engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(),
-                        localPreferences = fakeLocalPreferences(),
-                        scope = backgroundScope,
-                    )
-
-                store.state.test {
-                    awaitItem() shouldBe ConnectionHealth.Healthy
-
-                    advanceTimeBy(2_000)
-                    engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-
-                    advanceTimeBy(100)
-                    engineState.setConnection(ConnectionState.Disconnected(reason = "x"))
-
-                    advanceTimeBy(2_000)
-                    expectNoEvents()
-
-                    advanceTimeBy(1_200)
-                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
-
-                    engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                    awaitItem() shouldBe ConnectionHealth.Healthy
-
-                    cancelAndConsumeRemainingEvents()
-                }
-            }
-        }
+        // ========== Version compat ==========
 
         test("API contract mismatch alone surfaces Outdated") {
             runTest {
                 val engineState = SyncEngineState()
                 engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                val authState = MutableStateFlow<AuthState>(authed())
                 val peerVersion = MutableStateFlow<String?>(null)
                 val peerApi = MutableStateFlow<String?>(null)
                 val localPreferences =
@@ -314,13 +400,10 @@ class ConnectionHealthStoreTest :
                         every { outdatedDismissedFor } returns MutableStateFlow(null)
                     }
                 val store =
-                    ConnectionHealthStore(
+                    backgroundScope.buildStore(
                         engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                         localPreferences = localPreferences,
-                        scope = backgroundScope,
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                     )
 
                 store.state.test {
@@ -339,7 +422,6 @@ class ConnectionHealthStoreTest :
             runTest {
                 val engineState = SyncEngineState()
                 engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                val authState = MutableStateFlow<AuthState>(authed())
                 val peerVersion = MutableStateFlow<String?>(null)
                 val localPreferences =
                     mock<LocalPreferences> {
@@ -348,13 +430,10 @@ class ConnectionHealthStoreTest :
                         every { outdatedDismissedFor } returns MutableStateFlow(null)
                     }
                 val store =
-                    ConnectionHealthStore(
+                    backgroundScope.buildStore(
                         engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                         localPreferences = localPreferences,
-                        scope = backgroundScope,
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                     )
 
                 store.state.test {
@@ -372,7 +451,6 @@ class ConnectionHealthStoreTest :
             runTest {
                 val engineState = SyncEngineState()
                 engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                val authState = MutableStateFlow<AuthState>(authed())
                 val peerVersion = MutableStateFlow<String?>(null)
                 val localPreferences =
                     mock<LocalPreferences> {
@@ -381,13 +459,10 @@ class ConnectionHealthStoreTest :
                         every { outdatedDismissedFor } returns MutableStateFlow(null)
                     }
                 val store =
-                    ConnectionHealthStore(
+                    backgroundScope.buildStore(
                         engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                         localPreferences = localPreferences,
-                        scope = backgroundScope,
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                     )
 
                 store.state.test {
@@ -407,7 +482,6 @@ class ConnectionHealthStoreTest :
             runTest {
                 val engineState = SyncEngineState()
                 engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                val authState = MutableStateFlow<AuthState>(authed())
                 val peerVersion = MutableStateFlow<String?>("1.0.0")
                 val dismissedFor = MutableStateFlow<Pair<String, String>?>(null)
                 val localPreferences =
@@ -417,13 +491,10 @@ class ConnectionHealthStoreTest :
                         every { outdatedDismissedFor } returns dismissedFor
                     }
                 val store =
-                    ConnectionHealthStore(
+                    backgroundScope.buildStore(
                         engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                         localPreferences = localPreferences,
-                        scope = backgroundScope,
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                     )
 
                 store.state.test {
@@ -444,7 +515,6 @@ class ConnectionHealthStoreTest :
             runTest {
                 val engineState = SyncEngineState()
                 engineState.setConnection(ConnectionState.Connected(lastEventId = null))
-                val authState = MutableStateFlow<AuthState>(authed())
                 val peerVersion = MutableStateFlow<String?>("1.0.0")
                 val localPreferences =
                     mock<LocalPreferences> {
@@ -453,13 +523,10 @@ class ConnectionHealthStoreTest :
                         every { outdatedDismissedFor } returns MutableStateFlow(null)
                     }
                 val store =
-                    ConnectionHealthStore(
+                    backgroundScope.buildStore(
                         engineState = engineState,
-                        authStateFlow = authState,
-                        errorBus = ErrorBus(),
-                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                         localPreferences = localPreferences,
-                        scope = backgroundScope,
+                        clientIdentity = FakeClientIdentity(version = "0.6.0", apiVersion = "v1"),
                     )
 
                 store.state.test {

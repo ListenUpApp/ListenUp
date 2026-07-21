@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.version.ClientIdentity
 import com.calypsan.listenup.core.error.ErrorBus
@@ -82,6 +83,7 @@ class ClientSyncModuleVerifyTest :
                         ConnectionCoordinator::class,
                         ClientIdentity::class,
                         LocalPreferences::class,
+                        NetworkMonitor::class,
                         StateFlow::class,
                         InstanceRepository::class,
                         ErrorBus::class,

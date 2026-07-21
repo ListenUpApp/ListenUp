@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.version.ClientIdentity
 import com.calypsan.listenup.client.domain.version.Semver
 import com.calypsan.listenup.core.currentEpochMilliseconds
@@ -34,8 +35,19 @@ private val logger = KotlinLogging.logger {}
 
 /**
  * Single source of truth for [ConnectionHealth], derived by precedence from three independent
- * signal slots: reachability (via [SyncEngineState]), auth liveness (via the injected
- * `authStateFlow`), and contract-compat evidence (peer version + behavioural parse failures).
+ * signal slots: reachability (device network + transport evidence + firehose state), auth
+ * liveness (via the injected `authStateFlow`), and contract-compat evidence (peer version +
+ * behavioural parse failures).
+ *
+ * **Reachability is evidence-based, never inferred from a single connection.** The inputs, in
+ * authority order: the device's own network state (offline → Unreachable, nothing overrides the
+ * OS saying there is no network); a currently-connected firehose (a live heartbeat-bearing
+ * connection → Reachable, regardless of older failures); otherwise the LATEST piece of
+ * [ConnectionEvidence] wins — any real response (RPC success, typed business failure, positive
+ * probe) proves Reachable, and only a newer network-class failure proves Unreachable. A down
+ * firehose **by itself is not evidence**: the stream can wedge while unary traffic works fine
+ * (the false-permanent-offline production bug), and the supervisor's probes produce authoritative
+ * evidence within seconds either way.
  *
  * Precedence — [ConnectionHealth.SessionExpired] > [ConnectionHealth.Unreachable] >
  * [ConnectionHealth.Outdated] > [ConnectionHealth.Healthy]. [ConnectionHealth.Unreachable] has no
@@ -54,76 +66,30 @@ internal class ConnectionHealthStore(
     private val errorBus: ErrorBus,
     private val clientIdentity: ClientIdentity,
     private val localPreferences: LocalPreferences,
+    networkMonitor: NetworkMonitor,
+    private val evidence: ConnectionEvidence,
     scope: CoroutineScope,
 ) {
     // Best-effort dedup flag — same deliberately-unsynchronized discipline as
     // ConnectionIssueReporter: the worst race is one duplicate bus emission.
     private var reportedSinceAuthenticated = false
 
-    private val lastProbeReachableAt = MutableStateFlow<Long?>(null)
     private val compatDetail = MutableStateFlow<String?>(null)
 
-    private val connectionDown: Flow<Boolean> =
-        engineState.observe().map { it.connection !is ConnectionState.Connected }.distinctUntilChanged()
-
-    // The firehose is down AND has actually been asked to connect — i.e. NOT the pristine engine-start
-    // state. `SyncEngine` connects the SSE stream only AFTER the initial catch-up ("building your
-    // library") completes, so the whole first-sync window sits in `Disconnected(reason = null)` — the
-    // one state that is set solely as the initial snapshot (every real connect/disconnect carries a
-    // non-null reason or is Connecting/Connected). Treating that expected pre-connect gap as a wedged
-    // firehose is what surfaced a false "Can't reach server" during first sync; only an actively-down
-    // firehose may arm the [firehoseDownBeyondGrace] wedge timer.
-    private val firehoseActivelyDown: Flow<Boolean> =
-        engineState
-            .observe()
-            .map {
-                it.connection !is ConnectionState.Connected &&
-                    it.connection != ConnectionState.Disconnected(reason = null)
-            }.distinctUntilChanged()
+    private val firehoseConnected: Flow<Boolean> =
+        engineState.observe().map { it.connection is ConnectionState.Connected }.distinctUntilChanged()
 
     private val authDead: Flow<Boolean> =
         authStateFlow.map { it is AuthState.SessionLapsed }.distinctUntilChanged()
 
-    // Reachability probes stay "fresh" evidence against the Unreachable signal for a bounded
-    // window — a stale positive probe must not permanently mask a later real outage.
-    private val probeFresh: Flow<Boolean> =
-        lastProbeReachableAt
-            .flatMapLatest { at ->
-                if (at == null) {
-                    flowOf(false)
-                } else {
-                    flow {
-                        emit(true)
-                        delay(PROBE_FRESHNESS_MS)
-                        emit(false)
-                    }
-                }
-            }.distinctUntilChanged()
-
-    // Fires `true` once the firehose has been continuously down for [FIREHOSE_DOWN_PROBE_GRACE_MS],
-    // resetting to `false` the instant it recovers. This bounds how long a positive UNAUTHENTICATED
-    // probe may mask a dead firehose: such a probe proves the server is reachable, NOT that the SSE
-    // stream is alive (an SSE-specific failure or an auth wedge keeps the firehose dead while the
-    // 2s unauth probe keeps `probeFresh` pinned true → the banner stayed Healthy/Hidden forever, no
-    // Retry offered). The grace preserves the probe's original no-flicker purpose for the *healthy*
-    // reconnect flap; beyond it, a dead firehose surfaces as Unreachable regardless of the probe.
-    private val firehoseDownBeyondGrace: Flow<Boolean> =
-        firehoseActivelyDown
-            .flatMapLatest { down ->
-                if (!down) {
-                    flowOf(false)
-                } else {
-                    flow {
-                        emit(false)
-                        delay(FIREHOSE_DOWN_PROBE_GRACE_MS)
-                        emit(true)
-                    }
-                }
-            }.distinctUntilChanged()
-
     private val rawUnreachable: Flow<Boolean> =
-        combine(connectionDown, probeFresh, firehoseDownBeyondGrace) { down, fresh, beyondGrace ->
-            down && (!fresh || beyondGrace)
+        combine(
+            networkMonitor.isOnlineFlow,
+            firehoseConnected,
+            evidence.lastUpAt,
+            evidence.lastDownAt,
+        ) { deviceOnline, firehoseUp, up, down ->
+            !deviceOnline || (!firehoseUp && down != null && down > (up ?: Long.MIN_VALUE))
         }.distinctUntilChanged()
 
     // Debounced: a brief connectivity blip must not surface as Unreachable, but a sustained
@@ -234,13 +200,12 @@ internal class ConnectionHealthStore(
     }
 
     /**
-     * Report the outcome of a reachability probe. Only positive probes are recorded — a
-     * reachable result is fresh evidence against [ConnectionHealth.Unreachable] for a bounded
-     * window; there is nothing useful to record for a negative probe (absence of freshness is
-     * already the default).
+     * Report the outcome of a reachability probe — both signs are evidence: a positive probe
+     * proves the server answered (heals an Unreachable reading instantly), a negative one is a
+     * genuine network-class failure to reach it.
      */
     fun reportProbe(reachable: Boolean) {
-        if (reachable) lastProbeReachableAt.value = currentEpochMilliseconds()
+        if (reachable) evidence.reportUp() else evidence.reportDown()
     }
 
     /**
@@ -258,17 +223,6 @@ internal class ConnectionHealthStore(
     companion object {
         /** How long a sustained-unreachable condition must persist before it surfaces. */
         const val UNREACHABLE_DEBOUNCE_MS = 3_000L
-
-        /** How long a positive reachability probe counts as fresh evidence against Unreachable. */
-        const val PROBE_FRESHNESS_MS = 90_000L
-
-        /**
-         * How long the firehose may stay down while a positive (unauthenticated) probe suppresses
-         * Unreachable, before the probe is overridden and Unreachable surfaces anyway. Shorter than
-         * [PROBE_FRESHNESS_MS] — a probe proves the server is reachable, not that the firehose is
-         * alive, so it may only mask a *transient* reconnect flap, not a sustained dead stream.
-         */
-        const val FIREHOSE_DOWN_PROBE_GRACE_MS = 15_000L
     }
 }
 

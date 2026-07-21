@@ -5,12 +5,13 @@ package com.calypsan.listenup.client.presentation.connection
 import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.client.data.connection.ConnectionEvidence
 import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
-import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.version.FakeClientIdentity
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
@@ -26,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
@@ -49,11 +51,19 @@ private fun fakeLocalPreferences(
         everySuspend { setOutdatedDismissedFor(any()) } returns Unit
     }
 
+private class FakeNetworkMonitor : NetworkMonitor {
+    override fun isOnline(): Boolean = true
+
+    override val isOnlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
+    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
+}
+
 private fun buildStore(
     scope: CoroutineScope,
     engineState: SyncEngineState = SyncEngineState(),
     authState: MutableStateFlow<AuthState> = MutableStateFlow(AuthState.Authenticated(u1, s1)),
     localPreferences: LocalPreferences = fakeLocalPreferences(),
+    evidence: ConnectionEvidence = ConnectionEvidence(),
 ): ConnectionHealthStore =
     ConnectionHealthStore(
         engineState = engineState,
@@ -61,6 +71,8 @@ private fun buildStore(
         errorBus = ErrorBus(),
         clientIdentity = FakeClientIdentity(),
         localPreferences = localPreferences,
+        networkMonitor = FakeNetworkMonitor(),
+        evidence = evidence,
         scope = scope,
     )
 
@@ -76,7 +88,14 @@ class ConnectionHealthViewModelTest :
             runTest {
                 val engineState = SyncEngineState() // starts Disconnected
                 val authState = MutableStateFlow<AuthState>(AuthState.SessionLapsed(u1))
-                val store = buildStore(scope = backgroundScope, engineState = engineState, authState = authState)
+                val evidence = ConnectionEvidence()
+                val store =
+                    buildStore(
+                        scope = backgroundScope,
+                        engineState = engineState,
+                        authState = authState,
+                        evidence = evidence,
+                    )
                 store.reportCompat("drift")
                 val viewModel = ConnectionHealthViewModel(healthStore = store)
 
@@ -84,6 +103,8 @@ class ConnectionHealthViewModelTest :
                     // Healthy → Hidden: the store's Eagerly seed value.
                     awaitItem() shouldBe ConnectionHealthUi.Hidden
 
+                    // Genuine down evidence (a failed probe) arms Unreachable behind the lapse.
+                    evidence.reportDown()
                     advanceTimeBy(3_100)
                     awaitItem() shouldBe ConnectionHealthUi.SessionExpired
 
