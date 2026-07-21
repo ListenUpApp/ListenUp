@@ -151,7 +151,7 @@ class ConnectionHealthStoreTest :
             }
         }
 
-        test("precedence Unreachable > SessionExpired > Outdated, resolving as signals clear") {
+        test("precedence SessionExpired > Unreachable > Outdated, resolving as signals clear") {
             runTest {
                 val engineState = SyncEngineState() // starts Disconnected
                 val authState = MutableStateFlow<AuthState>(lapsed())
@@ -171,13 +171,18 @@ class ConnectionHealthStoreTest :
                     // before the internal derivation coroutine has had a chance to run.
                     awaitItem() shouldBe ConnectionHealth.Healthy
 
+                    // Firehose down + auth dead + compat drift all at once: SessionExpired wins.
+                    // Unreachable no longer has UI, so a (possibly false) unreachable reading must
+                    // never mask the actionable sign-in prompt.
                     advanceTimeBy(3_100)
-                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
-
-                    store.reportProbe(true)
                     awaitItem().shouldBeInstanceOf<ConnectionHealth.SessionExpired>()
 
+                    // Re-authenticating reveals the armed Unreachable state.
                     authState.value = authed()
+                    awaitItem().shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+
+                    // A fresh positive probe clears Unreachable; compat drift remains.
+                    store.reportProbe(true)
                     awaitItem().shouldBeInstanceOf<ConnectionHealth.Outdated>()
 
                     cancelAndConsumeRemainingEvents()
