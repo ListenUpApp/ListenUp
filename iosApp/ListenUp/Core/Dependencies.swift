@@ -60,7 +60,6 @@ final class Dependencies {
     var imageRepository: ImageRepository { resolve { KoinHelper.shared.getImageRepository() } }
     var userProfileRepository: UserProfileRepository { resolve { KoinHelper.shared.getUserProfileRepository() } }
     var downloadService: DownloadService { resolve { KoinHelper.shared.getDownloadService() } }
-    var serverReachability: ServerReachability { resolve { KoinHelper.shared.getServerReachability() } }
     var playbackBandwidthCoordinator: PlaybackBandwidthCoordinator {
         resolve { KoinHelper.shared.getPlaybackBandwidthCoordinator() }
     }
