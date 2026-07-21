@@ -196,6 +196,12 @@ internal class RpcSyncStreamClient(
                 "Firehose silent for ${readIdleTimeoutMillis}ms (heartbeat missed) — " +
                     "treating as half-open and resubscribing"
             }
+            // To RpcProxyCache this cancellation is indistinguishable from a caller cancel,
+            // which deliberately does NOT invalidate the proxy generation — so without this,
+            // the resubscribe would re-lease the same possibly-half-open socket and recovery
+            // would ride on the WS ping layer alone (minutes in the buffered-writes case).
+            // Invalidate so the next subscribe dials a fresh connection.
+            channel.invalidate()
         }
         return reason
     }

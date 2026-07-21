@@ -6,7 +6,7 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 
-/** Empty event stream until non-sync admin/book SSE domains migrate to the renovated firehose. */
+/** Empty event stream until the non-sync admin/book event domains join the RPC firehose. */
 internal class EventStreamRepositoryImpl : EventStreamRepository {
     override val adminEvents: Flow<AdminEvent> = emptyFlow()
     override val bookEvents: Flow<BookEvent> = emptyFlow()

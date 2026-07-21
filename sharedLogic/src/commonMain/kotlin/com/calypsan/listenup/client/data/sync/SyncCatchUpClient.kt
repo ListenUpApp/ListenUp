@@ -197,7 +197,7 @@ internal class SyncCatchUpClient(
      * returned set — the caller's current accessible id set for the `AccessChanged` reconcile.
      *
      * Deliberately copies [catchUp]'s paging loop minus the `store.setCursor(...)` call: the
-     * persisted cursor must not move, because the live SSE/cursor path continues independently.
+     * persisted cursor must not move, because the live firehose/cursor path continues independently.
      */
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> =
         suspendRunCatching {
