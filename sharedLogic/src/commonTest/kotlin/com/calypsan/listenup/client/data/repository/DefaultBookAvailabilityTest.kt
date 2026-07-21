@@ -62,7 +62,7 @@ class DefaultBookAvailabilityTest :
 
         // ========== Availability matrix tests ==========
 
-        test("unreachable + completed download: canPlay=true, canDownload=false, showServerWarning=false") {
+        test("unreachable + completed download: everything enabled, no warning") {
             runTest {
                 val availability =
                     buildAvailability(
@@ -72,14 +72,14 @@ class DefaultBookAvailabilityTest :
                 availability.observe(testBookId).test {
                     val state = awaitItem()
                     state.canPlay shouldBe true
-                    state.canDownload shouldBe false
+                    state.canDownload shouldBe true
                     state.showServerWarning shouldBe false
                     cancelAndIgnoreRemainingEvents()
                 }
             }
         }
 
-        test("unreachable + not downloaded: canPlay=false, canDownload=false, showServerWarning=true") {
+        test("unreachable + not downloaded: attempt-first — play/download enabled, warning hint shown") {
             runTest {
                 val availability =
                     buildAvailability(
@@ -88,8 +88,8 @@ class DefaultBookAvailabilityTest :
                     )
                 availability.observe(testBookId).test {
                     val state = awaitItem()
-                    state.canPlay shouldBe false
-                    state.canDownload shouldBe false
+                    state.canPlay shouldBe true
+                    state.canDownload shouldBe true
                     state.showServerWarning shouldBe true
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -113,7 +113,7 @@ class DefaultBookAvailabilityTest :
             }
         }
 
-        test("unknown reachability + not downloaded: canPlay=true, canDownload=false, showServerWarning=false") {
+        test("unknown reachability + not downloaded: attempt-first — play/download enabled, no warning") {
             runTest {
                 val availability =
                     buildAvailability(
@@ -123,8 +123,25 @@ class DefaultBookAvailabilityTest :
                 availability.observe(testBookId).test {
                     val state = awaitItem()
                     state.canPlay shouldBe true
-                    state.canDownload shouldBe false
+                    state.canDownload shouldBe true
                     state.showServerWarning shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("no playback platform: canDownload=false") {
+            runTest {
+                val availability =
+                    buildAvailability(
+                        downloadStatus = BookDownloadStatus.NotDownloaded(bookId = "book-1"),
+                        reachability = Reachability.Reachable,
+                        playbackAvailable = false,
+                    )
+                availability.observe(testBookId).test {
+                    val state = awaitItem()
+                    state.isPlaybackAvailable shouldBe false
+                    state.canDownload shouldBe false
                     cancelAndIgnoreRemainingEvents()
                 }
             }
