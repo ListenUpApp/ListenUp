@@ -727,8 +727,6 @@
     "library_changed": "Library Changed",
     "logout": "Logout",
     "no_pending_changes": "No pending changes",
-    "offline_body": "Downloads still play. We'll reconnect automatically.",
-    "offline_title": "Offline",
     "pendingcount_pending": "%1$s pending",
     "retry_all": "Retry all",
     "search_audiobooks": "Search audiobooks...",

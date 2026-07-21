@@ -1181,8 +1181,6 @@ One beautiful library.</string>
     <string name="shell_library_changed">Library Changed</string>
     <string name="shell_logout">Logout</string>
     <string name="shell_no_pending_changes">No pending changes</string>
-    <string name="shell_offline_body">Downloads still play. We'll reconnect automatically.</string>
-    <string name="shell_offline_title">Offline</string>
     <string name="shell_pendingcount_pending">%1$s pending</string>
     <string name="shell_retry_all">Retry all</string>
     <string name="shell_search_audiobooks">Search audiobooks...</string>

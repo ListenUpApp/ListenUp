@@ -11801,26 +11801,6 @@
         }
       }
     },
-    "shell.offline_body": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Downloads still play. We'll reconnect automatically."
-          }
-        }
-      }
-    },
-    "shell.offline_title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Offline"
-          }
-        }
-      }
-    },
     "shell.pendingcount_pending": {
       "localizations": {
         "en": {
