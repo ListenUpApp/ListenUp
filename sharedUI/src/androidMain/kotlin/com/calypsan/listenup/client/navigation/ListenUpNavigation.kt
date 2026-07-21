@@ -830,7 +830,7 @@ private fun BoxScope.AuthenticatedNavOverlays(
                 .padding(bottom = 16.dp),
     )
 
-    // Shell-level connection-health banner: session lapse, unreachable server, contract skew.
+    // Shell-level connection-health banner: session lapse, contract skew.
     val connectionHealthViewModel: ConnectionHealthViewModel = koinViewModel()
     val connectionHealth by connectionHealthViewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) {
@@ -845,7 +845,6 @@ private fun BoxScope.AuthenticatedNavOverlays(
     ConnectionHealthBanner(
         state = connectionHealth,
         onSignIn = connectionHealthViewModel::signIn,
-        onRetry = connectionHealthViewModel::retry,
         onDismiss = connectionHealthViewModel::dismiss,
         modifier =
             Modifier

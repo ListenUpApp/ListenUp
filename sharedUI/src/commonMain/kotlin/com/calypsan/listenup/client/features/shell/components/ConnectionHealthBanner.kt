@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -32,9 +31,6 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_dismiss
-import listenup.composeapp.generated.resources.common_retry
-import listenup.composeapp.generated.resources.shell_offline_body
-import listenup.composeapp.generated.resources.shell_offline_title
 import listenup.composeapp.generated.resources.shell_session_lapsed_body
 import listenup.composeapp.generated.resources.shell_session_lapsed_sign_in
 import listenup.composeapp.generated.resources.shell_session_lapsed_title
@@ -44,8 +40,10 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Shell-level connection-health banner. Renders one pill per non-[ConnectionHealthUi.Hidden]
- * state: session-lapse ("Signed out — sign in to sync" + Sign-in), unreachable-server
- * ("Offline" + Retry), and contract-version-skew ("Update available" + Dismiss).
+ * state: session-lapse ("Signed out — sign in to sync" + Sign-in) and contract-version-skew
+ * ("Update available" + Dismiss). Deliberately has no unreachable-server state — offline-first
+ * means there's no ambient "offline" banner; connectivity surfaces only at point of need (book
+ * detail, player), not as shell chrome.
  *
  * Hard rules (spec §10): never modal, never blocks navigation/playback/browse; no
  * auto-navigation on state entry — the only navigation is the user tapping Sign in.
@@ -57,7 +55,6 @@ import org.jetbrains.compose.resources.stringResource
 fun ConnectionHealthBanner(
     state: ConnectionHealthUi,
     onSignIn: () -> Unit,
-    onRetry: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -79,20 +76,6 @@ fun ConnectionHealthBanner(
                 body = stringResource(Res.string.shell_session_lapsed_body),
                 actionLabel = stringResource(Res.string.shell_session_lapsed_sign_in),
                 onAction = onSignIn,
-                onClose = { dismissed = true },
-            )
-        }
-
-        is ConnectionHealthUi.Unreachable -> {
-            BannerPill(
-                modifier = modifier,
-                container = MaterialTheme.colorScheme.secondaryContainer,
-                onContainer = MaterialTheme.colorScheme.onSecondaryContainer,
-                icon = Icons.Default.WifiOff,
-                title = stringResource(Res.string.shell_offline_title),
-                body = stringResource(Res.string.shell_offline_body),
-                actionLabel = stringResource(Res.string.common_retry),
-                onAction = onRetry,
                 onClose = { dismissed = true },
             )
         }

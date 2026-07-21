@@ -24,7 +24,6 @@ class ConnectionHealthBannerTest {
                 ConnectionHealthBanner(
                     state = ConnectionHealthUi.Hidden,
                     onSignIn = {},
-                    onRetry = {},
                     onDismiss = {},
                 )
             }
@@ -39,7 +38,6 @@ class ConnectionHealthBannerTest {
                 ConnectionHealthBanner(
                     state = ConnectionHealthUi.SessionExpired,
                     onSignIn = {},
-                    onRetry = {},
                     onDismiss = {},
                 )
             }
@@ -49,29 +47,12 @@ class ConnectionHealthBannerTest {
     }
 
     @Test
-    fun unreachableRendersRetryAction() {
-        composeRule.setContent {
-            MaterialTheme {
-                ConnectionHealthBanner(
-                    state = ConnectionHealthUi.Unreachable(sinceMillis = 0L),
-                    onSignIn = {},
-                    onRetry = {},
-                    onDismiss = {},
-                )
-            }
-        }
-        composeRule.onNodeWithText("Offline").assertIsDisplayed()
-        composeRule.onNodeWithText("Retry").assertIsDisplayed()
-    }
-
-    @Test
     fun outdatedRendersVersionsAndDismissAction() {
         composeRule.setContent {
             MaterialTheme {
                 ConnectionHealthBanner(
                     state = ConnectionHealthUi.Outdated(clientVersion = "1.2.0", serverVersion = "1.3.0"),
                     onSignIn = {},
-                    onRetry = {},
                     onDismiss = {},
                 )
             }

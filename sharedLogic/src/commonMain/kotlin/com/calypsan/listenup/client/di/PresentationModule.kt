@@ -526,7 +526,7 @@ internal val settingsPresentationModule =
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.
         factory { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get()) }
         // Shell connection-health banner VM, projecting ConnectionHealthStore.state.
-        factory { ConnectionHealthViewModel(healthStore = get(), serverReachability = get()) }
+        factory { ConnectionHealthViewModel(healthStore = get()) }
         // StorageViewModel for storage management screen
         factory<StorageSpaceProvider> { DownloadFileManagerStorageAdapter(get<DownloadFileManager>()) }
         factory {
