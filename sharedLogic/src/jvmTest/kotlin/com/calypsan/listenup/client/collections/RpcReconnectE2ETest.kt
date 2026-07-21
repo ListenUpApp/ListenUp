@@ -420,8 +420,6 @@ private class StubApiClientFactory(
 ) : ApiClientFactory {
     override suspend fun getClient(): HttpClient = client
 
-    override suspend fun getUnauthenticatedStreamingClient(): HttpClient = client
-
     override suspend fun invalidateRequestClientOnly() {}
 
     override suspend fun warmUp() {}

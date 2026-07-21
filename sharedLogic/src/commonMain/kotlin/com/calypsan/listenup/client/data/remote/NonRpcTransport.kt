@@ -20,15 +20,6 @@ internal enum class NonRpcReason {
     BINARY_TRANSFER,
 
     /**
-     * An HTTP/1.1 Server-Sent Events push — the sync firehose and the pre-auth registration
-     * status/policy streams. Per the architecture, SSE is a deliberate *second* server-push
-     * transport alongside kotlinx.rpc streaming (`Flow<RpcEvent<T>>`): the two cover different
-     * surfaces and neither is redundant. An SSE surface opens a long-lived streaming client, not an
-     * RPC channel.
-     */
-    SERVER_SENT_EVENTS,
-
-    /**
      * A REST endpoint deliberately kept off the `@Rpc` service contract — the third-party-facing
      * surface that mirrors the `@Resource` REST API (e.g. the admin collection-inbox triage routes).
      * It speaks JSON request/response, so unlike the other reasons it *could* technically ride RPC;

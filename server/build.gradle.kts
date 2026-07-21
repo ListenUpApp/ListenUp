@@ -141,7 +141,6 @@ kotlin {
                 implementation(libs.ktor.server.resources)
                 implementation(libs.ktor.server.status.pages)
                 implementation(libs.ktor.server.auth)
-                implementation(libs.ktor.server.sse)
                 implementation(libs.ktor.server.call.id)
                 implementation(libs.ktor.server.rate.limit)
                 // PartialContent — byte-range/seek support behind the file-response seam

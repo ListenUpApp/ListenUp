@@ -149,7 +149,6 @@ kotlin {
             implementation(libs.ktor.server.cio)
             implementation(libs.ktor.server.test.host)
             implementation(libs.ktor.server.content.negotiation)
-            implementation(libs.ktor.server.sse)
             implementation(libs.ktor.server.auth)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.koin.ktor)

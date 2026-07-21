@@ -95,8 +95,6 @@ class BackupRepositoryImplTest :
                     install(ContentNegotiation) { json(contractJson) }
                 }
 
-            override suspend fun getUnauthenticatedStreamingClient(): HttpClient = error("not used in upload test")
-
             override suspend fun warmUp() = Unit
 
             override suspend fun invalidate() = Unit
@@ -119,8 +117,6 @@ class BackupRepositoryImplTest :
                     install(ContentNegotiation) { json(contractJson) }
                     install(HttpTimeout)
                 }
-
-            override suspend fun getUnauthenticatedStreamingClient(): HttpClient = error("not used in download test")
 
             override suspend fun warmUp() = Unit
 
