@@ -39,7 +39,6 @@ struct HomeView: View {
             }
         }
         .background(Color(.systemBackground))
-        .offlineTopBanner()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

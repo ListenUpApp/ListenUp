@@ -78,19 +78,6 @@ final class Dependencies {
         return coordinator
     }
 
-    // MARK: - Server reachability observer (app-wide Swift singleton)
-
-    @MainActor private var cachedServerReachabilityObserver: ServerReachabilityObserver?
-
-    /// The single app-wide server-reachability observer — drives offline indicators + Retry across
-    /// screens off the shared `ServerReachability` firehose signal.
-    @MainActor var serverReachabilityObserver: ServerReachabilityObserver {
-        if let cachedServerReachabilityObserver { return cachedServerReachabilityObserver }
-        let observer = ServerReachabilityObserver(deps: self)
-        cachedServerReachabilityObserver = observer
-        return observer
-    }
-
     // MARK: - Detail ViewModels (fresh instance per screen)
 
     /// Parametrized VM — a fresh instance per pending-approval session (carries userId/email + its SSE job).

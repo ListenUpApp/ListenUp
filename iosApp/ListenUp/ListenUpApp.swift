@@ -59,8 +59,6 @@ private struct RootView: View {
             .environment(currentUser)
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
-            // App-wide server-reachability signal (offline indicators + Retry across screens).
-            .environment(dependencies.serverReachabilityObserver)
             // Universal links: `.onOpenURL` is the reliable SwiftUI App-lifecycle delivery path
             // (cold launch *and* while running). `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`
             // does not fire for universal links under the SwiftUI lifecycle — kept only as a
