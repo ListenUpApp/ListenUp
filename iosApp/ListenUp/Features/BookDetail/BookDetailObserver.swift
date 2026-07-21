@@ -89,13 +89,15 @@ final class BookDetailObserver {
 
     // MARK: - Connectivity (from the shared `BookAvailability`, on `.ready`)
 
-    /// Play is possible. Attempt-first: reachability never gates this — a genuine stream failure
-    /// surfaces in the player. Defaults true so the button is never spuriously disabled.
+    /// Play is possible — the book is downloaded, or the evidence-based reachability signal says
+    /// the server is usable right now. Defaults true so the button is never spuriously disabled
+    /// before the first state arrives; heals the instant any traffic proves the server answers.
     private(set) var canPlay: Bool = true
-    /// Download is possible — false only when the platform has no playback at all (see `canPlay`).
+    /// Download is possible — playback platform present AND the server is reachable per the same
+    /// evidence-based signal as `canPlay`.
     private(set) var canDownload: Bool = true
-    /// The server looks unreachable AND the book isn't downloaded — drives the non-blocking
-    /// point-of-need hint banner. Informs, never disables.
+    /// The server is genuinely unreachable AND the book isn't downloaded — drives the
+    /// point-of-need banner that explains why Play/Download are disabled.
     private(set) var showServerWarning: Bool = false
 
     // MARK: - Documents
