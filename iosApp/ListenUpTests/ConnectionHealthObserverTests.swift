@@ -8,9 +8,7 @@ struct ConnectionHealthKindTests {
     // enum the banner switches on — is pure and verified here.
 
     @Test func valuelessCasesAreDistinct() {
-        #expect(ConnectionHealthKind.hidden != .unreachable)
-        #expect(ConnectionHealthKind.unreachable != .sessionExpired)
-        #expect(ConnectionHealthKind.sessionExpired != .hidden)
+        #expect(ConnectionHealthKind.hidden != .sessionExpired)
     }
 
     @Test func outdatedCarriesVersionsAndEquatesByValue() {

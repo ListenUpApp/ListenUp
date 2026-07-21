@@ -188,21 +188,16 @@ private struct RootView: View {
                     AuthFlowCoordinator(openRegistration: false)
                 }
         case .authenticated:
-            // Overlay a non-blocking banner if the server goes unreachable (Offline + Retry) or a
-            // version skew is detected (Update available). `sessionExpired` never surfaces here — it
-            // has the `.sessionLapsed` branch above. The observer is created lazily on first appear
-            // (not at RootView root), so the shared ConnectionHealthViewModel graph is only resolved
-            // once the user is authenticated.
+            // Overlay a non-blocking banner when a version skew is detected (Update available).
+            // `sessionExpired` never surfaces here — it has the `.sessionLapsed` branch above. The
+            // observer is created lazily on first appear (not at RootView root), so the shared
+            // ConnectionHealthViewModel graph is only resolved once the user is authenticated.
             authenticatedContent
                 .safeAreaInset(edge: .top) {
-                    // Only meaningful once the main app is mounted and sync is running. During
-                    // first-run setup/populating there is no library or sync session yet, so the
-                    // firehose-driven reachability reads `.unreachable` and would flash a false
-                    // "offline" over the setup wizard (e.g. the folder picker) — suppress it there.
+                    // Only meaningful once the main app is mounted.
                     if isMainAppMounted, let connectionHealth {
                         ConnectionHealthBanner(
                             kind: connectionHealth.kind,
-                            onRetry: { connectionHealth.retry() },
                             onDismiss: { connectionHealth.dismiss() }
                         )
                     }
@@ -222,10 +217,9 @@ private struct RootView: View {
     /// it fires only for the **initial** population (a returning user with books in Room is
     /// `ready` immediately; later background scans never re-arm it). A returning user goes
     /// straight to the app — setup is skipped.
-    /// True once the main app (`MainTabView`) is mounted — the only phase where the offline /
+    /// True once the main app (`MainTabView`) is mounted — the only phase where the
     /// connection-health banner is meaningful. The `.checking`/`.needsSetup`/`.populating`
-    /// onboarding phases have no running sync session, so their firehose reachability is not a
-    /// real "offline" signal.
+    /// onboarding phases have no running sync session yet.
     private var isMainAppMounted: Bool {
         switch readiness.phase {
         case .ready, .checkFailed: return true

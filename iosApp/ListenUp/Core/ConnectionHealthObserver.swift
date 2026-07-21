@@ -2,10 +2,12 @@ import SwiftUI
 @preconcurrency import Shared
 
 /// Observes the shared `ConnectionHealthViewModel` and exposes its state as SwiftUI-native state.
-/// Drives the connection-health banner (Offline / Update-available) while the shell is mounted —
-/// the iOS counterpart to the Compose `ConnectionHealthBanner`. `AuthState.sessionLapsed` keeps its
-/// own dedicated banner (`SessionLapsedBanner`, via `AuthStateObserver`); this covers the two states
-/// that occur *while authenticated*: unreachable server and a meaningful client/server version skew.
+/// Drives the connection-health banner (Update-available) while the shell is mounted — the iOS
+/// counterpart to the Compose `ConnectionHealthBanner`. `AuthState.sessionLapsed` keeps its own
+/// dedicated banner (`SessionLapsedBanner`, via `AuthStateObserver`); this covers the one state
+/// that occurs *while authenticated*: a meaningful client/server version skew. There is deliberately
+/// no ambient "offline" state here — ListenUp is offline-first, so connectivity is surfaced only at
+/// point of need (book detail, player), never as a shell-wide banner.
 ///
 /// Mirrors `AuthStateObserver`: bind the KMP flow once, map to a native value enum at the boundary
 /// so SwiftUI never diffs a bridged Kotlin object.
@@ -35,9 +37,6 @@ final class ConnectionHealthObserver {
 
     // MARK: - Actions
 
-    /// Force a fresh reachability check (the Offline banner's Retry action).
-    func retry() { viewModel.retry() }
-
     /// Dismiss the current Update-available hint — persisted per (client, server) pair.
     func dismiss() { viewModel.dismiss() }
 
@@ -47,8 +46,6 @@ final class ConnectionHealthObserver {
         switch onEnum(of: ui) {
         case .hidden:
             kind = .hidden
-        case .unreachable:
-            kind = .unreachable
         case .sessionExpired:
             kind = .sessionExpired
         case .outdated(let outdated):
@@ -63,8 +60,6 @@ final class ConnectionHealthObserver {
 /// Flattened connection-health state for SwiftUI `switch` — a native value type off the Kotlin diff path.
 enum ConnectionHealthKind: Equatable {
     case hidden
-    /// Server unreachable for a sustained window. Local content works; sync auto-heals on reconnect.
-    case unreachable
     /// Session credentials dead — surfaced by `SessionLapsedBanner` via `AuthStateObserver`, not here.
     case sessionExpired
     /// A meaningful client/server version skew. Non-blocking "Update available" hint.
