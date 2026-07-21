@@ -21,7 +21,6 @@ import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.PlaybackPrepareRepositoryImpl
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
-import com.calypsan.listenup.client.data.connection.ConnectionEvidence
 import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.CatchUp
@@ -105,10 +104,6 @@ internal val clientSyncModule =
 
         single { ClientSyncDomainRegistry() }
         single { SyncEngineState() }
-        // The transport-fed reachability evidence sink: every RpcChannel classifies its unary
-        // outcomes into it (see Module.rpcChannel), the supervisor's probes report through the
-        // store, and the store folds the latest evidence into ConnectionHealth.
-        single { ConnectionEvidence() }
         single {
             ConnectionHealthStore(
                 engineState = get(),

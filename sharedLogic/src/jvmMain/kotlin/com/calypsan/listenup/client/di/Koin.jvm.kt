@@ -71,9 +71,16 @@ fun clientAuthModuleForTests(): Module = clientAuthModule
  * `RpcAuthRecovery` became a required peer when the auth RPC channels adopted `RpcChannel` (every
  * authed channel's `RpcProxyCache` injects it for handshake-401 refresh-and-retry); it mirrors the
  * production `networkModule` binding, using the same lazy `AuthRepository` seam as `ApiClientFactory`.
+ * `ConnectionEvidence` is the third mirrored peer — every channel classifies its unary outcomes
+ * into it, so any graph that defines channels must bind it.
  */
 fun clientApiClientFactoryTestModule(): Module =
     module {
+        single {
+            com.calypsan.listenup.client.data.connection
+                .ConnectionEvidence()
+        }
+
         single<com.calypsan.listenup.client.data.remote.ApiClientFactory> {
             com.calypsan.listenup.client.data.remote.createApiClientFactory(
                 serverConfig = get(),

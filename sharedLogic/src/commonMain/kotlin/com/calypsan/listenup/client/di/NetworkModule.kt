@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.connection.ConnectionEvidence
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.KtorApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcAuthRecovery
@@ -16,6 +17,13 @@ import org.koin.dsl.module
  */
 internal val networkModule: Module =
     module {
+        // The transport-fed reachability evidence sink: every RpcChannel classifies its unary
+        // outcomes into it (see Module.rpcChannel), the supervisor's probes report through
+        // ConnectionHealthStore, and the store folds the latest evidence into ConnectionHealth.
+        // Bound here — not in the sync module — because every graph that defines channels loads
+        // the network module, including server-driving test graphs with no sync engine.
+        single { ConnectionEvidence() }
+
         // ApiClientFactory - creates authenticated HTTP clients with auto-refresh.
         //
         // The refreshAccessToken seam is a lambda that resolves AuthRepository LAZILY at
