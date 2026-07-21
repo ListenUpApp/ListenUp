@@ -552,15 +552,7 @@ internal suspend fun ServerSSESession.collectFirehoseEvents(
             // Access gating: a live content event the subscriber may not see is dropped
             // before send. ROOT/ADMIN and tombstones bypass — see [isBookEventHidden] /
             // [isCollectionEventHidden].
-            val gatedReason =
-                when {
-                    isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
-                    isActivityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "activity"
-                    isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
-                    isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
-                    isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
-                    else -> null
-                }
+            val gatedReason = firehoseGateReason(busEvent, userId, role, bookAccessPolicy)
             if (gatedReason != null) {
                 log.trace {
                     "sse gated: domain=${busEvent.repo.domainName} " +
@@ -581,6 +573,27 @@ internal suspend fun ServerSSESession.collectFirehoseEvents(
             )
         }
 }
+
+/**
+ * The reason a live firehose [busEvent] must be withheld from `(userId, role)`, or `null` when it
+ * may be delivered. The one gate chain shared by the SSE firehose ([collectFirehoseEvents]) and the
+ * RPC stream ([SyncStreamServiceImpl]) — a single visibility definition, so the two transports can
+ * never disagree on what a subscriber sees.
+ */
+internal suspend fun firehoseGateReason(
+    busEvent: BusEvent<*>,
+    userId: String,
+    role: UserRole,
+    bookAccessPolicy: () -> BookAccessPolicy,
+): String? =
+    when {
+        isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
+        isActivityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "activity"
+        isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
+        isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
+        isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
+        else -> null
+    }
 
 /**
  * Comment-line keepalive loop for one SSE connection: emits `:keepalive` every

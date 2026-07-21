@@ -20,6 +20,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.server.api.InviteServiceImpl
@@ -57,4 +58,6 @@ data class RpcServices(
     val userPreferencesService: UserPreferencesService,
     val backupService: BackupService,
     val importService: ImportService,
+    /** The RPC firehose — streams the [com.calypsan.listenup.server.sync.ChangeBus] tail as [SyncStreamService] frames. */
+    val syncStreamService: SyncStreamService,
 )

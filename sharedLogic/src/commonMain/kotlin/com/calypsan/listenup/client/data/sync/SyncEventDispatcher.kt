@@ -130,8 +130,9 @@ internal class SyncEventDispatcher(
                 }
             }
 
-            // Liveness only — the stream client's watchdog consumes it.
-            SyncControl.Heartbeat -> Unit
+            SyncControl.Heartbeat -> {
+                // Liveness only — the stream client's watchdog consumes it; nothing to dispatch.
+            }
         }
     }
 

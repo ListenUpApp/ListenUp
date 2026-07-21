@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.event.ScanEvent
@@ -211,4 +212,5 @@ private fun Application.rpcServiceBundle(): RpcServices =
         userPreferencesService = koinGet<UserPreferencesService>(),
         backupService = koinGet<BackupService>(),
         importService = koinGet<ImportService>(),
+        syncStreamService = koinGet<SyncStreamService>(),
     )
