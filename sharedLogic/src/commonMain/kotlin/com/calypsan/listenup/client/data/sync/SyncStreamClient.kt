@@ -1,13 +1,15 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import kotlinx.coroutines.flow.SharedFlow
 
 /**
- * Engine-facing seam for the SSE client. Allows [SyncEngine] to be tested with
- * fakes without opening real network connections. Implemented by [SyncSseClient].
+ * Engine-facing seam for the sync-firehose stream client. Allows [SyncEngine] to be tested with
+ * fakes without opening real network connections. Implemented by [RpcSyncStreamClient] (the
+ * production transport) and, until the SSE path is deleted, by the legacy [SyncSseClient].
  */
-internal interface SseClient {
-    val frames: SharedFlow<ParsedSseFrame>
+internal interface SyncStreamClient {
+    val frames: SharedFlow<SyncFrame>
 
     fun seedLastEventId(initial: Long?)
 
@@ -16,7 +18,7 @@ internal interface SseClient {
     fun disconnect()
 
     /**
-     * Current `Last-Event-Id` the SSE client will resume from on the next
+     * Current resume cursor the stream client will subscribe from on the next
      * reconnect. Read-only; visibility lets [SyncEngine.handleCursorStale]
      * observe the cursor and tests assert reconnect behavior.
      */

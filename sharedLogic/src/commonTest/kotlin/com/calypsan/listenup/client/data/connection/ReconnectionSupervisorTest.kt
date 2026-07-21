@@ -10,7 +10,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.ConnectionState
-import com.calypsan.listenup.client.data.sync.SseClient
+import com.calypsan.listenup.client.data.sync.SyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -71,7 +71,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -118,7 +118,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-OLD"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -164,7 +164,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -205,7 +205,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -248,7 +248,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns null
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -295,7 +295,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -345,7 +345,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -390,7 +390,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -436,7 +436,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -479,7 +479,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -528,7 +528,7 @@ class ReconnectionSupervisorTest :
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -584,7 +584,7 @@ class ReconnectionSupervisorTest :
             // One ordered log of both actions so we can assert rebuild-BEFORE-kick (self-teardown-safe).
             val events = mutableListOf<String>()
             val sseClient =
-                mock<SseClient> {
+                mock<SyncStreamClient> {
                     every { reconnectNow() } calls { events.add("kick") }
                 }
             val authSession =

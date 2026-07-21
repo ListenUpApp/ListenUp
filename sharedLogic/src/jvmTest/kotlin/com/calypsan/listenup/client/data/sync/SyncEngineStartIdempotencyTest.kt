@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
@@ -47,7 +48,7 @@ class SyncEngineStartIdempotencyTest :
                 try {
                     val catchUp = CountingCatchUp()
                     val state = SyncEngineState()
-                    val sse = FakeIdempotencySseClient(state)
+                    val sse = FakeIdempotencySyncStreamClient(state)
                     val engine = buildEngine(db, state, catchUp, sse, scope)
 
                     coroutineScope {
@@ -72,7 +73,7 @@ class SyncEngineStartIdempotencyTest :
                 try {
                     val catchUp = CountingCatchUp()
                     val state = SyncEngineState()
-                    val sse = FakeIdempotencySseClient(state)
+                    val sse = FakeIdempotencySyncStreamClient(state)
                     val engine = buildEngine(db, state, catchUp, sse, scope)
 
                     engine.start(currentUserId = "user-a")
@@ -95,7 +96,7 @@ class SyncEngineStartIdempotencyTest :
                 try {
                     val catchUp = CountingCatchUp()
                     val state = SyncEngineState()
-                    val sse = FakeIdempotencySseClient(state)
+                    val sse = FakeIdempotencySyncStreamClient(state)
                     val engine = buildEngine(db, state, catchUp, sse, scope)
 
                     engine.start(currentUserId = "user-a")
@@ -136,7 +137,7 @@ class SyncEngineStartIdempotencyTest :
                 try {
                     val catchUp = FailingThenSucceedingCatchUp()
                     val state = SyncEngineState()
-                    val sse = FakeIdempotencySseClient(state)
+                    val sse = FakeIdempotencySyncStreamClient(state)
                     val engine = buildEngine(db, state, catchUp, sse, scope)
 
                     // First start: runStart throws inside the launched job.
@@ -162,7 +163,7 @@ private fun buildEngine(
     db: ListenUpDatabase,
     state: SyncEngineState,
     catchUp: CatchUp,
-    sse: SseClient,
+    sse: SyncStreamClient,
     scope: CoroutineScope,
 ): SyncEngine {
     val registry = ClientSyncDomainRegistry()
@@ -268,11 +269,11 @@ private object IdempotencyNoopTagHandler : SyncDomainHandler<Tag> {
  * Fake SSE client mirroring production's `connect()`-flips-state semantics.
  * Local to this test so fakes don't leak between files.
  */
-private class FakeIdempotencySseClient(
+private class FakeIdempotencySyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
 
     private var seeded: Long? = null
 

@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.connection
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.ConnectionState
-import com.calypsan.listenup.client.data.sync.SseClient
+import com.calypsan.listenup.client.data.sync.SyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -30,7 +30,7 @@ private val logger = KotlinLogging.logger {}
  * stuck offline. This supervisor closes that gap: whenever the firehose is not connected, it
  * periodically (1) re-resolves the live server URL ([reevaluate] → mDNS relocation + remote fallback),
  * (2) probes the resolved active URL with the unauthenticated [InstanceRepository.verifyServer], and
- * (3) either kicks an immediate reconnect ([SseClient.reconnectNow]) when it's the same instance, or
+ * (3) either kicks an immediate reconnect ([SyncStreamClient.reconnectNow]) when it's the same instance, or
  * triggers a clean re-auth when the server's instanceId changed.
  *
  * Offline-first / never-stranded: never blocks, never clears the configured URL; the manual
@@ -52,7 +52,7 @@ internal class ReconnectionSupervisor(
     private val engineState: SyncEngineState,
     private val instanceRepository: InstanceRepository,
     private val serverConfig: ServerConfig,
-    private val sseClient: SseClient,
+    private val sseClient: SyncStreamClient,
     private val authSession: AuthSession,
     private val errorBus: ErrorBus,
     private val reevaluate: suspend () -> Unit,

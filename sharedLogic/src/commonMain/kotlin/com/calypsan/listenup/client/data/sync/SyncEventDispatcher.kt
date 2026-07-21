@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.cancellation.CancellationException
@@ -12,7 +13,7 @@ import kotlin.coroutines.cancellation.CancellationException
 private val logger = KotlinLogging.logger {}
 
 /**
- * Routes parsed SSE frames to the right handler. The single seam where:
+ * Routes sync-firehose frames to the right handler. The single seam where:
  *  - typed event payloads are decoded using the handler's `KSerializer<T>`,
  *  - control events are recognised: refresh controls run their catalog-declared refresh
  *    strategy via [refreshedRouter]; engine/lifecycle controls (`CursorStale`,
@@ -59,24 +60,24 @@ internal class SyncEventDispatcher(
         }
     }
 
-    /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
-    suspend fun handle(frame: ParsedSseFrame) {
-        when (frame.event) {
-            "control" -> handleControl(frame)
-            null -> logger.debug { "SSE frame with no event: line, id=${frame.id}" }
+    /** Route a sync frame: control events, data events, or no-op for a missing domain. */
+    suspend fun handle(frame: SyncFrame) {
+        when {
+            frame.domain == SyncFrame.CONTROL -> handleControl(frame)
+            frame.domain.isEmpty() -> logger.debug { "Sync frame with no domain, revision=${frame.revision}" }
             else -> handleData(frame)
         }
     }
 
-    private suspend fun handleControl(frame: ParsedSseFrame) {
+    private suspend fun handleControl(frame: SyncFrame) {
         val control =
             try {
-                contractJson.decodeFromString(SyncControl.serializer(), frame.data)
+                contractJson.decodeFromString(SyncControl.serializer(), frame.json)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncControl frame" }
-                reportCompat("SSE control frame undecodable: ${e.message}")
+                reportCompat("Sync control frame undecodable: ${e.message}")
                 return
             }
         // Refreshed tier: catalog-declared refresh strategies. Engine/lifecycle controls fall through.
@@ -136,8 +137,8 @@ internal class SyncEventDispatcher(
         }
     }
 
-    private suspend fun handleData(frame: ParsedSseFrame) {
-        val domainName = frame.event ?: return
+    private suspend fun handleData(frame: SyncFrame) {
+        val domainName = frame.domain
         val handler =
             registry.lookup(domainName) ?: run {
                 logger.debug { "No handler registered for domain '$domainName'; dropping event" }
@@ -150,13 +151,13 @@ internal class SyncEventDispatcher(
             try {
                 contractJson.decodeFromString(
                     SyncEvent.serializer(typed.payloadSerializer),
-                    frame.data,
+                    frame.json,
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncEvent for domain '$domainName'" }
-                reportCompat("SSE event undecodable for domain '$domainName': ${e.message}")
+                reportCompat("Sync event undecodable for domain '$domainName': ${e.message}")
                 // An undecodable frame is functionally "apply did not happen": for an OptOut domain
                 // the same freeze bookkeeping as a failed apply applies, else the un-decodable
                 // revision is permanently skipped once a later event's success would advance past it.
@@ -184,11 +185,11 @@ internal class SyncEventDispatcher(
                                 "frozen hole; resuming live cursor advancement"
                         }
                     }
-                    frame.id?.let { rev -> cursorAdvance(domainName, rev) }
+                    frame.revision?.let { rev -> cursorAdvance(domainName, rev) }
                 } else {
                     logger.debug {
                         "[$domainName] cursor frozen (no digest backstop, prior apply failed); " +
-                            "not advancing to ${frame.id} — catch-up will re-pull and heal"
+                            "not advancing to ${frame.revision} — catch-up will re-pull and heal"
                     }
                 }
             }
@@ -206,7 +207,7 @@ internal class SyncEventDispatcher(
                     freeze(domainName)
                 }
                 logger.warn {
-                    "Apply failed for domain '$domainName' (revision=${frame.id}): " +
+                    "Apply failed for domain '$domainName' (revision=${frame.revision}): " +
                         "${result.error.code}; cursor not advanced" +
                         if (!typed.hasDigestBackstop) " (frozen: no digest backstop)" else ""
                 }

@@ -115,7 +115,9 @@ class ClientKoinGraphE2ETest :
             // is NOT a RemoteCache, just a wrapper), so 25 → 24.
             // The search bug-fix added rpcChannel<SearchService>() (a NEW channel, no factory retired) for
             // the contributor/series server search that previously 404'd over REST, so 24 → 25.
-            defaultInvalidator.caches shouldHaveSize 25
+            // The firehose RPC migration added rpcChannel<SyncStreamService>() — the sync firehose now
+            // rides the RPC socket via RpcSyncStreamClient — so 25 → 26.
+            defaultInvalidator.caches shouldHaveSize 26
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

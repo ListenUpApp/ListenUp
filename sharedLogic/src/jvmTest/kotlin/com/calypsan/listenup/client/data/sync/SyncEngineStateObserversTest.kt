@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.sync.domains.OpKind
@@ -63,7 +64,7 @@ class SyncEngineStateObserversTest :
                                 },
                         )
                     val state = SyncEngineState()
-                    val sse = FakeStateSseClient(state)
+                    val sse = FakeStateSyncStreamClient(state)
                     val engine = buildEngine(db, queue, state, sse, scope)
 
                     engine.start(currentUserId = "u1")
@@ -97,7 +98,7 @@ class SyncEngineStateObserversTest :
                             sender = PendingOperationSender { AppResult.Success(Unit) },
                         )
                     val state = SyncEngineState()
-                    val sse = FakeStateSseClient(state)
+                    val sse = FakeStateSyncStreamClient(state)
                     val engine = buildEngine(db, queue, state, sse, scope)
 
                     engine.start(currentUserId = "u1")
@@ -158,7 +159,7 @@ private fun buildEngine(
     db: ListenUpDatabase,
     queue: PendingOperationQueue,
     state: SyncEngineState,
-    sse: SseClient,
+    sse: SyncStreamClient,
     scope: CoroutineScope,
 ): SyncEngine {
     val registry = ClientSyncDomainRegistry()
@@ -199,11 +200,11 @@ private object NoopStateCatchUp : CatchUp {
  * Fake SSE client mirroring production's `connect()`-flips-state semantics.
  * Local to this test so test fakes don't leak between files.
  */
-private class FakeStateSseClient(
+private class FakeStateSyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
 
     private var seeded: Long? = null
 

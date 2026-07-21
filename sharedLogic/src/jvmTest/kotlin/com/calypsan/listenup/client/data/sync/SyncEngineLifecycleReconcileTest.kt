@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
@@ -222,9 +223,9 @@ private object LifecycleNoopTagHandler : SyncDomainHandler<Tag> {
 /** Fake SSE that flips [SyncEngineState] on connect/disconnect, mirroring production semantics. */
 private class FakeLifecycleSse(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
     private var seeded: Long? = null
 
     override fun seedLastEventId(initial: Long?) {

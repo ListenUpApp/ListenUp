@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
@@ -63,7 +64,7 @@ class ReconcileOnDrainTest :
                             sender = PendingOperationSender { AppResult.Success(Unit) },
                         )
                     val state = SyncEngineState()
-                    val sse = ReconcileFakeSseClient(state)
+                    val sse = ReconcileFakeSyncStreamClient(state)
                     val engine = buildReconcileEngine(db, queue, state, sse, scope, catchUp)
 
                     // Both enqueued before start → the same connection-up drain wave sends both. The
@@ -108,7 +109,7 @@ class ReconcileOnDrainTest :
                                 },
                         )
                     val state = SyncEngineState()
-                    val sse = ReconcileFakeSseClient(state)
+                    val sse = ReconcileFakeSyncStreamClient(state)
                     val engine = buildReconcileEngine(db, queue, state, sse, scope, catchUp)
 
                     // An op parks with the engine NOT started, so there is no connection-up edge and
@@ -150,7 +151,7 @@ class ReconcileOnDrainTest :
                                 },
                         )
                     val state = SyncEngineState()
-                    val sse = ReconcileFakeSseClient(state)
+                    val sse = ReconcileFakeSyncStreamClient(state)
                     val engine = buildReconcileEngine(db, queue, state, sse, scope, catchUp)
 
                     val opId = queue.enqueue(reconcilePreferencesChannel, "u1", OpKind.Update, "{}", "u1")
@@ -182,7 +183,7 @@ private fun buildReconcileEngine(
     db: com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
     queue: PendingOperationQueue,
     state: SyncEngineState,
-    sse: SseClient,
+    sse: SyncStreamClient,
     scope: CoroutineScope,
     catchUp: CatchUp,
 ): SyncEngine {
@@ -289,11 +290,11 @@ private object ReconcileGatedHandler :
 }
 
 /** Fake SSE client whose `connect()` transitions [state] to Connected — driving the engine's drain trigger. */
-private class ReconcileFakeSseClient(
+private class ReconcileFakeSyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
     private var seeded: Long? = null
 
     override fun seedLastEventId(initial: Long?) {

@@ -41,7 +41,7 @@ private val logger = KotlinLogging.logger {}
  *
  *   1. Verify queued-op ownership; clear if signed-in user differs.
  *   2. Run REST catch-up to completion across every registered domain.
- *   3. Seed [SseClient]'s `lastEventId` from the highest cursor.
+ *   3. Seed [SyncStreamClient]'s `lastEventId` from the highest cursor.
  *   4. Connect SSE.
  *
  * Catch-up and SSE never overlap — the contract requires catch-up to fully
@@ -50,7 +50,7 @@ private val logger = KotlinLogging.logger {}
  * On sign-out the SSE connection closes; the queue is paused (not cleared).
  *
  * The engine owns the frame collector so every connection has exactly one path
- * from [SseClient.frames] into [SyncEventDispatcher].
+ * from [SyncStreamClient.frames] into [SyncEventDispatcher].
  */
 internal class SyncEngine(
     private val registry: ClientSyncDomainRegistry,
@@ -58,7 +58,7 @@ internal class SyncEngine(
     private val state: SyncEngineState,
     private val store: SyncCursorStore,
     private val catchUp: CatchUp,
-    private val sseClient: SseClient,
+    private val sseClient: SyncStreamClient,
     private val reconciler: SyncReconciler,
     private val dispatcher: SyncEventDispatcher,
     private val presenceRefreshSignal: PresenceRefreshSignal,
@@ -372,7 +372,7 @@ internal class SyncEngine(
      * Manually drop and re-establish the SSE firehose. Backs the offline-banner
      * "Retry" action: the automatic backoff loop may be mid-sleep when the user
      * regains connectivity, so we tear the connection down and immediately
-     * re-open it. [SseClient.connect] resumes from the stored `Last-Event-Id`,
+     * re-open it. [SyncStreamClient.connect] resumes from the stored `Last-Event-Id`,
      * so no events are missed; the connection-state transition flows back through
      * [SyncEngineState] and drives the reachability indicator.
      */
@@ -817,7 +817,7 @@ internal class SyncEngine(
 
     private suspend fun ensureFrameCollector() {
         if (frameCollectorJob?.isActive == true) return
-        // Await active subscription before returning — [SyncSseClient] publishes frames on a
+        // Await active subscription before returning — the stream client publishes frames on a
         // `replay = 0` SharedFlow, so a frame emitted before this collector subscribes is dropped.
         // `runStart` calls this before `connect()`, so without the barrier the first live frames
         // (and the initial `Connected` transition) could land before the collector attaches. Mirrors
@@ -936,7 +936,7 @@ internal class SyncEngine(
     /**
      * Refresh the Discover surfaces on every reconnect — NOT the initial start-connect.
      *
-     * The offline→online path ([ReconnectionSupervisor] → [SseClient.reconnectNow]) only resumes the
+     * The offline→online path ([ReconnectionSupervisor] → [SyncStreamClient.reconnectNow]) only resumes the
      * SSE stream; without this the leaderboard stays stale until the server happens to emit a
      * `CursorStale`. On each reconnect edge we run [lifecycleReconcile] — forward catch-up (draining
      * rows written above the cursor during the outage), digest reconcile (refreshing
@@ -944,7 +944,7 @@ internal class SyncEngine(
      * The activity feed is now a Room-mirrored sync domain, so catch-up/live-tail keep it current
      * with no separate prime.
      *
-     * Subscribed before [SseClient.connect] and [drop]ping the first Connected, so the initial
+     * Subscribed before [SyncStreamClient.connect] and [drop]ping the first Connected, so the initial
      * start-connect (already covered by [runStart]'s reconcile) does not double-fire.
      */
     private suspend fun ensureReconnectRefresh() {

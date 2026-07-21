@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
@@ -45,10 +46,10 @@ private class GateCountingCatchUp : CatchUp {
     override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
 }
 
-/** SseClient recording connect/disconnect so the gate's park/resume is observable across threads. */
-private class GateFakeSse : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+/** SyncStreamClient recording connect/disconnect so the gate's park/resume is observable across threads. */
+private class GateFakeSse : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
 
     @Volatile
     var connected = false

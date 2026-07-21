@@ -15,11 +15,11 @@ import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
 import com.calypsan.listenup.client.data.sync.SearchIndexWatermark
-import com.calypsan.listenup.client.data.sync.ParsedSseFrame
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
-import com.calypsan.listenup.client.data.sync.SseClient
+import com.calypsan.listenup.client.data.sync.SyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.SyncEngine
@@ -85,7 +85,7 @@ class OrphanRecoveryRaceTest :
                 val db = createInMemoryTestDatabase()
                 try {
                     val state = SyncEngineState()
-                    val sse = FakeOrphanRaceSseClient(state)
+                    val sse = FakeOrphanRaceSyncStreamClient(state)
                     val catchUp = NoOpCatchUp()
                     val engine = buildOrphanTestEngine(db, state, catchUp, sse, scope)
 
@@ -158,7 +158,7 @@ class OrphanRecoveryRaceTest :
                 val db = createInMemoryTestDatabase()
                 try {
                     val state = SyncEngineState()
-                    val sse = FakeOrphanRaceSseClient(state)
+                    val sse = FakeOrphanRaceSyncStreamClient(state)
                     val catchUp = NoOpCatchUp()
                     val engine = buildOrphanTestEngine(db, state, catchUp, sse, scope)
 
@@ -258,11 +258,11 @@ private class NoOpCatchUp : CatchUp {
 }
 
 /** Minimal SSE client that flips state to Connected on [connect]. */
-private class FakeOrphanRaceSseClient(
+private class FakeOrphanRaceSyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
 
     private var seeded: Long? = null
 
@@ -292,7 +292,7 @@ private fun buildOrphanTestEngine(
     db: com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
     state: SyncEngineState,
     catchUp: CatchUp,
-    sse: SseClient,
+    sse: SyncStreamClient,
     scope: CoroutineScope,
 ): SyncEngine {
     val registry = ClientSyncDomainRegistry()

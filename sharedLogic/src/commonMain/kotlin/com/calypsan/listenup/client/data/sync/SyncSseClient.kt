@@ -3,6 +3,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.sync.SyncFrame
 import io.ktor.client.HttpClient
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -44,16 +45,16 @@ internal class SyncSseClient(
     // Test seam: a small capacity lets a test force `frameBus.emit` to suspend deterministically
     // (SyncSseClientDeliveryOrderingTest) without depending on the production buffer depth.
     frameBufferCapacity: Int = FRAME_BUFFER_CAPACITY,
-) : SseClient {
+) : SyncStreamClient {
     private val frameBus =
-        MutableSharedFlow<ParsedSseFrame>(
+        MutableSharedFlow<SyncFrame>(
             replay = 0,
             extraBufferCapacity = frameBufferCapacity,
             onBufferOverflow = BufferOverflow.SUSPEND,
         )
 
     /** Hot stream of parsed frames; consumers (the dispatcher) collect from here. */
-    override val frames: SharedFlow<ParsedSseFrame> = frameBus.asSharedFlow()
+    override val frames: SharedFlow<SyncFrame> = frameBus.asSharedFlow()
 
     private var connectionJob: Job? = null
 
@@ -126,7 +127,9 @@ internal class SyncSseClient(
                 // cancellation guard: advancing lastEventId BEFORE emit returns would move that hint
                 // past a frame a cancellation mid-suspend (the bounded frameBus can suspend on emit)
                 // never handed to the collector, so the server would not resend it this session.
-                frameBus.emit(frame)
+                // The parsed SSE triple maps onto the transport-neutral [SyncFrame] here, at the emit
+                // point, so the dispatcher speaks one frame type across both transports.
+                frameBus.emit(SyncFrame(domain = frame.event ?: "", revision = frame.id, json = frame.data))
                 frame.id?.let { lastEventId = it }
                 state.setConnection(ConnectionState.Connected(lastEventId))
             }

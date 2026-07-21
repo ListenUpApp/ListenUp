@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
@@ -71,10 +72,10 @@ class SyncEngineConnectionReportTest :
         }
     })
 
-/** Minimal SseClient for the report test — no frames, no state writes. */
-private class FakeReportSse : SseClient {
-    private val flow = kotlinx.coroutines.flow.MutableSharedFlow<ParsedSseFrame>()
-    override val frames: kotlinx.coroutines.flow.SharedFlow<ParsedSseFrame> = flow
+/** Minimal SyncStreamClient for the report test — no frames, no state writes. */
+private class FakeReportSse : SyncStreamClient {
+    private val flow = kotlinx.coroutines.flow.MutableSharedFlow<SyncFrame>()
+    override val frames: kotlinx.coroutines.flow.SharedFlow<SyncFrame> = flow
 
     override fun seedLastEventId(initial: Long?) = Unit
 

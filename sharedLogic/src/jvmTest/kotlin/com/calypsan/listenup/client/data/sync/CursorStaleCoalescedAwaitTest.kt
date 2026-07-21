@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -74,7 +75,7 @@ class CursorStaleCoalescedAwaitTest :
                         )
 
                     val state = SyncEngineState()
-                    val sse = FakeCoalesceSseClient(state)
+                    val sse = FakeCoalesceSyncStreamClient(state)
                     val registry = ClientSyncDomainRegistry()
                     registry.register(CoalesceTagHandler())
                     val store = SyncCursorStore(db.syncCursorDao())
@@ -130,7 +131,7 @@ private fun buildCoalesceEngine(
     store: SyncCursorStore,
     state: SyncEngineState,
     catchUp: CatchUp,
-    sse: SseClient,
+    sse: SyncStreamClient,
     scope: CoroutineScope,
 ): SyncEngine {
     val queue =
@@ -216,11 +217,11 @@ private class CoalesceTagHandler : SyncDomainHandler<Tag> {
 }
 
 /** Fake SSE client mirroring production's `connect()`-flips-state semantics. */
-private class FakeCoalesceSseClient(
+private class FakeCoalesceSyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
 
     private var seeded: Long? = null
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
@@ -98,7 +99,7 @@ class PendingQueueDrainSchedulingTest :
                             sender = sender,
                         )
                     val state = SyncEngineState()
-                    val sse = FakeSseClient(state)
+                    val sse = FakeSyncStreamClient(state)
                     val engine = buildEngine(db, queue, state, sse, scope)
 
                     // Op already enqueued before engine.start — so the only thing
@@ -143,7 +144,7 @@ class PendingQueueDrainSchedulingTest :
                             sender = sender,
                         )
                     val state = SyncEngineState()
-                    val sse = FakeSseClient(state)
+                    val sse = FakeSyncStreamClient(state)
                     val engine = buildEngine(db, queue, state, sse, scope)
 
                     engine.start(currentUserId = "u1")
@@ -188,7 +189,7 @@ class PendingQueueDrainSchedulingTest :
                     val sender = PendingOperationSender { AppResult.Success(Unit) }
                     val queue = PendingOperationQueue(dao = dao, sender = sender)
                     val state = SyncEngineState()
-                    val sse = FakeSseClient(state)
+                    val sse = FakeSyncStreamClient(state)
                     val engine = buildEngine(db, queue, state, sse, scope)
 
                     engine.start(currentUserId = "u1")
@@ -262,7 +263,7 @@ class PendingQueueDrainSchedulingTest :
                             sender = sender,
                         )
                     val state = SyncEngineState()
-                    val sse = FakeSseClient(state)
+                    val sse = FakeSyncStreamClient(state)
                     // Short backoff so the test doesn't have to wait long.
                     val engine =
                         buildEngine(db, queue, state, sse, scope, retryBackoffMillis = 50L)
@@ -318,7 +319,7 @@ class PendingQueueDrainSchedulingTest :
                             sender = sender,
                         )
                     val state = SyncEngineState()
-                    val sse = FakeSseClient(state)
+                    val sse = FakeSyncStreamClient(state)
                     // Tiny backoff so that IF the engine wrongly scheduled a timer retry, attempts would
                     // climb fast within the observation window — making the "parked, not looped" assertion sharp.
                     val engine = buildEngine(db, queue, state, sse, scope, retryBackoffMillis = 20L)
@@ -374,7 +375,7 @@ class PendingQueueDrainSchedulingTest :
                         )
                     val state = SyncEngineState()
                     // Firehose never connects; the outbox rides the RPC/request transport, which is up.
-                    val sse = NeverConnectingSseClient(state)
+                    val sse = NeverConnectingSyncStreamClient(state)
                     val engine =
                         buildEngine(db, queue, state, sse, scope, networkMonitor = FakeNetworkMonitor(online = true))
 
@@ -416,7 +417,7 @@ class PendingQueueDrainSchedulingTest :
                             sender = sender,
                         )
                     val state = SyncEngineState()
-                    val sse = NeverConnectingSseClient(state)
+                    val sse = NeverConnectingSyncStreamClient(state)
                     // Device offline: draining now would only burn the op's retry budget against an
                     // unreachable server — the outbox must hold until connectivity returns.
                     val engine =
@@ -458,7 +459,7 @@ class PendingQueueDrainSchedulingTest :
                             nowMillis = { clock.incrementAndGet() },
                         )
                     val state = SyncEngineState()
-                    val sse = FakeSseClient(state)
+                    val sse = FakeSyncStreamClient(state)
                     val engine = buildEngine(db, queue, state, sse, scope)
                     val a = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
                     val b = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
@@ -482,7 +483,7 @@ private fun buildEngine(
     db: com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
     queue: PendingOperationQueue,
     state: SyncEngineState,
-    sse: SseClient,
+    sse: SyncStreamClient,
     scope: CoroutineScope,
     retryBackoffMillis: Long = 1_000L,
     networkMonitor: com.calypsan.listenup.client.domain.repository.NetworkMonitor = FakeNetworkMonitor(online = true),
@@ -527,11 +528,11 @@ private class FakeNetworkMonitor(
  * Disconnected. Models the outage the fix targets: the firehose is down, but the RPC/request
  * transport the outbox rides is healthy.
  */
-private class NeverConnectingSseClient(
+private class NeverConnectingSyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
 
     override fun seedLastEventId(initial: Long?) = Unit
 
@@ -668,11 +669,11 @@ private class CountingDao(
  * `connect()` transitions [state] to [ConnectionState.Connected], which is what
  * the engine's connection-up trigger listens for.
  */
-private class FakeSseClient(
+private class FakeSyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
 
     private var seeded: Long? = null
 

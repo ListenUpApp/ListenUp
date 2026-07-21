@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -19,7 +20,6 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.PlaybackPrepareRepositoryImpl
-import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
@@ -30,14 +30,14 @@ import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
-import com.calypsan.listenup.client.data.sync.SseClient
+import com.calypsan.listenup.client.data.sync.RpcSyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
-import com.calypsan.listenup.client.data.sync.SyncSseClient
+import com.calypsan.listenup.client.data.sync.SyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
@@ -356,18 +356,14 @@ internal val clientSyncModule =
         }
         single { OfflineEditor(pendingQueue = get(), transactionRunner = get(), authSession = get()) }
 
-        single<SseClient> {
-            val apiClientFactory: ApiClientFactory = get()
-            val serverConfig: ServerConfig = get()
-            val reporter: ConnectionHealthStore = get()
-            SyncSseClient(
-                serverUrlProvider = { serverConfig.getActiveUrl()?.value },
-                streamingClientProvider = { apiClientFactory.getStreamingClient() },
+        // The firehose rides the RPC socket: one WebSocket, one connection-truth. The SSE
+        // implementation is retired (deletion pending); this channel + client replace it.
+        rpcChannel<SyncStreamService>()
+        single<SyncStreamClient> {
+            RpcSyncStreamClient(
+                channel = rpcChannel<SyncStreamService>(),
                 state = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
-                onAuthExhausted = {
-                    reporter.report(AuthError.SessionExpired(debugInfo = "SSE auth exhausted after in-band refresh"))
-                },
             )
         }
 
