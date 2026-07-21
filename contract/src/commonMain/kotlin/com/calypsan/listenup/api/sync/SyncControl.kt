@@ -9,8 +9,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Out-of-band control events emitted on the SSE firehose, distinct from the
- * `SyncEvent.*` data events. Sent on a different SSE `event:` line so clients
+ * Out-of-band control events emitted on the sync firehose, distinct from the
+ * `SyncEvent.*` data events. Carried as [SyncFrame.CONTROL]-domain frames so clients
  * can branch cleanly:
  *  - `event: control` → JSON-decoded [SyncControl]
  *  - `event: <domain>` → JSON-decoded [SyncEvent]
@@ -33,7 +33,7 @@ sealed interface SyncControl {
     ) : SyncControl
 
     /**
-     * Sent on a fatal error inside the SSE emit pipeline. Client treats this as
+     * Sent on a fatal error inside the stream emit pipeline. Client treats this as
      * "connection ended; reconnect with current cursor and try again." The
      * [error] is the same typed [AppError] surface the rest of the contract
      * uses; stacktraces never cross the wire.

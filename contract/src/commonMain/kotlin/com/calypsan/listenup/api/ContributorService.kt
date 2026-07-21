@@ -16,7 +16,7 @@ import kotlinx.rpc.annotations.Rpc
  *   observe Room locally; when a contributor is referenced but not yet synced,
  *   they call this service for the single-entity fallback.
  * - **Mutation** — [updateContributor], [deleteContributor] mutate server state;
- *   SSE delivers the authoritative payload back to all connected clients.
+ *   The sync firehose delivers the authoritative payload to all connected clients.
  *
  * External Audible/iTunes metadata lookups live on [MetadataLookupService] —
  * separate service because local reads (fast, no external calls) and external

@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
@@ -55,6 +56,15 @@ interface AuthServicePublic {
      * and completes — it never hangs.
      */
     fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>>
+
+    /**
+     * Live registration policy for the pre-auth surface (the login screen's Sign Up affordance).
+     * Emits the current policy immediately on subscribe, then every change; the server also
+     * re-reads persisted state on a fixed cadence (never-stranded backstop for a missed live
+     * push). Never completes on its own — the consumer unsubscribes when it leaves the login
+     * surface, and resubscribes on drop.
+     */
+    fun observeRegistrationPolicy(): Flow<RpcEvent<RegistrationPolicy>>
 }
 
 /**

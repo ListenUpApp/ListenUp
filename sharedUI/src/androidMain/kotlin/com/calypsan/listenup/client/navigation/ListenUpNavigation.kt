@@ -204,7 +204,7 @@ fun ListenUpNavigation(
  *
  * Shows the pending approval screen for users who have registered
  * but are waiting for admin approval. Handles:
- * - SSE connection for real-time approval notification
+ * - RPC watch for real-time approval notification
  * - Auto-login on approval
  * - Cancel to return to login
  */

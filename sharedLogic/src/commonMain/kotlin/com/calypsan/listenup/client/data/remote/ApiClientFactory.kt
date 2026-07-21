@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.data.remote
 import com.calypsan.listenup.api.VersionHeaders
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -105,18 +104,13 @@ internal interface ApiClientFactory : RemoteCache {
     /** Authenticated client for request/response API calls. */
     suspend fun getClient(): HttpClient
 
-    /** Unauthenticated streaming client for public SSE streams. */
-    suspend fun getUnauthenticatedStreamingClient(): HttpClient
-
     /**
-     * Invalidate ONLY the request/RPC client, leaving the long-lived unauthenticated streaming
-     * client open.
+     * Invalidate the cached request/RPC client so the next call rebinds fresh.
      *
-     * The full [invalidate] (from [RemoteCache]) closes every cached client. That is correct for a
-     * server-URL change, but too broad for a reconnect sweep, which exists to refresh stale RPC
-     * proxies + the regular request client, not to abort an unrelated live stream. This narrower
-     * path drops the request client (so the next RPC call — and the RPC proxies that derive their
-     * client from it — rebinds fresh) while the streaming client keeps streaming.
+     * Historically this was narrower than [invalidate] (which also closed the SSE-era
+     * unauthenticated streaming client); with that client retired the two paths converge, but the
+     * reconnect sweep keeps calling this named seam — it states the *intent* (refresh stale RPC
+     * proxies and the request client), not an enumeration of caches.
      */
     suspend fun invalidateRequestClientOnly()
 
@@ -198,7 +192,6 @@ internal class KtorApiClientFactory(
 ) : ApiClientFactory {
     private val mutex = Mutex()
     private var cachedClient: HttpClient? = null
-    private var cachedUnauthenticatedStreamingClient: HttpClient? = null
 
     /**
      * Get or create the authenticated HTTP client for regular API calls.
@@ -219,22 +212,6 @@ internal class KtorApiClientFactory(
         getClient()
     }
 
-    /**
-     * Cached unauthenticated streaming HTTP client for SSE endpoints that don't require
-     * authentication (e.g., the registration status stream for pending users).
-     */
-    override suspend fun getUnauthenticatedStreamingClient(): HttpClient =
-        mutex.withLock {
-            cachedUnauthenticatedStreamingClient ?: run {
-                val serverUrl =
-                    serverConfig.getActiveUrl()
-                        ?: error(SERVER_URL_NOT_CONFIGURED_MESSAGE)
-                createUnauthenticatedStreamingHttpClient(serverUrl, clientIdentity).also {
-                    cachedUnauthenticatedStreamingClient = it
-                }
-            }
-        }
-
     @Suppress("ThrowsCount", "CognitiveComplexMethod")
     private suspend fun createClient(): HttpClient {
         val initialUrl =
@@ -252,7 +229,7 @@ internal class KtorApiClientFactory(
             }
 
             // Install HttpTimeout plugin to allow per-request timeout configuration
-            // Default timeouts for regular API calls (SSE uses separate client)
+            // Default timeouts for regular API calls (streams configure their own)
             @Suppress("MagicNumber")
             install(HttpTimeout) {
                 requestTimeoutMillis = 30_000
@@ -409,49 +386,26 @@ internal class KtorApiClientFactory(
         mutex.withLock {
             cachedClient?.close()
             cachedClient = null
-            cachedUnauthenticatedStreamingClient?.close()
-            cachedUnauthenticatedStreamingClient = null
         }
     }
 
     override suspend fun invalidateRequestClientOnly() {
-        mutex.withLock {
-            cachedClient?.close()
-            cachedClient = null
-            // Deliberately leave cachedUnauthenticatedStreamingClient open: the reconnect sweep
-            // must not abort a live pre-auth stream (e.g. the registration-policy SSE).
-        }
+        // With the SSE-era streaming client retired there is only one cached client left, so this
+        // named seam and invalidate() coincide — see the interface KDoc.
+        invalidate()
     }
 
     /**
-     * Close the cached clients and release resources.
+     * Close the cached client and release resources.
      * Call this when the factory is no longer needed.
      */
     suspend fun close() {
         mutex.withLock {
             cachedClient?.close()
             cachedClient = null
-            cachedUnauthenticatedStreamingClient?.close()
-            cachedUnauthenticatedStreamingClient = null
         }
     }
 }
-
-/**
- * Platform-specific unauthenticated streaming HTTP client factory.
- *
- * Creates an HttpClient configured for long-lived SSE connections
- * without authentication. Used for endpoints that don't require auth,
- * such as registration status streaming for pending users.
- *
- * @param serverUrl Base server URL
- * @param clientIdentity Announced to the server via `X-Client-Version`/`X-Client-Api`
- * @return HttpClient with streaming configuration, no auth
- */
-internal expect fun createUnauthenticatedStreamingHttpClient(
-    serverUrl: ServerUrl,
-    clientIdentity: ClientIdentity,
-): HttpClient
 
 /**
  * Bridges the bearer plugin's `refreshTokens { }` block to

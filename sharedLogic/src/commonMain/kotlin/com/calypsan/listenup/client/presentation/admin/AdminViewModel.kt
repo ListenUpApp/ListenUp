@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
  * Manages users, pending invites, and pending users on a single screen. The active-user and
  * pending-registration lists are derived from [AdminRepository.observeRoster] — the Room-backed,
  * server-synced roster — so a new registration or a claimed invite appears the moment the sync
- * echo lands, with no poll and no dead SSE reducer standing in for it.
+ * echo lands, with no poll and no dead event reducer standing in for it.
  */
 class AdminViewModel(
     private val getRegistrationPolicyUseCase: GetRegistrationPolicyUseCase,

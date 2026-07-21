@@ -21,7 +21,7 @@ sealed interface RegistrationDecision {
 }
 
 /**
- * In-memory per-userId fan-out of registration approve/deny decisions to waiting SSE subscribers.
+ * In-memory per-userId fan-out of registration approve/deny decisions to waiting RPC watchers.
  *
  * Single-instance self-hosted — there is no cross-instance fan-out. [notify] is non-blocking
  * (`tryEmit`); with no live subscribers it is a no-op drop (the registrant simply hasn't connected
@@ -50,7 +50,7 @@ class RegistrationBroadcaster {
             }
         }
 
-    /** A live stream of decisions for [userId]. The SSE route collects until a terminal decision. */
+    /** A live stream of decisions for [userId]. The RPC watch collects until a terminal decision. */
     fun subscribe(userId: String): SharedFlow<RegistrationDecision> = flowFor(userId).asSharedFlow()
 
     /** Notify all current subscribers for [userId]. Non-blocking; a no-op drop if none are listening. */

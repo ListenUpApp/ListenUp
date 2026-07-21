@@ -34,7 +34,6 @@ import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.resources.Resources
-import io.ktor.server.sse.SSE
 import io.ktor.server.websocket.WebSockets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
@@ -49,13 +48,12 @@ private const val WS_PING_PERIOD_MS = 15_000L
 private const val WS_PING_TIMEOUT_MS = 15_000L
 
 /**
- * Installs the core Ktor plugins every route depends on (serialization, resources, SSE, RPC, ranges, HEAD),
+ * Installs the core Ktor plugins every route depends on (serialization, resources, RPC, ranges, HEAD),
  * and registers the shutdown farewell log.
  */
 internal fun Application.installCorePlugins() {
     install(ContentNegotiation) { json(contractJson) }
     install(Resources)
-    install(SSE)
     // Keepalive for the kotlinx.rpc WebSockets: server-side pings detect a dead/half-open client
     // socket and close the session, so a stalled RPC call is torn down rather than left hanging.
     // Mirrors the client-side ping in ApiClientFactory. Must precede install(Krpc), which transports

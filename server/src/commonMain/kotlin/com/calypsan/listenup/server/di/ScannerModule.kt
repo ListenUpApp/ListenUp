@@ -41,7 +41,7 @@ private val logger = KotlinLogging.logger("com.calypsan.listenup.server.di.Scann
  * Koin module for the scanner slice. Wires:
  *
  *  - The [ScanEvent] event bus (writable [MutableSharedFlow] for the
- *    Scanner; read-only [SharedFlow] view for the RPC service and SSE).
+ *    Scanner; read-only [SharedFlow] view for the RPC progress service).
  *  - [AbsMetadataReader], [ScanOrchestrator], [ScannerServiceImpl].
  *  - [WatcherSupervisor] backed by [FolderWatcher] for real-time updates.
  *

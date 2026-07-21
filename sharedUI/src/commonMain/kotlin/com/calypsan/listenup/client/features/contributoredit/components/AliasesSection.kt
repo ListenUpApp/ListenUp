@@ -41,7 +41,7 @@ import org.jetbrains.compose.resources.stringResource
  *
  * Renders each alias as an [InputChip]. Tapping the trailing close icon opens a
  * confirmation dialog; confirming invokes [onUnmerge] with the alias name. The VM
- * dispatches the unmerge RPC; the SSE event eventually removes the alias from this
+ * dispatches the unmerge RPC; the sync event eventually removes the alias from this
  * list, which causes the parent screen to re-render.
  *
  * By design, aliases are merge/unmerge-only. There is no "add alias"

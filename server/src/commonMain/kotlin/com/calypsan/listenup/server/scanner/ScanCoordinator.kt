@@ -100,7 +100,8 @@ internal class ScanCoordinator(
      * Fire-and-forget full scan: acquire the single-flight lock synchronously (so the
      * caller learns [ScanError.AlreadyRunning] immediately), then run the scan on [scope]
      * and return [AppResult.Success] right away — "202 Accepted" semantics. The scan
-     * outlives the triggering request; progress streams over SSE. Used by the admin/wizard
+     * outlives the triggering request; progress streams over the scanner RPC watch. Used by
+     * the admin/wizard
      * `scanLibrary` trigger, which must not block on the whole walk.
      */
     fun scanFullAsync(): AppResult<Unit> {

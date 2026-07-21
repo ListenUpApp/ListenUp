@@ -86,7 +86,7 @@ interface LibraryAdminService {
      * Removes the folder identified by [folderId] and cascade-deletes its books.
      *
      * Cascade semantics (all performed inside one `suspendTransaction`):
-     * 1. Soft-delete every book belonging to this folder (SSE event per book).
+     * 1. Soft-delete every book belonging to this folder (sync event per book).
      * 2. Soft-delete the folder row.
      * Outside the transaction: `ScanOrchestrator.onFolderRemoved(folderId)` unmounts
      * the folder's watcher.
@@ -102,7 +102,7 @@ interface LibraryAdminService {
 
     /**
      * Triggers a full scan of THE library. Fire-and-forget: returns once the scan is
-     * accepted; progress streams over SSE. Admin-only.
+     * accepted; progress streams over `ScannerService.observeProgress` (RPC). Admin-only.
      */
     suspend fun scanLibrary(): AppResult<Unit>
 

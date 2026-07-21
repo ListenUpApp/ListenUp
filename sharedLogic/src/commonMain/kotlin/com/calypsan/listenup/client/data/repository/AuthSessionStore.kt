@@ -68,8 +68,9 @@ internal class AuthSessionStore(
 
     /**
      * Keeps `openRegistration` live while the login screen is showing: subscribes to the server's
-     * registration-policy SSE only in [DomainAuthState.NeedsLogin] and flips the Sign Up affordance
-     * the instant an admin closes (or reopens) registration — no relaunch, no pull-to-refresh.
+     * registration-policy RPC watch only in [DomainAuthState.NeedsLogin] and flips the Sign Up
+     * affordance the instant an admin closes (or reopens) registration — no relaunch, no
+     * pull-to-refresh.
      *
      * Scoped to NeedsLogin via [flatMapLatest] over a `NeedsLogin?`-boolean so our own state writes
      * don't churn the subscription. A dropped connection retries with backoff (still never-stranded:
@@ -82,8 +83,8 @@ internal class AuthSessionStore(
                 .map { it is DomainAuthState.NeedsLogin }
                 .distinctUntilChanged()
                 .flatMapLatest { onLoginScreen ->
-                    // The SseConnection engine behind streamPolicy() owns reconnect (bounded connect +
-                    // exponential backoff), so a dropped stream self-heals — no bespoke retryWhen here.
+                    // streamPolicy() owns reconnect (resubscribe with capped exponential backoff),
+                    // so a dropped watch self-heals — no bespoke retryWhen here.
                     if (onLoginScreen) policyStream.streamPolicy() else emptyFlow()
                 }.collect { policy ->
                     applyOpenRegistration(policy != RegistrationPolicy.CLOSED)

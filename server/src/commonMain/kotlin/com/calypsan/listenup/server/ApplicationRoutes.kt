@@ -21,7 +21,6 @@ import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
-import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
@@ -30,9 +29,7 @@ import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.AuthServiceImpl
-import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.auth.SessionService
-import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -63,12 +60,10 @@ import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.publicInviteRoutes
-import com.calypsan.listenup.server.routes.registrationPolicyRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
-import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -79,7 +74,6 @@ import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.io.files.Path
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
@@ -98,10 +92,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val adminSettingsService by inject<AdminSettingsServiceImpl>()
     val inviteService by inject<InviteServiceImpl>()
     val instanceService by inject<InstanceService>()
-    val registrationPolicyBroadcaster by inject<RegistrationPolicyBroadcaster>()
-    val serverSettings by inject<ServerSettingsRepository>()
     val scannerService by inject<ScannerService>()
-    val eventBus by inject<SharedFlow<ScanEvent>>()
     val bookService by inject<BookService>()
     val contributorService by inject<ContributorService>()
     val seriesService by inject<SeriesService>()
@@ -144,10 +135,8 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     routing {
         healthRoutes()
         instanceRoutes(instanceService)
-        sseRoutes()
         authRoutes(authService)
         publicInviteRoutes(inviteService)
-        registrationPolicyRoutes(registrationPolicyBroadcaster) { serverSettings.registrationPolicy() }
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
             syncRoutes()
@@ -170,7 +159,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
-            scannerRoutes(scannerService, eventBus)
+            scannerRoutes(scannerService)
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)

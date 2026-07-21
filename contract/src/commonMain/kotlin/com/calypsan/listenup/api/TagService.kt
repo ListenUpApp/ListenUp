@@ -108,7 +108,7 @@ interface TagService {
      * - [com.calypsan.listenup.api.error.TagError.BookNotFound] when no book
      *   with the given id exists.
      *
-     * On success the server emits SSE events for the new or updated tag and
+     * On success the server emits sync events for the new or updated tag and
      * junction row so connected clients' Room databases update reactively.
      *
      * // TODO: gate by user permissions when Multi-user lands
@@ -129,7 +129,7 @@ interface TagService {
      * book with [bookId] exists. Returns [com.calypsan.listenup.api.error.TagError.NotFound]
      * when no tag with [tagId] exists.
      *
-     * On success the server emits an SSE event for the tombstoned junction row.
+     * On success the server emits a sync event for the tombstoned junction row.
      *
      * // TODO: gate by user permissions when Multi-user lands
      */
@@ -154,7 +154,7 @@ interface TagService {
      * - [com.calypsan.listenup.api.error.TagError.NameTooLong] when [newName]
      *   exceeds 64 characters.
      *
-     * On success the server emits an SSE event for the updated tag row. The
+     * On success the server emits a sync event for the updated tag row. The
      * `tag_search` FTS5 virtual table is updated automatically via the
      * `tags_au` trigger.
      *
@@ -178,7 +178,7 @@ interface TagService {
      * Returns [com.calypsan.listenup.api.error.TagError.NotFound] when no tag
      * with the given id exists.
      *
-     * On success the server emits SSE events for all tombstoned rows.
+     * On success the server emits sync events for all tombstoned rows.
      *
      * // TODO: gate by user permissions when Multi-user lands
      */

@@ -18,10 +18,9 @@ import io.kotest.matchers.shouldBe
  * .getClient()` fails here until someone either routes it through the channel or tags it with the
  * bucket it legitimately falls in.
  *
- * **The tell.** A call to one of the two [com.calypsan.listenup.client.data.remote.ApiClientFactory]
- * client accessors — `getClient()` (authed request client) or
- * `getUnauthenticatedStreamingClient()` (pre-auth SSE). Every raw-HTTP surface in the data layer reaches the
- * network through exactly one of these. Matching on the accessor call (file text) rather than an
+ * **The tell.** A call to the [com.calypsan.listenup.client.data.remote.ApiClientFactory] client
+ * accessor — `getClient()` (authed request client). Every raw-HTTP surface in the data layer
+ * reaches the network through it. Matching on the accessor call (file text) rather than an
  * import is deliberate: the factory and its same-package siblings (`ImageApi`, `RpcProxyCache`, …)
  * reference it with no import statement, so an import-based tell would silently miss them. Mirrors the
  * text-based tell in [CoroutineScopeInstallsExceptionHandlerRule].
@@ -42,18 +41,17 @@ import io.kotest.matchers.shouldBe
  * **Heuristic limit.** The scope is `data/remote/` + `data/repository/` only. A raw-HTTP surface
  * that takes an injected `HttpClient` lambda rather than the factory (e.g. `SyncCatchUpClient` in
  * `data/sync/`) does not match — this rule guards the factory-accessor surface, not every possible
- * byte that leaves over HTTP (the raw SSE reader itself is pinned by
- * [RawSseConstructionIsChannelOnlyRule]).
+ * byte that leaves over HTTP.
  */
 class RawHttpTransportIsDeclaredRule :
     FunSpec({
         test("raw-HTTP data-layer classes are RPC infrastructure or carry @NonRpcTransport") {
             val allowlist = setOf("ApiClientFactory.kt", "RpcProxyCache.kt", "InstanceRpcFactory.kt")
 
-            // A call to any ApiClientFactory client accessor — the one door to the raw network in
+            // The ApiClientFactory client accessor — the one door to the raw network in
             // the data layer.
             val accessorCalls =
-                listOf("getClient()", "getUnauthenticatedStreamingClient()")
+                listOf("getClient()")
 
             val rawHttpFiles =
                 productionScope()

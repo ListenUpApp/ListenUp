@@ -28,15 +28,15 @@ import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
 
 /**
- * Foundation smoke: the four-transport proof that the native HTTP skeleton actually *serves* — REST,
- * SSE, JWT auth, and kotlinx.rpc. As `commonTest` it runs on JVM **and** linuxX64; the native run is
- * the load-bearing "serves native" evidence (not just "compiles native").
+ * Foundation smoke: the three-transport proof that the native HTTP skeleton actually *serves* —
+ * REST, JWT auth, and kotlinx.rpc. As `commonTest` it runs on JVM **and** linuxX64; the native run
+ * is the load-bearing "serves native" evidence (not just "compiles native").
  *
  * Uses `kotlin.test.@Test` + `runBlocking`, not Kotest FunSpec: Kotest 6.x dropped the multiplatform
  * Gradle plugin that generates native test entry points, so FunSpec specs are invisible to the K/N
  * runner. Kotest's assertions still compile and run on linuxX64, so they're kept.
  *
- * REST / SSE / auth go through `testApplication`. RPC goes through a real `embeddedServer(CIO)` on an
+ * REST / auth go through `testApplication`. RPC goes through a real `embeddedServer(CIO)` on an
  * ephemeral port via [foundationServer], because the testApplication WebSocket bridge is unimplemented
  * on native and kotlinx.rpc rides WebSocket.
  */
@@ -53,15 +53,6 @@ class FoundationSmokeTest {
             testApplication {
                 application { installFoundation(deps()) }
                 client.get("/healthz").bodyAsText().contains("ok") shouldBe true
-            }
-        }
-
-    @Test
-    fun sseStreamEmitsAnEvent(): Unit =
-        runBlocking {
-            testApplication {
-                application { installFoundation(deps()) }
-                client.get("/healthz/stream").bodyAsText().contains("ping") shouldBe true
             }
         }
 

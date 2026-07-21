@@ -30,6 +30,13 @@ enum class AuthRateBucket(
      * reconnect-with-backoff attempt and every manual "Check Status" tap).
      */
     OBSERVE_REGISTRATION_STATUS(20),
+
+    /**
+     * `observeRegistrationPolicy` subscriptions — the login screen's live Sign Up toggle. The same
+     * open-subscription-holds-a-poll-loop exhaustion vector as [OBSERVE_REGISTRATION_STATUS], with
+     * the same ceiling: a legitimate client re-subscribes on every reconnect-with-backoff attempt.
+     */
+    OBSERVE_REGISTRATION_POLICY(20),
 }
 
 /** Outcome of a rate-limit probe: proceed, or reject with a client-surfaced `Retry-After`. */

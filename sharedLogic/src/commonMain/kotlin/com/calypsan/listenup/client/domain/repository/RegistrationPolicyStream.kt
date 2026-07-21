@@ -10,17 +10,19 @@ import kotlinx.coroutines.flow.Flow
  * moment an admin closes (or reopens) registration, the flow emits the new policy and the screen
  * flips without a relaunch. It is the live channel that [AuthSession.refreshOpenRegistration]'s
  * one-shot fetch (via `getServerInfo`) only approximates — that one-shot stays as the never-stranded
- * fallback for clients where the SSE stream doesn't deliver.
+ * fallback for clients where the live watch doesn't deliver.
  *
- * `internal`: the interface, its SSE implementation, and its sole consumer ([AuthSessionStore]) all
+ * `internal`: the interface, its RPC implementation, and its sole consumer ([AuthSessionStore]) all
  * live in `:sharedLogic`, so it never needs to cross a module boundary or reach the export surface.
  */
 internal interface RegistrationPolicyStream {
     /**
-     * Stream the instance-wide registration policy: the current value on connect, then each change.
+     * Stream the instance-wide registration policy: the current value on subscribe, then each
+     * change.
      *
-     * Uses SSE. The flow runs for the connection's lifetime; the caller collects it only while the
-     * login screen is showing and cancels otherwise.
+     * Rides the public RPC channel and never completes on its own — the implementation resubscribes
+     * a dropped watch; the caller collects only while the login screen is showing and cancels
+     * otherwise.
      */
     fun streamPolicy(): Flow<RegistrationPolicy>
 }

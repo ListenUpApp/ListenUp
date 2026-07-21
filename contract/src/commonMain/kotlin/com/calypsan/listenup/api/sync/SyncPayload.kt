@@ -15,7 +15,7 @@ package com.calypsan.listenup.api.sync
  * is never serialized, so implementing this interface leaves the wire format untouched.
  */
 interface SyncPayload : Tombstoned {
-    /** Stable sync identity — matches the SSE envelope id and the catch-up cursor key. */
+    /** Stable sync identity — matches the firehose envelope id and the catch-up cursor key. */
     val id: String
 
     /** Global revision at write time; strictly increases on every server write. */

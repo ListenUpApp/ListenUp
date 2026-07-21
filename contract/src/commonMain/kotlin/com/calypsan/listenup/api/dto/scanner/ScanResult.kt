@@ -102,7 +102,7 @@ fun ScanResult.withoutArtwork(): ScanResult =
 
 /**
  * Lightweight version of [ScanResult] returned by `scanFull()` over RPC and
- * embedded in completion SSE events. The full books list is fetchable via
+ * embedded in completion scan events. The full books list is fetchable via
  * `lastScanResult()` when needed — keeping it out of progress events keeps
  * the wire small.
  *

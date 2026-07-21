@@ -60,7 +60,7 @@ private const val ACTIVITY_LIMIT = 5
  * - Listening hour milestones
  * - Created shelves
  *
- * Offline-first: All data comes from Room, synced via SSE events.
+ * Offline-first: All data comes from Room, synced via firehose events.
  *
  * @param onBookClick Callback when a book is clicked
  * @param onShelfClick Callback when a shelf is clicked

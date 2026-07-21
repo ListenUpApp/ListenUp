@@ -67,7 +67,7 @@ import listenup.composeapp.generated.resources.auth_your_registration_request_ha
  * Renders through the shared [AuthScaffold] so it matches the rest of the auth flow. The hero
  * carries a "Pending review" badge; the body reassures where the approval notice will land, shows
  * the registration as a three-step timeline, and offers a manual **Check Status** re-check
- * alongside the always-on SSE stream (never stranded). A denial is surfaced via snackbar and routes
+ * alongside the always-on status watch (never stranded). A denial is surfaced via snackbar and routes
  * back to login.
  */
 @Composable
@@ -273,7 +273,7 @@ private fun RegStepRow(
     }
 }
 
-/** Subtle "we're watching for you" status line — honest: the SSE stream is live while this shows. */
+/** Subtle "we're watching for you" status line — honest: the status watch is live while this shows. */
 @Composable
 private fun AutoCheckRow() {
     Row(

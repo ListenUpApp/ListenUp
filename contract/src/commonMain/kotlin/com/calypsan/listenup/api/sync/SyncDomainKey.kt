@@ -7,7 +7,7 @@ import kotlin.native.HiddenFromObjC
 import kotlinx.serialization.KSerializer
 
 /**
- * Identity of one syncable domain: its wire [name] (the SSE `event:` line, the
+ * Identity of one syncable domain: its wire [name] (the [SyncFrame.domain] value, the
  * `/api/v1/sync/{name}` path segment, and the client's cursor key) and the
  * [serializer] for its payload DTO.
  *
@@ -18,7 +18,7 @@ import kotlinx.serialization.KSerializer
  */
 @HiddenFromObjC
 class SyncDomainKey<T : Any>(
-    /** Wire name: SSE `event:` value, sync-route path segment, cursor key. */
+    /** Wire name: [SyncFrame.domain] value, sync-route path segment, cursor key. */
     val name: String,
     /** Serializer for the domain's payload DTO. */
     val serializer: KSerializer<T>,

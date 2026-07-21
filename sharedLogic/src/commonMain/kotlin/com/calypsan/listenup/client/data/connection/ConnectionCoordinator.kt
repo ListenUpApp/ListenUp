@@ -25,7 +25,7 @@ private val logger = KotlinLogging.logger {}
  * Two responsibilities:
  *  - **Follow:** observes [ServerConfig.activeUrl] and, on a genuine host:port change, drops all
  *    cached connections via [RpcCacheInvalidator.invalidateAll]; RPC proxies, the regular HTTP
- *    client, and streaming transports (firehose, SSE) re-read `getActiveUrl()` on their next reconnect.
+ *    client, and the streaming firehose re-reads `getActiveUrl()` on its next reconnect.
  *  - **Choose:** [reevaluate] prefers the LAN, following the connected server's stable mDNS id to a
  *    new address when its local URL has moved, and falling back to a reachable remote URL otherwise.
  *    Runs on app foreground and network-regain.

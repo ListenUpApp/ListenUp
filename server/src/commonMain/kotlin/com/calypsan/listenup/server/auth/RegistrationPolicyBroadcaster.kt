@@ -9,14 +9,14 @@ import kotlinx.coroutines.flow.asSharedFlow
 private const val POLICY_BUFFER = 8
 
 /**
- * In-memory fan-out of the instance-wide [RegistrationPolicy] to unauthenticated SSE subscribers
- * (clients sitting on the login screen).
+ * In-memory fan-out of the instance-wide [RegistrationPolicy] to unauthenticated RPC watchers
+ * (clients sitting on the login screen — see `AuthServiceImpl.observeRegistrationPolicy`).
  *
  * Single-instance self-hosted — one global stream, not a per-user map: the policy is instance-wide.
  * [notify] is non-blocking (`tryEmit`); with no live subscribers it is a no-op drop, because the
- * policy is durable in `server_settings` and every subscriber re-reads the current value on connect
- * (the SSE route's `onStart`) — so a dropped notification is recovered on the next connect/reconnect
- * and never strands a client on a stale button.
+ * policy is durable in `server_settings` and every subscriber re-reads the current value on
+ * subscribe — so a dropped notification is recovered on the next subscribe/resubscribe and never
+ * strands a client on a stale button.
  *
  * `replay = 0` (a policy change is a live push, not cursored state) with a small
  * `extraBufferCapacity` and `DROP_OLDEST`, mirroring [RegistrationBroadcaster] and the sync
@@ -31,7 +31,7 @@ class RegistrationPolicyBroadcaster {
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
 
-    /** A live stream of policy changes. The SSE route collects this for the connection's lifetime. */
+    /** A live stream of policy changes. The RPC watch collects this for the subscription's lifetime. */
     fun subscribe(): SharedFlow<RegistrationPolicy> = flow.asSharedFlow()
 
     /** Notify all current subscribers of a new [policy]. Non-blocking; a no-op drop if none listen. */

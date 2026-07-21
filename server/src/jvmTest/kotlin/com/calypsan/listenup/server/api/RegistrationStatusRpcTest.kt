@@ -40,7 +40,7 @@ import kotlinx.rpc.withService
  * End-to-end proof of the terminal-completing registration-status RPC flow (public channel).
  *
  * This is the regression guard for the reconnect flood: the legacy SSE route served one frame
- * and closed the HTTP connection, which [com.calypsan.listenup.client.data.sync.SseConnection]'s
+ * and closed the HTTP connection, which the retired client SSE engine's
  * `delivered > 0 → Established` heuristic mistook for a healthy stream, reconnecting with zero
  * backoff forever. `observeRegistrationStatus` fixes the ambiguity structurally: it emits the
  * current status, then live updates, and **completes** the moment the status turns terminal — a

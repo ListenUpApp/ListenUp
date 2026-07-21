@@ -4,14 +4,14 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Envelope for SSE-firehose events on the cross-domain sync surface.
+ * Envelope for firehose events on the cross-domain sync surface.
  *
  * Three variants:
  *  - [Created] / [Updated] carry the full domain payload (fat events — saves a round trip).
  *  - [Deleted] carries no payload; the row's tombstone is its own signal.
  *
  * `clientOpId` is the originating client's operation id, propagated server-side from the
- * write API, so SSE echoes match pending operations on the client without re-applying.
+ * write API, so firehose echoes match pending operations on the client without re-applying.
  * Server-originated writes (e.g. scanner-driven during a library scan) leave it null.
  *
  * Stable `@SerialName` discriminators — renames are wire breaks.
@@ -21,7 +21,7 @@ sealed interface SyncEvent<out T> {
     /** Stable entity identifier. */
     val id: String
 
-    /** Global revision at write time. Also used as the SSE event id for `Last-Event-Id` resume. */
+    /** Global revision at write time. Also the stream resume cursor ([SyncFrame.revision]). */
     val revision: Long
 
     /** Wall-clock millis (server-side) when the event was emitted. */

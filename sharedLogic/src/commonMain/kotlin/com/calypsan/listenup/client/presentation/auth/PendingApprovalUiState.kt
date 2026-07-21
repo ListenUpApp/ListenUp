@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.presentation.auth
 /**
  * UI state for the pending approval screen.
  *
- * The screen waits for the server-side approval-status stream (SSE/polling)
+ * The screen waits for the server-side approval-status watch (RPC stream)
  * to flip the registration to approved or denied. There is no client-side
  * auto-login; once approved, the user logs in normally from the login screen.
  */

@@ -147,6 +147,9 @@ fun authModule(config: ApplicationConfig): Module {
                 // not the constructor's default fresh instance, or observeRegistrationStatus would
                 // never see a live approve/deny push.
                 registrationBroadcaster = get(),
+                // Same sharing requirement for the policy fan-out: AdminUserServiceImpl notifies
+                // this singleton on a policy write; observeRegistrationPolicy watches it.
+                registrationPolicyBroadcaster = get(),
             )
         }
 

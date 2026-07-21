@@ -25,7 +25,7 @@ import listenup.composeapp.generated.resources.discover_what_others_are_listenin
  * Horizontal section showing books that other users are currently listening to.
  *
  * Displays each active session as a card with book cover and user avatar.
- * Data comes from Room database via SSE sync - no API calls.
+ * Data comes from Room database via the sync firehose - no API calls.
  */
 @Composable
 fun CurrentlyListeningSection(

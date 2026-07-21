@@ -22,7 +22,7 @@ import kotlinx.serialization.json.Json
  * Placing the shared serialization config here keeps that boundary structurally enforced.
  *
  * The client-side [com.calypsan.listenup.core.appJson] is a superset that adds
- * client-specific concerns (SSE polymorphic defaults) on top of this base configuration.
+ * client-specific concerns (sync-stream polymorphic defaults) on top of this base configuration.
  */
 public val contractJson: Json =
     Json {

@@ -4,7 +4,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * The canonical [Json] instance for the entire app. All [kotlinx.serialization] encoding and
- * decoding against wire payloads (HTTP, SSE, persisted operation payloads, secure storage)
+ * decoding against wire payloads (HTTP, RPC streams, persisted operation payloads, secure storage)
  * goes through this instance — see Finding 04 D5.
  *
  * Settings:

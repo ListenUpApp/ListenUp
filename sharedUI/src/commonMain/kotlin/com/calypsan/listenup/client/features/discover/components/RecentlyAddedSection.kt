@@ -24,7 +24,7 @@ import listenup.composeapp.generated.resources.discover_recently_added
  * Horizontal section showing recently added books.
  *
  * Displays books sorted by createdAt timestamp (newest first).
- * Data comes from Room database via SSE sync - no API calls.
+ * Data comes from Room database via the sync firehose - no API calls.
  */
 @Composable
 fun RecentlyAddedSection(

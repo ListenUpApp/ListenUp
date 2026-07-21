@@ -3,9 +3,7 @@ package com.calypsan.listenup.server.scanner
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
-import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.di.EventBusQualifiers
 import com.calypsan.listenup.server.module
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -13,7 +11,6 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -26,11 +23,9 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.EngineConnectorBuilder
 import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
-import org.koin.ktor.ext.get
 
 /**
  * Fixture that boots a real `Application.module()` against a temp library
@@ -48,22 +43,15 @@ import org.koin.ktor.ext.get
  * Use [populate] to seed the library before the server boots. The boot
  * triggers an initial full scan via `bootstrapScannerOnStartup` so by the
  * time the fixture is returned, [HttpClient] requests can race the
- * bootstrap scan — tests should account for that (e.g. wait for the SSE
- * `Completed` event, or call POST /api/v1/scan and accept that the first
- * call may return `AlreadyRunning` while bootstrap is still running).
+ * bootstrap scan — tests should account for that (e.g. poll
+ * `GET /api/v1/scan/last`, or call POST /api/v1/scan and accept that the
+ * first call may return `AlreadyRunning` while bootstrap is still running).
  */
 internal class ScannerEndToEndFixture private constructor(
     val libraryRoot: Path,
     private val server: EmbeddedServer<*, *>,
     val client: HttpClient,
     val baseUrl: String,
-    /**
-     * The production scan-event bus (the `/sse/scan` route's only collector). Exposed for
-     * test synchronisation only — a read of the singleton, not an override of the graph — so a
-     * test can await `subscriptionCount` to know the server-side SSE collector is live before
-     * firing a scan, instead of racing it with a blind delay.
-     */
-    val scanEventBus: MutableSharedFlow<ScanEvent>,
 ) : AutoCloseable {
     override fun close() {
         client.close()
@@ -131,17 +119,13 @@ internal class ScannerEndToEndFixture private constructor(
             val client =
                 HttpClient(CIO) {
                     install(ContentNegotiation) { json(contractJson) }
-                    install(SSE)
                     install(HttpTimeout) {
                         requestTimeoutMillis = REQUEST_TIMEOUT_MS
                     }
                     defaultRequest { bearerAuth(accessToken) }
                 }
 
-            val scanEventBus: MutableSharedFlow<ScanEvent> =
-                server.application.get(EventBusQualifiers.ScanEvents)
-
-            return ScannerEndToEndFixture(libraryRoot, server, client, baseUrl, scanEventBus)
+            return ScannerEndToEndFixture(libraryRoot, server, client, baseUrl)
         }
 
         private const val JWT_SECRET_LENGTH = 32

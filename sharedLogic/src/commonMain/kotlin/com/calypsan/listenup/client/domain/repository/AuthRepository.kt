@@ -23,7 +23,7 @@ import com.calypsan.listenup.api.result.AppResult
  * the REST-era polling fallback for "is my registration approved yet?" —
  * after the F4 product change, the canonical signal is "user retries
  * `login()` and it now succeeds when admin approval flips status to
- * ACTIVE." Real-time approval notifications come from the SSE
+ * ACTIVE." Real-time approval notifications come from the RPC
  * `RegistrationStatusStream`; there is no polling fallback in the auth
  * contract.
  */

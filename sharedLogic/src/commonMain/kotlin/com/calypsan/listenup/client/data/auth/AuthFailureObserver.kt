@@ -17,7 +17,7 @@ private val logger = KotlinLogging.logger {}
  * screen instead of looping a generic error snackbar.
  *
  * This is the single, transport-agnostic place that reacts to auth failure:
- * a 401 from any surface (REST, RPC, SSE) is typed as an [AuthError] at the
+ * a 401 from any surface (REST, RPC, streams) is typed as an [AuthError] at the
  * `ErrorMapper` boundary, emitted to the bus by its consumer, and resolved here.
  * The token-refresh flow remains the first line of defence; this catches the
  * 401s that survive a failed (or absent) refresh.
