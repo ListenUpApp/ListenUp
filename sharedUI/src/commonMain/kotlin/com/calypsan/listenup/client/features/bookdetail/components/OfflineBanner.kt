@@ -34,11 +34,12 @@ import listenup.composeapp.generated.resources.book_detail_retry
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Banner displayed when the server is unreachable.
+ * Banner displayed when the server looks unreachable.
  *
- * Communicates that streaming is unavailable while reassuring the user that
- * downloaded books still play. The Retry action delegates connection recovery
- * to the caller — this component has no networking concern of its own.
+ * A point-of-need hint: it informs that streaming may fail while reassuring the
+ * user that downloaded books still play — actions stay enabled (attempt-first).
+ * The Retry action delegates connection recovery to the caller — this component
+ * has no networking concern of its own.
  *
  * @param onRetryClick Called when the user taps the Retry button.
  * @param modifier Modifier applied to the outer surface.

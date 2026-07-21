@@ -255,9 +255,10 @@ struct BookDetailView: View {
         )
     }
 
-    /// The "server unreachable" banner — shown only when the book can't be reached AND isn't
-    /// downloaded (`showServerWarning`), explaining why Play/Download are disabled and offering a
-    /// Retry. Rendered above the resume bar on both the phone and wide layouts.
+    /// The "server unreachable" banner — shown only when the server can't be reached AND the book
+    /// isn't downloaded (`showServerWarning`). A point-of-need hint with a Retry: play/download
+    /// stay enabled (attempt-first) — a genuine failure surfaces when the attempt is made.
+    /// Rendered above the resume bar on both the phone and wide layouts.
     @ViewBuilder
     private func serverBanner(_ observer: BookDetailObserver) -> some View {
         if observer.showServerWarning {
