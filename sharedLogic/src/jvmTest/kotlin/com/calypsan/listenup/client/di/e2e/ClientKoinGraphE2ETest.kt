@@ -28,12 +28,13 @@ class ClientKoinGraphE2ETest :
             fixture.koin.koin.get<AuthSession>() shouldNotBe null
         }
 
-        test("registration SSE streams resolve — a defaulted-Long ctor param must not be Koin-resolved") {
-            // Regression guard: RegistrationPolicy/StatusStreamImpl take `connectTimeoutMillis: Long = DEFAULT`.
-            // A `singleOf(::…)` binding makes Koin resolve EVERY param via the graph (Kotlin defaults are
-            // ignored), demanding an unbound `Long` and throwing NoDefinitionFoundException at resolution.
-            // The cross-cutting graph test above skips missing-dep singletons, so it can't catch this —
-            // resolve these two explicitly. (Surfaced on CI as a DemoProfileBootTest failure post-merge.)
+        test("registration watch streams resolve from the graph") {
+            // Regression guard (historical): the SSE-era Impls took `connectTimeoutMillis: Long = DEFAULT`,
+            // and a `singleOf(::…)` binding made Koin resolve EVERY param via the graph (Kotlin defaults
+            // ignored), demanding an unbound `Long` and throwing NoDefinitionFoundException at resolution
+            // (surfaced on CI as a DemoProfileBootTest failure post-merge). Both Impls now ride the
+            // AuthServicePublic RpcChannel, but the explicit leaf resolution stays: the cross-cutting
+            // graph test above skips missing-dep singletons, so it can't catch a broken binding here.
             val fixture = autoClose(DiWiredClientFixture.start())
             fixture.koin.koin.get<RegistrationPolicyStream>() shouldNotBe null
             fixture.koin.koin.get<RegistrationStatusStream>() shouldNotBe null

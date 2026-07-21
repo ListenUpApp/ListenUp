@@ -40,7 +40,8 @@ private const val APP_SCOPE = "appScope"
  *  - [AuthSession] / [AuthSessionStore] — token storage + auth-state flow.
  *  - The four auth/invite `rpcChannel` singles — the split AuthService + InviteService contracts.
  *  - [AuthRepository] / [AuthRepositoryImpl] — the typed `AppResult` surface.
- *  - [RegistrationStatusStream] — SSE for "is my registration approved yet?".
+ *  - [RegistrationStatusStream] / [RegistrationPolicyStream] — the pre-auth RPC watches
+ *    ("is my registration approved yet?" / the live Sign Up toggle).
  *  - The four auth use cases.
  *
  * What deliberately stays in `Koin.kt`:
@@ -123,10 +124,10 @@ internal val clientAuthModule: Module
                 RegistrationStatusStreamImpl(channel = rpcChannel())
             }
 
-            // SSE stream for the live registration-policy (Sign Up toggle on the login screen). Same
-            // explicit-constructor rationale as the status stream above (defaulted `Long` vs `singleOf`).
+            // RPC watch for the live registration-policy (Sign Up toggle on the login screen) —
+            // rides the same AuthServicePublic channel as the status stream above.
             single<RegistrationPolicyStream> {
-                RegistrationPolicyStreamImpl(apiClientFactory = get(), serverConfig = get())
+                RegistrationPolicyStreamImpl(channel = rpcChannel())
             }
 
             // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here by the

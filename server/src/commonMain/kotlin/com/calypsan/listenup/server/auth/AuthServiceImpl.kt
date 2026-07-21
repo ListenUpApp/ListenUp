@@ -36,10 +36,13 @@ import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onSubscription
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.ExperimentalTime
@@ -108,6 +111,13 @@ class AuthServiceImpl(
      * notifies on a decision.
      */
     internal val registrationBroadcaster: RegistrationBroadcaster = RegistrationBroadcaster(),
+    /**
+     * Fan-out of admin policy writes to live [observeRegistrationPolicy] watchers. Defaulted for
+     * the direct-construction unit tests; production DI binds the shared Koin singleton — the
+     * same instance [com.calypsan.listenup.server.api.AdminUserServiceImpl] notifies on a
+     * policy change.
+     */
+    internal val registrationPolicyBroadcaster: RegistrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -356,6 +366,34 @@ class AuthServiceImpl(
             }
         }
 
+    /**
+     * Emits the current persisted instance-wide [RegistrationPolicy], then every change — a live
+     * broadcast lands instantly, and a periodic persisted re-read ([pollRegistrationPolicy])
+     * backstops a missed push. Never completes on its own; see the
+     * [AuthServicePublic.observeRegistrationPolicy] KDoc for the consumer contract.
+     */
+    override fun observeRegistrationPolicy(): Flow<RpcEvent<RegistrationPolicy>> =
+        flow {
+            // Same C3-style per-IP throttle as observeRegistrationStatus: each open subscription
+            // holds a poll loop for the connection's lifetime, so an unbounded stream of subscribe
+            // attempts is a resource-exhaustion vector of its own.
+            enforceRate(AuthRateBucket.OBSERVE_REGISTRATION_POLICY)?.let {
+                emit(RpcEvent.Error(it))
+                return@flow
+            }
+            // Emit the current policy the instant the broadcaster collector registers
+            // (onSubscription), closing the subscribe→notify window — a change pushed right after
+            // subscribe can't slip through (the broadcaster is replay = 0). The periodic re-read
+            // is the never-stranded net; distinctUntilChanged keeps an unchanged re-read silent.
+            emitAll(
+                merge(
+                    registrationPolicyBroadcaster.subscribe().onSubscription { emit(settings.registrationPolicy()) },
+                    pollRegistrationPolicy { settings.registrationPolicy() },
+                ).distinctUntilChanged()
+                    .map { RpcEvent.Data(it) },
+            )
+        }
+
     override suspend fun logout(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revoke(p.sessionId, p.userId)
@@ -399,6 +437,7 @@ class AuthServiceImpl(
             defaultGrantIssuer = defaultGrantIssuer,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
+            registrationPolicyBroadcaster = registrationPolicyBroadcaster,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -421,6 +460,7 @@ class AuthServiceImpl(
             defaultGrantIssuer = defaultGrantIssuer,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
+            registrationPolicyBroadcaster = registrationPolicyBroadcaster,
         )
 
     /**
@@ -446,6 +486,7 @@ class AuthServiceImpl(
             defaultGrantIssuer = defaultGrantIssuer,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
+            registrationPolicyBroadcaster = registrationPolicyBroadcaster,
         )
 
     /**
