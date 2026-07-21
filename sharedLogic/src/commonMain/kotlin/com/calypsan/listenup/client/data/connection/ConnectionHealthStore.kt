@@ -166,8 +166,11 @@ internal class ConnectionHealthStore(
                 // SessionExpired outranks Unreachable: unreachable has no ambient UI (offline-first),
                 // and it must never mask the actionable sign-in prompt while auth is dead.
                 dead -> ConnectionHealth.SessionExpired
+
                 since != null -> ConnectionHealth.Unreachable(since)
+
                 outdated != null -> outdated
+
                 else -> ConnectionHealth.Healthy
             }
         }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, ConnectionHealth.Healthy)

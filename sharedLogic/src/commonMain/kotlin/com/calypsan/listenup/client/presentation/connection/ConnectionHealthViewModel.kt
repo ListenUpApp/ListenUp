@@ -87,9 +87,12 @@ class ConnectionHealthViewModel internal constructor(
 private fun ConnectionHealth.toUi(): ConnectionHealthUi =
     when (this) {
         ConnectionHealth.Healthy -> ConnectionHealthUi.Hidden
+
         // Offline-first: an unreachable server is ambient noise, not a banner. Point-of-need
         // surfaces (book detail, player) consume ServerReachability directly.
         is ConnectionHealth.Unreachable -> ConnectionHealthUi.Hidden
+
         ConnectionHealth.SessionExpired -> ConnectionHealthUi.SessionExpired
+
         is ConnectionHealth.Outdated -> ConnectionHealthUi.Outdated(clientVersion, serverVersion)
     }
