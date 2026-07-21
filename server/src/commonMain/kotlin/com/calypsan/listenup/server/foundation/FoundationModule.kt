@@ -12,7 +12,6 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.resources.Resources
-import io.ktor.server.sse.SSE
 import io.ktor.server.websocket.WebSockets
 import kotlinx.rpc.krpc.ktor.server.Krpc
 
@@ -24,8 +23,8 @@ class FoundationDeps(
 
 /**
  * Installs the native-ready Ktor plugin stack — including the kotlinx.rpc transport over WebSocket
- * (`install(WebSockets)` + `install(Krpc)`) — plus the REST / SSE / auth smoke routes. The running
- * proof that the whole HTTP / RPC / SSE / auth substrate assembles and serves on Kotlin/Native.
+ * (`install(WebSockets)` + `install(Krpc)`) — plus the REST / auth smoke routes. The running
+ * proof that the whole HTTP / RPC / auth substrate assembles and serves on Kotlin/Native.
  *
  * Deliberately minimal: it passes the smoke collaborators directly via [deps] rather than wiring
  * `KoinIsolated` and the full route graph. The production server uses
@@ -46,7 +45,6 @@ fun Application.installFoundation(deps: FoundationDeps) {
     install(ContentNegotiation) { ktorJson(contractJson) }
     install(Resources)
     install(WebSockets)
-    install(SSE)
     install(Krpc)
     installCallId()
     installRateLimiting()

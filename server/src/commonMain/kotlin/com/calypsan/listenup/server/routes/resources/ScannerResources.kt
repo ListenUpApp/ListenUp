@@ -8,9 +8,8 @@ import io.ktor.resources.Resource
  *
  *  - `POST /api/v1/scan` triggers a full scan.
  *  - `GET /api/v1/scan/last` returns the most recent [ScanResult].
- *  - `GET /sse/scan` streams [ScanEvent]s via Server-Sent Events.
- *    (SSE doesn't fit the `@Resource` shape cleanly; kept as a separate
- *    route below for documentation.)
+ *
+ * Live scan progress is RPC-only (`ScannerService.observeProgress`).
  */
 @Resource("/api/v1/scan")
 class ScannerResources {

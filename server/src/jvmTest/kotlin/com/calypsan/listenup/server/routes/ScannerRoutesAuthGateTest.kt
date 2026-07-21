@@ -41,10 +41,8 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
-import io.ktor.server.sse.SSE
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -54,11 +52,11 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.withTimeout
 
 /**
- * Auth-gate contract tests for the scanner surface (REST/SSE + kotlinx.rpc).
+ * Auth-gate contract tests for the scanner surface (REST + kotlinx.rpc).
  *
  * The scanner used to be reachable with zero authentication. These tests pin the gate:
  *
- *  - Every `/api/v1/scan*` + `/sse/scan` endpoint requires a JWT (401 without one).
+ *  - Every `/api/v1/scan*` endpoint requires a JWT (401 without one).
  *  - `POST /api/v1/scan` (the disk-heavy full-scan trigger) additionally requires ADMIN/ROOT (403 for a MEMBER).
  *  - `GET /api/v1/scan/last` stays visible to any authenticated user (MEMBER → 200).
  *  - `ScannerService` is no longer on the public RPC mount, and is reachable on the authed mount with a JWT.
@@ -120,25 +118,15 @@ class ScannerRoutesAuthGateTest :
             }
         }
 
-        test("GET /sse/scan without bearer token returns 401") {
-            testApplication {
-                useIsolatedTestConfig()
-                application { module() }
-                val r: HttpResponse = client.get("/sse/scan")
-                r.status shouldBe HttpStatusCode.Unauthorized
-            }
-        }
-
         test("POST /api/v1/scan with a MEMBER principal returns 403") {
             testApplication {
                 application {
                     install(ServerContentNegotiation) { json(contractJson) }
                     install(Resources)
-                    install(SSE)
                     install(Authentication) {
                         testAuth(roleResolver = { if (it == "admin") UserRole.ADMIN else UserRole.MEMBER })
                     }
-                    routing { authenticate(JWT_PROVIDER) { scannerRoutes(FakeScannerService, emptyFlow()) } }
+                    routing { authenticate(JWT_PROVIDER) { scannerRoutes(FakeScannerService) } }
                 }
                 client.post("/api/v1/scan") { bearerAuth("member") }.status shouldBe HttpStatusCode.Forbidden
             }
@@ -149,11 +137,10 @@ class ScannerRoutesAuthGateTest :
                 application {
                     install(ServerContentNegotiation) { json(contractJson) }
                     install(Resources)
-                    install(SSE)
                     install(Authentication) {
                         testAuth(roleResolver = { if (it == "admin") UserRole.ADMIN else UserRole.MEMBER })
                     }
-                    routing { authenticate(JWT_PROVIDER) { scannerRoutes(FakeScannerService, emptyFlow()) } }
+                    routing { authenticate(JWT_PROVIDER) { scannerRoutes(FakeScannerService) } }
                 }
                 client.post("/api/v1/scan") { bearerAuth("admin") }.status shouldBe HttpStatusCode.OK
             }
@@ -164,11 +151,10 @@ class ScannerRoutesAuthGateTest :
                 application {
                     install(ServerContentNegotiation) { json(contractJson) }
                     install(Resources)
-                    install(SSE)
                     install(Authentication) {
                         testAuth(roleResolver = { if (it == "admin") UserRole.ADMIN else UserRole.MEMBER })
                     }
-                    routing { authenticate(JWT_PROVIDER) { scannerRoutes(FakeScannerService, emptyFlow()) } }
+                    routing { authenticate(JWT_PROVIDER) { scannerRoutes(FakeScannerService) } }
                 }
                 client.get("/api/v1/scan/last") { bearerAuth("member") }.status shouldBe HttpStatusCode.OK
             }

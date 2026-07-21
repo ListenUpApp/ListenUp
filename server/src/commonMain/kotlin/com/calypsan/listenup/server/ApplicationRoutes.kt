@@ -21,7 +21,6 @@ import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
-import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
@@ -65,7 +64,6 @@ import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
-import com.calypsan.listenup.server.routes.sseRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -76,7 +74,6 @@ import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.io.files.Path
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
@@ -96,7 +93,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val inviteService by inject<InviteServiceImpl>()
     val instanceService by inject<InstanceService>()
     val scannerService by inject<ScannerService>()
-    val eventBus by inject<SharedFlow<ScanEvent>>()
     val bookService by inject<BookService>()
     val contributorService by inject<ContributorService>()
     val seriesService by inject<SeriesService>()
@@ -139,7 +135,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     routing {
         healthRoutes()
         instanceRoutes(instanceService)
-        sseRoutes()
         authRoutes(authService)
         publicInviteRoutes(inviteService)
         rpcRoutes(rpcServices)
@@ -164,7 +159,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
-            scannerRoutes(scannerService, eventBus)
+            scannerRoutes(scannerService)
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
