@@ -31,7 +31,6 @@ struct LibraryView: View {
                 loadingState
             }
         }
-        .offlineTopBanner()
         .navigationTitle(String(localized: "common.library"))
         // While selecting, collapse the large "Library" title so the toolbar's principal item shows
         // the live "N selected" count (Photos idiom); the tab bar hides so the bottom action bar owns

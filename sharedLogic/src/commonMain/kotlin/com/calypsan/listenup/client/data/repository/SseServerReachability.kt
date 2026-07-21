@@ -17,8 +17,9 @@ import kotlinx.coroutines.flow.stateIn
  * Consolidating the two former oracles removes the split-brain where the shell banner could read
  * Healthy (no Retry) for up to 90s while book-detail read Unreachable ("download only") for the same
  * instant. Both surfaces now fold the same decision — Healthy/Outdated → [Reachability.Reachable];
- * Unreachable / SessionExpired → [Reachability.Unreachable] (the server isn't usably reachable, so
- * a book falls to download-only) — differing only in presentation. The health store already debounces
+ * Unreachable / SessionExpired → [Reachability.Unreachable] (the server doesn't look usably
+ * reachable; attempt-first means this only informs the point-of-need hint, it never gates
+ * play/download) — differing only in presentation. The health store already debounces
  * a transient reconnect flap (its 3s Unreachable window), so no extra presentation debounce is needed.
  *
  * [reconnect] is the never-stranded manual retry (wired through the unified recover seam,

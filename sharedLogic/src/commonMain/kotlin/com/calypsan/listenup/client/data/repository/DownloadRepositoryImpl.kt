@@ -185,7 +185,7 @@ internal class DownloadRepositoryImpl(
  * *all* of its non-DELETED rows are COMPLETED. This closes the "cancelled partial reports Downloaded"
  * bug: a book with some COMPLETED files and some CANCELLED files is a stopped partial, surfaced as
  * [BookDownloadStatus.Paused] (whose contract covers "user cancelled or system paused") so the UI
- * offers resume and availability withholds `canPlay`/emits the offline server warning — never a false
+ * offers resume and availability emits the offline server warning hint — never a false
  * "Downloaded". A book whose rows are *all* cancelled (nothing on disk) collapses to
  * [BookDownloadStatus.NotDownloaded] so the user can cleanly re-download.
  */

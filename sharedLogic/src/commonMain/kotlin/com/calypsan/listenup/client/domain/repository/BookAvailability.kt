@@ -8,7 +8,12 @@ import kotlinx.coroutines.flow.Flow
 interface BookAvailability {
     fun observe(bookId: BookId): Flow<State>
 
-    /** Derived availability for one book. */
+    /**
+     * Derived availability for one book.
+     *
+     * Attempt-first: [canPlay] and [canDownload] are never gated on server reachability —
+     * [showServerWarning] is the non-blocking point-of-need hint instead.
+     */
     data class State(
         val downloadStatus: BookDownloadStatus,
         val isPlaybackAvailable: Boolean,

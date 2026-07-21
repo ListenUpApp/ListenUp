@@ -37,11 +37,11 @@ private val logger = KotlinLogging.logger {}
  * signal slots: reachability (via [SyncEngineState]), auth liveness (via the injected
  * `authStateFlow`), and contract-compat evidence (peer version + behavioural parse failures).
  *
- * Precedence — [ConnectionHealth.Unreachable] > [ConnectionHealth.SessionExpired] >
- * [ConnectionHealth.Outdated] > [ConnectionHealth.Healthy] — mirrors the design's severity
- * ordering: a dead transport masks a dead session masks a version hint. Every signal resolves
- * independently as its own condition clears, so precedence never traps a state that should have
- * healed.
+ * Precedence — [ConnectionHealth.SessionExpired] > [ConnectionHealth.Unreachable] >
+ * [ConnectionHealth.Outdated] > [ConnectionHealth.Healthy]. [ConnectionHealth.Unreachable] has no
+ * ambient UI projection (offline-first: connectivity surfaces only at point of need), so it must
+ * never mask the actionable sign-in prompt while auth is dead. Every signal resolves independently
+ * as its own condition clears, so precedence never traps a state that should have healed.
  *
  * Absorbs the former `ConnectionIssueReporter`'s auth-edge fold as
  * `report(AppError)` — same Authenticated-guard + once-per-lapse dedup discipline, generalized to a
@@ -163,9 +163,14 @@ internal class ConnectionHealthStore(
     val state: StateFlow<ConnectionHealth> =
         combine(unreachableSince, authDead, compat) { since, dead, outdated ->
             when {
-                since != null -> ConnectionHealth.Unreachable(since)
+                // SessionExpired outranks Unreachable: unreachable has no ambient UI (offline-first),
+                // and it must never mask the actionable sign-in prompt while auth is dead.
                 dead -> ConnectionHealth.SessionExpired
+
+                since != null -> ConnectionHealth.Unreachable(since)
+
                 outdated != null -> outdated
+
                 else -> ConnectionHealth.Healthy
             }
         }.distinctUntilChanged().stateIn(scope, SharingStarted.Eagerly, ConnectionHealth.Healthy)

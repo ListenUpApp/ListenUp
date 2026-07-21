@@ -12,9 +12,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
 /**
- * Derives [BookAvailability.State] from download status, server reachability, network
- * metering, and the wifi-only preference. Pulled out of BookDetailViewModel so the
- * availability logic is independently testable and the VM stays lean.
+ * Derives [BookAvailability.State] from download status, network metering, and the
+ * wifi-only preference. Pulled out of BookDetailViewModel so the availability logic is
+ * independently testable and the VM stays lean.
+ *
+ * Attempt-first: server reachability never gates `canPlay`/`canDownload`. It only feeds
+ * the non-blocking `showServerWarning` hint — a genuine failure surfaces at point of need
+ * (player error + retry, download UI), not as a pre-emptive block on an unreliable oracle.
  */
 internal class DefaultBookAvailability(
     private val downloadRepository: DownloadRepository,
@@ -38,8 +42,11 @@ internal class DefaultBookAvailability(
             BookAvailability.State(
                 downloadStatus = downloadStatus,
                 isPlaybackAvailable = playbackAvailable,
-                canPlay = isFullyDownloaded || reachability != Reachability.Unreachable,
-                canDownload = playbackAvailable && reachability == Reachability.Reachable,
+                // Attempt-first: play and download are never pre-emptively blocked on the reachability
+                // oracle. A genuine failure surfaces at point of need (player error + retry, download
+                // UI) — the oracle only informs the non-blocking showServerWarning hint below.
+                canPlay = true,
+                canDownload = playbackAvailable,
                 showServerWarning = reachability == Reachability.Unreachable && !isFullyDownloaded,
                 isWaitingForWifi = isQueued && wifiOnly && !unmetered,
             )

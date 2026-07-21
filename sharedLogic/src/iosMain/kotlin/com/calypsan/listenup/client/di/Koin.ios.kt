@@ -30,7 +30,6 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -316,8 +315,6 @@ object KoinHelper {
     fun getSleepTimerManager(): SleepTimerManager = resolve(SleepTimerManager::class)
 
     fun getPlaybackPreparer(): PlaybackPreparer = resolve(PlaybackPreparer::class)
-
-    fun getServerReachability(): ServerReachability = resolve(ServerReachability::class)
 
     fun getPlaybackBandwidthCoordinator(): PlaybackBandwidthCoordinator = resolve(PlaybackBandwidthCoordinator::class)
 

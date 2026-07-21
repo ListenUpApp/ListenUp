@@ -43,7 +43,6 @@ struct SearchView: View {
                 Color.luSurface
             }
         }
-        .offlineTopBanner()
         .navigationTitle(String(localized: "common.search"))
         .navigationBarTitleDisplayMode(.large)
         .onAppear {

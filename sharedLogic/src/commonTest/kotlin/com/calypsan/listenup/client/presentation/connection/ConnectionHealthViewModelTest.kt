@@ -11,8 +11,6 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
-import com.calypsan.listenup.client.domain.repository.Reachability
-import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.version.FakeClientIdentity
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
@@ -74,32 +72,29 @@ class ConnectionHealthViewModelTest :
         beforeTest { Dispatchers.setMain(UnconfinedTestDispatcher()) }
         afterTest { Dispatchers.resetMain() }
 
-        test("ConnectionHealth maps to the matching ConnectionHealthUi case, precedence-ordered") {
+        test("ConnectionHealth maps to ConnectionHealthUi — domain Unreachable renders as Hidden") {
             runTest {
                 val engineState = SyncEngineState() // starts Disconnected
                 val authState = MutableStateFlow<AuthState>(AuthState.SessionLapsed(u1))
                 val store = buildStore(scope = backgroundScope, engineState = engineState, authState = authState)
                 store.reportCompat("drift")
-                val reachability = mock<ServerReachability>()
-                val viewModel = ConnectionHealthViewModel(healthStore = store, serverReachability = reachability)
+                val viewModel = ConnectionHealthViewModel(healthStore = store)
 
                 viewModel.state.test {
-                    // Healthy → Hidden: the store's Eagerly seed value, captured before its
-                    // derivation coroutine has run.
+                    // Healthy → Hidden: the store's Eagerly seed value.
                     awaitItem() shouldBe ConnectionHealthUi.Hidden
 
                     advanceTimeBy(3_100)
-                    val unreachableUi = awaitItem()
-                    unreachableUi.shouldBeInstanceOf<ConnectionHealthUi.Unreachable>()
-                    val unreachableDomain = store.state.value
-                    unreachableDomain.shouldBeInstanceOf<ConnectionHealth.Unreachable>()
-                    (unreachableUi as ConnectionHealthUi.Unreachable).sinceMillis shouldBe
-                        (unreachableDomain as ConnectionHealth.Unreachable).sinceMillis
-
-                    store.reportProbe(true)
                     awaitItem() shouldBe ConnectionHealthUi.SessionExpired
 
+                    // Re-authenticating reveals the domain Unreachable state — which the UI
+                    // projection deliberately hides (offline-first: no ambient offline banner;
+                    // point-of-need surfaces consume ServerReachability directly).
                     authState.value = AuthState.Authenticated(u1, s1)
+                    awaitItem() shouldBe ConnectionHealthUi.Hidden
+                    store.state.value.shouldBeInstanceOf<ConnectionHealth.Unreachable>()
+
+                    store.reportProbe(true)
                     awaitItem() shouldBe ConnectionHealthUi.Outdated(clientVersion = "0.6.0", serverVersion = "?")
 
                     cancelAndConsumeRemainingEvents()
@@ -110,8 +105,7 @@ class ConnectionHealthViewModelTest :
         test("signIn emits NavigateToSignIn") {
             runTest {
                 val store = buildStore(scope = backgroundScope)
-                val reachability = mock<ServerReachability>()
-                val viewModel = ConnectionHealthViewModel(healthStore = store, serverReachability = reachability)
+                val viewModel = ConnectionHealthViewModel(healthStore = store)
 
                 viewModel.events.test {
                     viewModel.signIn()
@@ -120,29 +114,12 @@ class ConnectionHealthViewModelTest :
             }
         }
 
-        test("retry delegates to ServerReachability.retry") {
-            runTest {
-                val store = buildStore(scope = backgroundScope)
-                val reachability =
-                    mock<ServerReachability> {
-                        every { state } returns MutableStateFlow(Reachability.Unreachable)
-                        everySuspend { retry() } returns Unit
-                    }
-                val viewModel = ConnectionHealthViewModel(healthStore = store, serverReachability = reachability)
-
-                viewModel.retry()
-
-                verifySuspend { reachability.retry() }
-            }
-        }
-
         test("dismiss delegates to ConnectionHealthStore.dismissOutdated") {
             runTest {
                 val localPreferences =
                     fakeLocalPreferences(initialPeerServerVersion = "0.7.0", initialPeerServerApi = "v1")
                 val store = buildStore(scope = backgroundScope, localPreferences = localPreferences)
-                val reachability = mock<ServerReachability>()
-                val viewModel = ConnectionHealthViewModel(healthStore = store, serverReachability = reachability)
+                val viewModel = ConnectionHealthViewModel(healthStore = store)
 
                 viewModel.dismiss()
 
