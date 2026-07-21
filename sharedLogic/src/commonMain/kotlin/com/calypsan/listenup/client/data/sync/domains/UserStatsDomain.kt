@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.data.local.db.UserStatsEntity
  * client replaces its row unconditionally (server-wins, no local-only columns).
  * [WriteTier.ServerOwned]: no client-originated writes exist.
  *
- * SSE `Deleted` is declared [DeleteSemantics.CatchUpOnly]: the server never
+ * Firehose `Deleted` is declared [DeleteSemantics.CatchUpOnly]: the server never
  * tombstones stats (the row lives for the user's lifetime); a defensive frame
  * converges via catch-up. Full digest participation.
  *

@@ -13,7 +13,7 @@ private val logger = KotlinLogging.logger {}
  * Delegates to the RPC-backed [ContributorEditRepository] — mutation belongs on the
  * edit repo per the established observe/edit split. The server hard-deletes the
  * junction rows, soft-deletes the contributor, and the authoritative state flows
- * back via SSE (no optimistic Room write here).
+ * back via the firehose (no optimistic Room write here).
  *
  * Usage:
  * ```kotlin

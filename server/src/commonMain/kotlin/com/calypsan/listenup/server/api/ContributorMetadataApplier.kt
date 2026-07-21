@@ -35,7 +35,7 @@ private val log = loggerFor<ContributorMetadataApplier>()
  * Audiobookshelf does with the same Audnexus upstream.
  *
  * All writes go through the substrate's `upsert`, so revisions are bumped and
- * SSE change events are published automatically.
+ * Sync change events are published automatically.
  */
 internal class ContributorMetadataApplier(
     private val contributorRepository: ContributorRepository,

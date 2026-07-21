@@ -399,7 +399,7 @@ internal interface SearchDao {
     /**
      * A change signal for the searchable content tables. Room re-emits on ANY write to `books`,
      * `contributors`, `series`, or `genres` (the tables [refreshSince][com.calypsan.listenup.client.data.sync.FtsPopulatorContract.refreshSince]
-     * reindexes from), so a live SSE edit that lands in Room drives a debounced FTS refresh — the
+     * reindexes from), so a live firehose edit that lands in Room drives a debounced FTS refresh — the
      * emitted value is irrelevant, only the invalidation matters. Table-level, so an UPDATE (a title
      * edit, a revision bump) fires it too, not only inserts/deletes.
      */

@@ -22,7 +22,7 @@ private val logger = KotlinLogging.logger {}
  * Reads collections reactively from the local Room mirror via
  * [CollectionRepository.observeCollections] (the sync engine keeps it current).
  * Create and delete dispatch to the repository, which forwards to the
- * `CollectionService` RPC; the resulting SSE echo updates Room, so the list
+ * `CollectionService` RPC; the resulting firehose echo updates Room, so the list
  * refreshes itself — there is no manual refresh path.
  *
  * `create` needs a library id (the new contract is library-scoped); ListenUp's

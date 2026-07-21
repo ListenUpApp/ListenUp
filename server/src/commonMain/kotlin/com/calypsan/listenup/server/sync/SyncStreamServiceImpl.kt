@@ -25,25 +25,24 @@ import kotlinx.coroutines.flow.onSubscription
 
 private val log = KotlinLogging.logger("com.calypsan.listenup.server.sync.SyncStreamService")
 
-/** Production heartbeat cadence — the RPC equivalent of the SSE `:keepalive` interval. */
+/** Production heartbeat cadence; clients bound their read-idle watchdog at 3× this interval. */
 private const val HEARTBEAT_INTERVAL_MILLIS = 25_000L
 
 /**
- * The RPC firehose — [SyncStreamService] over the same [ChangeBus] the SSE route streams from,
- * a faithful port of `streamFirehose`/`collectFirehoseEvents` delivery semantics: replay-then-live
- * ordering, per-user + per-row access gating (via the shared [firehoseGateReason] chain), and
- * cursor-stale detection with the attach-time re-check that closes the eviction race.
+ * The firehose — [SyncStreamService] streaming the [ChangeBus] tail over the RPC socket:
+ * replay-then-live ordering, per-user + per-row access gating (via the shared
+ * [firehoseGateReason] chain), and cursor-stale detection with the attach-time re-check that
+ * closes the eviction race.
  *
- * Where the SSE path writes `event:`/`id:`/`data:` lines, this emits
- * `RpcEvent.Data(SyncFrame(domain, revision, json))` using the same serializers. Differences by
- * design: an immediate [SyncControl.Heartbeat] hello on subscribe (the client latches Connected on
- * it), a heartbeat frame every 25s (replacing the `:keepalive` comment), resume via the
- * `sinceRevision` parameter (was `Last-Event-ID`), and expected terminal conditions
- * ([SyncControl.CursorStale]) as frames + completion rather than errors. The C2 session-liveness
- * gate lives in the registration's `streamLiveness` predicate, not here.
+ * Delivery shape: `RpcEvent.Data(SyncFrame(domain, revision, json))`, one frame per bus event,
+ * with an immediate [SyncControl.Heartbeat] hello on subscribe (the client latches Connected on
+ * it), a heartbeat frame every 25s (the client's liveness signal), resume via the
+ * `sinceRevision` parameter, and expected terminal conditions ([SyncControl.CursorStale]) as
+ * frames + completion rather than errors. The C2 session-liveness gate lives in the
+ * registration's `streamLiveness` predicate, not here.
  *
- * The [bookAccessPolicy] thunk mirrors the SSE route: it is resolved only when a book-gated
- * content event must be probed, so harnesses driving only ungated domains need no policy.
+ * The [bookAccessPolicy] thunk is resolved only when a book-gated content event must be probed,
+ * so harnesses driving only ungated domains need no policy.
  */
 internal class SyncStreamServiceImpl(
     private val bus: ChangeBus,
@@ -70,8 +69,8 @@ internal class SyncStreamServiceImpl(
     /**
      * One connection's frame stream: stale pre-check, hello, then the merged live tail
      * (data + control + heartbeat). The attach-time [CursorStaleAtAttach] marker thrown inside
-     * [dataFrames] surfaces here as a terminal CursorStale frame — an expected condition, never
-     * an error on the wire.
+     * [dataFrames] surfaces here as a terminal CursorStale frame — an expected condition,
+     * never an error on the wire.
      */
     private fun frames(
         caller: UserPrincipal,
@@ -107,11 +106,11 @@ internal class SyncStreamServiceImpl(
         }.onCompletion { log.info { "rpc sync stream closed: userId=${caller.userId.value}" } }
 
     /**
-     * The [ChangeBus] data tail `(userId, role)` is entitled to see — the port of
-     * `collectFirehoseEvents`. Skips events at or below [sinceRevision] (already-delivered
-     * replay), events for other users, and access-gated content. The `onSubscription` re-check
-     * throws [CursorStaleAtAttach] when a burst evicted past the cursor between the caller's
-     * pre-subscribe snapshot and the moment this collector actually attaches.
+     * The [ChangeBus] data tail `(userId, role)` is entitled to see. Skips events at or below
+     * [sinceRevision] (already-delivered replay), events for other users, and access-gated
+     * content. The `onSubscription` re-check throws [CursorStaleAtAttach] when a burst evicted
+     * past the cursor between the caller's pre-subscribe snapshot and the moment this collector
+     * actually attaches.
      */
     private fun dataFrames(
         userId: String,
@@ -151,8 +150,7 @@ internal class SyncStreamServiceImpl(
 
     /**
      * The bus's control channel scoped to [userId]: frames addressed to this subscriber plus
-     * content-free BROADCAST frames, delivered as CONTROL [SyncFrame]s — the port of the SSE
-     * `event: control` side-job.
+     * content-free BROADCAST frames, delivered as CONTROL [SyncFrame]s.
      */
     private fun controlFrames(userId: String): Flow<SyncFrame> =
         bus
@@ -161,8 +159,8 @@ internal class SyncStreamServiceImpl(
             .map { controlFrame(it.control) }
 
     /**
-     * A [SyncControl.Heartbeat] CONTROL frame every [heartbeatIntervalMillis] ms — the RPC
-     * replacement for the SSE `:keepalive` comment, doubling as the client's liveness watchdog.
+     * A [SyncControl.Heartbeat] CONTROL frame every [heartbeatIntervalMillis] ms — keeps
+     * NAT/load-balancer paths warm and doubles as the client's liveness watchdog signal.
      */
     private fun heartbeatFrames(): Flow<SyncFrame> =
         flow {
@@ -193,3 +191,15 @@ internal class SyncStreamServiceImpl(
 private class CursorStaleAtAttach(
     val floor: Long,
 ) : Exception("RPC firehose cursor stale at ChangeBus subscription attach")
+
+/**
+ * Public construction seam for the RPC firehose, mirroring the `createBookService` idiom: the
+ * impl stays `internal`, cross-module test harnesses (the client-engine e2e fixtures in
+ * `:sharedLogic`) mount the service through this factory, scoped to a per-connection [principal]
+ * exactly as the production RPC registration does via `copyWith`.
+ */
+fun createSyncStreamService(
+    bus: ChangeBus,
+    bookAccessPolicy: () -> BookAccessPolicy,
+    principal: PrincipalProvider,
+): SyncStreamService = SyncStreamServiceImpl(bus = bus, bookAccessPolicy = bookAccessPolicy, principal = principal)

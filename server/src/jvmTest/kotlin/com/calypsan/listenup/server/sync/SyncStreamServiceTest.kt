@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.SyncControl
@@ -32,11 +33,12 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 /**
- * Impl-level coverage for [SyncStreamServiceImpl] — the RPC firehose. Mirrors the SSE suite's
- * scenarios ([SyncFirehoseTest], [SyncFirehoseHeartbeatTest], [LibraryFolderSyncAccessTest])
- * against the service directly: a real [ChangeBus] fed by real SQLDelight repositories, no
- * transport in the loop. The `bookAccessPolicy` thunk deliberately throws — the domains driven
- * here (`tags`, `library_folders`) must never resolve it, mirroring the SSE harness guarantee.
+ * Impl-level coverage for [SyncStreamServiceImpl] — the RPC firehose — against the service
+ * directly: a real [ChangeBus] fed by real SQLDelight repositories, no transport in the loop.
+ * Covers delivery ordering, resume, cursor-stale (pre-check AND the attach-time re-check),
+ * heartbeat cadence, access gating, control routing, and the null-principal refusal. The
+ * `bookAccessPolicy` thunk deliberately throws — the domains driven here (`tags`,
+ * `library_folders`) must never resolve it.
  */
 class SyncStreamServiceTest :
     FunSpec({
@@ -178,6 +180,54 @@ class SyncStreamServiceTest :
                     frames[1].domain shouldBe "tags"
                     frames[1].revision shouldBe 2L
                     frames[1].json shouldContain """"name":"beta""""
+                }
+            }
+        }
+
+        test("a missing principal is refused with a typed PermissionDenied error") {
+            runTest {
+                val events =
+                    SyncStreamServiceImpl(
+                        bus = ChangeBus(),
+                        bookAccessPolicy = { error("must not resolve the policy without a caller") },
+                        principal = PrincipalProvider.None,
+                    ).observeEvents(sinceRevision = null).toList()
+
+                events.size shouldBe 1
+                val error = events[0].shouldBeInstanceOf<RpcEvent.Error>().error
+                error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+            }
+        }
+
+        test("a floor that advances between pre-check and bus attach yields CursorStale, not a silent gap") {
+            withSqlDatabase {
+                runTest {
+                    val bus = ChangeBus()
+                    val tags = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                    tags.upsert(Tag("t1", "n1", "n1", 0, 0)) // revision 1 — the resume cursor
+                    tags.upsert(Tag("t2", "n2", "n2", 0, 0)) // revision 2 — keeps the pre-check fresh
+
+                    // The eviction race, staged deterministically: the hello frame is emitted AFTER
+                    // the pre-check passed and BEFORE the merged tail's ChangeBus subscription
+                    // attaches. `emit` suspends into this collector, so a burst published while
+                    // handling the hello lands exactly in that pre-check → attach gap — DROP_OLDEST
+                    // evicts past sinceRevision=1 with no live signal. The `onSubscription` re-check
+                    // in the data tail is what must catch it (the port of SERVER-SYNC-02's SSE test).
+                    val frames = mutableListOf<SyncFrame>()
+                    streamService(bus).observeEvents(sinceRevision = 1L).collect { event ->
+                        val frame = event.shouldBeInstanceOf<RpcEvent.Data<SyncFrame>>().value
+                        if (frames.isEmpty()) {
+                            repeat(300) { i -> tags.upsert(Tag("burst-$i", "b$i", "b$i", 0, 0)) }
+                        }
+                        frames += frame
+                    }
+
+                    // collect returning proves the stream terminated — CursorStale is terminal,
+                    // never a silent subscription to a gapped tail.
+                    frames.size shouldBe 2
+                    decodeControl(frames[0].json) shouldBe SyncControl.Heartbeat
+                    val stale = decodeControl(frames[1].json).shouldBeInstanceOf<SyncControl.CursorStale>()
+                    stale.lastKnownRevision shouldBe bus.oldestRetainedRevision()!!
                 }
             }
         }

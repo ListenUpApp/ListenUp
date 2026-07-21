@@ -203,7 +203,7 @@ private fun buildReconcileEngine(
         state = state,
         store = store,
         catchUp = catchUp,
-        sseClient = sse,
+        syncStreamClient = sse,
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),

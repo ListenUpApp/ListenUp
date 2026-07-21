@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
  * [com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain] respectively.
  *
  * Mutations (create, rename, delete, add/remove folder) go through the `LibraryAdminService`
- * RPC factory on the server and arrive here via SSE catch-up.
+ * RPC factory on the server and arrive here via sync catch-up.
  *
  * Part of the domain layer — implementations live in the data layer.
  */

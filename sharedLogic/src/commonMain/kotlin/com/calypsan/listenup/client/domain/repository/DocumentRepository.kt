@@ -15,7 +15,7 @@ private val documentRepositoryLogger = KotlinLogging.logger {}
  * Repository for accessing supplementary book documents (PDFs, ebooks, etc.).
  *
  * Documents are synced alongside their parent book — the metadata rows arrive via
- * the standard SSE sync flow. Bytes are NOT pre-fetched; they are downloaded on
+ * the standard sync flow. Bytes are NOT pre-fetched; they are downloaded on
  * demand and cached on disk by [ensureLocal].
  *
  * The cache model mirrors cover images: file presence on disk = "downloaded". There

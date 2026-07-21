@@ -9,9 +9,9 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
- * Unit coverage for [staleCursorFloor] — the pure predicate both [streamFirehose]'s pre-subscribe
- * fast path and [collectFirehoseEvents]'s attach-time re-check share (SERVER-SYNC-02). Isolating
- * it from the SSE session lets the staleness math itself be pinned deterministically: the actual
+ * Unit coverage for [staleCursorFloor] — the pure predicate both [SyncStreamServiceImpl]'s
+ * pre-subscribe fast path and its attach-time re-check share (SERVER-SYNC-02). Isolating
+ * it from the stream session lets the staleness math itself be pinned deterministically: the actual
  * race the attach-time re-check closes (a burst landing between the pre-check snapshot and the
  * moment the [ChangeBus] subscription attaches) is not reliably reproducible through
  * `testApplication`'s real dispatcher, so this is the level that check's correctness is proven at.

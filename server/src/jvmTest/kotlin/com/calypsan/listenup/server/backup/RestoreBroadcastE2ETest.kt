@@ -8,15 +8,18 @@ import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.api.sync.SyncFrame
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.module
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.sse.SSE
-import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -28,9 +31,11 @@ import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeout
+import org.koin.ktor.ext.inject
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -48,15 +53,15 @@ import kotlinx.rpc.withService
  * diverge until a lucky reconnect. The fix broadcasts `SyncControl.LibraryDataChanged` on the
  * firehose after a successful restore, so a second device re-derives live.
  *
- * This test pins the SERVER half end-to-end: a second device's open `GET /api/v1/sync/events`
- * session receives the `LibraryDataChanged` control frame when an admin-triggered restore
- * completes against the full server module. The client-side reaction to that frame
+ * This test pins the SERVER half end-to-end: a second device's open RPC firehose subscription
+ * (`SyncStreamService.observeEvents`, observed via the `rpcFirehose` test helper over the app's
+ * real `ChangeBus`) receives the `LibraryDataChanged` control frame when an admin-triggered
+ * restore completes against the full server module. The client-side reaction to that frame
  * (`lifecycleReconcile(force = true)` → digest reconcile) is already pinned by
  * `SyncEventDispatcherTest` and the digest-convergence E2Es — that half is out of scope here.
  *
- * Timing note: the open SSE session counts as an in-flight request, so the restore stalls the
- * full ~10 s `MaintenanceState.drain()` timeout before swapping the DB. The 30 s await budgets
- * for that stall.
+ * Timing note: the restore drains in-flight requests (`MaintenanceState.drain()`) before
+ * swapping the DB; the 30 s await budgets for that stall on a loaded CI runner.
  */
 class RestoreBroadcastE2ETest :
     FunSpec({
@@ -88,7 +93,8 @@ class RestoreBroadcastE2ETest :
                     application { module() }
 
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val accessToken = restClient.setupRoot()
+                    val rootSession = restClient.setupRoot()
+                    val accessToken = rootSession.accessToken.value
 
                     // Admin device: open a BackupService RPC proxy and create a backup to restore.
                     val rpcClient = createClient { installKrpc() }
@@ -105,37 +111,33 @@ class RestoreBroadcastE2ETest :
                             .shouldBeInstanceOf<AppResult.Success<BackupSummary>>()
                             .data
 
-                    // Device B: subscribe to the firehose BEFORE the restore, then trigger the restore
-                    // from inside the session so the collector and the restore run concurrently.
-                    val sseClient = createClient { install(SSE) }
-                    sseClient.sse("/api/v1/sync/events", request = { bearerAuth(accessToken) }) {
-                        coroutineScope {
-                            val controlFrame =
-                                async {
-                                    incoming.first { frame ->
-                                        frame.event == "control" &&
-                                            frame.data?.let {
-                                                runCatching {
-                                                    contractJson.decodeFromString(SyncControl.serializer(), it)
-                                                }.getOrNull()
-                                            } is SyncControl.LibraryDataChanged
-                                    }
-                                }
+                    // Device B: subscribe to the firehose BEFORE the restore, then trigger the
+                    // restore while the collector runs concurrently. LibraryDataChanged rides the
+                    // bus's replay-free control channel, so the subscription must be attached before
+                    // the broadcast fires.
+                    val bus by application.inject<ChangeBus>()
+                    val policy by application.inject<BookAccessPolicy>()
+                    coroutineScope {
+                        val controlFrame =
+                            async {
+                                rpcFirehose(bus, rootPrincipal(rootSession.user.id.value), bookAccessPolicy = { policy })
+                                    .filter { it.domain == SyncFrame.CONTROL }
+                                    .map { contractJson.decodeFromString(SyncControl.serializer(), it.json) }
+                                    .first { it is SyncControl.LibraryDataChanged }
+                            }
 
-                            // Let the server-side firehose control-subscriber register before the
-                            // restore emits — the control channel has replay = 0, so a broadcast
-                            // emitted before subscription would be missed.
-                            delay(500)
+                        // Deterministic attach barrier: the control channel has replay = 0, so a
+                        // broadcast emitted before subscription would be missed. Await the actual
+                        // subscriber registration instead of sleeping.
+                        bus.controlSubscriptionCount.first { it > 0 }
 
-                            backupService
-                                .restoreBackup(summary.id)
-                                .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+                        backupService
+                            .restoreBackup(summary.id)
+                            .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
 
-                            // The 30 s budget covers the ~10 s drain stall (the open SSE session
-                            // counts as in-flight) before the swap + broadcast.
-                            val frame = withTimeout(30_000) { controlFrame.await() }
-                            frame.event shouldBe "control"
-                        }
+                        // The 30 s budget covers the maintenance drain of in-flight requests
+                        // before the swap + broadcast.
+                        withTimeout(30_000) { controlFrame.await() } shouldBe SyncControl.LibraryDataChanged
                     }
                 }
             } finally {
@@ -145,14 +147,15 @@ class RestoreBroadcastE2ETest :
     })
 
 /**
- * Registers the first user as ROOT via `/api/v1/auth/setup` and returns the access token.
+ * Registers the first user as ROOT via `/api/v1/auth/setup` and returns the session — the
+ * access token drives the RPC calls; the user id scopes the firehose subscriber's principal.
  * Mirrors the `setupRootForBackup` helper in `BackupUploadRestoreE2ETest`.
  */
-private suspend fun HttpClient.setupRoot(): String {
+private suspend fun HttpClient.setupRoot(): AuthSession {
     val result =
         post("/api/v1/auth/setup") {
             contentType(ContentType.Application.Json)
             setBody(RegisterRequest(email = "root@restore-broadcast.test", password = "password1234", displayName = "Root"))
         }.body<AppResult<AuthSession>>()
-    return (result as AppResult.Success<AuthSession>).data.accessToken.value
+    return (result as AppResult.Success<AuthSession>).data
 }

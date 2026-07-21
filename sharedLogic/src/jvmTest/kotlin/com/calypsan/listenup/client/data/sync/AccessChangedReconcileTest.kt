@@ -800,7 +800,7 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                     state = state,
                     store = store,
                     catchUp = fakeCatchUp,
-                    sseClient = FakeReconcileSse(),
+                    syncStreamClient = FakeReconcileSse(),
                     reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                     dispatcher = dispatcher,
                     presenceRefreshSignal = presence,

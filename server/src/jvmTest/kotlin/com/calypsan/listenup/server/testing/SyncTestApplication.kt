@@ -43,7 +43,6 @@ import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.authenticate
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
-import io.ktor.server.sse.SSE
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import org.koin.dsl.module
@@ -72,6 +71,8 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
 internal data class SyncTestScope(
     val client: HttpClient,
     val tagRepo: TagRepository,
+    /** The server-side change bus; tests observe the live tail via [rpcFirehose] over it. */
+    val bus: ChangeBus,
     /** The SQLDelight database the wired repositories run on; also for direct seed helpers. */
     val sqlDb: ListenUpDatabase,
     private val userScopedRepoOrNull: UserScopedFixtureRepository?,
@@ -123,7 +124,7 @@ internal data class SyncTestScope(
  * [withSqlDatabase]): [DatabaseFactory.init] migrates the schema, then a SQLDelight
  * [SqlDriver] + [ListenUpDatabase] are opened over the same file. It wires a small
  * Koin module with the SQLDelight database, `ChangeBus`, and a global [TagRepository],
- * installs `ContentNegotiation`, `SSE`, and a test [Authentication] provider, then mounts
+ * installs `ContentNegotiation` and a test [Authentication] provider, then mounts
  * [syncRoutes] inside `authenticate(JWT_PROVIDER)` — mirroring production, where the sync
  * routes are auth-gated.
  *
@@ -146,14 +147,9 @@ internal data class SyncTestScope(
  *   tests of the `POST /api/v1/playback/events` → stats materialization → sync catch-up path.
  */
 internal fun withTestApplication(
-    heartbeatIntervalMillis: Long? = null,
     userScoped: Boolean = false,
     playbackPositions: Boolean = false,
     playbackEvents: Boolean = false,
-    // C2 firehose gate: a controllable session-liveness probe + short poll so a test can revoke a
-    // session mid-stream and assert the firehose severs. Null leaves the gate inert (default).
-    sessionLiveness: com.calypsan.listenup.server.auth.SessionLiveness? = null,
-    livenessPollMillis: Long = 25_000L,
     block: suspend SyncTestScope.() -> Unit,
 ) {
     testApplication {
@@ -234,7 +230,6 @@ internal fun withTestApplication(
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
-            install(SSE)
             if (playbackEvents) install(Resources)
             install(Authentication) { testAuth() }
             install(Koin) {
@@ -257,11 +252,7 @@ internal fun withTestApplication(
             }
             routing {
                 authenticate(JWT_PROVIDER) {
-                    syncRoutes(
-                        heartbeatIntervalMillis = heartbeatIntervalMillis ?: 25_000L,
-                        sessionLiveness = sessionLiveness,
-                        livenessPollMillis = livenessPollMillis,
-                    )
+                    syncRoutes()
                     if (playbackService != null) playbackRoutes(playbackService)
                 }
             }
@@ -270,13 +261,13 @@ internal fun withTestApplication(
         val jsonClient =
             createClient {
                 install(ContentNegotiation) { json(contractJson) }
-                install(io.ktor.client.plugins.sse.SSE)
             }
 
         try {
             SyncTestScope(
                 client = jsonClient,
                 tagRepo = tagRepo,
+                bus = bus,
                 sqlDb = sqlDb,
                 userScopedRepoOrNull = userScopedRepo,
                 playbackPositionRepoOrNull = playbackPositionRepo,

@@ -25,7 +25,7 @@ internal enum class AuthRecoveryOutcome {
  * Recovers RPC authentication when the `/api/rpc/authed` WebSocket handshake is rejected with 401 —
  * the bearer token that authorized the upgrade expired. It refreshes the token via the shared
  * [RefreshAccessToken] seam and rebuilds the request client so its Bearer provider re-reads the new
- * token (the streaming/SSE client is deliberately spared via [ApiClientFactory.invalidateRequestClientOnly]).
+ * token (the streaming client is deliberately spared via [ApiClientFactory.invalidateRequestClientOnly]).
  *
  * A [Mutex] serializes concurrent refreshes so they don't race the token store or stampede the
  * refresh endpoint; it does not deduplicate them into a single call across factories (each 401
@@ -56,7 +56,7 @@ internal class RpcAuthRecoveryImpl(
             when (val result = refreshAccessToken()) {
                 is AppResult.Success -> {
                     // Rebuild ONLY the request client so its Bearer provider re-reads the refreshed
-                    // token; the long-lived streaming/SSE client is untouched.
+                    // token; the long-lived streaming client is untouched.
                     apiClientFactory.invalidateRequestClientOnly()
                     AuthRecoveryOutcome.Refreshed
                 }

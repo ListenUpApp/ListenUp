@@ -66,7 +66,7 @@ internal interface FtsPopulatorContract {
     suspend fun refreshSince(watermark: SearchIndexWatermark)
 
     /**
-     * A debounce-able signal that fires whenever searchable content changes in Room — a live SSE
+     * A debounce-able signal that fires whenever searchable content changes in Room — a live firehose
      * edit, a catch-up apply, anything that writes `books`/`contributors`/`series`/`genres`. The
      * consumer snapshots a watermark and calls [refreshSince] on the debounced edge so offline search
      * follows live edits without waiting for a scan or a full resync. The emitted value has no

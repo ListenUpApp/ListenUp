@@ -9,15 +9,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 
 /**
- * [SseServerReachability] projects the ONE connection-health source, so it can never disagree with
+ * [ConnectionHealthReachability] projects the ONE connection-health source, so it can never disagree with
  * the shell banner about offline/healthy at the same instant (the former two-oracle split-brain).
  */
-class SseServerReachabilityTest :
+class ConnectionHealthReachabilityTest :
     FunSpec({
         test("Healthy and Outdated project to Reachable (server usable)") {
             runTest {
                 val health = MutableStateFlow<ConnectionHealth>(ConnectionHealth.Healthy)
-                val reachability = SseServerReachability(health, backgroundScope, reconnect = {})
+                val reachability = ConnectionHealthReachability(health, backgroundScope, reconnect = {})
                 reachability.state.test {
                     var item = awaitItem()
                     while (item != Reachability.Reachable) item = awaitItem()
@@ -32,7 +32,7 @@ class SseServerReachabilityTest :
         test("Unreachable projects to Unreachable (book falls to download-only)") {
             runTest {
                 val health = MutableStateFlow<ConnectionHealth>(ConnectionHealth.Unreachable(sinceMillis = 0L))
-                val reachability = SseServerReachability(health, backgroundScope, reconnect = {})
+                val reachability = ConnectionHealthReachability(health, backgroundScope, reconnect = {})
                 reachability.state.test {
                     var item = awaitItem()
                     while (item != Reachability.Unreachable) item = awaitItem()
@@ -44,7 +44,7 @@ class SseServerReachabilityTest :
         test("SessionExpired projects to Unreachable (server not usably reachable)") {
             runTest {
                 val health = MutableStateFlow<ConnectionHealth>(ConnectionHealth.SessionExpired)
-                val reachability = SseServerReachability(health, backgroundScope, reconnect = {})
+                val reachability = ConnectionHealthReachability(health, backgroundScope, reconnect = {})
                 reachability.state.test {
                     var item = awaitItem()
                     while (item != Reachability.Unreachable) item = awaitItem()
@@ -57,7 +57,7 @@ class SseServerReachabilityTest :
             runTest {
                 val health = MutableStateFlow<ConnectionHealth>(ConnectionHealth.Healthy)
                 var reconnectCalls = 0
-                val reachability = SseServerReachability(health, backgroundScope, reconnect = { reconnectCalls++ })
+                val reachability = ConnectionHealthReachability(health, backgroundScope, reconnect = { reconnectCalls++ })
 
                 reachability.retry()
 

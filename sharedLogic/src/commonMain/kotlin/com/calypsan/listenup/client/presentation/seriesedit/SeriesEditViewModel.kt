@@ -67,7 +67,7 @@ data class SeriesEditUiState(
     val pendingCoverFilename: String? = null,
     // Display metadata
     val bookCount: Int = 0,
-    // Merge (server-canonical; SSE delivers result)
+    // Merge (server-canonical; firehose delivers result)
     val mergeInProgress: Boolean = false,
     // Merge-target picker query (drives candidate filtering)
     val mergeQuery: String = "",
@@ -278,7 +278,7 @@ class SeriesEditViewModel internal constructor(
     }
 
     /**
-     * Merge the current series into [targetId]. After SSE delivery the source is
+     * Merge the current series into [targetId]. After firehose delivery the source is
      * soft-deleted and all of its books re-point at the target; we navigate back.
      */
     private fun mergeInto(targetId: SeriesId) {

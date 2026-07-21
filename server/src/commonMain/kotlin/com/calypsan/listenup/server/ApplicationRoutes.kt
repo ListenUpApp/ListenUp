@@ -150,9 +150,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         registrationPolicyRoutes(registrationPolicyBroadcaster) { serverSettings.registrationPolicy() }
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
-            // C2: pass the session-liveness probe so a revoked session's LIVE firehose is severed
-            // within ~30s, not just blocked at the next reconnect.
-            syncRoutes(sessionLiveness = sessionService::isLive)
+            syncRoutes()
             adminUserRoutes(adminUserService)
             adminInviteRoutes(inviteService)
             libraryAdminRoutes(libraryAdminService)

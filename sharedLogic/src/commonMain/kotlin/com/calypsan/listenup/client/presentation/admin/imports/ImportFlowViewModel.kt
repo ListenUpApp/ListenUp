@@ -489,7 +489,7 @@ class ImportFlowViewModel(
 
             is ImportEvent.Failed -> {
                 // A server-side failure on the progress stream overrides whatever the RPC
-                // returned. This handles the case where the server signals failure via SSE
+                // returned. This handles the case where the server signals failure on the progress stream
                 // before (or after) the RPC method returns.
                 logger.error { "Import analysis failed via event: ${event.reason}" }
                 uiState.value = ImportFlowUiState.Error(ImportError.AnalysisFailed(debugInfo = event.reason))

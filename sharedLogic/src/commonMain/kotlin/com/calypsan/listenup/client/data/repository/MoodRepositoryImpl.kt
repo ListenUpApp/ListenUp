@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.map
  * Production implementation of [MoodRepository].
  *
  * **Observation** (Room-backed, offline-first): all `observe*` calls read from Room.
- * The SSE sync engine writes server-committed state into Room via
+ * The sync engine writes server-committed state into Room via
  * [com.calypsan.listenup.client.data.sync.domains.moodsDomain] and
  * [com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain], so the
  * UI reacts without explicit network polling.

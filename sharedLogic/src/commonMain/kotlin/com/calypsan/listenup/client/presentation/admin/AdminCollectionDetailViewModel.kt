@@ -42,7 +42,7 @@ private const val BOOK_SEARCH_LIMIT = 20
  * Reads the collection, its books, and its shares reactively from the local Room
  * mirror via the [CollectionRepository] observation surface (the sync engine keeps
  * Room current). Rename / remove-book / share / revoke-share dispatch to the
- * repository, which forwards to the `CollectionService` RPC; the SSE echo updates
+ * repository, which forwards to the `CollectionService` RPC; the firehose echo updates
  * Room, so the screen refreshes itself — there are no optimistic UI mutations.
  *
  * "Available users to share with" is fetched on demand from [AdminRepository] and

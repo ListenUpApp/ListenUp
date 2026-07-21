@@ -47,9 +47,9 @@ fun syncModule(): Module =
         single { SyncRegistry() }
         single { BookAccessPolicy(db = get<ListenUpDatabase>(), driver = get<SqlDriver>()) }
         single(createdAtStart = true) { ChangeBus() }
-        // The RPC firehose over the same bus the SSE route streams from. The policy travels as a
-        // thunk (resolved lazily, only when a book-gated event must be probed) — mirrors the SSE
-        // route's thunk so harnesses driving only ungated domains need no BookAccessPolicy.
+        // The RPC firehose over the change bus. The policy travels as a thunk (resolved lazily,
+        // only when a book-gated event must be probed) so harnesses driving only ungated domains
+        // need no BookAccessPolicy.
         single<SyncStreamService> {
             SyncStreamServiceImpl(
                 bus = get(),

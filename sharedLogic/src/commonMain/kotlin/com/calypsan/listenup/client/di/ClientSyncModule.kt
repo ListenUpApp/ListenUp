@@ -49,7 +49,7 @@ import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.SyncDomainCatalog
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
-import com.calypsan.listenup.client.data.repository.SseServerReachability
+import com.calypsan.listenup.client.data.repository.ConnectionHealthReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -93,7 +93,7 @@ private const val APP_SCOPE = "appScope"
  * bootstrap.
  *
  * [SyncEngine] owns frame collection so catch-up, cursor seeding, dispatch, and
- * SSE connect ordering stay in one lifecycle component.
+ * firehose connect ordering stay in one lifecycle component.
  */
 internal val clientSyncModule =
     module {
@@ -118,13 +118,13 @@ internal val clientSyncModule =
         }
         single { PresenceRefreshSignal() }
         single<ServerReachability> {
-            SseServerReachability(
+            ConnectionHealthReachability(
                 // Project the ONE connection-health source so the book-availability oracle can no
                 // longer disagree with the shell banner about offline/healthy at the same instant.
                 connectionHealth = get<ConnectionHealthStore>().state,
                 scope = get(qualifier = named(APP_SCOPE)),
                 // Route the banner Retry through the unified recover seam (re-resolve URL + re-open a
-                // dead firehose + reconcile), not a bare SSE re-dial of the same endpoint. Lazy
+                // dead firehose + reconcile), not a bare re-dial of the same endpoint. Lazy
                 // resolution mirrors onCursorStale/onAccessChanged — the repository is only needed at
                 // retry time, not at construction, so this avoids a construction-graph cycle.
                 reconnect = { get<SyncRepository>().recoverRealtime() },
@@ -356,8 +356,7 @@ internal val clientSyncModule =
         }
         single { OfflineEditor(pendingQueue = get(), transactionRunner = get(), authSession = get()) }
 
-        // The firehose rides the RPC socket: one WebSocket, one connection-truth. The SSE
-        // implementation is retired (deletion pending); this channel + client replace it.
+        // The firehose rides the RPC socket: one WebSocket, one connection-truth.
         rpcChannel<SyncStreamService>()
         single<SyncStreamClient> {
             RpcSyncStreamClient(
@@ -500,13 +499,13 @@ internal val clientSyncModule =
                 state = get(),
                 store = get(),
                 catchUp = get(),
-                sseClient = get(),
+                syncStreamClient = get(),
                 reconciler = get(),
                 dispatcher = get(),
                 presenceRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
-                // Outbox liveness rides device reachability, not the SSE firehose — so local-first writes
-                // push over RPC even while the firehose is down.
+                // Outbox liveness rides device reachability, not the sync firehose — so local-first
+                // writes push over RPC even while the firehose is down.
                 networkMonitor = get(),
                 // The refreshed tier's router — the lifecycle-reconcile pass re-runs every refreshed
                 // domain's refresh through it so a dropped refresh trigger self-heals on the next
@@ -520,18 +519,16 @@ internal val clientSyncModule =
 
         single(createdAtStart = true) {
             val coordinator: ConnectionCoordinator = get()
-            val apiClientFactory: ApiClientFactory = get()
             ReconnectionSupervisor(
                 engineState = get(),
                 instanceRepository = get(),
                 serverConfig = get(),
-                sseClient = get(),
+                syncStreamClient = get(),
                 authSession = get(),
                 errorBus = get(),
                 reevaluate = { coordinator.reevaluate() },
                 scope = get(qualifier = named(APP_SCOPE)),
                 reportProbe = get<ConnectionHealthStore>()::reportProbe,
-                rebuildStreamingClient = { apiClientFactory.invalidateStreamingClientOnly() },
             ).apply { start() }
         }
     }

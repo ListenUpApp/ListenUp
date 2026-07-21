@@ -5,8 +5,8 @@ import kotlinx.coroutines.flow.SharedFlow
 
 /**
  * Engine-facing seam for the sync-firehose stream client. Allows [SyncEngine] to be tested with
- * fakes without opening real network connections. Implemented by [RpcSyncStreamClient] (the
- * production transport) and, until the SSE path is deleted, by the legacy [SyncSseClient].
+ * fakes without opening real network connections. Implemented by [RpcSyncStreamClient], the
+ * production transport.
  */
 internal interface SyncStreamClient {
     val frames: SharedFlow<SyncFrame>

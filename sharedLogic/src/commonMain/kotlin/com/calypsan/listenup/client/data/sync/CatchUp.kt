@@ -25,7 +25,7 @@ internal interface CatchUp {
      * Used by the `AccessChanged` reconcile: the server's `pullSince` for access-gated domains
      * is filtered to the caller's accessible set, so a transient pass from 0 yields exactly the
      * ids the caller may currently see. The persisted cursor is deliberately untouched — the
-     * live SSE/cursor path continues independently; this is a one-shot re-derivation, not a
+     * live firehose/cursor path continues independently; this is a one-shot re-derivation, not a
      * cursor rewind.
      */
     suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>>

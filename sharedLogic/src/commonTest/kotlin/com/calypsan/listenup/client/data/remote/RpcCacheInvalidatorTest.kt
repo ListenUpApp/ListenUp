@@ -25,8 +25,6 @@ class RpcCacheInvalidatorTest :
 
             override suspend fun getClient(): HttpClient = error("not used")
 
-            override suspend fun getStreamingClient(): HttpClient = error("not used")
-
             override suspend fun getUnauthenticatedStreamingClient(): HttpClient = error("not used")
 
             override suspend fun warmUp() = Unit
@@ -38,8 +36,6 @@ class RpcCacheInvalidatorTest :
             override suspend fun invalidateRequestClientOnly() {
                 requestOnlyInvalidations++
             }
-
-            override suspend fun invalidateStreamingClientOnly() = Unit
         }
 
         class RecordingRpcCache : RemoteCache {

@@ -25,7 +25,7 @@ private val logger = KotlinLogging.logger {}
  * Two responsibilities:
  *  - **Follow:** observes [ServerConfig.activeUrl] and, on a genuine host:port change, drops all
  *    cached connections via [RpcCacheInvalidator.invalidateAll]; RPC proxies, the regular HTTP
- *    client, and SSE/streaming re-read `getActiveUrl()` on their next reconnect.
+ *    client, and streaming transports (firehose, SSE) re-read `getActiveUrl()` on their next reconnect.
  *  - **Choose:** [reevaluate] prefers the LAN, following the connected server's stable mDNS id to a
  *    new address when its local URL has moved, and falling back to a reachable remote URL otherwise.
  *    Runs on app foreground and network-regain.
@@ -130,7 +130,7 @@ class ConnectionCoordinator internal constructor(
                             logger.info { "Firehose reconnected; invalidating stale RPC proxy caches" }
                             // SCOPED sweep: refresh the stale RPC proxies + request client, but spare the
                             // streaming client. This reconnect edge fires FROM the streaming client itself;
-                            // closing it here would abort the in-flight SSE read and spin a self-teardown
+                            // closing it here would abort the in-flight firehose read and spin a self-teardown
                             // loop (reconnect → invalidate → abort → reconnect …). A genuine host change
                             // takes the full invalidateAll() path in observeActiveUrl() instead.
                             invalidator.invalidateRequestCaches()

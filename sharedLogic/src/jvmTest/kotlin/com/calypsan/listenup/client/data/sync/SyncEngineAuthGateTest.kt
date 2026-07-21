@@ -108,7 +108,7 @@ class SyncEngineAuthGateTest :
                             state = state,
                             store = store,
                             catchUp = catchUp,
-                            sseClient = fakeSse,
+                            syncStreamClient = fakeSse,
                             reconciler = noopSyncReconciler(registry, store, catchUp),
                             dispatcher =
                                 SyncEventDispatcher(

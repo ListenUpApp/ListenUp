@@ -9,14 +9,14 @@ import com.calypsan.listenup.core.SeriesId
 /**
  * Client-side write surface for series editing.
  *
- * RPC-backed. SSE delivers authoritative state back via the `series` sync domain.
+ * RPC-backed. The firehose delivers authoritative state back via the `series` sync domain.
  */
 interface SeriesEditRepository {
     /**
      * Applies the PATCH payload [patch] to the series identified by [id].
      *
      * Every non-null field on [patch] replaces the current value; null fields
-     * leave existing state untouched. The server emits an SSE event with the
+     * leave existing state untouched. The server emits a sync event with the
      * updated payload on success; clients update Room reactively.
      */
     suspend fun updateSeries(
@@ -26,13 +26,13 @@ interface SeriesEditRepository {
 
     /**
      * Hard-deletes all `book_series_memberships` junction rows referencing [id],
-     * then soft-deletes the series row. The server emits SSE events for the
+     * then soft-deletes the series row. The server emits sync events for the
      * affected books and the series; clients update Room reactively.
      */
     suspend fun deleteSeries(id: SeriesId): AppResult<Unit>
 
     /**
-     * Merges series [source] into series [target]. After SSE delivery:
+     * Merges series [source] into series [target]. After firehose delivery:
      * - All books in source's series now show target's series.
      * - Source is soft-deleted.
      *

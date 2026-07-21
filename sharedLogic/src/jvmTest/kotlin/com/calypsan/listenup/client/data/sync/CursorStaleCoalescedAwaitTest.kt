@@ -151,7 +151,7 @@ private fun buildCoalesceEngine(
         state = state,
         store = store,
         catchUp = catchUp,
-        sseClient = sse,
+        syncStreamClient = sse,
         reconciler =
             SyncReconciler(
                 registry = registry,

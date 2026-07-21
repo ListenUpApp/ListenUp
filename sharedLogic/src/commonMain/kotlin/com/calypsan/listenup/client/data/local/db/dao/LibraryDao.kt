@@ -45,7 +45,7 @@ internal interface LibraryDao {
     suspend fun findAll(): List<LibraryEntity>
 
     /**
-     * Upsert (insert or replace) a library entity. Used by both SSE events and
+     * Upsert (insert or replace) a library entity. Used by both firehose events and
      * catch-up pages to apply server state.
      */
     @Upsert

@@ -15,12 +15,13 @@ import io.ktor.client.engine.mock.respondOk
 import kotlinx.coroutines.test.runTest
 
 /**
- * Pins the streaming-client lifecycle that keeps the SSE firehose alive across a reconnect sweep.
+ * Pins the streaming-client lifecycle that keeps the pre-auth registration-policy SSE stream
+ * alive across a reconnect sweep.
  *
  * [ApiClientFactory.invalidateRequestClientOnly] must drop the request client (so RPC proxies
- * rebind) while leaving the cached streaming client untouched — closing it would abort the very SSE
- * read whose reconnect triggered the sweep, spinning a self-teardown loop. The full [ApiClientFactory.invalidate]
- * (URL/identity change) still rebuilds everything, streaming included.
+ * rebind) while leaving the cached unauthenticated streaming client untouched — closing it would
+ * abort a live pre-auth stream mid-read. The full [ApiClientFactory.invalidate] (URL/identity
+ * change) still rebuilds everything, streaming included.
  */
 class ApiClientFactoryStreamingCacheTest :
     FunSpec({
@@ -45,13 +46,13 @@ class ApiClientFactoryStreamingCacheTest :
         test("invalidateRequestClientOnly rebuilds the request client but preserves the streaming client") {
             runTest {
                 val factory = factory()
-                val streaming1 = factory.getStreamingClient()
+                val streaming1 = factory.getUnauthenticatedStreamingClient()
                 val request1 = factory.getClient()
 
                 factory.invalidateRequestClientOnly()
 
-                // The streaming client — the one the SSE firehose rides — is the SAME instance.
-                factory.getStreamingClient() shouldBeSameInstanceAs streaming1
+                // The streaming client — the one a live pre-auth stream rides — is the SAME instance.
+                factory.getUnauthenticatedStreamingClient() shouldBeSameInstanceAs streaming1
                 // The request client was dropped, so a fresh one is built.
                 factory.getClient() shouldNotBeSameInstanceAs request1
             }
@@ -60,27 +61,12 @@ class ApiClientFactoryStreamingCacheTest :
         test("full invalidate rebuilds the streaming client too") {
             runTest {
                 val factory = factory()
-                val streaming1 = factory.getStreamingClient()
+                val streaming1 = factory.getUnauthenticatedStreamingClient()
 
                 factory.invalidate()
 
                 // A genuine URL/identity change must repoint the streaming client — new instance.
-                factory.getStreamingClient() shouldNotBeSameInstanceAs streaming1
-            }
-        }
-
-        test("invalidateStreamingClientOnly rebuilds the streaming client but preserves the request client") {
-            runTest {
-                val factory = factory()
-                val streaming1 = factory.getStreamingClient()
-                val request1 = factory.getClient()
-
-                factory.invalidateStreamingClientOnly()
-
-                // The wedged streaming client was dropped, so the next reconnect builds a fresh one.
-                factory.getStreamingClient() shouldNotBeSameInstanceAs streaming1
-                // The request client — and the RPC proxies riding it — is left untouched.
-                factory.getClient() shouldBeSameInstanceAs request1
+                factory.getUnauthenticatedStreamingClient() shouldNotBeSameInstanceAs streaming1
             }
         }
     })

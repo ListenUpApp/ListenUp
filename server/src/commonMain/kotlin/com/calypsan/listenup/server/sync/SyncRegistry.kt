@@ -14,7 +14,7 @@ import kotlinx.atomicfu.locks.synchronized
  * JVM.
  *
  * Registration is performed by [SyncableRepository.init] via constructor
- * injection. Lookups happen in the SSE catch-up routes (REST `?since=`)
+ * injection. Lookups happen in the sync catch-up routes (REST `?since=`)
  * and the domain-discovery endpoint.
  */
 class SyncRegistry {

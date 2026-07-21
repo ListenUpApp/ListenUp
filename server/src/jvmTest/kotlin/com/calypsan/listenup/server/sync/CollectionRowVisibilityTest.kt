@@ -12,9 +12,13 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.domainFrames
+import com.calypsan.listenup.server.testing.memberPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -26,18 +30,15 @@ import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.sse.SSE
-import io.ktor.client.plugins.sse.sse
-import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.runTest
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
@@ -52,7 +53,8 @@ private const val PULL_LIMIT = 100
  * Catch-up/digest tests drive the real syncable repositories with the
  * [BookAccessPolicy] fragments (the exact pairing `SyncRoutes` wires), against a
  * Flyway-migrated in-memory database. The firehose test boots the full [module]
- * and asserts a real SSE stream gates a collection event per-subscriber.
+ * and asserts the RPC firehose ([rpcFirehose] over the app's real [ChangeBus])
+ * gates a collection event per-subscriber.
  */
 class CollectionRowVisibilityTest :
     FunSpec({
@@ -176,39 +178,38 @@ class CollectionRowVisibilityTest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = sseClient()
+                    val client = jsonClient()
 
                     client.mintRootToken()
-                    val member = client.registerMember()
+                    val memberId = client.registerMemberId()
                     seedTestLibraryAndFolder()
                     val collections by application.inject<CollectionRepository>()
                     val grants by application.inject<CollectionGrantRepository>()
+                    val bus by application.inject<ChangeBus>()
+                    val policy by application.inject<BookAccessPolicy>()
 
                     // The visible control is a regular (non-system) collection the member is
                     // granted on — under pure union, collection-domain visibility comes from
                     // ownership or a live grant (there is no global-access branch). Grant it
-                    // before the firehose subscription so canAccessCollection sees it at delivery.
+                    // before the events under test so canAccessCollection sees it at delivery.
                     collections.upsert(collectionFixture("shared-col", owner = "stranger"))
-                    grants.upsert(shareFixture("share-shared-col", "shared-col", sharedWith = member.userId))
+                    grants.upsert(shareFixture("share-shared-col", "shared-col", sharedWith = memberId))
 
-                    client.sse(
-                        urlString = "/api/v1/sync/events",
-                        request = { bearerAuth(member.token) },
-                    ) {
-                        coroutineScope {
-                            // The first collections event the member sees must be the granted
-                            // (shared) one — never the stranger's private one.
-                            val deferred = async { incoming.first { it.event == "collections" } }
-                            collections.upsert(collectionFixture("private-col", owner = "stranger"))
-                            // Re-upsert the granted collection to publish a firehose event for it.
-                            collections.upsert(collectionFixture("shared-col", owner = "stranger"))
-                            val event = deferred.await()
+                    collections.upsert(collectionFixture("private-col", owner = "stranger"))
+                    // Re-upsert the granted collection to publish a firehose event for it.
+                    collections.upsert(collectionFixture("shared-col", owner = "stranger"))
 
-                            event.event shouldBe "collections"
-                            event.data!!.contains(""""id":"shared-col"""") shouldBe true
-                            event.data!!.contains(""""id":"private-col"""") shouldBe false
-                        }
-                    }
+                    // Collect the member's collections frames up to the second shared-col frame
+                    // (the re-upsert, published AFTER private-col) — everything the gate let
+                    // through in that window must be free of the stranger's private collection.
+                    val delivered = mutableListOf<SyncFrame>()
+                    rpcFirehose(bus, memberPrincipal(memberId), bookAccessPolicy = { policy })
+                        .domainFrames()
+                        .filter { it.domain == "collections" }
+                        .onEach { delivered += it }
+                        .first { delivered.count { frame -> frame.json.contains(""""id":"shared-col"""") } == 2 }
+
+                    delivered.none { it.json.contains(""""id":"private-col"""") } shouldBe true
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
@@ -216,10 +217,9 @@ class CollectionRowVisibilityTest :
         }
     })
 
-private fun io.ktor.server.testing.ApplicationTestBuilder.sseClient(): HttpClient =
+private fun io.ktor.server.testing.ApplicationTestBuilder.jsonClient(): HttpClient =
     createClient {
         install(ContentNegotiation) { json(contractJson) }
-        install(SSE)
     }
 
 private suspend fun HttpClient.mintRootToken(): String =
@@ -230,22 +230,15 @@ private suspend fun HttpClient.mintRootToken(): String =
         .let { it as AppResult.Success<AuthSession> }
         .data.accessToken.value
 
-private data class MemberPrincipal(
-    val token: String,
-    val userId: String,
-)
-
-private suspend fun HttpClient.registerMember(): MemberPrincipal {
-    val result =
-        post("/api/v1/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
-        }.body<AppResult<RegisterResult>>()
-            .let { it as AppResult.Success<RegisterResult> }
-            .data
-    val session = (result as RegisterResult.Authenticated).session
-    return MemberPrincipal(token = session.accessToken.value, userId = session.user.id.value)
-}
+private suspend fun HttpClient.registerMemberId(): String =
+    post("/api/v1/auth/register") {
+        contentType(ContentType.Application.Json)
+        setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
+    }.body<AppResult<RegisterResult>>()
+        .let { it as AppResult.Success<RegisterResult> }
+        .data
+        .let { it as RegisterResult.Authenticated }
+        .session.user.id.value
 
 private fun collectionFixture(
     id: String,

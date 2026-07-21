@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.sync.domains
 
 /**
- * What a mirrored domain does with an SSE `SyncEvent.Deleted` frame. Catch-up
+ * What a mirrored domain does with a firehose `SyncEvent.Deleted` frame. Catch-up
  * tombstones always route to [MirrorApply.tombstoneFromItem] regardless of this
- * setting (the catch-up item carries the full payload; the SSE frame carries only
+ * setting (the catch-up item carries the full payload; the firehose frame carries only
  * the server id).
  */
 internal sealed interface DeleteSemantics {
@@ -14,7 +14,7 @@ internal sealed interface DeleteSemantics {
      * them; a literal row delete would break digest reconciliation. No domain
      * hard-deletes (spec correction 2026-07-02).
      *
-     * [tombstoneById] applies an SSE `Deleted` frame (id + occurredAt + revision).
+     * [tombstoneById] applies a firehose `Deleted` frame (id + occurredAt + revision).
      * Only [SoftDelete] carries it, so a [CatchUpOnly] domain can no longer be handed
      * an id-only frame — the old `error("unreachable")` stubs are unrepresentable.
      */
@@ -23,7 +23,7 @@ internal sealed interface DeleteSemantics {
     ) : DeleteSemantics
 
     /**
-     * SSE-level `Deleted` is a declared no-op; the tombstone converges on the next
+     * Firehose-level `Deleted` is a declared no-op; the tombstone converges on the next
      * catch-up pass. [reason] documents why the id-only frame cannot be applied
      * (e.g. the server id is not a local key). (playback_positions, listening_events,
      * user_stats)

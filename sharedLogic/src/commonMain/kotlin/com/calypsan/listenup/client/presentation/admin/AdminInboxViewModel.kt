@@ -33,7 +33,7 @@ import kotlinx.coroutines.launch
  * maps each selected id to an empty target-collection list. Per-book collection assignment is
  * book-edit's job, not the inbox's.
  *
- * Subscribes to admin SSE events for real-time inbox add/release updates.
+ * Subscribes to admin events from the server event stream for real-time inbox add/release updates.
  */
 class AdminInboxViewModel internal constructor(
     private val inboxRepository: InboxRepository,
@@ -51,10 +51,10 @@ class AdminInboxViewModel internal constructor(
 
     init {
         loadInboxBooks()
-        observeSSEEvents()
+        observeAdminEvents()
     }
 
-    private fun observeSSEEvents() {
+    private fun observeAdminEvents() {
         viewModelScope.launch {
             eventStreamRepository.adminEvents.collect { event ->
                 when (event) {
@@ -161,7 +161,7 @@ class AdminInboxViewModel internal constructor(
      *
      * Every inbox release is public — per-book collection assignment is book-edit's job,
      * not the inbox's — so each selected id maps to an empty target-collection list in the
-     * single [InboxRepository.releaseBooks] call. Released books leave the list via the SSE
+     * single [InboxRepository.releaseBooks] call. Released books leave the list via the firehose
      * echo, but we also clear them locally so the UI converges immediately.
      */
     fun releaseSelected() {

@@ -6,7 +6,7 @@ package com.calypsan.listenup.client.data.sync.domains
  * [ComposedSyncDomainHandler]; implementations of this interface contain mapping and
  * genuinely domain-specific side effects only (e.g. books' cover-hash invalidation).
  * One declared exception lives here by design: [ConflictPolicy.AppendOnly]'s
- * insert-if-absent guard is the apply's DAO conflict strategy. The id-only SSE
+ * insert-if-absent guard is the apply's DAO conflict strategy. The id-only firehose
  * `Deleted` tombstone is [DeleteSemantics.SoftDelete]'s hook, not a method here, so a
  * [DeleteSemantics.CatchUpOnly] domain can't be handed one.
  *

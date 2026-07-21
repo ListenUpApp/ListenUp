@@ -32,7 +32,7 @@ private val MERGE_TIMEOUT = 30.seconds
  * durable pending op (the same outbox the playback-position writes use), so
  * an edit made offline persists and replays on reconnect rather than failing
  * with a [com.calypsan.listenup.api.error.ServerConnectError]. The
- * authoritative state still arrives via the SSE sync engine and reconciles
+ * authoritative state still arrives via the sync engine and reconciles
  * through [com.calypsan.listenup.client.data.sync.domains.contributorsDomain].
  *
  * [deleteContributor] is offline-first too: it soft-deletes the contributor row and cascade-removes

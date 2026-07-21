@@ -105,38 +105,20 @@ internal interface ApiClientFactory : RemoteCache {
     /** Authenticated client for request/response API calls. */
     suspend fun getClient(): HttpClient
 
-    /** Authenticated streaming client for long-lived connections (SSE, WebSocket). */
-    suspend fun getStreamingClient(): HttpClient
-
     /** Unauthenticated streaming client for public SSE streams. */
     suspend fun getUnauthenticatedStreamingClient(): HttpClient
 
     /**
-     * Invalidate ONLY the request/RPC client, leaving the long-lived streaming clients open.
+     * Invalidate ONLY the request/RPC client, leaving the long-lived unauthenticated streaming
+     * client open.
      *
-     * The full [invalidate] (from [RemoteCache]) closes every cached client — including the
-     * streaming client the SSE firehose rides on. That is correct for a server-URL change, but
-     * fatal on a firehose *reconnect*: the reconnect sweep exists to refresh stale RPC proxies +
-     * the regular request client, NOT to abort the very SSE connection whose reconnect triggered
-     * it (closing it aborts the in-flight read → reconnect → sweep → abort … a self-teardown loop).
-     * This narrower path drops the request client (so the next RPC call — and the RPC proxies that
-     * derive their client from it — rebinds fresh) while the streaming client keeps streaming.
+     * The full [invalidate] (from [RemoteCache]) closes every cached client. That is correct for a
+     * server-URL change, but too broad for a reconnect sweep, which exists to refresh stale RPC
+     * proxies + the regular request client, not to abort an unrelated live stream. This narrower
+     * path drops the request client (so the next RPC call — and the RPC proxies that derive their
+     * client from it — rebinds fresh) while the streaming client keeps streaming.
      */
     suspend fun invalidateRequestClientOnly()
-
-    /**
-     * Invalidate ONLY the authenticated streaming client, leaving the request/RPC client open.
-     *
-     * The mirror of [invalidateRequestClientOnly]. The firehose reconnect loop re-fetches
-     * [getStreamingClient] on every attempt, so on a *moved* server URL the full [invalidate] rebuilds
-     * everything. But a same-URL socket the OS silently killed during suspension leaves the cached
-     * streaming client wedged: reachability probes succeed (the server is up), yet every reconnect
-     * re-dials the same dead client and never connects — "reconnects only on relaunch". This drops just
-     * that client so the next reconnect builds a fresh one, without disturbing the request client or
-     * the RPC proxies that ride it. Caller is responsible for kicking the reconnect AFTER this returns
-     * (rebuild-before-connect), never mid-in-flight-read.
-     */
-    suspend fun invalidateStreamingClientOnly()
 
     /**
      * Eagerly create and cache the authenticated client without exposing it.
@@ -216,7 +198,6 @@ internal class KtorApiClientFactory(
 ) : ApiClientFactory {
     private val mutex = Mutex()
     private var cachedClient: HttpClient? = null
-    private var cachedStreamingClient: HttpClient? = null
     private var cachedUnauthenticatedStreamingClient: HttpClient? = null
 
     /**
@@ -237,36 +218,6 @@ internal class KtorApiClientFactory(
     override suspend fun warmUp() {
         getClient()
     }
-
-    /**
-     * Create a streaming HTTP client for long-lived connections (SSE, WebSocket).
-     *
-     * Similar to getClient() but WITHOUT timeouts, suitable for streaming responses
-     * that may stay open indefinitely.
-     *
-     * Platform-specific implementations configure engine-level timeouts to infinity:
-     * - Android: OkHttp connect/read/write timeouts = 0 (infinite)
-     * - iOS: URLSession timeouts = infinity
-     *
-     * Cached after first creation so SSE reconnect loops don't rebuild a full HttpClient
-     * (and its auth/engine/TLS setup) on every retry — see Finding 04 D4.
-     *
-     * @return Configured HttpClient with auth but no timeouts
-     */
-    override suspend fun getStreamingClient(): HttpClient =
-        mutex.withLock {
-            cachedStreamingClient ?: run {
-                val serverUrl =
-                    serverConfig.getActiveUrl()
-                        ?: error(SERVER_URL_NOT_CONFIGURED_MESSAGE)
-                createStreamingHttpClient(
-                    serverUrl = serverUrl,
-                    authSession = authSession,
-                    refreshAccessToken = refreshAccessToken,
-                    clientIdentity = clientIdentity,
-                ).also { cachedStreamingClient = it }
-            }
-        }
 
     /**
      * Cached unauthenticated streaming HTTP client for SSE endpoints that don't require
@@ -458,8 +409,6 @@ internal class KtorApiClientFactory(
         mutex.withLock {
             cachedClient?.close()
             cachedClient = null
-            cachedStreamingClient?.close()
-            cachedStreamingClient = null
             cachedUnauthenticatedStreamingClient?.close()
             cachedUnauthenticatedStreamingClient = null
         }
@@ -469,19 +418,8 @@ internal class KtorApiClientFactory(
         mutex.withLock {
             cachedClient?.close()
             cachedClient = null
-            // Deliberately leave cachedStreamingClient / cachedUnauthenticatedStreamingClient open:
-            // the firehose-reconnect sweep must not abort the SSE connection it rode in on.
-        }
-    }
-
-    override suspend fun invalidateStreamingClientOnly() {
-        mutex.withLock {
-            cachedStreamingClient?.close()
-            cachedStreamingClient = null
-            // Leave the request client and the UNauthenticated streaming client alone: only the
-            // authenticated firehose client is being rebuilt. Closing the wedged client also aborts a
-            // hung SSE read the read-idle watchdog would otherwise sit on, so the next reconnect starts
-            // fresh immediately.
+            // Deliberately leave cachedUnauthenticatedStreamingClient open: the reconnect sweep
+            // must not abort a live pre-auth stream (e.g. the registration-policy SSE).
         }
     }
 
@@ -493,32 +431,11 @@ internal class KtorApiClientFactory(
         mutex.withLock {
             cachedClient?.close()
             cachedClient = null
-            cachedStreamingClient?.close()
-            cachedStreamingClient = null
             cachedUnauthenticatedStreamingClient?.close()
             cachedUnauthenticatedStreamingClient = null
         }
     }
 }
-
-/**
- * Platform-specific streaming HTTP client factory.
- *
- * Creates an HttpClient configured for long-lived SSE/WebSocket connections
- * with infinite timeouts at the engine level.
- *
- * @param serverUrl Base server URL
- * @param authSession For loading auth tokens
- * @param refreshAccessToken Functional seam over `AuthRepository.refreshAccessToken()`
- * @param clientIdentity Announced to the server via `X-Client-Version`/`X-Client-Api`
- * @return HttpClient with streaming configuration and infinite timeouts
- */
-internal expect suspend fun createStreamingHttpClient(
-    serverUrl: ServerUrl,
-    authSession: AuthSession,
-    refreshAccessToken: RefreshAccessToken,
-    clientIdentity: ClientIdentity,
-): HttpClient
 
 /**
  * Platform-specific unauthenticated streaming HTTP client factory.

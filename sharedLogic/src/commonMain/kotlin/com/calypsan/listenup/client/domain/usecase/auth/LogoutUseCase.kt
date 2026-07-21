@@ -56,12 +56,12 @@ open class LogoutUseCase(
 
     /**
      * Stop real-time sync first — otherwise the engine keeps reconnecting against the
-     * now-unauthenticated endpoint (and could apply an in-flight SSE frame or drain an
+     * now-unauthenticated endpoint (and could apply an in-flight firehose frame or drain an
      * outbox op after the rest of this sequence has already torn down) — then clear
      * every other piece of local state.
      */
     private suspend fun clearLocalState() {
-        // 1. Stop the engine first: no drains or SSE applies may run while the rest of
+        // 1. Stop the engine first: no drains or firehose applies may run while the rest of
         // this sequence tears down underneath them.
         syncRepository.disconnect()
         // 2. Drop every cached principal-bound RPC proxy / HttpClient so a re-login as a

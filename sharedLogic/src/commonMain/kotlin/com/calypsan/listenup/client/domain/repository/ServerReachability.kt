@@ -14,12 +14,12 @@ sealed interface Reachability {
     data object Unknown : Reachability
 }
 
-/** Reactive server reachability, derived from the live SSE firehose connection. */
+/** Reactive server reachability, derived from the live sync firehose connection. */
 interface ServerReachability {
     val state: StateFlow<Reachability>
 
     /**
-     * Force a fresh reachability check by tearing down and re-establishing the SSE
+     * Force a fresh reachability check by tearing down and re-establishing the sync
      * firehose. Backs the "Retry" action on the offline banner — a manual, never-stranded
      * fallback for when the automatic reconnect backoff hasn't yet recovered.
      */

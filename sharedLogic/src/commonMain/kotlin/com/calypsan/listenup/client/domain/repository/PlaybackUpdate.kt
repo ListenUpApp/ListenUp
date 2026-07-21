@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.domain.repository
 /**
  * Sealed hierarchy describing every distinct write pattern that can mutate a
  * book's playback position. Funnels every write — player events, user commands,
- * cross-device SSE merges — through a single repository entry point
+ * cross-device firehose merges — through a single repository entry point
  * ([PlaybackPositionRepository.savePlaybackState]).
  *
  * The eight player-event variants describe distinct semantic

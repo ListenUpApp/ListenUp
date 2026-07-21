@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
  * Server-maintained; the client only ever applies synced rows.
  *
  * Carries the canonical sync substrate ([revision], [deletedAt]) consumed by the
- * admin-user-roster sync handler for catch-up and SSE event application.
+ * admin-user-roster sync handler for catch-up and firehose event application.
  */
 @Entity(tableName = "admin_user_roster")
 internal data class AdminUserRosterEntity(

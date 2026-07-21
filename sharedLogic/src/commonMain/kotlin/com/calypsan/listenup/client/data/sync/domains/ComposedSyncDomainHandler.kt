@@ -94,7 +94,7 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
         }
 
     /**
-     * The single anti-flicker shield point for both SSE echoes and catch-up snapshots. When a local
+     * The single anti-flicker shield point for both firehose echoes and catch-up snapshots. When a local
      * edit for this entity is still in flight (a queued, non-dead-letter outbox op), the inbound
      * server state is shielded: its authoritative post-edit form arrives via that op's own echo once
      * it drains, so applying this (possibly stale) snapshot now would only flicker the optimistic

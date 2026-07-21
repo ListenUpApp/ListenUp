@@ -118,7 +118,7 @@ internal class BookRepositoryImpl(
     /**
      * No-op affordance for pull-to-refresh gestures.
      *
-     * Book refresh is driven entirely by the SSE event stream. This method is a
+     * Book refresh is driven entirely by the sync event stream. This method is a
      * deliberate no-op retained for the pull-to-refresh UI affordance in
      * [LibraryViewModel] until that surface is revisited in Books-C.
      */

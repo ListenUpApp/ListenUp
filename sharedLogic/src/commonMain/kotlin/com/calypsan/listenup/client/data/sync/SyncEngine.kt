@@ -42,12 +42,12 @@ private val logger = KotlinLogging.logger {}
  *   1. Verify queued-op ownership; clear if signed-in user differs.
  *   2. Run REST catch-up to completion across every registered domain.
  *   3. Seed [SyncStreamClient]'s `lastEventId` from the highest cursor.
- *   4. Connect SSE.
+ *   4. Connect the firehose stream.
  *
- * Catch-up and SSE never overlap — the contract requires catch-up to fully
+ * Catch-up and the live stream never overlap — the contract requires catch-up to fully
  * drain before live tail begins, otherwise events arrive out of order.
  *
- * On sign-out the SSE connection closes; the queue is paused (not cleared).
+ * On sign-out the firehose connection closes; the queue is paused (not cleared).
  *
  * The engine owns the frame collector so every connection has exactly one path
  * from [SyncStreamClient.frames] into [SyncEventDispatcher].
@@ -58,15 +58,15 @@ internal class SyncEngine(
     private val state: SyncEngineState,
     private val store: SyncCursorStore,
     private val catchUp: CatchUp,
-    private val sseClient: SyncStreamClient,
+    private val syncStreamClient: SyncStreamClient,
     private val reconciler: SyncReconciler,
     private val dispatcher: SyncEventDispatcher,
     private val presenceRefreshSignal: PresenceRefreshSignal,
     private val scope: CoroutineScope,
-    // Gates the outbox drain on device reachability rather than the SSE firehose. The outbox pushes
-    // over the RPC/request transport, which is independent of the inbound SSE stream — so a new op
+    // Gates the outbox drain on device reachability rather than the sync firehose. The outbox pushes
+    // over the RPC/request transport, which is independent of the inbound firehose stream — so a new op
     // (playback position, listening event, offline edit) must drain whenever the device is online,
-    // even while the firehose is down. Gating on `isOnline()` (not "SSE Connected") is the fix; it
+    // even while the firehose is down. Gating on `isOnline()` (not "firehose Connected") is the fix; it
     // also spares the retry budget when the device is genuinely offline (no drain, no burned
     // attempts). Defaults to an always-online monitor so existing call sites that don't drive
     // connectivity (tests) need no change; production wires the live monitor.
@@ -106,7 +106,7 @@ internal class SyncEngine(
     // lifecycleReconcile: the overlapping-page-decode storm the cursorStale coalescer exists to
     // prevent, re-opened by the second entry point, with interleaving setCursor writes. Serializing
     // every catchUpAll/reconcileAll execution behind this one mutex makes concurrent paging
-    // UNREPRESENTABLE. It wraps ONLY the paging call itself (never SSE connect/disconnect or other
+    // UNREPRESENTABLE. It wraps ONLY the paging call itself (never firehose connect/disconnect or other
     // orchestration), and is never acquired while any other engine mutex is held — the caller-level
     // coalescers ([cursorStaleMutex], [lifecycleReconcileMutex]) and [startMutex] all release their
     // bookkeeping lock BEFORE the pass runs, so there is no lock-order inversion with this guard or
@@ -123,7 +123,7 @@ internal class SyncEngine(
     // Serializes the start/stop handshake so concurrent re-entries (e.g.
     // MainActivity.onResume firing twice in quick succession → two
     // syncRepository.connectRealtime() → two engine.start()) can't race two
-    // catch-up loops or two SSE connect()s. The mutex protects only the
+    // catch-up loops or two firehose connect()s. The mutex protects only the
     // bookkeeping (currentUser + engineJob assignment); the engineJob itself
     // runs the long-lived startup body outside the mutex so a different-user
     // start can cancel an in-flight startup without holding the lock across
@@ -174,7 +174,7 @@ internal class SyncEngine(
 
     // Serializes + debounces the standing lifecycle reconcile — the one recovery pass every
     // lifecycle edge (app-foreground via connectRealtime, firehose reconnect) funnels into.
-    // Distinct from [handleCursorStale]: the live SSE tail stays UP; only forward catch-up +
+    // Distinct from [handleCursorStale]: the live firehose tail stays UP; only forward catch-up +
     // digest re-run. A pass within [LIFECYCLE_RECONCILE_MIN_INTERVAL_MS] of the last completed
     // pass is skipped unless force = true, so onResume storms and the cold-start double-run
     // (runStart already reconciled) collapse to nothing. A forced trigger arriving mid-pass
@@ -202,28 +202,28 @@ internal class SyncEngine(
      *
      *  - Concurrent or sequential calls for the *same* user share a single
      *    startup; the second caller observes "already starting/started" and
-     *    returns without re-running catch-up or re-connecting SSE — provided
+     *    returns without re-running catch-up or re-connecting the firehose — provided
      *    the prior attempt is either still in flight (`engineJob.isActive`)
      *    or has completed successfully (`currentUserStarted`). If it threw
      *    before reaching the end of [runStart] the call retries the startup.
      *  - A call for a *different* user cancels the prior engine job, which
      *    propagates `CancellationException` through whatever step of
      *    [runStart] is in flight (catch-up, suspended `ready.await()` inside
-     *    `ensure*` setup, `sseClient.connect()`). It does NOT tear down the
+     *    `ensure*` setup, `syncStreamClient.connect()`). It does NOT tear down the
      *    long-running collectors — `frameCollectorJob`, `connectionUpDrainJob`,
      *    `enqueueDrainJob`, `queueDepthJob`, `deadLetterCountJob`,
      *    `reconnectRefreshJob` are launched into [scope], not as children of
      *    `engineJob`, so they survive the
      *    cancellation. That's intentional: they're user-agnostic (the queue
      *    is wiped on user change via `clearForUserChange`, dispatcher and
-     *    sseClient are singletons), so leaving them in place avoids a
+     *    syncStreamClient are singletons), so leaving them in place avoids a
      *    re-subscription stampede on every user switch. Hard shutdown that
      *    must tear them down (tests, sign-out flows) goes through
      *    [stopAndJoin], which cancels each collector job explicitly.
      *
      * The caller is still suspended until the launched startup completes (or
      * is cancelled) — the existing contract that `start()` returns *after*
-     * catch-up has run and SSE is connected is preserved. External
+     * catch-up has run and the firehose is connected is preserved. External
      * cancellability comes from the engine job being a child of [scope].
      */
     suspend fun start(currentUserId: String) {
@@ -238,7 +238,7 @@ internal class SyncEngine(
                     //
                     // The currentUserStarted check is load-bearing: if the prior
                     // runStart() threw (DB error in clearForUserChange, IO error in
-                    // sseClient.connect(), unexpected exception in any step), the
+                    // syncStreamClient.connect(), unexpected exception in any step), the
                     // launched job completed exceptionally — isActive is false AND
                     // currentUserStarted is false (because the flag-flip is the
                     // last line of runStart, which never ran). currentUser is still
@@ -250,7 +250,7 @@ internal class SyncEngine(
                     return
                 }
                 // Different user (or first start, or retry-after-failure): cancel
-                // any prior engine job so its in-flight catch-up / SSE work (or
+                // any prior engine job so its in-flight catch-up / firehose work (or
                 // its already-completed exceptional state) tears down before we
                 // claim ownership.
                 engineJob?.cancelAndJoin()
@@ -268,8 +268,8 @@ internal class SyncEngine(
     /**
      * The actual startup sequence, run inside the engine job so it's
      * cancellable as a unit. Order matters and is documented in the class
-     * KDoc: queue ownership → catch-up → seed SSE cursor → collectors →
-     * drain scheduling → state observers → SSE connect.
+     * KDoc: queue ownership → catch-up → seed the resume cursor → collectors →
+     * drain scheduling → state observers → firehose connect.
      */
     private suspend fun runStart(currentUserId: String) {
         // Step 1: queue ownership.
@@ -277,8 +277,8 @@ internal class SyncEngine(
         // Step 2: catch-up across all registered domains, behind the shared catch-up guard so a
         // lifecycle/cursorStale trigger racing startup can't page concurrently.
         catchUpMutex.withLock { catchUp.catchUpAll(registry) }
-        // Step 3: seed SSE resume cursor.
-        sseClient.seedLastEventId(store.highestCursor())
+        // Step 3: seed the firehose resume cursor.
+        syncStreamClient.seedLastEventId(store.highestCursor())
         // Step 4: collect frames before connecting so immediate frames are not dropped.
         ensureFrameCollector()
         // Step 5: schedule pending-queue drains before connecting so the
@@ -305,10 +305,10 @@ internal class SyncEngine(
         // on the SessionLapsed→Authenticated edge (re-login). Subscribed before connect so a
         // lapse that races startup is never missed.
         ensureAuthGate()
-        // Step 7: connect SSE.
-        sseClient.connect()
+        // Step 7: connect the firehose.
+        syncStreamClient.connect()
         // Step 8: digest reconciliation — compare local domain digests against the
-        // server's and re-pull any domain that has drifted. Runs after SSE connect
+        // server's and re-pull any domain that has drifted. Runs after the firehose connects
         // so the live tail is already in place; reconcileAll() is non-throwing. Behind the shared
         // catch-up guard: its digest repair pages the server and rewrites the cursor store too.
         catchUpMutex.withLock { reconciler.reconcileAll() }
@@ -341,7 +341,7 @@ internal class SyncEngine(
         // semantics, promote this to `suspend` + `startMutex.withLock { ... }`.
         //
         // Note: cancelling engineJob propagates CancellationException through
-        // an in-flight runStart() (catch-up, ensure* setup, sseClient.connect),
+        // an in-flight runStart() (catch-up, ensure* setup, syncStreamClient.connect),
         // but does NOT cancel the long-running collectors below — they're
         // launched into [scope], not as children of engineJob. We cancel them
         // explicitly here.
@@ -365,11 +365,11 @@ internal class SyncEngine(
         authGateJob = null
         healDrainJob?.cancel()
         healDrainJob = null
-        sseClient.disconnect()
+        syncStreamClient.disconnect()
     }
 
     /**
-     * Manually drop and re-establish the SSE firehose. Backs the offline-banner
+     * Manually drop and re-establish the sync firehose. Backs the offline-banner
      * "Retry" action: the automatic backoff loop may be mid-sleep when the user
      * regains connectivity, so we tear the connection down and immediately
      * re-open it. [SyncStreamClient.connect] resumes from the stored `Last-Event-Id`,
@@ -377,14 +377,14 @@ internal class SyncEngine(
      * [SyncEngineState] and drives the reachability indicator.
      */
     suspend fun reconnect() {
-        sseClient.disconnect()
-        sseClient.connect()
+        syncStreamClient.disconnect()
+        syncStreamClient.connect()
     }
 
     /**
      * The firehose half of the unified recover seam (see
      * [com.calypsan.listenup.client.data.repository.SyncRepository.recoverRealtime]): re-open a dead
-     * SSE firehose, then run a data pull. Re-opens the connection ONLY when it is not already
+     * sync firehose, then run a data pull. Re-opens the connection ONLY when it is not already
      * [ConnectionState.Connected], so a normal foreground on a live firehose does not churn it (no
      * flicker) — the "reconnects only on relaunch" gap was that no user action re-opened a firehose
      * that died while backgrounded. [reconnect] resumes from the stored `Last-Event-Id`, so no events
@@ -437,7 +437,7 @@ internal class SyncEngine(
      * Coalesced + debounced: a pass within [LIFECYCLE_RECONCILE_MIN_INTERVAL_MS] of the last is
      * skipped unless [force] is true, so rapid foreground/reconnect edges collapse to one pass.
      * A [force] = true trigger arriving while a pass runs schedules exactly one covering follow-up.
-     * Unlike [handleCursorStale] this never tears down the SSE connection — the live tail is healthy.
+     * Unlike [handleCursorStale] this never tears down the firehose connection — the live tail is healthy.
      */
     suspend fun lifecycleReconcile(force: Boolean = false) {
         val shouldLead =
@@ -530,7 +530,7 @@ internal class SyncEngine(
         refreshedRouter.refreshAll()
         // PUSH as well as pull. Every lifecycle edge (foreground, pull-to-refresh, reconnect) funnels
         // through here, and until now it only PULLED — catch-up + reconcile + refresh — so a parked
-        // outbox op could strand indefinitely: a single RPC timeout parks an edit while the SSE
+        // outbox op could strand indefinitely: a single RPC timeout parks an edit while the firehose
         // stream stays up, no Connected edge ever fires (the only other drain trigger besides a fresh
         // enqueue), and pull-to-refresh — the one manual action the user is given — never drained it.
         // Draining here makes every foreground and every pull-to-refresh also drive parked ops, so
@@ -544,21 +544,21 @@ internal class SyncEngine(
 
     /**
      * Recover from a server-issued `SyncControl.CursorStale`. The dispatcher
-     * invokes this when the SSE firehose announces that the client's
+     * invokes this when the sync firehose announces that the client's
      * `Last-Event-Id` precedes the bus's live-tail replay floor.
      *
      * The recovery sequence is intentionally explicit at this layer so the
      * ordering is auditable in one place:
-     *  1. Disconnect SSE so the catch-up REST pass cannot interleave with
+     *  1. Disconnect the firehose so the catch-up REST pass cannot interleave with
      *     a live-tail frame whose revision the cursor store hasn't recorded yet.
      *  2. Run catch-up across every registered domain. Each domain's catch-up
      *     advances [store] as it drains; per-domain failures are logged but do
      *     not abort the loop — one slow domain shouldn't strand the rest.
-     *  3. Reseed the SSE client's `lastEventId` from the new high-water cursor.
+     *  3. Reseed the stream client's `lastEventId` from the new high-water cursor.
      *     Without this, the reconnect would re-issue the request with the
      *     stale `Last-Event-Id`, the server would emit `CursorStale` again,
      *     and the loop would spin forever (the H1 bug).
-     *  4. Reconnect SSE. Live tail resumes from the new cursor.
+     *  4. Reconnect the firehose. Live tail resumes from the new cursor.
      */
     internal suspend fun handleCursorStale() {
         // Coalesce: if a recovery is already running, request a single follow-up pass instead of
@@ -635,7 +635,7 @@ internal class SyncEngine(
 
     private suspend fun runCursorStaleRecovery() {
         logger.info { "CursorStale recovery — disconnect → catchUp → reseed → reconnect" }
-        sseClient.disconnect()
+        syncStreamClient.disconnect()
         when (val result = catchUpMutex.withLock { catchUp.catchUpAll(registry) }) {
             is AppResult.Success -> {}
 
@@ -647,8 +647,8 @@ internal class SyncEngine(
             }
         }
         val newCursor = store.highestCursor()
-        sseClient.reseed(newCursor)
-        sseClient.connect()
+        syncStreamClient.reseed(newCursor)
+        syncStreamClient.connect()
         // A dropped-then-restored firehose may have missed an ActiveSessionsChanged nudge while
         // disconnected. Ping presence so the social repos re-fetch their ACL-filtered RPCs — the
         // Never-Stranded fallback for presence across a reconnect.
@@ -666,7 +666,7 @@ internal class SyncEngine(
      * burst, so an unguarded reconcile would overlap N access-filtered fetches. At most one reconcile
      * runs at a time; frames that arrive while one is in flight FOLD into a single follow-up — their
      * scopes union, and a coarse frame (or a union that outgrows the delta budget) poisons the
-     * follow-up to one coarse pass. Unlike [handleCursorStale] the SSE tail is never torn down (no
+     * follow-up to one coarse pass. Unlike [handleCursorStale] the firehose tail is never torn down (no
      * cursor was lost, only visibility shifted); and no caller awaits this, so there are no
      * completion waiters — a fire-and-forget signal.
      */
@@ -779,7 +779,7 @@ internal class SyncEngine(
         pendingAccessBookIds.clear()
     }
 
-    /** Stop SSE and wait until the frame collector is fully cancelled. Used by tests and deterministic shutdown paths. */
+    /** Stop the firehose and wait until the frame collector is fully cancelled. Used by tests and deterministic shutdown paths. */
     suspend fun stopAndJoin() {
         startMutex.withLock {
             val engine = engineJob
@@ -811,7 +811,7 @@ internal class SyncEngine(
             reconnectRefresh?.cancelAndJoin()
             authGate?.cancelAndJoin()
             healDrain?.cancelAndJoin()
-            sseClient.disconnect()
+            syncStreamClient.disconnect()
         }
     }
 
@@ -825,7 +825,7 @@ internal class SyncEngine(
         val ready = CompletableDeferred<Unit>()
         frameCollectorJob =
             scope.launch {
-                sseClient.frames
+                syncStreamClient.frames
                     .onSubscription { ready.complete(Unit) }
                     .collect { frame ->
                         // Guard per frame so one bad event logs and the firehose collector keeps
@@ -835,7 +835,7 @@ internal class SyncEngine(
                         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                             throw e
                         } catch (e: Exception) {
-                            logger.warn(e) { "SSE frame handling failed; firehose collector continues" }
+                            logger.warn(e) { "Sync frame handling failed; firehose collector continues" }
                         }
                     }
             }
@@ -875,11 +875,11 @@ internal class SyncEngine(
                         .observe()
                         .onSubscription { ready.complete(Unit) }
                         // Collapse to a Boolean transition before distinctUntilChanged.
-                        // Each parsed SSE frame produces a fresh `Connected(lastEventId=X)`
+                        // Each delivered sync frame produces a fresh `Connected(lastEventId=X)`
                         // value; data-class equality treats `Connected(1)` and
                         // `Connected(2)` as distinct, so `distinctUntilChanged` on the
                         // raw connection would let every frame through and schedule a
-                        // drain per frame — a DB walk per SSE event. We only want to
+                        // drain per frame — a DB walk per sync event. We only want to
                         // fire on the Disconnected/Connecting → Connected edge.
                         .map { it.connection is ConnectionState.Connected }
                         .distinctUntilChanged()
@@ -898,11 +898,11 @@ internal class SyncEngine(
                         .observeEnqueueSignal()
                         .onSubscription { ready.complete(Unit) }
                         .drop(1) // ignore the StateFlow's replayed current value
-                        // Gate on device reachability AND a usable session, NOT the SSE firehose. The
+                        // Gate on device reachability AND a usable session, NOT the sync firehose. The
                         // outbox pushes over the RPC/request transport, which is independent of the
-                        // inbound SSE stream — so a new op must drain whenever the device is online, even
+                        // inbound firehose stream — so a new op must drain whenever the device is online, even
                         // while the firehose is down (its reconnect loop, an outage, etc.). Gating on
-                        // SSE-Connected silently stranded playback progress + edits whenever the firehose
+                        // firehose-Connected silently stranded playback progress + edits whenever the firehose
                         // wasn't up. When offline we skip the drain so the op's retry budget isn't burned
                         // against an unreachable server; the connection-up trigger + reconnection
                         // supervisor recover it on the next edge. With a lapsed session every drain wave
@@ -918,7 +918,7 @@ internal class SyncEngine(
     /**
      * Drain [PendingOperationQueue.observeHealRequests]: each entry is an entity whose optimistic
      * outbox edit dead-lettered or was dismissed, leaving a value the server never accepted. Because
-     * the local `(id, revision)` is unchanged, no digest reconcile, `?since=` catch-up, or SSE echo
+     * the local `(id, revision)` is unchanged, no digest reconcile, `?since=` catch-up, or firehose echo
      * repairs a content-only divergence — a targeted by-id re-fetch is the only thing that does
      * (DRIFT-1). The heal channel is UNLIMITED-buffered, so a dead-letter that happens before this
      * collector starts is queued, not lost — no subscribe-readiness handshake is needed. Not gated
@@ -937,7 +937,7 @@ internal class SyncEngine(
      * Refresh the Discover surfaces on every reconnect — NOT the initial start-connect.
      *
      * The offline→online path ([ReconnectionSupervisor] → [SyncStreamClient.reconnectNow]) only resumes the
-     * SSE stream; without this the leaderboard stays stale until the server happens to emit a
+     * firehose stream; without this the leaderboard stays stale until the server happens to emit a
      * `CursorStale`. On each reconnect edge we run [lifecycleReconcile] — forward catch-up (draining
      * rows written above the cursor during the outage), digest reconcile (refreshing
      * `public_profiles` → the leaderboard), and a presence ping so currently-listening re-fetches.
@@ -974,8 +974,8 @@ internal class SyncEngine(
     }
 
     /**
-     * Auth-state gate (spec §6.5). On [AuthState.SessionLapsed]: disconnect the SSE client —
-     * parking the reconnect loop entirely, which is the PRIMARY spam stop (the SSE client's own
+     * Auth-state gate (spec §6.5). On [AuthState.SessionLapsed]: disconnect the stream client —
+     * parking the reconnect loop entirely, which is the PRIMARY spam stop (the stream client's own
      * 5-minute heartbeat is only the backstop if this chain is wedged). On the
      * SessionLapsed→Authenticated edge (successful re-login): reconnect and force a lifecycle
      * reconcile so everything missed while parked heals immediately.
@@ -993,13 +993,13 @@ internal class SyncEngine(
                         previous = current
                         when {
                             current is AuthState.SessionLapsed -> {
-                                logger.info { "Session lapsed — parking the SSE firehose" }
-                                sseClient.disconnect()
+                                logger.info { "Session lapsed — parking the sync firehose" }
+                                syncStreamClient.disconnect()
                             }
 
                             current is AuthState.Authenticated && before is AuthState.SessionLapsed -> {
-                                logger.info { "Session restored — resuming SSE + forced reconcile" }
-                                sseClient.connect()
+                                logger.info { "Session restored — resuming the firehose + forced reconcile" }
+                                syncStreamClient.connect()
                                 lifecycleReconcile(force = true)
                             }
                         }

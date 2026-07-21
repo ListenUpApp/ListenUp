@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
  * zero-or-more [LibraryFolderEntity] roots.
  *
  * Carries the sync substrate ([revision], [deletedAt]) that the catch-up and
- * SSE sync routes depend on. Server commits arrive as [LibrarySyncPayload] events
+ * firehose sync paths depend on. Server commits arrive as [LibrarySyncPayload] events
  * and are applied into this projection; the UI reads Room exclusively.
  *
  * `accessMode` is stored as a raw string and mapped to the [com.calypsan.listenup.client.domain.model.AccessMode]

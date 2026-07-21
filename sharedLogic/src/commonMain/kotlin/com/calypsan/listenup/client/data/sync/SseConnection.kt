@@ -3,12 +3,10 @@ package com.calypsan.listenup.client.data.sync
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.ResponseException
-import io.ktor.client.request.header
 import io.ktor.client.request.prepareGet
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.HttpStatement
 import io.ktor.client.statement.bodyAsChannel
-import io.ktor.http.HttpHeaders
 import io.ktor.utils.io.readLine
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.pow
@@ -28,16 +26,6 @@ internal const val MAX_RECONNECT_DELAY_MS = 60_000L
 internal const val RECONNECT_BACKOFF_MULTIPLIER = 2.0
 
 /**
- * Consecutive auth-failed connects that prove the streaming client's in-band bearer refresh cannot
- * mint a working token (the plugin performs one refresh per attempt, so two failures = refresh token
- * is dead). Only meaningful when [SseConnection.parkOnAuthExhaustion] is set. Spec §6.3 / §14-Q1.
- */
-internal const val AUTH_EXHAUSTED_THRESHOLD = 2
-
-/** Slow heartbeat cadence while auth-parked — still wakeable instantly by [SseConnection.reconnectNow]. */
-internal const val AUTH_PARKED_DELAY_MS = 300_000L
-
-/**
  * Upper bound on the connection-establishment phase. A connect that hasn't produced a response
  * within this window is abandoned and retried, so a down/unreachable server can't wedge the loop on
  * engines with no finite connect timeout (Darwin/URLSession).
@@ -45,19 +33,20 @@ internal const val AUTH_PARKED_DELAY_MS = 300_000L
 internal const val DEFAULT_CONNECT_TIMEOUT_MS = 5_000L
 
 /**
- * Upper bound on **silence** during the streaming read — the half-open-connection watchdog.
+ * Upper bound on **silence** during a streaming read — the half-open-connection watchdog.
  *
  * A NAT rebind, AP roam, router restart or buffering proxy can kill the TCP path with no RST: the
- * socket is dead and nothing says so, and an unbounded `readLine()` blocks forever. The connection
- * state then stays `Connected` — a lie that stands the whole recovery stack down, because
+ * socket is dead and nothing says so, and an unbounded read blocks forever. The connection state
+ * then stays `Connected` — a lie that stands the whole recovery stack down, because
  * `ReconnectionSupervisor` is gated on not-connected, the outbox drains on the connection-up edge,
  * and the supervisor's HTTP probe *succeeds* against a half-open stream and so masks the offline
  * banner. The app looks online and receives nothing, indefinitely.
  *
- * The server already emits the signal to detect it: a comment-line keepalive every 25s
- * (`SyncRoutes.heartbeatIntervalMillis`). This bound is 3× that interval, so a live-but-idle stream
- * is never torn down (two heartbeats may be lost before we act) while a dead one is caught quickly.
- * Any received byte — heartbeat comment or real frame — resets the window.
+ * The server already emits the signal to detect it: the RPC firehose heartbeats every 25s
+ * (`SyncStreamServiceImpl`'s `HEARTBEAT_INTERVAL_MILLIS`). This bound is 3× that interval, so a
+ * live-but-idle stream is never torn down (two heartbeats may be lost before we act) while a dead
+ * one is caught quickly. Any received frame — heartbeat or data — resets the window. Shared by the
+ * RPC firehose watchdog ([RpcSyncStreamClient]) and this SSE engine's line reads.
  */
 internal const val DEFAULT_READ_IDLE_TIMEOUT_MS = 75_000L
 
@@ -151,24 +140,21 @@ internal enum class DisconnectReason {
 }
 
 /**
- * The battle-tested SSE transport core, extracted from the sync firehose so every SSE surface
- * inherits it: a bounded connect (the [connectTimeoutMillis] Darwin/URLSession guard), spec-tolerant
- * [parseSseStream] framing, and an exponential backoff reconnect loop with an instant [reconnectNow]
- * wake. Produces a cold [Flow] of [SseEvent]s that reconnects forever until the URL disappears
- * (graceful close) or the collector is cancelled.
+ * The battle-tested SSE transport core: a bounded connect (the [connectTimeoutMillis]
+ * Darwin/URLSession guard), spec-tolerant [parseSseStream] framing, and an exponential backoff
+ * reconnect loop with an instant [reconnectNow] wake. Produces a cold [Flow] of [SseEvent]s that
+ * reconnects forever until the URL disappears (graceful close) or the collector is cancelled.
  *
- * Parameterized so all three consumers compose over the one engine:
+ * Originally extracted from the sync firehose; the firehose has since moved to the RPC stream
+ * ([RpcSyncStreamClient]), leaving one consumer: the pre-auth registration-policy stream
+ * (`RegistrationPolicyStreamImpl`), a genuinely long-lived server-push surface that stays on SSE
+ * because it must run before any authenticated RPC channel exists.
+ *
  *  - [urlProvider] yields the full SSE URL, or `null` to stop the loop (graceful close).
- *  - [streamingClientProvider] chooses the transport (authenticated firehose vs the unauthenticated
- *    pre-auth registration streams) — the "auth mode" is simply which client is returned.
- *  - [resumeIdProvider] supplies the `Last-Event-ID` header value on each (re)connect; default `null`
- *    for streams that don't resume.
- *  - [parkOnAuthExhaustion] enables the firehose-only auth-park: after [authExhaustedThreshold]
- *    consecutive 401/403s, [onAuthExhausted] fires once and the loop drops to a slow
- *    [parkedDelayMillis] heartbeat instead of the backoff ladder. Unauthenticated streams leave this
- *    off and treat every failure as a plain transport reconnect.
+ *  - [streamingClientProvider] chooses the transport client (the unauthenticated streaming client
+ *    for pre-auth streams).
  *
- * A single [SseConnection] instance drives one active collection at a time; the backoff counters are
+ * A single [SseConnection] instance drives one active collection at a time; the backoff counter is
  * best-effort and reset at each collection start and by [reconnectNow].
  */
 internal class SseConnection(
@@ -176,13 +162,8 @@ internal class SseConnection(
     private val streamingClientProvider: suspend () -> HttpClient,
     private val connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
     private val readIdleTimeoutMillis: Long = DEFAULT_READ_IDLE_TIMEOUT_MS,
-    private val resumeIdProvider: () -> Long? = { null },
-    private val parkOnAuthExhaustion: Boolean = false,
-    private val authExhaustedThreshold: Int = AUTH_EXHAUSTED_THRESHOLD,
-    private val parkedDelayMillis: Long = AUTH_PARKED_DELAY_MS,
-    private val onAuthExhausted: suspend () -> Unit = {},
 ) {
-    /** Conflated wake signal: [reconnectNow] sends; the backoff/park wait races it against the delay. */
+    /** Conflated wake signal: [reconnectNow] sends; the backoff wait races it against the delay. */
     private val wakeSignal = Channel<Unit>(Channel.CONFLATED)
 
     /**
@@ -194,20 +175,12 @@ internal class SseConnection(
     private var reconnectAttempt = 0
 
     /**
-     * Consecutive auth-failure counter driving auth-exhaustion detection and the parked heartbeat.
-     * Reset by a successful connect, by [reconnectNow], and at each collection start. Same
-     * deliberately unsynchronized best-effort discipline as [reconnectAttempt].
-     */
-    private var authFailureStreak = 0
-
-    /**
      * Reset the reconnect backoff to zero and wake the retry loop so the next connect attempt fires
      * immediately. Called once the caller has confirmed the server is live again (possibly at a new
      * URL), turning "recover within up to 60s" into "recover within seconds".
      */
     fun reconnectNow() {
         reconnectAttempt = 0
-        authFailureStreak = 0
         wakeSignal.trySend(Unit)
     }
 
@@ -219,7 +192,6 @@ internal class SseConnection(
     fun events(): Flow<SseEvent> =
         channelFlow {
             reconnectAttempt = 0
-            authFailureStreak = 0
             while (isActive) {
                 send(SseEvent.Connecting)
                 when (runOnce { event -> send(event) }) {
@@ -229,22 +201,11 @@ internal class SseConnection(
 
                     ConnectAttempt.Established -> {
                         reconnectAttempt = 0
-                        authFailureStreak = 0
                     }
 
                     ConnectAttempt.AuthFailed -> {
-                        authFailureStreak++
                         send(SseEvent.Disconnected(DisconnectReason.Auth))
-                        if (parkOnAuthExhaustion) {
-                            // The FIRST 401/403 stays transient: the bearer plugin refreshes the token
-                            // on the next attempt. Reaching authExhaustedThreshold consecutive failures
-                            // proves the refresh cannot mint a working token — report ONCE and fall back
-                            // to a slow heartbeat. reconnectNow() wakes the park instantly (never stranded).
-                            if (authFailureStreak == authExhaustedThreshold) onAuthExhausted()
-                            if (authFailureStreak >= authExhaustedThreshold) parkedWait() else backoffWait()
-                        } else {
-                            backoffWait()
-                        }
+                        backoffWait()
                     }
 
                     ConnectAttempt.Reconnect -> {
@@ -267,20 +228,11 @@ internal class SseConnection(
         withTimeoutOrNull(delayMs) { wakeSignal.receive() }
     }
 
-    /** Auth-parked heartbeat: wait [parkedDelayMillis], returning early if [reconnectNow] signals. */
-    private suspend fun parkedWait() {
-        logger.debug { "SSE auth-parked; next probe in ${parkedDelayMillis}ms" }
-        withTimeoutOrNull(parkedDelayMillis) { wakeSignal.receive() }
-    }
-
     @Suppress("ReturnCount", "TooGenericExceptionCaught")
     private suspend fun runOnce(emit: suspend (SseEvent) -> Unit): ConnectAttempt {
         val url = urlProvider() ?: return ConnectAttempt.GracefulClose
         return try {
-            val request =
-                streamingClientProvider().prepareGet(url) {
-                    resumeIdProvider()?.let { header(HttpHeaders.LastEventID, it.toString()) }
-                }
+            val request = streamingClientProvider().prepareGet(url)
             connectBounded(request, emit)
         } catch (e: CancellationException) {
             throw e

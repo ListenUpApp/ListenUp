@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.Flow
  *
  * Offline-first dispatcher over the [com.calypsan.listenup.api.CollectionService]
  * RPC surface: **reads** observe the local Room mirror (populated by the collection
- * sync handlers via SSE/catch-up), and **writes** dispatch to RPC. There are no
- * optimistic Room writes — the SSE echo is the single write path back into Room
+ * sync handlers via firehose/catch-up), and **writes** dispatch to RPC. There are no
+ * optimistic Room writes — the firehose echo is the single write path back into Room
  * (the Tags/Genres rule).
  *
  * Implementations live in the data layer.

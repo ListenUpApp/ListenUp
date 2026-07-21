@@ -28,7 +28,7 @@ private const val MINUTES_PER_HOUR = 60L
  *
  * Stats are computed locally from `listening_events` and `user_stats` records
  * stored in Room. Updates automatically when new listening events are added
- * (local or via SSE sync).
+ * (local or via sync).
  *
  * @property statsRepository Repository for computing local stats
  */

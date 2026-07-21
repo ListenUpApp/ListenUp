@@ -325,7 +325,7 @@ private fun buildOrphanTestEngine(
         state = state,
         store = store,
         catchUp = catchUp,
-        sseClient = sse,
+        syncStreamClient = sse,
         reconciler = reconciler,
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),

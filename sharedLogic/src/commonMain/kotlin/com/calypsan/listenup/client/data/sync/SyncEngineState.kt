@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/** Connection state for the SSE firehose. */
+/** Connection state for the sync firehose. */
 internal sealed interface ConnectionState {
     /** Not connected. [reason] is null at engine start, populated on disconnect. */
     data class Disconnected(
@@ -16,7 +16,7 @@ internal sealed interface ConnectionState {
     /** Connect attempt in flight. */
     data object Connecting : ConnectionState
 
-    /** Open SSE stream. [lastEventId] is the latest revision processed (null until first event). */
+    /** Open firehose stream. [lastEventId] is the latest revision processed (null until first event). */
     data class Connected(
         val lastEventId: Long?,
     ) : ConnectionState
@@ -58,7 +58,7 @@ internal class SyncEngineState {
     /** Observable for UI consumption. Hot, replays the latest snapshot. */
     fun observe(): StateFlow<EngineSnapshot> = flow.asStateFlow()
 
-    /** Update the SSE connection state. */
+    /** Update the firehose connection state. */
     fun setConnection(state: ConnectionState) {
         flow.update { it.copy(connection = state) }
     }

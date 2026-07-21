@@ -3,18 +3,18 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.server.testing.domainFrames
+import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.withTestApplication
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
-import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 
 /**
@@ -31,9 +31,10 @@ import kotlinx.coroutines.flow.first
  *    for u1 returns only u1's row; the same route for u2 returns only u2's row.
  *    Neither user sees the other's data.
  *
- * 3. **Per-user SSE firehose isolation**: u1's SSE firehose stream receives the
- *    event for u1's position write and does NOT see u2's write first — a leaked
- *    u2 event would arrive first and fail the data-content assertion.
+ * 3. **Per-user RPC firehose isolation**: u1's firehose stream ([rpcFirehose]
+ *    over the harness bus) receives the event for u1's position write and does
+ *    NOT see u2's write first — a leaked u2 event would arrive first and fail
+ *    the data-content assertion.
  *
  * Seeding is done via [PlaybackPositionRepository.recordPosition] (direct repo
  * call), which is the same path [PlaybackServiceImpl] uses at runtime, making
@@ -101,42 +102,38 @@ class PlaybackPositionSyncRouteTest :
             }
         }
 
-        test("SSE firehose delivers a position event to its owning user, not to another user") {
+        test("RPC firehose delivers a position event to its owning user, not to another user") {
             withTestApplication(playbackPositions = true) {
-                // Subscribe as u1 and wait for the first playback_positions event
-                // addressed to u1. u2's write must be filtered out of the u1 stream;
-                // if it leaked, it would arrive first and the data-content check below
-                // would see u2's bookId ("book-u2") instead of u1's ("book-u1").
-                client.sse("/api/v1/sync/events", request = { bearerAuth("u1") }) {
-                    coroutineScope {
-                        val deferred =
-                            async { incoming.first { it.event == "playback_positions" } }
-                        // u2's write is skipped for the u1 subscriber
-                        playbackPositionRepo.recordPosition(
-                            userId = "u2",
-                            bookId = "book-u2",
-                            positionMs = 5_000L,
-                            lastPlayedAt = 1_730_000_000_000L,
-                            finished = false,
-                            playbackSpeed = 1.0f,
-                            currentChapterId = null,
-                        )
-                        // u1's write is delivered to the u1 subscriber
-                        playbackPositionRepo.recordPosition(
-                            userId = "u1",
-                            bookId = "book-u1",
-                            positionMs = 42_000L,
-                            lastPlayedAt = 1_730_000_000_001L,
-                            finished = false,
-                            playbackSpeed = 1.25f,
-                            currentChapterId = "chap-1",
-                        )
-                        val event = deferred.await()
-                        event.event shouldBe "playback_positions"
-                        // The first playback_positions event u1 sees must be u1's own row
-                        event.data!!.contains(""""book-u1"""") shouldBe true
-                    }
-                }
+                // Write first, then observe as u1: the bus's replay buffer holds both
+                // writes, so the collection is deterministic. u2's write must be
+                // filtered out of the u1 stream; if it leaked, it would arrive first
+                // and the data-content check below would see u2's bookId ("book-u2")
+                // instead of u1's ("book-u1").
+                playbackPositionRepo.recordPosition(
+                    userId = "u2",
+                    bookId = "book-u2",
+                    positionMs = 5_000L,
+                    lastPlayedAt = 1_730_000_000_000L,
+                    finished = false,
+                    playbackSpeed = 1.0f,
+                    currentChapterId = null,
+                )
+                playbackPositionRepo.recordPosition(
+                    userId = "u1",
+                    bookId = "book-u1",
+                    positionMs = 42_000L,
+                    lastPlayedAt = 1_730_000_000_001L,
+                    finished = false,
+                    playbackSpeed = 1.25f,
+                    currentChapterId = "chap-1",
+                )
+
+                val frame =
+                    rpcFirehose(bus, rootPrincipal("u1"))
+                        .domainFrames()
+                        .first { it.domain == "playback_positions" }
+                // The first playback_positions frame u1 sees must be u1's own row
+                frame.json.contains(""""book-u1"""") shouldBe true
             }
         }
     })

@@ -46,7 +46,7 @@ private const val TARGETED_FETCH_LIMIT = 100
  *
  * Constructor takes two suspend lambdas instead of concrete `HttpClient` /
  * base URL so production wiring (D1) passes method references and tests pass
- * any [HttpClient] + base URL — mirrors [SyncSseClient]'s shape.
+ * any [HttpClient] + base URL.
  */
 internal class SyncCatchUpClient(
     private val httpClientProvider: suspend () -> HttpClient,

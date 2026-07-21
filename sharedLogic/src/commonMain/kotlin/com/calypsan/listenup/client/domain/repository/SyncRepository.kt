@@ -35,7 +35,7 @@ interface SyncRepository {
     /**
      * Whether the server is currently scanning the library.
      *
-     * True from when a ScanStarted SSE event is received until ScanCompleted.
+     * True from when a ScanStarted sync event is received until ScanCompleted.
      * UI can use this to show "Scanning your library..." instead of empty state
      * during initial library setup.
      */
@@ -70,7 +70,7 @@ interface SyncRepository {
     /**
      * Connect to real-time updates without performing a full sync.
      *
-     * Establishes SSE connection and performs a delta sync to catch up
+     * Establishes the firehose connection and performs a delta sync to catch up
      * on changes since the last full sync. Used on app launch when
      * a prior sync already exists.
      */
@@ -80,7 +80,7 @@ interface SyncRepository {
      * Fully re-establish real-time sync — the single recovery path foreground, pull-to-refresh, and
      * the offline-banner Retry all funnel through. Unlike [connectRealtime]'s data-only pass, this
      * re-resolves the reachable server URL (following a moved server via mDNS, exactly as a relaunch
-     * does), then re-opens the SSE firehose **only if it has died** (no churn on a healthy
+     * does), then re-opens the sync firehose **only if it has died** (no churn on a healthy
      * connection), then runs a reconcile. This closes the "reconnects only on relaunch" gap: a
      * firehose that died while the app was backgrounded is restored by a user action.
      *
@@ -90,7 +90,7 @@ interface SyncRepository {
     suspend fun recoverRealtime(forceReconcile: Boolean = false)
 
     /**
-     * Stop real-time sync: cancel the SSE firehose and catch-up loops.
+     * Stop real-time sync: cancel the sync firehose and catch-up loops.
      *
      * Called on logout — otherwise the engine keeps reconnecting against a now
      * unauthenticated endpoint forever. Idempotent; safe to call when already stopped.

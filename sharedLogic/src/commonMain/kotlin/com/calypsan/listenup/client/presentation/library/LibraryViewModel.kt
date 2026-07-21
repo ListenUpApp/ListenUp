@@ -224,7 +224,7 @@ class LibraryViewModel(
             syncRepository.scanProgress,
             ::SyncSnapshot,
             // SyncSnapshot is a data class — structural equality prevents re-sorting the library
-            // on every SSE heartbeat or scan-progress tick when the values haven't actually changed.
+            // on every firehose heartbeat or scan-progress tick when the values haven't actually changed.
         ).distinctUntilChanged()
 
     val uiState: StateFlow<LibraryUiState> =

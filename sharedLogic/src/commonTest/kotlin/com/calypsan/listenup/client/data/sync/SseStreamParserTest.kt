@@ -4,7 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 
-class SyncSseClientParserTest :
+class SseStreamParserTest :
     FunSpec({
 
         test("single frame with id/event/data parses to ParsedSseFrame") {

@@ -12,14 +12,20 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.testing.domainFrames
+import com.calypsan.listenup.server.testing.memberPrincipal
+import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -29,8 +35,6 @@ import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.sse.SSE
-import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -41,15 +45,16 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import org.koin.ktor.ext.inject
 
 /**
  * Proves the `library_folders` sync domain is admin-only across every firehose surface —
- * catch-up, digest, and the live SSE tail. Its rows carry absolute server filesystem paths
- * (operator disk topology), so a plain member must never receive them; an admin sees them all.
+ * catch-up, digest, and the live RPC tail ([rpcFirehose] over the app's real [ChangeBus]).
+ * Its rows carry absolute server filesystem paths (operator disk topology), so a plain member
+ * must never receive them; an admin sees them all.
  *
  * Sibling to [BookCatchUpAccessTest] / [BooksDigestRouteAccessTest] (per-row book gating) and
  * [BooksSyncFirehoseTest] (live tail). Here the gate is whole-domain by role, so the live tail
@@ -64,11 +69,11 @@ class LibraryFolderSyncAccessTest :
 
                 // The bootstrap library folder (revision > 0) is visible to the admin on a since=0 pull.
                 val adminPage: Page<LibraryFolderSyncPayload> =
-                    client.get("/api/v1/sync/library_folders?since=0") { bearerAuth(admin) }.body()
+                    client.get("/api/v1/sync/library_folders?since=0") { bearerAuth(admin.token) }.body()
                 adminPage.items.shouldNotBeEmpty()
 
                 val memberPage: Page<LibraryFolderSyncPayload> =
-                    client.get("/api/v1/sync/library_folders?since=0") { bearerAuth(member) }.body()
+                    client.get("/api/v1/sync/library_folders?since=0") { bearerAuth(member.token) }.body()
                 memberPage.items.shouldBeEmpty()
             }
         }
@@ -79,9 +84,9 @@ class LibraryFolderSyncAccessTest :
                 val cursor = 1_000_000L
 
                 val adminDigest: DomainDigest =
-                    client.get("/api/v1/sync/library_folders/digest?cursor=$cursor") { bearerAuth(admin) }.body()
+                    client.get("/api/v1/sync/library_folders/digest?cursor=$cursor") { bearerAuth(admin.token) }.body()
                 val memberDigest: DomainDigest =
-                    client.get("/api/v1/sync/library_folders/digest?cursor=$cursor") { bearerAuth(member) }.body()
+                    client.get("/api/v1/sync/library_folders/digest?cursor=$cursor") { bearerAuth(member.token) }.body()
 
                 (adminDigest.count >= 1) shouldBe true
                 memberDigest.count shouldBe 0
@@ -89,61 +94,71 @@ class LibraryFolderSyncAccessTest :
         }
 
         test("live firehose delivers a library_folders event to an admin") {
-            withFolderSyncApp { client, admin, _ ->
+            withFolderSyncApp { _, admin, _ ->
                 seedTestLibraryAndFolder()
                 val folders by application.inject<LibraryFolderRepository>()
+                val bus by application.inject<ChangeBus>()
 
-                client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(admin) }) {
-                    // Canonical firehose pattern (see SeamLeakE2ETest / BooksSyncFirehoseTest): collect in an
-                    // `async` that `coroutineScope` joins to completion, and publish OUTSIDE the collector.
-                    // This keeps the in-flight tail minimal at block exit so the server's async SSE teardown
-                    // finishes before runTest's end-of-body coroutine-leak check samples — publishing inside
-                    // a single `incoming.first { }` predicate widened that race and tripped
-                    // UncompletedCoroutinesError on the CI runner.
-                    coroutineScope {
-                        val deferred = async { incoming.first { it.event == "library_folders" } }
-                        folders.upsert(folderFixture("live-folder"))
-                        deferred.await().event shouldBe "library_folders"
-                    }
-                }
+                // Mutate-first-then-collect: the bus's replay buffer serves the published event
+                // to the subscriber deterministically (see BooksSyncFirehoseTest).
+                folders.upsert(folderFixture("live-folder"))
+
+                val frame =
+                    rpcFirehose(bus, rootPrincipal(admin.userId))
+                        .domainFrames()
+                        .filter { it.domain == "library_folders" }
+                        .first { it.json.contains("live-folder") }
+
+                frame.domain shouldBe "library_folders"
             }
         }
 
         test("live firehose withholds library_folders events from a member") {
-            withFolderSyncApp { client, _, member ->
+            withFolderSyncApp { _, _, member ->
                 seedTestLibraryAndFolder()
                 val folders by application.inject<LibraryFolderRepository>()
                 val books by application.inject<BookRepository>()
+                val bus by application.inject<ChangeBus>()
+                val policy by application.inject<BookAccessPolicy>()
 
-                // Pre-stage the control book PUBLIC before subscribing (pure-union: an uncollected book
-                // is invisible, so the sentinel must live in the bootstrap library's ALL_BOOKS, which the
-                // member reaches through their registration-time grant). Mirrors SeamLeakE2ETest SEAM-6.
+                // Pre-stage the control book PUBLIC (pure-union: an uncollected book is invisible,
+                // so the sentinel must live in the bootstrap library's ALL_BOOKS, which the member
+                // reaches through their registration-time grant). Mirrors SeamLeakE2ETest SEAM-6.
                 books.upsert(publicBookFixture("sentinel-book"))
                 makeBookPublic("sentinel-book")
 
-                client.sse(urlString = "/api/v1/sync/events", request = { bearerAuth(member) }) {
-                    // Canonical firehose pattern (see SeamLeakE2ETest SEAM-6, the exact analogue): the
-                    // member's first folder-or-book frame must be the (now-public) sentinel book — the
-                    // hidden folder event is withheld for members and never reaches the stream. A
-                    // content-changed re-upsert fires a live `books` event the member can now access.
-                    coroutineScope {
-                        val deferred = async { incoming.first { it.event == "library_folders" || it.event == "books" } }
-                        folders.upsert(folderFixture("hidden-folder"))
-                        books.upsert(publicBookFixture("sentinel-book", title = "Sentinel Updated"))
-                        deferred.await().event shouldBe "books"
-                    }
-                }
+                // Publish the hidden folder, then a content-changed book re-upsert that fires a
+                // live `books` event the member CAN access — it bounds the collection window.
+                folders.upsert(folderFixture("hidden-folder"))
+                books.upsert(publicBookFixture("sentinel-book", title = "Sentinel Updated"))
+
+                // Everything the gate let through up to the sentinel books frame must be free of
+                // library_folders — the hidden folder event is withheld for members.
+                val delivered = mutableListOf<SyncFrame>()
+                rpcFirehose(bus, memberPrincipal(member.userId), bookAccessPolicy = { policy })
+                    .domainFrames()
+                    .filter { it.domain == "library_folders" || it.domain == "books" }
+                    .onEach { delivered += it }
+                    .first { it.json.contains("Sentinel Updated") }
+
+                delivered.none { it.domain == "library_folders" } shouldBe true
             }
         }
     })
 
+/** A test user's REST bearer token plus the user id its principal maps to on the RPC firehose. */
+private data class TestUser(
+    val token: String,
+    val userId: String,
+)
+
 /**
- * Boots the full server, mints a ROOT token and registers a MEMBER, then runs [block] with
- * both tokens inside the `testApplication` receiver (so `application`, `seedTestLibraryAndFolder`,
- * and the SSE/HTTP client are all in scope).
+ * Boots the full server, mints a ROOT user and registers a MEMBER, then runs [block] with both
+ * users inside the `testApplication` receiver (so `application`, `seedTestLibraryAndFolder`,
+ * and the HTTP client are all in scope).
  */
 private fun withFolderSyncApp(
-    block: suspend ApplicationTestBuilder.(client: HttpClient, admin: String, member: String) -> Unit,
+    block: suspend ApplicationTestBuilder.(client: HttpClient, admin: TestUser, member: TestUser) -> Unit,
 ) {
     val libraryRoot = Files.createTempDirectory("listenup-library-folder-access-")
     try {
@@ -153,9 +168,8 @@ private fun withFolderSyncApp(
             val client =
                 createClient {
                     install(ContentNegotiation) { json(contractJson) }
-                    install(SSE)
                 }
-            val admin = client.mintRootToken()
+            val admin = client.mintRoot()
             val member = client.registerMember()
             block(client, admin, member)
         }
@@ -164,15 +178,16 @@ private fun withFolderSyncApp(
     }
 }
 
-private suspend fun HttpClient.mintRootToken(): String =
+private suspend fun HttpClient.mintRoot(): TestUser =
     post("/api/v1/auth/setup") {
         contentType(ContentType.Application.Json)
         setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
     }.body<AppResult<AuthSession>>()
         .let { it as AppResult.Success<AuthSession> }
-        .data.accessToken.value
+        .data
+        .let { TestUser(token = it.accessToken.value, userId = it.user.id.value) }
 
-private suspend fun HttpClient.registerMember(): String =
+private suspend fun HttpClient.registerMember(): TestUser =
     post("/api/v1/auth/register") {
         contentType(ContentType.Application.Json)
         setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
@@ -180,7 +195,8 @@ private suspend fun HttpClient.registerMember(): String =
         .let { it as AppResult.Success<RegisterResult> }
         .data
         .let { it as RegisterResult.Authenticated }
-        .session.accessToken.value
+        .session
+        .let { TestUser(token = it.accessToken.value, userId = it.user.id.value) }
 
 /**
  * Makes [bookId] visible to every registered member the pure-union way: drops it into the bootstrap

@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.map
  * Genre repository — Room-backed reads, offline-first where the edit can be mirrored.
  *
  * Tree reads (`observeAll`, `getById`, …) come from the local Room mirror,
- * which the sync engine populates via the substrate's SSE stream and
+ * which the sync engine populates via the substrate's firehose stream and
  * [com.calypsan.listenup.client.data.sync.domains.genresDomain].
  * `bookCount` on the returned [Genre] is computed at read time via JOIN on
  * `book_genres` — there is no denormalized column.

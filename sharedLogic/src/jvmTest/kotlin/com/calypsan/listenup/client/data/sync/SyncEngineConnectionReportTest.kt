@@ -48,7 +48,7 @@ class SyncEngineConnectionReportTest :
                         state = state,
                         store = store,
                         catchUp = failingCatchUp,
-                        sseClient = FakeReportSse(),
+                        syncStreamClient = FakeReportSse(),
                         reconciler = noopSyncReconciler(registry, store, failingCatchUp),
                         dispatcher =
                             SyncEventDispatcher(

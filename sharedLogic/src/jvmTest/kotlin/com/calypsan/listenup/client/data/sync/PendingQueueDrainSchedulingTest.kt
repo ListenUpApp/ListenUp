@@ -503,7 +503,7 @@ private fun buildEngine(
         state = state,
         store = store,
         catchUp = NoopCatchUp,
-        sseClient = sse,
+        syncStreamClient = sse,
         reconciler = noopSyncReconciler(registry, store, NoopCatchUp),
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
@@ -524,7 +524,7 @@ private class FakeNetworkMonitor(
 }
 
 /**
- * SSE client that NEVER reaches [ConnectionState.Connected] — `connect()` leaves the firehose
+ * Stream client that NEVER reaches [ConnectionState.Connected] — `connect()` leaves the firehose
  * Disconnected. Models the outage the fix targets: the firehose is down, but the RPC/request
  * transport the outbox rides is healthy.
  */
@@ -665,7 +665,7 @@ private class CountingDao(
 }
 
 /**
- * Fake SSE client that mirrors production's `SyncSseClient.connect()` semantics:
+ * Fake stream client that mirrors production's `RpcSyncStreamClient.connect()` semantics:
  * `connect()` transitions [state] to [ConnectionState.Connected], which is what
  * the engine's connection-up trigger listens for.
  */

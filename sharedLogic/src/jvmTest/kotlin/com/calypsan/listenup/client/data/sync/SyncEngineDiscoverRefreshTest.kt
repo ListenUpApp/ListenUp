@@ -87,7 +87,7 @@ class SyncEngineDiscoverRefreshTest :
                             state = state,
                             store = store,
                             catchUp = catchUp,
-                            sseClient = sse,
+                            syncStreamClient = sse,
                             reconciler = reconciler,
                             dispatcher = dispatcher,
                             presenceRefreshSignal = presence,

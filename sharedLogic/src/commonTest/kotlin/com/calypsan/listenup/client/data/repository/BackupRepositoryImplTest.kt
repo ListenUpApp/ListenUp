@@ -95,8 +95,6 @@ class BackupRepositoryImplTest :
                     install(ContentNegotiation) { json(contractJson) }
                 }
 
-            override suspend fun getStreamingClient(): HttpClient = error("not used in upload test")
-
             override suspend fun getUnauthenticatedStreamingClient(): HttpClient = error("not used in upload test")
 
             override suspend fun warmUp() = Unit
@@ -104,8 +102,6 @@ class BackupRepositoryImplTest :
             override suspend fun invalidate() = Unit
 
             override suspend fun invalidateRequestClientOnly() = Unit
-
-            override suspend fun invalidateStreamingClientOnly() = Unit
         }
 
         /**
@@ -124,8 +120,6 @@ class BackupRepositoryImplTest :
                     install(HttpTimeout)
                 }
 
-            override suspend fun getStreamingClient(): HttpClient = error("not used in download test")
-
             override suspend fun getUnauthenticatedStreamingClient(): HttpClient = error("not used in download test")
 
             override suspend fun warmUp() = Unit
@@ -133,8 +127,6 @@ class BackupRepositoryImplTest :
             override suspend fun invalidate() = Unit
 
             override suspend fun invalidateRequestClientOnly() = Unit
-
-            override suspend fun invalidateStreamingClientOnly() = Unit
         }
 
         fun buildRepo(service: BackupService): BackupRepositoryImpl =

@@ -134,7 +134,7 @@ class BookDetailViewModel(
      * Carry user-driven transient overlay state (open pickers, in-flight action flags, inline
      * errors) forward when [loadBookFlow] rebuilds [BookDetailUiState.Ready] from Room/availability.
      *
-     * Those flows re-emit on every table invalidation (an SSE firehose frame the sync engine
+     * Those flows re-emit on every table invalidation (a sync firehose frame the sync engine
      * applies, a download progress tick, a reachability flip) — each rebuild resets these overlay
      * fields to their defaults. Without preserving them, any background emission would silently close
      * an open shelf/collection picker (and its create dialog) mid-interaction — the create-from-book-
@@ -534,7 +534,7 @@ class BookDetailViewModel(
 
     /**
      * Force a fresh server-reachability check, backing the offline banner's "Retry"
-     * action. Tears down and re-opens the SSE firehose so the reachability indicator
+     * action. Tears down and re-opens the sync firehose so the reachability indicator
      * recovers without waiting on the automatic backoff loop.
      */
     fun retryConnection() {

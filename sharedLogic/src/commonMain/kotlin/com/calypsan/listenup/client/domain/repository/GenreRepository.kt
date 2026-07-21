@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Repository contract for the curator-controlled genre taxonomy.
  *
- * The genre tree is a syncable domain — the server is authoritative, SSE
+ * The genre tree is a syncable domain — the server is authoritative, the firehose
  * delivers state changes, and Room is the client-side mirror. Tree reads
  * (`observeAll`, `getById`, `getBySlug`, `observeGenresForBook`) consult Room
  * directly. Admin mutations (`createGenre`, `updateGenre`, `deleteGenre`,
@@ -58,7 +58,7 @@ interface GenreRepository {
     /**
      * Creates a new genre under [parentId] (or as a root when null) with the
      * given [name] and optional [sortOrder]. Server derives the slug from
-     * [name]. Authoritative state arrives via SSE; this returns the new
+     * [name]. Authoritative state arrives via the firehose; this returns the new
      * [GenreId] on success.
      */
     suspend fun createGenre(

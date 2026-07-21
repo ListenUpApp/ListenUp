@@ -37,8 +37,7 @@ private const val FRAME_BUFFER_CAPACITY = 256
 /**
  * The production sync-firehose client — [SyncStreamClient] over the kotlinx.rpc
  * [SyncStreamService] stream, riding the same WebSocket as every unary RPC. This is the ONLY
- * firehose transport; the SSE path ([SyncSseClient]/[SseConnection]) is retired and awaiting
- * deletion.
+ * firehose transport.
  *
  * One subscription loop per [connect]: `Connecting` → subscribe
  * `observeEvents(currentLastEventId())` → latch `Connected` on the server's hello frame (the
@@ -53,9 +52,9 @@ private const val FRAME_BUFFER_CAPACITY = 256
  * forwarding them would wake the dispatcher's collector every 25s for a guaranteed no-op. Every
  * other CONTROL frame is forwarded untouched; control decoding is the dispatcher's job.
  *
- * `lastEventId` advances from [SyncFrame.revision] only AFTER `frames.emit` returns — the same
- * ordering contract as the SSE client: a cancellation while emit is suspended (the bounded bus
- * can suspend) must not move the resume cursor past a frame the collector never received.
+ * `lastEventId` advances from [SyncFrame.revision] only AFTER `frames.emit` returns: a
+ * cancellation while emit is suspended (the bounded bus can suspend) must not move the resume
+ * cursor past a frame the collector never received.
  *
  * Auth handling is layered, not local: [RpcChannel.stream] heals a handshake 401 (refresh +
  * one resubscribe) before the first event; a confirmed-dead session surfaces as a typed
@@ -95,9 +94,8 @@ internal class RpcSyncStreamClient(
 
     /**
      * Reconnect-backoff attempt counter; reset by [reconnectNow], at each [connect], and by a
-     * successful subscription. Deliberately unsynchronized best-effort state, mirroring
-     * [SseConnection]: the only cross-coroutine race (a reset briefly unobserved by the loop)
-     * merely lengthens one backoff.
+     * successful subscription. Deliberately unsynchronized best-effort state: the only
+     * cross-coroutine race (a reset briefly unobserved by the loop) merely lengthens one backoff.
      */
     private var reconnectAttempt = 0
 
@@ -238,7 +236,7 @@ internal class RpcSyncStreamClient(
         withTimeoutOrNull(delayMs) { wakeSignal.receive() }
     }
 
-    /** 1s, 2s, 4s, … capped at [maxBackoffMillis] — the SSE ladder, parameterized for tests. */
+    /** 1s, 2s, 4s, … capped at [maxBackoffMillis], parameterized for tests. */
     private fun backoffDelayMillis(attempt: Int): Long {
         val raw =
             (

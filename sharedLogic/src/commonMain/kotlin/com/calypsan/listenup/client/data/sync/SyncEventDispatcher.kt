@@ -43,12 +43,12 @@ internal class SyncEventDispatcher(
      * not let a *later* event (a different book at a higher revision) step the cursor past the failed
      * revision — that would strand it forever.
      *
-     * The freeze lifts as soon as catch-up heals the hole: while a domain is frozen, live SSE never
+     * The freeze lifts as soon as catch-up heals the hole: while a domain is frozen, live firehose never
      * advances its persisted cursor, so a persisted cursor that has moved **above** the watermark can
      * only be the work of a catch-up re-pull (which is monotonic). On the next successful live frame
-     * we detect that and clear the freeze, so steady-state SSE advancement resumes instead of forcing
+     * we detect that and clear the freeze, so steady-state firehose advancement resumes instead of forcing
      * catch-up to re-pull a growing delta every reconnect for the rest of the session. A new apply
-     * failure re-arms the freeze. SSE frames are processed by a single collector, so a plain map
+     * failure re-arms the freeze. Firehose frames are processed by a single collector, so a plain map
      * needs no synchronisation.
      */
     private val frozenOptOutDomains = mutableMapOf<String, Long>()
@@ -91,7 +91,7 @@ internal class SyncEventDispatcher(
             }
 
             is SyncControl.StreamError -> {
-                logger.warn { "SSE stream error from server: ${control.error.code}" }
+                logger.warn { "Firehose stream error from server: ${control.error.code}" }
                 state.recordError(control.error)
             }
 
@@ -173,7 +173,7 @@ internal class SyncEventDispatcher(
                 // revision that only the cursor can redeliver. Digest-backed domains always
                 // advance (a missed apply self-heals on the next reconcile).
                 val frozenAt = frozenOptOutDomains[domainName]
-                // While frozen, live SSE never advances this domain's persisted cursor, so a cursor
+                // While frozen, live firehose never advances this domain's persisted cursor, so a cursor
                 // now ABOVE the watermark can only be a catch-up re-pull that healed the hole — lift
                 // the freeze and resume steady-state advancement.
                 val healed = frozenAt != null && (cursorOf(domainName) ?: Long.MIN_VALUE) > frozenAt
@@ -202,7 +202,7 @@ internal class SyncEventDispatcher(
                 // the op; catch-up re-applies the canonical state without echo shielding.
                 if (!typed.hasDigestBackstop) {
                     // No reconcile backstop: freeze cursor advancement at the last successfully
-                    // applied revision (SSE frames are revision-ordered, so the cursor already
+                    // applied revision (firehose frames are revision-ordered, so the cursor already
                     // sits just below this hole). Only catch-up re-pull can advance past it now.
                     freeze(domainName)
                 }

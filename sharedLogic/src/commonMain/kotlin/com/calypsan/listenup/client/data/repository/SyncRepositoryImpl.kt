@@ -158,7 +158,7 @@ internal class SyncRepositoryImpl(
         // Every platform's app-foreground path funnels through here (MainActivity.onResume, the
         // auth-transition collector, shell entry). It routes through the unified recover seam so a
         // firehose that died while backgrounded is actually re-opened — not just reconciled over REST
-        // while the dead SSE stream stays dead (the "reconnects only on relaunch" gap). The seam
+        // while the dead firehose stream stays dead (the "reconnects only on relaunch" gap). The seam
         // no-ops the reconnect when the firehose is already healthy, so a normal foreground on a live
         // connection does not churn it; lifecycleReconcile stays debounced.
         recoverRealtime()
@@ -184,7 +184,7 @@ internal class SyncRepositoryImpl(
 
     override suspend fun refreshListeningHistory(): AppResult<Unit> =
         // Import completion writes playback positions + listening events server-side under
-        // `FirehoseSuppressed` (no SSE push), at revisions ABOVE the client's cursor. A digest
+        // `FirehoseSuppressed` (no firehose push), at revisions ABOVE the client's cursor. A digest
         // reconcile (forceFullResync → forceReconcile) compares local-vs-server digests AT that stale
         // cursor — and since both sides exclude the beyond-cursor rows, it sees no drift and pulls
         // nothing, so the progress only appeared after a restart. A forward catch-up is what drains
@@ -317,7 +317,7 @@ internal class SyncRepositoryImpl(
     /**
      * Launches (once) the live scan-progress observer over [ScannerService.observeProgress].
      *
-     * The live SSE tail that delivers scanned books is best-effort (the server's change bus
+     * The live firehose tail that delivers scanned books is best-effort (the server's change bus
      * drops events under a large-scan burst), so a freshly-scanned library can finish with the
      * client still missing rows. This observer drives the [isServerScanning]/[scanProgress] UI
      * state from the scan event stream and, on [ScanEvent.Completed], forces a catch-up
@@ -352,7 +352,7 @@ internal class SyncRepositoryImpl(
     /**
      * Launches (once) the live FTS refresh observer. The offline full-text index is refreshed at
      * scan-completion / forceFullResync / cold-start, but a book edited on another device arrives over
-     * the live SSE firehose and lands in Room WITHOUT touching the index — so it is unsearchable or
+     * the live sync firehose and lands in Room WITHOUT touching the index — so it is unsearchable or
      * shows stale text until a scan/resync, denting the "offline FTS is the search fallback" promise.
      * This observer follows Room: on any searchable-content write it debounce-refreshes the index from
      * the last-indexed watermark, coalescing a firehose burst into one refresh ([refreshSince] falls
@@ -648,7 +648,7 @@ internal fun mergeRecentBooks(
  * Returns `true` when a [ScanResultSummary] reports that at least one row was mutated — added,
  * modified, removed, or moved. When all four counters are zero the scan was a no-op (the server
  * walked the library and found nothing new), so the client can skip the expensive catch-up
- * ([SyncEngine.handleCursorStale] → 19 HTTP pulls → SSE disconnect/reconnect) and the search-index
+ * ([SyncEngine.handleCursorStale] → 19 HTTP pulls → firehose disconnect/reconnect) and the search-index
  * refresh entirely. A non-skipped reconcile now reindexes incrementally
  * ([FtsPopulatorContract.refreshSince] — typically milliseconds), reserving the full rebuild
  * ([FtsPopulatorContract.rebuildAll] → ~3.3 s on a 1 150-book library) for deltas too large to
@@ -701,7 +701,7 @@ internal suspend fun recoverFromScanStreamEnd(
  * cancelled the instant the wizard is dismissed — and the wizard shows "Done" before this catch-up
  * finishes draining the firehose-suppressed imported positions into Room. Running [recover] in the
  * caller's context let a dismissal cancel it mid-drain: the imported history never landed (and
- * [SyncEngine.handleCursorStale]'s SSE reconnect never ran, leaving the firehose down) until a
+ * [SyncEngine.handleCursorStale]'s firehose reconnect never ran, leaving the firehose down) until a
  * later, app-scoped sync trigger. Launched on [scope] the catch-up completes regardless of the
  * wizard's lifecycle; the `join()` keeps the awaitable contract for callers that aren't transient.
  *

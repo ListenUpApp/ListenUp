@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.Flow
  * are never persisted locally.
  *
  * **Write model:** mutations dispatch over RPC and return a typed [AppResult];
- * Room is updated by the SSE echo, not an optimistic local write. There is no
+ * Room is updated by the firehose echo, not an optimistic local write. There is no
  * `getOrThrow` bridge — every fallible call folds an [AppResult].
  *
  * Part of the domain layer — implementations live in the data layer.

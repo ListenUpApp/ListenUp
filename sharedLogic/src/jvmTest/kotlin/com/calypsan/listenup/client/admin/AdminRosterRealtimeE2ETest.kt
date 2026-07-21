@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
 import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.api.AdminSettingsService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
@@ -26,20 +27,24 @@ import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
-import com.calypsan.listenup.client.data.sync.SyncSseClient
+import com.calypsan.listenup.client.data.sync.RpcSyncStreamClient
 import com.calypsan.listenup.client.data.sync.testing.registerTestSyncDomains
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
+import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.services.GenreRepository as ServerGenreRepository
 import com.calypsan.listenup.server.sync.AdminUserRosterRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.sync.createSyncStreamService
 import com.calypsan.listenup.server.sync.syncRoutes
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -48,10 +53,10 @@ import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
-import io.ktor.client.plugins.sse.SSE
 import io.ktor.client.request.bearerAuth
 import io.ktor.http.auth.HttpAuthHeader
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.AuthenticationConfig
@@ -61,7 +66,6 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.auth.parseAuthorizationHeader
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
 import io.ktor.server.routing.routing
-import io.ktor.server.sse.SSE as ServerSSE
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlin.time.Duration.Companion.seconds
@@ -72,6 +76,14 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
+import kotlinx.rpc.krpc.ktor.client.installKrpc
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
+import kotlinx.rpc.krpc.ktor.server.Krpc as ServerKrpc
+import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
+import kotlinx.rpc.krpc.serialization.json.json as krpcJson
+import kotlinx.rpc.registerService
+import kotlinx.rpc.withService
 import org.koin.core.context.GlobalContext
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
@@ -84,8 +96,8 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
 
 /**
  * Tier 3 e2e for the `admin_user_roster` sync domain: a real server-side roster row publishes
- * through the real [syncRoutes] role gate, over a real client [SyncEngine] (catch-up + live SSE
- * firehose), into a real Room DB — proving
+ * through the real role gate, over a real client [SyncEngine] (catch-up + live RPC firehose),
+ * into a real Room DB — proving
  * [com.calypsan.listenup.client.domain.repository.AdminRepository.observeRoster] actually
  * surfaces the row for an ADMIN session, and never for a MEMBER session.
  *
@@ -94,7 +106,8 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  * [com.calypsan.listenup.client.data.sync.testing.withCollectionSyncEngineAgainstServer] (a
  * role-aware [AuthenticationProvider] grants [ADMIN_ID] `ADMIN` and every other bearer token
  * `MEMBER`), but self-contained here since only the `admin_user_roster` + `genres` domains are
- * needed — no RPC/WebSocket surface, no books/collections access-gating machinery.
+ * needed — the only RPC surface mounted is the firehose itself, with no books/collections
+ * access-gating machinery.
  *
  * The roster row is seeded directly through [AdminUserRosterRepository.upsert], mirroring
  * [com.calypsan.listenup.server.sync.AdminUserRosterGateTest]: the maintainer's publish triggers
@@ -134,7 +147,9 @@ class AdminRosterRealtimeE2ETest :
 
                 application {
                     install(ServerContentNegotiation) { json(contractJson) }
-                    install(ServerSSE)
+                    // Install the kotlinx.rpc application plugin before any `rpc(...)` route is
+                    // declared — the server DSL errors otherwise. Matches production wiring.
+                    install(ServerKrpc)
                     // Role-aware auth: ADMIN_ID authenticates as ADMIN (passes the admin_user_roster
                     // whole-domain gate); every other bearer token authenticates as MEMBER so the
                     // gate actually applies to their catch-up + firehose.
@@ -148,7 +163,30 @@ class AdminRosterRealtimeE2ETest :
                         )
                     }
                     routing {
-                        authenticate(JWT_PROVIDER) { syncRoutes() }
+                        authenticate(JWT_PROVIDER) {
+                            syncRoutes()
+                            // The RPC firehose — per-connection principal scoping exactly as
+                            // production does, so each engine's stream carries the (userId, role)
+                            // its WebSocket upgrade authenticated with. The roster domain is
+                            // role-gated inside the stream; no book-gated domain is driven here,
+                            // so no BookAccessPolicy is wired (the thunk resolves only for
+                            // book-gated content events).
+                            serverRpc("/api/rpc/authed") {
+                                rpcConfig { serialization { krpcJson(contractJson) } }
+                                registerService<SyncStreamService> {
+                                    val p =
+                                        call.userPrincipalOrNull()
+                                            ?: error("authed RPC mount reached without a principal")
+                                    guard(
+                                        createSyncStreamService(
+                                            bus,
+                                            { error("no book-gated domain in this harness") },
+                                            PrincipalProvider { p },
+                                        ),
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -160,18 +198,18 @@ class AdminRosterRealtimeE2ETest :
                 val adminHttpClient: HttpClient =
                     createClient {
                         install(ContentNegotiation) { json(contractJson) }
-                        install(SSE)
+                        installKrpc()
                         defaultRequest { bearerAuth(ADMIN_ID) }
                     }
                 val memberHttpClient: HttpClient =
                     createClient {
                         install(ContentNegotiation) { json(contractJson) }
-                        install(SSE)
+                        installKrpc()
                         defaultRequest { bearerAuth(MEMBER_ID) }
                     }
 
-                val adminEngine = buildRosterSyncEngine(adminDb, adminHttpClient, adminScope)
-                val memberEngine = buildRosterSyncEngine(memberDb, memberHttpClient, memberScope)
+                val adminEngine = buildRosterSyncEngine(adminDb, adminHttpClient, adminScope, bearerToken = ADMIN_ID)
+                val memberEngine = buildRosterSyncEngine(memberDb, memberHttpClient, memberScope, bearerToken = MEMBER_ID)
 
                 try {
                     adminEngine.start(currentUserId = ADMIN_ID)
@@ -262,13 +300,16 @@ private fun rosterRowFixture(id: String): AdminUserRosterSyncPayload =
 /**
  * Assembles a client [SyncEngine] wired against the full production catalog (the test only
  * drives the `admin_user_roster` and `genres` domains, but every handler is registered so
- * SSE events on other domains don't get logged as "unhandled" warnings) — this harness needs
- * no RPC/WebSocket surface and no books/collections access-gating machinery.
+ * firehose events on other domains don't get logged as "unhandled" warnings). The firehose is
+ * the production [RpcSyncStreamClient] over a real kotlinx.rpc proxy; [bearerToken] is attached
+ * explicitly to the WebSocket upgrade so the connection authenticates as the intended
+ * (userId, role) — the admin's stream must not fall back to the MEMBER default.
  */
-private fun buildRosterSyncEngine(
+private suspend fun buildRosterSyncEngine(
     clientDb: ListenUpDatabase,
     httpClient: HttpClient,
     scope: CoroutineScope,
+    bearerToken: String,
 ): SyncEngine {
     val registry = ClientSyncDomainRegistry()
 
@@ -289,10 +330,15 @@ private fun buildRosterSyncEngine(
             store = store,
             transactionRunner = RoomTransactionRunner(clientDb),
         )
-    val sseClient =
-        SyncSseClient(
-            serverUrlProvider = { "" },
-            streamingClientProvider = { httpClient },
+    val syncStreamServiceProxy =
+        httpClient
+            .rpc("ws://localhost/api/rpc/authed") {
+                bearerAuth(bearerToken)
+                rpcConfig { serialization { krpcJson(contractJson) } }
+            }.withService<SyncStreamService>()
+    val syncStreamClient =
+        RpcSyncStreamClient(
+            channel = RpcChannel.forTest(syncStreamServiceProxy),
             state = state,
             scope = scope,
         )
@@ -317,7 +363,7 @@ private fun buildRosterSyncEngine(
         state = state,
         store = store,
         catchUp = catchUp,
-        sseClient = sseClient,
+        syncStreamClient = syncStreamClient,
         reconciler = reconciler,
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),

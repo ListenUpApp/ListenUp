@@ -18,7 +18,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
  * op keyed by the domain's identity **in one transaction** — all-or-nothing, so a crash can never
  * leave a committed local edit without its outbox row (a silently lost sync). The edit therefore
  * persists and replays on reconnect rather than failing offline; the authoritative state still
- * arrives via the SSE sync engine. Callers pass only the two irreducible facts: which entity, and
+ * arrives via the sync engine. Callers pass only the two irreducible facts: which entity, and
  * how to merge the patch into Room. A failing local write rolls the transaction back and surfaces
  * as a typed [AppResult.Failure] — [edit] never throws (cancellation excepted).
  */

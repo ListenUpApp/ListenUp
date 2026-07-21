@@ -26,7 +26,7 @@ import com.calypsan.listenup.core.BookId
  * Riding one channel is load-bearing: the outbox's per-entity FIFO replays a book's edits in order,
  * and the `books`-keyed anti-flicker shield defers every inbound book echo while any edit is in
  * flight — so a stale echo never reverts the optimistic state. The authoritative state arrives via
- * the book's own SSE echo once the op drains and reconciles through the books domain
+ * the book's own firehose echo once the op drains and reconciles through the books domain
  * ([com.calypsan.listenup.client.data.sync.domains.booksDomain]); the outbox sender binding
  * ([com.calypsan.listenup.client.di.clientSyncModule]) dispatches each variant to its RPC.
  *

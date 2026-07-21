@@ -64,7 +64,7 @@ internal data class MetadataMatch(
  *    left untouched. Resolved through [SeriesRepository.resolveOrCreate].
  *  - **Genres** are reconciled to [MetadataApplySelection.genres] via the same 3-step cascade as
  *    the scanner (alias → [GenreNormalizer] → pending), written BEFORE the text `upsert` so the
- *    upsert's `readPayload` re-reads the junction and the genres ride the same SSE event + revision
+ *    upsert's `readPayload` re-reads the junction and the genres ride the same sync event + revision
  *    bump. An empty set removes all genres.
  *  - **Enrichment** (best-effort) reconciles the book's moods + tropes to the user's selected values
  *    from the apply [selection] (the values were scraped + classified at lookup time and chosen by
@@ -75,7 +75,7 @@ internal data class MetadataMatch(
  *
  * Returns [MetadataError.NotFound] when the book is absent or the provider has no match.
  * All writes go through `upsert` / `setManagedCover` / `setBookGenres`, so revisions bump
- * and SSE fires.
+ * and the sync event fires.
  */
 internal class BookMetadataApplier(
     private val bookRepository: BookRepository,
@@ -272,7 +272,7 @@ internal class BookMetadataApplier(
      * specific genre. Obtains the structured ladders server-side via [ladderSource] (the wire
      * [MetadataBook] only carries the flat dedup). Runs AFTER [applyGenresBestEffort] (whose
      * `setBookGenres` wipes the junction first) so the additive rung links survive, and BEFORE the
-     * book `upsert` so the re-read junction rides the same SSE event + revision bump.
+     * book `upsert` so the re-read junction rides the same sync event + revision bump.
      *
      * Best-effort: a failure is logged and skipped so already-committed metadata is not rolled back.
      * [CancellationException] is always re-raised. No-ops when the match has no ladders.

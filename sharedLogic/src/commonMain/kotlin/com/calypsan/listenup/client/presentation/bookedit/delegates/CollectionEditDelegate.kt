@@ -27,7 +27,7 @@ private const val SEARCH_LIMIT = 10
  *
  * Mirrors [GenreTagEditDelegate]: `state.update { }` + [onChangesMade] on every
  * mutation, local filtering for the picker. No optimistic Room writes — the save
- * path dispatches `setBookCollections` and the SSE echo delivers the new state.
+ * path dispatches `setBookCollections` and the firehose echo delivers the new state.
  *
  * @property state Shared state flow owned by ViewModel.
  * @property collectionRepository Source of the current + available collections.

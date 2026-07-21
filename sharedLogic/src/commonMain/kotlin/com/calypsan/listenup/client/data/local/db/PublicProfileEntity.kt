@@ -15,11 +15,11 @@ import kotlinx.coroutines.flow.Flow
  * originate changes — with ONE carve-out. On the caller's OWN avatar upload / revert-to-auto,
  * [com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl] optimistically writes
  * this user's own row ([avatarType] + [avatarUpdatedAt]) so the observed avatar re-emits before
- * the sync round-trip. The eventual SSE echo (higher [revision], ServerWins) replaces it without
+ * the sync round-trip. The eventual firehose echo (higher [revision], ServerWins) replaces it without
  * regressing the version — the server stamped the same [avatarUpdatedAt].
  *
  * Carries the canonical sync substrate ([revision], [deletedAt]) consumed by the
- * public-profile sync handler for catch-up and SSE event application.
+ * public-profile sync handler for catch-up and firehose event application.
  */
 @Entity(tableName = "public_profiles")
 internal data class PublicProfileEntity(

@@ -41,7 +41,7 @@ internal interface SyncDomainHandler<T : Any> {
         get() = true
 
     /**
-     * The stable sync id for [item] — the same id used on the SSE envelope and as the local
+     * The stable sync id for [item] — the same id used on the firehose envelope and as the local
      * row's identity. For most domains this is the payload's `id` field; composite-key domains
      * (e.g. `collection_books`) synthesise it from their parts (`"$collectionId:$bookId"`).
      *
@@ -52,7 +52,7 @@ internal interface SyncDomainHandler<T : Any> {
     fun syncId(item: T): String
 
     /**
-     * Apply an SSE-driven event.
+     * Apply a firehose-driven event.
      *
      * Anti-flicker is structural, not per-call: the engine's apply choke point shields an inbound
      * snapshot for an entity whose local edit is still in flight (a queued outbox op), so a stale

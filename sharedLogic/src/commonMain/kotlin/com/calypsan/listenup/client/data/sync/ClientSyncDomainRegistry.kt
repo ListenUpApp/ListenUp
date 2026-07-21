@@ -5,7 +5,7 @@ import kotlinx.atomicfu.locks.synchronized
 
 /**
  * Per-process registry of [SyncDomainHandler]s, populated at app start by each
- * handler's `init` block. The engine looks handlers up by name as SSE events
+ * handler's `init` block. The engine looks handlers up by name as firehose events
  * and REST catch-up pages arrive.
  *
  * Mirror of the server's `SyncRoutes` registry shape — same self-registration

@@ -80,7 +80,7 @@ internal class CollectionBookMirrorApply(
     }
 
     /**
-     * Tombstone from an SSE `Deleted` frame by the opaque wire [id] (SERVER-SYNC-04) — a graceful
+     * Tombstone from a firehose `Deleted` frame by the opaque wire [id] (SERVER-SYNC-04) — a graceful
      * no-op if [id] matches no local row (nothing to reconcile locally). Unlike book_tags, this
      * DAO's tombstone advances the stored revision.
      */

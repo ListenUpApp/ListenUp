@@ -125,7 +125,7 @@ private fun buildEngineWithCatchUp(
         state = state,
         store = store,
         catchUp = catchUp,
-        sseClient = NoopSyncStreamClient(state),
+        syncStreamClient = NoopSyncStreamClient(state),
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),

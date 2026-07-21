@@ -203,7 +203,7 @@ internal data class PlaybackPositionEntity(
     // Local timestamp when entity was modified (epoch ms)
     val updatedAt: Long,
     // Epoch-ms timestamp from the last server-applied write (null if the row has never
-    // been written by the server via sync or an SSE catch-up). Originally
+    // been written by the server via sync or catch-up). Originally
     // used as an outbox dirty-bit; the pending-operation queue (Playback-P1) is now
     // the outbox. syncedAt now serves solely as a "came-from-server" marker, carried
     // forward untouched by [PlaybackPositionMirrorApply] on every inbound sync merge.
@@ -237,7 +237,7 @@ internal data class PlaybackPositionEntity(
  *
  * Carries the sync substrate ([revision], [deletedAt], [updatedAt]) required by
  * [com.calypsan.listenup.client.data.sync.domains.tagsDomain] for catch-up and
- * SSE event application.
+ * firehose event application.
  */
 @Entity(
     tableName = "tags",

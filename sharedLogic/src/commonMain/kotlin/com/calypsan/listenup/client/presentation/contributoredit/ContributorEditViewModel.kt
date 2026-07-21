@@ -67,7 +67,7 @@ data class ContributorEditUiState(
     val website: String = "",
     val birthDate: String = "", // ISO 8601 format (YYYY-MM-DD)
     val deathDate: String = "", // ISO 8601 format (YYYY-MM-DD)
-    // Alias management (Room-observed; updated reactively by SSE)
+    // Alias management (Room-observed; updated reactively by the firehose)
     val aliases: List<String> = emptyList(),
     val mergeInProgress: Boolean = false,
     // Merge-target picker query (drives candidate filtering)
@@ -80,7 +80,7 @@ data class ContributorEditUiState(
  * Events from the contributor edit UI.
  *
  * Merge/unmerge are server-canonical operations (Books-C2): the VM dispatches
- * the RPC; the server emits SSE with authoritative state; the Room aliases
+ * the RPC; the server emits sync events with authoritative state; the Room aliases
  * Flow re-emits without optimistic local writes.
  */
 sealed interface ContributorEditUiEvent {
@@ -251,7 +251,7 @@ class ContributorEditViewModel internal constructor(
                 )
             }
 
-            // Subscribe to Room aliases (single source of truth; updated by SSE).
+            // Subscribe to Room aliases (single source of truth; updated by the firehose).
             contributorAliasDao
                 .observeForContributor(contributorId)
                 .onEach { aliases -> state.update { it.copy(aliases = aliases) } }
@@ -377,7 +377,7 @@ class ContributorEditViewModel internal constructor(
 
     /**
      * Split [aliasName] back into its own contributor. The aliases Room Flow re-emits
-     * without [aliasName] once the SSE event lands; we stay on this screen.
+     * without [aliasName] once the firehose event lands; we stay on this screen.
      */
     private fun unmergeAlias(aliasName: String) {
         val contributorId = state.value.contributorId

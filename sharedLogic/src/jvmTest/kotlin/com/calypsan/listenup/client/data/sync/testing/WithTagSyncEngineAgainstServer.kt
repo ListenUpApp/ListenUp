@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync.testing
 
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
@@ -14,7 +15,7 @@ import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
-import com.calypsan.listenup.client.data.sync.SyncSseClient
+import com.calypsan.listenup.client.data.sync.RpcSyncStreamClient
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.OutboxOpSender
 import com.calypsan.listenup.client.data.sync.orSuccessIfNotFound
@@ -39,26 +40,36 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
+import com.calypsan.listenup.server.plugins.userPrincipalOrNull
+import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.sync.createSyncStreamService
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.sse.SSE
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
-import io.ktor.server.sse.SSE as ServerSSE
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.rpc.krpc.ktor.client.installKrpc
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
+import kotlinx.rpc.krpc.ktor.server.Krpc as ServerKrpc
+import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
+import kotlinx.rpc.krpc.serialization.json.json as krpcJson
+import kotlinx.rpc.registerService
+import kotlinx.rpc.withService
 import org.koin.core.context.GlobalContext
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
@@ -68,7 +79,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * Test scope for [TagSyncE2ETest][com.calypsan.listenup.client.data.sync.TagSyncE2ETest].
  *
  * Exposes the real server-side [TagRepository] and [BookTagRepository] for
- * triggering writes that publish SSE events, and the client [ListenUpDatabase]
+ * triggering writes that publish firehose events, and the client [ListenUpDatabase]
  * for asserting that events landed in Room.
  */
 internal data class TagSyncEngineScope(
@@ -96,7 +107,7 @@ internal data class TagSyncEngineScope(
  * [com.calypsan.listenup.client.data.sync.domains.bookTagsDomain] instead of
  * [RecordingTagSyncDomainHandler]. This lets
  * tests assert that tag and book_tag
- * SSE events land directly in Room rather than being captured in a recording
+ * firehose events land directly in Room rather than being captured in a recording
  * buffer. The two harnesses cannot be combined because [ClientSyncDomainRegistry]
  * enforces a single handler per domain name.
  *
@@ -154,7 +165,9 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
-            install(ServerSSE)
+            // Install the kotlinx.rpc application plugin before any `rpc(...)` route is
+            // declared — the server DSL errors otherwise. Matches production wiring.
+            install(ServerKrpc)
             install(Authentication) { testAuth(defaultUserId = "u1") }
             install(Koin) {
                 modules(
@@ -167,7 +180,28 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 )
             }
             routing {
-                authenticate(JWT_PROVIDER) { syncRoutes() }
+                authenticate(JWT_PROVIDER) {
+                    syncRoutes()
+                    // The RPC firehose — the same per-connection principal scoping production
+                    // uses, over the harness's shared ChangeBus. Tags/book_tags are ungated,
+                    // so no BookAccessPolicy is wired; the thunk resolves only for book-gated
+                    // content events, which this harness never publishes.
+                    serverRpc("/api/rpc/authed") {
+                        rpcConfig { serialization { krpcJson(contractJson) } }
+                        registerService<SyncStreamService> {
+                            val p =
+                                call.userPrincipalOrNull()
+                                    ?: error("authed RPC mount reached without a principal")
+                            guard(
+                                createSyncStreamService(
+                                    bus,
+                                    { error("no book-gated domain in this harness") },
+                                    PrincipalProvider { p },
+                                ),
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -177,7 +211,9 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
         val testClient: HttpClient =
             createClient {
                 install(ContentNegotiation) { json(contractJson) }
-                install(SSE)
+                // installKrpc() adds WebSockets + kotlinx.rpc plumbing so the firehose
+                // client can open `.rpc("/api/rpc/authed")` against the in-process server.
+                installKrpc()
             }
 
         try {
@@ -239,10 +275,16 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                     transactionRunner = RoomTransactionRunner(clientDb),
                 )
 
-            val sseClient =
-                SyncSseClient(
-                    serverUrlProvider = { "" },
-                    streamingClientProvider = { testClient },
+            // The production firehose client over a real kotlinx.rpc proxy into the harness's
+            // in-process server — same transport shape as production DI wires.
+            val syncStreamServiceProxy =
+                testClient
+                    .rpc("ws://localhost/api/rpc/authed") {
+                        rpcConfig { serialization { krpcJson(contractJson) } }
+                    }.withService<SyncStreamService>()
+            val syncStreamClient =
+                RpcSyncStreamClient(
+                    channel = RpcChannel.forTest(syncStreamServiceProxy),
                     state = state,
                     scope = clientScope,
                 )
@@ -269,7 +311,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                     state = state,
                     store = store,
                     catchUp = catchUp,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     reconciler = reconciler,
                     dispatcher = dispatcher,
                     presenceRefreshSignal = PresenceRefreshSignal(),

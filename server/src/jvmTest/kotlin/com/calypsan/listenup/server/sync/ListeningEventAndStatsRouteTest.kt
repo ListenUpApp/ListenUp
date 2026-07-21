@@ -9,6 +9,9 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.testing.SyncTestScope
+import com.calypsan.listenup.server.testing.domainFrames
+import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.withTestApplication
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -16,7 +19,6 @@ import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
-import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -24,8 +26,6 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 
 /**
@@ -50,9 +50,9 @@ import kotlinx.coroutines.flow.first
  *
  * 3. **Per-user isolation** — u2's catch-up returns empty; u2's stats return 204.
  *
- * 4. **SSE firehose isolation** — a u2 event does not leak into u1's SSE stream
- *    before u1's own event arrives; the first `listening_events` event u1 sees
- *    carries u1's book id.
+ * 4. **RPC firehose isolation** — a u2 event does not leak into u1's firehose
+ *    stream ([rpcFirehose] over the harness bus) before u1's own event arrives;
+ *    the first `listening_events` frame u1 sees carries u1's book id.
  *
  * The [testAuth] provider authenticates the bearer token verbatim as the user id,
  * so `bearerAuth("u1")` resolves to `UserPrincipal(UserId("u1"))`.
@@ -143,34 +143,31 @@ class ListeningEventAndStatsRouteTest :
             }
         }
 
-        test("SSE firehose delivers a listening_events event to its owning user, not to another user") {
+        test("RPC firehose delivers a listening_events event to its owning user, not to another user") {
             withTestApplication(playbackEvents = true) {
                 seedBook("book-u1")
                 seedBook("book-u2")
-                // Subscribe as u1 and collect the first `listening_events` SSE event.
-                // u2's write is skipped for the u1 subscriber; a leaked u2 event would arrive
-                // first and the book-id assertion below would see "book-u2" instead of "book-u1".
-                client.sse("/api/v1/sync/events", request = { bearerAuth("u1") }) {
-                    coroutineScope {
-                        val deferred =
-                            async { incoming.first { it.event == "listening_events" } }
-                        // u2's write — must not leak into u1's stream before u1's own event.
-                        client.post("/api/v1/playback/events") {
-                            bearerAuth("u2")
-                            contentType(ContentType.Application.Json)
-                            setBody(recordRequest(id = "evt-u2-sse", bookId = "book-u2"))
-                        }
-                        // u1's write — must be the first `listening_events` event u1 sees.
-                        client.post("/api/v1/playback/events") {
-                            bearerAuth("u1")
-                            contentType(ContentType.Application.Json)
-                            setBody(recordRequest(id = "evt-u1-sse", bookId = "book-u1"))
-                        }
-                        val event = deferred.await()
-                        event.event shouldBe "listening_events"
-                        event.data!!.contains(""""book-u1"""") shouldBe true
-                    }
+                // Write both events first, then observe as u1: the bus's replay buffer
+                // holds both, so the collection is deterministic. u2's write is skipped
+                // for the u1 subscriber; a leaked u2 event would arrive first and the
+                // book-id assertion below would see "book-u2" instead of "book-u1".
+                client.post("/api/v1/playback/events") {
+                    bearerAuth("u2")
+                    contentType(ContentType.Application.Json)
+                    setBody(recordRequest(id = "evt-u2-sse", bookId = "book-u2"))
                 }
+                // u1's write — must be the first `listening_events` frame u1 sees.
+                client.post("/api/v1/playback/events") {
+                    bearerAuth("u1")
+                    contentType(ContentType.Application.Json)
+                    setBody(recordRequest(id = "evt-u1-sse", bookId = "book-u1"))
+                }
+
+                val frame =
+                    rpcFirehose(bus, rootPrincipal("u1"))
+                        .domainFrames()
+                        .first { it.domain == "listening_events" }
+                frame.json.contains(""""book-u1"""") shouldBe true
             }
         }
     })

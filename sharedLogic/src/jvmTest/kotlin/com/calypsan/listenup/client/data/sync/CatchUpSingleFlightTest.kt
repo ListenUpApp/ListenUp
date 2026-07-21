@@ -125,7 +125,7 @@ private fun buildSingleFlightEngine(
         state = state,
         store = store,
         catchUp = catchUp,
-        sseClient = SingleFlightNoopSyncStreamClient(state),
+        syncStreamClient = SingleFlightNoopSyncStreamClient(state),
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),

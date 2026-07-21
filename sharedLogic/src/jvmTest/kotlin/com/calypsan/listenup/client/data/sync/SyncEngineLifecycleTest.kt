@@ -96,7 +96,7 @@ class SyncEngineLifecycleTest :
                         state = state,
                         store = store,
                         catchUp = fakeCatchUp,
-                        sseClient = fakeSse,
+                        syncStreamClient = fakeSse,
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                         dispatcher = dispatcher,
                         presenceRefreshSignal = PresenceRefreshSignal(),
@@ -134,7 +134,7 @@ class SyncEngineLifecycleTest :
                         state = state,
                         store = store,
                         catchUp = fakeCatchUp2,
-                        sseClient = FakeSse(),
+                        syncStreamClient = FakeSse(),
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp2),
                         dispatcher =
                             SyncEventDispatcher(
@@ -195,7 +195,7 @@ class SyncEngineLifecycleTest :
                         state = state,
                         store = store,
                         catchUp = fakeCatchUp3,
-                        sseClient = fakeSse,
+                        syncStreamClient = fakeSse,
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp3),
                         dispatcher =
                             SyncEventDispatcher(
@@ -282,7 +282,7 @@ class SyncEngineLifecycleTest :
                         state = state,
                         store = store,
                         catchUp = fakeCatchUp4,
-                        sseClient = fakeSse,
+                        syncStreamClient = fakeSse,
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp4),
                         dispatcher =
                             SyncEventDispatcher(
