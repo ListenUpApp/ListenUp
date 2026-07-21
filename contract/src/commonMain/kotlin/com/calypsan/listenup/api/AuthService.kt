@@ -5,10 +5,13 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
+import kotlinx.coroutines.flow.Flow
 import kotlinx.rpc.annotations.Rpc
 
 /**
@@ -41,6 +44,17 @@ interface AuthServicePublic {
      * in the same family triggers a family-wide revoke.
      */
     suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession>
+
+    /**
+     * Streams the approval status of a pending registration. Emits the current status
+     * immediately, then live updates, and COMPLETES the moment the status turns terminal
+     * (approved/denied) — the completion IS the signal; consumers must not reconnect a
+     * completed watch. Pre-auth: served on the public RPC channel, keyed by the [userId]
+     * returned from [RegisterResult.PendingApproval]. An unknown [userId] emits a single
+     * [RpcEvent.Error] carrying [com.calypsan.listenup.api.error.AuthError.RegistrationNotFound]
+     * and completes — it never hangs.
+     */
+    fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>>
 }
 
 /**

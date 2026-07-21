@@ -14,12 +14,14 @@ import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
@@ -33,6 +35,11 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.ExperimentalTime
@@ -93,6 +100,14 @@ class AuthServiceImpl(
      * environments, phased startup). A null value silently skips the roster-projection refresh.
      */
     internal val adminUserRosterMaintainer: AdminUserRosterMaintainer? = null,
+    /**
+     * Fan-out of admin approve/deny decisions to a live [observeRegistrationStatus] watcher.
+     * Defaulted (rather than required) so the many direct-construction unit tests are unaffected;
+     * production DI ([com.calypsan.listenup.server.di.authModule]) binds the shared Koin
+     * singleton — the same instance [com.calypsan.listenup.server.api.AdminUserServiceImpl]
+     * notifies on a decision.
+     */
+    internal val registrationBroadcaster: RegistrationBroadcaster = RegistrationBroadcaster(),
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -308,6 +323,39 @@ class AuthServiceImpl(
         )
     }
 
+    /**
+     * Emits [userId]'s persisted registration status, then live updates, completing on the first
+     * terminal (approved/denied) value — see the [AuthServicePublic.observeRegistrationStatus]
+     * KDoc for the completion contract. An unknown [userId] emits a single
+     * [AuthError.RegistrationNotFound] and completes, rather than waiting forever.
+     */
+    override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> =
+        flow {
+            // C3-style per-IP throttle (mirrors login/register/refresh): each open subscription
+            // runs a poll loop for as long as the registration stays pending, so an unbounded
+            // stream of subscribe attempts is a resource-exhaustion vector on its own.
+            enforceRate(AuthRateBucket.OBSERVE_REGISTRATION_STATUS)?.let {
+                emit(RpcEvent.Error(it))
+                return@flow
+            }
+            val initial = readRegistrationStatus(db, userId)
+            if (initial == null) {
+                emit(RpcEvent.Error(AuthError.RegistrationNotFound()))
+                return@flow
+            }
+            emit(RpcEvent.Data(initial))
+            if (initial.status == STATUS_PENDING) {
+                val terminal =
+                    merge(
+                        registrationBroadcaster.subscribe(userId).map { it.toEvent() },
+                        pollUntilTerminal(userId) { id ->
+                            readRegistrationStatus(db, id) ?: RegistrationStatusEvent(status = STATUS_PENDING)
+                        },
+                    ).first()
+                emit(RpcEvent.Data(terminal))
+            }
+        }
+
     override suspend fun logout(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revoke(p.sessionId, p.userId)
@@ -350,6 +398,7 @@ class AuthServiceImpl(
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
+            registrationBroadcaster = registrationBroadcaster,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -371,6 +420,7 @@ class AuthServiceImpl(
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
+            registrationBroadcaster = registrationBroadcaster,
         )
 
     /**
@@ -395,6 +445,7 @@ class AuthServiceImpl(
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
+            registrationBroadcaster = registrationBroadcaster,
         )
 
     /**

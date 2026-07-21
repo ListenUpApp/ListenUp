@@ -7,9 +7,11 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
@@ -19,6 +21,7 @@ import io.ktor.server.application.install
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import io.ktor.server.websocket.WebSockets as ServerWebSockets
+import kotlinx.coroutines.flow.Flow
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -116,4 +119,6 @@ private class BrokenAuthService : AuthServicePublic {
     override suspend fun setupRoot(request: RegisterRequest): AppResult<AuthSession> = error("not used in this test")
 
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> = error("not used in this test")
+
+    override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> = error("not used in this test")
 }

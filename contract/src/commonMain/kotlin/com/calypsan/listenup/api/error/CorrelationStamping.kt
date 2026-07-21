@@ -112,6 +112,7 @@ private fun AuthError.withCorrelationId(id: String?): AuthError =
         is AuthError.RateLimited -> copy(correlationId = id)
         is AuthError.WeakPassword -> copy(correlationId = id)
         is AuthError.PermissionDenied -> copy(correlationId = id)
+        is AuthError.RegistrationNotFound -> copy(correlationId = id)
     }
 
 private fun ScanError.withCorrelationId(id: String?): ScanError =

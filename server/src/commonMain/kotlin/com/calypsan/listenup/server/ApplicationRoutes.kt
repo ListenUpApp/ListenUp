@@ -20,7 +20,6 @@ import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
-import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
@@ -30,7 +29,6 @@ import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.AuthServiceImpl
-import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -65,7 +63,6 @@ import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.publicInviteRoutes
 import com.calypsan.listenup.server.routes.registrationPolicyRoutes
-import com.calypsan.listenup.server.routes.registrationStatusRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.searchRoutes
@@ -100,7 +97,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val adminSettingsService by inject<AdminSettingsServiceImpl>()
     val inviteService by inject<InviteServiceImpl>()
     val instanceService by inject<InstanceService>()
-    val registrationBroadcaster by inject<RegistrationBroadcaster>()
     val registrationPolicyBroadcaster by inject<RegistrationPolicyBroadcaster>()
     val serverSettings by inject<ServerSettingsRepository>()
     val scannerService by inject<ScannerService>()
@@ -150,22 +146,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         sseRoutes()
         authRoutes(authService)
         publicInviteRoutes(inviteService)
-        registrationStatusRoutes(registrationBroadcaster) { userId ->
-            // Persisted status is the source of truth: a registrant reconnecting after the
-            // admin's decision must learn it even though the live broadcast was a no-op drop.
-            suspendTransaction(sql) {
-                when (
-                    sql.usersQueries
-                        .selectById(userId)
-                        .executeAsOneOrNull()
-                        ?.status
-                ) {
-                    "ACTIVE" -> RegistrationStatusEvent(status = "approved")
-                    "DENIED" -> RegistrationStatusEvent(status = "denied")
-                    else -> RegistrationStatusEvent(status = "pending")
-                }
-            }
-        }
         registrationPolicyRoutes(registrationPolicyBroadcaster) { serverSettings.registrationPolicy() }
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {

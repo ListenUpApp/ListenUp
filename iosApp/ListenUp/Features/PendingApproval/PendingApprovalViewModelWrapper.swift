@@ -31,7 +31,15 @@ final class PendingApprovalViewModelWrapper {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
+    // Isolated deinit (SE-0371, Swift 6.2): runs hopped onto the main actor, so the
+    // non-Sendable Kotlin `viewModel` may be safely touched here during teardown.
+    isolated deinit {
+        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
+        // The Kotlin VM is resolved from a bare Koin `factory` — there is no ViewModelStore on iOS
+        // to call `onCleared()` for us, so this wrapper's teardown must do it explicitly, or the
+        // VM's stream/poll jobs orphan and run forever (the reconnect-flood bug this fixes).
+        viewModel.close()
+    }
 
     // MARK: - Actions
 
@@ -43,7 +51,7 @@ final class PendingApprovalViewModelWrapper {
         viewModel.acknowledgeApproval()
     }
 
-    /// Manually re-check approval status — re-opens the SSE stream (never-stranded fallback).
+    /// Manually re-check approval status — re-opens the registration-status watch (never-stranded fallback).
     func checkStatus() {
         viewModel.checkStatus()
     }

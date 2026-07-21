@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
+import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.error.AuthError
@@ -68,6 +69,8 @@ private class SessionExpiredAuthService : AuthServicePublic {
     override suspend fun setupRoot(request: RegisterRequest): AppResult<AuthSession> = error("not used in this test")
 
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> = error("not used in this test")
+
+    override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> = error("not used in this test")
 }
 
 /** `observeProgress()` throws synchronously while building the flow (a precondition/DI-style fault). */

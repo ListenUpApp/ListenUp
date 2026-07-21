@@ -31,7 +31,7 @@ sealed interface AuthState {
      * User registered but is waiting for admin approval.
      *
      * `userId` is needed to subscribe to the server-side registration-status
-     * stream (SSE/polling); `email` is shown on the pending-approval screen.
+     * watch (RPC/polling); `email` is shown on the pending-approval screen.
      * No credentials are kept client-side — once approved the user retries
      * `login()` from the login screen.
      */

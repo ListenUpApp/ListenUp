@@ -21,6 +21,15 @@ enum class AuthRateBucket(
     LOGIN(10),
     REGISTER(5),
     REFRESH(30),
+
+    /**
+     * `observeRegistrationStatus` subscriptions. Each open subscription runs a poll loop for as
+     * long as the registration stays pending, so an unbounded stream of subscribe attempts is a
+     * resource-exhaustion vector distinct from the request-per-call auth buckets above — hence a
+     * more generous ceiling than LOGIN/REGISTER (a legitimate client re-subscribes on every
+     * reconnect-with-backoff attempt and every manual "Check Status" tap).
+     */
+    OBSERVE_REGISTRATION_STATUS(20),
 }
 
 /** Outcome of a rate-limit probe: proceed, or reject with a client-surfaced `Retry-After`. */

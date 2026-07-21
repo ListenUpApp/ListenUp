@@ -117,11 +117,10 @@ internal val clientAuthModule: Module
                 )
             }
 
-            // SSE stream for the pending-approval flow. Explicit constructor call (not `singleOf`) so the
-            // `connectTimeoutMillis: Long` default applies — Koin's constructor DSL resolves EVERY param via
-            // the graph and ignores Kotlin defaults, so `singleOf` would demand an unbound `Long` binding.
+            // RPC watch for the pending-approval flow — rides the same AuthServicePublic channel
+            // bound above, no separate transport.
             single<RegistrationStatusStream> {
-                RegistrationStatusStreamImpl(apiClientFactory = get(), serverConfig = get())
+                RegistrationStatusStreamImpl(channel = rpcChannel())
             }
 
             // SSE stream for the live registration-policy (Sign Up toggle on the login screen). Same
