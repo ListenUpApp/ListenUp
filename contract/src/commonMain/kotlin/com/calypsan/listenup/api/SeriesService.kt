@@ -15,7 +15,7 @@ import kotlinx.rpc.annotations.Rpc
  *   repeatedly. Cache-miss reads for OUR series entities — clients observe
  *   Room locally; when a series is referenced but not yet synced, they call
  *   this service for the single-entity fallback.
- * - **Mutation** — [updateSeries], [deleteSeries] mutate server state; SSE
+ * - **Mutation** — [updateSeries], [deleteSeries] mutate server state; the sync firehose
  *   delivers the authoritative payload back to all connected clients.
  *
  * External metadata lookups live on [MetadataLookupService] — separate service

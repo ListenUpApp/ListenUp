@@ -27,7 +27,7 @@ import com.calypsan.listenup.client.domain.repository.UserRepository
  *  - [RegisterResult.PendingApproval] — approval-queue instance. We
  *    transition `AuthState` to `PendingApproval` via
  *    [AuthSession.savePendingRegistration]; the pending-approval screen
- *    subscribes to the SSE status stream and prompts re-login on approval.
+ *    subscribes to the RPC status watch and prompts re-login on approval.
  *
  * The contract takes a single `displayName`; the UI still collects first +
  * last name separately, so we join them here. A future UX cleanup may
@@ -86,7 +86,7 @@ open class RegisterUseCase(
 
             is RegisterResult.PendingApproval -> {
                 // No tokens yet — server queued the registration. Persist (userId, email)
-                // so the pending-approval screen can subscribe to the SSE status stream
+                // so the pending-approval screen can subscribe to the RPC status watch
                 // (keyed by userId) and display the user's email while waiting.
                 authSession.savePendingRegistration(userId = outcome.userId.value, email = email)
             }

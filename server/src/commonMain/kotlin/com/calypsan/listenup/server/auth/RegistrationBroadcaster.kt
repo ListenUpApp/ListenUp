@@ -21,7 +21,7 @@ sealed interface RegistrationDecision {
 }
 
 /**
- * In-memory per-userId fan-out of registration approve/deny decisions to waiting SSE subscribers.
+ * In-memory per-userId fan-out of registration approve/deny decisions to waiting RPC watchers.
  *
  * Single-instance self-hosted — there is no cross-instance fan-out. [notify] is non-blocking
  * (`tryEmit`); with no live subscribers it is a no-op drop (the registrant simply hasn't connected

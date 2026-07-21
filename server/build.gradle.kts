@@ -211,7 +211,7 @@ kotlin {
                 implementation(kotlin("test"))
                 implementation(libs.kotest.framework.engine)
                 implementation(libs.kotest.assertions.core)
-                // FoundationSmokeTest: testApplication (REST/SSE/auth) + a real CIO client over
+                // FoundationSmokeTest: testApplication (REST/RPC/auth) + a real CIO client over
                 // WebSocket for the kotlinx.rpc smoke (the server transport comes from commonMain).
                 implementation(libs.ktor.server.test.host)
                 implementation(libs.ktor.client.core)

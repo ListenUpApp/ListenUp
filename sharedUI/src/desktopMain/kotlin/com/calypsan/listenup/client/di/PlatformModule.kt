@@ -33,7 +33,7 @@ import java.util.UUID
  * - FFmpeg-based audio playback (decodes all formats, no system deps)
  * - AudioTokenProvider for auth token management
  * - DownloadService (stub - downloads not yet implemented)
- * - BackgroundSyncScheduler (stub - relies on SSE while running)
+ * - BackgroundSyncScheduler (stub - relies on the live firehose while running)
  * - PlaybackManager for playback orchestration
  * - ProgressTracker for position persistence
  *

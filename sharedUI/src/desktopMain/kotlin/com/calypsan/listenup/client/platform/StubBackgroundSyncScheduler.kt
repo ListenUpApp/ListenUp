@@ -9,7 +9,7 @@ private val logger = KotlinLogging.logger {}
  * Stub implementation of [BackgroundSyncScheduler] for desktop.
  *
  * Background sync scheduling is not yet implemented on desktop.
- * The app relies on SSE for real-time updates while running.
+ * The app relies on the live firehose for real-time updates while running.
  *
  * TODO: Consider implementing periodic sync using a Timer or coroutine job
  * that runs while the app is open.
@@ -17,7 +17,7 @@ private val logger = KotlinLogging.logger {}
 class StubBackgroundSyncScheduler : BackgroundSyncScheduler {
     override fun schedule() {
         logger.info { "Background sync scheduling requested (not yet implemented on desktop)" }
-        // Desktop apps typically stay running, so SSE provides real-time sync
+        // Desktop apps typically stay running, so the firehose provides real-time sync
         // Periodic background sync could be added using a coroutine timer
     }
 

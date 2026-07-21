@@ -30,7 +30,7 @@ import kotlinx.rpc.annotations.Rpc
  *   (with caching) and return wire DTOs. These are safe to call repeatedly.
  * - **Apply** — [applyBookMetadata], [applyContributorMetadata] write through
  *   the syncable substrate: the server enriches the persisted entity and emits
- *   an SSE event so all connected clients see the change. These are mutating
+ *   a sync event so all connected clients see the change. These are mutating
  *   operations and should be called once per user intent.
  */
 @Rpc
@@ -132,7 +132,7 @@ interface MetadataLookupService {
      * value; deselected fields are left untouched. The contributor/series ASIN
      * sets choose which of the match's entries to apply (empty set = leave that
      * role/relation untouched). The server enriches the persisted book entity and
-     * emits an SSE event so connected clients' Room databases receive the update.
+     * emits a sync event so connected clients' Room databases receive the update.
      * The caller should confirm the match in a preview UI before calling this.
      */
     suspend fun applyBookMetadata(
@@ -170,7 +170,7 @@ interface MetadataLookupService {
      * contributor at [contributorId].
      *
      * The server enriches the persisted contributor entity (name, sort name,
-     * description, image) and emits an SSE event. The caller should confirm
+     * description, image) and emits a sync event. The caller should confirm
      * the match in a preview UI before calling this method.
      */
     suspend fun applyContributorMetadata(
@@ -195,7 +195,7 @@ interface MetadataLookupService {
 
     /**
      * Downloads the cover image at [url], stores it as the managed cover for the
-     * book at [bookId] (source `UPLOADED`), and emits an SSE event so connected
+     * book at [bookId] (source `UPLOADED`), and emits a sync event so connected
      * clients receive the change. [url] is typically a [CoverOption.url] from a
      * prior [searchCovers] call but may be any reachable image URL.
      */

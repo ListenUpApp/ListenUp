@@ -229,7 +229,7 @@ internal class KtorApiClientFactory(
             }
 
             // Install HttpTimeout plugin to allow per-request timeout configuration
-            // Default timeouts for regular API calls (SSE uses separate client)
+            // Default timeouts for regular API calls (streams configure their own)
             @Suppress("MagicNumber")
             install(HttpTimeout) {
                 requestTimeoutMillis = 30_000

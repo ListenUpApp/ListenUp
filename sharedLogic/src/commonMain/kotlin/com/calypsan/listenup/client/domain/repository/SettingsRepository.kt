@@ -41,7 +41,7 @@ sealed interface PreferenceChangeEvent {
 /**
  * Persistence record for a registration awaiting admin approval.
  *
- * `userId` keys the server-side approval-status stream (SSE/polling);
+ * `userId` keys the server-side approval-status watch (RPC stream);
  * `email` is shown on the pending-approval screen. No credentials are kept —
  * once approved the user retries `login()` normally.
  */
@@ -127,7 +127,7 @@ interface AuthSession {
     /**
      * Persist that this device has a registration awaiting admin approval.
      *
-     * `userId` keys the server-side approval-status stream (SSE/polling);
+     * `userId` keys the server-side approval-status watch (RPC stream);
      * `email` is shown on the pending-approval screen. No credentials are
      * stored — once approved, the user logs in normally.
      */

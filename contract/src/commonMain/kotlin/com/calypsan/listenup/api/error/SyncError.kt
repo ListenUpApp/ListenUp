@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * Domain errors for library sync operations.
  *
- * Many sync sub-operations (FTS rebuild, individual cover downloads, SSE
+ * Many sync sub-operations (FTS rebuild, individual cover downloads, stream
  * event processing) fail silently by design — they retry on next sync. Only
  * top-level sync failures and persistent connection issues surface here.
  */

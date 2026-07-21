@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Substrate-sync wire shape for a Genre. Crosses the wire on every SSE event for a
+ * Substrate-sync wire shape for a Genre. Crosses the wire on every sync event for a
  * genre's Created/Updated/Deleted state.
  *
  * Hierarchy is denormalized: [path] is the slash-separated slug path, [parentId] is the

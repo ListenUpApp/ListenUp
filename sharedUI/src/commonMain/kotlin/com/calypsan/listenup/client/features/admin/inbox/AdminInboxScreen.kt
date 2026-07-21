@@ -109,7 +109,7 @@ import listenup.composeapp.generated.resources.common_inbox
  * The [AdminInboxViewModel] owns all state and actions — this screen is a pure render of
  * [AdminInboxUiState] plus the release-confirmation dialog and the two transient snackbars.
  *
- * @param viewModel The inbox ViewModel (state + selection + release actions, live SSE updates).
+ * @param viewModel The inbox ViewModel (state + selection + release actions, live sync updates).
  * @param onBackClick Navigate back to Admin.
  * @param onBookClick Open book-edit for the tapped book id (fix tags / collections before release).
  */

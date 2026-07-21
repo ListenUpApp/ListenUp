@@ -122,7 +122,7 @@ fun AppShell(
         if (isAuthenticated && lastSyncTime == null) {
             syncRepository.sync()
         } else if (isAuthenticated) {
-            // Already synced before — just reconnect SSE and delta sync
+            // Already synced before — just reconnect the firehose and delta sync
             syncRepository.connectRealtime()
         }
 

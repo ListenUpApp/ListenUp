@@ -16,7 +16,7 @@ import kotlinx.serialization.Serializable
  * routing applies uniformly.
  *
  * Wire-stable: `@SerialName("BookSyncPayload")` is the polymorphic discriminator
- * used by SSE events and catch-up pages. Field renames break wire compatibility;
+ * used by firehose events and catch-up pages. Field renames break wire compatibility;
  * additions are forward-compatible thanks to `contractJson { ignoreUnknownKeys = true }`.
  */
 @Serializable

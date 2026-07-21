@@ -18,7 +18,7 @@ import kotlinx.rpc.annotations.Rpc
  *   call repeatedly. Clients observe Room locally for tree reads; per-entity reads fall back
  *   here for cache-miss situations.
  * - **Curator admin** — [createGenre], [updateGenre], [deleteGenre], [moveGenre], [mergeGenres]
- *   mutate the genre taxonomy. SSE delivers the authoritative payload back to all connected
+ *   mutate the genre taxonomy. The sync firehose delivers the authoritative payload to all connected
  *   clients; affected books are re-upserted so their `BookSyncPayload.genres` reflects the change.
  * - **Unmapped curation** — [listUnmappedStrings] and [mapUnmappedToGenre] drive the curator
  *   workflow for raw genre strings the scanner couldn't resolve.

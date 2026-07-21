@@ -16,7 +16,7 @@ import kotlinx.rpc.annotations.Rpc
  * Two surface categories:
  * - **Observation** — [getBook], [searchBooks] are safe to call repeatedly.
  * - **Mutation** — [updateBook], [setBookContributors], [setBookSeries],
- *   [deleteBookCover] mutate server state; SSE delivers the authoritative
+ *   [deleteBookCover] mutate server state; the sync firehose delivers the authoritative
  *   payload back to all connected clients.
  *
  * REST mirrors are defined in `BookResources`.
@@ -65,7 +65,7 @@ interface BookService {
      * [com.calypsan.listenup.api.error.BookError.NotFound] when no book with
      * the given id exists.
      *
-     * On success the server emits an SSE event with the updated
+     * On success the server emits a sync event with the updated
      * [BookSyncPayload]; clients update Room reactively.
      */
     suspend fun updateBook(
@@ -128,7 +128,7 @@ interface BookService {
      * (strictly increasing starts, all within the book duration); violations
      * surface as [com.calypsan.listenup.api.error.BookError.InvalidInput].
      * Returns [com.calypsan.listenup.api.error.BookError.NotFound] when no book
-     * exists. On success the substrate emits an SSE `Updated<BookSyncPayload>`;
+     * exists. On success the substrate emits a sync `Updated<BookSyncPayload>`;
      * clients update Room reactively.
      */
     suspend fun setBookChapters(
