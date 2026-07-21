@@ -102,7 +102,7 @@ interface LibraryAdminService {
 
     /**
      * Triggers a full scan of THE library. Fire-and-forget: returns once the scan is
-     * accepted; progress streams over SSE. Admin-only.
+     * accepted; progress streams over `ScannerService.observeProgress` (RPC). Admin-only.
      */
     suspend fun scanLibrary(): AppResult<Unit>
 

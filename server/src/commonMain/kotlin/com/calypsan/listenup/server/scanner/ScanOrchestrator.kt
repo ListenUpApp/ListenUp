@@ -191,7 +191,8 @@ internal class ScanOrchestrator(
      * coordinator scope and returns immediately ("202 Accepted"). Returns
      * [LibraryError.NotFound] when the library isn't registered and
      * [com.calypsan.listenup.api.error.ScanError.AlreadyRunning] when a scan is already in flight — both surfaced
-     * synchronously. The scan itself runs in the background and streams progress over SSE.
+     * synchronously. The scan itself runs in the background and streams progress over the
+     * scanner RPC watch (`ScannerService.observeProgress`).
      *
      * This is what the admin/wizard `LibraryAdminService.scanLibrary` trigger uses, so the
      * RPC/HTTP call doesn't block for the entire walk. [scanLibrary] (blocking, returns the

@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
 
         // Connect realtime sync as soon as auth becomes Authenticated — including
         // mid-session (a fresh onboarding), not only on the next onResume/restart.
-        // Without this, a just-registered user has no live SSE stream, so books the
+        // Without this, a just-registered user has no live sync stream, so books the
         // server scans right after library creation don't arrive until the app is
         // relaunched. Re-collected per STARTED so foreground resumes reconnect too;
         // engine.start() is single-flight, so overlapping with onResume is safe.

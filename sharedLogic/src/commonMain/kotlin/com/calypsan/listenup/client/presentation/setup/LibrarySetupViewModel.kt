@@ -233,7 +233,8 @@ class LibrarySetupViewModel internal constructor(
      * Runs on [appScope], not [viewModelScope]: the server's `scanLibrary` suspends
      * for the full scan, which easily outlives this wizard (it's torn down the moment
      * onboarding finishes and the host navigates to the Shell). Tying it to the wizard's
-     * scope would cancel the scan mid-flight. Progress streams to the Shell over SSE;
+     * scope would cancel the scan mid-flight. Progress streams to the Shell over the
+     * scanner RPC watch;
      * a failure surfaces on the global error bus.
      */
     private fun triggerInitialScan() {

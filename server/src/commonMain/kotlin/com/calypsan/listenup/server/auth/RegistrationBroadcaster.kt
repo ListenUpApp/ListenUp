@@ -50,7 +50,7 @@ class RegistrationBroadcaster {
             }
         }
 
-    /** A live stream of decisions for [userId]. The SSE route collects until a terminal decision. */
+    /** A live stream of decisions for [userId]. The RPC watch collects until a terminal decision. */
     fun subscribe(userId: String): SharedFlow<RegistrationDecision> = flowFor(userId).asSharedFlow()
 
     /** Notify all current subscribers for [userId]. Non-blocking; a no-op drop if none are listening. */
