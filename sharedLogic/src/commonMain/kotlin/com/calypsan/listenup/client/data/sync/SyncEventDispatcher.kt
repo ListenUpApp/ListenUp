@@ -129,6 +129,9 @@ internal class SyncEventDispatcher(
                     "Received legacy ActivityChanged control; activities now sync as a data domain — dropped"
                 }
             }
+
+            // Liveness only — the stream client's watchdog consumes it.
+            SyncControl.Heartbeat -> Unit
         }
     }
 
