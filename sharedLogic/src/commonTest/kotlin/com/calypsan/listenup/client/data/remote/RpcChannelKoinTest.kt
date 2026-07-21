@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.remote
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.TagService
+import com.calypsan.listenup.client.data.connection.ConnectionEvidence
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -30,6 +31,7 @@ class RpcChannelKoinTest :
                         single<ApiClientFactory> { mock<ApiClientFactory>() }
                         single<ServerConfig> { mock<ServerConfig>() }
                         single<RpcAuthRecovery> { RpcAuthRecovery.None }
+                        single { ConnectionEvidence() }
                         rpcChannel<GenreService>()
                         rpcChannel<TagService>()
                         // A Public-policy channel alongside the Authed ones: pins that Public + the

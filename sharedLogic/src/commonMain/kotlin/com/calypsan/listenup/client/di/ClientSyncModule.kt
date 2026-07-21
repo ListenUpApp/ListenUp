@@ -111,6 +111,8 @@ internal val clientSyncModule =
                 errorBus = get(),
                 clientIdentity = get(),
                 localPreferences = get<LocalPreferences>(),
+                networkMonitor = get(),
+                evidence = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
             )
         }

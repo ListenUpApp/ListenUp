@@ -11,8 +11,11 @@ interface BookAvailability {
     /**
      * Derived availability for one book.
      *
-     * Attempt-first: [canPlay] and [canDownload] are never gated on server reachability —
-     * [showServerWarning] is the non-blocking point-of-need hint instead.
+     * [canPlay]/[canDownload] gate honestly on the evidence-based reachability signal: they
+     * disable only when the server is genuinely unreachable right now (device offline or the
+     * latest transport evidence is a network failure) and re-enable the instant any traffic
+     * proves otherwise. Unknown never blocks. [showServerWarning] is the matching
+     * point-of-need hint.
      */
     data class State(
         val downloadStatus: BookDownloadStatus,

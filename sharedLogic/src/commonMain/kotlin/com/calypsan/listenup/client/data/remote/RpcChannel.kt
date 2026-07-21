@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.connection.ConnectionEvidence
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -101,6 +102,10 @@ internal interface RpcDispatch<S : Any> : RemoteCache {
 internal class RpcChannel<S : Any> internal constructor(
     private val dispatch: RpcDispatch<S>,
     private val policy: RpcPolicy,
+    // Reachability-evidence sink: every unary outcome on every channel is classified into
+    // up/down evidence with zero per-service wiring (the whole point of the single boundary).
+    // Nullable only so test fixtures without a connection-health graph can omit it.
+    private val evidence: ConnectionEvidence? = null,
 ) : RemoteCache {
     /**
      * Run one RPC against the service with bounded, self-healing recovery, folding the outcome into
@@ -118,7 +123,9 @@ internal class RpcChannel<S : Any> internal constructor(
         timeout: Duration = policy.defaultTimeout,
         idempotent: Boolean = false,
         block: suspend (S) -> AppResult<T>,
-    ): AppResult<T> = catchingRpcResult { dispatch.call(timeout, idempotent) { service -> block(service) } }
+    ): AppResult<T> =
+        catchingRpcResult { dispatch.call(timeout, idempotent) { service -> block(service) } }
+            .also { evidence?.recordOutcome(it) }
 
     /**
      * Subscribe to a server-pushed stream. Collection is **never** bounded by a timeout.
@@ -195,6 +202,7 @@ internal inline fun <reified S : Any> Module.rpcChannel(policy: RpcPolicy = RpcP
                         },
                 ) { client, baseUrl -> client.rpc("$baseUrl${policy.mount}").withService<S>() },
             policy = policy,
+            evidence = get(),
         )
     } binds arrayOf(RemoteCache::class)
 }

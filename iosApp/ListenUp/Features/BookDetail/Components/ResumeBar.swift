@@ -21,11 +21,12 @@ struct ResumeBar: View {
     let downloadState: DownloadUIState
     let downloadProgress: Float
     /// When false the Resume/Play control is disabled and relabeled "Unavailable offline".
-    /// The shared availability is attempt-first, so reachability never drives this — it stays
-    /// true unless a platform genuinely can't play. Defaults true.
+    /// Driven by the evidence-based reachability signal: false only when the book isn't
+    /// downloaded AND the server is genuinely unreachable right now; re-enables the instant
+    /// any traffic proves otherwise. Defaults true.
     var canPlay: Bool = true
-    /// When false the download control is disabled. Attempt-first: false only when the platform
-    /// has no playback at all, never because the server looks unreachable.
+    /// When false the download control is disabled — no playback platform, or the server is
+    /// genuinely unreachable right now (same evidence-based signal as `canPlay`).
     var canDownload: Bool = true
     let onResume: () -> Void
     let onDownload: () -> Void

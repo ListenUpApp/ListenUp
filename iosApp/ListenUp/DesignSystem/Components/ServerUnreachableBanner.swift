@@ -1,10 +1,10 @@
 import SwiftUI
 
 /// Inline "server unreachable" banner for content screens — a Liquid-Glass card with a
-/// cloud-slash icon, a short explanation, and a Retry action. A point-of-need hint shown when
-/// the server can't be reached and the content isn't available offline. It informs — actions
-/// stay enabled (attempt-first) and a genuine failure surfaces when attempted (never stranded).
-/// The retry is delegated to the caller.
+/// cloud-slash icon, a short explanation, and a Retry action. Shown when the server is genuinely
+/// unreachable (evidence-based signal) and the content isn't available offline, so the user is
+/// never left guessing why an action is disabled (never stranded). Clears itself the moment any
+/// traffic reaches the server. The retry is delegated to the caller.
 struct ServerUnreachableBanner: View {
     var onRetry: () -> Void
 
