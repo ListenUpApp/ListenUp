@@ -12,7 +12,7 @@ import androidx.room.Upsert
  * DDL keyword in SQLite in some contexts, so escaping the column reference avoids
  * any parser ambiguity.
  *
- * Sync / SSE / playback-fallback writers all use the delete-then-upsert pattern
+ * Sync / firehose / playback-fallback writers all use the delete-then-upsert pattern
  * inside their existing `transactionRunner.atomically { }` blocks. The DAO does
  * not own transactions itself.
  */

@@ -15,7 +15,7 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Verifies the type-binding invariant of [BusEvent]: the source repository
- * travels with the event so the SSE firehose can encode the payload through
+ * travels with the event so the sync firehose can encode the payload through
  * the matching serializer without a static-registry lookup.
  */
 class BusEventTypedTest :

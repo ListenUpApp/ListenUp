@@ -20,7 +20,7 @@ interface BookRepository {
     /**
      * No-op affordance for pull-to-refresh gestures.
      *
-     * Book refresh is now driven entirely by the SSE event stream — there is no
+     * Book refresh is now driven entirely by the sync event stream — there is no
      * client-initiated pull path. This method exists so that pull-to-refresh UI
      * surfaces have a call target; the implementation deliberately does nothing.
      * Removal of the pull-to-refresh affordance from the UI is deferred to Books-C.

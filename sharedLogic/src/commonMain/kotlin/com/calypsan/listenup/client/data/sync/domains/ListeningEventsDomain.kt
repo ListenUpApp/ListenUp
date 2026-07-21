@@ -15,7 +15,7 @@ private val logger = KotlinLogging.logger {}
  * mutates a committed span). Insert-if-absent lives in the apply per
  * [ConflictPolicy.AppendOnly]'s contract.
  *
- * SSE `Deleted` is declared [DeleteSemantics.CatchUpOnly]: the server does not emit
+ * Firehose `Deleted` is declared [DeleteSemantics.CatchUpOnly]: the server does not emit
  * listening-event tombstones; a defensive frame converges via catch-up, which
  * carries the full payload and soft-deletes by id. Full digest participation;
  * outbox upserts (the recorder enqueues `"upsert"` ops with client-generated ids).
@@ -36,7 +36,7 @@ internal fun listeningEventsDomain(
         conflict = ConflictPolicy.AppendOnly(),
         deletes =
             DeleteSemantics.CatchUpOnly(
-                "server never emits listening-event tombstones over SSE; catch-up converges them",
+                "server never emits listening-event tombstones on the firehose; catch-up converges them",
             ),
         digest = fullDigest(database.listeningEventDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.ListeningEvents),

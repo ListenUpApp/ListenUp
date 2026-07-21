@@ -4,7 +4,7 @@ package com.calypsan.listenup.client.data.sync.domains
  * The anti-flicker shield's one seam: is a local edit for (domainName, entityId) still in flight?
  *
  * The engine's single apply choke point ([ComposedSyncDomainHandler]) consults this before applying
- * an inbound SSE echo or catch-up snapshot. When a still-dispatchable outbox op exists for the
+ * an inbound firehose echo or catch-up snapshot. When a still-dispatchable outbox op exists for the
  * entity, its authoritative post-edit state will arrive via that op's own echo once it drains — so
  * the current (possibly stale) inbound snapshot is shielded rather than allowed to revert the
  * optimistic local edit. One policy point; every mirrored domain inherits it, keyed on entity

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.result.AppResult
@@ -59,10 +60,10 @@ class BookEchoShieldE2ETest :
     })
 
 private fun booksFrame(payload: BookSyncPayload) =
-    ParsedSseFrame(
-        id = payload.revision,
-        event = "books",
-        data =
+    SyncFrame(
+        revision = payload.revision,
+        domain = "books",
+        json =
             contractJson.encodeToString(
                 SyncEvent.serializer(BookSyncPayload.serializer()),
                 SyncEvent.Updated(

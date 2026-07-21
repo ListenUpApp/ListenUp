@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.stateIn
  * [reconnect] is the never-stranded manual retry (wired through the unified recover seam,
  * `SyncRepository.recoverRealtime`), so the reachable-but-not-syncing case offers a working Retry.
  */
-internal class SseServerReachability(
+internal class ConnectionHealthReachability(
     connectionHealth: StateFlow<ConnectionHealth>,
     scope: CoroutineScope,
     private val reconnect: suspend () -> Unit,

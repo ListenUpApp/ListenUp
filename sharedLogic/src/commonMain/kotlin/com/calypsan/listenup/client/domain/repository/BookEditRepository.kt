@@ -15,7 +15,7 @@ import com.calypsan.listenup.core.BookId
  *
  * [updateBook] is offline-first; the remaining methods dispatch via
  * [com.calypsan.listenup.api.BookService] over RPC, with authoritative state
- * arriving back via the SSE sync engine (no optimistic Room writes).
+ * arriving back via the sync engine (no optimistic Room writes).
  *
  * Wire-side DTOs ([BookUpdate], [BookContributorInput], [BookSeriesInput])
  * are passed through unchanged — the contract is the source of truth.
@@ -27,7 +27,7 @@ interface BookEditRepository {
      * Offline-first: every non-null field is written to Room immediately and a
      * durable pending op is enqueued, so the edit survives and replays on
      * reconnect rather than failing offline. The authoritative state still
-     * arrives via the SSE sync engine and reconciles the optimistic write.
+     * arrives via the sync engine and reconciles the optimistic write.
      */
     suspend fun updateBook(
         id: BookId,
@@ -69,7 +69,7 @@ interface BookEditRepository {
      * Replaces the full chapter list for the book identified by [id] and marks
      * provenance USER server-side. Dispatches via
      * [com.calypsan.listenup.api.BookService.setBookChapters]; authoritative
-     * state returns through the SSE sync engine (no optimistic Room write).
+     * state returns through the sync engine (no optimistic Room write).
      */
     suspend fun setBookChapters(
         id: BookId,

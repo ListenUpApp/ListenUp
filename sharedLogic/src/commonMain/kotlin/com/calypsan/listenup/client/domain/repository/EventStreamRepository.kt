@@ -8,10 +8,10 @@ import kotlinx.coroutines.flow.Flow
  * Domain repository for real-time event streams.
  *
  * Provides filtered flows of domain events for presentation layer consumption.
- * This abstracts the underlying SSE implementation, ensuring ViewModels
+ * This abstracts the underlying event-stream transport, ensuring ViewModels
  * don't depend on data layer types.
  *
- * Implementation maps SSE events to domain events and provides typed flows
+ * Implementation maps server-push events to domain events and provides typed flows
  * for each event category that ViewModels need.
  */
 interface EventStreamRepository {

@@ -20,6 +20,8 @@ import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.FolderId
@@ -30,7 +32,12 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.testing.domainFrames
+import com.calypsan.listenup.server.testing.memberPrincipal
+import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -38,11 +45,10 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.sse.SSE
-import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -58,7 +64,11 @@ import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.transformWhile
 import org.koin.ktor.ext.inject
 
 /**
@@ -70,7 +80,7 @@ import org.koin.ktor.ext.inject
  * global-access collection is visible to all members.
  *
  * Tasks 2-9 each gated one seam in isolation; this test combines them into one
- * multi-user scenario hitting the *real* HTTP routes / SSE firehose of a full
+ * multi-user scenario hitting the *real* HTTP routes / RPC firehose of a full
  * [module]. Every seam assertion carries a **visible control** — a public book `P`
  * (or, for sharing, the admin's view) that `m1` *does* see — so the assertion fails
  * if the gate is removed, never because the query trivially returned nothing.
@@ -81,12 +91,12 @@ import org.koin.ktor.ext.inject
  *  3. audio         — `GET /api/v1/audio/{book}/{file}?…` → validly-signed URL still 404s
  *  4. catch-up      — `GET /api/v1/sync/books?since=0` → B absent from the page
  *  5. digest        — `GET /api/v1/sync/books/digest?cursor=…` → B uncounted (vs admin)
- *  6. firehose      — `GET /api/v1/sync/events` → a live content event for B never arrives
+ *  6. firehose      — RPC `SyncStreamService.observeEvents` → a live content event for B never delivers
  */
 class SeamLeakE2ETest :
     FunSpec({
 
-        // Six seams + a full SSE round-trip in one body: bump the per-test invocation timeout
+        // Six seams + a full firehose collection in one body: bump the per-test invocation timeout
         // above Kotest's 1m default so a cold/loaded CI run can't false-fail this security proof.
         test("private/inbox book leaks through NONE of the six seams for a member").config(timeout = 2.minutes) {
             val libraryRoot = Files.createTempDirectory("listenup-seamleak-member-")
@@ -94,7 +104,7 @@ class SeamLeakE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = sseJsonClient()
+                    val client = jsonClient()
 
                     // ── Seed: admin `a`, member `m1` (no access), books on disk + FTS ──
                     val admin = client.runSetup()
@@ -185,24 +195,31 @@ class SeamLeakE2ETest :
                     client.cover(m1.token, "B").status shouldBe HttpStatusCode.NotFound
 
                     // ─────────────────────────── SEAM 6: firehose ───────────────────────────
-                    // m1 subscribes; the server emits a live CONTENT event for B (private) then for
-                    // P (public). The FIRST `books` event m1 sees must be P, never B — proving the
-                    // private content event was dropped before send. (Tombstones are deliberately
-                    // ungated, so we test a content Updated, not a delete.) The arrival of P is the
-                    // visible control: the stream is alive and delivering, just not leaking B.
-                    client.sse(
-                        urlString = "/api/v1/sync/events",
-                        request = { bearerAuth(m1.token) },
-                    ) {
-                        coroutineScope {
-                            val firstBooksEvent = async { incoming.first { it.event == "books" } }
-                            books.upsert(bookFixture("B", "Dragon Secret Updated"))
-                            books.upsert(bookFixture("P", "Dragon Public Updated"))
-                            val event = firstBooksEvent.await()
+                    // The server emits a live CONTENT event for B (private) then for P (public);
+                    // m1's RPC firehose must never deliver a `books` frame for B. (Tombstones are
+                    // deliberately ungated, so we test a content Updated, not a delete.) The bus
+                    // replays data frames in publish order, so mutate-then-collect is deterministic:
+                    // collect every `books` frame up to P's update — the sentinel published AFTER
+                    // B's — and assert B never appeared. P's arrival is the visible control: the
+                    // stream is alive and delivering, just not leaking B.
+                    books.upsert(bookFixture("B", "Dragon Secret Updated"))
+                    books.upsert(bookFixture("P", "Dragon Public Updated"))
 
-                            event.data!!.contains(""""id":"P"""") shouldBe true
-                            event.data!!.contains(""""id":"B"""") shouldBe false
-                        }
+                    val bus by application.inject<ChangeBus>()
+                    val policy by application.inject<BookAccessPolicy>()
+                    val m1BooksFrames =
+                        rpcFirehose(bus, memberPrincipal(m1.userId), bookAccessPolicy = { policy })
+                            .domainFrames()
+                            .filter { it.domain == "books" }
+                            .transformWhile { frame ->
+                                emit(frame)
+                                !frame.json.contains(""""title":"Dragon Public Updated"""")
+                            }.toList()
+
+                    m1BooksFrames.last().json.contains(""""id":"P"""") shouldBe true
+                    m1BooksFrames.forEach { frame ->
+                        frame.json.contains(""""id":"B"""") shouldBe false
+                        frame.json.contains(""""id":"B_inbox"""") shouldBe false
                     }
                 }
             } finally {
@@ -216,7 +233,7 @@ class SeamLeakE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = sseJsonClient()
+                    val client = jsonClient()
 
                     val admin = client.runSetup()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
@@ -261,17 +278,15 @@ class SeamLeakE2ETest :
                     client.cover(admin.token, "B").status shouldBe HttpStatusCode.OK
 
                     // SEAM 6: firehose → a live content event for the private B reaches the admin.
-                    client.sse(
-                        urlString = "/api/v1/sync/events",
-                        request = { bearerAuth(admin.token) },
-                    ) {
-                        coroutineScope {
-                            val deferred =
-                                async { incoming.first { it.event == "books" && it.data!!.contains(""""id":"B"""") } }
-                            books.upsert(bookFixture("B", "Dragon Secret Updated"))
-                            deferred.await().data!!.contains(""""id":"B"""") shouldBe true
-                        }
-                    }
+                    // Data frames replay, so mutate first and await the update's frame directly.
+                    books.upsert(bookFixture("B", "Dragon Secret Updated"))
+                    val bus by application.inject<ChangeBus>()
+                    val policy by application.inject<BookAccessPolicy>()
+                    val adminFrame =
+                        rpcFirehose(bus, rootPrincipal(admin.userId), bookAccessPolicy = { policy })
+                            .domainFrames()
+                            .first { it.domain == "books" && it.json.contains(""""title":"Dragon Secret Updated"""") }
+                    adminFrame.json.contains(""""id":"B"""") shouldBe true
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
@@ -284,7 +299,7 @@ class SeamLeakE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = sseJsonClient()
+                    val client = jsonClient()
 
                     val admin = client.runSetup()
                     val m2 = client.registerMember("m2")
@@ -304,15 +319,21 @@ class SeamLeakE2ETest :
                     // Subscribe m2 to the firehose CONTROL channel, then share. An AccessChanged
                     // control frame must arrive addressed to m2 (the firehose filters control frames
                     // to the addressed user, so receiving one at all proves the per-user emission).
-                    client.sse(
-                        urlString = "/api/v1/sync/events",
-                        request = { bearerAuth(m2.token) },
-                    ) {
-                        coroutineScope {
-                            val controlFrame = async { incoming.first { it.event == "control" } }
-                            ownerService.shareCollection(privateCol, m2.userId, SharePermission.Read).requireSuccess()
-                            controlFrame.await().data!!.contains("AccessChanged") shouldBe true
-                        }
+                    // The control channel has replay = 0, so the collector must be attached BEFORE
+                    // the share publishes — await the subscriber count as the attach barrier.
+                    val bus by application.inject<ChangeBus>()
+                    val policy by application.inject<BookAccessPolicy>()
+                    coroutineScope {
+                        val controlFrame =
+                            async {
+                                rpcFirehose(bus, memberPrincipal(m2.userId), bookAccessPolicy = { policy })
+                                    .filter { it.domain == SyncFrame.CONTROL }
+                                    .map { contractJson.decodeFromString(SyncControl.serializer(), it.json) }
+                                    .first { it !is SyncControl.Heartbeat }
+                            }
+                        bus.controlSubscriptionCount.first { it > 0 }
+                        ownerService.shareCollection(privateCol, m2.userId, SharePermission.Read).requireSuccess()
+                        controlFrame.await().shouldBeInstanceOf<SyncControl.AccessChanged>()
                     }
 
                     // After sharing: B converges into m2's reachable set via getBook + catch-up.
@@ -335,7 +356,7 @@ class SeamLeakE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = sseJsonClient()
+                    val client = jsonClient()
 
                     val admin = client.runSetup()
                     val m1 = client.registerMember("m1")
@@ -369,10 +390,9 @@ private data class TestUser(
     val userId: String,
 )
 
-private fun ApplicationTestBuilder.sseJsonClient(): HttpClient =
+private fun ApplicationTestBuilder.jsonClient(): HttpClient =
     createClient {
         install(ContentNegotiation) { json(contractJson) }
-        install(SSE)
     }
 
 /** Runs first-user setup; returns the ROOT (admin) token + id. */
@@ -436,7 +456,7 @@ private suspend fun HttpClient.digest(token: String): DomainDigest = get(DIGEST_
 /**
  * The singleton [CollectionServiceImpl] from the running module, scoped to act as
  * `(userId, role)`. Because it is a Koin singleton sharing the module's [ChangeBus],
- * collection mutations it performs are observable on the live SSE firehose.
+ * collection mutations it performs are observable on the live RPC firehose.
  */
 private fun io.ktor.server.testing.ApplicationTestBuilder.collectionServiceAs(
     userId: String,

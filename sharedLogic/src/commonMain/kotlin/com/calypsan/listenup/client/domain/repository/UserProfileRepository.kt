@@ -23,7 +23,7 @@ interface UserProfileRepository {
      * Observe a user's cached profile reactively.
      *
      * Emits the current cached value immediately, then emits again whenever
-     * the profile is updated (e.g. via SSE profile.updated events or sync).
+     * the profile is updated (e.g. via firehose profile.updated events or sync).
      * Emits null if the profile is not yet cached.
      *
      * @param userId The user's unique ID

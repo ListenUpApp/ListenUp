@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.SyncControl
@@ -83,10 +84,10 @@ class SyncEventDispatcherTest :
                         payload = Tag("t1", "alpha", "alpha", revision, occurredAt),
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = revision,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    SyncFrame(
+                        revision = revision,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
                     )
                 dispatcher.handle(frame)
 
@@ -106,7 +107,7 @@ class SyncEventDispatcherTest :
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> advanced = true },
                     )
-                val frame = ParsedSseFrame(id = 1L, event = "books", data = "{}")
+                val frame = SyncFrame(revision = 1L, domain = "books", json = "{}")
                 dispatcher.handle(frame) // no throw
                 advanced shouldBe false
             }
@@ -124,10 +125,10 @@ class SyncEventDispatcherTest :
                     )
                 val control = SyncControl.CursorStale(lastKnownRevision = 1_000L)
                 val frame =
-                    ParsedSseFrame(
-                        id = null,
-                        event = "control",
-                        data = contractJson.encodeToString(SyncControl.serializer(), control),
+                    SyncFrame(
+                        revision = null,
+                        domain = "control",
+                        json = contractJson.encodeToString(SyncControl.serializer(), control),
                     )
                 dispatcher.handle(frame)
                 recoveryTriggered shouldBe true
@@ -149,10 +150,10 @@ class SyncEventDispatcherTest :
                         refreshedRouter = router,
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = null,
-                        event = "control",
-                        data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.ServerInfoChanged),
+                    SyncFrame(
+                        revision = null,
+                        domain = "control",
+                        json = contractJson.encodeToString(SyncControl.serializer(), SyncControl.ServerInfoChanged),
                     )
                 dispatcher.handle(frame)
                 refetched shouldBe true
@@ -174,10 +175,10 @@ class SyncEventDispatcherTest :
                         refreshedRouter = router,
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = null,
-                        event = "control",
-                        data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.PreferencesChanged),
+                    SyncFrame(
+                        revision = null,
+                        domain = "control",
+                        json = contractJson.encodeToString(SyncControl.serializer(), SyncControl.PreferencesChanged),
                     )
                 dispatcher.handle(frame)
                 refetched shouldBe true
@@ -199,10 +200,10 @@ class SyncEventDispatcherTest :
                         refreshedRouter = router,
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = null,
-                        event = "control",
-                        data =
+                    SyncFrame(
+                        revision = null,
+                        domain = "control",
+                        json =
                             contractJson.encodeToString(
                                 SyncControl.serializer(),
                                 SyncControl.ActiveSessionsChanged,
@@ -230,10 +231,10 @@ class SyncEventDispatcherTest :
                         refreshedRouter = router,
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = null,
-                        event = "control",
-                        data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.ActivityChanged),
+                    SyncFrame(
+                        revision = null,
+                        domain = "control",
+                        json = contractJson.encodeToString(SyncControl.serializer(), SyncControl.ActivityChanged),
                     )
                 // Completes without throwing; no unrelated refresh fires.
                 dispatcher.handle(frame)
@@ -252,10 +253,10 @@ class SyncEventDispatcherTest :
                         onLibraryDataChanged = { reconciled = true },
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = null,
-                        event = "control",
-                        data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.LibraryDataChanged),
+                    SyncFrame(
+                        revision = null,
+                        domain = "control",
+                        json = contractJson.encodeToString(SyncControl.serializer(), SyncControl.LibraryDataChanged),
                     )
                 dispatcher.handle(frame)
                 reconciled shouldBe true
@@ -274,10 +275,10 @@ class SyncEventDispatcherTest :
                     )
                 val control = SyncControl.UserDeleted(reason = "removed by admin")
                 val frame =
-                    ParsedSseFrame(
-                        id = null,
-                        event = "control",
-                        data = contractJson.encodeToString(SyncControl.serializer(), control),
+                    SyncFrame(
+                        revision = null,
+                        domain = "control",
+                        json = contractJson.encodeToString(SyncControl.serializer(), control),
                     )
                 dispatcher.handle(frame)
                 deletedReason shouldBe "removed by admin"
@@ -295,10 +296,10 @@ class SyncEventDispatcherTest :
                     )
                 val control = SyncControl.StreamError(error = SyncError.RealtimeDisconnected())
                 val frame =
-                    ParsedSseFrame(
-                        id = null,
-                        event = "control",
-                        data = contractJson.encodeToString(SyncControl.serializer(), control),
+                    SyncFrame(
+                        revision = null,
+                        domain = "control",
+                        json = contractJson.encodeToString(SyncControl.serializer(), control),
                     )
                 dispatcher.handle(frame)
                 state.value.recentErrorCount shouldBe 1
@@ -329,10 +330,10 @@ class SyncEventDispatcherTest :
                         payload = Tag("t1", "alpha", "alpha", revision, occurredAt),
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = revision,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    SyncFrame(
+                        revision = revision,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
                     )
                 dispatcher.handle(frame)
 
@@ -364,10 +365,10 @@ class SyncEventDispatcherTest :
                         payload = Tag("t1", "alpha", "alpha", revision, occurredAt),
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = revision,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    SyncFrame(
+                        revision = revision,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
                     )
                 dispatcher.handle(frame)
 
@@ -387,10 +388,10 @@ class SyncEventDispatcherTest :
                         reportCompat = { compatReports += it },
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = 1L,
-                        event = "control",
-                        data = "{not valid json for SyncControl}",
+                    SyncFrame(
+                        revision = 1L,
+                        domain = "control",
+                        json = "{not valid json for SyncControl}",
                     )
                 dispatcher.handle(frame) // no throw
                 compatReports shouldHaveSize 1
@@ -412,10 +413,10 @@ class SyncEventDispatcherTest :
                         reportCompat = { compatReports += it },
                     )
                 val frame =
-                    ParsedSseFrame(
-                        id = 1L,
-                        event = "tags",
-                        data = "{not valid json for a Tag SyncEvent}",
+                    SyncFrame(
+                        revision = 1L,
+                        domain = "tags",
+                        json = "{not valid json for a Tag SyncEvent}",
                     )
                 dispatcher.handle(frame) // no throw
                 compatReports shouldHaveSize 1
@@ -454,10 +455,10 @@ class SyncEventDispatcherTest :
                         payload = Tag("t1", "alpha", "alpha", 5L, occurredAt),
                     )
                 val failedFrame =
-                    ParsedSseFrame(
-                        id = 5L,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), failedEvent),
+                    SyncFrame(
+                        revision = 5L,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), failedEvent),
                     )
                 dispatcher.handle(failedFrame)
 
@@ -470,10 +471,10 @@ class SyncEventDispatcherTest :
                         payload = Tag("t1", "alpha", "alpha", 6L, occurredAt),
                     )
                 val succeededFrame =
-                    ParsedSseFrame(
-                        id = 6L,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
+                    SyncFrame(
+                        revision = 6L,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
                     )
                 dispatcher.handle(succeededFrame)
 
@@ -507,7 +508,7 @@ class SyncEventDispatcherTest :
                         cursorAdvance = { d, r -> cursorAdvanced = d to r },
                     )
 
-                fun frameAt(rev: Long): ParsedSseFrame {
+                fun frameAt(rev: Long): SyncFrame {
                     val event =
                         SyncEvent.Created(
                             id = "b$rev",
@@ -516,10 +517,10 @@ class SyncEventDispatcherTest :
                             clientOpId = null,
                             payload = Tag("b$rev", "n", "n", rev, 100L),
                         )
-                    return ParsedSseFrame(
-                        id = rev,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    return SyncFrame(
+                        revision = rev,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
                     )
                 }
 
@@ -553,7 +554,7 @@ class SyncEventDispatcherTest :
                     )
 
                 val undecodableFrame =
-                    ParsedSseFrame(id = 5L, event = "tags", data = "{not valid json for a Tag SyncEvent}")
+                    SyncFrame(revision = 5L, domain = "tags", json = "{not valid json for a Tag SyncEvent}")
                 dispatcher.handle(undecodableFrame) // undecodable — freezes at last-known-good
 
                 val succeededEvent =
@@ -565,10 +566,10 @@ class SyncEventDispatcherTest :
                         payload = Tag("b6", "n", "n", 6L, 100L),
                     )
                 val succeededFrame =
-                    ParsedSseFrame(
-                        id = 6L,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
+                    SyncFrame(
+                        revision = 6L,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
                     )
                 dispatcher.handle(succeededFrame) // applies but frozen — must not advance to 6
 
@@ -594,7 +595,7 @@ class SyncEventDispatcherTest :
                     )
 
                 val undecodableFrame =
-                    ParsedSseFrame(id = 5L, event = "tags", data = "{not valid json for a Tag SyncEvent}")
+                    SyncFrame(revision = 5L, domain = "tags", json = "{not valid json for a Tag SyncEvent}")
                 dispatcher.handle(undecodableFrame) // undecodable — but digest backstop, no freeze
 
                 val succeededEvent =
@@ -606,10 +607,10 @@ class SyncEventDispatcherTest :
                         payload = Tag("b6", "n", "n", 6L, 100L),
                     )
                 val succeededFrame =
-                    ParsedSseFrame(
-                        id = 6L,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
+                    SyncFrame(
+                        revision = 6L,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
                     )
                 dispatcher.handle(succeededFrame)
 
@@ -652,7 +653,7 @@ class SyncEventDispatcherTest :
                         cursorOf = { persistedCursor },
                     )
 
-                fun frameAt(rev: Long): ParsedSseFrame {
+                fun frameAt(rev: Long): SyncFrame {
                     val event =
                         SyncEvent.Created(
                             id = "b$rev",
@@ -661,10 +662,10 @@ class SyncEventDispatcherTest :
                             clientOpId = null,
                             payload = Tag("b$rev", "n", "n", rev, 100L),
                         )
-                    return ParsedSseFrame(
-                        id = rev,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    return SyncFrame(
+                        revision = rev,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
                     )
                 }
 
@@ -705,7 +706,7 @@ class SyncEventDispatcherTest :
                         cursorAdvance = { d, r -> cursorAdvanced = d to r },
                     )
 
-                fun frameAt(rev: Long): ParsedSseFrame {
+                fun frameAt(rev: Long): SyncFrame {
                     val event =
                         SyncEvent.Created(
                             id = "b$rev",
@@ -714,10 +715,10 @@ class SyncEventDispatcherTest :
                             clientOpId = null,
                             payload = Tag("b$rev", "n", "n", rev, 100L),
                         )
-                    return ParsedSseFrame(
-                        id = rev,
-                        event = "tags",
-                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    return SyncFrame(
+                        revision = rev,
+                        domain = "tags",
+                        json = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
                     )
                 }
 

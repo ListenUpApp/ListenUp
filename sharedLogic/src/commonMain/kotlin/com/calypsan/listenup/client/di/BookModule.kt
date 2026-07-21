@@ -83,7 +83,7 @@ internal val bookModule: Module =
         // BookEditRepository — offline-first for every edit surface: each write does its optimistic
         // Room merge and enqueues a durable BookMutation on the `books` outbox channel (one
         // transaction). The outbox sender in `clientSyncModule` dispatches each variant to its RPC;
-        // the SSE echo reconciles Room.
+        // the firehose echo reconciles Room.
         single<BookEditRepository> {
             BookEditRepositoryImpl(
                 offlineEditor = get(),

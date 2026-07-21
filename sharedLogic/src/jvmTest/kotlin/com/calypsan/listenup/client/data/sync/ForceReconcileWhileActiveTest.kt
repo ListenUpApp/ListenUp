@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
@@ -68,7 +69,7 @@ class ForceReconcileWhileActiveTest :
                 try {
                     val catchUp = CountingFromZeroCatchUp()
                     val state = SyncEngineState()
-                    val sse = FakeForceReconcileSseClient(state)
+                    val sse = FakeForceReconcileSyncStreamClient(state)
 
                     // The reconciler sees a stored cursor (so reconcileAll does not early-return)
                     // and a server digest that disagrees with the local rows for "tags" — i.e.
@@ -128,7 +129,7 @@ class ForceReconcileWhileActiveTest :
                 try {
                     val catchUp = CountingFromZeroCatchUp()
                     val state = SyncEngineState()
-                    val sse = FakeForceReconcileSseClient(state)
+                    val sse = FakeForceReconcileSyncStreamClient(state)
 
                     // Digests AGREE at the cursor (the import's rows are beyond `max`), so a digest
                     // reconcile sees no drift — it is structurally blind to the suppressed import.
@@ -223,7 +224,7 @@ private fun buildEngine(
     store: SyncCursorStore,
     state: SyncEngineState,
     catchUp: CatchUp,
-    sse: SseClient,
+    sse: SyncStreamClient,
     reconciler: SyncReconciler,
     scope: CoroutineScope,
 ): SyncEngine {
@@ -244,7 +245,7 @@ private fun buildEngine(
         state = state,
         store = store,
         catchUp = catchUp,
-        sseClient = sse,
+        syncStreamClient = sse,
         reconciler = reconciler,
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
@@ -332,11 +333,11 @@ private class DriftingTagHandler(
 }
 
 /** Fake SSE client mirroring production's `connect()`-flips-state semantics. */
-private class FakeForceReconcileSseClient(
+private class FakeForceReconcileSyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
 
     private var seeded: Long? = null
 

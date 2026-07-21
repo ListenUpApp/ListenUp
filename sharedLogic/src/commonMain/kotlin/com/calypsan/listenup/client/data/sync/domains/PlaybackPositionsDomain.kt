@@ -14,7 +14,7 @@ import com.calypsan.listenup.core.BookId
  * stale inbound snapshot is safe, not lossy: the local row is at least as fresh and
  * pushes its own value to the server when connectivity allows.
  *
- * SSE `Deleted` is declared [DeleteSemantics.CatchUpOnly]: the event carries only the
+ * Firehose `Deleted` is declared [DeleteSemantics.CatchUpOnly]: the event carries only the
  * server's position UUID, which is not a local key (rows key by `bookId`); the
  * tombstone converges via catch-up, which carries the full payload. The interim gap
  * is harmless — position deletes accompany book deletion, and the book's own

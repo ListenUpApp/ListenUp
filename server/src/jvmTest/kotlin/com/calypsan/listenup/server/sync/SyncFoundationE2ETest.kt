@@ -4,6 +4,9 @@ import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.server.testing.domainFrames
+import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.withTestApplication
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -11,58 +14,50 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.ktor.client.call.body
-import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.get
-import io.ktor.client.request.headers
-import io.ktor.http.HttpHeaders
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 
+/**
+ * End-to-end lifecycle of the sync foundation: the RPC firehose ([rpcFirehose]
+ * over the harness bus) for the live tail — observe, write, receive, then
+ * resume via `sinceRevision` — followed by the REST discovery/digest/catch-up
+ * routes and the soft-delete tombstone.
+ */
 class SyncFoundationE2ETest :
     FunSpec({
 
-        test("end-to-end lifecycle: SSE connect → write → receive → reconnect → REST catch-up") {
+        test("end-to-end lifecycle: RPC stream → write → receive → resume with sinceRevision → REST catch-up") {
             withTestApplication {
-                // ---- Step 1: Connect SSE, write, assert receive ----
-                var firstReceivedRevision: Long = 0
-
-                client.sse("/api/v1/sync/events") {
-                    coroutineScope {
-                        val deferred = async { incoming.first() }
-                        tagRepo.upsert(Tag("t1", "alpha", "alpha", 0, 0))
-                        val event = deferred.await()
-                        event.event shouldBe "tags"
-                        event.data!! shouldContain """"type":"SyncEvent.Created""""
-                        event.data!! shouldContain """"id":"t1""""
-                        firstReceivedRevision = event.id!!.toLong()
-                    }
-                }
+                // ---- Step 1: Write, observe the firehose, assert receive ----
+                // The bus's replay buffer holds the write, so subscribing after it is
+                // deterministic — a live subscriber would have seen the same frame.
+                tagRepo.upsert(Tag("t1", "alpha", "alpha", 0, 0))
+                val firstFrame =
+                    rpcFirehose(bus, rootPrincipal("test-user"))
+                        .domainFrames()
+                        .first { it.domain == "tags" }
+                firstFrame.json shouldContain """"type":"SyncEvent.Created""""
+                firstFrame.json shouldContain """"id":"t1""""
+                val firstReceivedRevision = firstFrame.revision!!
 
                 // ---- Step 2: Write while disconnected ----
                 tagRepo.upsert(Tag("t2", "beta", "beta", 0, 0))
 
-                // ---- Step 3: Reconnect with Last-Event-Id, verify replay + live tail ----
-                // With replay=256, reconnecting with Last-Event-Id=1 delivers t2 (missed while
-                // disconnected) from the replay cache, then t3 live. This is the desired catch-up
-                // behavior — the client doesn't need REST for events still in the bus buffer.
-                client.sse(
-                    urlString = "/api/v1/sync/events",
-                    request = {
-                        headers { append(HttpHeaders.LastEventID, firstReceivedRevision.toString()) }
-                    },
-                ) {
-                    coroutineScope {
-                        // Collect two events: the replayed t2 + the live t3
-                        val deferred = async { incoming.take(2).toList() }
-                        tagRepo.upsert(Tag("t3", "gamma", "gamma", 0, 0))
-                        val events = deferred.await()
-                        events[0].data!! shouldContain """"id":"t2""""
-                        events[1].data!! shouldContain """"id":"t3""""
-                    }
-                }
+                // ---- Step 3: Resubscribe with sinceRevision, verify replay + live tail ----
+                // With replay=256, resuming with sinceRevision = t1's revision delivers t2
+                // (missed while disconnected) from the replay cache, then t3. This is the
+                // desired catch-up behavior — the client doesn't need REST for events still
+                // in the bus buffer.
+                tagRepo.upsert(Tag("t3", "gamma", "gamma", 0, 0))
+                val resumed =
+                    rpcFirehose(bus, rootPrincipal("test-user"), sinceRevision = firstReceivedRevision)
+                        .domainFrames()
+                        .take(2)
+                        .toList()
+                resumed[0].json shouldContain """"id":"t2""""
+                resumed[1].json shouldContain """"id":"t3""""
 
                 // ---- Step 4: Verify domain-list discovery ----
                 val list: DomainList = client.get("/api/v1/sync/domains").body()

@@ -16,7 +16,7 @@ internal interface AvatarDownloadRepository {
      *
      * Returns immediately; the download happens on the repository's internal scope.
      * If the avatar is already present locally, no work is done. On failure, the error
-     * is logged and dropped — the next SSE session-started event or manual refresh will retry.
+     * is logged and dropped — the next firehose session-started event or manual refresh will retry.
      *
      * @param userId the user whose avatar should be fetched.
      */
@@ -26,7 +26,7 @@ internal interface AvatarDownloadRepository {
      * Queue a force-refresh download for [userId], bypassing the file-exists skip.
      *
      * Returns immediately; the download happens on the repository's internal scope.
-     * Used by the SSE profile-updated handler when avatar bytes have changed server-side
+     * Used by the firehose profile-updated handler when avatar bytes have changed server-side
      * but the URL/path is unchanged — so the normal existence check would incorrectly skip it.
      * On failure, the error is logged and dropped.
      *

@@ -17,7 +17,7 @@ internal sealed interface RefreshStrategy {
 
     /**
      * Run a suspend re-fetch inline. Declared best-effort: the router swallows
-     * non-cancellation failures so a refresh re-fetch can never take the SSE dispatch
+     * non-cancellation failures so a refresh re-fetch can never take the firehose dispatch
      * loop down.
      */
     class Refetch(

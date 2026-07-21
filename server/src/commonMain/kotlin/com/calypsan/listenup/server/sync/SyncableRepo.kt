@@ -18,7 +18,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
  * during the incremental Exposed → SQLDelight cutover.
  *
  * Kept deliberately small — only what the three consumers actually touch:
- *  - [domainName] — the registry key, the SSE `event:` line, the error domain.
+ *  - [domainName] — the registry key, the firehose frame's `domain`, the error domain.
  *  - [encodePageAsJson] / [encodeSyncEventAsJson] — the type-erasure-defeating
  *    serializer helpers the routes call on the `SyncableRepo<Any>` cast (the
  *    registry is keyed by `String`, so the element type is erased at lookup).
@@ -30,7 +30,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
  * no consumer touches it.
  */
 interface SyncableRepo<T : Any> {
-    /** Stable domain key — registry id, SSE `event:` line, error `domain`. */
+    /** Stable domain key — registry id, firehose frame `domain`, error `domain`. */
     val domainName: String
 
     /**
@@ -43,7 +43,7 @@ interface SyncableRepo<T : Any> {
 
     /**
      * Encodes a [SyncEvent] to a JSON string via the repo's own concrete element
-     * serializer. The SSE firehose calls this on the type-erased
+     * serializer. The sync firehose calls this on the type-erased
      * `BusEvent<*>.repo` to serialise the event payload without losing type
      * information through the registry.
      */

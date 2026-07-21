@@ -20,7 +20,7 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
  * pending op (the same outbox the playback-position writes use), so an edit made
  * offline persists and replays on reconnect rather than failing with a
  * [com.calypsan.listenup.api.error.ServerConnectError]. The authoritative state
- * still arrives via the SSE sync engine and reconciles through
+ * still arrives via the sync engine and reconciles through
  * [com.calypsan.listenup.client.data.sync.domains.seriesDomain].
  *
  * [deleteSeries] is offline-first too: it soft-deletes the series row and cascade-removes its

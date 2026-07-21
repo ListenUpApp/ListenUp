@@ -275,7 +275,7 @@ open class ProgressTracker(
      *
      * Reads the local Room row — kept current by
      * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] (live
-     * SSE events) and catch-up on reconnect. The synchronous HTTP read that
+     * firehose events) and catch-up on reconnect. The synchronous HTTP read that
      * previously blocked ExoPlayer startup has been removed: `PlaybackService.prepare`
      * returns the server-authoritative resume position in the same call that signs the
      * stream URLs, so there is no need for a separate progress read at resume time.

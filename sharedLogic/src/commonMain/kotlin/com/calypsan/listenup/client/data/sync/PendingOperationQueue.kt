@@ -250,7 +250,7 @@ internal class PendingOperationQueue(
 
     // Heal requests. When an op dead-letters (server rejected it non-retryably) or is dismissed, the
     // optimistic Room edit it carried was never accepted by the server — yet its (id, revision) is
-    // unchanged, so the digest matches, catch-up (revision > cursor) skips it, and no SSE echo ever
+    // unchanged, so the digest matches, catch-up (revision > cursor) skips it, and no firehose echo ever
     // arrives. Nothing in the convergence machinery repairs a content-only divergence (DRIFT-1). The
     // engine drains this channel to re-fetch current server truth by id and apply it over the phantom.
     // UNLIMITED capacity so a `trySend` never fails or suspends — including from inside `drainMutex`.
@@ -331,7 +331,7 @@ internal class PendingOperationQueue(
      * True when a still-dispatchable local op is queued for (domainName, entityId).
      *
      * This is the anti-flicker shield's one primitive: entity-level and clientOpId-independent.
-     * When an inbound SSE echo or catch-up item arrives for an entity whose local edit is still
+     * When an inbound firehose echo or catch-up item arrives for an entity whose local edit is still
      * in flight, the apply is shielded so the optimistic state is not clobbered by a (possibly
      * stale) server snapshot — the authoritative state arrives via the edit's own echo once it
      * drains. Dead-lettered ops do NOT count as in-flight, so a permanently-failed edit lets the
@@ -538,7 +538,7 @@ internal class PendingOperationQueue(
     /**
      * Drop an op permanently and heal its entity. The optimistic local edit the op carried was
      * never confirmed by the server, and its unchanged `(id, revision)` means no reconcile,
-     * catch-up, or SSE echo would repair it — so a [SentEntityRef] heal request is emitted to
+     * catch-up, or firehose echo would repair it — so a [SentEntityRef] heal request is emitted to
      * re-fetch current server truth over the abandoned local value (DRIFT-1), matching the
      * dead-letter path.
      */

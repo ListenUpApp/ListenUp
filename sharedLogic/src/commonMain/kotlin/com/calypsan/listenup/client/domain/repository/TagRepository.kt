@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.Flow
  * the slug is the stable identity — it never changes on rename.
  *
  * **Observation methods** read from Room (offline-first, reactive). **Mutation methods**
- * delegate to the [com.calypsan.listenup.api.TagService] RPC; the SSE sync engine
+ * delegate to the [com.calypsan.listenup.api.TagService] RPC; the sync engine
  * propagates the server-committed change back into Room, which triggers reactive UI updates.
  *
  * Mutation methods are the primary write path — no optimistic Room writes. The sync
@@ -97,7 +97,7 @@ interface TagRepository {
      * is created. The junction row is upserted (re-adding a previously removed tag
      * clears its `deleted_at` and bumps the revision).
      *
-     * The server emits SSE events for the new or updated tag and junction row so
+     * The server emits sync events for the new or updated tag and junction row so
      * connected clients' Room databases update reactively via the sync engine.
      *
      * @param bookId The raw book ID string.

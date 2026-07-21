@@ -12,7 +12,9 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.MoodRepository
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.sync.SyncStreamServiceImpl
 import com.calypsan.listenup.server.sync.TagRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -45,6 +47,15 @@ fun syncModule(): Module =
         single { SyncRegistry() }
         single { BookAccessPolicy(db = get<ListenUpDatabase>(), driver = get<SqlDriver>()) }
         single(createdAtStart = true) { ChangeBus() }
+        // The RPC firehose over the change bus. The policy travels as a thunk (resolved lazily,
+        // only when a book-gated event must be probed) so harnesses driving only ungated domains
+        // need no BookAccessPolicy.
+        single<SyncStreamService> {
+            SyncStreamServiceImpl(
+                bus = get(),
+                bookAccessPolicy = { get() },
+            )
+        }
         // Tag + BookTag + Mood + BookMood are SQLDelight conversions (the cutover template):
         // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
         single(createdAtStart = true) { TagRepository(get<ListenUpDatabase>(), get(), get()) }

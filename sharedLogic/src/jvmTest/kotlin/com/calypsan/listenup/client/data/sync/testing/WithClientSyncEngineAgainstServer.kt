@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync.testing
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
@@ -43,7 +44,8 @@ import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
-import com.calypsan.listenup.client.data.sync.SyncSseClient
+import com.calypsan.listenup.client.data.sync.RpcSyncStreamClient
+import com.calypsan.listenup.client.data.sync.SyncStreamClient
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
 import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
@@ -110,18 +112,17 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
+import com.calypsan.listenup.server.sync.createSyncStreamService
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
 import kotlin.time.Clock
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.sse.SSE
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
-import io.ktor.server.sse.SSE as ServerSSE
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
@@ -149,7 +150,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * Covers two sync domains in one wiring: `tags` (via [recording] / [tagRepo],
  * the original Tags-only surface) and `books` (via [serverBookRepository] +
  * [clientDatabase], wired additively for the Books-A Tier 3 e2e suite). The
- * single client [ClientSyncDomainRegistry] routes SSE frames for both domains,
+ * single client [ClientSyncDomainRegistry] routes firehose frames for both domains,
  * so a Books test asserts against [clientDatabase] while the legacy Tags tests
  * keep asserting against [recording] unchanged.
  *
@@ -236,7 +237,7 @@ internal data class ClientEngineScope(
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
     val queue: PendingOperationQueue,
-    val sseClient: SyncSseClient,
+    val syncStreamClient: SyncStreamClient,
     val reconciler: SyncReconciler,
 )
 
@@ -248,11 +249,10 @@ internal data class ClientEngineScope(
  *  - server: temp-file SQLite + Koin module + `syncRoutes`, mirroring
  *    `server/.../testing/SyncTestApplication.kt`
  *  - client: Room in-memory DB + a real [SyncEngine] backed by [SyncCatchUpClient]
- *    and [SyncSseClient] talking to the server's testApplication via the
- *    `createClient { }` JSON+SSE client (relative URLs route in-process)
- *  - frame collection: a dedicated coroutine pipes `sseClient.frames` through
- *    [SyncEventDispatcher.handle] — production does this in the Koin module;
- *    the fixture does it inline so handler observation works end-to-end.
+ *    and [RpcSyncStreamClient] talking to the server's testApplication over a real
+ *    kotlinx.rpc WebSocket (relative URLs route in-process)
+ *  - frame collection: the engine pipes `syncStreamClient.frames` through
+ *    [SyncEventDispatcher.handle], exactly as production does.
  *
  * Stops Koin in `finally` so subsequent tests start with a fresh container.
  */
@@ -268,6 +268,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
         val serverSqlDb = ServerSqlDatabase(serverDriver)
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
+        val bookAccessPolicy = BookAccessPolicy(serverSqlDb, serverDriver)
         val serverRepos = buildServerRepositories(serverSqlDb, serverDriver, bus, syncRegistry)
         val bookService: BookService =
             createBookService(
@@ -323,27 +324,26 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
-            install(ServerSSE)
             // Install the kotlinx.rpc application plugin before any `rpc(...)` route
             // is declared — the server DSL errors otherwise ("RPC for server requires
             // WebSockets plugin to be installed firstly"). Matches production wiring
             // in `Application.module()`.
             install(ServerKrpc)
             // The e2e tests run as "u1". Setting defaultUserId = "u1" means the
-            // SyncSseClient's unauthenticated GET /api/v1/sync/events request is
-            // resolved as user "u1" by TestAuthProvider — so per-user SSE events
-            // published for "u1" are delivered to the client's SSE subscriber.
+            // firehose's bare WebSocket upgrade is resolved as user "u1" by
+            // TestAuthProvider — so per-user events published for "u1" are
+            // delivered to the client's firehose subscriber.
             install(Authentication) { testAuth(defaultUserId = "u1") }
             install(Koin) {
                 modules(
                     module {
                         single { bus }
                         single { syncRegistry }
-                        // The catch-up / digest / firehose routes inject BookAccessPolicy to
-                        // access-filter the gated domains (books, activities, collections). Without
-                        // it, any access-gated FORWARD catch-up in-harness fails to resolve. Cheap to
-                        // wire here over the same already-migrated server DB.
-                        single { BookAccessPolicy(serverSqlDb, serverDriver) }
+                        // The catch-up / digest routes inject BookAccessPolicy to access-filter the
+                        // gated domains (books, activities, collections). Without it, any
+                        // access-gated FORWARD catch-up in-harness fails to resolve. Same instance
+                        // the RPC firehose registration below closes over.
+                        single { bookAccessPolicy }
                         single(createdAtStart = true) { serverRepos.tagRepo }
                         single(createdAtStart = true) { serverRepos.bookRepo }
                         single(createdAtStart = true) { serverRepos.activeSessionRepo }
@@ -396,6 +396,14 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                         // SearchService is unscoped in the harness (ROOT bypasses the access policy),
                         // so it mounts without per-request principal scoping.
                         registerService<SearchService> { guard(searchService) }
+                        // The RPC firehose — the same per-connection principal scoping production
+                        // uses, over the harness's shared ChangeBus.
+                        registerService<SyncStreamService> {
+                            val p =
+                                call.userPrincipalOrNull()
+                                    ?: error("authed RPC mount reached without a principal")
+                            guard(createSyncStreamService(bus, { bookAccessPolicy }, PrincipalProvider { p }))
+                        }
                     }
                 }
             }
@@ -407,11 +415,10 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
         val testClient: HttpClient =
             createClient {
                 install(ContentNegotiation) { json(contractJson) }
-                install(SSE)
                 // Tier 3 e2e: installKrpc() adds WebSockets + kotlinx.rpc plumbing
                 // so the harness's RPC channels can open `.rpc("/api/rpc/authed")`
                 // against the same in-process server. The relative-URL pattern
-                // matches the existing SSE/REST clients above.
+                // matches the REST catch-up client above.
                 installKrpc()
             }
         // Real kotlinx.rpc BookService proxy over the in-process server, wrapped in a
@@ -704,10 +711,16 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             val digestClient = DomainDigestClient(httpClientProvider = { testClient }, serverUrlProvider = { "" })
             val reconciler = SyncReconciler(registry, store, digestClient, catchUp)
 
-            val sseClient =
-                SyncSseClient(
-                    serverUrlProvider = { "" },
-                    streamingClientProvider = { testClient },
+            // The production firehose client over a real kotlinx.rpc proxy into the harness's
+            // in-process server — same transport shape as production DI wires.
+            val syncStreamServiceProxy =
+                testClient
+                    .rpc("ws://localhost/api/rpc/authed") {
+                        rpcConfig { serialization { krpcJson(contractJson) } }
+                    }.withService<SyncStreamService>()
+            val syncStreamClient =
+                RpcSyncStreamClient(
+                    channel = RpcChannel.forTest(syncStreamServiceProxy),
                     state = state,
                     scope = clientScope,
                 )
@@ -735,7 +748,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     state = state,
                     store = store,
                     catchUp = catchUp,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     reconciler = reconciler,
                     dispatcher = dispatcher,
                     presenceRefreshSignal = PresenceRefreshSignal(),
@@ -770,7 +783,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     state = state,
                     dispatcher = dispatcher,
                     queue = queue,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     reconciler = reconciler,
                 ).block()
             } finally {

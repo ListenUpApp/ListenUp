@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 private val log = loggerFor<ChangeBus>()
@@ -14,14 +15,14 @@ private const val LIVE_TAIL_BUFFER = 256
 
 /**
  * Type-bound bus entry. The source repository travels alongside the event so
- * the consumer (SSE firehose, REST catch-up listener) can encode the event
+ * the consumer (sync firehose, REST catch-up listener) can encode the event
  * using the repository's own serializer — no static-registry lookup required.
  *
  * The previous untyped shape (`BusEvent(domainName, event)`) relied on a
  * static registry to look up the right serializer at consumption
  * time. That coupling allowed a misrouted publish (wrong domain string, or
  * reflective misuse) to silently encode a payload through the wrong serializer,
- * producing malformed SSE frames and reconnect storms. The typed shape makes
+ * producing malformed firehose frames and reconnect storms. The typed shape makes
  * the binding compile-checked: a `BusEvent<Tag>` literally cannot carry a
  * `Book` payload.
  */
@@ -145,6 +146,14 @@ class ChangeBus {
     }
 
     fun subscribeControl(): SharedFlow<ControlFrame> = controlFlow.asSharedFlow()
+
+    /**
+     * Live subscriber count on the control channel. The control channel has no replay, so a
+     * frame published before a collector attaches is silently lost — awaiting
+     * `first { it > 0 }` here is the deterministic attach barrier tests use before publishing
+     * the frame under assertion (no sleep-based races).
+     */
+    val controlSubscriptionCount: StateFlow<Int> get() = controlFlow.subscriptionCount
 
     /**
      * Runs [emit] immediately. The only callers ([publish], [publishControl],

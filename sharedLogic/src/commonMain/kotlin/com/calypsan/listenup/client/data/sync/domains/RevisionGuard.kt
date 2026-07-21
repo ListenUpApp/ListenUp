@@ -19,7 +19,7 @@ package com.calypsan.listenup.client.data.sync.domains
  * so a policy that doesn't do revision comparison (AppendOnly, NewerWins)
  * structurally cannot carry one.
  *
- * [localRevision] receives the sync id (the SSE envelope id — composite-key
+ * [localRevision] receives the sync id (the firehose envelope id — composite-key
  * domains parse their `"a:b"` synthetic form) and returns the local row's
  * revision INCLUDING tombstoned rows, or null when the row has never been seen
  * (first sight always applies). It runs inside the apply's write transaction.

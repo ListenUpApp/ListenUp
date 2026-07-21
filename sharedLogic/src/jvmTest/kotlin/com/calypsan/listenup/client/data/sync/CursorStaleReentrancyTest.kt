@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
@@ -124,7 +125,7 @@ private fun buildEngineWithCatchUp(
         state = state,
         store = store,
         catchUp = catchUp,
-        sseClient = NoopSseClient(state),
+        syncStreamClient = NoopSyncStreamClient(state),
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
@@ -132,12 +133,12 @@ private fun buildEngineWithCatchUp(
     )
 }
 
-/** Minimal [SseClient] whose connect/disconnect only flip [SyncEngineState] — no real transport. */
-private class NoopSseClient(
+/** Minimal [SyncStreamClient] whose connect/disconnect only flip [SyncEngineState] — no real transport. */
+private class NoopSyncStreamClient(
     private val state: SyncEngineState,
-) : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+) : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
     private var seeded: Long? = null
 
     override fun seedLastEventId(initial: Long?) {

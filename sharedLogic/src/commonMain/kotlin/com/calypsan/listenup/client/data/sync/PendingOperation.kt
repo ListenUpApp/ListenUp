@@ -7,7 +7,7 @@ package com.calypsan.listenup.client.data.sync
 internal data class PendingOperation(
     /**
      * Local correlation id only — never sent to the server over the RPC write path and never
-     * echoes back on an SSE `SyncEvent`. The anti-flicker shield keys on entity identity
+     * echoes back on a firehose `SyncEvent`. The anti-flicker shield keys on entity identity
      * `(domainName, entityId)` instead; see
      * [com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery].
      */

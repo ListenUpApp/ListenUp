@@ -34,7 +34,7 @@ import kotlin.uuid.Uuid
 
 /**
  * The optimistic Room merge for every [BookMutation], mirroring [com.calypsan.listenup.client.data.sync.domains.BookMirrorApply]'s
- * reconciliation apply so the local state a user sees immediately equals what the book's own SSE echo
+ * reconciliation apply so the local state a user sees immediately equals what the book's own firehose echo
  * will produce once the edit drains. Runs INSIDE
  * [com.calypsan.listenup.client.data.sync.OfflineEditor]'s transaction (composed with the outbox
  * enqueue), so a crash can never leave a committed local edit without its durable op.
@@ -78,7 +78,7 @@ internal class BookMutationLocalApply(
     /**
      * Merge the PATCH into the book row — non-null scalars replace, null leaves untouched — and stamp
      * USER provenance on the edited fields, matching `BookServiceImpl.applyPatch` so the local
-     * provenance is correct offline and before the SSE echo.
+     * provenance is correct offline and before the firehose echo.
      */
     private suspend fun applyUpdate(
         bookId: BookId,

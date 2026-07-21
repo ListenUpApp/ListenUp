@@ -59,7 +59,7 @@ internal sealed interface AccessDeltaPolicy {
 
     /**
      * The domain is NOT fetched in the delta pass: its rows are revision-cursored and converge via
-     * the live SSE tail, with the coarse anchor as the frame-loss backstop. [rationale] records why.
+     * the live firehose tail, with the coarse anchor as the frame-loss backstop. [rationale] records why.
      */
     class LiveTailOnly(
         val rationale: String,

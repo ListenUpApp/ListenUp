@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
@@ -95,7 +96,7 @@ class SyncEngineLifecycleTest :
                         state = state,
                         store = store,
                         catchUp = fakeCatchUp,
-                        sseClient = fakeSse,
+                        syncStreamClient = fakeSse,
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                         dispatcher = dispatcher,
                         presenceRefreshSignal = PresenceRefreshSignal(),
@@ -133,7 +134,7 @@ class SyncEngineLifecycleTest :
                         state = state,
                         store = store,
                         catchUp = fakeCatchUp2,
-                        sseClient = FakeSse(),
+                        syncStreamClient = FakeSse(),
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp2),
                         dispatcher =
                             SyncEventDispatcher(
@@ -194,7 +195,7 @@ class SyncEngineLifecycleTest :
                         state = state,
                         store = store,
                         catchUp = fakeCatchUp3,
-                        sseClient = fakeSse,
+                        syncStreamClient = fakeSse,
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp3),
                         dispatcher =
                             SyncEventDispatcher(
@@ -209,10 +210,10 @@ class SyncEngineLifecycleTest :
                 engine.start(currentUserId = "u1")
                 fakeSse.awaitCollector()
                 fakeSse.emit(
-                    ParsedSseFrame(
-                        id = 3L,
-                        event = "tags",
-                        data =
+                    SyncFrame(
+                        revision = 3L,
+                        domain = "tags",
+                        json =
                             contractJson.encodeToString(
                                 SyncEvent.serializer(Tag.serializer()),
                                 SyncEvent.Created(
@@ -281,7 +282,7 @@ class SyncEngineLifecycleTest :
                         state = state,
                         store = store,
                         catchUp = fakeCatchUp4,
-                        sseClient = fakeSse,
+                        syncStreamClient = fakeSse,
                         reconciler = noopSyncReconciler(registry, store, fakeCatchUp4),
                         dispatcher =
                             SyncEventDispatcher(
@@ -298,10 +299,10 @@ class SyncEngineLifecycleTest :
                 val emitJob =
                     backgroundScope.launch {
                         fakeSse.emit(
-                            ParsedSseFrame(
-                                id = 1L,
-                                event = "tags",
-                                data =
+                            SyncFrame(
+                                revision = 1L,
+                                domain = "tags",
+                                json =
                                     contractJson.encodeToString(
                                         SyncEvent.serializer(Tag.serializer()),
                                         SyncEvent.Created(
@@ -359,9 +360,9 @@ private class FakeCatchUp(
     override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
 }
 
-private class FakeSse : SseClient {
-    private val flow = MutableSharedFlow<ParsedSseFrame>()
-    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+private class FakeSse : SyncStreamClient {
+    private val flow = MutableSharedFlow<SyncFrame>()
+    override val frames: SharedFlow<SyncFrame> = flow.asSharedFlow()
     var connected = false
     var seededLastEventId: Long? = null
 
@@ -386,7 +387,7 @@ private class FakeSse : SseClient {
 
     override fun reconnectNow() = Unit
 
-    suspend fun emit(frame: ParsedSseFrame) {
+    suspend fun emit(frame: SyncFrame) {
         flow.emit(frame)
     }
 

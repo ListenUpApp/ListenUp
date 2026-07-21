@@ -14,10 +14,10 @@ private val logger = KotlinLogging.logger {}
  * After each connect, fingerprints every registered domain at the global
  * [SyncCursorStore.highestCursor] and re-pulls (from zero) any domain whose digest diverges
  * from the server's — closing the firehose gap where a domain below the global floor was
- * delivered by neither catch-up nor SSE.
+ * delivered by neither catch-up nor the firehose.
  *
  * The cursor is captured once at the top of [reconcileAll] so every domain gets a stable,
- * identical comparison point regardless of live SSE events arriving concurrently. Domains
+ * identical comparison point regardless of live firehose events arriving concurrently. Domains
  * are reconciled in parallel. Per-domain failures are logged and skipped; reconciliation
  * never throws into the engine or blocks the live stream.
  */

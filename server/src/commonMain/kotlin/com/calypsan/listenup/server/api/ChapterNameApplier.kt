@@ -23,7 +23,7 @@ import com.calypsan.listenup.server.services.BookRepository
  * The mutated aggregate is written through [BookRepository.upsert] stamped
  * [ChapterSource.USER] — applying names is an explicit user choice (selection-as-consent), so
  * the result is rescan-protected exactly like a hand edit and does not revert on the next scan.
- * The revision bumps and an SSE event is published.
+ * The revision bumps and a sync event is published.
  *
  * Returns [MetadataError.NotFound] when the book is absent or no provider has chapters, and
  * [MetadataError.ChapterCountMismatch] when the two chapter counts differ (a different edition)

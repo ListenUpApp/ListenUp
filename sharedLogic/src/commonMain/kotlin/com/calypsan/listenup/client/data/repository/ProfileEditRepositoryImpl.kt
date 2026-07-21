@@ -104,7 +104,7 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
  * caller's own row in [PublicProfileDao] — the SINGLE avatar source the UI observes — flipping
  * [PublicProfileEntity.avatarType] to `"image"` and stamping the server-returned
  * [PublicProfileEntity.avatarUpdatedAt]. This is the one local write to the otherwise
- * server-synced `public_profiles` table; the eventual SSE echo (higher revision, ServerWins)
+ * server-synced `public_profiles` table; the eventual firehose echo (higher revision, ServerWins)
  * replaces it without regressing the version. Avatar methods stay online-only.
  *
  * Mixed transport: profile text edits and the auto-avatar revert ride the [RpcChannel]; only the
@@ -333,7 +333,7 @@ internal class ProfileEditRepositoryImpl(
      * Write the caller's own avatar facet into the observed `public_profiles` row — the single
      * source every avatar render resolves from. Read-modify-write preserves the synced stats and
      * revision on an existing row; when the row hasn't synced yet, a minimal `revision = 0` row is
-     * seeded so the optimistic render works before the first catch-up. The eventual SSE echo (higher
+     * seeded so the optimistic render works before the first catch-up. The eventual firehose echo (higher
      * revision, ServerWins) replaces this row without regressing [avatarUpdatedAt] — the server
      * stamped the same version we wrote here.
      */

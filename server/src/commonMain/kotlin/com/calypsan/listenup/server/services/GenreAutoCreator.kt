@@ -9,7 +9,7 @@ import kotlin.uuid.Uuid
  *
  * Resolves a raw genre display name to the id of a live genre with the matching
  * canonical slug, creating one if none exists. Creation goes through
- * [GenreRepository.upsert] so the substrate owns the revision bump + SSE event —
+ * [GenreRepository.upsert] so the substrate owns the revision bump + sync event —
  * a newly auto-created genre reaches clients exactly like a manually created one.
  *
  * "Flat" means the created genre is a root: `parentId = null`, `depth = 0`,

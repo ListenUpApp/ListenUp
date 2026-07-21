@@ -10,7 +10,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.ConnectionState
-import com.calypsan.listenup.client.data.sync.SseClient
+import com.calypsan.listenup.client.data.sync.SyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -70,8 +70,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -86,7 +86,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { reevaluateCount++ },
@@ -100,7 +100,7 @@ class ReconnectionSupervisorTest :
             engineState.setConnection(ConnectionState.Connected(lastEventId = 1L))
             scope.testScheduler.advanceUntilIdle()
 
-            verify { sseClient.reconnectNow() }
+            verify { syncStreamClient.reconnectNow() }
             verifySuspend(exactly(0)) { authSession.clearAuthTokens() }
             check(reevaluateCount >= 1) { "reevaluate should have run at least once" }
         }
@@ -117,8 +117,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-OLD"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -134,7 +134,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = errorBus,
                     reevaluate = { },
@@ -146,7 +146,7 @@ class ReconnectionSupervisorTest :
             scope.testScheduler.advanceUntilIdle()
 
             verifySuspend { authSession.clearAuthTokens() }
-            verify(exactly(0)) { sseClient.reconnectNow() }
+            verify(exactly(0)) { syncStreamClient.reconnectNow() }
             emitted.map { it.code } shouldContain AuthError.ServerInstanceChanged().code
         }
 
@@ -163,8 +163,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -176,7 +176,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { },
@@ -188,7 +188,7 @@ class ReconnectionSupervisorTest :
             scope.testScheduler.advanceUntilIdle()
 
             verifySuspend(exactly(0)) { instance.verifyServer(any()) }
-            verify(exactly(0)) { sseClient.reconnectNow() }
+            verify(exactly(0)) { syncStreamClient.reconnectNow() }
         }
 
         test("unreachable server retries with escalating interval") {
@@ -204,8 +204,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -217,7 +217,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { },
@@ -247,8 +247,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns null
                     everySuspend { getConnectedServerId() } returns null
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -260,7 +260,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { },
@@ -273,7 +273,7 @@ class ReconnectionSupervisorTest :
 
             verifySuspend(exactly(0)) { instance.verifyServer(any()) }
             verifySuspend(exactly(0)) { authSession.clearAuthTokens() }
-            verify(exactly(0)) { sseClient.reconnectNow() }
+            verify(exactly(0)) { syncStreamClient.reconnectNow() }
         }
 
         test("loop is cancelled once the connection becomes Connected") {
@@ -294,8 +294,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -307,7 +307,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { },
@@ -344,8 +344,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -359,7 +359,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { },
@@ -373,7 +373,7 @@ class ReconnectionSupervisorTest :
             scope.testScheduler.advanceUntilIdle()
 
             verifySuspend { instance.verifyServer(any()) } // it DID probe (reachability oracle)
-            verify(exactly(0)) { sseClient.reconnectNow() } // but never amplified the 401 loop
+            verify(exactly(0)) { syncStreamClient.reconnectNow() } // but never amplified the 401 loop
             verifySuspend(exactly(0)) { authSession.clearAuthTokens() } // same instance — no wall
         }
 
@@ -389,8 +389,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -405,7 +405,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { },
@@ -435,8 +435,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -449,7 +449,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { },
@@ -478,8 +478,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -498,7 +498,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = { if (reevaluateCalls++ == 0) error("mDNS sweep blew up") },
@@ -512,7 +512,7 @@ class ReconnectionSupervisorTest :
             scope.testScheduler.advanceTimeBy(interval * 4)
             scope.testScheduler.runCurrent()
 
-            verify(atLeast(1)) { sseClient.reconnectNow() }
+            verify(atLeast(1)) { syncStreamClient.reconnectNow() }
         }
 
         test("a persistently-throwing reevaluate keeps retrying without hot-spinning") {
@@ -527,8 +527,8 @@ class ReconnectionSupervisorTest :
                     everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
                     everySuspend { getConnectedServerId() } returns "inst-1"
                 }
-            val sseClient =
-                mock<SseClient> {
+            val syncStreamClient =
+                mock<SyncStreamClient> {
                     every { reconnectNow() } returns Unit
                 }
             val authSession =
@@ -543,7 +543,7 @@ class ReconnectionSupervisorTest :
                     engineState = engineState,
                     instanceRepository = instance,
                     serverConfig = serverConfig,
-                    sseClient = sseClient,
+                    syncStreamClient = syncStreamClient,
                     authSession = authSession,
                     errorBus = ErrorBus(),
                     reevaluate = {
@@ -567,58 +567,5 @@ class ReconnectionSupervisorTest :
             scope.testScheduler.advanceTimeBy(interval * 4)
             scope.testScheduler.runCurrent()
             check(reevaluateCalls > afterFirst) { "recovery should keep retrying after backoff" }
-        }
-
-        test("reachable but never Connected: rebuilds the wedged streaming client, then kicks") {
-            val scope = TestScope(StandardTestDispatcher())
-            val engineState = SyncEngineState() // Disconnected — and never flips to Connected
-            val instance =
-                mock<InstanceRepository> {
-                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
-                }
-            val serverConfig =
-                mock<ServerConfig> {
-                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
-                    everySuspend { getConnectedServerId() } returns "inst-1"
-                }
-            // One ordered log of both actions so we can assert rebuild-BEFORE-kick (self-teardown-safe).
-            val events = mutableListOf<String>()
-            val sseClient =
-                mock<SseClient> {
-                    every { reconnectNow() } calls { events.add("kick") }
-                }
-            val authSession =
-                mock<AuthSession> {
-                    every { authState } returns
-                        MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
-                    everySuspend { clearAuthTokens() } returns Unit
-                }
-            val supervisor =
-                ReconnectionSupervisor(
-                    engineState = engineState,
-                    instanceRepository = instance,
-                    serverConfig = serverConfig,
-                    sseClient = sseClient,
-                    authSession = authSession,
-                    errorBus = ErrorBus(),
-                    reevaluate = { },
-                    scope = scope,
-                    probeIntervalMillis = interval,
-                    rebuildStreamingClient = { events.add("rebuild") },
-                )
-
-            supervisor.start()
-            // The server answers every probe but the firehose never comes up — the wedged-socket case.
-            // Drive one kick per probe interval; the 3rd (STREAMING_REBUILD_AFTER_KICKS) must rebuild.
-            scope.testScheduler.runCurrent() // kick 1
-            scope.testScheduler.advanceTimeBy(interval + 1) // kick 2
-            scope.testScheduler.advanceTimeBy(interval + 1) // kick 3 → rebuild fires first
-            scope.testScheduler.runCurrent()
-
-            check("rebuild" in events) { "a wedged, reachable firehose must rebuild the streaming client: $events" }
-            val rebuildIdx = events.indexOf("rebuild")
-            check(events.getOrNull(rebuildIdx + 1) == "kick") {
-                "rebuild must be immediately followed by a reconnect kick (rebuild-before-connect): $events"
-            }
         }
     })

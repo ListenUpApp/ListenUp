@@ -492,7 +492,7 @@ class BookEditViewModel(
 
     /**
      * Dispatch the current collection set via the access-aware [BookEditRepository.setBookCollections]
-     * RPC. No optimistic Room write — the SSE echo + AccessChanged reconcile deliver the new state.
+     * RPC. No optimistic Room write — the firehose echo + AccessChanged reconcile deliver the new state.
      */
     private suspend fun saveCollections(current: BookEditUiState) =
         bookEditRepository.setBookCollections(

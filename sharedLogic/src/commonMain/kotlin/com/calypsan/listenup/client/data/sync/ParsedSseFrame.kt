@@ -1,10 +1,9 @@
 package com.calypsan.listenup.client.data.sync
 
 /**
- * A single parsed SSE frame. `id:` lines drive the [com.calypsan.listenup.api.sync.SyncCursor]
- * so the engine can resume via `Last-Event-Id`; `event:` lines disambiguate
- * domain events (e.g. `"tags"`) from out-of-band controls (`"control"`); the
- * concatenated `data:` payload is the JSON body the dispatcher decodes.
+ * A single parsed SSE frame from the [SseConnection] engine: the optional `id:` and `event:`
+ * lines, and the concatenated `data:` payload the consumer decodes. Consumed by the pre-auth
+ * registration-policy stream (`RegistrationPolicyStreamImpl`), which reads only [data].
  */
 internal data class ParsedSseFrame(
     val id: Long?,

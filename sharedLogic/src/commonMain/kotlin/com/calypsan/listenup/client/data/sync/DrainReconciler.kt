@@ -27,7 +27,7 @@ internal class DrainReconciler(
     /**
      * Re-fetch current server truth for [ref]'s entity and apply it over a never-accepted optimistic
      * edit (DRIFT-1). Triggered when an outbox op dead-lettered or was dismissed: the local row's
-     * `(id, revision)` is unchanged, so no digest reconcile, `?since=` catch-up, or SSE echo repairs
+     * `(id, revision)` is unchanged, so no digest reconcile, `?since=` catch-up, or firehose echo repairs
      * a content-only divergence — only a targeted by-id re-fetch does. The equal-revision re-fetch
      * applies through the normal `ServerWins` strict-`>` guard (equal revisions are not stale), so no
      * force override is needed.

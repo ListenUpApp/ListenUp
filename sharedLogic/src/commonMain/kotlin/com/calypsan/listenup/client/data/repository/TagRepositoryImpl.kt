@@ -33,7 +33,7 @@ private val logger = KotlinLogging.logger {}
  * Production implementation of [TagRepository].
  *
  * **Observation** (Room-backed, offline-first): all `observe*` and `getTagBySlug` calls
- * read from Room. The SSE sync engine writes server-committed state into Room via
+ * read from Room. The sync engine writes server-committed state into Room via
  * [com.calypsan.listenup.client.data.sync.domains.tagsDomain] and
  * [com.calypsan.listenup.client.data.sync.domains.bookTagsDomain], so the
  * UI reacts without explicit network polling.

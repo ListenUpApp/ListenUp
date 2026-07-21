@@ -92,7 +92,7 @@ internal class UserPreferencesRepositoryImpl(
     /**
      * Offline-first write: apply [mutate] to the cached row inside the outbox transaction and
      * enqueue [patch] for durable replay on reconnect. The server's authoritative merged result
-     * arrives via the SSE firehose (the `PreferencesChanged` control nudge) and reconciles the cache — so a change
+     * arrives via the sync firehose (the `PreferencesChanged` control nudge) and reconciles the cache — so a change
      * made offline is no longer lost, and no inline RPC is fired.
      */
     private suspend fun optimisticUpdate(

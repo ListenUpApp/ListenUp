@@ -7,7 +7,7 @@ import androidx.room.PrimaryKey
 /**
  * Local-first pending write awaiting server replay. Each row keys on a
  * client-generated UUID ([clientOpId]) — a local correlation id only: it is never sent to the
- * server over the RPC write path and never echoes back on an SSE
+ * server over the RPC write path and never echoes back on a firehose
  * [com.calypsan.listenup.api.sync.SyncEvent]. The anti-flicker shield that stops an inbound
  * echo/catch-up snapshot from reverting a still-in-flight local edit keys on entity identity
  * `(domainName, entityId)` instead — see

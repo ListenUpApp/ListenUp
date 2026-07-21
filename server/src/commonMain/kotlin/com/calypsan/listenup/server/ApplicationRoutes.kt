@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.event.ScanEvent
@@ -149,9 +150,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         registrationPolicyRoutes(registrationPolicyBroadcaster) { serverSettings.registrationPolicy() }
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
-            // C2: pass the session-liveness probe so a revoked session's LIVE firehose is severed
-            // within ~30s, not just blocked at the next reconnect.
-            syncRoutes(sessionLiveness = sessionService::isLive)
+            syncRoutes()
             adminUserRoutes(adminUserService)
             adminInviteRoutes(inviteService)
             libraryAdminRoutes(libraryAdminService)
@@ -211,4 +210,5 @@ private fun Application.rpcServiceBundle(): RpcServices =
         userPreferencesService = koinGet<UserPreferencesService>(),
         backupService = koinGet<BackupService>(),
         importService = koinGet<ImportService>(),
+        syncStreamService = koinGet<SyncStreamService>(),
     )

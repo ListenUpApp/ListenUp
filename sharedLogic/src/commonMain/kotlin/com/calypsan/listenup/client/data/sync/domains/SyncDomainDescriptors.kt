@@ -9,13 +9,13 @@ import kotlin.reflect.KClass
  * A declared sync domain is one of two standalone descriptor kinds. The catalog keeps them
  * in separate typed lists ([SyncDomainCatalog.mirrored] / [SyncDomainCatalog.refreshed]) and
  * nothing consumes them polymorphically, so they share no supertype:
- *  - [MirroredDomain]  — Room-mirrored via SSE fat events + catch-up + digest.
+ *  - [MirroredDomain]  — Room-mirrored via firehose fat events + catch-up + digest.
  *  - [RefreshedDomain] — refresh-driven; no cursor, a declared refresh strategy fired on a
  *    named control.
  */
 
 /**
- * A Room-mirrored domain: SSE fat events + REST catch-up + (usually) digest
+ * A Room-mirrored domain: firehose fat events + REST catch-up + (usually) digest
  * reconciliation. The descriptor is the domain's complete sync rulebook — transport
  * identity, apply seam, conflict policy, delete semantics, digest posture, write
  * tier, and access gating — declared in one value.
@@ -29,7 +29,7 @@ internal class MirroredDomain<T : SyncPayload>(
     val writes: WriteTier,
     val accessGate: AccessGate? = null,
     /**
-     * The stable sync id of a payload (matches the SSE envelope id). Defaults to the
+     * The stable sync id of a payload (matches the firehose envelope id). Defaults to the
      * payload's own [SyncPayload.id] — composite-key junctions expose that as their
      * synthetic `"a:b"` form, so the default covers every domain and no factory
      * overrides it.

@@ -12,15 +12,6 @@ import io.ktor.server.testing.testApplication
 class SyncRoutesAuthGateTest :
     FunSpec({
 
-        test("GET /api/v1/sync/events without bearer token returns 401") {
-            testApplication {
-                useIsolatedTestConfig()
-                application { module() }
-                val r: HttpResponse = client.get("/api/v1/sync/events")
-                r.status shouldBe HttpStatusCode.Unauthorized
-            }
-        }
-
         test("GET /api/v1/sync/domains without bearer token returns 401") {
             testApplication {
                 useIsolatedTestConfig()

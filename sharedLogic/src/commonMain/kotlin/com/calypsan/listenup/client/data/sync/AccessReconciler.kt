@@ -38,7 +38,7 @@ private val logger = KotlinLogging.logger {}
  * it is no longer swallowed: the failed remainder is reported to the caller via
  * [AccessReconcileOutcome] so the engine can re-queue it for exactly one bounded retry. After that
  * one retry, the reconnect / coarse anchor remains the convergence backstop. The persisted
- * [SyncCursorStore] is never touched: the live SSE/cursor path continues independently.
+ * [SyncCursorStore] is never touched: the live firehose/cursor path continues independently.
  */
 internal class AccessReconciler(
     private val registry: ClientSyncDomainRegistry,

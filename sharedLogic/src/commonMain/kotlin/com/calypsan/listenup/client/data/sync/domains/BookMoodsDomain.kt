@@ -60,7 +60,7 @@ internal class BookMoodMirrorApply(
     }
 
     /**
-     * Tombstone from an SSE `Deleted` frame by the opaque wire [id] (SERVER-SYNC-04) — a graceful
+     * Tombstone from a firehose `Deleted` frame by the opaque wire [id] (SERVER-SYNC-04) — a graceful
      * no-op if [id] matches no local row (nothing to reconcile locally). The DAO advances its own
      * revision, so the event revision is not taken here.
      */

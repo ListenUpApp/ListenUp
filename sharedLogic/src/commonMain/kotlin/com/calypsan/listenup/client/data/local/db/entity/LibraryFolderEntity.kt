@@ -10,7 +10,7 @@ import androidx.room.PrimaryKey
  *
  * A library may have N folders. Each folder carries the absolute server-side path to its
  * root directory. Carries the sync substrate ([revision], [deletedAt]) so catch-up and
- * SSE sync routes can apply tombstones uniformly.
+ * firehose sync paths can apply tombstones uniformly.
  *
  * The foreign key cascades deletes: removing a library hard-removes its folder rows.
  * The index on [libraryId] accelerates [LibraryFolderDao.observeForLibrary] and

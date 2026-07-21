@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -85,12 +86,12 @@ class BookContributorsE2ETest :
 private fun booksFrame(
     payload: BookSyncPayload,
     revision: Long,
-): ParsedSseFrame {
+): SyncFrame {
     val stamped = payload.copy(revision = revision, updatedAt = revision * 100L)
-    return ParsedSseFrame(
-        id = revision,
-        event = "books",
-        data =
+    return SyncFrame(
+        revision = revision,
+        domain = "books",
+        json =
             contractJson.encodeToString(
                 SyncEvent.serializer(BookSyncPayload.serializer()),
                 SyncEvent.Updated(id = stamped.id, revision = revision, occurredAt = stamped.updatedAt, payload = stamped),

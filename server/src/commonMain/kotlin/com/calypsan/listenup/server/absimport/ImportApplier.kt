@@ -255,7 +255,7 @@ class ImportApplier internal constructor(
      *
      * Progress frames are throttled: one every [APPLY_EVENT_INTERVAL] rows during the resolve scan,
      * plus an always-emitted final frame reporting `done == total`. A full history import used to emit
-     * one SSE frame per row (including skipped rows); the batched write makes that frequency pointless.
+     * one firehose frame per row (including skipped rows); the batched write makes that frequency pointless.
      */
     private suspend fun recordAll(
         progress: List<AbsProgress>,

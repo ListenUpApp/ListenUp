@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
  * The global `public_profiles` domain: a server-maintained materialized view of a
  * user's public social identity — server-wins replace, no client-writable fields,
  * [WriteTier.ServerOwned]. Unlike [userStatsDomain] this domain tombstones
- * (deleted users): SSE `Deleted` soft-deletes immediately. Full digest.
+ * (deleted users): Firehose `Deleted` soft-deletes immediately. Full digest.
  *
  * **Avatar force-refresh (bespoke apply side effect).** Avatar bytes change behind
  * a stable path — `avatarUpdatedAt` is the only signal. When it advances for an

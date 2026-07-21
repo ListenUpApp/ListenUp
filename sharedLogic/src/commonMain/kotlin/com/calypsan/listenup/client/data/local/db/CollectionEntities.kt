@@ -16,7 +16,7 @@ import androidx.room.PrimaryKey
  * `GenreEntity` precedent, so drift is impossible by construction).
  *
  * Carries the canonical sync substrate ([revision], [deletedAt], [updatedAt])
- * consumed by the collection sync handler for catch-up and SSE event application.
+ * consumed by the collection sync handler for catch-up and firehose event application.
  */
 @Entity(
     tableName = "collections",

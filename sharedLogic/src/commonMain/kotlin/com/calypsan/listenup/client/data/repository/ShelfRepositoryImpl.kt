@@ -35,7 +35,7 @@ import kotlinx.coroutines.flow.map
  * RPC-dispatched mutations (Shelves — Room v26).
  *
  * Own-shelf reads (`observeMyShelves`, `observeById`, `getById`) come from the local Room
- * mirror, which the sync engine populates via the substrate SSE stream and the shelf sync
+ * mirror, which the sync engine populates via the substrate firehose stream and the shelf sync
  * handlers. `bookCount` is JOIN-derived; `coverPaths` and `totalDurationSeconds` are derived
  * from the shelf's member books present in the local `books` mirror; owner fields are filled
  * from the current user (the local mirror holds only the caller's own shelves).
@@ -294,7 +294,7 @@ internal class ShelfRepositoryImpl(
 
     /**
      * Optimistically mirror a just-created shelf into Room so it appears immediately, without waiting
-     * for the SSE echo (offline-first / never-stranded). Insert-if-absent at revision 0: the
+     * for the firehose echo (offline-first / never-stranded). Insert-if-absent at revision 0: the
      * authoritative echo (revision >= 1) always wins via the domain's ServerWins/RevisionGuard, and a
      * digest reconcile self-heals if the echo landed first — so this never overwrites an echoed row.
      */

@@ -17,7 +17,7 @@ private val logger = KotlinLogging.logger {}
  */
 interface RpcCacheInvalidator {
     /**
-     * Invalidate every registered [RemoteCache] — including the SSE streaming client.
+     * Invalidate every registered [RemoteCache] — including the streaming client.
      *
      * The full sweep: use it when the connection's *identity* changed (logout, user switch, or a
      * genuine server-URL/host change), so every transport — request client, RPC proxies, AND the
@@ -26,11 +26,11 @@ interface RpcCacheInvalidator {
     suspend fun invalidateAll()
 
     /**
-     * Invalidate the RPC proxy caches + the regular request client, but NOT the SSE streaming client.
+     * Invalidate the RPC proxy caches + the regular request client, but NOT the streaming client.
      *
      * The scoped sweep for a firehose *reconnect to the same server*: refresh the stale kotlinx.rpc
      * proxies (and the request client they derive from) so the next RPC call rebinds to the live
-     * connection, while sparing the streaming client — closing it would abort the very SSE read whose
+     * connection, while sparing the streaming client — closing it would abort the very firehose read whose
      * reconnect triggered the sweep, spinning a self-teardown loop.
      */
     suspend fun invalidateRequestCaches()

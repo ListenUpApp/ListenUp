@@ -215,6 +215,9 @@ class SyncDomainCompletenessSpec :
                         // it current, so no RefreshedDomain claims this control. It stays a sealed
                         // subtype for wire compatibility; owning it here keeps completeness exhaustive.
                         SyncControl.ActivityChanged::class,
+                        // Liveness only — the dispatcher no-ops on the RPC stream's heartbeat/hello
+                        // frame (watchdog reset happens at the stream client, not here).
+                        SyncControl.Heartbeat::class,
                     )
                 val refreshedTriggers = catalog.refreshed.map { it.trigger }
 

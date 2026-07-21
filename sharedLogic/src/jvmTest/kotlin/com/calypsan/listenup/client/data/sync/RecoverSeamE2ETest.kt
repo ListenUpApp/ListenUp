@@ -13,12 +13,12 @@ import kotlinx.coroutines.flow.map
  * Plan 005 — the unified recover seam. `SyncEngine.recoverRealtime()` (the firehose half of
  * [com.calypsan.listenup.client.data.repository.SyncRepository.recoverRealtime]) must:
  *  - re-open a firehose that died while the app was backgrounded — the "reconnects only on relaunch"
- *    gap, where no user action re-established a dead SSE stream — and
+ *    gap, where no user action re-established a dead firehose stream — and
  *  - NOT churn an already-healthy connection (no flicker on a normal foreground).
  *
  * The harness wires no [com.calypsan.listenup.client.data.connection.ReconnectionSupervisor], so a
- * manual `sseClient.disconnect()` stays down until the recover seam re-opens it — a deterministic
- * stand-in for a firehose that died while suspended.
+ * manual `syncStreamClient.disconnect()` stays down until the recover seam re-opens it — a
+ * deterministic stand-in for a firehose that died while suspended.
  */
 class RecoverSeamE2ETest :
     FunSpec({
@@ -29,7 +29,7 @@ class RecoverSeamE2ETest :
                 awaitUntil { state.value.connection is ConnectionState.Connected }
 
                 // The firehose dies while the app is backgrounded; nothing re-opens it on its own.
-                sseClient.disconnect()
+                syncStreamClient.disconnect()
                 awaitUntil { state.value.connection is ConnectionState.Disconnected }
 
                 // Foreground / pull-to-refresh / Retry all funnel here — it must re-establish the stream.

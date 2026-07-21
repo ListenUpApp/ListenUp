@@ -35,7 +35,7 @@ private val logger = KotlinLogging.logger {}
  * synced into Room, so the facet name and its book set both come from offline-first observations.
  * The pipeline observes the facet (by id) and its junction book-ids, then reactively joins those
  * ids to [BookListItem] projections via [BookRepository.observeBookListItems] — so the grid tracks
- * SSE- and sync-driven changes without re-loading.
+ * firehose- and sync-driven changes without re-loading.
  *
  * The book **count and total length** shown in the hero are RPC-sourced from
  * [TagRepository.getTagStats] / [MoodRepository.getMoodStats] — the server aggregate is

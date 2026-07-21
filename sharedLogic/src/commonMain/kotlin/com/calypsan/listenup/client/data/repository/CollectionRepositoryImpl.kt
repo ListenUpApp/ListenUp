@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.map
  * Collection repository — Room-backed reads, RPC-dispatched mutations.
  *
  * Reads (`observeCollections`, `observeCollectionBooks`, `observeShares`) come from
- * the local Room mirror, which the sync engine populates via the substrate's SSE
+ * the local Room mirror, which the sync engine populates via the substrate's firehose
  * stream and the collection sync handlers. `bookCount` on the returned [Collection]
  * is computed at read time via JOIN on `collection_books` — there is no denormalized
  * column.
@@ -187,7 +187,7 @@ internal class CollectionRepositoryImpl(
 
     /**
      * Optimistically mirror a just-created collection into Room so it appears immediately, without
-     * waiting for the SSE echo (offline-first / never-stranded). Insert-if-absent at revision 0: the
+     * waiting for the firehose echo (offline-first / never-stranded). Insert-if-absent at revision 0: the
      * authoritative echo (revision >= 1) always wins via the domain's ServerWins/RevisionGuard, and a
      * digest reconcile self-heals if the echo landed first — so this never overwrites an echoed row.
      */

@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.domain.model
 /**
  * Domain events for admin-related real-time updates.
  *
- * These events are emitted from the SSE stream and consumed by
+ * These events are emitted from the server event stream and consumed by
  * admin ViewModels. They use domain models (not data layer models)
  * to maintain Clean Architecture boundaries.
  */
@@ -41,7 +41,7 @@ sealed interface AdminEvent {
 /**
  * Domain events for book-related real-time updates.
  *
- * These events are emitted from the SSE stream and consumed by
+ * These events are emitted from the server event stream and consumed by
  * book detail ViewModels.
  */
 sealed interface BookEvent {

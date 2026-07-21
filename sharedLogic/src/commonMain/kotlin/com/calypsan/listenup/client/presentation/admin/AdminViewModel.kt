@@ -184,7 +184,7 @@ class AdminViewModel(
                     updateReady { ready ->
                         // Move from pending to active users
                         val updatedPending = ready.pendingUsers.filter { it.id != userId }
-                        // Only add to users if not already present (avoid duplicates from button + SSE)
+                        // Only add to users if not already present (avoid duplicates from button + sync echo)
                         val updatedUsers =
                             if (ready.users.none { it.id == userId }) {
                                 ready.users + approvedUser

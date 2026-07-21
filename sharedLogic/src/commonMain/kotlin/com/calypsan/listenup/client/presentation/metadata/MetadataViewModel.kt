@@ -251,7 +251,7 @@ sealed interface MetadataEvent {
  * Apply calls [MetadataRepository.applyBookMetadata] directly (the legacy
  * `ApplyMetadataMatchUseCase` has been inlined here; the use case only wrapped
  * the repository call with local image-cache invalidation which is now handled
- * server-side via SSE).
+ * server-side via the firehose).
  */
 class MetadataViewModel(
     private val metadataRepository: MetadataRepository,
@@ -490,7 +490,7 @@ class MetadataViewModel(
     /**
      * Apply the selected match. Calls [MetadataRepository.applyBookMetadata]
      * directly — the legacy `ApplyMetadataMatchUseCase` indirection is
-     * eliminated since the server handles all enrichment and emits an SSE event
+     * eliminated since the server handles all enrichment and emits a sync event
      * for Room to catch. On success emits [MetadataEvent.MatchApplied]; on
      * failure sets [PreviewLoadState.Ready.applyError] and stays in Ready.
      */

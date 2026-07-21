@@ -25,7 +25,7 @@ private const val MAX_ACTIVITIES = 100
  * ViewModel for the Activity Feed section on the Discover screen.
  *
  * Offline-first architecture: activities are a Room-mirrored sync domain, so the feed is kept
- * current by catch-up + the live SSE tail with no per-screen fetching. This ViewModel is a pure
+ * current by catch-up + the live firehose tail with no per-screen fetching. This ViewModel is a pure
  * Room observer — it reads [ActivityRepository.observeRecent] and repaints whenever the mirror
  * changes.
  *
@@ -37,7 +37,7 @@ class ActivityFeedViewModel internal constructor(
 ) : ViewModel() {
     /**
      * Observe recent activities from Room — the single read source.
-     * Room repaints whenever the mirror advances (catch-up or live SSE tail).
+     * Room repaints whenever the mirror advances (catch-up or live firehose tail).
      */
     val state: StateFlow<ActivityFeedUiState> =
         activityRepository

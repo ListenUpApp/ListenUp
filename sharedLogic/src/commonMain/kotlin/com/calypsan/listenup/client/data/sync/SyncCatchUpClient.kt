@@ -46,7 +46,7 @@ private const val TARGETED_FETCH_LIMIT = 100
  *
  * Constructor takes two suspend lambdas instead of concrete `HttpClient` /
  * base URL so production wiring (D1) passes method references and tests pass
- * any [HttpClient] + base URL — mirrors [SyncSseClient]'s shape.
+ * any [HttpClient] + base URL.
  */
 internal class SyncCatchUpClient(
     private val httpClientProvider: suspend () -> HttpClient,
@@ -197,7 +197,7 @@ internal class SyncCatchUpClient(
      * returned set — the caller's current accessible id set for the `AccessChanged` reconcile.
      *
      * Deliberately copies [catchUp]'s paging loop minus the `store.setCursor(...)` call: the
-     * persisted cursor must not move, because the live SSE/cursor path continues independently.
+     * persisted cursor must not move, because the live firehose/cursor path continues independently.
      */
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> =
         suspendRunCatching {

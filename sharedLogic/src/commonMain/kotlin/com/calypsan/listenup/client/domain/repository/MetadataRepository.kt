@@ -68,7 +68,7 @@ interface MetadataRepository {
      * Applies the Audible metadata for [asin] to the book at [bookId], honoring
      * the per-field [selection].
      *
-     * The server enriches the persisted book entity and emits an SSE event so
+     * The server enriches the persisted book entity and emits a sync event so
      * connected clients' Room databases receive the update.
      */
     suspend fun applyBookMetadata(
@@ -82,7 +82,7 @@ interface MetadataRepository {
      * Applies Audible chapter names (by ordinal, start-time order) to the book
      * at [bookId]. Only the chapters whose ordinal is in [ordinals] are renamed;
      * local chapter timings are never changed. The server re-validates that the
-     * Audible chapter count matches the book's and emits an SSE event on success.
+     * Audible chapter count matches the book's and emits a sync event on success.
      */
     suspend fun applyChapterNames(
         bookId: BookId,
@@ -95,7 +95,7 @@ interface MetadataRepository {
      * Applies the canonical Audible contributor metadata for [asin] to the
      * contributor at [contributorId].
      *
-     * The server enriches the persisted contributor entity and emits an SSE event.
+     * The server enriches the persisted contributor entity and emits a sync event.
      */
     suspend fun applyContributorMetadata(
         contributorId: ContributorId,

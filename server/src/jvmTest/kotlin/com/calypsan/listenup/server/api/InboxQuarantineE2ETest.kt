@@ -1,5 +1,3 @@
-@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.contractJson
@@ -32,6 +30,10 @@ import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.testing.domainFrames
+import com.calypsan.listenup.server.testing.memberPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -40,8 +42,6 @@ import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.sse.SSE
-import io.ktor.client.plugins.sse.sse
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -55,8 +55,6 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import org.koin.ktor.ext.inject
 
@@ -75,7 +73,7 @@ import org.koin.ktor.ext.inject
  * it visible to the member.
  *
  * This test drives the *real* singleton [BookPersister] (the production scan consumer)
- * inside a full [module] — real Koin graph, real DB, real SSE firehose, real
+ * inside a full [module] — real Koin graph, real DB, real RPC firehose, real
  * [CollectionServiceImpl] inbox resolution. It is **load-bearing**: the quarantine invariant
  * holds purely by atomicity (the membership shares the book's transaction), with no firehose
  * suppression involved — so were the membership ever moved back to a separate post-commit
@@ -101,7 +99,7 @@ class InboxQuarantineE2ETest :
                     testApplication {
                         useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                         application { module() }
-                        val client = sseJsonClient()
+                        val client = jsonClient()
 
                         val admin = client.runSetup()
                         val m1 = client.registerMember("m1")
@@ -125,15 +123,16 @@ class InboxQuarantineE2ETest :
                         val collections = collectionServiceAs(admin.userId, UserRole.ADMIN)
 
                         // ── Firehose: a SUBTREE scan publishes live deltas (a FULL scan suppresses
-                        // them). A member subscribes, then we scan a NEW book `Quarantined`. The
-                        // member's firehose must NEVER deliver a `books` content event for it —
-                        // because membership commits atomically with the insert, so canAccess at
-                        // delivery already sees it in the admin-only inbox. The visible control:
-                        // we upsert a plain PUBLIC book `Public` (in no collection → public); the
-                        // member's firehose DOES carry that one, proving the stream is alive and not
-                        // leaking. The FIRST `books` event the member sees must be `Public`, never
-                        // `Quarantined` — if membership were committed in a separate transaction, the
-                        // quarantined book's momentarily-public event would arrive first and fail this.
+                        // them). We scan a NEW book `Quarantined`; the member's firehose must NEVER
+                        // deliver a `books` content event for it — because membership commits
+                        // atomically with the insert, so canAccess at delivery already sees it in
+                        // the admin-only inbox. The visible control: we upsert a PUBLIC book
+                        // `Public` and add it to ALL_BOOKS; the member's firehose DOES carry that
+                        // one, proving the stream is alive and not leaking. The bus replays data
+                        // frames in publish order, so mutate-then-collect is deterministic: the
+                        // FIRST `books` frame the member sees must be `Public`, never `Quarantined`
+                        // — if membership were committed in a separate transaction, the quarantined
+                        // book's momentarily-public event would deliver first and fail this.
                         // Resolve ALL_BOOKS up front: the visible control `Public` joins it so the
                         // member (who holds a default ALL_BOOKS grant) can see it under pure union.
                         val allBooksId =
@@ -142,30 +141,25 @@ class InboxQuarantineE2ETest :
                                     as AppResult.Success
                             ).data.id
 
-                        client.sse(
-                            urlString = "/api/v1/sync/events",
-                            request = { bearerAuth(m1.token) },
-                        ) {
-                            coroutineScope {
-                                val firstBooksEvent = async { incoming.first { it.event == "books" } }
+                        // Scan the quarantined book — its content event must be dropped for m1.
+                        persister.scanSubtree(libraryRoot.toString(), book("Quarantined"))
+                        // The visible public control — m1 must receive this one. We upsert the
+                        // book then add it to ALL_BOOKS (both awaited, so the membership commits
+                        // before the member's delivery-time canAccess probe pulls the event):
+                        // under pure union a book is visible to a granted member only via a
+                        // reachable collection, and ALL_BOOKS is the public substrate.
+                        books.upsert(publicBook("Public", libraryId)).requireSuccess()
+                        collections.addBookToCollection(allBooksId, BookId("public-Public")).requireSuccess()
 
-                                // Scan the quarantined book — its content event must be dropped for m1.
-                                persister.scanSubtree(libraryRoot.toString(), book("Quarantined"))
-                                // The visible public control — m1 must receive this one. We upsert the
-                                // book then add it to ALL_BOOKS (both awaited, so the membership commits
-                                // before the member's delivery-time canAccess probe pulls the event):
-                                // under pure union a book is visible to a granted member only via a
-                                // reachable collection, and ALL_BOOKS is the public substrate. The FIRST
-                                // `books` event m1 sees is always `Public`, never `Quarantined`.
-                                books.upsert(publicBook("Public", libraryId)).requireSuccess()
-                                collections.addBookToCollection(allBooksId, BookId("public-Public")).requireSuccess()
-
-                                val event = firstBooksEvent.await()
-                                // Assert on the title (a stable known value) since book ids are minted UUIDs.
-                                event.data!!.contains(""""title":"Public"""") shouldBe true
-                                event.data!!.contains(""""title":"Quarantined"""") shouldBe false
-                            }
-                        }
+                        val bus by application.inject<ChangeBus>()
+                        val policy by application.inject<BookAccessPolicy>()
+                        val firstBooksFrame =
+                            rpcFirehose(bus, memberPrincipal(m1.userId), bookAccessPolicy = { policy })
+                                .domainFrames()
+                                .first { it.domain == "books" }
+                        // Assert on the title (a stable known value) since book ids are minted UUIDs.
+                        firstBooksFrame.json.contains(""""title":"Public"""") shouldBe true
+                        firstBooksFrame.json.contains(""""title":"Quarantined"""") shouldBe false
 
                         // Resolve the minted ids the admin can see (the admin sees every book).
                         val quarantinedId = client.findBookIdByTitle(admin.token, "Quarantined")
@@ -201,7 +195,7 @@ class InboxQuarantineE2ETest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = sseJsonClient()
+                    val client = jsonClient()
 
                     val admin = client.runSetup()
                     val m1 = client.registerMember("m1")
@@ -342,10 +336,9 @@ private data class QuarantineUser(
     val userId: String,
 )
 
-private fun ApplicationTestBuilder.sseJsonClient(): HttpClient =
+private fun ApplicationTestBuilder.jsonClient(): HttpClient =
     createClient {
         install(ContentNegotiation) { json(contractJson) }
-        install(SSE)
     }
 
 private suspend fun HttpClient.runSetup(): QuarantineUser {

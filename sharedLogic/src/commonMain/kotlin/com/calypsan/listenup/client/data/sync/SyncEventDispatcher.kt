@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.cancellation.CancellationException
@@ -12,7 +13,7 @@ import kotlin.coroutines.cancellation.CancellationException
 private val logger = KotlinLogging.logger {}
 
 /**
- * Routes parsed SSE frames to the right handler. The single seam where:
+ * Routes sync-firehose frames to the right handler. The single seam where:
  *  - typed event payloads are decoded using the handler's `KSerializer<T>`,
  *  - control events are recognised: refresh controls run their catalog-declared refresh
  *    strategy via [refreshedRouter]; engine/lifecycle controls (`CursorStale`,
@@ -42,12 +43,12 @@ internal class SyncEventDispatcher(
      * not let a *later* event (a different book at a higher revision) step the cursor past the failed
      * revision — that would strand it forever.
      *
-     * The freeze lifts as soon as catch-up heals the hole: while a domain is frozen, live SSE never
+     * The freeze lifts as soon as catch-up heals the hole: while a domain is frozen, live firehose never
      * advances its persisted cursor, so a persisted cursor that has moved **above** the watermark can
      * only be the work of a catch-up re-pull (which is monotonic). On the next successful live frame
-     * we detect that and clear the freeze, so steady-state SSE advancement resumes instead of forcing
+     * we detect that and clear the freeze, so steady-state firehose advancement resumes instead of forcing
      * catch-up to re-pull a growing delta every reconnect for the rest of the session. A new apply
-     * failure re-arms the freeze. SSE frames are processed by a single collector, so a plain map
+     * failure re-arms the freeze. Firehose frames are processed by a single collector, so a plain map
      * needs no synchronisation.
      */
     private val frozenOptOutDomains = mutableMapOf<String, Long>()
@@ -59,24 +60,24 @@ internal class SyncEventDispatcher(
         }
     }
 
-    /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
-    suspend fun handle(frame: ParsedSseFrame) {
-        when (frame.event) {
-            "control" -> handleControl(frame)
-            null -> logger.debug { "SSE frame with no event: line, id=${frame.id}" }
+    /** Route a sync frame: control events, data events, or no-op for a missing domain. */
+    suspend fun handle(frame: SyncFrame) {
+        when {
+            frame.domain == SyncFrame.CONTROL -> handleControl(frame)
+            frame.domain.isEmpty() -> logger.debug { "Sync frame with no domain, revision=${frame.revision}" }
             else -> handleData(frame)
         }
     }
 
-    private suspend fun handleControl(frame: ParsedSseFrame) {
+    private suspend fun handleControl(frame: SyncFrame) {
         val control =
             try {
-                contractJson.decodeFromString(SyncControl.serializer(), frame.data)
+                contractJson.decodeFromString(SyncControl.serializer(), frame.json)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncControl frame" }
-                reportCompat("SSE control frame undecodable: ${e.message}")
+                reportCompat("Sync control frame undecodable: ${e.message}")
                 return
             }
         // Refreshed tier: catalog-declared refresh strategies. Engine/lifecycle controls fall through.
@@ -90,7 +91,7 @@ internal class SyncEventDispatcher(
             }
 
             is SyncControl.StreamError -> {
-                logger.warn { "SSE stream error from server: ${control.error.code}" }
+                logger.warn { "Firehose stream error from server: ${control.error.code}" }
                 state.recordError(control.error)
             }
 
@@ -129,11 +130,15 @@ internal class SyncEventDispatcher(
                     "Received legacy ActivityChanged control; activities now sync as a data domain — dropped"
                 }
             }
+
+            SyncControl.Heartbeat -> {
+                // Liveness only — the stream client's watchdog consumes it; nothing to dispatch.
+            }
         }
     }
 
-    private suspend fun handleData(frame: ParsedSseFrame) {
-        val domainName = frame.event ?: return
+    private suspend fun handleData(frame: SyncFrame) {
+        val domainName = frame.domain
         val handler =
             registry.lookup(domainName) ?: run {
                 logger.debug { "No handler registered for domain '$domainName'; dropping event" }
@@ -146,13 +151,13 @@ internal class SyncEventDispatcher(
             try {
                 contractJson.decodeFromString(
                     SyncEvent.serializer(typed.payloadSerializer),
-                    frame.data,
+                    frame.json,
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Failed to decode SyncEvent for domain '$domainName'" }
-                reportCompat("SSE event undecodable for domain '$domainName': ${e.message}")
+                reportCompat("Sync event undecodable for domain '$domainName': ${e.message}")
                 // An undecodable frame is functionally "apply did not happen": for an OptOut domain
                 // the same freeze bookkeeping as a failed apply applies, else the un-decodable
                 // revision is permanently skipped once a later event's success would advance past it.
@@ -168,7 +173,7 @@ internal class SyncEventDispatcher(
                 // revision that only the cursor can redeliver. Digest-backed domains always
                 // advance (a missed apply self-heals on the next reconcile).
                 val frozenAt = frozenOptOutDomains[domainName]
-                // While frozen, live SSE never advances this domain's persisted cursor, so a cursor
+                // While frozen, live firehose never advances this domain's persisted cursor, so a cursor
                 // now ABOVE the watermark can only be a catch-up re-pull that healed the hole — lift
                 // the freeze and resume steady-state advancement.
                 val healed = frozenAt != null && (cursorOf(domainName) ?: Long.MIN_VALUE) > frozenAt
@@ -180,11 +185,11 @@ internal class SyncEventDispatcher(
                                 "frozen hole; resuming live cursor advancement"
                         }
                     }
-                    frame.id?.let { rev -> cursorAdvance(domainName, rev) }
+                    frame.revision?.let { rev -> cursorAdvance(domainName, rev) }
                 } else {
                     logger.debug {
                         "[$domainName] cursor frozen (no digest backstop, prior apply failed); " +
-                            "not advancing to ${frame.id} — catch-up will re-pull and heal"
+                            "not advancing to ${frame.revision} — catch-up will re-pull and heal"
                     }
                 }
             }
@@ -197,12 +202,12 @@ internal class SyncEventDispatcher(
                 // the op; catch-up re-applies the canonical state without echo shielding.
                 if (!typed.hasDigestBackstop) {
                     // No reconcile backstop: freeze cursor advancement at the last successfully
-                    // applied revision (SSE frames are revision-ordered, so the cursor already
+                    // applied revision (firehose frames are revision-ordered, so the cursor already
                     // sits just below this hole). Only catch-up re-pull can advance past it now.
                     freeze(domainName)
                 }
                 logger.warn {
-                    "Apply failed for domain '$domainName' (revision=${frame.id}): " +
+                    "Apply failed for domain '$domainName' (revision=${frame.revision}): " +
                         "${result.error.code}; cursor not advanced" +
                         if (!typed.hasDigestBackstop) " (frozen: no digest backstop)" else ""
                 }

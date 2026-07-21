@@ -18,7 +18,7 @@ import androidx.room.PrimaryKey
  * [CollectionEntity] precedent, so drift is impossible by construction).
  *
  * Carries the canonical sync substrate ([revision], [deletedAt], [updatedAt],
- * [createdAt]) consumed by the shelf sync handler for catch-up and SSE event
+ * [createdAt]) consumed by the shelf sync handler for catch-up and firehose event
  * application.
  */
 @Entity(

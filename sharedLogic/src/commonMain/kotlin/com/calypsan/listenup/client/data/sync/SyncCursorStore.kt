@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
  *
  * One row per registered domain; the value is the highest revision the client
  * has fully applied. Used at engine start to bootstrap each domain's catch-up
- * `?since=<rev>`, and on SSE reconnect to set `Last-Event-Id` to
+ * `?since=<rev>`, and on firehose reconnect to seed `lastEventId` from
  * [highestCursor].
  */
 internal class SyncCursorStore(
@@ -33,7 +33,7 @@ internal class SyncCursorStore(
      * Force the cursor for [domainName] to exactly [revision], bypassing the monotonic guard —
      * used by the from-zero re-baseline (`catchUpFromZero`), which deliberately re-establishes the
      * cursor from server truth and must be able to LOWER a stale-high local value. This is the only
-     * sanctioned regression path; the incremental/SSE path always goes through [setCursor].
+     * sanctioned regression path; the incremental/firehose path always goes through [setCursor].
      */
     suspend fun resetCursor(
         domainName: String,

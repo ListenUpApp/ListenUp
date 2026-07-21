@@ -138,6 +138,16 @@ sealed interface SyncControl {
     @Serializable
     @SerialName("SyncControl.LibraryDataChanged")
     data object LibraryDataChanged : SyncControl
+
+    /**
+     * Liveness heartbeat (every 25s) and the stream-open hello — the RPC firehose's first frame,
+     * so subscribers can latch "connected" on stream-open rather than waiting for the first data
+     * event. Client-side: watchdog reset only.
+     */
+    @HiddenFromObjC
+    @Serializable
+    @SerialName("SyncControl.Heartbeat")
+    data object Heartbeat : SyncControl
 }
 
 /**

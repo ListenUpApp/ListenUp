@@ -22,10 +22,10 @@ private val log = loggerFor<ActiveSessionCleanupTask>()
  *
  * Active sessions SHOULD get cleaned up by:
  *  - The cascade in `PlaybackPositionRepository.recordPosition` on book completion.
- *  - The `session.ended` SSE event from the client (via the client-initiated
+ *  - The `session.ended` sync event from the client (via the client-initiated
  *    soft-delete path on the substrate).
  *
- * But ungraceful disconnects (battery die, OS-kill, lost SSE event) leave orphan
+ * But ungraceful disconnects (battery die, OS-kill, lost sync event) leave orphan
  * rows. This task catches them after the staleness threshold by deleting rows
  * whose `updated_at` column has not been refreshed within [staleAfter].
  *

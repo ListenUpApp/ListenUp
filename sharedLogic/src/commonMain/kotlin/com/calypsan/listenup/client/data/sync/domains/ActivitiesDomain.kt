@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.data.sync.TargetedFetch
  * append-only — a row is written exactly once and the existing row is authoritative
  * ([ConflictPolicy.AppendOnly], insert-if-absent in the apply).
  *
- * SSE `Deleted` is [DeleteSemantics.CatchUpOnly]: the server does not emit activity tombstones over
+ * Firehose `Deleted` is [DeleteSemantics.CatchUpOnly]: the server does not emit activity tombstones over
  * the live tail (the feed is append-only); a defensive frame converges via catch-up, which carries
  * the full payload and soft-deletes by id. Full digest participation. [WriteTier.ServerOwned] —
  * clients never author activities.
@@ -39,7 +39,7 @@ internal fun activitiesDomain(database: ListenUpDatabase): MirroredDomain<Activi
         conflict = ConflictPolicy.AppendOnly(),
         deletes =
             DeleteSemantics.CatchUpOnly(
-                "server never emits activity tombstones over SSE; catch-up converges them",
+                "server never emits activity tombstones on the firehose; catch-up converges them",
             ),
         digest = fullDigest(database.activityDao()::digestRows),
         writes = WriteTier.ServerOwned,

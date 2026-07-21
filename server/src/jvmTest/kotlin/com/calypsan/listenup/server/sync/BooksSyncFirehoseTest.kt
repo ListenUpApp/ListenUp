@@ -1,10 +1,5 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.api.dto.auth.AuthSession
-import com.calypsan.listenup.api.dto.auth.LoginRequest
-import com.calypsan.listenup.api.dto.auth.RegisterRequest
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -13,25 +8,15 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.domainFrames
+import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.sse.sse
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
-import io.ktor.sse.ServerSentEvent
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
@@ -40,19 +25,18 @@ import org.koin.ktor.ext.inject
 import java.nio.file.Files
 
 /**
- * Tier-2 integration tests: Books SSE firehose ordering via
- * `GET /api/v1/sync/events`.
+ * Tier-2 integration tests: Books firehose ordering via the RPC stream
+ * ([SyncStreamServiceImpl] over the app's real [ChangeBus]).
  *
  * Verifies that the Books domain emits the correct sequence of
  * `SyncEvent.Created`, `SyncEvent.Updated`, and `SyncEvent.Deleted`
- * events on the firehose, in revision order, with `event: books` framing.
+ * events on the firehose, in revision order, on the `books` wire domain.
  *
  * Boots the full [module] (same approach as
  * [com.calypsan.listenup.server.routes.BookRoutesTest]) because
- * [BookRepository] requires `booksModule` + `scannerModule`. Sync routes
- * are auth-gated, so SSE connections carry a JWT minted via the auth surface.
- * Uses the `coroutineScope { async { incoming... }; <mutate>; await() }` pattern
- * from [SyncFirehoseTest] — no Kotest `eventually`, no busy-wait.
+ * [BookRepository] requires `booksModule` + `scannerModule`. The bus's
+ * replay buffer makes collection deterministic: writes land first, the
+ * subscriber then replays them in publish order — no busy-wait.
  */
 class BooksSyncFirehoseTest :
     FunSpec({
@@ -63,113 +47,74 @@ class BooksSyncFirehoseTest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client =
-                        createClient {
-                            install(ContentNegotiation) { json(contractJson) }
-                            install(io.ktor.client.plugins.sse.SSE)
-                        }
-
-                    val token = client.mintAccessToken()
+                    startApplication()
                     seedTestLibraryAndFolder()
                     val repo by application.inject<BookRepository>()
+                    val bus by application.inject<ChangeBus>()
 
-                    val events = mutableListOf<ServerSentEvent>()
+                    // Create
+                    repo.upsert(bookSyncFixture(id = "fh-book", title = "Original Title"))
+                    // Update (same id → Updated)
+                    repo.upsert(bookSyncFixture(id = "fh-book", title = "Updated Title"))
+                    // Delete
+                    repo.softDelete(BookId("fh-book"))
 
-                    client.sse(
-                        urlString = "/api/v1/sync/events",
-                        request = { bearerAuth(token) },
-                    ) {
-                        coroutineScope {
-                            // Collect exactly 3 books domain events: Created, Updated, Deleted
-                            val deferred = async { incoming.filter { it.event == "books" }.take(3).toList() }
-
-                            // Create
-                            repo.upsert(bookSyncFixture(id = "fh-book", title = "Original Title"))
-                            // Update (same id → Updated)
-                            repo.upsert(bookSyncFixture(id = "fh-book", title = "Updated Title"))
-                            // Delete
-                            repo.softDelete(BookId("fh-book"))
-
-                            events += deferred.await()
-                        }
-                    }
+                    val events =
+                        rpcFirehose(bus, rootPrincipal())
+                            .domainFrames()
+                            .filter { it.domain == "books" }
+                            .take(3)
+                            .toList()
 
                     // All three events must be on the "books" domain
-                    events.forEach { event -> event.event shouldBe "books" }
+                    events.forEach { frame -> frame.domain shouldBe "books" }
 
                     // Revision ids must increase monotonically
-                    val revisions = events.map { it.id!!.toLong() }
+                    val revisions = events.map { it.revision!! }
                     revisions shouldBe revisions.sorted()
 
                     // Event type ordering: Created → Updated → Deleted
-                    events[0].data!! shouldContain """"type":"SyncEvent.Created""""
-                    events[1].data!! shouldContain """"type":"SyncEvent.Updated""""
-                    events[2].data!! shouldContain """"type":"SyncEvent.Deleted""""
+                    events[0].json shouldContain """"type":"SyncEvent.Created""""
+                    events[1].json shouldContain """"type":"SyncEvent.Updated""""
+                    events[2].json shouldContain """"type":"SyncEvent.Deleted""""
 
                     // Created and Updated carry the book id
-                    events[0].data!! shouldContain """"id":"fh-book""""
-                    events[1].data!! shouldContain """"id":"fh-book""""
-                    events[2].data!! shouldContain """"id":"fh-book""""
+                    events[0].json shouldContain """"id":"fh-book""""
+                    events[1].json shouldContain """"id":"fh-book""""
+                    events[2].json shouldContain """"id":"fh-book""""
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
             }
         }
 
-        test("firehose emits only books domain events with correct event field") {
+        test("firehose emits only books domain events with correct domain field") {
             val libraryRoot = Files.createTempDirectory("listenup-books-firehose-domain-")
             try {
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client =
-                        createClient {
-                            install(ContentNegotiation) { json(contractJson) }
-                            install(io.ktor.client.plugins.sse.SSE)
-                        }
-
-                    val token = client.mintAccessToken()
+                    startApplication()
                     seedTestLibraryAndFolder()
                     val repo by application.inject<BookRepository>()
+                    val bus by application.inject<ChangeBus>()
 
-                    client.sse(
-                        urlString = "/api/v1/sync/events",
-                        request = { bearerAuth(token) },
-                    ) {
-                        coroutineScope {
-                            val deferred = async { incoming.first { it.event == "books" } }
-                            repo.upsert(bookSyncFixture(id = "domain-book", title = "Domain Test"))
-                            val event = deferred.await()
+                    repo.upsert(bookSyncFixture(id = "domain-book", title = "Domain Test"))
 
-                            event.event shouldBe "books"
-                            event.data!! shouldContain """"type":"SyncEvent.Created""""
-                            event.data!! shouldContain """"id":"domain-book""""
-                        }
-                    }
+                    val frame =
+                        rpcFirehose(bus, rootPrincipal())
+                            .domainFrames()
+                            .first { it.domain == "books" }
+
+                    frame.domain shouldBe "books"
+                    frame.json shouldContain """"type":"SyncEvent.Created""""
+                    frame.json shouldContain """"id":"domain-book""""
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
             }
         }
     })
-
-private suspend fun HttpClient.mintAccessToken(): String {
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }
-    val response =
-        post("/api/v1/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody(LoginRequest("root@x", "x".repeat(8)))
-        }
-    return response
-        .body<AppResult<AuthSession>>()
-        .let { it as AppResult.Success<AuthSession> }
-        .data
-        .accessToken
-        .value
-}
 
 private fun bookSyncFixture(
     id: String,
@@ -195,7 +140,7 @@ private fun bookSyncFixture(
         rootRelPath = "books/$id",
         inode = null,
         scannedAt = 1_730_000_000_000L,
-        // Contributors/series left empty: this test asserts only on SSE event
+        // Contributors/series left empty: this test asserts only on firehose event
         // shape, not the aggregate's child rows. Junction-row writes require
         // pre-resolved catalogue ids (see BookRepository.replaceContributors).
         contributors = emptyList(),

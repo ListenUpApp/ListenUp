@@ -25,6 +25,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
@@ -51,6 +52,7 @@ import com.calypsan.listenup.server.api.UserPreferencesServiceImpl
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.rpcguard.guard
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
+import com.calypsan.listenup.server.sync.SyncStreamServiceImpl
 import io.ktor.server.auth.authenticate
 import io.ktor.server.plugins.origin
 import io.ktor.server.routing.Route
@@ -153,6 +155,12 @@ private fun Route.authedRpc(services: RpcServices) {
         registerScoped<ImportService> {
             guard(
                 (services.importService as ImportServiceImpl).copyWith(it),
+                streamLiveness(it, services.sessionLiveness),
+            )
+        }
+        registerScoped<SyncStreamService> {
+            guard(
+                (services.syncStreamService as SyncStreamServiceImpl).copyWith(it),
                 streamLiveness(it, services.sessionLiveness),
             )
         }
