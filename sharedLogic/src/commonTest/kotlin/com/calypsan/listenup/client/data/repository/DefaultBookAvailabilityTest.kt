@@ -62,7 +62,7 @@ class DefaultBookAvailabilityTest :
 
         // ========== Availability matrix tests ==========
 
-        test("unreachable + completed download: everything enabled, no warning") {
+        test("unreachable + completed download: canPlay=true, canDownload=false, no warning") {
             runTest {
                 val availability =
                     buildAvailability(
@@ -72,14 +72,14 @@ class DefaultBookAvailabilityTest :
                 availability.observe(testBookId).test {
                     val state = awaitItem()
                     state.canPlay shouldBe true
-                    state.canDownload shouldBe true
+                    state.canDownload shouldBe false
                     state.showServerWarning shouldBe false
                     cancelAndIgnoreRemainingEvents()
                 }
             }
         }
 
-        test("unreachable + not downloaded: attempt-first — play/download enabled, warning hint shown") {
+        test("unreachable + not downloaded: honestly blocked — play/download disabled, warning shown") {
             runTest {
                 val availability =
                     buildAvailability(
@@ -88,8 +88,8 @@ class DefaultBookAvailabilityTest :
                     )
                 availability.observe(testBookId).test {
                     val state = awaitItem()
-                    state.canPlay shouldBe true
-                    state.canDownload shouldBe true
+                    state.canPlay shouldBe false
+                    state.canDownload shouldBe false
                     state.showServerWarning shouldBe true
                     cancelAndIgnoreRemainingEvents()
                 }
@@ -113,7 +113,7 @@ class DefaultBookAvailabilityTest :
             }
         }
 
-        test("unknown reachability + not downloaded: attempt-first — play/download enabled, no warning") {
+        test("unknown reachability + not downloaded: optimistic — play/download enabled, no warning") {
             runTest {
                 val availability =
                     buildAvailability(

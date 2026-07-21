@@ -12,13 +12,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
 /**
- * Derives [BookAvailability.State] from download status, network metering, and the
- * wifi-only preference. Pulled out of BookDetailViewModel so the availability logic is
+ * Derives [BookAvailability.State] from download status, server reachability, network metering,
+ * and the wifi-only preference. Pulled out of BookDetailViewModel so the availability logic is
  * independently testable and the VM stays lean.
  *
- * Attempt-first: server reachability never gates `canPlay`/`canDownload`. It only feeds
- * the non-blocking `showServerWarning` hint — a genuine failure surfaces at point of need
- * (player error + retry, download UI), not as a pre-emptive block on an unreliable oracle.
+ * Reachability here is the evidence-based signal (device network + real transport outcomes —
+ * see `ConnectionHealthStore`), so gating on it is honest: it reads Unreachable only when the
+ * server genuinely cannot be reached right now, and it heals the instant any traffic proves
+ * otherwise. [Reachability.Unknown] is treated optimistically — absence of evidence never blocks.
  */
 internal class DefaultBookAvailability(
     private val downloadRepository: DownloadRepository,
@@ -42,11 +43,13 @@ internal class DefaultBookAvailability(
             BookAvailability.State(
                 downloadStatus = downloadStatus,
                 isPlaybackAvailable = playbackAvailable,
-                // Attempt-first: play and download are never pre-emptively blocked on the reachability
-                // oracle. A genuine failure surfaces at point of need (player error + retry, download
-                // UI) — the oracle only informs the non-blocking showServerWarning hint below.
-                canPlay = true,
-                canDownload = playbackAvailable,
+                // Honest gating on the evidence-based reachability signal: when the server is
+                // genuinely unreachable (device offline, or the latest transport evidence is a
+                // network failure), streaming and downloading cannot succeed — disabling them is
+                // honest, and the signal heals the instant any real traffic proves otherwise.
+                // Unknown stays optimistic: never block on absence of evidence.
+                canPlay = isFullyDownloaded || reachability != Reachability.Unreachable,
+                canDownload = playbackAvailable && reachability != Reachability.Unreachable,
                 showServerWarning = reachability == Reachability.Unreachable && !isFullyDownloaded,
                 isWaitingForWifi = isQueued && wifiOnly && !unmetered,
             )
