@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -182,7 +184,13 @@ fun ContributorEditScreen(
                                 onBackClick()
                             }
                         },
-                        modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding()),
+                        // consumeWindowInsets so the inner Column's imePadding() doesn't double-count the
+                        // Scaffold's already-reserved bottom inset — otherwise a surface-colored band
+                        // appears between the field and the keyboard.
+                        modifier =
+                            Modifier
+                                .padding(bottom = paddingValues.calculateBottomPadding())
+                                .consumeWindowInsets(PaddingValues(bottom = paddingValues.calculateBottomPadding())),
                     )
                 }
             }

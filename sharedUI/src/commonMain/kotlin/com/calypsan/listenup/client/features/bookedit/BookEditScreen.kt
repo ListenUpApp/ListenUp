@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -168,7 +169,10 @@ fun BookEditScreen(
                                 onBackClick()
                             }
                         },
-                        modifier = Modifier.padding(paddingValues),
+                        // consumeWindowInsets so the inner Column's imePadding() doesn't double-count the
+                    // Scaffold's already-reserved bottom inset (Save bar + nav/mini-player) — otherwise a
+                    // surface-colored band appears between the field and the keyboard.
+                    modifier = Modifier.padding(paddingValues).consumeWindowInsets(paddingValues),
                     )
                 }
             }
