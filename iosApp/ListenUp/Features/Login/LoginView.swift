@@ -34,7 +34,7 @@ struct LoginView: View {
         // ViewModel initialized immediately, not in onAppear
         // Uses Dependencies.shared since @Environment isn't available in init
         _viewModel = State(initialValue: LoginViewModelWrapper(
-            viewModel: Dependencies.shared.loginViewModel
+            viewModel: Dependencies.shared.makeLoginViewModel()
         ))
     }
 

@@ -23,18 +23,26 @@ final class Dependencies {
 
     var instanceRepository: InstanceRepository { resolve { KoinHelper.shared.getInstanceRepository() } }
 
+    // MARK: - Screen-scoped ViewModels (fresh per screen)
+
+    // These wrap a bare Koin `factory` and are owned by a single screen's wrapper, which closes the
+    // VM in its `isolated deinit` (#1192 — there is no ViewModelStore on iOS to call `onCleared`).
+    // They must therefore be resolved FRESH each time: a `resolve {}`-memoized instance, once closed
+    // on the first dismiss, would be handed back to the next screen already torn down. `make*`
+    // signals factory semantics (mirrors `makePendingApprovalViewModel`).
+    func makeServerConnectViewModel() -> ServerConnectViewModel { KoinHelper.shared.getServerConnectViewModel() }
+    func makeLoginViewModel() -> LoginViewModel { KoinHelper.shared.getLoginViewModel() }
+    func makeRegisterViewModel() -> RegisterViewModel { KoinHelper.shared.getRegisterViewModel() }
+    func makeSetupViewModel() -> SetupViewModel { KoinHelper.shared.getSetupViewModel() }
+    func makeClaimInviteViewModel() -> ClaimInviteViewModel { KoinHelper.shared.getClaimInviteViewModel() }
+    func makeServerSelectViewModel() -> ServerSelectViewModel { KoinHelper.shared.getServerSelectViewModel() }
+    func makeLibrarySetupViewModel() -> LibrarySetupViewModel { KoinHelper.shared.getLibrarySetupViewModel() }
+    func makeHomeViewModel() -> HomeViewModel { KoinHelper.shared.getHomeViewModel() }
+
     // MARK: - ViewModels (singletons)
 
-    var serverConnectViewModel: ServerConnectViewModel { resolve { KoinHelper.shared.getServerConnectViewModel() } }
-    var loginViewModel: LoginViewModel { resolve { KoinHelper.shared.getLoginViewModel() } }
-    var registerViewModel: RegisterViewModel { resolve { KoinHelper.shared.getRegisterViewModel() } }
-    var setupViewModel: SetupViewModel { resolve { KoinHelper.shared.getSetupViewModel() } }
-    var claimInviteViewModel: ClaimInviteViewModel { resolve { KoinHelper.shared.getClaimInviteViewModel() } }
-    var serverSelectViewModel: ServerSelectViewModel { resolve { KoinHelper.shared.getServerSelectViewModel() } }
-    var librarySetupViewModel: LibrarySetupViewModel { resolve { KoinHelper.shared.getLibrarySetupViewModel() } }
     var libraryViewModel: LibraryViewModel { resolve { KoinHelper.shared.getLibraryViewModel() } }
     var syncRepository: any SyncRepository { resolve { KoinHelper.shared.getSyncRepository() } }
-    var homeViewModel: HomeViewModel { resolve { KoinHelper.shared.getHomeViewModel() } }
     var homeStatsViewModel: HomeStatsViewModel { resolve { KoinHelper.shared.getHomeStatsViewModel() } }
     var searchViewModel: SearchViewModel { resolve { KoinHelper.shared.getSearchViewModel() } }
 

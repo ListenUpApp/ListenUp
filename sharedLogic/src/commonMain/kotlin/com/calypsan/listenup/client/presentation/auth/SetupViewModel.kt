@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
@@ -27,6 +28,24 @@ class SetupViewModel(
     private val setupUseCase: SetupUseCase,
     private val authSession: AuthSession,
 ) : ViewModel() {
+    private var closed = false
+
+    override fun onCleared() {
+        super.onCleared()
+        close()
+    }
+
+    /**
+     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared] when the
+     * `ViewModelStore` clears the entry; iOS has no store, so the screen's wrapper calls it from its
+     * `isolated deinit` (#1192) — else viewModelScope streams/one-shots orphan when the screen goes.
+     */
+    fun close() {
+        if (closed) return
+        closed = true
+        viewModelScope.cancel()
+    }
+
     val state: StateFlow<SetupUiState>
         field = MutableStateFlow<SetupUiState>(SetupUiState.Idle)
 

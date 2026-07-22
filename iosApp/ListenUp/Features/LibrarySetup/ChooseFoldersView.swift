@@ -290,7 +290,7 @@ private struct FolderRow: View {
 #Preview("Choose Folders") {
     ChooseFoldersView(
         viewModel: LibrarySetupViewModelWrapper(
-            viewModel: Dependencies.shared.librarySetupViewModel
+            viewModel: Dependencies.shared.makeLibrarySetupViewModel()
         )
     )
 }

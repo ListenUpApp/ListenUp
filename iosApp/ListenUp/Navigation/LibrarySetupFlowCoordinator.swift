@@ -16,7 +16,7 @@ struct LibrarySetupFlowCoordinator: View {
         self.onComplete = onComplete
         _viewModel = State(
             wrappedValue: LibrarySetupViewModelWrapper(
-                viewModel: Dependencies.shared.librarySetupViewModel
+                viewModel: Dependencies.shared.makeLibrarySetupViewModel()
             )
         )
     }
