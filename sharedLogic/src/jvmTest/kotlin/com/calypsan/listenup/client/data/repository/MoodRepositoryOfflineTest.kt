@@ -85,6 +85,34 @@ class MoodRepositoryOfflineTest :
             }
         }
 
+        test("addMoodToBook resolves an existing MULTI-WORD mood by slug (book-edit passes slugs) and stays offline-first") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                // Display name "Bittersweet Ending" → slug "bittersweet-ending". Book-edit passes the SLUG,
+                // which never equals the spaced name, so a name-only match would miss and fall online.
+                db.moodDao().upsert(
+                    MoodEntity(id = "m1", name = "Bittersweet Ending", slug = "bittersweet-ending", revision = 2, updatedAt = 0L),
+                )
+                val repo = repo(db, mock())
+
+                val result = repo.addMoodToBook(bookId = "b1", name = "bittersweet-ending")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                (result as AppResult.Success).data.id shouldBe "m1"
+                db
+                    .bookMoodDao()
+                    .findByKey("b1", "m1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+                val op = db.pendingOperationV2Dao().nextDispatchable().single()
+                op.domainName shouldBe "book_moods"
+                op.entityId shouldBe "b1:m1"
+                op.opType shouldBe "create"
+                db.close()
+            }
+        }
+
         test("addMoodToBook with no same-name mood stays online — it dispatches to the RPC and enqueues nothing") {
             runTest {
                 val db = createInMemoryTestDatabase()

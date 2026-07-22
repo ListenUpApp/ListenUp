@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
 import com.calypsan.listenup.api.ContributorService
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.result.AppResult as WireResult
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
@@ -145,7 +144,6 @@ private fun withTestRepo(
                 networkMonitor = networkMonitor,
                 imageStorage = imageStorage,
                 channel = RpcChannel.forTest(service),
-                searchChannel = RpcChannel.forTest(mock<SearchService>()),
                 contributorSyncHandler = syncHandler,
             )
 

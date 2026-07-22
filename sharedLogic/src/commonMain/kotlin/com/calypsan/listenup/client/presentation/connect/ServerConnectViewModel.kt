@@ -36,6 +36,18 @@ class ServerConnectViewModel(
     private val instanceRepository: InstanceRepository,
     private val appScope: CoroutineScope,
 ) : ViewModel() {
+    private var closed = false
+
+    /**
+     * Idempotent teardown hook the iOS wrapper calls from its `isolated deinit` (#1192). This VM runs
+     * its verify/activate work on [appScope] by design — it must outlive the screen so activation is
+     * not cancelled mid-flight — so there is no screen-scoped coroutine to cancel here.
+     */
+    fun close() {
+        if (closed) return
+        closed = true
+    }
+
     val state: StateFlow<ServerConnectUiState>
         field = MutableStateFlow<ServerConnectUiState>(ServerConnectUiState.Idle)
 

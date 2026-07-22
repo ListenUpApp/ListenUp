@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.local.db.migration
 
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_1_2
+import com.calypsan.listenup.client.data.local.migrations.MIGRATION_2_3
 import com.calypsan.listenup.client.test.db.createMigrationTestHelper
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
@@ -80,6 +81,21 @@ class SchemaMigrationSmokeTest :
                     stmt.getText(0) shouldBe "opaque-id-1"
                 }
                 v2.close()
+            } finally {
+                helper.close()
+            }
+        }
+
+        test("v2 to v3 migration validates against the exported v3 schema (entities unchanged)") {
+            // MIGRATION_2_3 only DROPs the derived FTS5 caches (recreated on next open by
+            // FtsTableCallback with the extended contributor columns), so the entity schema is
+            // identical to v2. This proves the migration runs cleanly and Room's identity hash
+            // matches the committed 3.json baseline.
+            val helper = createMigrationTestHelper()
+            try {
+                helper.createDatabase(version = 2).close()
+                val v3 = helper.runMigrationsAndValidate(version = 3, migrations = listOf(MIGRATION_2_3))
+                v3.close()
             } finally {
                 helper.close()
             }

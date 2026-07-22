@@ -16,7 +16,6 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
@@ -280,7 +279,6 @@ private fun realSeriesRepository(db: ListenUpDatabase): SeriesRepositoryImpl =
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         imageStorage = mockImageStorage(),
         channel = RpcChannel.forTest(mock<SeriesService>()),
-        searchChannel = RpcChannel.forTest(mock<SearchService>()),
         seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(),
     )
 
@@ -292,7 +290,6 @@ private fun realContributorRepository(db: ListenUpDatabase): ContributorReposito
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         imageStorage = mockImageStorage(),
         channel = RpcChannel.forTest(mock<ContributorService>()),
-        searchChannel = RpcChannel.forTest(mock<SearchService>()),
         contributorSyncHandler = mock<SyncDomainHandler<ContributorSyncPayload>>(),
     )
 

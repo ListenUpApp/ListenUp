@@ -31,7 +31,7 @@ struct ClaimInviteView: View {
         self.onDismiss = onDismiss
         self.deepLinkSeed = nil
         _wrapper = State(initialValue: ClaimInviteViewModelWrapper(
-            viewModel: Dependencies.shared.claimInviteViewModel
+            viewModel: Dependencies.shared.makeClaimInviteViewModel()
         ))
     }
 
@@ -39,7 +39,7 @@ struct ClaimInviteView: View {
         self.onDismiss = onDismiss
         self.deepLinkSeed = (deepLinkServerURL, deepLinkCode, deepLinkRemoteURL)
         _wrapper = State(initialValue: ClaimInviteViewModelWrapper(
-            viewModel: Dependencies.shared.claimInviteViewModel
+            viewModel: Dependencies.shared.makeClaimInviteViewModel()
         ))
     }
 

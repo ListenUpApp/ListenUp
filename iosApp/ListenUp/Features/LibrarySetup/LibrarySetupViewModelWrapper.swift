@@ -76,7 +76,13 @@ final class LibrarySetupViewModelWrapper {
         self.viewModel = nil
     }
 
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
+    // Isolated deinit (SE-0371): runs hopped onto the main actor, so the non-Sendable Kotlin
+    // viewModel can be closed here. No ViewModelStore on iOS calls onCleared, so this wrapper must
+    // (#1192). Optional because the bridge-free test initializer leaves it nil.
+    isolated deinit {
+        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
+        viewModel?.close()
+    }
 
     // MARK: - Actions
 

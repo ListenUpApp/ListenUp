@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.invite
 
 import androidx.lifecycle.ViewModel
+import kotlinx.coroutines.cancel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -26,6 +27,24 @@ class ClaimInviteViewModel(
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
 ) : ViewModel() {
+    private var closed = false
+
+    override fun onCleared() {
+        super.onCleared()
+        close()
+    }
+
+    /**
+     * Cancels this ViewModel's coroutines. Idempotent. Android reaches it via [onCleared] when the
+     * `ViewModelStore` clears the entry; iOS has no store, so the screen's wrapper calls it from its
+     * `isolated deinit` (#1192) — else viewModelScope streams/one-shots orphan when the screen goes.
+     */
+    fun close() {
+        if (closed) return
+        closed = true
+        viewModelScope.cancel()
+    }
+
     val state: StateFlow<ClaimInviteUiState>
         field = MutableStateFlow<ClaimInviteUiState>(ClaimInviteUiState.Idle)
 

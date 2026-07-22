@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.local.db
 import androidx.room.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_1_2
+import com.calypsan.listenup.client.data.local.migrations.MIGRATION_2_3
 import com.calypsan.listenup.core.IODispatcher
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -42,7 +43,7 @@ internal actual val platformDatabaseModule: Module =
                 // Without this the FTS5 search tables are never created on Apple platforms,
                 // so every search and FTS rebuild fails with `no such table: books_fts`.
                 .addCallback(FtsTableCallback())
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 // Non-destructive: a schema mismatch throws (loudly) rather than SILENTLY wiping the
                 // local DB — which includes the unsynced outbox (queued playback positions, listening
                 // history, offline edits not yet pushed). Every schema-version bump MUST ship a Room

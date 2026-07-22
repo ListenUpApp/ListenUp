@@ -46,8 +46,6 @@ internal val seriesModule: Module =
                 networkMonitor = get(),
                 imageStorage = get(),
                 channel = rpcChannel(),
-                // SearchService channel owned by searchModule — powers server series autocomplete.
-                searchChannel = rpcChannel(),
                 seriesSyncHandler =
                     get<SyncDomainHandler<SeriesSyncPayload>>(named(SyncDomains.SERIES.name)),
             )

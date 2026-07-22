@@ -20,7 +20,7 @@ struct ServerSelectView: View {
     init(showManualEntry: Binding<Bool>) {
         self._showManualEntry = showManualEntry
         _viewModel = State(initialValue: ServerSelectViewModelWrapper(
-            viewModel: Dependencies.shared.serverSelectViewModel
+            viewModel: Dependencies.shared.makeServerSelectViewModel()
         ))
     }
 

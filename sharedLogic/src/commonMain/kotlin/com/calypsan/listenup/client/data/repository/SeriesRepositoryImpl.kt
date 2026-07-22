@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
-import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.dto.SeriesHit
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
@@ -45,7 +43,7 @@ private val logger = KotlinLogging.logger {}
  * - Reactive (Flow-based) and one-shot queries for series
  * - Library view methods (series with their books)
  * - Series detail methods
- * - Search with "never stranded" pattern (server with local fallback)
+ * - Search via the local FTS5 index (offline-first; no network round trip)
  *
  * [observeById] layers a "Never Stranded" RPC-fallback on top of the Room
  * observable: when Room yields `null` (the series is not cached yet) and the
@@ -63,8 +61,6 @@ private val logger = KotlinLogging.logger {}
  * @property imageStorage For resolving cover image paths
  * @property channel [RpcChannel] over [com.calypsan.listenup.api.SeriesService]
  *   for on-demand cache-miss fetches (bounded, self-healing).
- * @property searchChannel [RpcChannel] over the unified [com.calypsan.listenup.api.SearchService]
- *   backing the never-stranded server series autocomplete (bounded, self-healing).
  * @property seriesSyncHandler Owns the atomic aggregate write-through used to
  *   cache an on-demand-fetched series into Room.
  */
@@ -75,7 +71,6 @@ internal class SeriesRepositoryImpl(
     private val networkMonitor: NetworkMonitor,
     private val imageStorage: ImageStorage,
     private val channel: RpcChannel<SeriesService>,
-    private val searchChannel: RpcChannel<SearchService>,
     private val seriesSyncHandler: SyncDomainHandler<SeriesSyncPayload>,
 ) : SeriesRepository {
     // ========== Basic Observation Methods ==========
@@ -248,52 +243,11 @@ internal class SeriesRepositoryImpl(
             )
         }
 
-        // Try server search if online; on Failure fall back to local FTS (never-stranded pattern)
-        if (networkMonitor.isOnline()) {
-            val serverResult = searchServer(sanitizedQuery, limit)
-            if (serverResult != null) return serverResult
-        }
-
-        // Offline or server failed - use local FTS
+        // Local-only: the client mirrors every series in Room and maintains its own FTS5 index, so a
+        // series search never needs the network. Faster (no round trip) and the canonical offline-first
+        // read path — Room is the single source of truth.
         return searchLocal(sanitizedQuery, limit)
     }
-
-    /**
-     * Attempt a server-side series search via the unified [SearchService], reading the `series`
-     * slice of the [com.calypsan.listenup.api.dto.SearchResults] envelope. Returns `null` on
-     * [AppResult.Failure] so the caller can fall back to local FTS (never-stranded pattern).
-     */
-    private suspend fun searchServer(
-        query: String,
-        limit: Int,
-    ): SeriesSearchResponse? =
-        withContext(IODispatcher) {
-            val (result, duration) =
-                measureTimedValue {
-                    searchChannel.call(
-                        idempotent = true,
-                    ) { it.search(SearchQuery(text = query, limit = limit)) }
-                }
-
-            when (result) {
-                is AppResult.Success -> {
-                    val series = result.data.series.map { it.toDomain() }
-                    logger.debug {
-                        "Server series search: query='$query', results=${series.size}, took=${duration.inWholeMilliseconds}ms"
-                    }
-                    SeriesSearchResponse(
-                        series = series,
-                        isOfflineResult = false,
-                        tookMs = duration.inWholeMilliseconds,
-                    )
-                }
-
-                is AppResult.Failure -> {
-                    logger.warn { "Server series search failed, falling back to local FTS: ${result.error.message}" }
-                    null
-                }
-            }
-        }
 
     private suspend fun searchLocal(
         query: String,

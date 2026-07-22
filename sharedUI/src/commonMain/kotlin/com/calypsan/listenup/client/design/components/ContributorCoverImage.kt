@@ -94,7 +94,13 @@ fun ContributorCoverImage(
                             "ContributorCoverImage: streaming id=$contributorId " +
                                 "url=$baseUrl/api/v1/contributors/$contributorId/photo"
                         }
-                        builder.data("$baseUrl/api/v1/contributors/$contributorId/photo")
+                        // Content-address the URL with the server's imagePath (the photo's version) so
+                        // a re-scrape changes the URL itself — this busts EVERY cache layer (Coil disk +
+                        // the platform HTTP cache), not just Coil's key. The server ignores the `?v` param.
+                        val versioned =
+                            "$baseUrl/api/v1/contributors/$contributorId/photo" +
+                                (imagePath?.let { "?v=$it" } ?: "")
+                        builder.data(versioned)
                         if (token != null) {
                             builder.httpHeaders(
                                 NetworkHeaders

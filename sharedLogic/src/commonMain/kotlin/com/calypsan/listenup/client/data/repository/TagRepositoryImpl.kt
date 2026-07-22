@@ -114,7 +114,11 @@ internal class TagRepositoryImpl(
         bookId: String,
         name: String,
     ): AppResult<Tag> {
-        val existing = tagDao.findByName(name) ?: return onlineAddTagToBook(bookId, name)
+        // Callers pass either a slug (book-edit normalizes first) or free text (quick-add). Resolve by
+        // slug FIRST so a multi-word tag ("Found Family" → slug "found-family") is found — a name-only
+        // match misses it and drops the optimistic write (no UI refresh) — then fall back to name for
+        // the free-text quick-add path.
+        val existing = tagDao.findBySlug(name) ?: tagDao.findByName(name) ?: return onlineAddTagToBook(bookId, name)
         return offlineEditor
             .edit(
                 OutboxChannels.BookTags,

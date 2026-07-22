@@ -25,7 +25,7 @@ struct RegisterView: View {
 
     init() {
         _viewModel = State(initialValue: RegisterViewModelWrapper(
-            viewModel: Dependencies.shared.registerViewModel
+            viewModel: Dependencies.shared.makeRegisterViewModel()
         ))
     }
 

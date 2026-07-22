@@ -92,6 +92,27 @@ class ServerSelectViewModelTest :
             }
         }
 
+        test("close stops mDNS discovery and is idempotent (#1192 iOS teardown)") {
+            runTest {
+                val serverRepository: ServerRepository = mock()
+                val serverConfig: ServerConfig = mock()
+                val instanceRepository: InstanceRepository = mock()
+                every { serverRepository.observeServers() } returns MutableStateFlow(emptyList())
+                every { serverRepository.stopDiscovery() } returns Unit
+
+                val viewModel = ServerSelectViewModel(serverRepository, serverConfig, instanceRepository, errorBus = ErrorBus(), appScope = CoroutineScope(testDispatcher))
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                // iOS has no ViewModelStore; ServerSelectViewModelWrapper's isolated deinit calls
+                // close() so the mDNS discovery doesn't announce/scan forever after the screen goes.
+                viewModel.close()
+                viewModel.close() // idempotent — the second call must not stop discovery again
+
+                verify(VerifyMode.exactly(1)) { serverRepository.stopDiscovery() }
+            }
+        }
+
         test("LocalNetworkPermissionGranted starts server discovery") {
             runTest {
                 val serverRepository: ServerRepository = mock()

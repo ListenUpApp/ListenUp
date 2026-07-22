@@ -21,7 +21,7 @@ struct SetupView: View {
 
     init() {
         _viewModel = State(initialValue: SetupViewModelWrapper(
-            viewModel: Dependencies.shared.setupViewModel
+            viewModel: Dependencies.shared.makeSetupViewModel()
         ))
     }
 

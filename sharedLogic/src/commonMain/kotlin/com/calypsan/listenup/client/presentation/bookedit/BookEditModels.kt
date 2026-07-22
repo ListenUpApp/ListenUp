@@ -188,8 +188,9 @@ data class BookEditUiState(
     // natively), but Swift MUST NOT: Swift Export bridges a `Map<ContributorRole, …>` as
     // `[ContributorRole: …]`, and reading it force-casts the AnyHashable-boxed keys back to the
     // bridged enum, which traps ("Could not cast Swift.AnyHashable to …ContributorRole") and crashes
-    // any book edit. iOS reads these plain-typed projections instead. Only author/narrator are
-    // searchable in the add-picker, so only those are exposed.
+    // any book edit. iOS reads these plain-typed projections instead. The author/narrator getters
+    // remain for existing call sites; the role-generic functions below let iOS render EVERY visible
+    // role dynamically without ever subscripting the map from Swift.
     val authorSearchQuery: String get() = roleSearchQueries[ContributorRole.AUTHOR].orEmpty()
     val narratorSearchQuery: String get() = roleSearchQueries[ContributorRole.NARRATOR].orEmpty()
     val authorSearchLoading: Boolean get() = roleSearchLoading[ContributorRole.AUTHOR] == true
@@ -198,6 +199,25 @@ data class BookEditUiState(
         get() = roleSearchResults[ContributorRole.AUTHOR].orEmpty()
     val narratorSearchResults: List<ContributorSearchResult>
         get() = roleSearchResults[ContributorRole.NARRATOR].orEmpty()
+
+    /**
+     * The visible role sections in stable declaration order (Author, Narrator, Editor, …) — the
+     * order the edit UI renders them in. Backs iOS's dynamic role sections; [visibleRoles] is an
+     * unordered set, so iterating it directly would reorder sections between recompositions.
+     */
+    val orderedVisibleRoles: List<ContributorRole>
+        get() = ContributorRole.entries.filter { it in visibleRoles }
+
+    /**
+     * Bridge-safe role-generic search accessors: the map subscript happens HERE in Kotlin, so Swift
+     * only ever passes a [ContributorRole] enum as a function argument (which bridges safely) —
+     * never subscripts the bridged `[ContributorRole: …]` map itself (which traps; see above).
+     */
+    fun searchQueryForRole(role: ContributorRole): String = roleSearchQueries[role].orEmpty()
+
+    fun searchLoadingForRole(role: ContributorRole): Boolean = roleSearchLoading[role] == true
+
+    fun searchResultsForRole(role: ContributorRole): List<ContributorSearchResult> = roleSearchResults[role].orEmpty()
 }
 
 /**

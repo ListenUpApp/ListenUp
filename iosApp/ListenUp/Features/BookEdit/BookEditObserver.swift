@@ -1,6 +1,38 @@
 import SwiftUI
 import Shared
 
+/// One contributor-role section on the book-edit form (Author, Narrator, Editor, …). Built from the
+/// shared VM's `orderedVisibleRoles` + the bridge-safe role-generic accessors, so every visible role
+/// renders dynamically — no hardcoded Author/Narrator. Native value type: no bridged Kotlin object
+/// reaches a `ForEach`.
+struct BookEditRoleSection: Identifiable {
+    let id: String            // role.apiValue — stable per role
+    let role: ContributorRole
+    let title: String
+    let contributors: [EditableRelation]
+    let query: String
+    let results: [RelationSearchResult]
+    let searching: Bool
+    /// Author is always present and can't be removed; every other role's section can be dismissed.
+    let canRemove: Bool
+}
+
+/// A role the user can add a section for (a role not currently visible). Native projection of a
+/// `ContributorRole` for the "Add role" menu.
+struct AddableRole: Identifiable {
+    let id: String            // role.apiValue
+    let role: ContributorRole
+    let title: String
+}
+
+/// One ISO 639-1 language choice (code + display name) for the language picker. Native projection
+/// of the shared `LanguageOption`, so no bridged Kotlin object reaches the SwiftUI `Picker`.
+struct LanguageChoice: Identifiable, Hashable {
+    let code: String
+    let name: String
+    var id: String { code }
+}
+
 /// Observes `BookEditViewModel`, flattening `BookEditUiState` into `@Observable`
 /// properties and dispatching edits as `BookEditUiEvent`s. `NavigateBack` flips
 /// `didFinish` so the sheet dismisses.
@@ -23,6 +55,20 @@ final class BookEditObserver {
     private(set) var bookDescription: String = ""
     private(set) var publisher: String = ""
     private(set) var publishYear: String = ""
+    /// ISO 639-1 language code ("" = unset). Bound to a picker over `languageOptions`.
+    private(set) var language: String = ""
+    private(set) var isbn: String = ""
+    private(set) var asin: String = ""
+    private(set) var abridged: Bool = false
+    /// "Added to library" timestamp; `nil` = use the detected value. Kotlin `Long?` epoch millis
+    /// bridges to Swift `Int64?`, mapped to/from `Date` here.
+    private(set) var addedAt: Date?
+
+    /// ISO 639-1 language choices (common languages first) for the language picker — a native
+    /// projection of the shared `Language.getAllLanguages()`, built once.
+    let languageOptions: [LanguageChoice] = Language.shared.getAllLanguages().map {
+        LanguageChoice(code: $0.code, name: $0.name)
+    }
 
     // Cover
     private(set) var displayCoverPath: String?
@@ -31,8 +77,11 @@ final class BookEditObserver {
 
     // Relations — native projections fed to the views. No bridged Kotlin object ever reaches a
     // ForEach (it would re-bridge on every diff); the mapping happens once in `apply`.
-    private(set) var authors: [EditableRelation] = []
-    private(set) var narrators: [EditableRelation] = []
+    /// The visible contributor-role sections, in stable role order. Replaces the old hardcoded
+    /// author/narrator pair — every role the book has (or the user adds) renders here.
+    private(set) var roleSections: [BookEditRoleSection] = []
+    /// Roles not yet shown, offered by the "Add role" menu.
+    private(set) var addableRoles: [AddableRole] = []
     private(set) var series: [EditableRelation] = []
     private(set) var genres: [EditableRelation] = []
     private(set) var tags: [EditableRelation] = []
@@ -45,8 +94,10 @@ final class BookEditObserver {
 
     // Raw Kotlin lists retained for the id→object lookup when a chip's remove button is tapped.
     // Held off the SwiftUI diff path (never iterated by a ForEach), so they don't re-bridge.
-    private var rawAuthors: [EditableContributor] = []
-    private var rawNarrators: [EditableContributor] = []
+    // Contributors are keyed by role.apiValue (a String — NEVER a bridged ContributorRole dict key,
+    // which traps; see applySearchState).
+    private var rawContributorsByRole: [String: [EditableContributor]] = [:]
+    private var rawResultsByRole: [String: [ContributorSearchResult]] = [:]
     private var rawSeries: [EditableSeries] = []
     private var rawGenres: [EditableGenre] = []
     private var rawTags: [EditableTag] = []
@@ -55,24 +106,18 @@ final class BookEditObserver {
 
     // Add-picker search sub-state — native projections fed to the result rows. Queries are echoed
     // from shared state so the field stays the single source of truth across re-emits.
-    private(set) var authorQuery: String = ""
-    private(set) var narratorQuery: String = ""
     private(set) var seriesQuery: String = ""
     private(set) var genreQuery: String = ""
     private(set) var tagQuery: String = ""
     private(set) var moodQuery: String = ""
     private(set) var collectionQuery: String = ""
 
-    private(set) var authorResults: [RelationSearchResult] = []
-    private(set) var narratorResults: [RelationSearchResult] = []
     private(set) var seriesResults: [RelationSearchResult] = []
     private(set) var genreResults: [RelationSearchResult] = []
     private(set) var tagResults: [RelationSearchResult] = []
     private(set) var moodResults: [RelationSearchResult] = []
     private(set) var collectionResults: [RelationSearchResult] = []
 
-    private(set) var authorSearching: Bool = false
-    private(set) var narratorSearching: Bool = false
     private(set) var seriesSearching: Bool = false
     private(set) var tagSearching: Bool = false
     private(set) var moodSearching: Bool = false
@@ -80,8 +125,6 @@ final class BookEditObserver {
     // Raw search results retained for the id→object lookup when a result row is tapped, off the
     // diff path (never iterated by a ForEach) so they don't re-bridge.
     private var rawSeriesResults: [SeriesSearchResult] = []
-    private var rawAuthorResults: [ContributorSearchResult] = []
-    private var rawNarratorResults: [ContributorSearchResult] = []
     private var rawGenreResults: [EditableGenre] = []
     private var rawTagResults: [EditableTag] = []
     private var rawMoodResults: [EditableMood] = []
@@ -122,6 +165,19 @@ final class BookEditObserver {
     }
     func setPublisher(_ value: String) { viewModel.onEvent(event: BookEditUiEventPublisherChanged(publisher: value)) }
     func setPublishYear(_ value: String) { viewModel.onEvent(event: BookEditUiEventPublishYearChanged(year: value)) }
+    /// A blank code clears the language selection back to "unset".
+    func setLanguage(_ code: String) {
+        viewModel.onEvent(event: BookEditUiEventLanguageChanged(code: code.isEmpty ? nil : code))
+    }
+    func setIsbn(_ value: String) { viewModel.onEvent(event: BookEditUiEventIsbnChanged(isbn: value)) }
+    func setAsin(_ value: String) { viewModel.onEvent(event: BookEditUiEventAsinChanged(asin: value)) }
+    func setAbridged(_ value: Bool) { viewModel.onEvent(event: BookEditUiEventAbridgedChanged(abridged: value)) }
+    /// `nil` clears the timestamp back to "use detected value".
+    func setAddedAt(_ date: Date?) {
+        viewModel.onEvent(event: BookEditUiEventAddedAtChanged(
+            epochMillis: date.map { Int64($0.timeIntervalSince1970 * 1000) }
+        ))
+    }
 
     // MARK: - Cover intents
 
@@ -135,9 +191,16 @@ final class BookEditObserver {
     // MARK: - Relation remove intents
 
     func removeContributor(_ relation: EditableRelation, role: ContributorRole) {
-        let raw = role == .author ? rawAuthors : rawNarrators
-        guard let contributor = raw.first(where: { $0.name == relation.id }) else { return }
+        guard let contributor = rawContributorsByRole[role.apiValue]?.first(where: { $0.name == relation.id }) else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveContributor(contributor: contributor, role: role))
+    }
+
+    /// Add a section for a role not currently shown; remove one (any role but Author, which is fixed).
+    func addRole(_ role: ContributorRole) {
+        viewModel.onEvent(event: BookEditUiEventAddRoleSection(role: role))
+    }
+    func removeRole(_ role: ContributorRole) {
+        viewModel.onEvent(event: BookEditUiEventRemoveRoleSection(role: role))
     }
     func removeSeries(_ relation: EditableRelation) {
         guard let value = rawSeries.first(where: { $0.name == relation.id }) else { return }
@@ -167,8 +230,7 @@ final class BookEditObserver {
         viewModel.onEvent(event: BookEditUiEventRoleSearchQueryChanged(role: role, query: value))
     }
     func selectContributorResult(_ result: RelationSearchResult, role: ContributorRole) {
-        let raw = role == .author ? rawAuthorResults : rawNarratorResults
-        guard let match = raw.first(where: { $0.id == result.id }) else { return }
+        guard let match = rawResultsByRole[role.apiValue]?.first(where: { $0.id == result.id }) else { return }
         viewModel.onEvent(event: BookEditUiEventRoleContributorSelected(role: role, result: match))
     }
     func enterContributor(_ name: String, role: ContributorRole) {
@@ -245,18 +307,20 @@ final class BookEditObserver {
         bookDescription = state.description_
         publisher = state.publisher
         publishYear = state.publishYear
+        language = state.language ?? ""
+        isbn = state.isbn
+        asin = state.asin
+        abridged = state.abridged
+        addedAt = state.addedAt.map { Date(timeIntervalSince1970: Double($0) / 1000) }
         displayCoverPath = state.displayCoverPath
         coverHash = state.coverHash
         isUploadingCover = state.isUploadingCover
-        rawAuthors = state.authors
-        rawNarrators = state.narrators
         rawSeries = state.series
         rawGenres = state.genres
         rawTags = state.tags
         rawMoods = state.moods
         rawCollections = state.collections
-        authors = state.authors.map { EditableRelation.contributor(name: $0.name) }
-        narrators = state.narrators.map { EditableRelation.contributor(name: $0.name) }
+        applyRoleSections(state)
         series = state.series.map { EditableRelation.series(name: $0.name, sequence: $0.sequence) }
         genres = state.genres.map { EditableRelation.genre(id: $0.id, name: $0.name) }
         tags = state.tags.map { EditableRelation.tag(id: $0.id, slug: $0.slug) }
@@ -272,18 +336,6 @@ final class BookEditObserver {
     /// Maps the add-picker search sub-state (per-role contributor, series, genre, tag, mood) from
     /// the shared `BookEditUiState` into native value types, off the SwiftUI diff path.
     private func applySearchState(_ state: BookEditUiState) {
-        // Contributors — read the shared state's bridge-safe flat accessors, NOT the
-        // ContributorRole-keyed maps: Swift Export cannot subscript a `[ContributorRole: …]`
-        // dictionary (the bridged enum key traps the AnyHashable→enum cast and crashes the edit).
-        authorQuery = state.authorSearchQuery
-        narratorQuery = state.narratorSearchQuery
-        authorSearching = state.authorSearchLoading
-        narratorSearching = state.narratorSearchLoading
-        rawAuthorResults = state.authorSearchResults
-        rawNarratorResults = state.narratorSearchResults
-        authorResults = rawAuthorResults.map(Self.contributorResult)
-        narratorResults = rawNarratorResults.map(Self.contributorResult)
-
         // Series.
         seriesQuery = state.seriesSearchQuery
         seriesSearching = state.seriesSearchLoading
@@ -311,6 +363,59 @@ final class BookEditObserver {
         collectionQuery = state.collectionSearchQuery
         rawCollectionResults = state.collectionSearchResults
         collectionResults = rawCollectionResults.map(Self.collectionResult)
+    }
+
+    /// Builds the dynamic contributor-role sections from the shared VM's visible roles. Reads the
+    /// bridge-safe role-generic accessors (the Kotlin side subscripts the `[ContributorRole: …]`
+    /// maps; Swift only ever passes the role as a function argument — never subscripts the bridged
+    /// map, which traps). Raw Kotlin lists are stashed by `role.apiValue` (a String) for the
+    /// id→object lookup on remove/select, off the SwiftUI diff path.
+    private func applyRoleSections(_ state: BookEditUiState) {
+        var sections: [BookEditRoleSection] = []
+        var rawContributors: [String: [EditableContributor]] = [:]
+        var rawResults: [String: [ContributorSearchResult]] = [:]
+        for role in state.orderedVisibleRoles {
+            let contributors = state.contributorsForRole(role: role)
+            let results = state.searchResultsForRole(role: role)
+            rawContributors[role.apiValue] = contributors
+            rawResults[role.apiValue] = results
+            sections.append(
+                BookEditRoleSection(
+                    id: role.apiValue,
+                    role: role,
+                    title: Self.roleTitle(role),
+                    contributors: contributors.map { EditableRelation.contributor(name: $0.name) },
+                    query: state.searchQueryForRole(role: role),
+                    results: results.map(Self.contributorResult),
+                    searching: state.searchLoadingForRole(role: role),
+                    canRemove: role != .author
+                )
+            )
+        }
+        roleSections = sections
+        rawContributorsByRole = rawContributors
+        rawResultsByRole = rawResults
+        addableRoles = state.availableRolesToAdd.map {
+            AddableRole(id: $0.apiValue, role: $0, title: Self.roleTitle($0))
+        }
+    }
+
+    /// Localized display name for a contributor role. Kept in Swift (not the Kotlin `displayName`
+    /// extension, which doesn't reliably cross Swift Export) so the strings resolve from the catalog.
+    static func roleTitle(_ role: ContributorRole) -> String {
+        switch role {
+        case .author: return String(localized: "book.role_author")
+        case .narrator: return String(localized: "book.role_narrator")
+        case .editor: return String(localized: "book.role_editor")
+        case .translator: return String(localized: "book.role_translator")
+        case .foreword: return String(localized: "book.role_foreword")
+        case .introduction: return String(localized: "book.role_introduction")
+        case .afterword: return String(localized: "book.role_afterword")
+        case .producer: return String(localized: "book.role_producer")
+        case .adapter: return String(localized: "book.role_adapter")
+        case .illustrator: return String(localized: "book.role_illustrator")
+        default: return ""
+        }
     }
 
     // MARK: - Result projections (pure, off the diff path)

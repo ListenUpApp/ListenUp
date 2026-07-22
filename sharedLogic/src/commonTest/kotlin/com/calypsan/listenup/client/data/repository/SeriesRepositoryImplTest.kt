@@ -12,7 +12,6 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -66,7 +65,6 @@ class SeriesRepositoryImplTest :
                 networkMonitor = networkMonitor,
                 imageStorage = mock<ImageStorage>(),
                 channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
-                searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                 seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
@@ -103,7 +101,6 @@ class SeriesRepositoryImplTest :
                 networkMonitor = networkMonitor,
                 imageStorage = imageStorage,
                 channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
-                searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                 seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
@@ -345,7 +342,6 @@ class SeriesRepositoryImplTest :
                         networkMonitor = networkMonitor,
                         imageStorage = mock<ImageStorage>(),
                         channel = RpcChannel.forTest(service),
-                        searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                         seriesSyncHandler = handler,
                     )
 

@@ -32,7 +32,7 @@ enum CoverImageRequest {
         KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
 
         guard let base = (try? await KoinHelper.shared.activeServerUrl()), !base.isEmpty,
-              let url = URL(string: "\(base)/api/v1/covers/\(bookId)")
+              let url = coverURL(base: base, bookId: bookId, coverHash: coverHash)
         else { return nil }
 
         // No hash → `nil` cache key → Nuke keys on the request URL (`/api/v1/covers/{bookId}`),
@@ -42,6 +42,19 @@ enum CoverImageRequest {
         // stale `"<id>:cover"` disk entries. With a hash we keep the content-scoped `"<id>:<hash>"`.
         let cacheKey = contentHashKey(identity: bookId, coverHash: coverHash)
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
+    }
+
+    /// The authenticated book-cover endpoint for a server base URL. Pure, so the endpoint shape is
+    /// unit-tested. Content-addresses the URL with the `coverHash` via a `?v=` query item so a
+    /// re-covered book changes the URL itself — busting `URLSession`'s `URLCache` (keyed by URL), not
+    /// just Nuke's cache key. The server ignores `?v`. A nil/blank hash yields the bare endpoint.
+    static func coverURL(base: String, bookId: String, coverHash: String?) -> URL? {
+        guard !base.isEmpty else { return nil }
+        var components = URLComponents(string: "\(base)/api/v1/covers/\(bookId)")
+        if let coverHash, !coverHash.isEmpty {
+            components?.queryItems = [URLQueryItem(name: "v", value: coverHash)]
+        }
+        return components?.url
     }
 
     /// Cache key for a **local cover file**. A `bookId`-scoped key is only content-safe when it

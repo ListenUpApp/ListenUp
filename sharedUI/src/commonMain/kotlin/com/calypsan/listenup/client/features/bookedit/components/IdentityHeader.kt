@@ -56,6 +56,7 @@ import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.book_edit_add_subtitle
 import listenup.composeapp.generated.resources.book_edit_book_cover
 import listenup.composeapp.generated.resources.book_edit_change_cover
+import listenup.composeapp.generated.resources.book_edit_sort_title
 import listenup.composeapp.generated.resources.book_edit_subtitle
 import listenup.composeapp.generated.resources.common_title
 
@@ -72,9 +73,11 @@ fun IdentityHeader(
     refreshKey: Any?,
     title: String,
     subtitle: String,
+    sortTitle: String,
     isUploadingCover: Boolean,
     onTitleChange: (String) -> Unit,
     onSubtitleChange: (String) -> Unit,
+    onSortTitleChange: (String) -> Unit,
     onCoverClick: () -> Unit,
     onBackClick: () -> Unit,
     bookId: String? = null,
@@ -254,6 +257,27 @@ fun IdentityHeader(
                             subtitleFocusRequester.requestFocus()
                         }
                     }
+
+                    // Sort Title — the title's alphabetization form, kept with the identity fields
+                    // so its order matches the flat iOS form (Cover, Title, Subtitle, Sort Title).
+                    OutlinedTextField(
+                        value = sortTitle,
+                        onValueChange = onSortTitleChange,
+                        label = {
+                            Text(
+                                stringResource(Res.string.book_edit_sort_title),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            )
+                        },
+                        textStyle =
+                            MaterialTheme.typography.bodyLarge.copy(
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            ),
+                        colors = heroTextFieldColors(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
             }
         }

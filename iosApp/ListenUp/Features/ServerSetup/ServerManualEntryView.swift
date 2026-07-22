@@ -20,7 +20,7 @@ struct ServerManualEntryView: View {
     init(onBack: (() -> Void)? = nil) {
         self.onBack = onBack
         _viewModel = State(initialValue: ServerConnectViewModelWrapper(
-            viewModel: Dependencies.shared.serverConnectViewModel
+            viewModel: Dependencies.shared.makeServerConnectViewModel()
         ))
     }
 

@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.domain.repository.ServerRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,6 +63,7 @@ class ServerSelectViewModel(
     private val isDiscovering = MutableStateFlow(true)
     private val overlay = MutableStateFlow<Overlay>(Overlay.None)
     private var discoveryJob: Job? = null
+    private var closed = false
 
     private sealed interface Overlay {
         data object None : Overlay
@@ -233,7 +235,21 @@ class ServerSelectViewModel(
 
     override fun onCleared() {
         super.onCleared()
+        close()
+    }
+
+    /**
+     * Stops mDNS discovery and cancels the discovery job. Idempotent — safe to call more than once.
+     *
+     * Android/Desktop reach this via [onCleared] when the `ViewModelStore` clears the entry. iOS has
+     * no `ViewModelStore`, so [ServerSelectViewModelWrapper] calls this from its `isolated deinit`
+     * (#1192); without it the mDNS discovery keeps announcing/scanning forever after the screen goes.
+     */
+    fun close() {
+        if (closed) return
+        closed = true
         logger.info { "Stopping server discovery" }
         serverRepository.stopDiscovery()
+        viewModelScope.cancel()
     }
 }

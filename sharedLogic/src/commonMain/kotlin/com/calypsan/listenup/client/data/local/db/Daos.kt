@@ -161,6 +161,14 @@ internal interface ContributorDao {
     @Query("SELECT * FROM contributors")
     suspend fun getAll(): List<ContributorEntity>
 
+    /**
+     * Get all live contributors with their aliases — used by FtsPopulator to index
+     * name + sortName + aliases so local search matches pen names and sort forms.
+     */
+    @Transaction
+    @Query("SELECT * FROM contributors WHERE deletedAt IS NULL")
+    suspend fun getAllWithAliases(): List<ContributorWithAliases>
+
     @Query("SELECT * FROM contributors WHERE id = :id")
     suspend fun getById(id: String): ContributorEntity?
 

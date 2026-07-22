@@ -39,7 +39,13 @@ final class ServerSelectViewModelWrapper {
         bridge.bind(viewModel.navigationEvents) { [weak self] in self?.applyNavigation($0) }
     }
 
-    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
+    // Isolated deinit (SE-0371): runs hopped onto the main actor, so the non-Sendable Kotlin
+    // viewModel can be closed here. No ViewModelStore on iOS calls onCleared, so this wrapper must
+    // (#1192) — else the VM's mDNS discovery + stream jobs orphan and run forever.
+    isolated deinit {
+        bridge.cancelAll()   // cancelAll() is nonisolated-safe; see FlowBridge.
+        viewModel.close()
+    }
 
     // MARK: - Actions
 

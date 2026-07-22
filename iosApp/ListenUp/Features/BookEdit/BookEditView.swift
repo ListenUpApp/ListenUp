@@ -64,23 +64,12 @@ struct BookEditView: View {
             }
             .padding(.top, 8)
 
-            textFields(observer)
+            identityFields(observer)
 
-            contributorSection(
-                title: String(localized: "book.edit_authors"),
-                empty: String(localized: "book.edit_no_authors"),
-                contributors: observer.authors,
-                role: .author,
-                observer: observer
-            )
-
-            contributorSection(
-                title: String(localized: "book.edit_narrators"),
-                empty: String(localized: "book.edit_no_narrators"),
-                contributors: observer.narrators,
-                role: .narrator,
-                observer: observer
-            )
+            ForEach(observer.roleSections) { section in
+                roleSection(section, observer: observer)
+            }
+            addRoleMenu(observer)
 
             seriesSection(observer)
             genresSection(observer)
@@ -89,12 +78,17 @@ struct BookEditView: View {
             if observer.isAdmin {
                 collectionsSection(observer)
             }
+
+            catalogFields(observer)
         }
         .padding(.horizontal)
     }
 
+    /// Identity fields at the top of the form (positions 1–5 of the people-first order): Title,
+    /// Subtitle, Sort Title, Description. Publishing/identifier metadata lives in [catalogFields] at
+    /// the bottom so the order matches Android's Book Edit screen.
     @ViewBuilder
-    private func textFields(_ observer: BookEditObserver) -> some View {
+    private func identityFields(_ observer: BookEditObserver) -> some View {
         VStack(spacing: 14) {
             AppTextField(
                 placeholder: "",
@@ -124,7 +118,14 @@ struct BookEditView: View {
                 axis: .vertical
             )
             .fieldCard()
+        }
+    }
 
+    /// Catalog metadata at the bottom of the form (positions 12–18): Publisher, Year, Language,
+    /// ISBN, ASIN, Abridged, Date Added. Mirrors Android's Publishing → Identifiers → Library cards.
+    @ViewBuilder
+    private func catalogFields(_ observer: BookEditObserver) -> some View {
+        VStack(spacing: 14) {
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
@@ -139,45 +140,157 @@ struct BookEditView: View {
                 keyboardType: .numberPad
             )
             .fieldCard()
+
+            languageField(observer)
+
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.isbn }, set: { observer.setIsbn($0) }),
+                label: String(localized: "book.edit_isbn")
+            )
+            .fieldCard()
+
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.asin }, set: { observer.setAsin($0) }),
+                label: String(localized: "book.edit_asin")
+            )
+            .fieldCard()
+
+            abridgedField(observer)
+            addedAtField(observer)
+        }
+    }
+
+    /// Language picker over the shared ISO 639-1 list, with a "None" option that clears it.
+    private func languageField(_ observer: BookEditObserver) -> some View {
+        LabeledFieldRow(label: String(localized: "book.edit_language")) {
+            Picker(
+                String(localized: "book.edit_language"),
+                selection: Binding(get: { observer.language }, set: { observer.setLanguage($0) })
+            ) {
+                Text(String(localized: "book.edit_language_none")).tag("")
+                ForEach(observer.languageOptions) { choice in
+                    Text(choice.name).tag(choice.code)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// Abridged toggle.
+    private func abridgedField(_ observer: BookEditObserver) -> some View {
+        Toggle(isOn: Binding(get: { observer.abridged }, set: { observer.setAbridged($0) })) {
+            Text(String(localized: "book.edit_abridged"))
+                .font(.body)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .fieldCard()
+    }
+
+    /// Date-added row: a date picker when set (with a clear button), or a "Set date" button when unset.
+    private func addedAtField(_ observer: BookEditObserver) -> some View {
+        LabeledFieldRow(label: String(localized: "book.edit_date_added")) {
+            HStack {
+                if let date = observer.addedAt {
+                    DatePicker(
+                        "",
+                        selection: Binding(get: { date }, set: { observer.setAddedAt($0) }),
+                        displayedComponents: .date
+                    )
+                    .labelsHidden()
+                    Spacer()
+                    Button {
+                        observer.setAddedAt(nil)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "common.clear_date"))
+                } else {
+                    Button(String(localized: "common.set_date")) { observer.setAddedAt(Date()) }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.luTint)
+                    Spacer()
+                }
+            }
         }
     }
 
     // MARK: - Relational sections
 
-    private func contributorSection(
-        title: String,
-        empty: String,
-        contributors: [EditableRelation],
-        role: ContributorRole,
-        observer: BookEditObserver
-    ) -> some View {
-        let roleKind: RoleChip.Kind = role == .author ? .author : .narrator
-        let isAuthor = role == .author
-        return EditSection(title: title) {
-            if contributors.isEmpty {
-                EmptyRelationHint(text: empty)
+    /// One dynamic contributor-role section (Author, Narrator, Editor, …), driven entirely by the
+    /// shared VM's visible roles via `observer.roleSections`. Any role but Author can be removed.
+    private func roleSection(_ section: BookEditRoleSection, observer: BookEditObserver) -> some View {
+        EditSection(title: section.title) {
+            if section.contributors.isEmpty {
+                EmptyRelationHint(text: String(localized: "book.edit_no_contributors"))
             } else {
                 ChipFlow {
-                    ForEach(contributors) { contributor in
+                    ForEach(section.contributors) { contributor in
                         RemovableChip(
                             label: contributor.label,
-                            roleKind: roleKind,
+                            roleKind: Self.roleChipKind(section.role),
                             removeLabel: String(format: String(localized: "common.remove_name"), contributor.label),
-                            onRemove: { observer.removeContributor(contributor, role: role) }
+                            onRemove: { observer.removeContributor(contributor, role: section.role) }
                         )
                     }
                 }
             }
             RelationSearchField(
-                placeholder: String(localized: isAuthor ? "book.edit_add_author" : "book.edit_add_narrator"),
-                query: isAuthor ? observer.authorQuery : observer.narratorQuery,
-                results: isAuthor ? observer.authorResults : observer.narratorResults,
-                isLoading: isAuthor ? observer.authorSearching : observer.narratorSearching,
+                placeholder: String(localized: "book.edit_add_contributor"),
+                query: section.query,
+                results: section.results,
+                isLoading: section.searching,
                 allowsCreate: true,
-                onQueryChange: { observer.setContributorQuery($0, role: role) },
-                onSelect: { observer.selectContributorResult($0, role: role) },
-                onCreate: { observer.enterContributor($0, role: role) }
+                onQueryChange: { observer.setContributorQuery($0, role: section.role) },
+                onSelect: { observer.selectContributorResult($0, role: section.role) },
+                onCreate: { observer.enterContributor($0, role: section.role) }
             )
+            if section.canRemove {
+                Button {
+                    observer.removeRole(section.role)
+                } label: {
+                    Label(
+                        String(format: String(localized: "common.remove_name"), section.title),
+                        systemImage: "minus.circle"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(Color.luLabel3)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// The "Add role" menu — lists every role not currently shown, adding a section on tap.
+    @ViewBuilder
+    private func addRoleMenu(_ observer: BookEditObserver) -> some View {
+        if !observer.addableRoles.isEmpty {
+            Menu {
+                ForEach(observer.addableRoles) { addable in
+                    Button(addable.title) { observer.addRole(addable.role) }
+                }
+            } label: {
+                Label(String(localized: "book.edit_add_role"), systemImage: "plus.circle")
+                    .font(.subheadline.weight(.medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.luFill.opacity(0.6)))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Author/Narrator keep their role glyph; the other roles render without one (like series/genres).
+    private static func roleChipKind(_ role: ContributorRole) -> RoleChip.Kind? {
+        switch role {
+        case .author: return .author
+        case .narrator: return .narrator
+        default: return nil
         }
     }
 
@@ -413,6 +526,26 @@ private struct EmptyRelationHint: View {
         Text(text)
             .font(.subheadline)
             .foregroundStyle(Color.luLabel3)
+    }
+}
+
+/// A caption-labelled field card wrapping a non-text control (picker, date row) so it reads the
+/// same as an `AppTextField().fieldCard()`: caption above, control below, same insets and surface.
+private struct LabeledFieldRow<Content: View>: View {
+    let label: String
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(Color.luLabel2)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .fieldCard()
     }
 }
 

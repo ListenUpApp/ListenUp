@@ -183,6 +183,38 @@ class TagRepositoryOfflineTest :
             }
         }
 
+        test("addTagToBook resolves an existing MULTI-WORD tag by slug (book-edit passes slugs) and stays offline-first") {
+            runTest {
+                val f = fixture()
+                // Display name "Found Family" → slug "found-family". Book-edit (UpdateBookUseCase) passes the SLUG,
+                // which never equals the spaced display name — so a name-only match would miss and fall online,
+                // and the optimistic junction (hence the UI refresh) would never happen. It must resolve by slug.
+                f.db.tagDao().upsert(TagEntity(id = "t1", name = "Found Family", slug = "found-family", revision = 4, updatedAt = 0L))
+                // A bare mock proves the service is NOT called on the offline-first hit path.
+                val repo = f.repo(mock())
+
+                val result = repo.addTagToBook(bookId = "b1", name = "found-family")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                (result as AppResult.Success).data.id shouldBe "t1"
+                f.db
+                    .bookTagDao()
+                    .findByKey("b1", "t1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+                val op =
+                    f.db
+                        .pendingOperationV2Dao()
+                        .nextDispatchable()
+                        .single()
+                op.domainName shouldBe "book_tags"
+                op.entityId shouldBe "b1:t1"
+                op.opType shouldBe "create"
+                f.db.close()
+            }
+        }
+
         test("addTagToBook with no same-name tag stays online — it dispatches to the RPC and enqueues nothing") {
             runTest {
                 val f = fixture()
