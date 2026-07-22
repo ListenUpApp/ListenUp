@@ -115,7 +115,13 @@ internal val authPresentationModule =
  */
 internal val adminPresentationModule =
     module {
-        single {
+        // factory (NOT single): koinViewModel() scopes a fresh instance per ViewModelStore. A
+        // singleton VM is fatal — when the first owning store is cleared (e.g. navigating through
+        // the ABS-import flow), onCleared() cancels the singleton's viewModelScope, so the re-served
+        // instance is a zombie: its observeRoster() collector is dead and pendingUsers strands empty
+        // until process restart. See libraryPresentationModule's comment and the guard test
+        // "no ViewModel is registered as a Koin singleton" (ClientKoinGraphE2ETest).
+        factory {
             AdminViewModel(
                 getRegistrationPolicyUseCase = get(),
                 loadInvitesUseCase = get(),
@@ -210,8 +216,10 @@ internal val adminPresentationModule =
                 errorBus = get(),
             )
         }
-        // ABSImportHubViewModel — inline staged-import list (backed by the new ImportService stack)
-        single {
+        // ABSImportHubViewModel — inline staged-import list (backed by the new ImportService stack).
+        // factory (NOT single): koinViewModel()-scoped like every VM; a singleton zombies when its
+        // owning store is cleared (see the guard test "no ViewModel is registered as a Koin singleton").
+        factory {
             com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel(
                 importRepository = get(),
                 errorBus = get(),
