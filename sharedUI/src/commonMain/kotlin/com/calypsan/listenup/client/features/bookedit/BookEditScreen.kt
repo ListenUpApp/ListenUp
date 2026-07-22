@@ -170,9 +170,9 @@ fun BookEditScreen(
                             }
                         },
                         // consumeWindowInsets so the inner Column's imePadding() doesn't double-count the
-                    // Scaffold's already-reserved bottom inset (Save bar + nav/mini-player) — otherwise a
-                    // surface-colored band appears between the field and the keyboard.
-                    modifier = Modifier.padding(paddingValues).consumeWindowInsets(paddingValues),
+                        // Scaffold's already-reserved bottom inset (Save bar + nav/mini-player) — otherwise a
+                        // surface-colored band appears between the field and the keyboard.
+                        modifier = Modifier.padding(paddingValues).consumeWindowInsets(paddingValues),
                     )
                 }
             }

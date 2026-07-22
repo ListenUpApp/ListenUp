@@ -12,9 +12,7 @@ import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.api.ContributorService
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.dto.ContributorHit
-import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
@@ -43,7 +41,7 @@ private val logger = KotlinLogging.logger {}
  * - Reactive (Flow-based) and one-shot queries for contributors
  * - Library view methods (contributors by role with book counts)
  * - Contributor detail methods (roles with counts, books per role)
- * - Search with "never stranded" pattern (server with local fallback)
+ * - Search via the local FTS5 index (offline-first; no network round trip)
  * - Delete operations
  *
  * [observeById] layers a "Never Stranded" RPC-fallback on top of the Room
@@ -62,8 +60,6 @@ private val logger = KotlinLogging.logger {}
  * @property imageStorage For resolving cover image paths
  * @property channel [RpcChannel] over [com.calypsan.listenup.api.ContributorService]
  *   for on-demand cache-miss fetches (bounded, self-healing).
- * @property searchChannel [RpcChannel] over the unified [com.calypsan.listenup.api.SearchService]
- *   backing the never-stranded server contributor autocomplete (bounded, self-healing).
  * @property contributorSyncHandler Owns the atomic aggregate write-through
  *   used to cache an on-demand-fetched contributor into Room.
  */
@@ -74,7 +70,6 @@ internal class ContributorRepositoryImpl(
     private val networkMonitor: NetworkMonitor,
     private val imageStorage: ImageStorage,
     private val channel: RpcChannel<ContributorService>,
-    private val searchChannel: RpcChannel<SearchService>,
     private val contributorSyncHandler: SyncDomainHandler<ContributorSyncPayload>,
 ) : ContributorRepository {
     // ========== Basic Observation Methods ==========
@@ -203,57 +198,11 @@ internal class ContributorRepositoryImpl(
             )
         }
 
-        // Try server search if online; on Failure fall back to local FTS (never-stranded pattern)
-        if (networkMonitor.isOnline()) {
-            val serverResult = searchServer(sanitizedQuery, limit)
-            if (serverResult != null) return serverResult
-        }
-
-        // Offline or server failed - use local FTS
+        // Local-only: the client mirrors every contributor in Room and maintains its own FTS5 index,
+        // so a contributor search never needs the network. Faster (no round trip) and the canonical
+        // offline-first read path — Room is the single source of truth.
         return searchLocal(sanitizedQuery, limit)
     }
-
-    /**
-     * Attempt a server-side contributor search via the unified [SearchService], reading the
-     * `contributors` slice of the [com.calypsan.listenup.api.dto.SearchResults] envelope. Returns
-     * `null` on [AppResult.Failure] so the caller can fall back to local FTS (never-stranded
-     * pattern). The [searchChannel] folds transport faults to a typed failure and re-raises
-     * CancellationException, so coroutine cancellation is never swallowed.
-     */
-    private suspend fun searchServer(
-        query: String,
-        limit: Int,
-    ): ContributorSearchResponse? =
-        withContext(IODispatcher) {
-            val (result, duration) =
-                measureTimedValue {
-                    searchChannel.call(
-                        idempotent = true,
-                    ) { it.search(SearchQuery(text = query, limit = limit)) }
-                }
-
-            when (result) {
-                is AppResult.Success -> {
-                    val contributors = result.data.contributors.map { it.toDomain() }
-                    logger.debug {
-                        "Server contributor search: query='$query', " +
-                            "results=${contributors.size}, took=${duration.inWholeMilliseconds}ms"
-                    }
-                    ContributorSearchResponse(
-                        contributors = contributors,
-                        isOfflineResult = false,
-                        tookMs = duration.inWholeMilliseconds,
-                    )
-                }
-
-                is AppResult.Failure -> {
-                    logger.warn {
-                        "Server contributor search failed, falling back to local FTS: ${result.error.message}"
-                    }
-                    null
-                }
-            }
-        }
 
     private suspend fun searchLocal(
         query: String,

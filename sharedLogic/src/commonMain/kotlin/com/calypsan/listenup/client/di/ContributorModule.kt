@@ -46,8 +46,6 @@ internal val contributorModule: Module =
                 networkMonitor = get(),
                 imageStorage = get(),
                 channel = rpcChannel(),
-                // SearchService channel owned by searchModule — powers server contributor autocomplete.
-                searchChannel = rpcChannel(),
                 contributorSyncHandler =
                     get<SyncDomainHandler<ContributorSyncPayload>>(named(SyncDomains.CONTRIBUTORS.name)),
             )

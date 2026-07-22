@@ -94,7 +94,8 @@ internal class MoodRepositoryImpl(
         // Callers pass either a slug (book-edit normalizes first) or free text (quick-add). Resolve by
         // slug FIRST so a multi-word mood is found — a name-only match misses it and drops the optimistic
         // write (no UI refresh) — then fall back to name for the free-text quick-add path.
-        val existing = (moodDao.findBySlug(name) ?: moodDao.findByName(name)) ?: return onlineAddMoodToBook(bookId, name)
+        val existing =
+            moodDao.findBySlug(name) ?: moodDao.findByName(name) ?: return onlineAddMoodToBook(bookId, name)
         return offlineEditor
             .edit(
                 OutboxChannels.BookMoods,
