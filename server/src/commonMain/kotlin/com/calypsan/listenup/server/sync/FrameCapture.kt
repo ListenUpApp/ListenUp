@@ -1,8 +1,12 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.api.sync.SyncFrame
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
+import kotlinx.coroutines.withContext
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 
@@ -32,4 +36,20 @@ internal class FrameCapture : AbstractCoroutineContextElement(Key) {
 
     /** A snapshot of the frames captured so far, in write (commit) order. */
     fun collected(): List<SyncFrame> = synchronized(lock) { frames.toList() }
+}
+
+/**
+ * Runs [block] inside a fresh [FrameCapture] scope and folds every sync frame its writes produced
+ * into a [Mutated] envelope alongside the block's value — the one-line server seam that makes a
+ * mutation read-your-writes.
+ *
+ * On success the returned [Mutated] carries the value plus the frames of every committed
+ * [SqlSyncableRepository] write [block] performed, however deep the fan-out. A [AppResult.Failure]
+ * passes through untouched (no envelope): any writes that DID commit before the failure still reach
+ * the originating device via the firehose, so nothing is lost — the response simply carries no
+ * read-your-writes optimisation on the failure path.
+ */
+internal suspend fun <T> withCapturedFrames(block: suspend () -> AppResult<T>): AppResult<Mutated<T>> {
+    val capture = FrameCapture()
+    return withContext(capture) { block() }.map { Mutated(it, capture.collected()) }
 }

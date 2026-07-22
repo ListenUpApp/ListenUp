@@ -164,7 +164,7 @@ interface MetadataLookupService {
         asin: String,
         region: MetadataLocale,
         ordinals: Set<Int>,
-    ): AppResult<Unit>
+    ): AppResult<Mutated<Unit>>
 
     /**
      * Applies the canonical Audible contributor metadata for [asin] to the

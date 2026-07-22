@@ -39,6 +39,7 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.sync.withCapturedFrames
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -239,12 +240,16 @@ internal class MetadataLookupServiceImpl(
         asin: String,
         region: MetadataLocale,
         ordinals: Set<Int>,
-    ): AppResult<Unit> {
+    ): AppResult<Mutated<Unit>> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return ChapterNameApplier(
-            bookRepository = bookRepository,
-            coordinator = coordinator,
-        ).apply(bookId, asin, region, ordinals)
+        // Echo-in-response: withCapturedFrames collects the book's own upsert frame so the chapter-name
+        // change applies read-your-writes on the originating device, not only via the later firehose.
+        return withCapturedFrames {
+            ChapterNameApplier(
+                bookRepository = bookRepository,
+                coordinator = coordinator,
+            ).apply(bookId, asin, region, ordinals)
+        }
     }
 
     override suspend fun applyContributorMetadata(
@@ -253,15 +258,16 @@ internal class MetadataLookupServiceImpl(
         region: MetadataLocale,
     ): AppResult<Mutated<Unit>> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return ContributorMetadataApplier(
-            contributorRepository = contributorRepository,
-            imageStorage = imageDeps.imageStorage,
-            coordinator = coordinator,
-            imageHome = imageDeps.imageHome,
-        ).apply(contributorId, asin, region)
-            // Echo-in-response: hand the originating device its own contributor event back as a wire
-            // frame so it applies read-your-writes immediately, instead of waiting on the live firehose.
-            .map { event -> Mutated(Unit, listOf(contributorRepository.toSyncFrame(event))) }
+        // Echo-in-response: withCapturedFrames collects the contributor's own upsert frame so the
+        // originating device applies its result read-your-writes, instead of waiting on the firehose.
+        return withCapturedFrames {
+            ContributorMetadataApplier(
+                contributorRepository = contributorRepository,
+                imageStorage = imageDeps.imageStorage,
+                coordinator = coordinator,
+                imageHome = imageDeps.imageHome,
+            ).apply(contributorId, asin, region)
+        }
     }
 
     override suspend fun searchCovers(

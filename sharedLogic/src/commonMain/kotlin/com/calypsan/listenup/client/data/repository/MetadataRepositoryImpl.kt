@@ -71,7 +71,7 @@ internal class MetadataRepositoryImpl(
         asin: String,
         region: MetadataLocale,
         ordinals: Set<Int>,
-    ): AppResult<Unit> = channel.call { it.applyChapterNames(bookId, asin, region, ordinals) }
+    ): AppResult<Unit> = channel.callMutation { it.applyChapterNames(bookId, asin, region, ordinals) }
 
     override suspend fun applyContributorMetadata(
         contributorId: ContributorId,

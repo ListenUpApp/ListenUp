@@ -141,11 +141,11 @@ class MetadataRepositoryImplTest :
                 .applyContributorMetadata(ContributorId("c1"), "A001", MetadataLocale.DEFAULT) shouldBe AppResult.Success(Unit)
         }
 
-        test("applyChapterNames delegates to service and returns Success") {
+        test("applyChapterNames delegates to service and unwraps Mutated.value") {
             val service = mock<MetadataLookupService>()
             everySuspend {
                 service.applyChapterNames(BookId("b1"), "B001", MetadataLocale.DEFAULT, setOf(0, 2))
-            } returns WireAppResult.Success(Unit)
+            } returns WireAppResult.Success(Mutated(Unit))
 
             buildRepo(service).applyChapterNames(BookId("b1"), "B001", MetadataLocale.DEFAULT, setOf(0, 2)) shouldBe
                 AppResult.Success(Unit)

@@ -3,7 +3,10 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mood
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -87,7 +90,70 @@ class FrameCaptureTest :
                 runTest {
                     // No capture in context: the hook is inert, the write behaves exactly as before.
                     val result = repo.upsert(Tag(id = "t1", name = "sci-fi", slug = "sci-fi", revision = 0, updatedAt = 0))
-                    result.shouldBeInstanceOf<com.calypsan.listenup.api.result.AppResult.Success<Tag>>()
+                    result.shouldBeInstanceOf<AppResult.Success<Tag>>()
+                }
+            }
+        }
+
+        test("withCapturedFrames folds the block's value and its writes' frames into Mutated") {
+            withSqlDatabase {
+                val repo = TagRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val result =
+                        withCapturedFrames {
+                            repo.upsert(Tag(id = "t1", name = "sci-fi", slug = "sci-fi", revision = 0, updatedAt = 0))
+                            AppResult.Success(Unit)
+                        }
+
+                    result.shouldBeInstanceOf<AppResult.Success<Mutated<Unit>>>()
+                    val mutated = (result as AppResult.Success).data
+                    mutated.value shouldBe Unit
+                    mutated.frames shouldHaveSize 1
+                    mutated.frames.single().domain shouldBe "tags"
+                }
+            }
+        }
+
+        test("withCapturedFrames passes a Failure through and carries no envelope") {
+            withSqlDatabase {
+                val repo = TagRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val result: AppResult<Mutated<Unit>> =
+                        withCapturedFrames {
+                            // A committed write whose overall operation then fails: the frame rides the
+                            // firehose, but the failed response carries no Mutated envelope.
+                            repo.upsert(Tag(id = "t1", name = "sci-fi", slug = "sci-fi", revision = 0, updatedAt = 0))
+                            AppResult.Failure(SyncError.NotFound(domain = "tags", entityId = "x"))
+                        }
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                }
+            }
+        }
+
+        test("each withCapturedFrames call collects only its own writes") {
+            withSqlDatabase {
+                val repo = TagRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val first =
+                        withCapturedFrames {
+                            repo.upsert(Tag(id = "a", name = "a", slug = "a", revision = 0, updatedAt = 0))
+                            AppResult.Success(Unit)
+                        }
+                    val second =
+                        withCapturedFrames {
+                            repo.upsert(Tag(id = "b", name = "b", slug = "b", revision = 0, updatedAt = 0))
+                            AppResult.Success(Unit)
+                        }
+
+                    (first as AppResult.Success).data.frames.single().let { frame ->
+                        val event = contractJson.decodeFromString(SyncEvent.serializer(Tag.serializer()), frame.json)
+                        event.id shouldBe "a"
+                    }
+                    (second as AppResult.Success).data.frames.single().let { frame ->
+                        val event = contractJson.decodeFromString(SyncEvent.serializer(Tag.serializer()), frame.json)
+                        event.id shouldBe "b"
+                    }
                 }
             }
         }

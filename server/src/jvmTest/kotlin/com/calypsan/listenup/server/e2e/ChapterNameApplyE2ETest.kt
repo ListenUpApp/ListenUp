@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -47,6 +48,7 @@ import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -95,7 +97,13 @@ class ChapterNameApplyE2ETest :
                     val result =
                         ctx.service.applyChapterNames(BookId("e2e-book"), ASIN, MetadataLocale("us"), setOf(0, 2))
 
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    val success = result.shouldBeInstanceOf<AppResult.Success<Mutated<Unit>>>()
+                    // Echo-in-response: the response carries the book's own frame (captured via
+                    // withCapturedFrames) so the originating device applies the rename read-your-writes.
+                    success.data.frames shouldHaveSize 1
+                    success.data.frames
+                        .single()
+                        .domain shouldBe ctx.bookRepo.domainName
                     val after =
                         ctx.bookRepo
                             .findById(BookId("e2e-book"))
