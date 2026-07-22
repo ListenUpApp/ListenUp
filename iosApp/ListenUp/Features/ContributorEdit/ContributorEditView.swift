@@ -55,7 +55,9 @@ struct ContributorEditView: View {
                             AppTextField(
                                 placeholder: "",
                                 text: Binding(get: { observer.website }, set: { observer.onWebsiteChanged($0) }),
-                                label: String(localized: "contributor.edit_website")
+                                label: String(localized: "contributor.edit_website"),
+                                keyboardType: .URL,
+                                textContentType: .URL
                             )
                             .fieldCard()
                             EditDateField(
