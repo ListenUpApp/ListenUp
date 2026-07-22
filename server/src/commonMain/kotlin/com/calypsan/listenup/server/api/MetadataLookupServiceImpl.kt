@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -250,7 +251,7 @@ internal class MetadataLookupServiceImpl(
         contributorId: ContributorId,
         asin: String,
         region: MetadataLocale,
-    ): AppResult<Unit> {
+    ): AppResult<Mutated<Unit>> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         return ContributorMetadataApplier(
             contributorRepository = contributorRepository,
@@ -258,6 +259,9 @@ internal class MetadataLookupServiceImpl(
             coordinator = coordinator,
             imageHome = imageDeps.imageHome,
         ).apply(contributorId, asin, region)
+            // Echo-in-response: hand the originating device its own contributor event back as a wire
+            // frame so it applies read-your-writes immediately, instead of waiting on the live firehose.
+            .map { event -> Mutated(Unit, listOf(contributorRepository.toSyncFrame(event))) }
     }
 
     override suspend fun searchCovers(

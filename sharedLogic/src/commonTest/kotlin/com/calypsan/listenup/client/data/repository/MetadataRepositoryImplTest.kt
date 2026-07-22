@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.metadata.MetadataLocale
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
@@ -130,11 +131,11 @@ class MetadataRepositoryImplTest :
             buildRepo(service).applyBookMetadata(BookId("b1"), "B001", MetadataLocale.DEFAULT, sel) shouldBe AppResult.Success(Unit)
         }
 
-        test("applyContributorMetadata delegates to service and returns Success") {
+        test("applyContributorMetadata delegates to service and unwraps Mutated.value") {
             val service = mock<MetadataLookupService>()
             everySuspend {
                 service.applyContributorMetadata(ContributorId("c1"), "A001", MetadataLocale.DEFAULT)
-            } returns WireAppResult.Success(Unit)
+            } returns WireAppResult.Success(Mutated(Unit))
 
             buildRepo(service)
                 .applyContributorMetadata(ContributorId("c1"), "A001", MetadataLocale.DEFAULT) shouldBe AppResult.Success(Unit)

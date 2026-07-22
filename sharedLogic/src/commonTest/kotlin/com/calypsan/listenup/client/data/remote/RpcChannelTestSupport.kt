@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.client.data.sync.SyncFrameApplier
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
@@ -80,7 +81,8 @@ internal class ScriptedRpcDispatch<S : Any>(
 internal fun <S : Any> RpcChannel.Companion.forTest(
     service: S,
     policy: RpcPolicy = RpcPolicy.Authed,
-): RpcChannel<S> = RpcChannel(DirectRpcDispatch(service), policy)
+    frameApplier: SyncFrameApplier? = null,
+): RpcChannel<S> = RpcChannel(DirectRpcDispatch(service), policy, frameApplier = frameApplier)
 
 /** As [forTest], but the dispatch throws [faults] in order before reaching the service. */
 internal fun <S : Any> RpcChannel.Companion.forTestScripted(

@@ -141,11 +141,7 @@ internal class SyncStreamServiceImpl(
             }
             return null
         }
-        return SyncFrame(
-            domain = busEvent.repo.domainName,
-            revision = busEvent.event.revision,
-            json = busEvent.repo.encodeSyncEventAsJson(busEvent.event),
-        )
+        return busEvent.repo.toSyncFrame(busEvent.event)
     }
 
     /**

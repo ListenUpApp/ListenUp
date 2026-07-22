@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.MetadataContributorProfile
 import com.calypsan.listenup.api.dto.MetadataSearchResults
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import kotlinx.rpc.annotations.Rpc
@@ -172,12 +173,16 @@ interface MetadataLookupService {
      * The server enriches the persisted contributor entity (name, sort name,
      * description, image) and emits a sync event. The caller should confirm
      * the match in a preview UI before calling this method.
+     *
+     * Returns the change as a [Mutated] envelope carrying the contributor's own sync frame, so the
+     * originating device applies its result read-your-writes the instant this returns rather than
+     * waiting on the live firehose to echo it back (see [Mutated]).
      */
     suspend fun applyContributorMetadata(
         contributorId: ContributorId,
         asin: String,
         region: MetadataLocale,
-    ): AppResult<Unit>
+    ): AppResult<Mutated<Unit>>
 
     /**
      * Searches Audible + iTunes in parallel for cover-art candidates for the book

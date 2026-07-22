@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomainKey
@@ -256,7 +257,24 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         value: T,
         clientOpId: String? = null,
         userId: String? = null,
-    ): AppResult<T> {
+    ): AppResult<T> = upsertReturningEvent(value, clientOpId, userId).map { it.first }
+
+    /**
+     * [upsert], but surfacing the [SyncEvent] it publishes alongside the saved aggregate.
+     *
+     * Identical write semantics to [upsert] — the base delegates to this — with one addition: the
+     * `Created`/`Updated` event it defers to the firehose is also returned. The echo-in-response
+     * mutation path (`applyContributorMetadata` and friends) uses this to hand the originating
+     * device its own change back through the RPC response as a [com.calypsan.listenup.api.sync.SyncFrame],
+     * so it applies read-your-writes the instant the call returns instead of waiting on the live
+     * firehose. The returned event is the SAME instance the firehose broadcasts — projected to a
+     * frame by the shared [SyncableRepo.toSyncFrame], never re-derived.
+     */
+    open suspend fun upsertReturningEvent(
+        value: T,
+        clientOpId: String? = null,
+        userId: String? = null,
+    ): AppResult<Pair<T, SyncEvent<T>>> {
         if (userScoped) {
             requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
         }
@@ -301,7 +319,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                 log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
             }
 
-            AppResult.Success(saved)
+            AppResult.Success(saved to event)
         }
     }
 
