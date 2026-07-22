@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -309,6 +310,9 @@ private fun ArtistStudioContent(
         modifier =
             modifier
                 .fillMaxSize()
+                // Inset the scroll range by the keyboard so the focused field (e.g. the last one)
+                // scrolls above the IME instead of hiding behind it. Matches EditProfileScreen.
+                .imePadding()
                 .verticalScroll(rememberScrollState()),
     ) {
         // Identity Header with avatar and name
