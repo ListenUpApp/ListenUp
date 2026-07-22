@@ -66,21 +66,10 @@ struct BookEditView: View {
 
             textFields(observer)
 
-            contributorSection(
-                title: String(localized: "book.edit_authors"),
-                empty: String(localized: "book.edit_no_authors"),
-                contributors: observer.authors,
-                role: .author,
-                observer: observer
-            )
-
-            contributorSection(
-                title: String(localized: "book.edit_narrators"),
-                empty: String(localized: "book.edit_no_narrators"),
-                contributors: observer.narrators,
-                role: .narrator,
-                observer: observer
-            )
+            ForEach(observer.roleSections) { section in
+                roleSection(section, observer: observer)
+            }
+            addRoleMenu(observer)
 
             seriesSection(observer)
             genresSection(observer)
@@ -144,40 +133,75 @@ struct BookEditView: View {
 
     // MARK: - Relational sections
 
-    private func contributorSection(
-        title: String,
-        empty: String,
-        contributors: [EditableRelation],
-        role: ContributorRole,
-        observer: BookEditObserver
-    ) -> some View {
-        let roleKind: RoleChip.Kind = role == .author ? .author : .narrator
-        let isAuthor = role == .author
-        return EditSection(title: title) {
-            if contributors.isEmpty {
-                EmptyRelationHint(text: empty)
+    /// One dynamic contributor-role section (Author, Narrator, Editor, …), driven entirely by the
+    /// shared VM's visible roles via `observer.roleSections`. Any role but Author can be removed.
+    private func roleSection(_ section: BookEditRoleSection, observer: BookEditObserver) -> some View {
+        EditSection(title: section.title) {
+            if section.contributors.isEmpty {
+                EmptyRelationHint(text: String(localized: "book.edit_no_contributors"))
             } else {
                 ChipFlow {
-                    ForEach(contributors) { contributor in
+                    ForEach(section.contributors) { contributor in
                         RemovableChip(
                             label: contributor.label,
-                            roleKind: roleKind,
+                            roleKind: Self.roleChipKind(section.role),
                             removeLabel: String(format: String(localized: "common.remove_name"), contributor.label),
-                            onRemove: { observer.removeContributor(contributor, role: role) }
+                            onRemove: { observer.removeContributor(contributor, role: section.role) }
                         )
                     }
                 }
             }
             RelationSearchField(
-                placeholder: String(localized: isAuthor ? "book.edit_add_author" : "book.edit_add_narrator"),
-                query: isAuthor ? observer.authorQuery : observer.narratorQuery,
-                results: isAuthor ? observer.authorResults : observer.narratorResults,
-                isLoading: isAuthor ? observer.authorSearching : observer.narratorSearching,
+                placeholder: String(localized: "book.edit_add_contributor"),
+                query: section.query,
+                results: section.results,
+                isLoading: section.searching,
                 allowsCreate: true,
-                onQueryChange: { observer.setContributorQuery($0, role: role) },
-                onSelect: { observer.selectContributorResult($0, role: role) },
-                onCreate: { observer.enterContributor($0, role: role) }
+                onQueryChange: { observer.setContributorQuery($0, role: section.role) },
+                onSelect: { observer.selectContributorResult($0, role: section.role) },
+                onCreate: { observer.enterContributor($0, role: section.role) }
             )
+            if section.canRemove {
+                Button {
+                    observer.removeRole(section.role)
+                } label: {
+                    Label(
+                        String(format: String(localized: "common.remove_name"), section.title),
+                        systemImage: "minus.circle"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(Color.luLabel3)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    /// The "Add role" menu — lists every role not currently shown, adding a section on tap.
+    @ViewBuilder
+    private func addRoleMenu(_ observer: BookEditObserver) -> some View {
+        if !observer.addableRoles.isEmpty {
+            Menu {
+                ForEach(observer.addableRoles) { addable in
+                    Button(addable.title) { observer.addRole(addable.role) }
+                }
+            } label: {
+                Label(String(localized: "book.edit_add_role"), systemImage: "plus.circle")
+                    .font(.subheadline.weight(.medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.luFill.opacity(0.6)))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Author/Narrator keep their role glyph; the other roles render without one (like series/genres).
+    private static func roleChipKind(_ role: ContributorRole) -> RoleChip.Kind? {
+        switch role {
+        case .author: return .author
+        case .narrator: return .narrator
+        default: return nil
         }
     }
 

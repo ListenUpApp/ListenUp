@@ -3201,6 +3201,16 @@
         }
       }
     },
+    "book.edit_add_contributor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add contributor…"
+          }
+        }
+      }
+    },
     "book.edit_add_genre": {
       "localizations": {
         "en": {
@@ -3447,6 +3457,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No collections yet."
+          }
+        }
+      }
+    },
+    "book.edit_no_contributors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None yet."
           }
         }
       }
@@ -3707,6 +3727,106 @@
           "stringUnit": {
             "state": "translated",
             "value": "p. %1$d"
+          }
+        }
+      }
+    },
+    "book.role_adapter": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adapter"
+          }
+        }
+      }
+    },
+    "book.role_afterword": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afterword"
+          }
+        }
+      }
+    },
+    "book.role_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author"
+          }
+        }
+      }
+    },
+    "book.role_editor": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Editor"
+          }
+        }
+      }
+    },
+    "book.role_foreword": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foreword"
+          }
+        }
+      }
+    },
+    "book.role_illustrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Illustrator"
+          }
+        }
+      }
+    },
+    "book.role_introduction": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Introduction"
+          }
+        }
+      }
+    },
+    "book.role_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Narrator"
+          }
+        }
+      }
+    },
+    "book.role_producer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Producer"
+          }
+        }
+      }
+    },
+    "book.role_translator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translator"
           }
         }
       }

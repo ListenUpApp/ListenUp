@@ -321,6 +321,7 @@ One beautiful library.</string>
     <string name="book_edit_abridged">Abridged</string>
     <string name="book_edit_add_author">Add author…</string>
     <string name="book_edit_add_collection">Add collection…</string>
+    <string name="book_edit_add_contributor">Add contributor…</string>
     <string name="book_edit_add_genre">Add genre…</string>
     <string name="book_edit_add_mood">Add mood…</string>
     <string name="book_edit_add_narrator">Add narrator…</string>
@@ -346,6 +347,7 @@ One beautiful library.</string>
     <string name="book_edit_narrators">Narrators</string>
     <string name="book_edit_no_authors">No authors yet.</string>
     <string name="book_edit_no_collections">No collections yet.</string>
+    <string name="book_edit_no_contributors">None yet.</string>
     <string name="book_edit_no_genres">No genres yet.</string>
     <string name="book_edit_no_matches">No matches.</string>
     <string name="book_edit_no_moods">No moods yet.</string>
@@ -372,6 +374,16 @@ One beautiful library.</string>
     <string name="book_edit_you_have_unsaved_changes_are">You have unsaved changes. Are you sure you want to discard them?</string>
     <string name="book_reader_scrubber_page_count">%1$d</string>
     <string name="book_reader_scrubber_page_label">p. %1$d</string>
+    <string name="book_role_adapter">Adapter</string>
+    <string name="book_role_afterword">Afterword</string>
+    <string name="book_role_author">Author</string>
+    <string name="book_role_editor">Editor</string>
+    <string name="book_role_foreword">Foreword</string>
+    <string name="book_role_illustrator">Illustrator</string>
+    <string name="book_role_introduction">Introduction</string>
+    <string name="book_role_narrator">Narrator</string>
+    <string name="book_role_producer">Producer</string>
+    <string name="book_role_translator">Translator</string>
     <string name="book_show_all_chapters">Show all %1$d chapters</string>
     <string name="book_time_left">%1$s left</string>
     <string name="browse_facet_books_label">Books</string>
