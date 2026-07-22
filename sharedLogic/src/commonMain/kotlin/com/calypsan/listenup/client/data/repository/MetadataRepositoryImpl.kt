@@ -64,14 +64,14 @@ internal class MetadataRepositoryImpl(
         asin: String,
         region: MetadataLocale,
         selection: MetadataApplySelection,
-    ): AppResult<Unit> = channel.call { it.applyBookMetadata(bookId, asin, region, selection) }
+    ): AppResult<Unit> = channel.callMutation { it.applyBookMetadata(bookId, asin, region, selection) }
 
     override suspend fun applyChapterNames(
         bookId: BookId,
         asin: String,
         region: MetadataLocale,
         ordinals: Set<Int>,
-    ): AppResult<Unit> = channel.call { it.applyChapterNames(bookId, asin, region, ordinals) }
+    ): AppResult<Unit> = channel.callMutation { it.applyChapterNames(bookId, asin, region, ordinals) }
 
     override suspend fun applyContributorMetadata(
         contributorId: ContributorId,

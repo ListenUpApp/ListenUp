@@ -282,45 +282,55 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         // the revision still bumps and the row still commits, but a suppressed write skips
         // the live-tail publish (see [FirehoseSuppressed]).
         val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
-        return suspendTransaction(db) {
-            val rev = nextRevision()
-            val now = clock.now().toEpochMilliseconds()
-            val idStr = idAsString(value.id)
+        // Ambient frame capture (echo-in-response): if a [FrameCapture] is in scope, the committed
+        // event is appended to it as a wire frame — the same one the firehose emits — so a mutation
+        // hands the originating device its own change back with no per-write threading. Read here in
+        // the suspend scope for the same reason [suppressed] is, and honour suppression identically.
+        val capture = currentCoroutineContext()[FrameCapture.Key]
+        val result =
+            suspendTransaction(db) {
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                val idStr = idAsString(value.id)
 
-            val existed = substrate.existsById(idStr)
+                val existed = substrate.existsById(idStr)
 
-            writePayload(value, rev, now, clientOpId, userId, existed)
+                writePayload(value, rev, now, clientOpId, userId, existed)
 
-            val saved =
-                readPayload(idStr)
-                    ?: error("readPayload returned null immediately after writePayload for $idStr")
+                val saved =
+                    readPayload(idStr)
+                        ?: error("readPayload returned null immediately after writePayload for $idStr")
 
-            val event =
-                if (existed) {
-                    SyncEvent.Updated(
-                        id = idStr,
-                        revision = rev,
-                        occurredAt = now,
-                        clientOpId = clientOpId,
-                        payload = saved,
-                    )
+                val event =
+                    if (existed) {
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                            payload = saved,
+                        )
+                    } else {
+                        SyncEvent.Created(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                            payload = saved,
+                        )
+                    }
+                if (!suppressed) {
+                    deferEmit(event, userId)
                 } else {
-                    SyncEvent.Created(
-                        id = idStr,
-                        revision = rev,
-                        occurredAt = now,
-                        clientOpId = clientOpId,
-                        payload = saved,
-                    )
+                    log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
                 }
-            if (!suppressed) {
-                deferEmit(event, userId)
-            } else {
-                log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
-            }
 
-            AppResult.Success(saved to event)
+                AppResult.Success(saved to event)
+            }
+        if (capture != null && !suppressed && result is AppResult.Success) {
+            capture.add(toSyncFrame(result.data.second))
         }
+        return result
     }
 
     /**
@@ -464,43 +474,49 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
             requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
         }
         val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
-        return suspendTransaction(db) {
-            val rev = nextRevision()
-            val now = clock.now().toEpochMilliseconds()
-            val idStr = idAsString(id)
-            val rowsAffected =
-                substrate.softDeleteById(
-                    id = idStr,
-                    revision = rev,
-                    updatedAt = now,
-                    deletedAt = now,
-                    clientOpId = clientOpId,
-                )
-            if (rowsAffected == 0L) {
-                AppResult.Failure(
-                    SyncError.NotFound(
-                        domain = domainName,
-                        entityId = idStr,
-                    ),
-                )
-            } else {
-                if (!suppressed) {
-                    deferEmit(
-                        event =
-                            SyncEvent.Deleted(
-                                id = idStr,
-                                revision = rev,
-                                occurredAt = now,
-                                clientOpId = clientOpId,
-                            ),
-                        userId = userId,
+        val capture = currentCoroutineContext()[FrameCapture.Key]
+        val result =
+            suspendTransaction(db) {
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                val idStr = idAsString(id)
+                val rowsAffected =
+                    substrate.softDeleteById(
+                        id = idStr,
+                        revision = rev,
+                        updatedAt = now,
+                        deletedAt = now,
+                        clientOpId = clientOpId,
+                    )
+                if (rowsAffected == 0L) {
+                    AppResult.Failure(
+                        SyncError.NotFound(
+                            domain = domainName,
+                            entityId = idStr,
+                        ),
                     )
                 } else {
-                    log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
+                    val event =
+                        SyncEvent.Deleted(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                        )
+                    if (!suppressed) {
+                        deferEmit(event = event, userId = userId)
+                    } else {
+                        log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
+                    }
+                    AppResult.Success(event)
                 }
-                AppResult.Success(Unit)
             }
+        // Ambient frame capture: mirror the firehose emit above so a mutation's own deletions reach
+        // the originating device read-your-writes (see [FrameCapture]). Suppressed writes append nothing.
+        if (capture != null && !suppressed && result is AppResult.Success) {
+            capture.add(toSyncFrame(result.data))
         }
+        return result.map { }
     }
 
     /**

@@ -3,9 +3,7 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.metadata.MetadataLocale
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.map
-import com.calypsan.listenup.api.sync.ContributorSyncPayload
-import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.logging.loggerFor
@@ -49,7 +47,7 @@ internal class ContributorMetadataApplier(
         contributorId: ContributorId,
         asin: String,
         locale: MetadataLocale,
-    ): AppResult<SyncEvent<ContributorSyncPayload>> {
+    ): AppResult<Unit> {
         val existing =
             contributorRepository.findById(contributorId.value)
                 ?: return AppResult.Failure(
@@ -88,7 +86,7 @@ internal class ContributorMetadataApplier(
                 imagePath = imagePath ?: existing.imagePath,
             )
 
-        return contributorRepository.upsertReturningEvent(updated, clientOpId = null).map { it.second }
+        return contributorRepository.upsert(updated, clientOpId = null).flatMap { AppResult.Success(Unit) }
     }
 
     /**
