@@ -2,9 +2,12 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.connection.ConnectionEvidence
+import com.calypsan.listenup.client.data.sync.SyncFrameApplier
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -106,6 +109,10 @@ internal class RpcChannel<S : Any> internal constructor(
     // up/down evidence with zero per-service wiring (the whole point of the single boundary).
     // Nullable only so test fixtures without a connection-health graph can omit it.
     private val evidence: ConnectionEvidence? = null,
+    // Read-your-writes sink: [callMutation] routes a mutation's returned frames through this so the
+    // originating device applies its own change immediately. Nullable only so channel-only test
+    // graphs (and graphs with no sync engine) can omit it — a null applier means today's behaviour.
+    private val frameApplier: SyncFrameApplier? = null,
 ) : RemoteCache {
     /**
      * Run one RPC against the service with bounded, self-healing recovery, folding the outcome into
@@ -126,6 +133,28 @@ internal class RpcChannel<S : Any> internal constructor(
     ): AppResult<T> =
         catchingRpcResult { dispatch.call(timeout, idempotent) { service -> block(service) } }
             .also { evidence?.recordOutcome(it) }
+
+    /**
+     * Run a mutation that returns a [Mutated] envelope, apply the sync frames it carries, and hand
+     * the caller back the bare value — so any mutation is read-your-writes for free.
+     *
+     * This is [call] plus one step: on [AppResult.Success] the returned frames route through the
+     * injected [SyncFrameApplier] (each frame → its domain handler's `onEvent` → Room), then the
+     * envelope's `value` is unwrapped. The originating device applies its own change the instant the
+     * call returns instead of waiting on the live firehose. A [AppResult.Failure] carries no envelope
+     * to apply and passes through untouched — identical to today's behaviour.
+     *
+     * A mutation is never idempotent, so it always rides `call(idempotent = false)`: a lost response
+     * surfaces as outcome-unknown (nothing to apply), never a blind re-fire.
+     */
+    suspend fun <T> callMutation(
+        timeout: Duration = policy.defaultTimeout,
+        block: suspend (S) -> AppResult<Mutated<T>>,
+    ): AppResult<T> =
+        call(timeout, idempotent = false, block).map { mutated ->
+            frameApplier?.apply(mutated.frames)
+            mutated.value
+        }
 
     /**
      * Subscribe to a server-pushed stream. Collection is **never** bounded by a timeout.
@@ -203,6 +232,10 @@ internal inline fun <reified S : Any> Module.rpcChannel(policy: RpcPolicy = RpcP
                 ) { client, baseUrl -> client.rpc("$baseUrl${policy.mount}").withService<S>() },
             policy = policy,
             evidence = get(),
+            // getOrNull: the applier is registered by the sync module, which the real app loads
+            // alongside every channel. Channel-only / no-sync-engine test graphs omit it and get a
+            // null applier (today's behaviour) rather than a resolution failure.
+            frameApplier = getOrNull(),
         )
     } binds arrayOf(RemoteCache::class)
 }

@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.data.sync.RpcSyncStreamClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
+import com.calypsan.listenup.client.data.sync.SyncFrameApplier
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
@@ -103,6 +104,10 @@ internal val clientSyncModule =
         single { get<ListenUpDatabase>().pendingOperationV2Dao() }
 
         single { ClientSyncDomainRegistry() }
+        // Read-your-writes: RpcChannel.callMutation routes a mutation's returned frames through this
+        // into the same per-domain apply pipeline the firehose uses. Lives here (next to the registry
+        // it depends on) so RpcChannel resolves it via getOrNull only in graphs that run the sync engine.
+        single { SyncFrameApplier(registry = get()) }
         single { SyncEngineState() }
         single {
             ConnectionHealthStore(

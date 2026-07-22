@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.SyncFrame
 
 /**
  * The minimal sync-substrate contract the firehose/catch-up plumbing
@@ -48,6 +49,20 @@ interface SyncableRepo<T : Any> {
      * information through the registry.
      */
     fun encodeSyncEventAsJson(event: SyncEvent<*>): String
+
+    /**
+     * Projects [event] to the wire [SyncFrame] the firehose delivers — `domain` + `revision` +
+     * the event serialized via [encodeSyncEventAsJson]. This is the single conversion both the
+     * firehose ([com.calypsan.listenup.server.sync.SyncStreamServiceImpl]) and the echo-in-response
+     * mutation path use, so an originating device applies byte-identical frames to the ones every
+     * other client receives — there is no second, drift-prone conversion.
+     */
+    fun toSyncFrame(event: SyncEvent<*>): SyncFrame =
+        SyncFrame(
+            domain = domainName,
+            revision = event.revision,
+            json = encodeSyncEventAsJson(event),
+        )
 
     /**
      * Returns up to [limit] aggregates whose root row has `revision > cursor`,

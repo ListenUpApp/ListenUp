@@ -77,5 +77,5 @@ internal class MetadataRepositoryImpl(
         contributorId: ContributorId,
         asin: String,
         region: MetadataLocale,
-    ): AppResult<Unit> = channel.call { it.applyContributorMetadata(contributorId, asin, region) }
+    ): AppResult<Unit> = channel.callMutation { it.applyContributorMetadata(contributorId, asin, region) }
 }
