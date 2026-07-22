@@ -209,6 +209,21 @@ data class BookEditUiState(
         get() = ContributorRole.entries.filter { it in visibleRoles }
 
     /**
+     * iOS-only projection of [orderedVisibleRoles] as `apiValue` strings. Swift Export boxes the
+     * *elements* of a bridged `List<ContributorRole>` as opaque existentials that trap when Swift
+     * casts them back to the enum ("Could not cast … to …ContributorRole") — the same trap as the
+     * map-key subscript above, but for reading enum values out of a list. iOS reads these strings and
+     * reconstructs the enum locally; a Swift-constructed [ContributorRole] passes safely back into
+     * [contributorsForRole]/[searchQueryForRole]/etc. (the function-argument direction that bridges).
+     */
+    val orderedVisibleRoleApiValues: List<String>
+        get() = orderedVisibleRoles.map { it.apiValue }
+
+    /** iOS-only `apiValue` projection of [availableRolesToAdd] — see [orderedVisibleRoleApiValues]. */
+    val availableRoleApiValuesToAdd: List<String>
+        get() = availableRolesToAdd.map { it.apiValue }
+
+    /**
      * Bridge-safe role-generic search accessors: the map subscript happens HERE in Kotlin, so Swift
      * only ever passes a [ContributorRole] enum as a function argument (which bridges safely) —
      * never subscripts the bridged `[ContributorRole: …]` map itself (which traps; see above).

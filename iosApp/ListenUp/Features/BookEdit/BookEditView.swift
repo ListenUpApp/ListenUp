@@ -233,9 +233,9 @@ struct BookEditView: View {
                     ForEach(section.contributors) { contributor in
                         RemovableChip(
                             label: contributor.label,
-                            roleKind: Self.roleChipKind(section.role),
+                            roleKind: Self.roleChipKind(section.id),
                             removeLabel: String(format: String(localized: "common.remove_name"), contributor.label),
-                            onRemove: { observer.removeContributor(contributor, role: section.role) }
+                            onRemove: { observer.removeContributor(contributor, roleApiValue: section.id) }
                         )
                     }
                 }
@@ -246,13 +246,13 @@ struct BookEditView: View {
                 results: section.results,
                 isLoading: section.searching,
                 allowsCreate: true,
-                onQueryChange: { observer.setContributorQuery($0, role: section.role) },
-                onSelect: { observer.selectContributorResult($0, role: section.role) },
-                onCreate: { observer.enterContributor($0, role: section.role) }
+                onQueryChange: { observer.setContributorQuery($0, roleApiValue: section.id) },
+                onSelect: { observer.selectContributorResult($0, roleApiValue: section.id) },
+                onCreate: { observer.enterContributor($0, roleApiValue: section.id) }
             )
             if section.canRemove {
                 Button {
-                    observer.removeRole(section.role)
+                    observer.removeRole(roleApiValue: section.id)
                 } label: {
                     Label(
                         String(format: String(localized: "common.remove_name"), section.title),
@@ -272,7 +272,7 @@ struct BookEditView: View {
         if !observer.addableRoles.isEmpty {
             Menu {
                 ForEach(observer.addableRoles) { addable in
-                    Button(addable.title) { observer.addRole(addable.role) }
+                    Button(addable.title) { observer.addRole(roleApiValue: addable.id) }
                 }
             } label: {
                 Label(String(localized: "book.edit_add_role"), systemImage: "plus.circle")
@@ -286,10 +286,11 @@ struct BookEditView: View {
     }
 
     /// Author/Narrator keep their role glyph; the other roles render without one (like series/genres).
-    private static func roleChipKind(_ role: ContributorRole) -> RoleChip.Kind? {
-        switch role {
-        case .author: return .author
-        case .narrator: return .narrator
+    /// Keyed by the role's `apiValue` string — Swift never handles a bridged `ContributorRole` value.
+    private static func roleChipKind(_ apiValue: String) -> RoleChip.Kind? {
+        switch apiValue {
+        case "author": return .author
+        case "narrator": return .narrator
         default: return nil
         }
     }
