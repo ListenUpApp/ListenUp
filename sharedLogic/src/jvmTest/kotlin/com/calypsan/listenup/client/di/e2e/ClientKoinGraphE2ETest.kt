@@ -97,6 +97,38 @@ class ClientKoinGraphE2ETest :
             }
         }
 
+        test("no ViewModel is registered as a Koin singleton") {
+            val fixture = autoClose(DiWiredClientFixture.start())
+            val koin = fixture.koin.koin
+
+            // koinViewModel() scopes a fresh instance per ViewModelStore, so a ViewModel MUST be a
+            // `factory`. A `single` binds its viewModelScope to the first owning store; when that
+            // store is cleared, onCleared() cancels the scope and the re-served singleton is a
+            // zombie — dead collectors, state.stateIn(deadScope) frozen forever. AdminViewModel as a
+            // `single` stranded the admin "pending registrations" list empty after navigating the
+            // ABS-import flow (2026-07-21): its observeRoster() collector died with the cleared
+            // store and never re-ran. This pins the invariant the libraryPresentationModule comment
+            // documents but nothing enforced.
+            // The one justified exception: NowPlayingViewModel's init acquires a process-singleton
+            // playback controller (playbackController.acquire()) and it has two koinViewModel()
+            // consumers in separate nav stores (the shell mini-player + the document viewer), so a
+            // factory would double-acquire. Making it a factory needs the acquisition extracted into
+            // a singleton service first — tracked in docs/superpowers/followups.md. Every other VM
+            // must be a factory.
+            val allowedSingletonViewModels = setOf("NowPlayingViewModel")
+
+            @OptIn(KoinInternalApi::class)
+            val singletonViewModels =
+                koin.instanceRegistry.instances.values
+                    .map { it.beanDefinition }
+                    .filter { it.primaryType.simpleName?.endsWith("ViewModel") == true }
+                    .filter { it.kind == Kind.Singleton }
+                    .mapNotNull { it.primaryType.simpleName }
+                    .toSortedSet()
+
+            singletonViewModels - allowedSingletonViewModels shouldBe emptySet()
+        }
+
         test("every RemoteCache RPC factory is enrolled in the invalidation set") {
             val fixture = autoClose(DiWiredClientFixture.start())
             val koin = fixture.koin.koin
