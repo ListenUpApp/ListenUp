@@ -64,7 +64,7 @@ struct BookEditView: View {
             }
             .padding(.top, 8)
 
-            textFields(observer)
+            identityFields(observer)
 
             ForEach(observer.roleSections) { section in
                 roleSection(section, observer: observer)
@@ -78,12 +78,17 @@ struct BookEditView: View {
             if observer.isAdmin {
                 collectionsSection(observer)
             }
+
+            catalogFields(observer)
         }
         .padding(.horizontal)
     }
 
+    /// Identity fields at the top of the form (positions 1–5 of the people-first order): Title,
+    /// Subtitle, Sort Title, Description. Publishing/identifier metadata lives in [catalogFields] at
+    /// the bottom so the order matches Android's Book Edit screen.
     @ViewBuilder
-    private func textFields(_ observer: BookEditObserver) -> some View {
+    private func identityFields(_ observer: BookEditObserver) -> some View {
         VStack(spacing: 14) {
             AppTextField(
                 placeholder: "",
@@ -113,7 +118,14 @@ struct BookEditView: View {
                 axis: .vertical
             )
             .fieldCard()
+        }
+    }
 
+    /// Catalog metadata at the bottom of the form (positions 12–18): Publisher, Year, Language,
+    /// ISBN, ASIN, Abridged, Date Added. Mirrors Android's Publishing → Identifiers → Library cards.
+    @ViewBuilder
+    private func catalogFields(_ observer: BookEditObserver) -> some View {
+        VStack(spacing: 14) {
             AppTextField(
                 placeholder: "",
                 text: Binding(get: { observer.publisher }, set: { observer.setPublisher($0) }),
@@ -128,6 +140,83 @@ struct BookEditView: View {
                 keyboardType: .numberPad
             )
             .fieldCard()
+
+            languageField(observer)
+
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.isbn }, set: { observer.setIsbn($0) }),
+                label: String(localized: "book.edit_isbn")
+            )
+            .fieldCard()
+
+            AppTextField(
+                placeholder: "",
+                text: Binding(get: { observer.asin }, set: { observer.setAsin($0) }),
+                label: String(localized: "book.edit_asin")
+            )
+            .fieldCard()
+
+            abridgedField(observer)
+            addedAtField(observer)
+        }
+    }
+
+    /// Language picker over the shared ISO 639-1 list, with a "None" option that clears it.
+    private func languageField(_ observer: BookEditObserver) -> some View {
+        LabeledFieldRow(label: String(localized: "book.edit_language")) {
+            Picker(
+                String(localized: "book.edit_language"),
+                selection: Binding(get: { observer.language }, set: { observer.setLanguage($0) })
+            ) {
+                Text(String(localized: "book.edit_language_none")).tag("")
+                ForEach(observer.languageOptions) { choice in
+                    Text(choice.name).tag(choice.code)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// Abridged toggle.
+    private func abridgedField(_ observer: BookEditObserver) -> some View {
+        Toggle(isOn: Binding(get: { observer.abridged }, set: { observer.setAbridged($0) })) {
+            Text(String(localized: "book.edit_abridged"))
+                .font(.body)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .fieldCard()
+    }
+
+    /// Date-added row: a date picker when set (with a clear button), or a "Set date" button when unset.
+    private func addedAtField(_ observer: BookEditObserver) -> some View {
+        LabeledFieldRow(label: String(localized: "book.edit_date_added")) {
+            HStack {
+                if let date = observer.addedAt {
+                    DatePicker(
+                        "",
+                        selection: Binding(get: { date }, set: { observer.setAddedAt($0) }),
+                        displayedComponents: .date
+                    )
+                    .labelsHidden()
+                    Spacer()
+                    Button {
+                        observer.setAddedAt(nil)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "common.clear_date"))
+                } else {
+                    Button(String(localized: "common.set_date")) { observer.setAddedAt(Date()) }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.luTint)
+                    Spacer()
+                }
+            }
         }
     }
 
@@ -437,6 +526,26 @@ private struct EmptyRelationHint: View {
         Text(text)
             .font(.subheadline)
             .foregroundStyle(Color.luLabel3)
+    }
+}
+
+/// A caption-labelled field card wrapping a non-text control (picker, date row) so it reads the
+/// same as an `AppTextField().fieldCard()`: caption above, control below, same insets and surface.
+private struct LabeledFieldRow<Content: View>: View {
+    let label: String
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(Color.luLabel2)
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .fieldCard()
     }
 }
 

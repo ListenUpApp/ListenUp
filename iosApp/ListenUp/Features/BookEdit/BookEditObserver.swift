@@ -25,6 +25,14 @@ struct AddableRole: Identifiable {
     let title: String
 }
 
+/// One ISO 639-1 language choice (code + display name) for the language picker. Native projection
+/// of the shared `LanguageOption`, so no bridged Kotlin object reaches the SwiftUI `Picker`.
+struct LanguageChoice: Identifiable, Hashable {
+    let code: String
+    let name: String
+    var id: String { code }
+}
+
 /// Observes `BookEditViewModel`, flattening `BookEditUiState` into `@Observable`
 /// properties and dispatching edits as `BookEditUiEvent`s. `NavigateBack` flips
 /// `didFinish` so the sheet dismisses.
@@ -47,6 +55,20 @@ final class BookEditObserver {
     private(set) var bookDescription: String = ""
     private(set) var publisher: String = ""
     private(set) var publishYear: String = ""
+    /// ISO 639-1 language code ("" = unset). Bound to a picker over `languageOptions`.
+    private(set) var language: String = ""
+    private(set) var isbn: String = ""
+    private(set) var asin: String = ""
+    private(set) var abridged: Bool = false
+    /// "Added to library" timestamp; `nil` = use the detected value. Kotlin `Long?` epoch millis
+    /// bridges to Swift `Int64?`, mapped to/from `Date` here.
+    private(set) var addedAt: Date?
+
+    /// ISO 639-1 language choices (common languages first) for the language picker — a native
+    /// projection of the shared `Language.getAllLanguages()`, built once.
+    let languageOptions: [LanguageChoice] = Language.shared.getAllLanguages().map {
+        LanguageChoice(code: $0.code, name: $0.name)
+    }
 
     // Cover
     private(set) var displayCoverPath: String?
@@ -143,6 +165,19 @@ final class BookEditObserver {
     }
     func setPublisher(_ value: String) { viewModel.onEvent(event: BookEditUiEventPublisherChanged(publisher: value)) }
     func setPublishYear(_ value: String) { viewModel.onEvent(event: BookEditUiEventPublishYearChanged(year: value)) }
+    /// A blank code clears the language selection back to "unset".
+    func setLanguage(_ code: String) {
+        viewModel.onEvent(event: BookEditUiEventLanguageChanged(code: code.isEmpty ? nil : code))
+    }
+    func setIsbn(_ value: String) { viewModel.onEvent(event: BookEditUiEventIsbnChanged(isbn: value)) }
+    func setAsin(_ value: String) { viewModel.onEvent(event: BookEditUiEventAsinChanged(asin: value)) }
+    func setAbridged(_ value: Bool) { viewModel.onEvent(event: BookEditUiEventAbridgedChanged(abridged: value)) }
+    /// `nil` clears the timestamp back to "use detected value".
+    func setAddedAt(_ date: Date?) {
+        viewModel.onEvent(event: BookEditUiEventAddedAtChanged(
+            epochMillis: date.map { Int64($0.timeIntervalSince1970 * 1000) }
+        ))
+    }
 
     // MARK: - Cover intents
 
@@ -272,6 +307,11 @@ final class BookEditObserver {
         bookDescription = state.description_
         publisher = state.publisher
         publishYear = state.publishYear
+        language = state.language ?? ""
+        isbn = state.isbn
+        asin = state.asin
+        abridged = state.abridged
+        addedAt = state.addedAt.map { Date(timeIntervalSince1970: Double($0) / 1000) }
         displayCoverPath = state.displayCoverPath
         coverHash = state.coverHash
         isUploadingCover = state.isUploadingCover

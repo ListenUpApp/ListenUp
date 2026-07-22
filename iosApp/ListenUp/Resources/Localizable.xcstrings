@@ -3291,6 +3291,16 @@
         }
       }
     },
+    "book.edit_asin": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ASIN"
+          }
+        }
+      }
+    },
     "book.edit_authors": {
       "localizations": {
         "en": {
@@ -3421,12 +3431,42 @@
         }
       }
     },
+    "book.edit_isbn": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ISBN"
+          }
+        }
+      }
+    },
     "book.edit_keep_editing": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Keep Editing"
+          }
+        }
+      }
+    },
+    "book.edit_language": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        }
+      }
+    },
+    "book.edit_language_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None"
           }
         }
       }
@@ -4897,6 +4937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Server"
+          }
+        }
+      }
+    },
+    "common.set_date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set date"
           }
         }
       }
