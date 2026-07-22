@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookIdNameRow
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
+import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
@@ -63,6 +64,7 @@ class FtsPopulatorTest :
             // Default stubs - empty lists
             everySuspend { fixture.bookDao.getAllLive() } returns emptyList()
             everySuspend { fixture.contributorDao.getAll() } returns emptyList()
+            everySuspend { fixture.contributorDao.getAllWithAliases() } returns emptyList()
             everySuspend { fixture.seriesDao.getAll() } returns emptyList()
 
             // Stub clear and insert operations
@@ -78,7 +80,7 @@ class FtsPopulatorTest :
 
             everySuspend { fixture.searchDao.insertBookFts(any(), any(), any(), any(), any(), any(), any(), any()) } returns
                 Unit
-            everySuspend { fixture.searchDao.insertContributorFts(any(), any(), any()) } returns Unit
+            everySuspend { fixture.searchDao.insertContributorFts(any(), any(), any(), any(), any()) } returns Unit
             everySuspend { fixture.searchDao.insertSeriesFts(any(), any(), any()) } returns Unit
 
             return fixture
@@ -181,15 +183,43 @@ class FtsPopulatorTest :
                 val contributor1 = createContributorEntity(id = "contributor-1", name = "Author One")
                 val contributor2 = createContributorEntity(id = "contributor-2", name = "Author Two")
 
-                everySuspend { fixture.contributorDao.getAll() } returns listOf(contributor1, contributor2)
+                everySuspend { fixture.contributorDao.getAllWithAliases() } returns
+                    listOf(
+                        ContributorWithAliases(contributor1, emptyList()),
+                        ContributorWithAliases(contributor2, emptyList()),
+                    )
                 val ftsPopulator = fixture.build()
 
                 // When
                 ftsPopulator.rebuildAll()
 
                 // Then
-                verifySuspend { fixture.searchDao.insertContributorFts("contributor-1", "Author One", null) }
-                verifySuspend { fixture.searchDao.insertContributorFts("contributor-2", "Author Two", null) }
+                verifySuspend { fixture.searchDao.insertContributorFts("contributor-1", "Author One", null, null, null) }
+                verifySuspend { fixture.searchDao.insertContributorFts("contributor-2", "Author Two", null, null, null) }
+            }
+        }
+
+        test("rebuildAll indexes contributor sortName and aliases so pen names are searchable") {
+            runTest {
+                val fixture = createFixture()
+                val contributor =
+                    createContributorEntity(id = "c1", name = "J.K. Rowling").copy(sortName = "Rowling, J.K.")
+                everySuspend { fixture.contributorDao.getAllWithAliases() } returns
+                    listOf(ContributorWithAliases(contributor, listOf("Robert Galbraith", "Newt Scamander")))
+                val ftsPopulator = fixture.build()
+
+                ftsPopulator.rebuildAll()
+
+                // Aliases are space-joined into the FTS `aliases` column so a search for a pen name hits.
+                verifySuspend {
+                    fixture.searchDao.insertContributorFts(
+                        "c1",
+                        "J.K. Rowling",
+                        "Rowling, J.K.",
+                        "Robert Galbraith Newt Scamander",
+                        null,
+                    )
+                }
             }
         }
 
@@ -323,7 +353,8 @@ class FtsPopulatorTest :
                         description = "An award-winning author",
                     )
 
-                everySuspend { fixture.contributorDao.getAll() } returns listOf(contributor)
+                everySuspend { fixture.contributorDao.getAllWithAliases() } returns
+                    listOf(ContributorWithAliases(contributor, emptyList()))
                 val ftsPopulator = fixture.build()
 
                 // When
@@ -334,6 +365,8 @@ class FtsPopulatorTest :
                     fixture.searchDao.insertContributorFts(
                         "contributor-1",
                         "Famous Author",
+                        null,
+                        null,
                         "An award-winning author",
                     )
                 }

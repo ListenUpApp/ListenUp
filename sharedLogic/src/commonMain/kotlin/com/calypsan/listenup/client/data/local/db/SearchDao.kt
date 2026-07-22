@@ -27,7 +27,7 @@ internal data class BookSearchResult(
  *
  * Tables:
  * - books_fts: bookId, title, subtitle, description, author, narrator, seriesName, genres
- * - contributors_fts: contributorId, name, description
+ * - contributors_fts: contributorId, name, sortName, aliases, description
  * - series_fts: seriesId, name, description
  */
 @Dao
@@ -185,13 +185,15 @@ internal interface SearchDao {
     @SkipQueryVerification
     @Query(
         """
-        INSERT INTO contributors_fts (contributorId, name, description)
-        VALUES (:contributorId, :name, :description)
+        INSERT INTO contributors_fts (contributorId, name, sortName, aliases, description)
+        VALUES (:contributorId, :name, :sortName, :aliases, :description)
     """,
     )
     suspend fun insertContributorFts(
         contributorId: String,
         name: String,
+        sortName: String?,
+        aliases: String?,
         description: String?,
     )
 

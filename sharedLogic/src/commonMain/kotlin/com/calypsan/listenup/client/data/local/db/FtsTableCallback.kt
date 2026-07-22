@@ -43,6 +43,8 @@ internal class FtsTableCallback : RoomDatabase.Callback() {
             CREATE VIRTUAL TABLE IF NOT EXISTS contributors_fts USING fts5(
                 contributorId,
                 name,
+                sortName,
+                aliases,
                 description,
                 tokenize='porter'
             )

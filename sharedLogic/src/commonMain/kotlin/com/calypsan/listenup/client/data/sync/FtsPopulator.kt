@@ -269,16 +269,19 @@ internal class FtsPopulator(
         // Clear existing entries
         searchDao.clearContributorsFts()
 
-        // Get all contributors
-        val contributors = contributorDao.getAll()
+        // Get all contributors with their aliases so search matches pen names + sort forms.
+        val contributors = contributorDao.getAllWithAliases()
 
         // Insert each contributor
         var insertCount = 0
-        for (contributor in contributors) {
+        for (row in contributors) {
+            val contributor = row.contributor
             try {
                 searchDao.insertContributorFts(
                     contributorId = contributor.id.value,
                     name = contributor.name,
+                    sortName = contributor.sortName,
+                    aliases = row.aliases.takeIf { it.isNotEmpty() }?.joinToString(" "),
                     description = contributor.description,
                 )
                 insertCount++

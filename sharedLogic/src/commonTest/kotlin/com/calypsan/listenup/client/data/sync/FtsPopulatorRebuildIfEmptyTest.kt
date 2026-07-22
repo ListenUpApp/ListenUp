@@ -30,7 +30,7 @@ class FtsPopulatorRebuildIfEmptyTest :
         fun populator(
             searchDao: SearchDao,
             bookDao: BookDao = mock { everySuspend { getAllLive() } returns emptyList() },
-            contributorDao: ContributorDao = mock { everySuspend { getAll() } returns emptyList() },
+            contributorDao: ContributorDao = mock { everySuspend { getAllWithAliases() } returns emptyList() },
             seriesDao: SeriesDao = mock { everySuspend { getAll() } returns emptyList() },
         ) = FtsPopulator(
             bookDao = bookDao,
