@@ -331,7 +331,11 @@ struct ContributorDetailView: View {
                     .padding(.horizontal)
 
                 LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 165), spacing: 12)],
+                    // SeriesMiniCard is a full-width row card (cover stack + title + chevron), so a
+                    // 165pt minimum packed 2 columns onto a phone and crushed the title to 2-3 chars.
+                    // A 320pt minimum yields one column on every phone width and readable multi-column
+                    // on iPad — width-driven, no size-class fork.
+                    columns: [GridItem(.adaptive(minimum: 320), spacing: 12)],
                     spacing: 12
                 ) {
                     ForEach(observer.series) { series in
