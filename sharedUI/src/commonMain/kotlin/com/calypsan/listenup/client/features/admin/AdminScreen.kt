@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.admin
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -32,10 +33,12 @@ import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedIconButton
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -808,6 +811,14 @@ private fun PendingRegistrationsGroup(
     }
 }
 
+/**
+ * Below this row width, the deny/approve pair collapses from labeled buttons to compact icon
+ * buttons. Two labeled buttons overflow [SettingRow]'s weightless trailing slot on a phone and crush
+ * the name/email column (which wraps, never truncates), so on narrow layouts the icons keep the row
+ * uncramped; tablet/desktop widths keep the clearer labels.
+ */
+private val PENDING_ACTION_LABEL_MIN_WIDTH = 440.dp
+
 @Composable
 private fun PendingUserRow(
     user: AdminUserInfo,
@@ -820,35 +831,63 @@ private fun PendingUserRow(
     val name =
         user.displayName
             ?: "${user.firstName ?: ""} ${user.lastName ?: ""}".trim().ifEmpty { user.email }
-    SettingRow(
-        title = name,
-        subtitle = user.email,
-        showDivider = showDivider,
-        // A pending registrant has no server-side public profile yet, so drive initials from their
-        // name rather than the generic add-person glyph / an indefinite loading circle.
-        leading = { UserAvatar(userId = user.id, size = AvatarSize.Medium, fallbackName = name) },
-    ) {
-        if (isApproving || isDenying) {
-            ListenUpLoadingIndicatorSmall()
-        } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onDenyClick) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(Res.string.common_deny))
+    val denyLabel = stringResource(Res.string.common_deny)
+    val approveLabel = stringResource(Res.string.common_approve)
+    BoxWithConstraints {
+        val compact = maxWidth < PENDING_ACTION_LABEL_MIN_WIDTH
+        SettingRow(
+            title = name,
+            subtitle = user.email,
+            showDivider = showDivider,
+            // A pending registrant has no server-side public profile yet, so drive initials from
+            // their name rather than the generic add-person glyph / an indefinite loading circle.
+            leading = { UserAvatar(userId = user.id, size = AvatarSize.Medium, fallbackName = name) },
+        ) {
+            when {
+                isApproving || isDenying -> {
+                    ListenUpLoadingIndicatorSmall()
                 }
-                FilledTonalButton(onClick = onApproveClick) {
-                    Icon(
-                        imageVector = Icons.Outlined.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(stringResource(Res.string.common_approve))
+
+                compact -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        OutlinedIconButton(onClick = onDenyClick) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = denyLabel,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                        FilledTonalIconButton(onClick = onApproveClick) {
+                            Icon(
+                                imageVector = Icons.Outlined.Check,
+                                contentDescription = approveLabel,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+
+                else -> {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onDenyClick) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(denyLabel)
+                        }
+                        FilledTonalButton(onClick = onApproveClick) {
+                            Icon(
+                                imageVector = Icons.Outlined.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(approveLabel)
+                        }
+                    }
                 }
             }
         }
