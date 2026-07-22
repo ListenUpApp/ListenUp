@@ -31,7 +31,7 @@ enum ContributorImageRequest {
         repository.ensureContributorImageCached(contributorId: contributorId)
 
         guard let base = try? await KoinHelper.shared.activeServerUrl(),
-              let url = photoURL(base: base, contributorId: contributorId)
+              let url = photoURL(base: base, contributorId: contributorId, imagePath: imagePath)
         else { return nil }
 
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
@@ -48,8 +48,17 @@ enum ContributorImageRequest {
 
     /// The authenticated contributor-photo endpoint for a server base URL. Pure, so the endpoint
     /// shape is unit-tested. Returns nil for a blank base.
-    static func photoURL(base: String, contributorId: String) -> URL? {
+    ///
+    /// Content-addresses the URL with the server's `imagePath` (the photo's version) via a `?v=`
+    /// query item, so a re-scrape changes the URL itself — busting `URLSession`'s `URLCache` (keyed
+    /// by URL), not just Nuke's cache key. The server ignores `?v`. A nil/blank imagePath yields the
+    /// bare endpoint (nothing to version).
+    static func photoURL(base: String, contributorId: String, imagePath: String?) -> URL? {
         guard !base.isEmpty else { return nil }
-        return URL(string: "\(base)/api/v1/contributors/\(contributorId)/photo")
+        var components = URLComponents(string: "\(base)/api/v1/contributors/\(contributorId)/photo")
+        if let imagePath, !imagePath.isEmpty {
+            components?.queryItems = [URLQueryItem(name: "v", value: imagePath)]
+        }
+        return components?.url
     }
 }
