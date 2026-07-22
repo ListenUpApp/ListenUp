@@ -67,4 +67,26 @@ struct CoverImageRequestTests {
         )
         #expect(request?.userInfo[.imageIdKey] as? String == "book-B:abc123")
     }
+
+    // Content-addressed server URL: the coverHash rides as `?v=` so the URL changes when the cover
+    // does, busting URLSession's URL-keyed cache (not just Nuke's key).
+    @Test func coverURLWithHashIsVersioned() {
+        let url = CoverImageRequest.coverURL(base: "https://x", bookId: "book-B", coverHash: "abc123")
+        #expect(url?.absoluteString.hasPrefix("https://x/api/v1/covers/book-B?v=") == true)
+    }
+
+    @Test func coverURLWithoutHashIsBare() {
+        let url = CoverImageRequest.coverURL(base: "https://x", bookId: "book-B", coverHash: nil)
+        #expect(url?.absoluteString == "https://x/api/v1/covers/book-B")
+    }
+
+    @Test func coverURLChangesWhenHashChanges() {
+        let before = CoverImageRequest.coverURL(base: "https://x", bookId: "book-B", coverHash: "aaa")
+        let after = CoverImageRequest.coverURL(base: "https://x", bookId: "book-B", coverHash: "bbb")
+        #expect(before != after)
+    }
+
+    @Test func coverURLBlankBaseIsNil() {
+        #expect(CoverImageRequest.coverURL(base: "", bookId: "book-B", coverHash: "aaa") == nil)
+    }
 }
