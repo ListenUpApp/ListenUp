@@ -24,43 +24,31 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.util.formatDateLong
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_edit_date_added
-import listenup.composeapp.generated.resources.book_edit_eg_lord_of_the_rings
 import listenup.composeapp.generated.resources.book_edit_not_set
 import listenup.composeapp.generated.resources.book_edit_pick_date
-import listenup.composeapp.generated.resources.book_edit_sort_title
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_ok
 
 /**
  * Library information section: Date Added.
  *
- * Contains fields related to the book's presence in the library,
- * distinct from publishing metadata or identifiers.
+ * Contains fields related to the book's presence in the library, distinct from publishing metadata
+ * or identifiers. (Sort Title lives in the identity header alongside Title/Subtitle so the field
+ * order matches the flat iOS form.)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibrarySection(
-    sortTitle: String,
     addedAt: Long?,
-    onSortTitleChange: (String) -> Unit,
     onAddedAtChange: (Long?) -> Unit,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Sort Title
-        ListenUpTextField(
-            value = sortTitle,
-            onValueChange = onSortTitleChange,
-            label = stringResource(Res.string.book_edit_sort_title),
-            placeholder = stringResource(Res.string.book_edit_eg_lord_of_the_rings),
-        )
-
         // Date Added picker
         DatePickerField(
             label = stringResource(Res.string.book_edit_date_added),

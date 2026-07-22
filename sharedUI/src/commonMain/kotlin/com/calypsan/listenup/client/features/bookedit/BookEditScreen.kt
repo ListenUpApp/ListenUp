@@ -246,9 +246,11 @@ private fun BookEditContent(
             refreshKey = state.pendingCoverData,
             title = state.title,
             subtitle = state.subtitle,
+            sortTitle = state.sortTitle,
             isUploadingCover = state.isUploadingCover,
             onTitleChange = { onEvent(BookEditUiEvent.TitleChanged(it)) },
             onSubtitleChange = { onEvent(BookEditUiEvent.SubtitleChanged(it)) },
+            onSortTitleChange = { onEvent(BookEditUiEvent.SortTitleChanged(it)) },
             onCoverClick = { imagePicker.launch() },
             onBackClick = onBackClick,
             bookId = bookId,
@@ -276,7 +278,10 @@ private fun SingleColumnCardsLayout(
         modifier = Modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        // Card 1: Description (The Hook)
+        // People-first order (matches the flat iOS form): Description → Talent → Series →
+        // Classification → Publishing → Identifiers → Library. Sort Title lives in the header.
+
+        // Description (The Hook)
         StudioCard(title = stringResource(Res.string.common_description)) {
             ListenUpTextArea(
                 value = state.description,
@@ -286,60 +291,7 @@ private fun SingleColumnCardsLayout(
             )
         }
 
-        // Card 2: Publishing
-        StudioCard(title = stringResource(Res.string.book_edit_publishing)) {
-            PublishingSection(
-                publisher = state.publisher,
-                publishYear = state.publishYear,
-                language = state.language,
-                onPublisherChange = { onEvent(BookEditUiEvent.PublisherChanged(it)) },
-                onPublishYearChange = { onEvent(BookEditUiEvent.PublishYearChanged(it)) },
-                onLanguageChange = { onEvent(BookEditUiEvent.LanguageChanged(it)) },
-            )
-        }
-
-        // Card 3: Identifiers & Format
-        StudioCard(title = stringResource(Res.string.book_edit_identifiers)) {
-            IdentifiersSection(
-                isbn = state.isbn,
-                asin = state.asin,
-                abridged = state.abridged,
-                onIsbnChange = { onEvent(BookEditUiEvent.IsbnChanged(it)) },
-                onAsinChange = { onEvent(BookEditUiEvent.AsinChanged(it)) },
-                onAbridgedChange = { onEvent(BookEditUiEvent.AbridgedChanged(it)) },
-            )
-        }
-
-        // Card 4: Library
-        StudioCard(title = stringResource(Res.string.common_library)) {
-            LibrarySection(
-                sortTitle = state.sortTitle,
-                addedAt = state.addedAt,
-                onSortTitleChange = { onEvent(BookEditUiEvent.SortTitleChanged(it)) },
-                onAddedAtChange = { onEvent(BookEditUiEvent.AddedAtChanged(it)) },
-            )
-        }
-
-        // Card 5: Series
-        StudioCard(title = stringResource(Res.string.common_series)) {
-            SeriesSection(
-                series = state.series,
-                searchQuery = state.seriesSearchQuery,
-                searchResults = state.seriesSearchResults,
-                isLoading = state.seriesSearchLoading,
-                isOffline = state.seriesOfflineResult,
-                onSearchQueryChange = { onEvent(BookEditUiEvent.SeriesSearchQueryChanged(it)) },
-                onSeriesSelected = { onEvent(BookEditUiEvent.SeriesSelected(it)) },
-                onSeriesEntered = { onEvent(BookEditUiEvent.SeriesEntered(it)) },
-                onSequenceChange = { series, seq -> onEvent(BookEditUiEvent.SeriesSequenceChanged(series, seq)) },
-                onRemoveSeries = { onEvent(BookEditUiEvent.RemoveSeries(it)) },
-            )
-        }
-
-        // Card 5: Classification
-        ClassificationCard(state = state, onEvent = onEvent)
-
-        // Card 6: Talent
+        // Talent (contributors) — who made it comes right after the hook
         StudioCard(title = stringResource(Res.string.book_edit_talent)) {
             TalentSection(
                 visibleRoles = state.visibleRoles,
@@ -370,6 +322,57 @@ private fun SingleColumnCardsLayout(
                 },
                 onAddRoleSection = { onEvent(BookEditUiEvent.AddRoleSection(it)) },
                 onRemoveRoleSection = { onEvent(BookEditUiEvent.RemoveRoleSection(it)) },
+            )
+        }
+
+        // Series
+        StudioCard(title = stringResource(Res.string.common_series)) {
+            SeriesSection(
+                series = state.series,
+                searchQuery = state.seriesSearchQuery,
+                searchResults = state.seriesSearchResults,
+                isLoading = state.seriesSearchLoading,
+                isOffline = state.seriesOfflineResult,
+                onSearchQueryChange = { onEvent(BookEditUiEvent.SeriesSearchQueryChanged(it)) },
+                onSeriesSelected = { onEvent(BookEditUiEvent.SeriesSelected(it)) },
+                onSeriesEntered = { onEvent(BookEditUiEvent.SeriesEntered(it)) },
+                onSequenceChange = { series, seq -> onEvent(BookEditUiEvent.SeriesSequenceChanged(series, seq)) },
+                onRemoveSeries = { onEvent(BookEditUiEvent.RemoveSeries(it)) },
+            )
+        }
+
+        // Classification (genres, tags, moods, collections)
+        ClassificationCard(state = state, onEvent = onEvent)
+
+        // Publishing
+        StudioCard(title = stringResource(Res.string.book_edit_publishing)) {
+            PublishingSection(
+                publisher = state.publisher,
+                publishYear = state.publishYear,
+                language = state.language,
+                onPublisherChange = { onEvent(BookEditUiEvent.PublisherChanged(it)) },
+                onPublishYearChange = { onEvent(BookEditUiEvent.PublishYearChanged(it)) },
+                onLanguageChange = { onEvent(BookEditUiEvent.LanguageChanged(it)) },
+            )
+        }
+
+        // Identifiers & Format
+        StudioCard(title = stringResource(Res.string.book_edit_identifiers)) {
+            IdentifiersSection(
+                isbn = state.isbn,
+                asin = state.asin,
+                abridged = state.abridged,
+                onIsbnChange = { onEvent(BookEditUiEvent.IsbnChanged(it)) },
+                onAsinChange = { onEvent(BookEditUiEvent.AsinChanged(it)) },
+                onAbridgedChange = { onEvent(BookEditUiEvent.AbridgedChanged(it)) },
+            )
+        }
+
+        // Library (Date Added)
+        StudioCard(title = stringResource(Res.string.common_library)) {
+            LibrarySection(
+                addedAt = state.addedAt,
+                onAddedAtChange = { onEvent(BookEditUiEvent.AddedAtChanged(it)) },
             )
         }
     }
@@ -425,8 +428,8 @@ private fun ClassificationCard(
  * Two-column layout for tablet (Medium/Expanded) screens.
  *
  * Full Width: Description (The Hook - primary content)
- * Left Column: Publishing, Identifiers, Series
- * Right Column: Classification, Talent
+ * Left Column: Talent, Series, Classification (positions 6–11 of the people-first order)
+ * Right Column: Publishing, Identifiers, Library (positions 12–18)
  */
 @Suppress("LongMethod")
 @Composable
@@ -452,70 +455,11 @@ private fun TwoColumnCardsLayout(
         Row(
             horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            // Left Column - Book metadata
+            // Left Column - People & content
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
-                StudioCard(title = stringResource(Res.string.book_edit_publishing)) {
-                    PublishingSection(
-                        publisher = state.publisher,
-                        publishYear = state.publishYear,
-                        language = state.language,
-                        onPublisherChange = { onEvent(BookEditUiEvent.PublisherChanged(it)) },
-                        onPublishYearChange = { onEvent(BookEditUiEvent.PublishYearChanged(it)) },
-                        onLanguageChange = { onEvent(BookEditUiEvent.LanguageChanged(it)) },
-                    )
-                }
-
-                StudioCard(title = stringResource(Res.string.book_edit_identifiers)) {
-                    IdentifiersSection(
-                        isbn = state.isbn,
-                        asin = state.asin,
-                        abridged = state.abridged,
-                        onIsbnChange = { onEvent(BookEditUiEvent.IsbnChanged(it)) },
-                        onAsinChange = { onEvent(BookEditUiEvent.AsinChanged(it)) },
-                        onAbridgedChange = { onEvent(BookEditUiEvent.AbridgedChanged(it)) },
-                    )
-                }
-
-                StudioCard(title = stringResource(Res.string.common_library)) {
-                    LibrarySection(
-                        sortTitle = state.sortTitle,
-                        addedAt = state.addedAt,
-                        onSortTitleChange = { onEvent(BookEditUiEvent.SortTitleChanged(it)) },
-                        onAddedAtChange = { onEvent(BookEditUiEvent.AddedAtChanged(it)) },
-                    )
-                }
-
-                StudioCard(title = stringResource(Res.string.common_series)) {
-                    SeriesSection(
-                        series = state.series,
-                        searchQuery = state.seriesSearchQuery,
-                        searchResults = state.seriesSearchResults,
-                        isLoading = state.seriesSearchLoading,
-                        isOffline = state.seriesOfflineResult,
-                        onSearchQueryChange = { onEvent(BookEditUiEvent.SeriesSearchQueryChanged(it)) },
-                        onSeriesSelected = { onEvent(BookEditUiEvent.SeriesSelected(it)) },
-                        onSeriesEntered = { onEvent(BookEditUiEvent.SeriesEntered(it)) },
-                        onSequenceChange = {
-                            series,
-                            seq,
-                            ->
-                            onEvent(BookEditUiEvent.SeriesSequenceChanged(series, seq))
-                        },
-                        onRemoveSeries = { onEvent(BookEditUiEvent.RemoveSeries(it)) },
-                    )
-                }
-            }
-
-            // Right Column - Classification & Talent
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                ClassificationCard(state = state, onEvent = onEvent)
-
                 StudioCard(title = stringResource(Res.string.book_edit_talent)) {
                     TalentSection(
                         visibleRoles = state.visibleRoles,
@@ -551,6 +495,63 @@ private fun TwoColumnCardsLayout(
                         },
                         onAddRoleSection = { onEvent(BookEditUiEvent.AddRoleSection(it)) },
                         onRemoveRoleSection = { onEvent(BookEditUiEvent.RemoveRoleSection(it)) },
+                    )
+                }
+
+                StudioCard(title = stringResource(Res.string.common_series)) {
+                    SeriesSection(
+                        series = state.series,
+                        searchQuery = state.seriesSearchQuery,
+                        searchResults = state.seriesSearchResults,
+                        isLoading = state.seriesSearchLoading,
+                        isOffline = state.seriesOfflineResult,
+                        onSearchQueryChange = { onEvent(BookEditUiEvent.SeriesSearchQueryChanged(it)) },
+                        onSeriesSelected = { onEvent(BookEditUiEvent.SeriesSelected(it)) },
+                        onSeriesEntered = { onEvent(BookEditUiEvent.SeriesEntered(it)) },
+                        onSequenceChange = {
+                            series,
+                            seq,
+                            ->
+                            onEvent(BookEditUiEvent.SeriesSequenceChanged(series, seq))
+                        },
+                        onRemoveSeries = { onEvent(BookEditUiEvent.RemoveSeries(it)) },
+                    )
+                }
+
+                ClassificationCard(state = state, onEvent = onEvent)
+            }
+
+            // Right Column - Catalog metadata
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                StudioCard(title = stringResource(Res.string.book_edit_publishing)) {
+                    PublishingSection(
+                        publisher = state.publisher,
+                        publishYear = state.publishYear,
+                        language = state.language,
+                        onPublisherChange = { onEvent(BookEditUiEvent.PublisherChanged(it)) },
+                        onPublishYearChange = { onEvent(BookEditUiEvent.PublishYearChanged(it)) },
+                        onLanguageChange = { onEvent(BookEditUiEvent.LanguageChanged(it)) },
+                    )
+                }
+
+                StudioCard(title = stringResource(Res.string.book_edit_identifiers)) {
+                    IdentifiersSection(
+                        isbn = state.isbn,
+                        asin = state.asin,
+                        abridged = state.abridged,
+                        onIsbnChange = { onEvent(BookEditUiEvent.IsbnChanged(it)) },
+                        onAsinChange = { onEvent(BookEditUiEvent.AsinChanged(it)) },
+                        onAbridgedChange = { onEvent(BookEditUiEvent.AbridgedChanged(it)) },
+                    )
+                }
+
+                StudioCard(title = stringResource(Res.string.common_library)) {
+                    LibrarySection(
+                        addedAt = state.addedAt,
+                        onAddedAtChange = { onEvent(BookEditUiEvent.AddedAtChanged(it)) },
                     )
                 }
             }
