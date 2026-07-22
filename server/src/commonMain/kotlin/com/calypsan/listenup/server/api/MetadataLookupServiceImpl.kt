@@ -213,26 +213,31 @@ internal class MetadataLookupServiceImpl(
         asin: String,
         region: MetadataLocale,
         selection: MetadataApplySelection,
-    ): AppResult<Unit> {
+    ): AppResult<Mutated<Unit>> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         val genreAutoCreator = GenreAutoCreator(genreRepository)
-        return BookMetadataApplier(
-            bookRepository = bookRepository,
-            contributorRepository = contributorRepository,
-            seriesRepository = seriesRepository,
-            imageStorage = imageDeps.imageStorage,
-            coverImageStore = imageDeps.coverImageStore,
-            matchSource = { a, locale ->
-                composeBook(a, locale).map { composed ->
-                    composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
-                }
-            },
-            enrichmentProvider = MetadataProviderId.AUDIBLE.value,
-            genreHierarchy = GenreHierarchyFromLadder(sqlDb, genreRepository, genreAutoCreator),
-            sqlDb = sqlDb,
-            ladderSource = { locale, a -> coordinator.composeGenreLadders(bookIdentity(a), locale) },
-            enrichmentDeps = enrichmentDeps,
-        ).apply(bookId, asin, region, selection)
+        // Echo-in-response: withCapturedFrames collects EVERY frame the match emits — the book plus any
+        // newly-created contributors/series/moods/tags/genres and the cover — so the originating device
+        // applies its whole result read-your-writes, however deep the fan-out, with no per-frame code.
+        return withCapturedFrames {
+            BookMetadataApplier(
+                bookRepository = bookRepository,
+                contributorRepository = contributorRepository,
+                seriesRepository = seriesRepository,
+                imageStorage = imageDeps.imageStorage,
+                coverImageStore = imageDeps.coverImageStore,
+                matchSource = { a, locale ->
+                    composeBook(a, locale).map { composed ->
+                        composed?.let { MetadataMatch(it.toMetadataBook(), it.fieldProviders) }
+                    }
+                },
+                enrichmentProvider = MetadataProviderId.AUDIBLE.value,
+                genreHierarchy = GenreHierarchyFromLadder(sqlDb, genreRepository, genreAutoCreator),
+                sqlDb = sqlDb,
+                ladderSource = { locale, a -> coordinator.composeGenreLadders(bookIdentity(a), locale) },
+                enrichmentDeps = enrichmentDeps,
+            ).apply(bookId, asin, region, selection)
+        }
     }
 
     override suspend fun applyChapterNames(
@@ -281,27 +286,31 @@ internal class MetadataLookupServiceImpl(
     override suspend fun applyCover(
         bookId: BookId,
         url: String,
-    ): AppResult<Unit> {
+    ): AppResult<Mutated<Unit>> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         // Validate the book exists before fetching/storing, so an unknown id can't leave an
         // orphaned cover file on disk (the store keys on bookId, but setManagedCover would fail).
         bookRepository.findById(bookId)
             ?: return AppResult.Failure(MetadataError.NotFound(debugInfo = "no book for id ${bookId.value}"))
-        return try {
-            val bytes = imageDeps.imageStorage.downloadBytes(url)
-            val stored = imageDeps.coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
-            val relPath = "covers/${stored.path.name}"
-            bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: ImageStore.InvalidImageException) {
-            // The fetched bytes are not a usable image — user must pick a different URL.
-            // Non-retryable: re-firing the same call against the same URL can't succeed.
-            AppResult.Failure(MetadataError.Malformed(debugInfo = "cover bytes rejected: ${e.message}"))
-        } catch (e: Exception) {
-            AppResult.Failure(
-                MetadataError.ExternalUnavailable(debugInfo = "cover download/store failed: ${e.message}"),
-            )
+        // Echo-in-response: withCapturedFrames collects the book's own cover-update frame so the
+        // originating device applies the new cover read-your-writes, not only via the firehose.
+        return withCapturedFrames {
+            try {
+                val bytes = imageDeps.imageStorage.downloadBytes(url)
+                val stored = imageDeps.coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
+                val relPath = "covers/${stored.path.name}"
+                bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ImageStore.InvalidImageException) {
+                // The fetched bytes are not a usable image — user must pick a different URL.
+                // Non-retryable: re-firing the same call against the same URL can't succeed.
+                AppResult.Failure(MetadataError.Malformed(debugInfo = "cover bytes rejected: ${e.message}"))
+            } catch (e: Exception) {
+                AppResult.Failure(
+                    MetadataError.ExternalUnavailable(debugInfo = "cover download/store failed: ${e.message}"),
+                )
+            }
         }
     }
 }

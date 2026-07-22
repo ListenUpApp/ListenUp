@@ -141,7 +141,7 @@ interface MetadataLookupService {
         asin: String,
         region: MetadataLocale,
         selection: MetadataApplySelection,
-    ): AppResult<Unit>
+    ): AppResult<Mutated<Unit>>
 
     /**
      * Applies Audible chapter *names* to the book at [bookId], by ordinal.
@@ -207,5 +207,5 @@ interface MetadataLookupService {
     suspend fun applyCover(
         bookId: BookId,
         url: String,
-    ): AppResult<Unit>
+    ): AppResult<Mutated<Unit>>
 }

@@ -126,7 +126,9 @@ class MetadataRepositoryImplTest :
                     narratorAsins = emptySet(),
                     seriesAsins = emptySet(),
                 )
-            everySuspend { service.applyBookMetadata(BookId("b1"), "B001", MetadataLocale.DEFAULT, sel) } returns WireAppResult.Success(Unit)
+            everySuspend {
+                service.applyBookMetadata(BookId("b1"), "B001", MetadataLocale.DEFAULT, sel)
+            } returns WireAppResult.Success(Mutated(Unit))
 
             buildRepo(service).applyBookMetadata(BookId("b1"), "B001", MetadataLocale.DEFAULT, sel) shouldBe AppResult.Success(Unit)
         }

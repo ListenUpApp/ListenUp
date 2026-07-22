@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.metadata.audible.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -42,6 +43,7 @@ import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -70,7 +72,13 @@ class ApplyCoverTest :
         test("applyCover stores the downloaded bytes and marks the cover UPLOADED") {
             withCoverFixture(downloadBytes = ONE_PX_PNG) { service, books ->
                 val result = service.applyCover(BookId("book1"), "https://itunes/any.png")
-                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                val success = result.shouldBeInstanceOf<AppResult.Success<Mutated<Unit>>>()
+                // Echo-in-response: the response carries the book's cover-update frame (captured via
+                // withCapturedFrames + the setManagedCover hook) so the change applies read-your-writes.
+                success.data.frames shouldHaveSize 1
+                success.data.frames
+                    .single()
+                    .domain shouldBe books.domainName
 
                 val saved = books.findById(BookId("book1"))
                 saved.shouldNotBeNull()

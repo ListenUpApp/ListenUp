@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.api.sync.Mutated
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -49,6 +50,7 @@ import com.calypsan.listenup.server.testing.testCoordinator
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -169,7 +171,19 @@ class B2aMetadataApplyE2ETest :
                     val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, MetadataLocale("us"), APPLY_SELECTION)
 
                     // ── Assert: AppResult.Success ────────────────────────────────
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    val success = result.shouldBeInstanceOf<AppResult.Success<Mutated<Unit>>>()
+
+                    // ── Assert: echo-in-response carries the WHOLE fan-out ────────
+                    // The response frames include the book's own frame AND the newly-created
+                    // contributor's frame, so the originating device applies its entire result
+                    // read-your-writes — the created-contributor frame is exactly what a
+                    // firehose-only path used to miss (see FrameCapture / withCapturedFrames).
+                    val frameDomains =
+                        success.data.frames
+                            .map { it.domain }
+                            .toSet()
+                    frameDomains shouldContain bookRepo.domainName
+                    frameDomains shouldContain contributorRepo.domainName
 
                     // ── Assert: server-side book row is enriched ─────────────────
                     val enriched = bookRepo.findById(BookId(bookId))
@@ -250,7 +264,7 @@ class B2aMetadataApplyE2ETest :
 
                     val result = service.applyBookMetadata(BookId(bookId), TEST_ASIN, MetadataLocale("us"), APPLY_SELECTION)
 
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    result.shouldBeInstanceOf<AppResult.Success<Mutated<Unit>>>()
 
                     // Wizard cover is an explicit user choice: source must be UPLOADED, replacing the EMBEDDED one
                     val afterApply = bookRepo.findById(BookId(bookId))

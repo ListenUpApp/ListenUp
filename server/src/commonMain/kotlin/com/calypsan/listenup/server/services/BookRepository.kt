@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.db.sqldelight.TransactionLocal
 import com.calypsan.listenup.server.db.sqldelight.setTransactionLocal
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.FrameCapture
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlFragment
@@ -1432,6 +1433,7 @@ class BookRepository(
         source: CoverSource,
     ): AppResult<Unit> {
         val idStr = idAsString(id)
+        val capture = currentCoroutineContext()[FrameCapture.Key]
         return suspendTransaction(db) {
             val rev = nextRevision()
             val now = clock.now().toEpochMilliseconds()
@@ -1446,7 +1448,7 @@ class BookRepository(
             if (db.booksQueries.changes().executeAsOne() == 0L) {
                 AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
             } else {
-                publishUpdatedAfterCommit(idStr, rev, now)
+                publishUpdatedAfterCommit(idStr, rev, now, capture)
                 AppResult.Success(Unit)
             }
         }
@@ -1642,21 +1644,25 @@ class BookRepository(
         idStr: String,
         rev: Long,
         now: Long,
+        capture: FrameCapture? = null,
     ) {
         val saved =
             readPayload(idStr)
                 ?: error("readPayload returned null immediately after a cover/touch write for $idStr")
-        emitAfterCommit(
-            event =
-                SyncEvent.Updated(
-                    id = idStr,
-                    revision = rev,
-                    occurredAt = now,
-                    clientOpId = null,
-                    payload = saved,
-                ),
-            userId = null,
-        )
+        val event =
+            SyncEvent.Updated(
+                id = idStr,
+                revision = rev,
+                occurredAt = now,
+                clientOpId = null,
+                payload = saved,
+            )
+        emitAfterCommit(event = event, userId = null)
+        // Ambient frame capture: this write emits inline (not via upsert), so mirror the emit on commit
+        // when a mutation wraps the call in a [FrameCapture] scope — read-your-writes for covers/touches.
+        if (capture != null) {
+            afterCommit { capture.add(toSyncFrame(event)) }
+        }
     }
 
     /**

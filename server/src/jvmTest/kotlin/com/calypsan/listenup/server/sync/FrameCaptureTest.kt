@@ -95,6 +95,27 @@ class FrameCaptureTest :
             }
         }
 
+        test("a softDelete inside a FrameCapture scope collects a Deleted frame") {
+            withSqlDatabase {
+                val repo = TagRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.upsert(Tag(id = "t1", name = "sci-fi", slug = "sci-fi", revision = 0, updatedAt = 0))
+
+                    val capture = FrameCapture()
+                    withContext(capture) {
+                        repo.softDelete("t1")
+                    }
+
+                    val frames = capture.collected()
+                    frames shouldHaveSize 1
+                    frames.single().domain shouldBe "tags"
+                    val event = contractJson.decodeFromString(SyncEvent.serializer(Tag.serializer()), frames.single().json)
+                    event.shouldBeInstanceOf<SyncEvent.Deleted>()
+                    event.id shouldBe "t1"
+                }
+            }
+        }
+
         test("withCapturedFrames folds the block's value and its writes' frames into Mutated") {
             withSqlDatabase {
                 val repo = TagRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
