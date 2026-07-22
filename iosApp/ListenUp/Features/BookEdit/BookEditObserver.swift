@@ -355,7 +355,9 @@ final class BookEditObserver {
         roleSections = sections
         rawContributorsByRole = rawContributors
         rawResultsByRole = rawResults
-        addableRoles = state.availableRolesToAdd.map { AddableRole(id: $0.apiValue, role: $0, title: Self.roleTitle($0)) }
+        addableRoles = state.availableRolesToAdd.map {
+            AddableRole(id: $0.apiValue, role: $0, title: Self.roleTitle($0))
+        }
     }
 
     /// Localized display name for a contributor role. Kept in Swift (not the Kotlin `displayName`

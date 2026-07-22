@@ -30,7 +30,11 @@ struct ContributorImageRequestTests {
     }
 
     @Test func blankBaseYieldsNil() {
-        #expect(ContributorImageRequest.photoURL(base: "", contributorId: "contrib-42", imagePath: "contributors/aaa.jpg") == nil)
+        #expect(
+            ContributorImageRequest.photoURL(
+                base: "", contributorId: "contrib-42", imagePath: "contributors/aaa.jpg"
+            ) == nil
+        )
     }
 
     @Test func cacheKeyFoldsImagePath() {
