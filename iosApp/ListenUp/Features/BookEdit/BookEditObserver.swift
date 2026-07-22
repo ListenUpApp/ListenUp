@@ -272,13 +272,15 @@ final class BookEditObserver {
     /// Maps the add-picker search sub-state (per-role contributor, series, genre, tag, mood) from
     /// the shared `BookEditUiState` into native value types, off the SwiftUI diff path.
     private func applySearchState(_ state: BookEditUiState) {
-        // Contributors — per-role maps keyed by ContributorRole.
-        authorQuery = state.roleSearchQueries[.author] ?? ""
-        narratorQuery = state.roleSearchQueries[.narrator] ?? ""
-        authorSearching = state.roleSearchLoading[.author] ?? false
-        narratorSearching = state.roleSearchLoading[.narrator] ?? false
-        rawAuthorResults = state.roleSearchResults[.author] ?? []
-        rawNarratorResults = state.roleSearchResults[.narrator] ?? []
+        // Contributors — read the shared state's bridge-safe flat accessors, NOT the
+        // ContributorRole-keyed maps: Swift Export cannot subscript a `[ContributorRole: …]`
+        // dictionary (the bridged enum key traps the AnyHashable→enum cast and crashes the edit).
+        authorQuery = state.authorSearchQuery
+        narratorQuery = state.narratorSearchQuery
+        authorSearching = state.authorSearchLoading
+        narratorSearching = state.narratorSearchLoading
+        rawAuthorResults = state.authorSearchResults
+        rawNarratorResults = state.narratorSearchResults
         authorResults = rawAuthorResults.map(Self.contributorResult)
         narratorResults = rawNarratorResults.map(Self.contributorResult)
 

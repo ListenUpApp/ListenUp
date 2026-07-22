@@ -181,6 +181,23 @@ data class BookEditUiState(
      */
     val availableRolesToAdd: List<ContributorRole>
         get() = ContributorRole.entries.filter { it !in visibleRoles }
+
+    // --- Bridge-safe flat accessors for iOS (Swift Export) ---
+    // The [roleSearchQueries]/[roleSearchLoading]/[roleSearchResults] maps above are keyed by the
+    // [ContributorRole] enum. Compose reads them directly (Kotlin subscripts an enum-keyed map
+    // natively), but Swift MUST NOT: Swift Export bridges a `Map<ContributorRole, …>` as
+    // `[ContributorRole: …]`, and reading it force-casts the AnyHashable-boxed keys back to the
+    // bridged enum, which traps ("Could not cast Swift.AnyHashable to …ContributorRole") and crashes
+    // any book edit. iOS reads these plain-typed projections instead. Only author/narrator are
+    // searchable in the add-picker, so only those are exposed.
+    val authorSearchQuery: String get() = roleSearchQueries[ContributorRole.AUTHOR].orEmpty()
+    val narratorSearchQuery: String get() = roleSearchQueries[ContributorRole.NARRATOR].orEmpty()
+    val authorSearchLoading: Boolean get() = roleSearchLoading[ContributorRole.AUTHOR] == true
+    val narratorSearchLoading: Boolean get() = roleSearchLoading[ContributorRole.NARRATOR] == true
+    val authorSearchResults: List<ContributorSearchResult>
+        get() = roleSearchResults[ContributorRole.AUTHOR].orEmpty()
+    val narratorSearchResults: List<ContributorSearchResult>
+        get() = roleSearchResults[ContributorRole.NARRATOR].orEmpty()
 }
 
 /**
