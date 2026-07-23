@@ -31,7 +31,7 @@ ktor = "3.5.1"
 # kotlinx-rpc 0.11.x stable on Maven Central once it ships with the KRPC-560 fix, then delete the
 # `kxrpc-grpc` redirector entries in settings.gradle.kts. Part of the Swift Export upgrade UNIT above.
 kotlinx-rpc = "0.11.0-grpc-189"
-kotest = "6.2.2"
+kotest = "6.2.3"
 junit-vintage = "6.1.2" # JUnit Platform vintage engine — runs JUnit4 tests under useJUnitPlatform(); matches Kotest's JUnit BOM
 kotlinx-coroutines = "1.11.0"
 kotlinx-serialization = "1.11.0"
