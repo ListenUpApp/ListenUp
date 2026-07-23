@@ -38,7 +38,10 @@ enum AuthenticatedImageRequest {
         cacheKey: String? = nil
     ) async -> ImageRequest {
         var urlRequest = URLRequest(url: url)
-        let token = try? await KoinHelper.shared.accessToken()
+        // freshAccessToken (not accessToken): the image URLSession path bypasses the RPC channel's
+        // 401-heal, so a stale token here 401s forever with no retry — the "photo won't refresh" bug.
+        // This refreshes the token when it's expired before attaching it.
+        let token = try? await KoinHelper.shared.freshAccessToken()
         ImageTrace.log(
             "auth token=\(token == nil ? "MISSING" : "present") url=\(ImageTrace.tail(url.absoluteString, 56))"
         )
