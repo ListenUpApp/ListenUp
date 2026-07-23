@@ -5,6 +5,39 @@ import com.lemonappdev.konsist.api.container.KoScope
 import java.io.File
 
 /**
+ * Directories eligible to be (or to contain) a module: visible, and not build output.
+ *
+ * Hidden directories are skipped because `.worktrees/` and `.claude/worktrees/` each hold a
+ * full second copy of the source tree — parsing them OOMs the test JVM, which is the whole
+ * reason this file exists instead of [Konsist.scopeFromProduction].
+ */
+private fun moduleCandidates(dir: File): List<File> =
+    dir
+        .listFiles { entry -> entry.isDirectory && !entry.name.startsWith(".") && entry.name != "build" }
+        .orEmpty()
+        .sortedBy { it.name }
+
+/**
+ * Every module `src/` directory under [root], as paths relative to [root].
+ *
+ * Modules sit either at the root (`contract/src`, `server/src`) or one level inside a grouping
+ * directory (`app/sharedLogic/src`, `tools/rpc-guard-ksp/src`). A grouping directory has no
+ * `src/` of its own, so a one-level scan silently misses everything inside it — every rule
+ * would still run and still pass, over a fraction of the codebase. Descending exactly one
+ * extra level into src-less directories covers both shapes and nothing deeper.
+ */
+internal fun discoverModuleSrcDirs(root: File): List<String> =
+    moduleCandidates(root).flatMap { candidate ->
+        if (File(candidate, "src").isDirectory) {
+            listOf("${candidate.name}/src")
+        } else {
+            moduleCandidates(candidate)
+                .filter { File(it, "src").isDirectory }
+                .map { "${candidate.name}/${it.name}/src" }
+        }
+    }
+
+/**
  * The project's production Kotlin, scoped to the real Gradle modules only — the canonical scope
  * every architectural rule in this package builds on. Built once and shared across all rules.
  *
@@ -28,12 +61,7 @@ import java.io.File
  * single-parse profile that `scopeFromProduction()` had at these call sites.
  */
 private val productionScopeInstance: KoScope by lazy {
-    val moduleSrcDirs =
-        File(Konsist.projectRootPath)
-            .listFiles { entry -> entry.isDirectory && !entry.name.startsWith(".") && File(entry, "src").isDirectory }
-            .orEmpty()
-            .map { "${it.name}/src" }
-
+    val moduleSrcDirs = discoverModuleSrcDirs(File(Konsist.projectRootPath))
     Konsist.scopeFromDirectories(moduleSrcDirs).slice { "test" !in it.sourceSetName.lowercase() }
 }
 
