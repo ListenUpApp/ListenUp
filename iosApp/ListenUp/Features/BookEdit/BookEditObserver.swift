@@ -6,8 +6,10 @@ import Shared
 /// renders dynamically — no hardcoded Author/Narrator. Native value type: no bridged Kotlin object
 /// reaches a `ForEach`.
 struct BookEditRoleSection: Identifiable {
-    let id: String            // role.apiValue — stable per role
-    let role: ContributorRole
+    /// The role's `apiValue` string — the stable id AND the only role handle Swift keeps. We never
+    /// store a bridged `ContributorRole` (reading enum values out of Kotlin traps); the observer
+    /// reconstructs one transiently from this string when it must call into Kotlin.
+    let id: String
     let title: String
     let contributors: [EditableRelation]
     let query: String
@@ -20,8 +22,7 @@ struct BookEditRoleSection: Identifiable {
 /// A role the user can add a section for (a role not currently visible). Native projection of a
 /// `ContributorRole` for the "Add role" menu.
 struct AddableRole: Identifiable {
-    let id: String            // role.apiValue
-    let role: ContributorRole
+    let id: String            // role.apiValue — the only role handle Swift keeps (see BookEditRoleSection)
     let title: String
 }
 
@@ -190,16 +191,20 @@ final class BookEditObserver {
 
     // MARK: - Relation remove intents
 
-    func removeContributor(_ relation: EditableRelation, role: ContributorRole) {
-        guard let contributor = rawContributorsByRole[role.apiValue]?.first(where: { $0.name == relation.id }) else { return }
+    func removeContributor(_ relation: EditableRelation, roleApiValue: String) {
+        guard let role = Self.roleFromApiValue(roleApiValue),
+              let contributor = rawContributorsByRole[roleApiValue]?.first(where: { $0.name == relation.id })
+        else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveContributor(contributor: contributor, role: role))
     }
 
     /// Add a section for a role not currently shown; remove one (any role but Author, which is fixed).
-    func addRole(_ role: ContributorRole) {
+    func addRole(roleApiValue: String) {
+        guard let role = Self.roleFromApiValue(roleApiValue) else { return }
         viewModel.onEvent(event: BookEditUiEventAddRoleSection(role: role))
     }
-    func removeRole(_ role: ContributorRole) {
+    func removeRole(roleApiValue: String) {
+        guard let role = Self.roleFromApiValue(roleApiValue) else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveRoleSection(role: role))
     }
     func removeSeries(_ relation: EditableRelation) {
@@ -225,15 +230,20 @@ final class BookEditObserver {
 
     // MARK: - Relation add intents
 
-    // Contributors (per role) — search, select an existing result, or enter a new name.
-    func setContributorQuery(_ value: String, role: ContributorRole) {
+    // Contributors (per role) — search, select an existing result, or enter a new name. Roles are
+    // passed as apiValue strings; the enum is reconstructed only to hand into the Kotlin event.
+    func setContributorQuery(_ value: String, roleApiValue: String) {
+        guard let role = Self.roleFromApiValue(roleApiValue) else { return }
         viewModel.onEvent(event: BookEditUiEventRoleSearchQueryChanged(role: role, query: value))
     }
-    func selectContributorResult(_ result: RelationSearchResult, role: ContributorRole) {
-        guard let match = rawResultsByRole[role.apiValue]?.first(where: { $0.id == result.id }) else { return }
+    func selectContributorResult(_ result: RelationSearchResult, roleApiValue: String) {
+        guard let role = Self.roleFromApiValue(roleApiValue),
+              let match = rawResultsByRole[roleApiValue]?.first(where: { $0.id == result.id })
+        else { return }
         viewModel.onEvent(event: BookEditUiEventRoleContributorSelected(role: role, result: match))
     }
-    func enterContributor(_ name: String, role: ContributorRole) {
+    func enterContributor(_ name: String, roleApiValue: String) {
+        guard let role = Self.roleFromApiValue(roleApiValue) else { return }
         viewModel.onEvent(event: BookEditUiEventRoleContributorEntered(role: role, name: name))
     }
 
@@ -365,38 +375,61 @@ final class BookEditObserver {
         collectionResults = rawCollectionResults.map(Self.collectionResult)
     }
 
-    /// Builds the dynamic contributor-role sections from the shared VM's visible roles. Reads the
-    /// bridge-safe role-generic accessors (the Kotlin side subscripts the `[ContributorRole: …]`
-    /// maps; Swift only ever passes the role as a function argument — never subscripts the bridged
-    /// map, which traps). Raw Kotlin lists are stashed by `role.apiValue` (a String) for the
-    /// id→object lookup on remove/select, off the SwiftUI diff path.
+    /// Builds the dynamic contributor-role sections from the shared VM's visible roles.
+    ///
+    /// Roles arrive as `apiValue` strings (`orderedVisibleRoleApiValues`), NOT as bridged
+    /// `ContributorRole` values: Swift Export boxes the elements of a `List<ContributorRole>` as
+    /// opaque existentials that trap when cast back to the enum ("Could not cast … to
+    /// …ContributorRole"). We reconstruct a Swift `ContributorRole` locally from the string, which
+    /// then passes safely into the Kotlin accessors as a function argument (the direction that
+    /// bridges). Raw Kotlin lists are stashed by `apiValue` for the id→object lookup on remove/select.
     private func applyRoleSections(_ state: BookEditUiState) {
         var sections: [BookEditRoleSection] = []
         var rawContributors: [String: [EditableContributor]] = [:]
         var rawResults: [String: [ContributorSearchResult]] = [:]
-        for role in state.orderedVisibleRoles {
+        for apiValue in state.orderedVisibleRoleApiValues {
+            guard let role = Self.roleFromApiValue(apiValue) else { continue }
             let contributors = state.contributorsForRole(role: role)
             let results = state.searchResultsForRole(role: role)
-            rawContributors[role.apiValue] = contributors
-            rawResults[role.apiValue] = results
+            rawContributors[apiValue] = contributors
+            rawResults[apiValue] = results
             sections.append(
                 BookEditRoleSection(
-                    id: role.apiValue,
-                    role: role,
+                    id: apiValue,
                     title: Self.roleTitle(role),
                     contributors: contributors.map { EditableRelation.contributor(name: $0.name) },
                     query: state.searchQueryForRole(role: role),
                     results: results.map(Self.contributorResult),
                     searching: state.searchLoadingForRole(role: role),
-                    canRemove: role != .author
+                    canRemove: apiValue != "author"
                 )
             )
         }
         roleSections = sections
         rawContributorsByRole = rawContributors
         rawResultsByRole = rawResults
-        addableRoles = state.availableRolesToAdd.map {
-            AddableRole(id: $0.apiValue, role: $0, title: Self.roleTitle($0))
+        addableRoles = state.availableRoleApiValuesToAdd.compactMap { apiValue in
+            guard let role = Self.roleFromApiValue(apiValue) else { return nil }
+            return AddableRole(id: apiValue, title: Self.roleTitle(role))
+        }
+    }
+
+    /// Reconstructs a Swift `ContributorRole` from its `apiValue` string. A Swift-constructed enum
+    /// value passes safely into the Kotlin accessors/events (the bridge-safe function-argument
+    /// direction), unlike an enum value read out of a bridged `List<ContributorRole>`, which traps.
+    static func roleFromApiValue(_ apiValue: String) -> ContributorRole? {
+        switch apiValue {
+        case "author": return .author
+        case "narrator": return .narrator
+        case "editor": return .editor
+        case "translator": return .translator
+        case "foreword": return .foreword
+        case "introduction": return .introduction
+        case "afterword": return .afterword
+        case "producer": return .producer
+        case "adapter": return .adapter
+        case "illustrator": return .illustrator
+        default: return nil
         }
     }
 
