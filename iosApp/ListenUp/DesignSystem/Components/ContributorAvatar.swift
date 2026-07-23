@@ -154,6 +154,23 @@ private struct ContributorPhotoLayer: View {
                     .transition(.opacity)
             }
         }
+        .onStart { task in
+            ImageTrace.log(
+                "layer start id=\(ImageTrace.tail(contributorId, 6)) " +
+                    "url=\(ImageTrace.tail(task.request.imageId, 56))"
+            )
+        }
+        .onCompletion { result in
+            switch result {
+            case .success(let response):
+                ImageTrace.log(
+                    "layer done id=\(ImageTrace.tail(contributorId, 6)) " +
+                        "ok cache=\(response.cacheType.map { String(describing: $0) } ?? "network")"
+                )
+            case .failure(let error):
+                ImageTrace.log("layer done id=\(ImageTrace.tail(contributorId, 6)) FAIL \(error)")
+            }
+        }
         .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
             let pixels = (max(size.width, size.height) * displayScale).rounded()
             if pixels > 0, pixels != targetMaxPixels {
@@ -162,12 +179,22 @@ private struct ContributorPhotoLayer: View {
         }
         // Cancelled when the row scrolls away; re-resolves when id/imagePath/size change.
         .task(id: TaskKey(contributorId: contributorId, imagePath: imagePath, targetPixels: targetMaxPixels)) {
-            guard targetMaxPixels > 0 else { return }
-            request = await ContributorImageRequest.contributor(
+            guard targetMaxPixels > 0 else {
+                ImageTrace.log(
+                    "layer skip id=\(ImageTrace.tail(contributorId, 6)) path=\(imagePath ?? "nil") px=0"
+                )
+                return
+            }
+            let built = await ContributorImageRequest.contributor(
                 contributorId: contributorId,
                 imagePath: imagePath,
                 targetPixels: targetMaxPixels
             )
+            ImageTrace.log(
+                "layer set id=\(ImageTrace.tail(contributorId, 6)) " +
+                    "request=\(built == nil ? "NIL" : "built") cancelled=\(Task.isCancelled)"
+            )
+            request = built
         }
     }
 

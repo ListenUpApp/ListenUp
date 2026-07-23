@@ -95,6 +95,17 @@ struct BookCoverImage: View {
             }
             .animation(.easeIn(duration: 0.2), value: state.image != nil)
         }
+        .onCompletion { result in
+            switch result {
+            case .success(let response):
+                ImageTrace.log(
+                    "coverlayer done id=\(ImageTrace.tail(bookId, 6)) " +
+                        "ok cache=\(response.cacheType.map { String(describing: $0) } ?? "network")"
+                )
+            case .failure(let error):
+                ImageTrace.log("coverlayer done id=\(ImageTrace.tail(bookId, 6)) FAIL \(error)")
+            }
+        }
         .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
             let px = (max(size.width, size.height) * displayScale).rounded()
             if px > 0, px != targetMaxPixels {

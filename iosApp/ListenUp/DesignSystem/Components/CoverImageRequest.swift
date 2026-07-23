@@ -17,6 +17,11 @@ enum CoverImageRequest {
         targetPixels: CGFloat
     ) async -> ImageRequest? {
         let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
+        let trace = ImageTrace.nextBuildId()
+        ImageTrace.log(
+            "cover#\(trace) build id=\(ImageTrace.tail(bookId, 6)) hash=\(coverHash ?? "nil") " +
+                "path=\(ImageTrace.tail(coverPath, 24)) px=\(Int(targetPixels))"
+        )
 
         // When the server's content version (`coverHash`) is known, resolve from the content-addressed
         // server URL — NOT the durable local `coverPath`. The local file is keyed only by book id, so
@@ -25,9 +30,14 @@ enum CoverImageRequest {
         // cacheKey busts on re-scrape and serves offline from Nuke's disk cache once fetched.
         if let coverHash, !coverHash.isEmpty, let bookId, !bookId.isEmpty {
             KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
-            if let base = (try? await KoinHelper.shared.activeServerUrl()), !base.isEmpty,
+            let base = try? await KoinHelper.shared.activeServerUrl()
+            ImageTrace.log("cover#\(trace) base=\(base ?? "NIL")")
+            if let base, !base.isEmpty,
                let url = coverURL(base: base, bookId: bookId, coverHash: coverHash) {
                 let cacheKey = contentHashKey(identity: bookId, coverHash: coverHash)
+                ImageTrace.log(
+                    "cover#\(trace) -> SERVER key=\(cacheKey ?? "nil") url=\(ImageTrace.tail(url.absoluteString, 56))"
+                )
                 return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
             }
         }
@@ -35,10 +45,14 @@ enum CoverImageRequest {
         // No known content version: the durable local file the caller resolved is the best source.
         if let coverPath, !coverPath.isEmpty {
             let cacheKey = localFileCacheKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash)
+            ImageTrace.log("cover#\(trace) -> LOCAL key=\(cacheKey) file=\(ImageTrace.tail(coverPath, 40))")
             return AuthenticatedImageRequest.localFile(coverPath, processors: processors, cacheKey: cacheKey)
         }
 
-        guard let bookId, !bookId.isEmpty else { return nil }
+        guard let bookId, !bookId.isEmpty else {
+            ImageTrace.log("cover#\(trace) -> NIL (no bookId)")
+            return nil
+        }
 
         // No durable file yet — kick off a background download so this streamed cover is
         // persisted to disk for offline use, independent of Nuke's evictable cache. Fire-and-forget
@@ -46,9 +60,14 @@ enum CoverImageRequest {
         // BookCoverImage server fallback.)
         KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
 
-        guard let base = (try? await KoinHelper.shared.activeServerUrl()), !base.isEmpty,
+        let fallbackBase = try? await KoinHelper.shared.activeServerUrl()
+        guard let base = fallbackBase, !base.isEmpty,
               let url = coverURL(base: base, bookId: bookId, coverHash: coverHash)
-        else { return nil }
+        else {
+            ImageTrace.log("cover#\(trace) -> NIL (base=\(fallbackBase ?? "NIL"))")
+            return nil
+        }
+        ImageTrace.log("cover#\(trace) -> SERVER-BYID url=\(ImageTrace.tail(url.absoluteString, 56))")
 
         // No hash → `nil` cache key → Nuke keys on the request URL (`/api/v1/covers/{bookId}`),
         // which is already unique per book. Never the `"bookId:cover"` custom key: it is the exact

@@ -38,7 +38,11 @@ enum AuthenticatedImageRequest {
         cacheKey: String? = nil
     ) async -> ImageRequest {
         var urlRequest = URLRequest(url: url)
-        if let token = try? await KoinHelper.shared.accessToken() {
+        let token = try? await KoinHelper.shared.accessToken()
+        ImageTrace.log(
+            "auth token=\(token == nil ? "MISSING" : "present") url=\(ImageTrace.tail(url.absoluteString, 56))"
+        )
+        if let token {
             urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         let userInfo: [ImageRequest.UserInfoKey: Any]? = cacheKey.map { [.imageIdKey: $0] }
