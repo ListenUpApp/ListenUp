@@ -17,6 +17,9 @@ import SwiftUI
 struct CoverGlow: View {
     let bookId: String?
     let coverPath: String?
+    /// Content hash of the current cover, forwarded to `BookCoverImage` so the glow content-addresses
+    /// the fresh cover after a re-scrape instead of blooming the stale local file's colours.
+    var coverHash: String?
 
     /// The hero cover's edge length; the glow is framed to this so it stays bounded.
     let size: CGFloat
@@ -43,7 +46,7 @@ struct CoverGlow: View {
             Color.clear
                 .frame(width: size, height: size)
                 .overlay {
-                    BookCoverImage(bookId: bookId, coverPath: coverPath)
+                    BookCoverImage(bookId: bookId, coverPath: coverPath, coverHash: coverHash)
                         .scaledToFill()
                         .scaleEffect(scale)
                         .blur(radius: blurRadius, opaque: false)

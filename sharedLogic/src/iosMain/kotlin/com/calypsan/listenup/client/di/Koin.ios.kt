@@ -26,17 +26,8 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import kotlin.io.encoding.Base64
-import kotlin.io.encoding.ExperimentalEncodingApi
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
+import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -203,21 +194,20 @@ object KoinHelper {
     suspend fun accessToken(): String? = getAuthSession().getAccessToken()?.value
 
     /**
-     * Access token for the Nuke image path, REFRESHED when the stored one is stale. Image URLSession
-     * requests bypass the RPC channel's 401-heal, so a token that expired since launch would 401
-     * forever with no retry — the "iOS photo won't refresh in real time" bug. This checks the stored
-     * JWT's expiry and, when stale, routes through the single-flight [AuthRepository.refreshAccessToken]
-     * (the same refresh primitive `CachedAudioTokenProvider` uses for the audio stream — the other
-     * raw-HTTP path). The `AppResult` is consumed here so Swift awaits a plain `String?` (never await
-     * an AppResult across the bridge). Falls back to the stored token on refresh failure.
+     * Access token for the Nuke image path, served from the shared single-flight cached token
+     * authority — the SAME [AudioTokenProvider] the audio stream uses, the other raw-HTTP path that
+     * bypasses the RPC channel's 401-heal. That provider keeps a proactively-refreshed token and
+     * serves the last-known-good value even mid-refresh, so a burst of concurrent cover loads all
+     * read one valid token instead of each racing its own refresh — the earlier per-request refresh
+     * stampede returned no token for a fraction of requests (`token=MISSING`), which then 401'd and
+     * left photos stale (the "iOS photo won't refresh in real time" bug). Primes once if the provider
+     * is still cold (the first image right after launch); never triggers a per-request rotation.
      */
-    @OptIn(kotlin.time.ExperimentalTime::class, kotlin.io.encoding.ExperimentalEncodingApi::class)
     suspend fun freshAccessToken(): String? {
-        val stored = getAuthSession().getAccessToken()?.value
-        if (stored != null && jwtIsFresh(stored)) return stored
-        return when (val result = resolve(AuthRepository::class).refreshAccessToken()) {
-            is AppResult.Success -> result.data.accessToken.value
-            is AppResult.Failure -> stored
+        val provider = resolve(AudioTokenProvider::class)
+        return provider.getToken() ?: run {
+            provider.prepareForPlayback()
+            provider.getToken()
         }
     }
 
@@ -362,23 +352,3 @@ internal actual val platformDeviceModule: Module =
         }
         single { get<com.calypsan.listenup.client.device.DeviceContextProvider>().detect() }
     }
-
-/**
- * True when [token] is a JWT whose `exp` claim is still comfortably in the future (>60s). Opaque or
- * malformed tokens (no decodable `exp`) return false, so the caller forces a refresh rather than
- * trusting an unverifiable token. Mirrors `CachedAudioTokenProvider.jwtExpiryMillis`.
- */
-@OptIn(ExperimentalTime::class, ExperimentalEncodingApi::class)
-private fun jwtIsFresh(token: String): Boolean {
-    val expMillis =
-        runCatching {
-            val payload = token.split('.').getOrNull(1) ?: return false
-            val json =
-                Base64.UrlSafe
-                    .withPadding(Base64.PaddingOption.ABSENT_OPTIONAL)
-                    .decode(payload)
-                    .decodeToString()
-            Json.parseToJsonElement(json).jsonObject["exp"]?.jsonPrimitive?.longOrNull?.times(1000L)
-        }.getOrNull() ?: return false
-    return expMillis - Clock.System.now().toEpochMilliseconds() > 60_000L
-}

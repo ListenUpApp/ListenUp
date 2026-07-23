@@ -110,7 +110,7 @@ private struct SeeAllBookCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            BookCoverImage(bookId: row.id, coverPath: row.coverPath)
+            BookCoverImage(bookId: row.id, coverPath: row.coverPath, coverHash: row.coverHash)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 10))

@@ -17,11 +17,6 @@ enum ContributorImageRequest {
     ) async -> ImageRequest? {
         let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
         let key = cacheKey(contributorId: contributorId, imagePath: imagePath)
-        let trace = ImageTrace.nextBuildId()
-        ImageTrace.log(
-            "contrib#\(trace) build id=\(ImageTrace.tail(contributorId, 6)) " +
-                "path=\(imagePath ?? "nil") px=\(Int(targetPixels))"
-        )
 
         let repository = KoinHelper.shared.getImageRepository()
 
@@ -35,12 +30,8 @@ enum ContributorImageRequest {
         if let imagePath, !imagePath.isEmpty {
             repository.ensureContributorImageCached(contributorId: contributorId)
             let base = try? await KoinHelper.shared.activeServerUrl()
-            ImageTrace.log("contrib#\(trace) base=\(base ?? "NIL")")
             if let base,
                let url = photoURL(base: base, contributorId: contributorId, imagePath: imagePath) {
-                ImageTrace.log(
-                    "contrib#\(trace) -> SERVER key=\(key) url=\(ImageTrace.tail(url.absoluteString, 56))"
-                )
                 return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
             }
         }
@@ -48,7 +39,6 @@ enum ContributorImageRequest {
         // No known content version (or no server URL): the durable local file is the best source.
         if repository.contributorImageExists(contributorId: contributorId) {
             let path = repository.getContributorImagePath(contributorId: contributorId)
-            ImageTrace.log("contrib#\(trace) -> LOCAL key=\(key) file=\(ImageTrace.tail(path, 40))")
             return AuthenticatedImageRequest.localFile(path, processors: processors, cacheKey: key)
         }
 
@@ -58,10 +48,8 @@ enum ContributorImageRequest {
         guard let base = fallbackBase,
               let url = photoURL(base: base, contributorId: contributorId, imagePath: imagePath)
         else {
-            ImageTrace.log("contrib#\(trace) -> NIL (base=\(fallbackBase ?? "NIL"))")
             return nil
         }
-        ImageTrace.log("contrib#\(trace) -> SERVER-BYID url=\(ImageTrace.tail(url.absoluteString, 56))")
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
     }
 

@@ -15,6 +15,9 @@ final class ContributorEditObserver {
     private(set) var birthDate: String = ""
     private(set) var deathDate: String = ""
     private(set) var imagePath: String?
+    /// Path to render for the avatar: the staged (picked-but-unsaved) local file when present,
+    /// otherwise the contributor's image. Mirrors `BookEditObserver.displayCoverPath`.
+    private(set) var displayImagePath: String?
     private(set) var hasChanges: Bool = false
     private(set) var isSaving: Bool = false
     private(set) var isUploadingImage: Bool = false
@@ -78,6 +81,7 @@ final class ContributorEditObserver {
         birthDate = state.birthDate
         deathDate = state.deathDate
         imagePath = state.imagePath
+        displayImagePath = state.displayImagePath
         hasChanges = state.hasChanges
         isSaving = state.isSaving
         isUploadingImage = state.isUploadingImage

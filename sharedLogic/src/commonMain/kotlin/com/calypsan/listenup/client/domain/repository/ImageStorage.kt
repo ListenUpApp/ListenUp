@@ -273,4 +273,45 @@ interface ImageStorage {
      * @return Result indicating success or failure
      */
     suspend fun deleteSeriesCoverStaging(seriesId: String): AppResult<Unit>
+
+    // ========== Contributor Image Staging Methods ==========
+
+    /**
+     * Save contributor image to a staging location for preview.
+     * Does not affect the main image file until [commitContributorImageStaging] is called.
+     *
+     * @param contributorId Unique identifier for the contributor
+     * @param imageData Raw image bytes
+     * @return Result indicating success or failure
+     */
+    suspend fun saveContributorImageStaging(
+        contributorId: String,
+        imageData: ByteArray,
+    ): AppResult<Unit>
+
+    /**
+     * Get the local file path for a contributor's staging image.
+     *
+     * @param contributorId Unique identifier for the contributor
+     * @return Absolute file path where the staging image is/would be stored
+     */
+    fun getContributorImageStagingPath(contributorId: String): String
+
+    /**
+     * Move staging image to the main contributor image location.
+     * Call this when the user saves their changes.
+     *
+     * @param contributorId Unique identifier for the contributor
+     * @return Result indicating success or failure
+     */
+    suspend fun commitContributorImageStaging(contributorId: String): AppResult<Unit>
+
+    /**
+     * Delete staging image file.
+     * Call this when the user cancels their changes.
+     *
+     * @param contributorId Unique identifier for the contributor
+     * @return Result indicating success or failure
+     */
+    suspend fun deleteContributorImageStaging(contributorId: String): AppResult<Unit>
 }

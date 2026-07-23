@@ -109,6 +109,20 @@ internal class ImageRepositoryImpl(
         filename: String,
     ): AppResult<String> = imageApi.uploadContributorImage(contributorId, imageData, filename).map { it.imageUrl }
 
+    override suspend fun saveContributorImageStaging(
+        contributorId: String,
+        imageData: ByteArray,
+    ): AppResult<Unit> = imageStorage.saveContributorImageStaging(contributorId, imageData)
+
+    override fun getContributorImageStagingPath(contributorId: String): String =
+        imageStorage.getContributorImageStagingPath(contributorId)
+
+    override suspend fun deleteContributorImageStaging(contributorId: String): AppResult<Unit> =
+        imageStorage.deleteContributorImageStaging(contributorId)
+
+    override suspend fun commitContributorImageStaging(contributorId: String): AppResult<Unit> =
+        imageStorage.commitContributorImageStaging(contributorId)
+
     // ========== Contributor Image Path Operations ==========
 
     override fun contributorImageExists(contributorId: String): Boolean =
@@ -156,6 +170,18 @@ internal class ImageRepositoryImpl(
             when (val r = deleteSeriesCoverStaging(seriesId)) {
                 is AppResult.Failure -> {
                     logger.warn { "Staging cleanup failed for series $seriesId: ${r.message}" }
+                }
+
+                is AppResult.Success -> {}
+            }
+        }
+    }
+
+    override fun requestContributorImageStagingCleanup(contributorId: String) {
+        appScope.launch {
+            when (val r = deleteContributorImageStaging(contributorId)) {
+                is AppResult.Failure -> {
+                    logger.warn { "Staging cleanup failed for contributor $contributorId: ${r.message}" }
                 }
 
                 is AppResult.Success -> {}

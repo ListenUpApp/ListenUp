@@ -83,7 +83,7 @@ class PlaybackPreparerTest :
                     title = "Prepare Test Book",
                     sortTitle = "Prepare Test Book",
                     subtitle = null,
-                    coverHash = null,
+                    coverHash = "cover-hash-prep",
                     totalDuration = 3_000L,
                     description = null,
                     publishYear = null,
@@ -431,6 +431,11 @@ class PlaybackPreparerTest :
 
                 result.shouldNotBeNull()
                 fakePlaybackService.prepareCallCount shouldBe 0
+
+                // The prepared value carries the book's content hash so the player surfaces
+                // (mini player, now-playing, full screen) content-address the cover and refresh
+                // it after a re-scrape instead of serving the stale id-stable local file.
+                result.coverHash shouldBe "cover-hash-prep"
 
                 result.timeline.files[0].localPath shouldBe "/local/af-prep-1.mp3"
                 result.timeline.files[1].localPath shouldBe "/local/af-prep-2.mp3"

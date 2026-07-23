@@ -395,6 +395,7 @@ internal val contributorPresentationModule =
                 contributorRepository = get<com.calypsan.listenup.client.domain.repository.ContributorRepository>(),
                 updateContributorUseCase = get(),
                 imageRepository = get(),
+                imageStagingRepository = get(),
                 contributorEditRepository = get<com.calypsan.listenup.client.domain.repository.ContributorEditRepository>(),
                 contributorAliasDao = get(),
                 contributorDao = get(),

@@ -25,6 +25,9 @@ struct CollectionRow: Identifiable, Equatable {
 struct BookDetailHeaderModel: Equatable {
     let coverBookId: String
     let coverPath: String?
+    /// Content hash of the current cover, folded into the cover's cache key so a re-scrape
+    /// content-addresses the fresh cover instead of serving the stale id-stable local file.
+    let coverHash: String?
     let seriesId: String?
 }
 
@@ -337,6 +340,7 @@ final class BookDetailObserver {
         header = BookDetailHeaderModel(
             coverBookId: book.idString,
             coverPath: book.coverPath,
+            coverHash: book.coverHash,
             seriesId: book.seriesId
         )
         audioFormat = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail

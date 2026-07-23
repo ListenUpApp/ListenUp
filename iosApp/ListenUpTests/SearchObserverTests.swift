@@ -135,6 +135,6 @@ struct SearchObserverTests {
     // MARK: - Helpers
 
     private func row(_ id: String, _ kind: SearchRowKind) -> SearchRow {
-        SearchRow(id: id, kind: kind, name: "Name \(id)", subtitle: nil, author: nil, coverPath: nil)
+        SearchRow(id: id, kind: kind, name: "Name \(id)", subtitle: nil, author: nil, coverPath: nil, coverHash: nil)
     }
 }

@@ -57,6 +57,7 @@ import listenup.composeapp.generated.resources.contributor_contributor_photo
 fun ContributorIdentityHeader(
     contributorId: String,
     imagePath: String?,
+    stagingImagePath: String?,
     name: String,
     colorScheme: ContributorColorScheme,
     isUploadingImage: Boolean,
@@ -141,6 +142,7 @@ fun ContributorIdentityHeader(
                     ContributorCoverImage(
                         contributorId = contributorId,
                         imagePath = imagePath,
+                        stagingImagePath = stagingImagePath,
                         contentDescription = stringResource(Res.string.contributor_contributor_photo),
                         contentScale = ContentScale.Crop,
                         modifier =

@@ -147,28 +147,20 @@ private struct ContributorPhotoLayer: View {
 
     var body: some View {
         LazyImage(request: request) { state in
-            if let image = state.image {
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .transition(.opacity)
-            }
-        }
-        .onStart { task in
-            ImageTrace.log(
-                "layer start id=\(ImageTrace.tail(contributorId, 6)) " +
-                    "url=\(ImageTrace.tail(task.request.imageId, 56))"
-            )
-        }
-        .onCompletion { result in
-            switch result {
-            case .success(let response):
-                ImageTrace.log(
-                    "layer done id=\(ImageTrace.tail(contributorId, 6)) " +
-                        "ok cache=\(response.cacheType.map { String(describing: $0) } ?? "network")"
-                )
-            case .failure(let error):
-                ImageTrace.log("layer done id=\(ImageTrace.tail(contributorId, 6)) FAIL \(error)")
+            // Color.clear keeps this layer at its parent avatar's size even before an image
+            // resolves. Without an always-present filler the empty content collapses to 0×0, so
+            // onGeometryChange reports px=0, the `.task` guard (`targetMaxPixels > 0`) skips building
+            // the request forever, and a re-scraped photo never (re)loads — the layer just keeps
+            // showing whatever `request` held last (the stale photo). BookCoverImage never hit this
+            // because its gradient placeholder always fills; this layer had no such base.
+            ZStack {
+                Color.clear
+                if let image = state.image {
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .transition(.opacity)
+                }
             }
         }
         .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
@@ -179,21 +171,16 @@ private struct ContributorPhotoLayer: View {
         }
         // Cancelled when the row scrolls away; re-resolves when id/imagePath/size change.
         .task(id: TaskKey(contributorId: contributorId, imagePath: imagePath, targetPixels: targetMaxPixels)) {
-            guard targetMaxPixels > 0 else {
-                ImageTrace.log(
-                    "layer skip id=\(ImageTrace.tail(contributorId, 6)) path=\(imagePath ?? "nil") px=0"
-                )
-                return
-            }
+            guard targetMaxPixels > 0 else { return }
             let built = await ContributorImageRequest.contributor(
                 contributorId: contributorId,
                 imagePath: imagePath,
                 targetPixels: targetMaxPixels
             )
-            ImageTrace.log(
-                "layer set id=\(ImageTrace.tail(contributorId, 6)) " +
-                    "request=\(built == nil ? "NIL" : "built") cancelled=\(Task.isCancelled)"
-            )
+            // Propagate only on acceptance, never on cancellation: a superseded task resumes here
+            // after its await and would clobber `request` with a stale (or tokenless→401) build. The
+            // successor task rebuilds with the current inputs and a fresh token.
+            guard !Task.isCancelled else { return }
             request = built
         }
     }

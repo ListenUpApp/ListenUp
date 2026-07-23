@@ -115,8 +115,16 @@ struct EditProfileView: View {
         switch observer.stagedAvatar {
         case .image(let data):
             StagedAvatarPreview(data: data, user: observer.user, size: 104)
-        case .reverted, .none:
-            // Reverted → initials; None → the user's current avatar (initials today).
+        case .reverted:
+            // Staged revert: show initials NOW. `UserAvatarView(user:)` observes the live
+            // public_profiles row, which still says `avatarType = "image"` until Save persists the
+            // revert — so it would keep showing the old photo, making "Remove" look like a no-op.
+            InitialsAvatar(
+                initials: UserAvatarView.initials(from: observer.user?.displayName ?? ""),
+                size: 104,
+                isCurrentUser: true
+            )
+        case .none:
             UserAvatarView(user: observer.user, size: 104)
         }
     }

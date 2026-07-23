@@ -95,17 +95,6 @@ struct BookCoverImage: View {
             }
             .animation(.easeIn(duration: 0.2), value: state.image != nil)
         }
-        .onCompletion { result in
-            switch result {
-            case .success(let response):
-                ImageTrace.log(
-                    "coverlayer done id=\(ImageTrace.tail(bookId, 6)) " +
-                        "ok cache=\(response.cacheType.map { String(describing: $0) } ?? "network")"
-                )
-            case .failure(let error):
-                ImageTrace.log("coverlayer done id=\(ImageTrace.tail(bookId, 6)) FAIL \(error)")
-            }
-        }
         .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
             let px = (max(size.width, size.height) * displayScale).rounded()
             if px > 0, px != targetMaxPixels {
@@ -114,12 +103,16 @@ struct BookCoverImage: View {
         }
         .task(id: TaskKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash, targetPixels: targetMaxPixels)) {
             guard targetMaxPixels > 0 else { return }
-            request = await CoverImageRequest.book(
+            let built = await CoverImageRequest.book(
                 bookId: bookId,
                 coverPath: coverPath,
                 coverHash: coverHash,
                 targetPixels: targetMaxPixels
             )
+            // Propagate only on acceptance, never on cancellation: a superseded task resumes here
+            // after its await and would clobber `request` with a stale (or tokenless→401) build.
+            guard !Task.isCancelled else { return }
+            request = built
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel ?? "")

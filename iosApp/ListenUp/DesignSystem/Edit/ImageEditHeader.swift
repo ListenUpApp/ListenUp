@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import UIKit
 
 /// An editable image (cover or avatar) with a camera badge that opens a `PhotosPicker`,
 /// plus an optional remove affordance. Emits the picked image as `Data`.
@@ -57,8 +58,14 @@ struct ImageEditHeader<ImageContent: View>: View {
         .onChange(of: item) { _, newItem in
             guard let newItem else { return }
             Task {
-                if let data = try? await newItem.loadTransferable(type: Data.self) {
-                    onPicked(data)
+                // Normalize to JPEG before handing bytes up. `loadTransferable(type: Data.self)`
+                // returns the photo's ORIGINAL encoding, which on iPhone is usually HEIC — a format
+                // the server's image validator rejects (it sniffs for JPEG/PNG/WebP magic bytes only)
+                // → 422 on upload. Decoding to UIImage and re-encoding as JPEG guarantees a format the
+                // server accepts, for every consumer of this shared header (avatar, contributor, cover).
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let jpeg = UIImage(data: data)?.jpegData(compressionQuality: 0.9) {
+                    onPicked(jpeg)
                 }
                 item = nil
             }

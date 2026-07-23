@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.util
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,8 +13,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.io.ByteArrayOutputStream
 
 private val logger = KotlinLogging.logger {}
+
+/** JPEG quality for re-encoding picked images (see [readImageFromUri]). */
+private const val JPEG_QUALITY = 90
 
 /**
  * Android implementation of [ImagePicker].
@@ -61,25 +67,35 @@ class ImagePickerState(
         // Get filename from URI
         val filename = getFilenameFromUri(context, uri) ?: "image.jpg"
 
-        // Get MIME type
-        val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
-
-        // Read the image data
-        val data =
+        // Read the raw image bytes.
+        val rawData =
             contentResolver.openInputStream(uri)?.use { inputStream ->
                 inputStream.readBytes()
             } ?: return ImagePickerResult.Error("Could not open image stream")
 
-        if (data.isEmpty()) {
+        if (rawData.isEmpty()) {
             return ImagePickerResult.Error("Image data is empty")
         }
 
-        logger.debug { "Read image: filename=$filename, mimeType=$mimeType, size=${data.size}" }
+        // Normalize to JPEG. Some Android devices store photos as HEIC/HEIF, which the server's
+        // image validator rejects (it accepts JPEG/PNG/WebP by magic bytes only) → 422 on upload.
+        // Decoding to a Bitmap and re-encoding as JPEG guarantees an accepted format. Mirrors the
+        // iOS ImageEditHeader fix.
+        val bitmap =
+            BitmapFactory.decodeByteArray(rawData, 0, rawData.size)
+                ?: return ImagePickerResult.Error("Could not decode image")
+        val data =
+            ByteArrayOutputStream().use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                out.toByteArray()
+            }
+
+        logger.debug { "Read image: filename=$filename, size=${data.size} (normalized to JPEG)" }
 
         return ImagePickerResult.Success(
             data = data,
             filename = filename,
-            mimeType = mimeType,
+            mimeType = "image/jpeg",
         )
     }
 

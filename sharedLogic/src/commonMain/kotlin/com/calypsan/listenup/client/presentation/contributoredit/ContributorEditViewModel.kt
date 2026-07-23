@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.ContributorUpdateRequest
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import com.calypsan.listenup.core.ContributorId
@@ -61,6 +62,11 @@ data class ContributorEditUiState(
     // Contributor identity
     val contributorId: String = "",
     val imagePath: String? = null,
+    // Pending image upload (staged locally until Save)
+    val pendingImageData: ByteArray? = null,
+    val pendingImageFilename: String? = null,
+    // Staging image path for preview (separate from the main image)
+    val stagingImagePath: String? = null,
     // Editable fields
     val name: String = "",
     val description: String = "",
@@ -74,7 +80,13 @@ data class ContributorEditUiState(
     val mergeQuery: String = "",
     // Track if changes have been made
     val hasChanges: Boolean = false,
-)
+) {
+    /**
+     * Returns the image path to display - staging if available, otherwise the original.
+     */
+    val displayImagePath: String?
+        get() = stagingImagePath ?: imagePath
+}
 
 /**
  * Events from the contributor edit UI.
@@ -113,7 +125,7 @@ sealed interface ContributorEditUiEvent {
 
     // Image upload
 
-    /** User chose an image for the contributor; uploaded immediately and saved locally. */
+    /** User chose an image for the contributor; bytes are staged for preview until Save. */
     data class UploadImage(
         val imageData: ByteArray,
         val filename: String,
@@ -163,7 +175,8 @@ sealed interface ContributorEditNavAction {
  *
  * @property contributorRepository Repository for contributor data
  * @property updateContributorUseCase Use case for updating contributor metadata
- * @property imageRepository Repository for image operations
+ * @property imageRepository Repository for persistent image operations (upload, local save)
+ * @property imageStagingRepository Repository for staging image operations (preview before save)
  * @property contributorEditRepository RPC dispatcher for merge/unmerge
  * @property contributorAliasDao DAO for observing the contributor's aliases (Room is read truth)
  * @property contributorDao DAO for browsing all contributors as merge-target candidates
@@ -173,6 +186,7 @@ class ContributorEditViewModel internal constructor(
     private val contributorRepository: ContributorRepository,
     private val updateContributorUseCase: UpdateContributorUseCase,
     private val imageRepository: ImageRepository,
+    private val imageStagingRepository: ImageStagingRepository,
     private val contributorEditRepository: ContributorEditRepository,
     private val contributorAliasDao: ContributorAliasDao,
     private val contributorDao: ContributorDao,
@@ -215,7 +229,6 @@ class ContributorEditViewModel internal constructor(
     private var originalWebsite: String = ""
     private var originalBirthDate: String = ""
     private var originalDeathDate: String = ""
-    private var originalImagePath: String? = null
 
     /**
      * Load contributor data for editing.
@@ -236,7 +249,6 @@ class ContributorEditViewModel internal constructor(
             originalWebsite = contributor.website ?: ""
             originalBirthDate = contributor.birthDate ?: ""
             originalDeathDate = contributor.deathDate ?: ""
-            originalImagePath = contributor.imagePath
 
             state.update {
                 it.copy(
@@ -300,7 +312,7 @@ class ContributorEditViewModel internal constructor(
             }
 
             is ContributorEditUiEvent.UploadImage -> {
-                uploadImage(event.imageData, event.filename)
+                stageImage(event.imageData, event.filename)
             }
 
             is ContributorEditUiEvent.Save -> {
@@ -308,7 +320,7 @@ class ContributorEditViewModel internal constructor(
             }
 
             is ContributorEditUiEvent.Cancel -> {
-                _navActions.trySend(ContributorEditNavAction.NavigateBack)
+                cancelAndCleanup()
             }
 
             is ContributorEditUiEvent.DismissError -> {
@@ -410,63 +422,83 @@ class ContributorEditViewModel internal constructor(
         }
     }
 
-    // ========== Image Upload ==========
+    // ========== Image Staging ==========
 
-    private fun uploadImage(
+    /**
+     * Handle image selection.
+     * Saves the image to a staging location for preview.
+     * Does NOT upload to the server or overwrite the main image until saveChanges() is called.
+     */
+    private fun stageImage(
         imageData: ByteArray,
         filename: String,
     ) {
         val contributorId = state.value.contributorId
         if (contributorId.isBlank()) {
-            logger.error { "Cannot upload image: contributor ID is empty" }
+            logger.error { "Cannot set image: contributor ID is empty" }
             return
         }
 
         viewModelScope.launch {
             state.update { it.copy(isUploadingImage = true, error = null) }
 
-            when (val result = imageRepository.uploadContributorImage(contributorId, imageData, filename)) {
+            // Save to staging location for preview (doesn't upload or overwrite the original)
+            when (val saveResult = imageStagingRepository.saveContributorImageStaging(contributorId, imageData)) {
                 is AppResult.Success -> {
-                    logger.info { "Contributor image uploaded successfully to server" }
+                    val stagingPath = imageStagingRepository.getContributorImageStagingPath(contributorId)
+                    logger.info { "Contributor image saved to staging for preview: $stagingPath" }
 
-                    // Save image locally for offline-first access
-                    when (val saveResult = imageRepository.saveContributorImage(contributorId, imageData)) {
-                        is AppResult.Success -> {
-                            val localPath = imageRepository.getContributorImagePath(contributorId)
-                            logger.info { "Contributor image saved locally: $localPath" }
-                            state.update {
-                                it.copy(
-                                    isUploadingImage = false,
-                                    imagePath = localPath,
-                                )
-                            }
-                            updateHasChanges()
-                        }
-
-                        is AppResult.Failure -> {
-                            errorBus.emit(saveResult.error)
-                            logger.error { "Failed to save contributor image locally: ${saveResult.message}" }
-                            // Still mark upload as successful since server has the image
-                            state.update {
-                                it.copy(
-                                    isUploadingImage = false,
-                                    error = "Image uploaded but failed to save locally",
-                                )
-                            }
-                        }
-                    }
-                }
-
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to upload contributor image: ${result.message}" }
+                    // Store pending data for upload when Save is clicked
                     state.update {
                         it.copy(
                             isUploadingImage = false,
-                            error = "Failed to upload image: ${result.message}",
+                            stagingImagePath = stagingPath,
+                            pendingImageData = imageData,
+                            pendingImageFilename = filename,
+                        )
+                    }
+                    updateHasChanges()
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(saveResult.error)
+                    logger.error { "Failed to save contributor image to staging: ${saveResult.message}" }
+                    state.update {
+                        it.copy(
+                            isUploadingImage = false,
+                            error = "Failed to save image: ${saveResult.message}",
                         )
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Commit the staged image to the durable local location and upload it to the server.
+     * Image upload is best-effort — the local save is prioritized so the picked photo
+     * survives offline. Called from [saveChanges] once metadata persists.
+     */
+    private suspend fun commitAndUploadImageIfPending(current: ContributorEditUiState) {
+        val pendingData = current.pendingImageData ?: return
+        val pendingFilename = current.pendingImageFilename ?: return
+        val contributorId = current.contributorId
+
+        // First, commit staging to the main image location (offline-first).
+        when (val commitResult = imageStagingRepository.commitContributorImageStaging(contributorId)) {
+            is AppResult.Success -> logger.info { "Staging image committed to main location" }
+            is AppResult.Failure -> logger.error { "Failed to commit staging image: ${commitResult.message}" }
+        }
+
+        // Then upload to the server (best-effort — local image is already saved).
+        when (val result = imageRepository.uploadContributorImage(contributorId, pendingData, pendingFilename)) {
+            is AppResult.Success -> {
+                logger.info { "Contributor image uploaded to server" }
+            }
+
+            is AppResult.Failure -> {
+                logger.error { "Failed to upload contributor image: ${result.message}" }
+                logger.warn { "Continuing despite image upload failure (local image saved)" }
             }
         }
     }
@@ -479,7 +511,7 @@ class ContributorEditViewModel internal constructor(
                 current.website != originalWebsite ||
                 current.birthDate != originalBirthDate ||
                 current.deathDate != originalDeathDate ||
-                current.imagePath != originalImagePath
+                current.pendingImageData != null // Image changed if we have pending staged data
 
         state.update { it.copy(hasChanges = hasChanges) }
     }
@@ -511,7 +543,17 @@ class ContributorEditViewModel internal constructor(
 
             when (result) {
                 is AppResult.Success -> {
-                    state.update { it.copy(isSaving = false, hasChanges = false) }
+                    // Metadata persisted — commit + upload the staged image if the user picked one.
+                    commitAndUploadImageIfPending(current)
+                    state.update {
+                        it.copy(
+                            isSaving = false,
+                            hasChanges = false,
+                            pendingImageData = null,
+                            pendingImageFilename = null,
+                            stagingImagePath = null,
+                        )
+                    }
                     _navActions.trySend(ContributorEditNavAction.SaveSuccess)
                 }
 
@@ -526,6 +568,29 @@ class ContributorEditViewModel internal constructor(
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Cancel editing and clean up any staged image file, then navigate back.
+     */
+    private fun cancelAndCleanup() {
+        val contributorId = state.value.contributorId
+        if (contributorId.isNotBlank() && state.value.stagingImagePath != null) {
+            imageStagingRepository.requestContributorImageStagingCleanup(contributorId)
+        }
+        _navActions.trySend(ContributorEditNavAction.NavigateBack)
+    }
+
+    /**
+     * Clean up staging files when the ViewModel is destroyed.
+     * Handles cases where the user navigates away without explicitly canceling or saving.
+     */
+    override fun onCleared() {
+        super.onCleared()
+        val contributorId = state.value.contributorId
+        if (contributorId.isNotBlank() && state.value.stagingImagePath != null) {
+            imageStagingRepository.requestContributorImageStagingCleanup(contributorId)
         }
     }
 }

@@ -286,6 +286,31 @@ class CachedAudioTokenProviderTest :
                 provider.getToken() shouldBe "t1"
             }
         }
+
+        // Regression: the iOS image path (KoinHelper.freshAccessToken) now reads getToken() from this
+        // shared authority instead of refreshing per-request. A full cover grid reads it ~40 times at
+        // once; the old per-request path returned no token for a fraction of those reads (token=MISSING)
+        // which then 401'd and left photos stale. getToken() must serve the one cached token to every
+        // concurrent reader and never trigger a rotation of its own.
+        test("a burst of concurrent token reads (the cover-grid load) serves the cached token with zero extra rotations") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val repo =
+                    FakeAudioAuthRepository {
+                        AppResult.Success(contractSession("t1", clock.now().toEpochMilliseconds() + 60.minutes.inWholeMilliseconds))
+                    }
+                val storage = FakeStorageAuthSession(stored = null)
+                val provider = CachedAudioTokenProvider(storage, repo, backgroundScope, clock)
+
+                testScheduler.runCurrent()
+                val callsAfterInit = repo.calls
+
+                val tokens = List(40) { provider.getToken() }
+
+                tokens.forEach { it shouldBe "t1" }
+                repo.calls shouldBe callsAfterInit
+            }
+        }
     })
 
 /** Builds an (unsigned) JWT whose payload carries the given `exp` (epoch seconds). */

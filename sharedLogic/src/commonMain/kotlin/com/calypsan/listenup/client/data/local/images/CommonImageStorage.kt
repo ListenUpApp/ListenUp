@@ -23,6 +23,7 @@ import kotlinx.io.write
  * - {filesDir}/covers/{bookId}.jpg - Book cover images
  * - {filesDir}/covers/{bookId}_staging.jpg - Staging covers for edit preview
  * - {filesDir}/contributors/{contributorId}.jpg - Contributor profile images
+ * - {filesDir}/contributors/{contributorId}_staging.jpg - Staging contributor images for edit preview
  * - {filesDir}/covers/series/{seriesId}.jpg - Series cover images
  * - {filesDir}/covers/series/{seriesId}_staging.jpg - Staging series covers
  * - {filesDir}/avatars/{userId}.jpg - User profile avatar images
@@ -194,6 +195,64 @@ internal class CommonImageStorage(
             }
         }
 
+    // ========== Contributor Image Staging Methods ==========
+
+    override suspend fun saveContributorImageStaging(
+        contributorId: String,
+        imageData: ByteArray,
+    ): AppResult<Unit> =
+        withContext(IODispatcher) {
+            try {
+                val file = getContributorStagingFile(contributorId)
+                writeBytes(file, imageData)
+                AppResult.Success(Unit)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Failure(IOException("Failed to save staging image for contributor $contributorId", e))
+            }
+        }
+
+    override fun getContributorImageStagingPath(contributorId: String): String =
+        getContributorStagingFile(contributorId).toString()
+
+    override suspend fun commitContributorImageStaging(contributorId: String): AppResult<Unit> =
+        withContext(IODispatcher) {
+            try {
+                val stagingFile = getContributorStagingFile(contributorId)
+                val targetFile = getContributorFile(contributorId)
+
+                if (!SystemFileSystem.exists(stagingFile)) {
+                    return@withContext Failure(
+                        IOException("No staging image to commit for contributor $contributorId"),
+                    )
+                }
+
+                // Read staging, write to target, delete staging
+                val data = readBytes(stagingFile)
+                writeBytes(targetFile, data)
+                SystemFileSystem.delete(stagingFile)
+
+                AppResult.Success(Unit)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Failure(IOException("Failed to commit staging image for contributor $contributorId", e))
+            }
+        }
+
+    override suspend fun deleteContributorImageStaging(contributorId: String): AppResult<Unit> =
+        withContext(IODispatcher) {
+            try {
+                deleteIfExists(getContributorStagingFile(contributorId))
+                AppResult.Success(Unit)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Failure(IOException("Failed to delete staging image for contributor $contributorId", e))
+            }
+        }
+
     // ========== Series Cover Methods ==========
 
     override suspend fun saveSeriesCover(
@@ -328,6 +387,9 @@ internal class CommonImageStorage(
 
     private fun getContributorFile(contributorId: String): Path =
         Path(contributorsDir.toString(), "$contributorId.$FILE_EXTENSION")
+
+    private fun getContributorStagingFile(contributorId: String): Path =
+        Path(contributorsDir.toString(), "${contributorId}_staging.$FILE_EXTENSION")
 
     private fun getSeriesCoverFile(seriesId: String): Path =
         Path(seriesCoversDir.toString(), "$seriesId.$FILE_EXTENSION")
