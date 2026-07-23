@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.error.ErrorBus
@@ -52,6 +53,7 @@ class ContributorEditViewModelTest :
             val contributorRepository: ContributorRepository = mock()
             val updateContributorUseCase: UpdateContributorUseCase = mock()
             val imageRepository: ImageRepository = mock()
+            val imageStagingRepository: ImageStagingRepository = mock()
             val contributorEditRepository: ContributorEditRepository = mock()
             val contributorAliasDao: ContributorAliasDao =
                 mock {
@@ -68,6 +70,7 @@ class ContributorEditViewModelTest :
                     contributorRepository = contributorRepository,
                     updateContributorUseCase = updateContributorUseCase,
                     imageRepository = imageRepository,
+                    imageStagingRepository = imageStagingRepository,
                     contributorEditRepository = contributorEditRepository,
                     contributorAliasDao = contributorAliasDao,
                     contributorDao = contributorDao,
@@ -205,6 +208,87 @@ class ContributorEditViewModelTest :
 
                 // Then - error should be shown (ViewModel prepends "Failed to save: ")
                 viewModel.state.value.error shouldBe "Failed to save: Network error"
+            }
+        }
+
+        // ========== Image staging ==========
+
+        test("picking an image stages it for preview WITHOUT uploading to the server") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val contributor = createContributor()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                everySuspend {
+                    fixture.imageStagingRepository.saveContributorImageStaging(any(), any())
+                } returns AppResult.Success(Unit)
+                every {
+                    fixture.imageStagingRepository.getContributorImageStagingPath("contributor-1")
+                } returns "/staging/contributor-1_staging.jpg"
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                // When
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                advanceUntilIdle()
+
+                // Then - staged for preview, marked changed, and NOT uploaded yet
+                val state = viewModel.state.value
+                state.stagingImagePath shouldBe "/staging/contributor-1_staging.jpg"
+                state.displayImagePath shouldBe "/staging/contributor-1_staging.jpg"
+                state.pendingImageFilename shouldBe "avatar.jpg"
+                state.hasChanges shouldBe true
+                verifySuspend(VerifyMode.not) {
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                }
+            }
+        }
+
+        test("saving a staged image commits it locally and uploads it to the server") {
+            runTest {
+                // Given a staged image
+                val fixture = createFixture()
+                val contributor = createContributor()
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                everySuspend {
+                    fixture.imageStagingRepository.saveContributorImageStaging(any(), any())
+                } returns AppResult.Success(Unit)
+                every {
+                    fixture.imageStagingRepository.getContributorImageStagingPath("contributor-1")
+                } returns "/staging/contributor-1_staging.jpg"
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
+                } returns AppResult.Success(Unit)
+                everySuspend {
+                    fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                } returns AppResult.Success("https://example/photo.jpg")
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.UploadImage(byteArrayOf(1, 2, 3), "avatar.jpg"))
+                advanceUntilIdle()
+
+                // When
+                viewModel.navActions.test {
+                    viewModel.onEvent(ContributorEditUiEvent.Save)
+                    advanceUntilIdle()
+
+                    // Then - commit + upload happen only now, at save time
+                    verifySuspend(VerifyMode.exactly(1)) {
+                        fixture.imageStagingRepository.commitContributorImageStaging("contributor-1")
+                    }
+                    verifySuspend(VerifyMode.exactly(1)) {
+                        fixture.imageRepository.uploadContributorImage(any(), any(), any())
+                    }
+                    awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
+                }
+
+                viewModel.state.value.stagingImagePath shouldBe null
+                viewModel.state.value.pendingImageData shouldBe null
             }
         }
 

@@ -19,7 +19,7 @@ struct NowPlayingStrip: View {
     @ViewBuilder
     private func content(_ player: PlayerCoordinator) -> some View {
         HStack(spacing: 11) {
-            BookCoverImage(bookId: player.currentBookId, coverPath: player.coverPath)
+            BookCoverImage(bookId: player.currentBookId, coverPath: player.coverPath, coverHash: player.coverHash)
                 .frame(width: 40, height: 40)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .accessibilityHidden(true)

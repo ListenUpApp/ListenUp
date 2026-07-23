@@ -36,11 +36,19 @@ enum AuthenticatedImageRequest {
         url: URL,
         processors: [any ImageProcessing],
         cacheKey: String? = nil
-    ) async -> ImageRequest {
+    ) async -> ImageRequest? {
+        // freshAccessToken (not accessToken): the image URLSession path bypasses the RPC channel's
+        // 401-heal, so a stale token here 401s forever with no retry — the "photo won't refresh" bug.
+        // This refreshes the token when it's expired before attaching it.
+        let token = try? await KoinHelper.shared.freshAccessToken()
+        // No token → return no request rather than firing a tokenless one: an authenticated endpoint
+        // answers that with a 401, which Nuke records as a hard failure (no auto-retry). `try? await`
+        // also collapses a *cancelled* token fetch to nil, so a superseded task stops here too instead
+        // of 401ing. nil leaves the caller's `request` untouched; the successor task rebuilds with a
+        // fresh token. (Honors "never swallow cancellation into a bad request".)
+        guard let token else { return nil }
         var urlRequest = URLRequest(url: url)
-        if let token = try? await KoinHelper.shared.accessToken() {
-            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let userInfo: [ImageRequest.UserInfoKey: Any]? = cacheKey.map { [.imageIdKey: $0] }
         return ImageRequest(urlRequest: urlRequest, processors: processors, userInfo: userInfo)
     }

@@ -1,6 +1,6 @@
+import NukeUI
 import SwiftUI
 import Shared
-import UIKit
 
 /// Circular avatar displaying a user's image or their initials.
 ///
@@ -10,9 +10,10 @@ import UIKit
 /// avatar change, so a re-uploaded avatar re-renders instead of showing the stale bitmap.
 ///
 /// Shows:
-/// - The user's uploaded image, read from disk (downloaded + persisted on first appearance)
-/// - A colored circle with initials as fallback (auto avatar, or image not yet cached)
-/// - A gray placeholder when no user is known
+/// - The user's uploaded image, streamed content-addressed via Nuke (`UserAvatarPhotoLayer`) and
+///   lazily persisted to disk for offline use.
+/// - A colored circle with initials as fallback (auto avatar, or image not yet resolved).
+/// - A gray placeholder when no user is known.
 struct UserAvatarView: View {
     private let userId: String?
     private let fallbackName: String
@@ -38,61 +39,25 @@ struct UserAvatarView: View {
     /// `userId` changes; its published `avatarType`/`version` drive the gate and the reload key.
     @State private var profile = AvatarProfileObserver()
 
-    /// The user's image avatar, read off the main thread by [loadAvatar] — fire-and-forget caching
-    /// it on first appearance so it renders now and survives offline. Until it lands (or for an
-    /// auto/initials avatar), the initials fallback shows.
-    @State private var avatarImage: UIImage?
-
     var body: some View {
-        Group {
-            if let avatarImage {
-                Image(uiImage: avatarImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-            } else if userId != nil {
+        ZStack {
+            if userId != nil {
                 initialsAvatar
             } else {
                 placeholderAvatar
             }
+
+            // Streamed, content-addressed avatar layered over the initials placeholder — only for an
+            // image-type avatar. Nuke owns the off-main decode + caching; the version folded into the
+            // request identity busts the cache on a re-upload, so it never shows the stale bitmap.
+            if let userId, profile.avatarType == Self.imageAvatarType {
+                UserAvatarPhotoLayer(userId: userId, version: profile.version)
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            }
         }
+        .frame(width: size, height: size)
         .task(id: userId) { profile.observe(userId: userId) }
-        // Reload keyed on (userId, avatarType, version): a changed avatar bumps `version`, so the
-        // new bytes are re-read from disk rather than the view showing the stale cached bitmap.
-        .task(id: reloadKey) {
-            guard let userId, profile.avatarType == Self.imageAvatarType else {
-                avatarImage = nil
-                return
-            }
-            avatarImage = await Self.loadAvatar(userId: userId)
-        }
-    }
-
-    /// Changes whenever the identity or the observed avatar version changes, re-triggering the
-    /// image reload. `version` is the observed row's `updatedAt` (the avatar content version).
-    private var reloadKey: String {
-        "\(userId ?? "")|\(profile.avatarType ?? "")|\(profile.version)"
-    }
-
-    /// `nonisolated async` ⇒ disk read + decode run off the main actor. Does NOT await the bridged
-    /// `downloadUserAvatar` suspend (that AppResult suspend-bridge deadlocks under the post-scan
-    /// concurrent fan-out). Instead fire-and-forgets `ensureUserAvatarCached` (the cover/contributor/
-    /// Compose pattern) and briefly polls for the downloaded file to land.
-    private nonisolated static func loadAvatar(userId: String) async -> UIImage? {
-        let repository = Dependencies.shared.imageRepository
-        if repository.userAvatarExists(userId: userId) {
-            return UIImage(contentsOfFile: repository.getUserAvatarPath(userId: userId))
-        }
-        repository.ensureUserAvatarCached(userId: userId)
-        for _ in 0..<8 {
-            try? await Task.sleep(for: .milliseconds(250))
-            if Task.isCancelled { return nil }
-            if repository.userAvatarExists(userId: userId) {
-                return UIImage(contentsOfFile: repository.getUserAvatarPath(userId: userId))
-            }
-        }
-        return nil
     }
 
     // MARK: - Private Views
@@ -135,6 +100,67 @@ struct UserAvatarView: View {
 
     /// The `public_profiles` avatar-type value that means "show the uploaded image".
     private static let imageAvatarType = "image"
+}
+
+// MARK: - Avatar photo layer
+
+/// Streams a user's avatar (content-addressed authenticated server URL → durable local file) via
+/// Nuke, fading in over whatever placeholder `UserAvatarView` draws beneath it. Transparent until
+/// the image resolves, so the initials placeholder shows through.
+///
+/// `Color.clear` keeps the layer at its parent avatar's size even before an image resolves; without
+/// an always-present filler the empty content collapses to 0×0, `onGeometryChange` reports px=0, the
+/// `.task` guard skips building the request forever, and the avatar never (re)loads (the same trap
+/// `ContributorPhotoLayer` hit).
+private struct UserAvatarPhotoLayer: View {
+    let userId: String
+    /// The avatar content version (the profile row's `updatedAt`). Folded into the cache key and the
+    /// task id so a re-uploaded avatar (new version) re-resolves and busts the cached image.
+    let version: Int64
+
+    @Environment(\.displayScale) private var displayScale
+    @State private var request: ImageRequest?
+    @State private var targetMaxPixels: CGFloat = 0
+
+    var body: some View {
+        LazyImage(request: request) { state in
+            ZStack {
+                Color.clear
+                if let image = state.image {
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .transition(.opacity)
+                }
+            }
+        }
+        .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
+            let pixels = (max(size.width, size.height) * displayScale).rounded()
+            if pixels > 0, pixels != targetMaxPixels {
+                targetMaxPixels = pixels
+            }
+        }
+        // Cancelled when the row scrolls away; re-resolves when id/version/size change.
+        .task(id: TaskKey(userId: userId, version: version, targetPixels: targetMaxPixels)) {
+            guard targetMaxPixels > 0 else { return }
+            let built = await UserAvatarImageRequest.avatar(
+                userId: userId,
+                version: version,
+                targetPixels: targetMaxPixels
+            )
+            // Propagate only on acceptance, never on cancellation: a superseded task resumes here and
+            // would clobber `request` with a stale (or tokenless→401) build.
+            guard !Task.isCancelled else { return }
+            request = built
+        }
+    }
+
+    /// Identity for the request-building task: any change re-resolves the avatar source.
+    private struct TaskKey: Equatable {
+        let userId: String
+        let version: Int64
+        let targetPixels: CGFloat
+    }
 }
 
 // MARK: - Profile observation

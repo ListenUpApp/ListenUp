@@ -34,7 +34,7 @@ struct ContinueCard: View {
 
     private var content: some View {
         VStack(alignment: .leading, spacing: 8) {
-            BookCoverImage(bookId: item.id, coverPath: item.coverPath)
+            BookCoverImage(bookId: item.id, coverPath: item.coverPath, coverHash: item.coverHash)
                 .frame(width: width, height: width)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
                 .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)

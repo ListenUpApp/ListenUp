@@ -31,10 +31,15 @@ private fun contributorCacheKey(
  * Smart contributor image with server URL fallback.
  *
  * Loading strategy:
- * 1. If imagePath is provided -> pass directly to Coil (zero overhead, instant)
- * 2. If imagePath is null -> async check: local file exists? use disk. Otherwise server URL.
+ * 1. If stagingImagePath is provided -> render that local file directly (edit-preview fast path,
+ *    mirroring [BookCoverImage]'s provided-coverPath path).
+ * 2. If imagePath is provided -> pass directly to Coil (zero overhead, instant)
+ * 3. If imagePath is null -> async check: local file exists? use disk. Otherwise server URL.
  *
  * Contributor images are NEVER blank when online.
+ *
+ * @param stagingImagePath Absolute local path of a picked-but-unsaved image to preview. When
+ *   non-null it wins over the resolved photo so the edit screen shows the selection immediately.
  */
 @Composable
 fun ContributorCoverImage(
@@ -42,10 +47,24 @@ fun ContributorCoverImage(
     imagePath: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
+    stagingImagePath: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
 ) {
     val context = LocalPlatformContext.current
+
+    // Staging fast path: a picked-but-unsaved local file renders directly, so the edit-screen
+    // preview appears before Save. Mirrors [BookCoverImage]'s provided-coverPath fast path.
+    if (stagingImagePath != null) {
+        AsyncImage(
+            model = ImageRequest.Builder(context).data(stagingImagePath).build(),
+            contentDescription = contentDescription,
+            modifier = modifier,
+            contentScale = contentScale,
+            onState = onState,
+        )
+        return
+    }
 
     // [imagePath] is the server's content-addressed *relative* path (e.g. "contributors/<sha>.jpg")
     // or null — it is NOT a locally loadable source, only a cache-busting version key. We always

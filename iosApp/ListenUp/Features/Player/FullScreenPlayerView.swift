@@ -199,7 +199,8 @@ struct FullScreenPlayerView: View {
             // Cover art — centered
             BookCoverImage(
                 bookId: observer.currentBookId,
-                coverPath: observer.coverPath
+                coverPath: observer.coverPath,
+                coverHash: observer.coverHash
             )
             .frame(width: 286, height: 286)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))

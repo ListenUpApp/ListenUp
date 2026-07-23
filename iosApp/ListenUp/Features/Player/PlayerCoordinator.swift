@@ -71,6 +71,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private(set) var authors: [ContributorNavRef] = []
     private(set) var narrators: [ContributorNavRef] = []
     private(set) var coverPath: String?
+    /// Content hash of the current cover. Lets the player surfaces content-address the cover so it
+    /// refreshes after a re-scrape instead of serving the stale id-stable local `coverPath` file.
+    private(set) var coverHash: String?
     private(set) var playbackSpeed: Float = 1.0
     private(set) var chapters: [Chapter] = []
 
@@ -408,6 +411,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         authors = []
         narrators = []
         coverPath = nil
+        coverHash = nil
         chapters = []
         firstPdfDocId = nil
         documentToOpen = nil
@@ -578,6 +582,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         authors = prepared.authors
         narrators = prepared.narrators
         coverPath = prepared.coverPath
+        coverHash = prepared.coverHash
         chapters = prepared.chapters
         playbackSpeed = prepared.resumeSpeed
         // RC-2: seed the tracker with the resume position (paused) so the UI shows the right

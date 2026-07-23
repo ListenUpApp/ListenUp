@@ -25,7 +25,8 @@ enum CoverImageRequest {
         // cacheKey busts on re-scrape and serves offline from Nuke's disk cache once fetched.
         if let coverHash, !coverHash.isEmpty, let bookId, !bookId.isEmpty {
             KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
-            if let base = (try? await KoinHelper.shared.activeServerUrl()), !base.isEmpty,
+            let base = try? await KoinHelper.shared.activeServerUrl()
+            if let base, !base.isEmpty,
                let url = coverURL(base: base, bookId: bookId, coverHash: coverHash) {
                 let cacheKey = contentHashKey(identity: bookId, coverHash: coverHash)
                 return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
@@ -38,7 +39,9 @@ enum CoverImageRequest {
             return AuthenticatedImageRequest.localFile(coverPath, processors: processors, cacheKey: cacheKey)
         }
 
-        guard let bookId, !bookId.isEmpty else { return nil }
+        guard let bookId, !bookId.isEmpty else {
+            return nil
+        }
 
         // No durable file yet — kick off a background download so this streamed cover is
         // persisted to disk for offline use, independent of Nuke's evictable cache. Fire-and-forget
@@ -46,9 +49,12 @@ enum CoverImageRequest {
         // BookCoverImage server fallback.)
         KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
 
-        guard let base = (try? await KoinHelper.shared.activeServerUrl()), !base.isEmpty,
+        let fallbackBase = try? await KoinHelper.shared.activeServerUrl()
+        guard let base = fallbackBase, !base.isEmpty,
               let url = coverURL(base: base, bookId: bookId, coverHash: coverHash)
-        else { return nil }
+        else {
+            return nil
+        }
 
         // No hash → `nil` cache key → Nuke keys on the request URL (`/api/v1/covers/{bookId}`),
         // which is already unique per book. Never the `"bookId:cover"` custom key: it is the exact

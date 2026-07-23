@@ -24,12 +24,14 @@ struct ShelfBookRow: Identifiable, Equatable {
     let title: String
     let authorNames: [String]
     let coverPath: String?
+    let coverHash: String?
 
     init(_ book: ShelfBook) {
         self.id = book.idString
         self.title = book.title
         self.authorNames = Array(book.authorNames)   // copy the bridged list into a Swift array
         self.coverPath = book.coverPath
+        self.coverHash = book.coverHash
     }
 }
 

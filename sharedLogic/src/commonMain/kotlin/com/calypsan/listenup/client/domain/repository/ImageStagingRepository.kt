@@ -117,4 +117,55 @@ interface ImageStagingRepository {
      * Same semantics as [requestBookCoverStagingCleanup].
      */
     fun requestSeriesCoverStagingCleanup(seriesId: String)
+
+    // ========== Contributor Image Staging ==========
+
+    /**
+     * Save contributor image to staging location for preview.
+     *
+     * Used during contributor editing to preview image changes before committing.
+     *
+     * @param contributorId Unique identifier for the contributor
+     * @param imageData Raw image bytes
+     * @return Result indicating success or failure
+     */
+    suspend fun saveContributorImageStaging(
+        contributorId: String,
+        imageData: ByteArray,
+    ): AppResult<Unit>
+
+    /**
+     * Get the local file path for a contributor's staging image.
+     *
+     * @param contributorId Unique identifier for the contributor
+     * @return Absolute file path where the staging image is stored
+     */
+    fun getContributorImageStagingPath(contributorId: String): String
+
+    /**
+     * Delete contributor staging image file.
+     *
+     * Used when canceling edits or cleaning up.
+     *
+     * @param contributorId Unique identifier for the contributor
+     * @return Result indicating success or failure
+     */
+    suspend fun deleteContributorImageStaging(contributorId: String): AppResult<Unit>
+
+    /**
+     * Commit staged contributor image to the main location.
+     *
+     * Used when saving contributor edits - moves the staged image to the main image path.
+     *
+     * @param contributorId Unique identifier for the contributor
+     * @return Result indicating success or failure
+     */
+    suspend fun commitContributorImageStaging(contributorId: String): AppResult<Unit>
+
+    /**
+     * Request fire-and-forget cleanup of any staging image file for this contributor.
+     *
+     * Same semantics as [requestBookCoverStagingCleanup].
+     */
+    fun requestContributorImageStagingCleanup(contributorId: String)
 }

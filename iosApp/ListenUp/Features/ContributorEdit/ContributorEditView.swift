@@ -29,9 +29,12 @@ struct ContributorEditView: View {
                             onPicked: { observer.onImagePicked($0) },
                             onRemove: {}
                         ) {
+                            // Non-streaming (streamsContributorPhoto == false): the picked local
+                            // staging file in displayImagePath renders immediately before Save,
+                            // mirroring how BookEditView shows displayCoverPath.
                             ContributorAvatar(
                                 name: observer.name,
-                                imagePath: observer.imagePath,
+                                imagePath: observer.displayImagePath,
                                 id: contributorId,
                                 fontSize: 40
                             )

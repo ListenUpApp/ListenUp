@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -191,6 +192,24 @@ object KoinHelper {
 
     /** The current access token as a plain String for Swift (SKIE unboxes the value class). */
     suspend fun accessToken(): String? = getAuthSession().getAccessToken()?.value
+
+    /**
+     * Access token for the Nuke image path, served from the shared single-flight cached token
+     * authority — the SAME [AudioTokenProvider] the audio stream uses, the other raw-HTTP path that
+     * bypasses the RPC channel's 401-heal. That provider keeps a proactively-refreshed token and
+     * serves the last-known-good value even mid-refresh, so a burst of concurrent cover loads all
+     * read one valid token instead of each racing its own refresh — the earlier per-request refresh
+     * stampede returned no token for a fraction of requests (`token=MISSING`), which then 401'd and
+     * left photos stale (the "iOS photo won't refresh in real time" bug). Primes once if the provider
+     * is still cold (the first image right after launch); never triggers a per-request rotation.
+     */
+    suspend fun freshAccessToken(): String? {
+        val provider = resolve(AudioTokenProvider::class)
+        return provider.getToken() ?: run {
+            provider.prepareForPlayback()
+            provider.getToken()
+        }
+    }
 
     /** The active server URL as a plain String for Swift (SKIE unboxes the value class). */
     suspend fun activeServerUrl(): String? = getServerConfig().getActiveUrl()?.raw

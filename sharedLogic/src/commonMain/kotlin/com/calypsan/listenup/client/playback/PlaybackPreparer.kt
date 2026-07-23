@@ -69,6 +69,10 @@ data class PreparedPlayback(
     val seriesId: String? = null,
     val authors: List<PlaybackNavRef> = emptyList(),
     val narrators: List<PlaybackNavRef> = emptyList(),
+    // Content hash of the current cover, so the player surfaces (mini player, now-playing, full
+    // screen) content-address the cover and refresh it after a re-scrape instead of serving the
+    // stale id-stable local file. Defaults for source-compat with existing constructors/fixtures.
+    val coverHash: String? = null,
 )
 
 /**
@@ -292,6 +296,7 @@ class PlaybackPreparer internal constructor(
             authors = authorRefs,
             narrators = narratorRefs,
             coverPath = coverPath,
+            coverHash = book.coverHash,
             resumePositionMs = resumePositionMs,
             resumeSpeed = resumeSpeed,
         )

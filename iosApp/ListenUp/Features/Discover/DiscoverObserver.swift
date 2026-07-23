@@ -136,19 +136,22 @@ struct DiscoverBook: Identifiable, Equatable {
     let title: String
     let author: String?
     let coverPath: String?
+    let coverHash: String?
 
     init(from book: DiscoverUiBook) {
         self.id = book.id
         self.title = book.title
         self.author = book.authorName
         self.coverPath = book.coverPath
+        self.coverHash = book.coverHash
     }
 
-    init(id: String, title: String, author: String?, coverPath: String?) {
+    init(id: String, title: String, author: String?, coverPath: String?, coverHash: String?) {
         self.id = id
         self.title = title
         self.author = author
         self.coverPath = coverPath
+        self.coverHash = coverHash
     }
 }
 
@@ -159,6 +162,7 @@ struct RecentlyAddedBook: Identifiable, Equatable {
     let title: String
     let author: String?
     let coverPath: String?
+    let coverHash: String?
     let addedAt: Date
 
     init(from book: RecentlyAddedUiBook) {
@@ -166,14 +170,16 @@ struct RecentlyAddedBook: Identifiable, Equatable {
         self.title = book.title
         self.author = book.authorName
         self.coverPath = book.coverPath
+        self.coverHash = book.coverHash
         self.addedAt = Date(timeIntervalSince1970: TimeInterval(book.createdAt) / 1_000)
     }
 
-    init(id: String, title: String, author: String?, coverPath: String?, addedAt: Date) {
+    init(id: String, title: String, author: String?, coverPath: String?, coverHash: String?, addedAt: Date) {
         self.id = id
         self.title = title
         self.author = author
         self.coverPath = coverPath
+        self.coverHash = coverHash
         self.addedAt = addedAt
     }
 }
@@ -193,6 +199,7 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
     let title: String
     let author: String?
     let coverPath: String?
+    let coverHash: String?
 
     init(from session: CurrentlyListeningUiSession) {
         self.id = "\(session.userId):\(session.bookId)"
@@ -203,6 +210,7 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         self.title = session.bookTitle
         self.author = session.authorName
         self.coverPath = session.coverPath
+        self.coverHash = session.coverHash
     }
 
     init(
@@ -213,7 +221,8 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         bookId: String,
         title: String,
         author: String?,
-        coverPath: String?
+        coverPath: String?,
+        coverHash: String?
     ) {
         self.id = id
         self.userId = userId
@@ -223,5 +232,6 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         self.title = title
         self.author = author
         self.coverPath = coverPath
+        self.coverHash = coverHash
     }
 }

@@ -82,14 +82,16 @@ struct SearchRow: Identifiable, Equatable, Hashable {
     /// Author alone — the cover cards' second line shows just this (the list rows use `subtitle`).
     let author: String?
     let coverPath: String?
+    let coverHash: String?
 
-    init(id: String, kind: SearchRowKind, name: String, subtitle: String?, author: String?, coverPath: String?) {
+    init(id: String, kind: SearchRowKind, name: String, subtitle: String?, author: String?, coverPath: String?, coverHash: String?) {
         self.id = id
         self.kind = kind
         self.name = name
         self.subtitle = subtitle
         self.author = author
         self.coverPath = coverPath
+        self.coverHash = coverHash
     }
 
     /// Snapshot a Kotlin `SearchHit` into native values once — reads each bridged property (and the
@@ -99,6 +101,7 @@ struct SearchRow: Identifiable, Equatable, Hashable {
         self.name = hit.name
         self.author = hit.author?.nilIfEmpty
         self.coverPath = hit.coverPath
+        self.coverHash = hit.coverHash
         switch hit.type {
         case .book:
             self.kind = .book

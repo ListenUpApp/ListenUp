@@ -104,6 +104,7 @@ struct ContinueItem: Identifiable, Equatable {
     let title: String
     let author: String
     let coverPath: String?
+    let coverHash: String?
     let progress: Double
     let progressPercent: Int
     let timeLeft: String
@@ -118,6 +119,7 @@ struct ContinueItem: Identifiable, Equatable {
                 title: book.title,
                 author: book.authorNames,
                 coverPath: book.coverPath,
+                coverHash: book.coverHash,
                 progress: Double(book.progress),
                 progressPercent: Int(book.progressPercent),
                 timeLeft: book.timeRemainingFormatted,
@@ -129,6 +131,7 @@ struct ContinueItem: Identifiable, Equatable {
                 title: "",
                 author: "",
                 coverPath: nil,
+                coverHash: nil,
                 progress: 0,
                 progressPercent: 0,
                 timeLeft: "",
@@ -141,6 +144,7 @@ struct ContinueItem: Identifiable, Equatable {
                 title: "",
                 author: "",
                 coverPath: nil,
+                coverHash: nil,
                 progress: 0,
                 progressPercent: 0,
                 timeLeft: "",
@@ -154,6 +158,7 @@ struct ContinueItem: Identifiable, Equatable {
         title: String,
         author: String,
         coverPath: String?,
+        coverHash: String?,
         progress: Double,
         progressPercent: Int,
         timeLeft: String,
@@ -163,6 +168,7 @@ struct ContinueItem: Identifiable, Equatable {
         self.title = title
         self.author = author
         self.coverPath = coverPath
+        self.coverHash = coverHash
         self.progress = progress
         self.progressPercent = progressPercent
         self.timeLeft = timeLeft

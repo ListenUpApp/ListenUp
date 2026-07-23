@@ -103,12 +103,16 @@ struct BookCoverImage: View {
         }
         .task(id: TaskKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash, targetPixels: targetMaxPixels)) {
             guard targetMaxPixels > 0 else { return }
-            request = await CoverImageRequest.book(
+            let built = await CoverImageRequest.book(
                 bookId: bookId,
                 coverPath: coverPath,
                 coverHash: coverHash,
                 targetPixels: targetMaxPixels
             )
+            // Propagate only on acceptance, never on cancellation: a superseded task resumes here
+            // after its await and would clobber `request` with a stale (or tokenless→401) build.
+            guard !Task.isCancelled else { return }
+            request = built
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel ?? "")

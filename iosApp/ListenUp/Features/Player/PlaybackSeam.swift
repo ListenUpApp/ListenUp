@@ -58,6 +58,10 @@ struct PreparedPlayback: Sendable {
     var seriesId: String?
     var authors: [ContributorNavRef] = []
     var narrators: [ContributorNavRef] = []
+    /// Content hash of the current cover, so player surfaces content-address the cover and refresh it
+    /// after a re-scrape instead of serving the stale id-stable local file. `var`-with-default like the
+    /// fields above so existing fakes/tests compile unchanged; only the Kotlin mapping populates it.
+    var coverHash: String?
 }
 
 struct PreparedTimeline: Sendable {

@@ -29,7 +29,8 @@ enum ContributorImageRequest {
         // keeps refreshing the durable file in the background for offline/other consumers.
         if let imagePath, !imagePath.isEmpty {
             repository.ensureContributorImageCached(contributorId: contributorId)
-            if let base = try? await KoinHelper.shared.activeServerUrl(),
+            let base = try? await KoinHelper.shared.activeServerUrl()
+            if let base,
                let url = photoURL(base: base, contributorId: contributorId, imagePath: imagePath) {
                 return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
             }
@@ -43,9 +44,12 @@ enum ContributorImageRequest {
 
         // Nothing cached and no version — stream by id so the photo is never blank when online.
         repository.ensureContributorImageCached(contributorId: contributorId)
-        guard let base = try? await KoinHelper.shared.activeServerUrl(),
+        let fallbackBase = try? await KoinHelper.shared.activeServerUrl()
+        guard let base = fallbackBase,
               let url = photoURL(base: base, contributorId: contributorId, imagePath: imagePath)
-        else { return nil }
+        else {
+            return nil
+        }
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
     }
 

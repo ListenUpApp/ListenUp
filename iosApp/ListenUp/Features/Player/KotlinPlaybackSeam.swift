@@ -38,7 +38,8 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
                 ),
                 seriesId: prepared.seriesId,
                 authors: prepared.authors.map { ContributorNavRef(id: $0.id, name: $0.name) },
-                narrators: prepared.narrators.map { ContributorNavRef(id: $0.id, name: $0.name) }
+                narrators: prepared.narrators.map { ContributorNavRef(id: $0.id, name: $0.name) },
+                coverHash: prepared.coverHash
             )
         } catch is CancellationError {
             return nil

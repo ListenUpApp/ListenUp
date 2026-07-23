@@ -25,7 +25,7 @@ struct RecentlyAddedCard: View {
     var body: some View {
         SelectableBookCard(bookId: book.id, selection: selection) {
             VStack(alignment: .leading, spacing: 8) {
-                BookCoverImage(bookId: book.id, coverPath: book.coverPath)
+                BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                     .frame(width: width, height: width)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)

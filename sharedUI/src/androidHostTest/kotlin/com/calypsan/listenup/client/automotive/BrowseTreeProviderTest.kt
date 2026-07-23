@@ -498,6 +498,17 @@ private class FakeImageStorage : ImageStorage {
 
     override suspend fun deleteContributorImage(contributorId: String): AppResult<Unit> = AppResult.Success(Unit)
 
+    override suspend fun saveContributorImageStaging(
+        contributorId: String,
+        imageData: ByteArray,
+    ): AppResult<Unit> = AppResult.Success(Unit)
+
+    override fun getContributorImageStagingPath(contributorId: String): String = "/fake/staging/contributors/$contributorId.jpg"
+
+    override suspend fun commitContributorImageStaging(contributorId: String): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun deleteContributorImageStaging(contributorId: String): AppResult<Unit> = AppResult.Success(Unit)
+
     override suspend fun saveSeriesCover(
         seriesId: String,
         imageData: ByteArray,

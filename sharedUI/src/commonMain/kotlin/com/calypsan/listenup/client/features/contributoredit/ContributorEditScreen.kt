@@ -327,6 +327,7 @@ private fun ArtistStudioContent(
         ContributorIdentityHeader(
             contributorId = state.contributorId,
             imagePath = state.imagePath,
+            stagingImagePath = state.stagingImagePath,
             name = state.name,
             colorScheme = colorScheme,
             isUploadingImage = state.isUploadingImage,
