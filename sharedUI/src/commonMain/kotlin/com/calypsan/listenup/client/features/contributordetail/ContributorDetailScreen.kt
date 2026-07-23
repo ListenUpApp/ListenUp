@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -56,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -371,6 +373,7 @@ private fun WideHeroHeader(
                         aliases = contributor.aliases,
                         roleLabels = roleLabels,
                         totalBooks = totalBooks,
+                        totalDuration = state.formatTotalDuration().takeIf { state.totalDuration.inWholeMilliseconds > 0 },
                         birthDate = contributor.birthDate,
                         deathDate = contributor.deathDate,
                         website = contributor.website,
@@ -394,6 +397,7 @@ private fun ColumnScope.WideHeroInfoColumn(
     aliases: List<String>,
     roleLabels: List<String>,
     totalBooks: Int,
+    totalDuration: String?,
     birthDate: String?,
     deathDate: String?,
     website: String?,
@@ -451,9 +455,14 @@ private fun ColumnScope.WideHeroInfoColumn(
         )
     }
 
-    // Stat chip
+    // Stat chips
     Spacer(modifier = Modifier.height(16.dp))
-    HeroStatChip(label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}", onColor = true)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HeroStatChip(label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}", onColor = true)
+        if (totalDuration != null) {
+            HeroStatChip(label = totalDuration, onColor = true, icon = Icons.Filled.Schedule)
+        }
+    }
 
     // Biography
     description?.takeIf { it.isNotBlank() }?.let { desc ->
@@ -570,10 +579,19 @@ private fun NarrowContributorPortfolio(
         // 2. Stat chip + About, on the surface below the hero.
         item {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
-                HeroStatChip(
-                    label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}",
-                    onColor = false,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HeroStatChip(
+                        label = "$totalBooks ${if (totalBooks == 1) "book" else "books"}",
+                        onColor = false,
+                    )
+                    if (state.totalDuration.inWholeMilliseconds > 0) {
+                        HeroStatChip(
+                            label = state.formatTotalDuration(),
+                            onColor = false,
+                            icon = Icons.Filled.Schedule,
+                        )
+                    }
+                }
                 state.contributor.description?.takeIf { it.isNotBlank() }?.let { description ->
                     Spacer(modifier = Modifier.height(20.dp))
                     BiographySection(
@@ -981,11 +999,15 @@ private fun RoleChip(label: String) {
     }
 }
 
-/** Book-count stat pill. [onColor] tints it for placement on the color-blocked hero. */
+/**
+ * Stat pill (book count, total hours) for the hero. [onColor] tints it for placement on the
+ * color-blocked hero; [icon] defaults to the book glyph so existing call sites are unchanged.
+ */
 @Composable
 private fun HeroStatChip(
     label: String,
     onColor: Boolean,
+    icon: ImageVector = Icons.AutoMirrored.Filled.MenuBook,
 ) {
     val bg =
         if (onColor) {
@@ -1000,7 +1022,7 @@ private fun HeroStatChip(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(
-            imageVector = Icons.AutoMirrored.Filled.MenuBook,
+            imageVector = icon,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(19.dp),
