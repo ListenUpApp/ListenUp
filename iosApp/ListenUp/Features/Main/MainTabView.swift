@@ -123,6 +123,10 @@ struct MainTabView: View {
                     }
                 }
         }
+        // Applied on the NavigationStack (not its root content) so pushed destinations AND the
+        // sheets they present inherit it — lets the Cast & Credits sheet push a contributor onto
+        // THIS tab's main stack (a full page) instead of navigating inside the sheet.
+        .environment(\.navigateToContributor, pushContributor)
     }
 
     /// Reads the tab content's live bottom safe-area inset (home indicator + floating
@@ -207,6 +211,15 @@ private struct ProfileDestinationView: View {
             ForeignProfileView(userId: userId)
         }
     }
+}
+
+// MARK: - Navigation actions
+
+extension EnvironmentValues {
+    /// Push a contributor's full detail page onto the current tab's main navigation stack. Provided
+    /// by `MainTabView`; used by modally-presented content (the Cast & Credits sheet) to open a
+    /// contributor as a full page instead of pushing inside the sheet's own stack.
+    @Entry var navigateToContributor: (String) -> Void = { _ in }
 }
 
 // MARK: - Navigation Destinations

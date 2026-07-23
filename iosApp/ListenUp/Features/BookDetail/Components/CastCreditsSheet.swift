@@ -8,6 +8,10 @@ struct CastCreditsSheet: View {
     let book: BookDetail
     let onClose: () -> Void
 
+    /// Pushes a contributor's full page onto the main tab stack (provided by `MainTabView`). We
+    /// navigate there rather than inside this sheet so a tapped cast member opens their full page.
+    @Environment(\.navigateToContributor) private var navigateToContributor
+
     private static let avatarHues: [Color] = [
         Color(hex: "#7A5AF8"), Color(hex: "#1F8A5B"), Color(hex: "#E0613A"),
         Color(hex: "#2A6FDB"), Color(hex: "#C2389B"), Color(hex: "#0E8C8C"),
@@ -35,8 +39,13 @@ struct CastCreditsSheet: View {
                     ForEach(Array(groups.enumerated()), id: \.element.id) { groupIndex, group in
                         Section {
                             ForEach(Array(group.members.enumerated()), id: \.element.id) { i, member in
-                                // offset hue per group so adjacent groups don't repeat colors
-                                NavigationLink(value: ContributorDestination(id: member.id)) {
+                                // offset hue per group so adjacent groups don't repeat colors.
+                                // Push the contributor onto the main tab stack (full page), then
+                                // dismiss this sheet — not an in-sheet push.
+                                Button {
+                                    navigateToContributor(member.id)
+                                    onClose()
+                                } label: {
                                     row(member, hueIndex: groupIndex * 7 + i)
                                 }
                                 .buttonStyle(.plain)
@@ -55,11 +64,6 @@ struct CastCreditsSheet: View {
             }
             .navigationTitle(String(localized: "book.detail_credits"))
             .navigationBarTitleDisplayMode(.inline)
-            // The sheet is its own navigation hierarchy, so the tab-level destination doesn't
-            // reach inside it — register the contributor route here so a tapped row pushes.
-            .navigationDestination(for: ContributorDestination.self) { destination in
-                ContributorDetailView(contributorId: destination.id)
-            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(String(localized: "common.done")) { onClose() }

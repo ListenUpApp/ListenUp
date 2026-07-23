@@ -18,6 +18,21 @@ enum CoverImageRequest {
     ) async -> ImageRequest? {
         let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
 
+        // When the server's content version (`coverHash`) is known, resolve from the content-addressed
+        // server URL — NOT the durable local `coverPath`. The local file is keyed only by book id, so
+        // after a re-scrape it can hold STALE bytes (the "iOS cover doesn't update" bug); the delete
+        // meant to clear it is unreliable on this platform. Nuke's content-scoped `"<id>:<hash>"`
+        // cacheKey busts on re-scrape and serves offline from Nuke's disk cache once fetched.
+        if let coverHash, !coverHash.isEmpty, let bookId, !bookId.isEmpty {
+            KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
+            if let base = (try? await KoinHelper.shared.activeServerUrl()), !base.isEmpty,
+               let url = coverURL(base: base, bookId: bookId, coverHash: coverHash) {
+                let cacheKey = contentHashKey(identity: bookId, coverHash: coverHash)
+                return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
+            }
+        }
+
+        // No known content version: the durable local file the caller resolved is the best source.
         if let coverPath, !coverPath.isEmpty {
             let cacheKey = localFileCacheKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash)
             return AuthenticatedImageRequest.localFile(coverPath, processors: processors, cacheKey: cacheKey)

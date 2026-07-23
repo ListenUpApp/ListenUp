@@ -20,20 +20,32 @@ enum ContributorImageRequest {
 
         let repository = KoinHelper.shared.getImageRepository()
 
-        // Offline fast path: a previously cached photo on disk.
+        // When the server's content version (`imagePath`) is known, resolve from the
+        // content-addressed server URL — NOT the durable local file. The local file lives at the
+        // id-stable path `contributors/{id}.jpg`, so after a re-scrape it can hold STALE bytes; the
+        // delete that is meant to clear it is unreliable on this platform, which is exactly why iOS
+        // kept showing the old photo. Nuke's `cacheKey` folds `imagePath`, so a re-scrape re-fetches
+        // and (once fetched) still serves offline from Nuke's disk cache. `ensureContributorImageCached`
+        // keeps refreshing the durable file in the background for offline/other consumers.
+        if let imagePath, !imagePath.isEmpty {
+            repository.ensureContributorImageCached(contributorId: contributorId)
+            if let base = try? await KoinHelper.shared.activeServerUrl(),
+               let url = photoURL(base: base, contributorId: contributorId, imagePath: imagePath) {
+                return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
+            }
+        }
+
+        // No known content version (or no server URL): the durable local file is the best source.
         if repository.contributorImageExists(contributorId: contributorId) {
             let path = repository.getContributorImagePath(contributorId: contributorId)
             return AuthenticatedImageRequest.localFile(path, processors: processors, cacheKey: key)
         }
 
-        // No durable file yet — persist this streamed photo on disk for offline use (fire-and-forget,
-        // no-op once it exists), then stream from the server now.
+        // Nothing cached and no version — stream by id so the photo is never blank when online.
         repository.ensureContributorImageCached(contributorId: contributorId)
-
         guard let base = try? await KoinHelper.shared.activeServerUrl(),
               let url = photoURL(base: base, contributorId: contributorId, imagePath: imagePath)
         else { return nil }
-
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
     }
 
