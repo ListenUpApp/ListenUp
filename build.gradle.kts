@@ -27,8 +27,8 @@ plugins {
 // =============================================================================
 detekt {
     buildUponDefaultConfig = true
-    config.setFrom("$rootDir/config/detekt/detekt.yml")
-    baseline = file("$rootDir/detekt-baseline.xml")
+    config.setFrom("$rootDir/tools/detekt/detekt.yml")
+    baseline = file("$rootDir/tools/detekt/baseline.xml")
     parallel = true
     source.setFrom(
         "$rootDir/contract/src/commonMain/kotlin",
