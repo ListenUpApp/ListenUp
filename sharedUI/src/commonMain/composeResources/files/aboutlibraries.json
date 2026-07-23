@@ -2896,29 +2896,6 @@
             ]
         },
         {
-            "uniqueId": "com.github.skydoves:compose-stability-runtime-android",
-            "artifactVersion": "0.10.0",
-            "name": "Compose Stability Analyzer Runtime",
-            "description": "A Compose Compiler plugin that analyzes composable functions and generates stability reports.",
-            "website": "https://github.com/skydoves/compose-stability-analyzer/",
-            "developers": [
-                {
-                    "name": "Jaewoong Eum"
-                }
-            ],
-            "scm": {
-                "connection": "scm:git:git://github.com/skydoves/compose-stability-analyzer.git",
-                "developerConnection": "scm:git:git://github.com/skydoves/compose-stability-analyzer.git",
-                "url": "https://github.com/skydoves/compose-stability-analyzer/"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
             "uniqueId": "com.google.accompanist:accompanist-drawablepainter",
             "artifactVersion": "0.37.3",
             "name": "Accompanist Drawable Painter library",
@@ -3195,7 +3172,7 @@
         },
         {
             "uniqueId": "com.mikepenz:aboutlibraries-compose-core-android",
-            "artifactVersion": "15.0.3",
+            "artifactVersion": "15.0.4",
             "name": "AboutLibraries Compose UI Library",
             "description": "AboutLibraries automatically detects all dependencies of a project and collects their information including the license. Optionally visualising it via the provided ui components.",
             "website": "https://github.com/mikepenz/AboutLibraries",
@@ -3218,7 +3195,7 @@
         },
         {
             "uniqueId": "com.mikepenz:aboutlibraries-compose-m3-android",
-            "artifactVersion": "15.0.3",
+            "artifactVersion": "15.0.4",
             "name": "AboutLibraries Compose Material 3 Library",
             "description": "AboutLibraries automatically detects all dependencies of a project and collects their information including the license. Optionally visualising it via the provided ui components.",
             "website": "https://github.com/mikepenz/AboutLibraries",
@@ -3241,7 +3218,7 @@
         },
         {
             "uniqueId": "com.mikepenz:aboutlibraries-core-android",
-            "artifactVersion": "15.0.3",
+            "artifactVersion": "15.0.4",
             "name": "AboutLibraries Core Library",
             "description": "AboutLibraries automatically detects all dependencies of a project and collects their information including the license. Optionally visualising it via the provided ui components.",
             "website": "https://github.com/mikepenz/AboutLibraries",
