@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.test.db
 
-import androidx.room.testing.MigrationTestHelper
-import androidx.room.migration.Migration
+import androidx.room3.testing.MigrationTestHelper
+import androidx.room3.migration.Migration
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -10,7 +10,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 
 /**
- * Small composition wrapper around Room 2.8's JVM [MigrationTestHelper]. Pins
+ * Small composition wrapper around Room 3's JVM [MigrationTestHelper]. Pins
  * the two methods migration tests actually need ([createDatabase],
  * [runMigrationsAndValidate]) and adds [close] so kotlin.test can clean up
  * managed connections — the underlying `finished(Description?)` override is
@@ -20,9 +20,9 @@ import java.nio.file.Paths
 class ListenUpMigrationTestHelper internal constructor(
     private val delegate: MigrationTestHelper,
 ) {
-    fun createDatabase(version: Int): SQLiteConnection = delegate.createDatabase(version)
+    suspend fun createDatabase(version: Int): SQLiteConnection = delegate.createDatabase(version)
 
-    fun runMigrationsAndValidate(
+    suspend fun runMigrationsAndValidate(
         version: Int,
         migrations: List<Migration> = emptyList(),
     ): SQLiteConnection = delegate.runMigrationsAndValidate(version, migrations)
@@ -54,7 +54,7 @@ class ListenUpMigrationTestHelper internal constructor(
  * test cases never share state. Every caller MUST invoke `helper.close()` in an
  * `@AfterTest` hook so managed connections close cleanly.
  *
- * Jvm-scoped because Room 2.8's [MigrationTestHelper] only ships JVM/Android
+ * Jvm-scoped because Room 3's [MigrationTestHelper] only ships JVM/Android
  * and native source-set actuals; the appleMain equivalent can be added when
  * iOS/macOS migration tests are needed.
  */

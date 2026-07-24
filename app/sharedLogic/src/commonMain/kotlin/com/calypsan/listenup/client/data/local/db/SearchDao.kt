@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.Dao
-import androidx.room.Embedded
-import androidx.room.Query
-import androidx.room.SkipQueryVerification
+import androidx.room3.Dao
+import androidx.room3.Embedded
+import androidx.room3.Query
+import androidx.room3.SkipQueryVerification
 import kotlinx.coroutines.flow.Flow
 
 /**

@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
-import androidx.room.Query
-import androidx.room.Update
+import androidx.room3.Dao
+import androidx.room3.Insert
+import androidx.room3.OnConflictStrategy
+import androidx.room3.Query
+import androidx.room3.Update
 import com.calypsan.listenup.client.data.sync.MAX_RETRYABLE_ATTEMPTS
 import kotlinx.coroutines.flow.Flow
 
@@ -156,7 +156,7 @@ internal interface PendingOperationV2Dao {
     /**
      * One-shot dead-letter count — the same predicate as [observeDeadLetterCount] read directly.
      * A plain suspend `SELECT` sees a committed write immediately, without waiting on Room's
-     * [androidx.room.InvalidationTracker] to notify the reactive Flow; tests use it to confirm a
+     * [androidx.room3.InvalidationTracker] to notify the reactive Flow; tests use it to confirm a
      * write landed deterministically, decoupled from invalidation-propagation latency.
      */
     @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount > :maxAttempts")

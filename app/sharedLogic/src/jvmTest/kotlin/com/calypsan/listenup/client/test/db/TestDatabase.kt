@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.test.db
 
-import androidx.room.Room
+import androidx.room3.Room
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.db.FtsTableCallback
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase

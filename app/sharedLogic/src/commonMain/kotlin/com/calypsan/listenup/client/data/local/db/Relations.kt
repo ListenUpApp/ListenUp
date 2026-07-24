@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.Embedded
-import androidx.room.Entity
-import androidx.room.ForeignKey
-import androidx.room.Index
-import androidx.room.Junction
-import androidx.room.Relation
+import androidx.room3.Embedded
+import androidx.room3.Entity
+import androidx.room3.ForeignKey
+import androidx.room3.Index
+import androidx.room3.Junction
+import androidx.room3.Relation
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
@@ -113,36 +113,36 @@ internal data class BookWithContributors(
     @Embedded val book: BookEntity,
     @Relation(
         entity = ContributorEntity::class,
-        parentColumn = "id",
-        entityColumn = "id",
+        parentColumns = ["id"],
+        entityColumns = ["id"],
         associateBy =
             Junction(
                 value = BookContributorCrossRef::class,
-                parentColumn = "bookId",
-                entityColumn = "contributorId",
+                parentColumns = ["bookId"],
+                entityColumns = ["contributorId"],
             ),
     )
     val contributors: List<ContributorEntity>,
     @Relation(
-        parentColumn = "id",
-        entityColumn = "bookId",
+        parentColumns = ["id"],
+        entityColumns = ["bookId"],
     )
     val contributorRoles: List<BookContributorCrossRef>,
     @Relation(
         entity = SeriesEntity::class,
-        parentColumn = "id",
-        entityColumn = "id",
+        parentColumns = ["id"],
+        entityColumns = ["id"],
         associateBy =
             Junction(
                 value = BookSeriesCrossRef::class,
-                parentColumn = "bookId",
-                entityColumn = "seriesId",
+                parentColumns = ["bookId"],
+                entityColumns = ["seriesId"],
             ),
     )
     val series: List<SeriesEntity>,
     @Relation(
-        parentColumn = "id",
-        entityColumn = "bookId",
+        parentColumns = ["id"],
+        entityColumns = ["bookId"],
     )
     val seriesSequences: List<BookSeriesCrossRef>,
 )
@@ -169,19 +169,19 @@ internal data class SeriesWithBooks(
     @Embedded val series: SeriesEntity,
     @Relation(
         entity = BookEntity::class,
-        parentColumn = "id",
-        entityColumn = "id",
+        parentColumns = ["id"],
+        entityColumns = ["id"],
         associateBy =
             Junction(
                 value = BookSeriesCrossRef::class,
-                parentColumn = "seriesId",
-                entityColumn = "bookId",
+                parentColumns = ["seriesId"],
+                entityColumns = ["bookId"],
             ),
     )
     val books: List<BookEntity>,
     @Relation(
-        parentColumn = "id",
-        entityColumn = "seriesId",
+        parentColumns = ["id"],
+        entityColumns = ["seriesId"],
     )
     val bookSequences: List<BookSeriesCrossRef>,
 )
@@ -196,19 +196,19 @@ internal data class BookWithSeries(
     @Embedded val book: BookEntity,
     @Relation(
         entity = SeriesEntity::class,
-        parentColumn = "id",
-        entityColumn = "id",
+        parentColumns = ["id"],
+        entityColumns = ["id"],
         associateBy =
             Junction(
                 value = BookSeriesCrossRef::class,
-                parentColumn = "bookId",
-                entityColumn = "seriesId",
+                parentColumns = ["bookId"],
+                entityColumns = ["seriesId"],
             ),
     )
     val series: List<SeriesEntity>,
     @Relation(
-        parentColumn = "id",
-        entityColumn = "bookId",
+        parentColumns = ["id"],
+        entityColumns = ["bookId"],
     )
     val seriesSequences: List<BookSeriesCrossRef>,
 )
@@ -305,13 +305,13 @@ internal data class BookWithTags(
     @Embedded val book: BookEntity,
     @Relation(
         entity = TagEntity::class,
-        parentColumn = "id",
-        entityColumn = "id",
+        parentColumns = ["id"],
+        entityColumns = ["id"],
         associateBy =
             Junction(
                 value = BookTagEntity::class,
-                parentColumn = "bookId",
-                entityColumn = "tagId",
+                parentColumns = ["bookId"],
+                entityColumns = ["tagId"],
             ),
     )
     val tags: List<TagEntity>,
@@ -408,8 +408,8 @@ internal data class ContributorAliasCrossRef(
 internal data class ContributorWithAliases(
     @Embedded val contributor: ContributorEntity,
     @Relation(
-        parentColumn = "id",
-        entityColumn = "contributorId",
+        parentColumns = ["id"],
+        entityColumns = ["contributorId"],
         entity = ContributorAliasCrossRef::class,
         projection = ["alias"],
     )

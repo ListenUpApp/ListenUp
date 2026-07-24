@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.RoomDatabase
+import androidx.room3.RoomDatabase
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 
@@ -19,7 +19,7 @@ import androidx.sqlite.execSQL
  * `no such table: books_fts`.
  */
 internal class FtsTableCallback : RoomDatabase.Callback() {
-    override fun onOpen(connection: SQLiteConnection) {
+    override suspend fun onOpen(connection: SQLiteConnection) {
         super.onOpen(connection)
 
         connection.execSQL(

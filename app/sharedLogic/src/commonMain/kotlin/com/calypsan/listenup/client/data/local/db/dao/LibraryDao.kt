@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.local.db.dao
 
-import androidx.room.Dao
-import androidx.room.Query
-import androidx.room.Upsert
+import androidx.room3.Dao
+import androidx.room3.Query
+import androidx.room3.Upsert
 import com.calypsan.listenup.client.data.local.db.IdRevision
 import com.calypsan.listenup.client.data.local.db.entity.LibraryEntity
 import kotlinx.coroutines.flow.Flow
