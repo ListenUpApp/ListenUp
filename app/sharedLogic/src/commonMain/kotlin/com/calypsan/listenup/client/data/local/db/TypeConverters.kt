@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.TypeConverter
+import androidx.room3.ColumnTypeConverter
 import com.calypsan.listenup.api.metadata.BookField
 import com.calypsan.listenup.api.metadata.FieldProvenance
 import com.calypsan.listenup.core.BookId
@@ -26,97 +26,97 @@ internal class ValueClassConverters {
     /**
      * Convert BookId value class to String for database storage.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromBookId(value: BookId): String = value.value
 
     /**
      * Convert String from database to BookId value class.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun toBookId(value: String): BookId = BookId(value)
 
     /**
      * Convert Timestamp value class to Long for database storage.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromTimestamp(value: Timestamp): Long = value.epochMillis
 
     /**
      * Convert Long from database to Timestamp value class.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun toTimestamp(value: Long): Timestamp = Timestamp(value)
 
     /**
      * Convert nullable Timestamp value class to nullable Long for database storage.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromNullableTimestamp(value: Timestamp?): Long? = value?.epochMillis
 
     /**
      * Convert nullable Long from database to nullable Timestamp value class.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun toNullableTimestamp(value: Long?): Timestamp? = value?.let { Timestamp(it) }
 
     /**
      * Convert SeriesId value class to String for database storage.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun seriesIdToString(id: SeriesId?): String? = id?.value
 
     /**
      * Convert String from database to SeriesId value class.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun stringToSeriesId(value: String?): SeriesId? = value?.let { SeriesId(it) }
 
     /**
      * Convert ContributorId value class to String for database storage.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun contributorIdToString(id: ContributorId?): String? = id?.value
 
     /**
      * Convert String from database to ContributorId value class.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun stringToContributorId(value: String?): ContributorId? = value?.let { ContributorId(it) }
 
     /**
      * Convert UserId value class to String for database storage.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun userIdToString(id: UserId?): String? = id?.value
 
     /**
      * Convert String from database to UserId value class.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun stringToUserId(value: String?): UserId? = value?.let { UserId(it) }
 
     /**
      * Convert LibraryId value class to String for database storage.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun libraryIdToString(id: LibraryId): String = id.value
 
     /**
      * Convert String from database to LibraryId value class.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun stringToLibraryId(value: String): LibraryId = LibraryId(value)
 
     /**
      * Convert FolderId value class to String for database storage.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun folderIdToString(id: FolderId): String = id.value
 
     /**
      * Convert String from database to FolderId value class.
      */
-    @TypeConverter
+    @ColumnTypeConverter
     fun stringToFolderId(value: String): FolderId = FolderId(value)
 }
 
@@ -132,16 +132,16 @@ internal class ValueClassConverters {
  * it no longer understands rather than silently remap it.
  */
 internal class Converters {
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromSyncState(value: SyncState): String = value.name
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toSyncState(value: String): SyncState = SyncState.valueOf(value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromDownloadState(state: DownloadState): String = state.name
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toDownloadState(value: String): DownloadState = DownloadState.valueOf(value)
 }
 
@@ -169,10 +169,10 @@ internal enum class DownloadState {
  * vocabulary evolves rather than dropping a user's rescan protection.
  */
 internal class FieldProvenanceConverter {
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromMap(value: Map<BookField, FieldProvenance>): String = appJson.encodeToString(serializer, value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toMap(value: String): Map<BookField, FieldProvenance> =
         if (value.isBlank()) emptyMap() else appJson.decodeFromString(serializer, value)
 
@@ -194,10 +194,10 @@ internal class FieldProvenanceConverter {
  * for unbounded collections — those still belong in a separate table.
  */
 internal class StringListJsonConverter {
-    @TypeConverter
+    @ColumnTypeConverter
     fun fromList(value: List<String>): String = appJson.encodeToString(ListSerializer(String.serializer()), value)
 
-    @TypeConverter
+    @ColumnTypeConverter
     fun toList(value: String): List<String> =
         if (value.isEmpty()) {
             emptyList()

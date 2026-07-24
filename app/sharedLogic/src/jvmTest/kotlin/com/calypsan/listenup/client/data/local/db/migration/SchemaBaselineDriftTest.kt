@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.local.db.migration
 
-import androidx.room.Room
-import androidx.room.testing.MigrationTestHelper
-import androidx.room.useReaderConnection
+import androidx.room3.Room
+import androidx.room3.testing.MigrationTestHelper
+import androidx.room3.useReaderConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import io.kotest.assertions.withClue
@@ -13,11 +13,11 @@ import java.nio.file.Paths
 import kotlinx.coroutines.runBlocking
 
 /**
- * Drift guard for the committed Room schema baseline (currently **v3** — v2 plus the contributor
- * FTS `sortName`/`aliases` columns landed by `MIGRATION_2_3`, which only touches the derived FTS
- * cache, so the entity schema is identical to v2).
+ * Drift guard for the committed Room schema baseline (currently **v1** — the Room 3 baseline, which
+ * folds in every pre-1.0 migration: the junction-table `syncId` columns and the contributor FTS
+ * `sortName`/`aliases` columns).
  *
- * The current authoritative baseline is `schemas/…/ListenUpDatabase/3.json`. Nothing else asserts
+ * The current authoritative baseline is `schemas/…/ListenUpDatabase/1.json`. Nothing else asserts
  * that this JSON still matches the compiled `@Entity` set: Room's Gradle plugin *re-exports* the
  * JSON on build instead of failing, so an entity edit that forgets to commit the regenerated
  * `2.json` — or a JSON edit that doesn't match the entities — is invisible to CI.
@@ -63,7 +63,7 @@ class SchemaBaselineDriftTest :
             try {
                 // Create the schema in `databasePath` FROM the committed 3.json (this also
                 // writes the JSON's identity hash into room_master_table), then release it.
-                helper.createDatabase(version = 3).close()
+                helper.createDatabase(version = 1).close()
 
                 // Reopen the SAME file with the real compiled database — deliberately WITHOUT
                 // fallbackToDestructiveMigration, so Room's identity-hash validation runs

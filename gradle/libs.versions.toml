@@ -42,7 +42,12 @@ turbine = "1.2.1"
 kotlin-logging = "8.0.4"
 slf4j-android = "2.0.17-0"
 slf4j = "2.0.18"
-room = "2.8.4"
+# Room 3 — group `androidx.room3`, artifacts `room3-*`, plugin id `androidx.room3`.
+# Room 3 is a deliberate break from 2.x (coroutines-only DAOs, SQLiteDriver-only, KSP-only,
+# Kotlin-only codegen), which is why the coordinates changed rather than the version bumping.
+room = "3.0.0"
+# androidx.sqlite 2.7.0 is Room 3.0.0's pairing release (both shipped 2026-07-01) and adds the
+# js/wasmJs targets plus sqlite-web's WebWorkerSQLiteDriver.
 room-sqlite = "2.7.0"
 androidx-work = "2.11.2"
 coil = "3.5.0"
@@ -208,9 +213,9 @@ androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-ui-test" }
 detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
 # Room (Database)
-androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
-androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
-androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room3", name = "room3-compiler", version.ref = "room" }
+androidx-room-runtime = { group = "androidx.room3", name = "room3-runtime", version.ref = "room" }
+androidx-room-testing = { group = "androidx.room3", name = "room3-testing", version.ref = "room" }
 androidx-sqlite-bundled = { group = "androidx.sqlite", name = "sqlite-bundled", version.ref = "room-sqlite" }
 # WorkManager
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "androidx-work" }
@@ -258,7 +263,7 @@ androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.r
 androidTest = { id = "com.android.test", version.ref = "agp" }
 androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "androidx-baselineprofile" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-androidx-room = { id = "androidx.room", version.ref = "room" }
+androidx-room = { id = "androidx.room3", version.ref = "room" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }

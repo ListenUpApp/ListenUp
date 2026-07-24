@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "9dc3b90b3bef4932cc577108c031c213",
+    "identityHash": "3763a221723426afe01262312540104f",
     "entities": [
       {
         "tableName": "users",
@@ -1025,7 +1025,7 @@
       },
       {
         "tableName": "collection_books",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`collectionId` TEXT NOT NULL, `bookId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`collectionId`, `bookId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`collectionId` TEXT NOT NULL, `bookId` TEXT NOT NULL, `syncId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`collectionId`, `bookId`))",
         "fields": [
           {
             "fieldPath": "collectionId",
@@ -1036,6 +1036,12 @@
           {
             "fieldPath": "bookId",
             "columnName": "bookId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncId",
+            "columnName": "syncId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -1082,6 +1088,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_collection_books_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
+          },
+          {
+            "name": "index_collection_books_syncId",
+            "unique": true,
+            "columnNames": [
+              "syncId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_collection_books_syncId` ON `${TABLE_NAME}` (`syncId`)"
           }
         ]
       },
@@ -1382,7 +1397,7 @@
       },
       {
         "tableName": "book_tags",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `tagId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`, `tagId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `tagId` TEXT NOT NULL, `syncId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`, `tagId`))",
         "fields": [
           {
             "fieldPath": "bookId",
@@ -1393,6 +1408,12 @@
           {
             "fieldPath": "tagId",
             "columnName": "tagId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncId",
+            "columnName": "syncId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -1439,6 +1460,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_book_tags_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
+          },
+          {
+            "name": "index_book_tags_syncId",
+            "unique": true,
+            "columnNames": [
+              "syncId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_book_tags_syncId` ON `${TABLE_NAME}` (`syncId`)"
           }
         ]
       },
@@ -1502,7 +1532,7 @@
       },
       {
         "tableName": "book_moods",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `moodId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`, `moodId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `moodId` TEXT NOT NULL, `syncId` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`, `moodId`))",
         "fields": [
           {
             "fieldPath": "bookId",
@@ -1513,6 +1543,12 @@
           {
             "fieldPath": "moodId",
             "columnName": "moodId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncId",
+            "columnName": "syncId",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -1559,6 +1595,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_book_moods_deletedAt` ON `${TABLE_NAME}` (`deletedAt`)"
+          },
+          {
+            "name": "index_book_moods_syncId",
+            "unique": true,
+            "columnNames": [
+              "syncId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_book_moods_syncId` ON `${TABLE_NAME}` (`syncId`)"
           }
         ]
       },
@@ -2764,7 +2809,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9dc3b90b3bef4932cc577108c031c213')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3763a221723426afe01262312540104f')"
     ]
   }
 }

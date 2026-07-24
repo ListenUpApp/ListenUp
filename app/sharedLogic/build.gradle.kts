@@ -215,7 +215,7 @@ tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
 }
 
 // Define Room Schema location (optional but good practice)
-room {
+room3 {
     schemaDirectory("$projectDir/schemas")
 }
 

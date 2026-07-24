@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import androidx.room3.Entity
+import androidx.room3.PrimaryKey
 
 /**
  * Per-domain cursor for the client sync engine. One row per registered domain;

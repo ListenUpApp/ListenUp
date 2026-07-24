@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.immediateTransaction
-import androidx.room.useWriterConnection
+import androidx.room3.immediateTransaction
+import androidx.room3.useWriterConnection
 
 /**
  * Runs a series of DAO writes inside a single SQLite write transaction so they either all

@@ -2350,11 +2350,61 @@
             ]
         },
         {
-            "uniqueId": "androidx.room:room-common-jvm",
-            "artifactVersion": "2.8.4",
+            "uniqueId": "androidx.room3:room3-common-jvm",
+            "artifactVersion": "3.0.0",
             "name": "Room-Common",
             "description": "Android Room-Common",
-            "website": "https://developer.android.com/jetpack/androidx/releases/room#2.8.4",
+            "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.0",
+            "developers": [
+                {
+                    "name": "The Android Open Source Project"
+                }
+            ],
+            "organization": {
+                "name": "The Android Open Source Project"
+            },
+            "scm": {
+                "connection": "scm:git:https://android.googlesource.com/platform/frameworks/support",
+                "url": "https://cs.android.com/androidx/platform/frameworks/support"
+            },
+            "licenses": [
+                "Apache-2.0"
+            ],
+            "funding": [
+                
+            ]
+        },
+        {
+            "uniqueId": "androidx.room3:room3-runtime-android",
+            "artifactVersion": "3.0.0",
+            "name": "Room-Runtime",
+            "description": "Android Room-Runtime",
+            "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.0",
+            "developers": [
+                {
+                    "name": "The Android Open Source Project"
+                }
+            ],
+            "organization": {
+                "name": "The Android Open Source Project"
+            },
+            "scm": {
+                "connection": "scm:git:https://android.googlesource.com/platform/frameworks/support",
+                "url": "https://cs.android.com/androidx/platform/frameworks/support"
+            },
+            "licenses": [
+                "Apache-2.0"
+            ],
+            "funding": [
+                
+            ]
+        },
+        {
+            "uniqueId": "androidx.room:room-common-jvm",
+            "artifactVersion": "2.7.0",
+            "name": "Room-Common",
+            "description": "Android Room-Common",
+            "website": "https://developer.android.com/jetpack/androidx/releases/room#2.7.0",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2376,10 +2426,10 @@
         },
         {
             "uniqueId": "androidx.room:room-runtime-android",
-            "artifactVersion": "2.8.4",
+            "artifactVersion": "2.7.0",
             "name": "Room-Runtime",
             "description": "Android Room-Runtime",
-            "website": "https://developer.android.com/jetpack/androidx/releases/room#2.8.4",
+            "website": "https://developer.android.com/jetpack/androidx/releases/room#2.7.0",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2501,6 +2551,31 @@
             "artifactVersion": "2.7.0",
             "name": "SQLite",
             "description": "SQLite API",
+            "website": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.7.0",
+            "developers": [
+                {
+                    "name": "The Android Open Source Project"
+                }
+            ],
+            "organization": {
+                "name": "The Android Open Source Project"
+            },
+            "scm": {
+                "connection": "scm:git:https://android.googlesource.com/platform/frameworks/support",
+                "url": "https://cs.android.com/androidx/platform/frameworks/support"
+            },
+            "licenses": [
+                "Apache-2.0"
+            ],
+            "funding": [
+                
+            ]
+        },
+        {
+            "uniqueId": "androidx.sqlite:sqlite-async-android",
+            "artifactVersion": "2.7.0",
+            "name": "SQLite Async",
+            "description": "SQLite Async Extensions",
             "website": "https://developer.android.com/jetpack/androidx/releases/sqlite#2.7.0",
             "developers": [
                 {

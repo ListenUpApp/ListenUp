@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.Dao
-import androidx.room.Embedded
-import androidx.room.Query
-import androidx.room.SkipQueryVerification
+import androidx.room3.Dao
+import androidx.room3.Embedded
+import androidx.room3.Query
+import androidx.room3.SkipQueryVerification
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -20,10 +20,11 @@ internal data class BookSearchResult(
  * Provides offline search capability as fallback when server is unavailable.
  * Uses FTS5 MATCH queries with bm25() ranking by relevance.
  *
- * FTS5 tables are created via FtsTableCallback in platform DatabaseModules (not Room entities)
- * because Room KMP doesn't support @Fts5 annotation. We use @SkipQueryVerification
- * to bypass compile-time validation of FTS queries since Room can't see the
- * FTS virtual tables at compile time.
+ * The `*_fts` tables are created by [FtsTableCallback], not declared as Room entities, because
+ * Room 3.0.0's `@Fts5` does not work on Kotlin/Native (see that class for the mechanism). Room
+ * therefore cannot see these virtual tables at compile time, so every query touching one needs
+ * `@SkipQueryVerification` to bypass validation. That is a real cost — these queries are checked
+ * only at runtime — and it goes away if `@Fts5` becomes usable on native.
  *
  * Tables:
  * - books_fts: bookId, title, subtitle, description, author, narrator, seriesName, genres

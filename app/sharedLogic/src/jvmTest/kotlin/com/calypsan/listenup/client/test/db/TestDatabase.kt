@@ -1,20 +1,19 @@
 package com.calypsan.listenup.client.test.db
 
-import androidx.room.Room
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.calypsan.listenup.client.data.local.db.FtsTableCallback
+import androidx.room3.Room
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.buildConfigured
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.Dispatchers
 
 /**
- * Builds a fresh in-memory [ListenUpDatabase] for a single test. Uses [BundledSQLiteDriver]
- * to match production, so anything the schema/constraints/cascades enforce in the app also
- * holds in tests.
+ * Builds a fresh in-memory [ListenUpDatabase] for a single test.
  *
- * Installs the production [FtsTableCallback] so the three `*_fts` virtual tables exist — they
- * are not Room entities and would otherwise be absent, breaking any FTS-backed test. Using the
- * real callback (not a test copy) means every FTS-backed test also guards that callback.
+ * Builds through the production [buildConfigured] seam, so tests get the real driver and the
+ * real `FtsTableCallback` registration — the three `*_fts` virtual tables are not Room entities
+ * and would otherwise be absent, breaking any FTS-backed test. Sharing the production seam
+ * (rather than re-listing its steps here) means an FTS-backed test cannot pass against wiring
+ * that production doesn't actually have.
  *
  * Each call returns an isolated database — tests share no state.
  *
@@ -30,7 +29,4 @@ import kotlinx.coroutines.Dispatchers
 internal fun createInMemoryTestDatabase(queryContext: CoroutineContext = Dispatchers.IO): ListenUpDatabase =
     Room
         .inMemoryDatabaseBuilder<ListenUpDatabase>()
-        .setDriver(BundledSQLiteDriver())
-        .setQueryCoroutineContext(queryContext)
-        .addCallback(FtsTableCallback())
-        .build()
+        .buildConfigured(queryContext)

@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.data.local.db
 
-import androidx.room.ConstructedBy
-import androidx.room.Database
-import androidx.room.RoomDatabase
-import androidx.room.RoomDatabaseConstructor
-import androidx.room.TypeConverters
+import androidx.room3.ConstructedBy
+import androidx.room3.Database
+import androidx.room3.RoomDatabase
+import androidx.room3.RoomDatabaseConstructor
+import androidx.room3.ColumnTypeConverters
 import com.calypsan.listenup.client.data.local.db.dao.LibraryDao
 import com.calypsan.listenup.client.data.local.db.dao.LibraryFolderDao
 import com.calypsan.listenup.client.data.local.db.entity.LibraryEntity
@@ -15,21 +15,27 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v2** — the post-squash v1 baseline (the pre-1.0 migration chain was squashed to a
- * single starting point) plus the first post-squash migration: `collection_books`/`book_tags`/
- * `book_moods` each gain a `syncId` column (SERVER-SYNC-04 — junction wire ids became opaque, so the
- * client now stores the server-assigned id instead of deriving `"$a:$b"` at read time). See
- * [MIGRATION_1_2].
+ * Schema is at **v1** — the Room 3 baseline. The pre-1.0 chain (old v1 → v2 → v3) was squashed to a
+ * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
+ * pre-production and no install base held a database worth preserving. Everything those migrations
+ * added is folded into this baseline: the `syncId` columns on `collection_books`/`book_tags`/
+ * `book_moods` (SERVER-SYNC-04 — junction wire ids became opaque, so the client stores the
+ * server-assigned id instead of deriving `"$a:$b"` at read time) and the contributor FTS
+ * `sortName`/`aliases` columns.
+ *
+ * That squash was a one-off with a closing window, not a repeatable manoeuvre: it is only sound
+ * while wiping every local database is acceptable. It is not, from the first real user onward —
+ * which is exactly what the migration policy below exists to enforce.
  *
  * **Migration policy (non-destructive).** The platform `DatabaseModule`s do NOT call
  * `fallbackToDestructiveMigration`, so a schema mismatch with no migration throws loudly instead of
  * silently recreating the DB. That matters because the local DB holds the **unsynced outbox**
  * (`PendingOperationV2Entity`) plus `syncedAt`-pending playback/listening rows — data the "re-syncs
  * from the server" story does NOT cover, because it never reached the server. **Every future
- * schema-version bump MUST ship a hand-written [androidx.room.migration.Migration]** (register it on
+ * schema-version bump MUST ship a hand-written [androidx.room3.migration.Migration]** (register it on
  * all three builders) that preserves the outbox and other pending rows; the guard
  * `DatabaseMigrationPolicyTest` fails the build if the destructive fallback is ever re-added. The
- * `@Database.exportSchema` on-disk JSON (`schemas/…/2.json`) is the authoritative baseline.
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/1.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -70,10 +76,10 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 3,
+    version = 1,
     exportSchema = true,
 )
-@TypeConverters(
+@ColumnTypeConverters(
     ValueClassConverters::class,
     Converters::class,
     StringListJsonConverter::class,
