@@ -205,13 +205,13 @@ Day-to-day rules:
 
 ### Export Surface
 
-The shared modules (`:contract`, `:sharedLogic`) export their public API to every client platform — the iOS framework now, the planned Swift Export and JS bundles next; a leaner surface also lets R8 shrink the Android app. **Export only what client UI consumes; server-only and internal-plumbing types are dead weight on every client.** Levers, strongest first:
+The shared modules (`:contract`, `:app:sharedLogic`) export their public API to every client platform — the iOS framework now, the planned Swift Export and JS bundles next; a leaner surface also lets R8 shrink the Android app. **Export only what client UI consumes; server-only and internal-plumbing types are dead weight on every client.** Levers, strongest first:
 
 1. **Relocate** a type to its real consumer (the REST `@Resource` surface lives in `:server`, not `:contract`) — gone from _every_ export path, no annotation. `NoResourcesInContractRule` pins the `@Resource` case.
 2. **`internal`** for single-module types — honored by ObjC, Swift Export, JS, and R8 alike (not available for genuinely cross-module types).
 3. **`@HiddenFromObjC`** (under `@OptIn(ExperimentalObjCRefinement::class)`) — last resort for cross-module-public types. It refines the **Objective-C framework ONLY — it does NOT govern the planned direct Swift Export**, and it must be applied per-declaration (sealed subtypes and `expect`/`actual` don't inherit it; a type named by an exported public signature ships regardless).
 
-JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (iOS)` job gates the **Swift Export** surface — the flat-typealias layer the patcher appends onto the generated `Shared.swift` (the caller-facing `import Shared` surface, not the ObjC `Shared.h`) — against `scripts/export-surface-baseline.txt`, failing the build on a banned name (server-only / infra type) or an unreviewed addition. When the surface legitimately changes, regenerate the baseline (`scripts/export-surface-inventory.sh <Shared.swift> --update-baseline`) and commit the diff.
+JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (iOS)` job gates the **Swift Export** surface — the flat-typealias layer the patcher appends onto the generated `Shared.swift` (the caller-facing `import Shared` surface, not the ObjC `Shared.h`) — against `tools/scripts/export-surface-baseline.txt`, failing the build on a banned name (server-only / infra type) or an unreviewed addition. When the surface legitimately changes, regenerate the baseline (`tools/scripts/export-surface-inventory.sh <Shared.swift> --update-baseline`) and commit the diff.
 
 ### Code Style
 
@@ -245,12 +245,12 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 | Stage / job | Lane | Local command |
 |---|---|---|
 | `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon` |
-| `Lint` (Swift) | Linux | `swiftlint lint` — run from `iosApp/` (`brew install swiftlint` — CI pins `ghcr.io/realm/swiftlint:0.63.3`; match that version locally if results differ). †iOS |
-| `Test (JVM)` | Linux | `./gradlew :sharedUI:verifyStrings :sharedUI:verifyLicenses :sharedUI:verifySwiftStringKeys :sharedLogic:compileCommonMainKotlinMetadata :desktopApp:compileKotlin :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest :rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon` — verbatim the five commands of CI's `test-jvm` job (localization + license drift gates, the desktop compile canary, and the full JVM test set, including the guards' own suites) folded into one invocation. |
-| `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `iosApp/`. †iOS |
+| `Lint` (Swift) | Linux | `swiftlint lint` — run from `app/iosApp/` (`brew install swiftlint` — CI pins `ghcr.io/realm/swiftlint:0.63.3`; match that version locally if results differ). †iOS |
+| `Test (JVM)` | Linux | `./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:sharedLogic:compileCommonMainKotlinMetadata :app:desktopApp:compileKotlin :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:jvmTest :app:sharedUI:testAndroidHostTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon` — verbatim the five commands of CI's `test-jvm` job (localization + license drift gates, the desktop compile canary, and the full JVM test set, including the guards' own suites) folded into one invocation. |
+| `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `app/iosApp/`. †iOS |
 | `Build & Test (server linuxX64)` | Linux | `./gradlew :server:compileKotlinLinuxX64 :server:linuxX64Test --no-daemon` — needs native link headers (CI: `apt-get install libargon2-dev libsqlite3-dev libcurl4-openssl-dev`; Arch: `argon2`, `sqlite`, `curl`). |
-| `Build (Android)` | Linux | `./gradlew :androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
-| `Build (iOS)` | macOS | `xcodebuild build -scheme ListenUp -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — from `iosApp/`. †iOS |
+| `Build (Android)` | Linux | `./gradlew :app:androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
+| `Build (iOS)` | macOS | `xcodebuild build -scheme ListenUp -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — from `app/iosApp/`. †iOS |
 
 `./gradlew verifyLocal --no-daemon` runs the Linux-lane `Lint` + `Test (JVM)` gates above in a single invocation (the native and iOS lanes stay separate).
 
@@ -288,39 +288,61 @@ Releases are explicit and manual via the **Release** workflow (`workflow_dispatc
 
 ## Project Structure
 
+Five directories at the root, split by audience: `app/` is client-only and ships to
+users, `contract/` is shared by both sides, `server/` is server-only, and `tools/`
+never ships. That split is the structure — if you can't name which of the five a new
+thing belongs to, that's the signal to stop and think, not to add a sixth.
+
 ```
 client/
-├── sharedLogic/                # KMP shared core (no UI)
-│   └── src/
-│       ├── commonMain/.../
-│       │   ├── core/           # Utilities — ResultCatching, Flow extensions, error plumbing (AppResult lives in :contract)
-│       │   ├── data/           # Repositories, sync, Room DAOs
-│       │   ├── di/             # Koin module definitions
-│       │   ├── domain/         # Domain models, repository interfaces
-│       │   └── presentation/   # ViewModels (shared across Android + iOS)
-│       ├── androidMain/        # Android-specific implementations
-│       ├── appleMain/          # Apple-shared implementations
-│       ├── iosMain/            # iOS implementations
-│       ├── jvmMain/            # JVM-shared implementations
-│       └── desktopMain/        # Desktop JVM implementations
-├── sharedUI/                   # Compose Multiplatform UI (Android + Desktop)
-│   └── src/
-│       ├── commonMain/.../
-│       │   ├── design/         # Theme, components
-│       │   └── features/       # Per-screen composables
-│       ├── androidMain/        # Android-specific UI
-│       └── desktopMain/        # Desktop-specific UI
+├── app/                        # Everything that ships to a user
+│   ├── sharedLogic/            # KMP shared core (no UI)
+│   │   └── src/
+│   │       ├── commonMain/.../
+│   │       │   ├── core/       # Utilities — ResultCatching, Flow extensions, error plumbing (AppResult lives in :contract)
+│   │       │   ├── data/       # Repositories, sync, Room DAOs
+│   │       │   ├── di/         # Koin module definitions
+│   │       │   ├── domain/     # Domain models, repository interfaces
+│   │       │   └── presentation/  # ViewModels (shared across Android + iOS)
+│   │       ├── androidMain/    # Android-specific implementations
+│   │       ├── appleMain/      # Apple-shared implementations
+│   │       ├── iosMain/        # iOS implementations
+│   │       ├── jvmMain/        # JVM-shared implementations
+│   │       └── desktopMain/    # Desktop JVM implementations
+│   ├── sharedUI/               # Compose Multiplatform UI (Android + Desktop)
+│   │   └── src/
+│   │       ├── commonMain/.../
+│   │       │   ├── design/     # Theme, components
+│   │       │   └── features/   # Per-screen composables
+│   │       ├── androidMain/    # Android-specific UI
+│   │       └── desktopMain/    # Desktop-specific UI
+│   ├── androidApp/             # Android entry point (thin wrapper)
+│   ├── desktopApp/             # Desktop entry point (thin wrapper)
+│   ├── iosApp/                 # Xcode project — SwiftUI shell over :app:sharedLogic
+│   └── baselineprofile/        # Baseline profile generator for :app:androidApp
 ├── contract/                   # Client↔server contract: @Rpc service interfaces,
 │                               #   @Serializable DTOs, the error hierarchy
 ├── server/                     # Ktor server (KMP: JVM + linuxX64 native)
-├── androidApp/                 # Android entry point (thin wrapper)
-├── desktopApp/                 # Desktop entry point (thin wrapper)
-├── build-logic/                # Gradle convention plugins + detekt-rules
-├── rpc-guard-ksp/              # KSP RPC-guard processor
-└── baselineprofile/            # Baseline profile generator
+├── gradle/                     # Wrapper + libs.versions.toml
+└── tools/                      # Build machinery — never ships
+    ├── build-logic/            # Gradle convention plugins + detekt-rules (included build)
+    ├── rpc-guard-ksp/          # KSP RPC-guard processor
+    ├── scripts/                # Export-surface + AppResult-await gate scripts
+    └── detekt/                 # detekt.yml + baseline.xml
 ```
 
-**ViewModels** live in `sharedLogic/.../presentation/` (shared across Android + iOS). **Screens** live in `sharedUI/.../features/`. This split is the canonical KMP shared-presentation pattern — do not merge them.
+Module IDs follow the directories: `:app:sharedLogic`, `:app:sharedUI`,
+`:app:androidApp`, `:app:desktopApp`, `:app:baselineprofile`, `:contract`, `:server`,
+`:tools:rpc-guard-ksp`. `iosApp` is an Xcode project, not a Gradle module.
+
+Adding or moving a module is a deliberate act: `EXPECTED_MODULE_DIRS`
+(`app/sharedLogic/src/commonTest/.../konsist/ExpectedModules.kt`) is the canonical
+module list, and `KonsistScopeTest` asserts filesystem discovery matches it exactly.
+A module that appears, disappears, or relocates fails that test by name — because an
+architectural gate running green over less code than you think is worse than one that
+fails.
+
+**ViewModels** live in `app/sharedLogic/.../presentation/` (shared across Android + iOS). **Screens** live in `app/sharedUI/.../features/`. This split is the canonical KMP shared-presentation pattern — do not merge them.
 
 ---
 

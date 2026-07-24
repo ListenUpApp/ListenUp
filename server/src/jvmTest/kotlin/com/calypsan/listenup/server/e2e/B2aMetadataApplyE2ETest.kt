@@ -102,7 +102,7 @@ private val TINY_JPEG =
  * specifically `description` populated, `asin` stamped, and (new in Task 6)
  * `cover_source = enriched` with `cover_path` and `cover_hash` set.
  *
- * This test lives in `server/src/jvmTest/` (not `sharedLogic/src/jvmTest/`)
+ * This test lives in `server/src/jvmTest/` (not `app/sharedLogic/src/jvmTest/`)
  * because [MetadataLookupServiceImpl] is server-only and the full in-process
  * cross-stack test would require extending `withClientSyncEngineAgainstServer`
  * with metadata module wiring — deferred to Books-B2b when the metadata UI

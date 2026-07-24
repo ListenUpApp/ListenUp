@@ -15,7 +15,7 @@ import io.ktor.utils.io.ByteReadChannel
  * files lazily (Android's `ContentResolver`) have their own [FileSource]; this is the simple,
  * shared fallback.
  *
- * Non-Kotlin callers (iOS) construct one via `fileSourceOf` in `:sharedLogic` rather than this
+ * Non-Kotlin callers (iOS) construct one via `fileSourceOf` in `:app:sharedLogic` rather than this
  * constructor directly — Swift export bridges `:contract` in transitive mode (types only, no
  * top-level functions), so the Swift-callable factory has to live in the fully-exported module.
  *

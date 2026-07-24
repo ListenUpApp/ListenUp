@@ -156,7 +156,7 @@ internal class ProfileServiceImpl(
  * Public factory for tests that need a [ProfileService] without going through Koin.
  *
  * Mirrors [createBookService] / [createGenreService] — cross-module test harnesses in
- * `:sharedLogic:jvmTest` use this to build the service without piercing the `internal`
+ * `:app:sharedLogic:jvmTest` use this to build the service without piercing the `internal`
  * access on [ProfileServiceImpl]. Production wiring constructs the impl directly inside
  * [com.calypsan.listenup.server.di.profileModule].
  */

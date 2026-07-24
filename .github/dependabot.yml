@@ -30,7 +30,7 @@ updates:
       - dependency-name: "org.jetbrains.compose.material3:material3"  # 1.11.0-alpha07 — upstream-blocked
       # Transitive BUILD/TEST-tooling only — never on a shipped or runtime classpath. Verified absent
       # from :server jvmRuntimeClasspath and all native configs (shipped artifact is a Kotlin/Native
-      # server.kexe with zero JVM jars) and from :androidApp releaseRuntimeClasspath (nothing in the
+      # server.kexe with zero JVM jars) and from :app:androidApp releaseRuntimeClasspath (nothing in the
       # APK). Versions are owned by AGP / the Kotlin Swift Export worker / a test-only JWT lib and move
       # only when those toolchains bump, so per-artifact Dependabot PRs here are pure churn.
       - dependency-name: "io.netty:*"                    # AGP Unified Test Platform (grpc-netty emulator control) — not our server (Ktor CIO)

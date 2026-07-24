@@ -430,7 +430,7 @@ internal class SearchServiceImpl(
 
 /**
  * Constructs a [SearchService] backed by [SearchServiceImpl]. Public so cross-module test
- * harnesses (e.g. `:sharedLogic:jvmTest`'s `WithClientSyncEngineAgainstServer`) can build the
+ * harnesses (e.g. `:app:sharedLogic:jvmTest`'s `WithClientSyncEngineAgainstServer`) can build the
  * unified search service without depending on the Koin graph or piercing the `internal` access
  * on [SearchServiceImpl]. Production wiring continues to construct the impl directly inside the
  * books Koin module.
