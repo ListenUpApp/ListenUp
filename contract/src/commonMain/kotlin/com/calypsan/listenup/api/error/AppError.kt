@@ -55,6 +55,41 @@ data class InternalError(
 }
 
 /**
+ * The tolerant-reader landing zone for an [AppError] family this build has never heard of.
+ *
+ * `ignoreUnknownKeys` makes a client tolerate new *fields*; it does nothing for new *subtypes* —
+ * an unrecognised `type` discriminator in a sealed hierarchy throws. Without a fallback, a client
+ * already in the field would fail on the error path the first time a newer server returned an
+ * error family added after that client shipped, which is the worst possible moment to fail.
+ *
+ * `contractJson` registers this type as the polymorphic default for [AppError], so an unknown
+ * family decodes here instead. Because every field name matches the shared [AppError] surface,
+ * the diagnostically load-bearing values — [code] and [correlationId] — survive the fallback, and
+ * the operator can still join a user's report to a server log line. [debugInfo] carries the
+ * original serial name so the arriving family is never silently anonymous.
+ *
+ * Every property is defaulted: an unknown payload that omits any of them still decodes.
+ *
+ * This type is never *constructed* by product code — it only ever arrives from the wire. Code
+ * folding [AppError] should treat it as "a newer peer told us something we don't understand,"
+ * which is a prompt-to-update signal, not a domain outcome.
+ */
+@Serializable
+@SerialName("AppError.UnknownError")
+data class UnknownError(
+    @SerialName("code")
+    override val code: String = "UNKNOWN_ERROR",
+    @SerialName("message")
+    override val message: String = "Something went wrong.",
+    @SerialName("correlationId")
+    override val correlationId: String? = null,
+    @SerialName("debugInfo")
+    override val debugInfo: String? = null,
+    @SerialName("isRetryable")
+    override val isRetryable: Boolean = false,
+) : AppError
+
+/**
  * Input failed validation — surfaces both client-side pre-flight checks
  * and server-side `init`-block violations on `@Serializable` requests.
  *
