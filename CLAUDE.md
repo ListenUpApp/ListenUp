@@ -288,39 +288,61 @@ Releases are explicit and manual via the **Release** workflow (`workflow_dispatc
 
 ## Project Structure
 
+Five directories at the root, split by audience: `app/` is client-only and ships to
+users, `contract/` is shared by both sides, `server/` is server-only, and `tools/`
+never ships. That split is the structure — if you can't name which of the five a new
+thing belongs to, that's the signal to stop and think, not to add a sixth.
+
 ```
 client/
-├── sharedLogic/                # KMP shared core (no UI)
-│   └── src/
-│       ├── commonMain/.../
-│       │   ├── core/           # Utilities — ResultCatching, Flow extensions, error plumbing (AppResult lives in :contract)
-│       │   ├── data/           # Repositories, sync, Room DAOs
-│       │   ├── di/             # Koin module definitions
-│       │   ├── domain/         # Domain models, repository interfaces
-│       │   └── presentation/   # ViewModels (shared across Android + iOS)
-│       ├── androidMain/        # Android-specific implementations
-│       ├── appleMain/          # Apple-shared implementations
-│       ├── iosMain/            # iOS implementations
-│       ├── jvmMain/            # JVM-shared implementations
-│       └── desktopMain/        # Desktop JVM implementations
-├── sharedUI/                   # Compose Multiplatform UI (Android + Desktop)
-│   └── src/
-│       ├── commonMain/.../
-│       │   ├── design/         # Theme, components
-│       │   └── features/       # Per-screen composables
-│       ├── androidMain/        # Android-specific UI
-│       └── desktopMain/        # Desktop-specific UI
+├── app/                        # Everything that ships to a user
+│   ├── sharedLogic/            # KMP shared core (no UI)
+│   │   └── src/
+│   │       ├── commonMain/.../
+│   │       │   ├── core/       # Utilities — ResultCatching, Flow extensions, error plumbing (AppResult lives in :contract)
+│   │       │   ├── data/       # Repositories, sync, Room DAOs
+│   │       │   ├── di/         # Koin module definitions
+│   │       │   ├── domain/     # Domain models, repository interfaces
+│   │       │   └── presentation/  # ViewModels (shared across Android + iOS)
+│   │       ├── androidMain/    # Android-specific implementations
+│   │       ├── appleMain/      # Apple-shared implementations
+│   │       ├── iosMain/        # iOS implementations
+│   │       ├── jvmMain/        # JVM-shared implementations
+│   │       └── desktopMain/    # Desktop JVM implementations
+│   ├── sharedUI/               # Compose Multiplatform UI (Android + Desktop)
+│   │   └── src/
+│   │       ├── commonMain/.../
+│   │       │   ├── design/     # Theme, components
+│   │       │   └── features/   # Per-screen composables
+│   │       ├── androidMain/    # Android-specific UI
+│   │       └── desktopMain/    # Desktop-specific UI
+│   ├── androidApp/             # Android entry point (thin wrapper)
+│   ├── desktopApp/             # Desktop entry point (thin wrapper)
+│   ├── iosApp/                 # Xcode project — SwiftUI shell over :app:sharedLogic
+│   └── baselineprofile/        # Baseline profile generator for :app:androidApp
 ├── contract/                   # Client↔server contract: @Rpc service interfaces,
 │                               #   @Serializable DTOs, the error hierarchy
 ├── server/                     # Ktor server (KMP: JVM + linuxX64 native)
-├── androidApp/                 # Android entry point (thin wrapper)
-├── desktopApp/                 # Desktop entry point (thin wrapper)
-├── build-logic/                # Gradle convention plugins + detekt-rules
-├── rpc-guard-ksp/              # KSP RPC-guard processor
-└── baselineprofile/            # Baseline profile generator
+├── gradle/                     # Wrapper + libs.versions.toml
+└── tools/                      # Build machinery — never ships
+    ├── build-logic/            # Gradle convention plugins + detekt-rules (included build)
+    ├── rpc-guard-ksp/          # KSP RPC-guard processor
+    ├── scripts/                # Export-surface + AppResult-await gate scripts
+    └── detekt/                 # detekt.yml + baseline.xml
 ```
 
-**ViewModels** live in `sharedLogic/.../presentation/` (shared across Android + iOS). **Screens** live in `sharedUI/.../features/`. This split is the canonical KMP shared-presentation pattern — do not merge them.
+Module IDs follow the directories: `:app:sharedLogic`, `:app:sharedUI`,
+`:app:androidApp`, `:app:desktopApp`, `:app:baselineprofile`, `:contract`, `:server`,
+`:tools:rpc-guard-ksp`. `iosApp` is an Xcode project, not a Gradle module.
+
+Adding or moving a module is a deliberate act: `EXPECTED_MODULE_DIRS`
+(`app/sharedLogic/src/commonTest/.../konsist/ExpectedModules.kt`) is the canonical
+module list, and `KonsistScopeTest` asserts filesystem discovery matches it exactly.
+A module that appears, disappears, or relocates fails that test by name — because an
+architectural gate running green over less code than you think is worse than one that
+fails.
+
+**ViewModels** live in `app/sharedLogic/.../presentation/` (shared across Android + iOS). **Screens** live in `app/sharedUI/.../features/`. This split is the canonical KMP shared-presentation pattern — do not merge them.
 
 ---
 
