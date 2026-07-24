@@ -19,7 +19,7 @@ kotlin {
     }
 
     // Apple targets carried over from :shared so a future native macOS app can link
-    // :contract through :sharedLogic's framework. No framework binary here — :sharedLogic
+    // :contract through :app:sharedLogic's framework. No framework binary here — :app:sharedLogic
     // owns the framework export.
     iosArm64()
     iosSimulatorArm64()
@@ -76,12 +76,12 @@ tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {
 }
 
 dependencies {
-    // :rpc-guard-ksp scans the @Rpc interfaces in this module's commonMain and
+    // :tools:rpc-guard-ksp scans the @Rpc interfaces in this module's commonMain and
     // emits the *Guarded decorators into the JVM compilation.
-    add("kspJvm", project(":rpc-guard-ksp"))
+    add("kspJvm", project(":tools:rpc-guard-ksp"))
     // Generate the guard decorators for the native server too (Phase 5). Per-target (NOT
     // commonMain): the @Rpc interfaces are local to :contract here so source discovery works, and
     // keeping guards out of commonMain avoids forcing apple actuals / Swift-export pollution.
-    add("kspLinuxX64", project(":rpc-guard-ksp"))
-    add("kspLinuxArm64", project(":rpc-guard-ksp"))
+    add("kspLinuxX64", project(":tools:rpc-guard-ksp"))
+    add("kspLinuxArm64", project(":tools:rpc-guard-ksp"))
 }

@@ -975,7 +975,7 @@ internal class CollectionServiceImpl(
 
 /**
  * Constructs a [CollectionService] backed by [CollectionServiceImpl]. Public so cross-module
- * test harnesses (e.g. `:sharedLogic:jvmTest`'s `WithCollectionSyncEngineAgainstServer`) can
+ * test harnesses (e.g. `:app:sharedLogic:jvmTest`'s `WithCollectionSyncEngineAgainstServer`) can
  * build the service without depending on the Koin graph or piercing the `internal` access on
  * [CollectionServiceImpl] / [CollectionAccessPolicy]. Production wiring continues to construct
  * the impl directly inside the books Koin module.

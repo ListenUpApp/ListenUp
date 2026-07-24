@@ -17,13 +17,13 @@ import kotlinx.coroutines.delay
 
 /**
  * Kotest project configuration for the **`:server`** JVM test run (auto-discovered by Kotest as
- * `io.kotest.provided.ProjectConfig` on the server test classpath — distinct from the `:sharedLogic`
+ * `io.kotest.provided.ProjectConfig` on the server test classpath — distinct from the `:app:sharedLogic`
  * config, which is not on this module's classpath).
  *
  * The server suite boots an in-process Ktor server + a real SQLite DB. On the contended
  * 2-core CI runner a few timing-sensitive specs intermittently stall or fail in ways that never
  * reproduce on a fast local box — historically the `Test (JVM)` job's recurring hang. Two guards,
- * mirroring the proven `:sharedLogic` config:
+ * mirroring the proven `:app:sharedLogic` config:
  *
  *  - [timeout] — a generous per-test ceiling so a single deadlocked test (e.g. a DB-pool drain that
  *    blocks on `SQLITE_BUSY`) **fails fast with a named "timed out" error** instead of stalling the

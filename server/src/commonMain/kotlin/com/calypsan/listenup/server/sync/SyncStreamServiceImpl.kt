@@ -191,7 +191,7 @@ private class CursorStaleAtAttach(
 /**
  * Public construction seam for the RPC firehose, mirroring the `createBookService` idiom: the
  * impl stays `internal`, cross-module test harnesses (the client-engine e2e fixtures in
- * `:sharedLogic`) mount the service through this factory, scoped to a per-connection [principal]
+ * `:app:sharedLogic`) mount the service through this factory, scoped to a per-connection [principal]
  * exactly as the production RPC registration does via `copyWith`.
  */
 fun createSyncStreamService(

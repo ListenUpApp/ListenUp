@@ -16,8 +16,8 @@ plugins {
     alias(libs.plugins.detekt)
     alias(libs.plugins.spotless)
     // Note: Kover coverage is applied per-module on the JVM-pure modules only
-    // (:server, :rpc-guard-ksp — see their build files). The androidKmpLibrary
-    // modules (:contract, :sharedLogic, :sharedUI) remain uncovered: Kover is
+    // (:server, :tools:rpc-guard-ksp — see their build files). The androidKmpLibrary
+    // modules (:contract, :app:sharedLogic, :app:sharedUI) remain uncovered: Kover is
     // incompatible with the com.android.kotlin.multiplatform.library plugin.
     // Extend coverage to them when upstream Kover supports that plugin.
 }
@@ -27,8 +27,8 @@ plugins {
 // =============================================================================
 detekt {
     buildUponDefaultConfig = true
-    config.setFrom("$rootDir/config/detekt/detekt.yml")
-    baseline = file("$rootDir/detekt-baseline.xml")
+    config.setFrom("$rootDir/tools/detekt/detekt.yml")
+    baseline = file("$rootDir/tools/detekt/baseline.xml")
     parallel = true
     source.setFrom(
         "$rootDir/contract/src/commonMain/kotlin",
@@ -38,16 +38,16 @@ detekt {
         "$rootDir/contract/src/appleMain/kotlin",
         "$rootDir/contract/src/linuxMain/kotlin",
         "$rootDir/contract/src/nativeMain/kotlin",
-        "$rootDir/sharedLogic/src/commonMain/kotlin",
-        "$rootDir/sharedLogic/src/androidMain/kotlin",
-        "$rootDir/sharedLogic/src/iosMain/kotlin",
-        "$rootDir/sharedLogic/src/appleMain/kotlin",
-        "$rootDir/sharedLogic/src/jvmMain/kotlin",
-        "$rootDir/sharedLogic/src/jvmTest/kotlin",
-        "$rootDir/sharedUI/src/commonMain/kotlin",
-        "$rootDir/sharedUI/src/androidMain/kotlin",
-        "$rootDir/sharedUI/src/desktopMain/kotlin",
-        "$rootDir/desktopApp/src/main/kotlin",
+        "$rootDir/app/sharedLogic/src/commonMain/kotlin",
+        "$rootDir/app/sharedLogic/src/androidMain/kotlin",
+        "$rootDir/app/sharedLogic/src/iosMain/kotlin",
+        "$rootDir/app/sharedLogic/src/appleMain/kotlin",
+        "$rootDir/app/sharedLogic/src/jvmMain/kotlin",
+        "$rootDir/app/sharedLogic/src/jvmTest/kotlin",
+        "$rootDir/app/sharedUI/src/commonMain/kotlin",
+        "$rootDir/app/sharedUI/src/androidMain/kotlin",
+        "$rootDir/app/sharedUI/src/desktopMain/kotlin",
+        "$rootDir/app/desktopApp/src/main/kotlin",
         "$rootDir/server/src/commonMain/kotlin",
         "$rootDir/server/src/jvmMain/kotlin",
         "$rootDir/server/src/linuxX64Main/kotlin",
@@ -55,8 +55,8 @@ detekt {
         "$rootDir/server/src/commonTest/kotlin",
         "$rootDir/server/src/jvmTest/kotlin",
         "$rootDir/server/src/linuxX64Test/kotlin",
-        "$rootDir/rpc-guard-ksp/src/main/kotlin",
-        "$rootDir/rpc-guard-ksp/src/test/kotlin",
+        "$rootDir/tools/rpc-guard-ksp/src/main/kotlin",
+        "$rootDir/tools/rpc-guard-ksp/src/test/kotlin",
     )
 }
 
@@ -113,19 +113,19 @@ tasks.register("verifyLocal") {
     dependsOn(
         "spotlessCheck",
         "detekt",
-        ":sharedUI:verifyStrings",
-        ":sharedUI:verifyLicenses",
-        ":sharedUI:verifySwiftStringKeys",
-        ":sharedLogic:compileCommonMainKotlinMetadata",
-        ":desktopApp:compileKotlin",
+        ":app:sharedUI:verifyStrings",
+        ":app:sharedUI:verifyLicenses",
+        ":app:sharedUI:verifySwiftStringKeys",
+        ":app:sharedLogic:compileCommonMainKotlinMetadata",
+        ":app:desktopApp:compileKotlin",
         ":contract:jvmTest",
-        ":sharedLogic:jvmTest",
-        ":sharedLogic:testAndroidHostTest",
+        ":app:sharedLogic:jvmTest",
+        ":app:sharedLogic:testAndroidHostTest",
         ":server:jvmTest",
-        ":sharedUI:testAndroidHostTest",
-        ":rpc-guard-ksp:test",
+        ":app:sharedUI:testAndroidHostTest",
+        ":tools:rpc-guard-ksp:test",
     )
-    // build-logic is an included build (settings.gradle.kts: includeBuild("build-logic")) — a plain
+    // build-logic is an included build (settings.gradle.kts: includeBuild("tools/build-logic")) — a plain
     // ":build-logic:convention:test" string would be resolved against this build's project tree and
     // fail, so address the task through the composite-build API.
     dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))

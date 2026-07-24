@@ -455,7 +455,7 @@ internal class BookServiceImpl(
 
 /**
  * Constructs a [BookService] backed by [BookServiceImpl]. Public so cross-module
- * test harnesses (e.g. `:sharedLogic:jvmTest`'s `WithClientSyncEngineAgainstServer`)
+ * test harnesses (e.g. `:app:sharedLogic:jvmTest`'s `WithClientSyncEngineAgainstServer`)
  * can build the service without depending on the Koin graph or piercing the
  * `internal` access on [BookServiceImpl]. Production wiring continues to construct
  * the impl directly inside the books Koin module.

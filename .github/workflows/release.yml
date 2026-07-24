@@ -102,14 +102,14 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew :androidApp:bundleRelease :androidApp:assembleRelease --no-daemon
+        run: ./gradlew :app:androidApp:bundleRelease :app:androidApp:assembleRelease --no-daemon
 
       - name: Upload to Google Play (internal, draft)
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.calypsan.listenup.client
-          releaseFiles: androidApp/build/outputs/bundle/release/*.aab
+          releaseFiles: app/androidApp/build/outputs/bundle/release/*.aab
           track: internal
           status: draft
 
@@ -118,8 +118,8 @@ jobs:
         with:
           name: android-release
           path: |
-            androidApp/build/outputs/bundle/release/*.aab
-            androidApp/build/outputs/apk/release/*.apk
+            app/androidApp/build/outputs/bundle/release/*.aab
+            app/androidApp/build/outputs/apk/release/*.apk
           retention-days: 30
 
   github-release:
@@ -213,7 +213,7 @@ jobs:
       # authenticated by the ASC API key. `-allowProvisioningUpdates` lets xcodebuild manage
       # signing via that key (no manual provisioning profile needed). No Ruby/Fastlane.
       - name: Archive, export & upload to TestFlight
-        working-directory: iosApp
+        working-directory: app/iosApp
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
