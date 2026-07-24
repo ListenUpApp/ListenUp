@@ -41,7 +41,7 @@ restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the 
 9. **Navigation routes implement `NavKey`**; back stacks use `rememberNavBackStack`; `NavDisplay` installs
    entry decorators for per-entry VM scoping.
 10. **VM failure-branch shape** (the Compose error-presentation pattern — iOS maps errors its own way per
-    `iosApp/CLAUDE.md` rule 10): on `AppResult.Failure`, `errorBus.emit(result.error)` for the global
+    `app/iosApp/CLAUDE.md` rule 10): on `AppResult.Failure`, `errorBus.emit(result.error)` for the global
     snackbar and carry the **typed `AppError`** in the screen's `State.Error` — never a pre-rendered string.
     ViewModels stay free of UI copy; the screen renders the error via `AppError.localized()` (`@Composable`)
     or `AppError.localizedString()` (suspend, e.g. inside a snackbar `LaunchedEffect`), which resolve
@@ -60,7 +60,7 @@ restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the 
     is State.Error -> Text(state.error.localized())
     ```
 11. **Every screen is responsive (width-driven), not a phone layout stretched on a tablet.** This is the
-    Android counterpart to `iosApp/CLAUDE.md` rule 12 and is equally non-negotiable — Google Play's
+    Android counterpart to `app/iosApp/CLAUDE.md` rule 12 and is equally non-negotiable — Google Play's
     large-screen requirements (and Apple's direction) mandate it. Layouts must flow with the *actual
     available width*: gate mode forks on `currentWindowAdaptiveInfo().windowSizeClass`
     (`isWidthAtLeastBreakpoint(...)`), and for card grids prefer **`GridCells.Adaptive(minSize = …dp)`**

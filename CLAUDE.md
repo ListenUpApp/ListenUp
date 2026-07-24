@@ -245,12 +245,12 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 | Stage / job | Lane | Local command |
 |---|---|---|
 | `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon` |
-| `Lint` (Swift) | Linux | `swiftlint lint` — run from `iosApp/` (`brew install swiftlint` — CI pins `ghcr.io/realm/swiftlint:0.63.3`; match that version locally if results differ). †iOS |
+| `Lint` (Swift) | Linux | `swiftlint lint` — run from `app/iosApp/` (`brew install swiftlint` — CI pins `ghcr.io/realm/swiftlint:0.63.3`; match that version locally if results differ). †iOS |
 | `Test (JVM)` | Linux | `./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:sharedLogic:compileCommonMainKotlinMetadata :app:desktopApp:compileKotlin :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:jvmTest :app:sharedUI:testAndroidHostTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon` — verbatim the five commands of CI's `test-jvm` job (localization + license drift gates, the desktop compile canary, and the full JVM test set, including the guards' own suites) folded into one invocation. |
-| `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `iosApp/`. †iOS |
+| `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `app/iosApp/`. †iOS |
 | `Build & Test (server linuxX64)` | Linux | `./gradlew :server:compileKotlinLinuxX64 :server:linuxX64Test --no-daemon` — needs native link headers (CI: `apt-get install libargon2-dev libsqlite3-dev libcurl4-openssl-dev`; Arch: `argon2`, `sqlite`, `curl`). |
 | `Build (Android)` | Linux | `./gradlew :app:androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
-| `Build (iOS)` | macOS | `xcodebuild build -scheme ListenUp -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — from `iosApp/`. †iOS |
+| `Build (iOS)` | macOS | `xcodebuild build -scheme ListenUp -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — from `app/iosApp/`. †iOS |
 
 `./gradlew verifyLocal --no-daemon` runs the Linux-lane `Lint` + `Test (JVM)` gates above in a single invocation (the native and iOS lanes stay separate).
 

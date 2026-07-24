@@ -48,11 +48,11 @@ jobs:
 
       # SwiftLint runs on Linux against .swift source (no Xcode needed) via the official
       # container, pinned (0.63.3 — keep CLAUDE.md's local-commands row in sync when bumping).
-      # Non-strict: error-severity violations gate; style is advisory. Config: iosApp/.swiftlint.yml.
+      # Non-strict: error-severity violations gate; style is advisory. Config: app/iosApp/.swiftlint.yml.
       - name: Run SwiftLint (iOS)
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}/iosApp:/work" -w /work \
+            -v "${{ github.workspace }}/app/iosApp:/work" -w /work \
             ghcr.io/realm/swiftlint:0.63.3 \
             swiftlint lint --reporter github-actions-logging
 
@@ -301,7 +301,7 @@ jobs:
           echo "device=$DEVICE" >> "$GITHUB_OUTPUT"
 
       - name: Run iOS tests
-        working-directory: iosApp
+        working-directory: app/iosApp
         run: |
           set -o pipefail
           # Per-test timeouts: a hung test (never-completing await / black-hole Flow) fails fast with
@@ -453,7 +453,7 @@ jobs:
           restore-keys: ${{ runner.os }}-konan-
 
       - name: Build (Release, unsigned)
-        working-directory: iosApp
+        working-directory: app/iosApp
         run: |
           set -o pipefail
           xcodebuild build \

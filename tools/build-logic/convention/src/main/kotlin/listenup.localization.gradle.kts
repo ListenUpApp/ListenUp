@@ -24,7 +24,7 @@ import java.io.File
 
 val stringsDir: File = rootProject.file("app/sharedLogic/src/commonMain/resources/strings")
 val composeResourcesDir: File = layout.projectDirectory.dir("src/commonMain/composeResources").asFile
-val xcstringsOut: File = rootProject.file("iosApp/ListenUp/Resources/Localizable.xcstrings")
+val xcstringsOut: File = rootProject.file("app/iosApp/ListenUp/Resources/Localizable.xcstrings")
 val rootDir: File = rootProject.projectDir
 
 // The per-locale Android output dirs (values, values-xx, …), derived from the source JSON filenames,
@@ -94,14 +94,14 @@ tasks.register("verifyStrings") {
 // locally by scraping Swift and writing the missing key back into the generated catalog as an
 // empty entry. This gate is the missing half: every statically-resolvable
 // `String(localized: "…")` key must exist in en.json.
-val iosSwiftDir: File = rootProject.file("iosApp/ListenUp")
+val iosSwiftDir: File = rootProject.file("app/iosApp/ListenUp")
 
 tasks.register("verifySwiftStringKeys") {
     group = "localization"
     description = "Fail if iOS Swift references a localization key that does not exist in en.json"
 
     // Inputs only, no outputs — a gate that must always re-verify, never report UP-TO-DATE.
-    // Track ONLY the .swift sources, not the whole `iosApp/ListenUp` tree: that tree also holds
+    // Track ONLY the .swift sources, not the whole `app/iosApp/ListenUp` tree: that tree also holds
     // `Resources/Localizable.xcstrings`, which `generateStrings` writes — so `inputs.dir(iosSwiftDir)`
     // made Gradle flag an undeclared dependency on `generateStrings` whenever both tasks were
     // scheduled together (e.g. the CI test-jvm lane, which also runs `:app:sharedUI:testAndroidHostTest`

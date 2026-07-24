@@ -122,7 +122,7 @@ cd ListenUp
 ./gradlew :server:runJvm
 ```
 
-For iOS, open `iosApp/ListenUp.xcodeproj` in Xcode and run the `ListenUp` scheme against a simulator or device.
+For iOS, open `app/iosApp/ListenUp.xcodeproj` in Xcode and run the `ListenUp` scheme against a simulator or device.
 
 ## Architecture
 
@@ -133,9 +133,9 @@ ListenUp/
 │   ├── sharedLogic/   # KMP shared core — domain models, repositories, sync engine, DI, ViewModels (no UI)
 │   ├── sharedUI/      # Compose Multiplatform UI (Android + Desktop), organized by feature
 │   ├── androidApp/    # Android application entry point
-│   └── desktopApp/    # Desktop (JVM) application entry point (in progress)
+│   ├── desktopApp/    # Desktop (JVM) application entry point (in progress)
+│   └── iosApp/        # iOS app — SwiftUI shell over the shared Kotlin core
 ├── server/        # Self-hostable Ktor server — the hub Android & iOS clients connect to
-├── iosApp/        # iOS app — SwiftUI shell over the shared Kotlin core
 └── tools/
     ├── build-logic/   # Gradle convention plugins + custom Detekt rules
     └── rpc-guard-ksp/ # KSP processor guarding the RPC boundary
@@ -146,7 +146,7 @@ ListenUp follows **MVVM** with offline-first data flow and a clean separation be
 - **`contract`** is the single source of truth for the client↔server boundary — shared by both sides so a field rename breaks at compile time, not in production.
 - **`app/sharedLogic`** holds all business logic, data access, the sync engine, and ViewModels (shared across Android & iOS). The local database is the single source of truth; the UI reads from it, never from the network directly.
 - **`app/sharedUI`** holds the Compose Multiplatform screens, organized by feature.
-- **`app/androidApp`**, **`iosApp`**, and **`app/desktopApp`** are thin entry points that wire up platform-specific services and launch the shared experience.
+- **`app/androidApp`**, **`app/iosApp`**, and **`app/desktopApp`** are thin entry points that wire up platform-specific services and launch the shared experience.
 
 ## Tech Stack
 

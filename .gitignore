@@ -18,8 +18,8 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 # Generated localization files
-iosApp/ListenUp/Resources/*.lproj/Localizable.strings
-iosApp/iosApp/Resources/*.lproj/Localizable.strings
+app/iosApp/ListenUp/Resources/*.lproj/Localizable.strings
+app/iosApp/iosApp/Resources/*.lproj/Localizable.strings
 
 # Local SQLite database (server runtime; lives under $LISTENUP_HOME in real use)
 listenup.db

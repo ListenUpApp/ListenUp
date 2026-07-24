@@ -2,7 +2,7 @@
 # Fails if any iOS Swift code `await`s a Kotlin suspend returning AppResult across the Swift Export
 # bridge — that traps at runtime (`__createProtocolWrapper(...) as! any AppResult` cast failure →
 # frozen UI). Fix: use a Kotlin-side plain-typed `*OrNull` accessor (unwrap AppResult in Kotlin).
-# See iosApp/CLAUDE.md.
+# See app/iosApp/CLAUDE.md.
 #
 # Heuristic (static, name-based) with two false-positive guards:
 #   * only watches names that are *uniquely* AppResult-returning in Shared.swift — a name with both
@@ -59,7 +59,7 @@ while IFS= read -r fn; do
   while IFS= read -r line; do
     echo "VIOLATION: $line"
     hits=1
-  done < <(grep -rnE "(try[?]?[[:space:]]+)?await[[:space:]]+[A-Za-z0-9_.()?]*[.]${fn}[(]" "$REPO_ROOT/iosApp" --include='*.swift' 2>/dev/null)
+  done < <(grep -rnE "(try[?]?[[:space:]]+)?await[[:space:]]+[A-Za-z0-9_.()?]*[.]${fn}[(]" "$REPO_ROOT/app/iosApp" --include='*.swift' 2>/dev/null)
 done <<< "$watch"
 
 if [[ "$hits" -eq 1 ]]; then
@@ -67,7 +67,7 @@ if [[ "$hits" -eq 1 ]]; then
 
 ✗ iOS Swift must not `await` an AppResult-returning Kotlin suspend — it traps in the Swift Export
   bridge (`as! any AppResult` cast failure → frozen UI). Add/use a Kotlin-side plain-typed `*OrNull`
-  accessor (unwrap AppResult in Kotlin). See iosApp/CLAUDE.md.
+  accessor (unwrap AppResult in Kotlin). See app/iosApp/CLAUDE.md.
 MSG
   exit 1
 fi
