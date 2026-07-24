@@ -18,7 +18,10 @@
 # Usage: check-no-appresult-await.sh [path-to-Shared.swift]   (auto-discovers if omitted)
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# This script lives at tools/scripts/, so the repo root is two levels up. Getting this
+# wrong fails silently: the greps below target paths under $REPO_ROOT with stderr
+# suppressed, so a wrong root finds nothing and the gate passes vacuously.
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 SHARED="${1:-}"
 if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then

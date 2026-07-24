@@ -211,7 +211,7 @@ The shared modules (`:contract`, `:app:sharedLogic`) export their public API to 
 2. **`internal`** for single-module types — honored by ObjC, Swift Export, JS, and R8 alike (not available for genuinely cross-module types).
 3. **`@HiddenFromObjC`** (under `@OptIn(ExperimentalObjCRefinement::class)`) — last resort for cross-module-public types. It refines the **Objective-C framework ONLY — it does NOT govern the planned direct Swift Export**, and it must be applied per-declaration (sealed subtypes and `expect`/`actual` don't inherit it; a type named by an exported public signature ships regardless).
 
-JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (iOS)` job gates the **Swift Export** surface — the flat-typealias layer the patcher appends onto the generated `Shared.swift` (the caller-facing `import Shared` surface, not the ObjC `Shared.h`) — against `scripts/export-surface-baseline.txt`, failing the build on a banned name (server-only / infra type) or an unreviewed addition. When the surface legitimately changes, regenerate the baseline (`scripts/export-surface-inventory.sh <Shared.swift> --update-baseline`) and commit the diff.
+JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (iOS)` job gates the **Swift Export** surface — the flat-typealias layer the patcher appends onto the generated `Shared.swift` (the caller-facing `import Shared` surface, not the ObjC `Shared.h`) — against `tools/scripts/export-surface-baseline.txt`, failing the build on a banned name (server-only / infra type) or an unreviewed addition. When the surface legitimately changes, regenerate the baseline (`tools/scripts/export-surface-inventory.sh <Shared.swift> --update-baseline`) and commit the diff.
 
 ### Code Style
 
