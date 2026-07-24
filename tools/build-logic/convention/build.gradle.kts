@@ -47,12 +47,12 @@ dependencies {
     }
 }
 
-// In this build script rootDir is build-logic/ (it's an included build), so the
-// repository root is one level up. VerifyLocalParityTest parses these repo-root
+// In this build script rootDir is tools/build-logic/ (it's an included build), so the
+// repository root is two levels up. VerifyLocalParityTest parses these repo-root
 // files; hand the root over via a system property (the test JVM's working dir is
 // not guaranteed) and register the parsed files as inputs so the parity test
 // re-runs whenever CI, the root build script, or the Pushing docs change.
-val repoRoot = rootDir.parentFile
+val repoRoot = rootDir.parentFile.parentFile
 tasks.withType<Test>().configureEach {
     systemProperty("listenup.expected.kotlin.version", expectedKotlinVersion)
     systemProperty("listenup.repo.root", repoRoot.absolutePath)

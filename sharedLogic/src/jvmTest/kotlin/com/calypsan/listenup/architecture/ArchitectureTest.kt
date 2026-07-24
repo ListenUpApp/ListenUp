@@ -45,7 +45,7 @@ class ArchitectureTest :
                 "baselineprofile",
                 "contract",
                 "desktopApp",
-                "rpc-guard-ksp",
+                "tools/rpc-guard-ksp",
                 "server",
                 "sharedLogic",
                 "sharedUI",

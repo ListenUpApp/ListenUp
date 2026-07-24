@@ -16,7 +16,7 @@ plugins {
     alias(libs.plugins.detekt)
     alias(libs.plugins.spotless)
     // Note: Kover coverage is applied per-module on the JVM-pure modules only
-    // (:server, :rpc-guard-ksp — see their build files). The androidKmpLibrary
+    // (:server, :tools:rpc-guard-ksp — see their build files). The androidKmpLibrary
     // modules (:contract, :sharedLogic, :sharedUI) remain uncovered: Kover is
     // incompatible with the com.android.kotlin.multiplatform.library plugin.
     // Extend coverage to them when upstream Kover supports that plugin.
@@ -55,8 +55,8 @@ detekt {
         "$rootDir/server/src/commonTest/kotlin",
         "$rootDir/server/src/jvmTest/kotlin",
         "$rootDir/server/src/linuxX64Test/kotlin",
-        "$rootDir/rpc-guard-ksp/src/main/kotlin",
-        "$rootDir/rpc-guard-ksp/src/test/kotlin",
+        "$rootDir/tools/rpc-guard-ksp/src/main/kotlin",
+        "$rootDir/tools/rpc-guard-ksp/src/test/kotlin",
     )
 }
 
@@ -123,9 +123,9 @@ tasks.register("verifyLocal") {
         ":sharedLogic:testAndroidHostTest",
         ":server:jvmTest",
         ":sharedUI:testAndroidHostTest",
-        ":rpc-guard-ksp:test",
+        ":tools:rpc-guard-ksp:test",
     )
-    // build-logic is an included build (settings.gradle.kts: includeBuild("build-logic")) — a plain
+    // build-logic is an included build (settings.gradle.kts: includeBuild("tools/build-logic")) — a plain
     // ":build-logic:convention:test" string would be resolved against this build's project tree and
     // fail, so address the task through the composite-build API.
     dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))
