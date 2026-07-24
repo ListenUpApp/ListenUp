@@ -11,7 +11,6 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -62,7 +61,6 @@ class GenreRoutesTest :
                 val seriesRepo = SeriesRepository(sql, bus, registry)
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
                 val bookRepo =
                     BookRepository(
                         db = sql,
@@ -73,7 +71,7 @@ class GenreRoutesTest :
                         seriesRepository = seriesRepo,
                         genreRepository = genreRepo,
                     )
-                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, sql, BookAccessPolicy(sql, driver))
+                val service = GenreServiceImpl(genreRepo, bookRepo, sql, BookAccessPolicy(sql, driver))
                 val collectionRepo =
                     CollectionRepository(
                         db = sql,

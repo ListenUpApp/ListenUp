@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -29,8 +28,7 @@ import kotlinx.coroutines.test.runTest
  * Integration tests for [TagServiceImpl].
  *
  * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks.
- * The [BookSearchReindexer] is wired with real repos — FTS reindexing is exercised
- * end-to-end where a book_search_map row exists.
+ * No search index is involved — the server has none.
  */
 class TagServiceImplTest :
     FunSpec({
@@ -42,8 +40,7 @@ class TagServiceImplTest :
             val registry = SyncRegistry()
             val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
             val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
-            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
-            return TagServiceImpl(tagRepo, bookTagRepo, reindexer, dbs.sql, fixedClock, principal = rootPrincipal())
+            return TagServiceImpl(tagRepo, bookTagRepo, dbs.sql, fixedClock, principal = rootPrincipal())
         }
 
         // ── listTags ─────────────────────────────────────────────────────────

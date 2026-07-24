@@ -21,7 +21,6 @@ import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ScannerService
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
@@ -43,7 +42,6 @@ import com.calypsan.listenup.server.api.MoodServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.ProfileServiceImpl
-import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.ShelfServiceImpl
 import com.calypsan.listenup.server.api.SocialServiceImpl
@@ -121,7 +119,6 @@ private fun Route.authedRpc(services: RpcServices) {
         registerScoped<MetadataLookupService> {
             guard((services.metadataLookupService as MetadataLookupServiceImpl).copyWith(it))
         }
-        registerScoped<SearchService> { guard((services.searchService as SearchServiceImpl).copyWith(it)) }
         registerScoped<LibraryAdminService> {
             guard(
                 (services.libraryAdminService as LibraryAdminServiceImpl).copyWith(it),

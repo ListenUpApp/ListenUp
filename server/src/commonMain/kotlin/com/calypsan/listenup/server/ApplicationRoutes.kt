@@ -14,7 +14,6 @@ import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ScannerService
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
@@ -62,12 +61,10 @@ import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.publicInviteRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
-import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
-import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.sync.syncRoutes
@@ -102,7 +99,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val playbackService by inject<PlaybackService>()
     val playbackProgressService by inject<PlaybackProgressService>()
     val statsRecorder by inject<StatsRecorder>()
-    val searchReindexService by inject<SearchReindexService>()
     val audioFileLocator by inject<AudioFileLocator>()
     val audioUrlSigner by inject<AudioUrlSigner>()
     val coverUrlSigner by inject<CoverUrlSigner>()
@@ -110,7 +106,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val seriesRepository by inject<SeriesRepository>()
     val imageStorage by inject<com.calypsan.listenup.server.metadata.ImageStorage>()
     val metadataLookupService by inject<MetadataLookupService>()
-    val searchService by inject<SearchService>()
     val libraryAdminService by inject<LibraryAdminService>()
     val tagService by inject<TagService>()
     val moodService by inject<MoodService>()
@@ -148,10 +143,9 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             seriesRoutes(seriesService, homeDir, imageStorage)
             playbackRoutes(playbackService)
             playbackProgressRoutes(playbackProgressService, bookAccessPolicy)
-            adminRoutes(statsRecorder, searchReindexService)
+            adminRoutes(statsRecorder)
             metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
             metadataRoutes(metadataLookupService)
-            searchRoutes(searchService)
             tagRoutes(tagService, bookAccessPolicy)
             genreRoutes(genreService)
             collectionRoutes(collectionService)
@@ -184,7 +178,6 @@ private fun Application.rpcServiceBundle(): RpcServices =
         playbackService = koinGet<PlaybackService>(),
         playbackProgressService = koinGet<PlaybackProgressService>(),
         metadataLookupService = koinGet<MetadataLookupService>(),
-        searchService = koinGet<SearchService>(),
         libraryAdminService = koinGet<LibraryAdminService>(),
         tagService = koinGet<TagService>(),
         moodService = koinGet<MoodService>(),

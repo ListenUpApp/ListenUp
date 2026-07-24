@@ -20,7 +20,6 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -133,69 +132,6 @@ class SeriesServiceImplTest :
             }
         }
 
-        test("updateSeries triggers FTS reindex for all linked books when the name changes") {
-            withSqlDatabase {
-                val dbs = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(dbs)
-                val service = deps.service
-                val seriesRepo = deps.seriesRepo
-                val bookRepo = deps.bookRepo
-                runTest {
-                    val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
-                    bookRepo.upsert(bookFixtureWithSeries("b1", "The Way of Kings", seriesId, "1"))
-                    bookRepo.upsert(bookFixtureWithSeries("b2", "Words of Radiance", seriesId, "2", rootRelPath = "WoR"))
-                    val rowidB1 = lookupFtsRowidForSeries(dbs, "b1")
-                    val rowidB2 = lookupFtsRowidForSeries(dbs, "b2")
-                    // Plant a sentinel series_names so the test can prove a real reindex occurred.
-                    overwriteFtsSeriesNames(dbs, rowid = rowidB1, sentinel = "SENTINELNOTOVERWRITTEN")
-                    overwriteFtsSeriesNames(dbs, rowid = rowidB2, sentinel = "SENTINELNOTOVERWRITTEN")
-
-                    val result = service.updateSeries(seriesId, SeriesUpdate(name = "Stormlight"))
-
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    // Both FTS rows should match the new series name (sentinel was overwritten by reindex).
-                    ftsSeriesNamesMatch(dbs, rowidB1, "Stormlight") shouldBe true
-                    ftsSeriesNamesMatch(dbs, rowidB2, "Stormlight") shouldBe true
-                    ftsSeriesNamesMatch(dbs, rowidB1, "SENTINELNOTOVERWRITTEN") shouldBe false
-                }
-            }
-        }
-
-        test("updateSeries does NOT trigger FTS reindex when only non-name fields change") {
-            withSqlDatabase {
-                val dbs = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeSeriesServiceAndDeps(dbs)
-                val service = deps.service
-                val seriesRepo = deps.seriesRepo
-                val bookRepo = deps.bookRepo
-                runTest {
-                    val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
-                    bookRepo.upsert(bookFixtureWithSeries("b1", "The Way of Kings", seriesId, "1"))
-                    val rowidB1 = lookupFtsRowidForSeries(dbs, "b1")
-                    // Tripwire: if the implementation reindexes when it shouldn't, the
-                    // sentinel will be overwritten with the live series name.
-                    overwriteFtsSeriesNames(dbs, rowid = rowidB1, sentinel = "SENTINELNOTOVERWRITTEN")
-
-                    val result =
-                        service.updateSeries(
-                            seriesId,
-                            SeriesUpdate(description = "Epic fantasy by Brandon Sanderson"),
-                        )
-
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    // Sentinel must still match — reindex was skipped.
-                    ftsSeriesNamesMatch(dbs, rowidB1, "SENTINELNOTOVERWRITTEN") shouldBe true
-                    ftsSeriesNamesMatch(dbs, rowidB1, "Stormlight") shouldBe false
-                    // Description was applied.
-                    val reread = seriesRepo.findById(seriesId.value)
-                    reread.shouldNotBeNull()
-                    reread.description shouldBe "Epic fantasy by Brandon Sanderson"
-                }
-            }
-        }
-
         test("updateSeries returns SeriesError.NotFound when the series does not exist") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -292,7 +228,6 @@ private data class SeriesServiceDeps(
     val service: SeriesServiceImpl,
     val seriesRepo: SeriesRepository,
     val bookRepo: BookRepository,
-    val reindexer: BookSearchReindexer,
 )
 
 private fun makeSeriesServiceAndDeps(dbs: SqlTestDatabases): SeriesServiceDeps {
@@ -312,44 +247,17 @@ private fun makeSeriesServiceAndDeps(dbs: SqlTestDatabases): SeriesServiceDeps {
         )
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
-            reindexer = reindexer,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             principal = rootPrincipal(),
         )
-    return SeriesServiceDeps(service, seriesRepo, bookRepo, reindexer)
+    return SeriesServiceDeps(service, seriesRepo, bookRepo)
 }
 
-/**
- * Reads the FTS rowid that [BookRepository.upsert] allocated for [bookId]
- * via `book_search_map`. Books-C1 tests need this to address the FTS row
- * created automatically by the books pipeline.
- */
-private suspend fun lookupFtsRowidForSeries(
-    dbs: SqlTestDatabases,
-    bookId: String,
-): Int =
-    withContext(Dispatchers.IO) {
-        dbs.sql.bookSearchQueries
-            .selectRowidForBook(bookId)
-            .executeAsOneOrNull()
-            ?.toInt()
-            ?: error("No book_search_map row found for bookId=$bookId")
-    }
-
-/**
- * Replaces the `series_names` cell of the FTS row at [rowid] with a sentinel
- * value. Acts as a tripwire so tests can prove whether a real reindex re-read
- * the source tables (overwriting the sentinel) or skipped (sentinel survives).
- *
- * `book_search` is contentless_delete=1, so the only safe mutation idiom is
- * DELETE + re-INSERT of the entire row.
- */
 private suspend fun overwriteFtsSeriesNames(
     dbs: SqlTestDatabases,
     rowid: Int,

@@ -18,7 +18,6 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -132,69 +131,6 @@ class ContributorServiceImplTest :
                     val reread = contributorRepo.findById(id.value)
                     reread.shouldNotBeNull()
                     reread.name shouldBe "B. Sanderson"
-                }
-            }
-        }
-
-        test("updateContributor triggers FTS reindex for all linked books when the name changes") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeServiceAndDeps(db)
-                val service = deps.service
-                val contributorRepo = deps.contributorRepo
-                val bookRepo = deps.bookRepo
-                runTest {
-                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
-                    bookRepo.upsert(bookFixtureWithContributor("b1", "The Way of Kings", contributorId))
-                    bookRepo.upsert(bookFixtureWithContributor("b2", "Words of Radiance", contributorId, rootRelPath = "WoR"))
-                    val rowidB1 = lookupFtsRowid(db, "b1")
-                    val rowidB2 = lookupFtsRowid(db, "b2")
-                    // Plant a sentinel contributor_names so the test can prove a real reindex occurred.
-                    overwriteFtsContributorNames(db, rowid = rowidB1, sentinel = "SENTINELNOTOVERWRITTEN")
-                    overwriteFtsContributorNames(db, rowid = rowidB2, sentinel = "SENTINELNOTOVERWRITTEN")
-
-                    val result = service.updateContributor(contributorId, ContributorUpdate(name = "B. Sanderson"))
-
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    // Both FTS rows should match the new contributor name (sentinel was overwritten by reindex).
-                    ftsContributorNamesMatch(db, rowidB1, "B. Sanderson") shouldBe true
-                    ftsContributorNamesMatch(db, rowidB2, "B. Sanderson") shouldBe true
-                    ftsContributorNamesMatch(db, rowidB1, "SENTINELNOTOVERWRITTEN") shouldBe false
-                }
-            }
-        }
-
-        test("updateContributor does NOT trigger FTS reindex when only non-name fields change") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeServiceAndDeps(db)
-                val service = deps.service
-                val contributorRepo = deps.contributorRepo
-                val bookRepo = deps.bookRepo
-                runTest {
-                    val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
-                    bookRepo.upsert(bookFixtureWithContributor("b1", "The Way of Kings", contributorId))
-                    val rowidB1 = lookupFtsRowid(db, "b1")
-                    // Tripwire: if the implementation reindexes when it shouldn't, the
-                    // sentinel will be overwritten with the live contributor name.
-                    overwriteFtsContributorNames(db, rowid = rowidB1, sentinel = "SENTINELNOTOVERWRITTEN")
-
-                    val result =
-                        service.updateContributor(
-                            contributorId,
-                            ContributorUpdate(description = "Fantasy author"),
-                        )
-
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    // Sentinel must still match — reindex was skipped.
-                    ftsContributorNamesMatch(db, rowidB1, "SENTINELNOTOVERWRITTEN") shouldBe true
-                    ftsContributorNamesMatch(db, rowidB1, "Brandon Sanderson") shouldBe false
-                    // Description was applied.
-                    val reread = contributorRepo.findById(contributorId.value)
-                    reread.shouldNotBeNull()
-                    reread.description shouldBe "Fantasy author"
                 }
             }
         }
@@ -315,7 +251,6 @@ private data class ServiceDeps(
     val service: ContributorServiceImpl,
     val contributorRepo: ContributorRepository,
     val bookRepo: BookRepository,
-    val reindexer: BookSearchReindexer,
 )
 
 private fun makeServiceAndDeps(db: SqlTestDatabases): ServiceDeps {
@@ -335,17 +270,15 @@ private fun makeServiceAndDeps(db: SqlTestDatabases): ServiceDeps {
         )
     val tagRepo = TagRepository(db = db.sql, bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.sql, db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
-            reindexer = reindexer,
             sqlDb = db.sql,
             accessPolicy = BookAccessPolicy(db.sql, db.driver),
             principal = rootPrincipal(),
         )
-    return ServiceDeps(service, contributorRepo, bookRepo, reindexer)
+    return ServiceDeps(service, contributorRepo, bookRepo)
 }
 
 /**

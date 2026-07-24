@@ -112,44 +112,6 @@ class BookServiceRpcTest :
             }
         }
 
-        test("BookService.searchBooks is reachable over the authed RPC surface and returns matching ids") {
-            val libraryRoot = Files.createTempDirectory("listenup-book-rpc-search-test-")
-            try {
-                testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
-                    application { module() }
-
-                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = restClient.mintAccessToken()
-                    seedTestLibraryAndFolder()
-
-                    val repo by application.inject<BookRepository>()
-                    repo.upsert(bookRpcFixture(id = "rpc-s1", title = "The Well of Ascension"))
-                    repo.upsert(bookRpcFixture(id = "rpc-s2", title = "The Hero of Ages", rootRelPath = "books/rpc-s2"))
-
-                    val rpcClient =
-                        createClient {
-                            install(WebSockets)
-                            installKrpc()
-                        }
-
-                    val service =
-                        rpcClient
-                            .rpc("ws://localhost/api/rpc/authed") {
-                                rpcConfig { serialization { json(contractJson) } }
-                                bearerAuth(token)
-                            }.withService<BookService>()
-
-                    val result = service.searchBooks("Ascension", limit = 10)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>()
-                    success.data shouldBe listOf(BookId("rpc-s1"))
-                }
-            } finally {
-                libraryRoot.toFile().deleteRecursively()
-            }
-        }
-
         test("BookService RPC call without a bearer token is rejected") {
             val libraryRoot = Files.createTempDirectory("listenup-book-rpc-unauth-")
             try {

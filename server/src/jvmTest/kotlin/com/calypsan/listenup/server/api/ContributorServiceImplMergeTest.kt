@@ -17,7 +17,6 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -272,50 +271,6 @@ class ContributorServiceImplMergeTest :
         }
 
         // ── FTS reindex ────────────────────────────────────────────────────────
-
-        test("mergeContributors reindexes book_search.contributor_names for affected books") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeServiceAndDeps(db)
-                val service = deps.service
-                val contributorRepo = deps.contributorRepo
-                val bookRepo = deps.bookRepo
-                runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
-                    bookRepo.upsert(bookFixtureForMerge("b1", "The Long Walk", sourceId, "Richard Bachman"))
-
-                    service
-                        .mergeContributors(sourceId, targetId)
-                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
-
-                    // book_search.contributor_names for b1 must now MATCH the target's canonical name.
-                    ftsBookContributorMatch(db, "b1", "Stephen King") shouldBe true
-                }
-            }
-        }
-
-        test("mergeContributors reindexes contributor_search.aliases for the target") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeServiceAndDeps(db)
-                val service = deps.service
-                val contributorRepo = deps.contributorRepo
-                runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
-
-                    service
-                        .mergeContributors(sourceId, targetId)
-                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
-
-                    // contributor_search.aliases for target must now MATCH "Bachman".
-                    ftsAliasesMatch(db, targetId.value, "Bachman") shouldBe true
-                }
-            }
-        }
     })
 
 // ── Test fixtures and helpers ──────────────────────────────────────────────────
@@ -324,7 +279,6 @@ private data class MergeServiceDeps(
     val service: ContributorServiceImpl,
     val contributorRepo: ContributorRepository,
     val bookRepo: BookRepository,
-    val reindexer: BookSearchReindexer,
 )
 
 private fun makeServiceAndDeps(db: SqlTestDatabases): MergeServiceDeps {
@@ -344,17 +298,15 @@ private fun makeServiceAndDeps(db: SqlTestDatabases): MergeServiceDeps {
         )
     val tagRepo = TagRepository(db = db.sql, bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.sql, db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
-            reindexer = reindexer,
             sqlDb = db.sql,
             accessPolicy = BookAccessPolicy(db.sql, db.driver),
             principal = rootPrincipal(),
         )
-    return MergeServiceDeps(service, contributorRepo, bookRepo, reindexer)
+    return MergeServiceDeps(service, contributorRepo, bookRepo)
 }
 
 /**

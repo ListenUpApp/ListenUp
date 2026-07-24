@@ -122,15 +122,6 @@ internal fun Route.bookRoutes(
         call.handleCoverUpload(res.id, call.scoped(bookService))
     }
 
-    rateLimit(RateLimitBuckets.BooksSearch) {
-        get<BookResources> { res ->
-            when (val result = call.scoped(bookService).searchBooks(res.q ?: "", res.limit)) {
-                is AppResult.Success -> call.respond(result.data)
-                is AppResult.Failure -> call.respondBareAppError(result.error)
-            }
-        }
-    }
-
     patch<BookResources.Detail> { res ->
         val patch = call.receive<BookUpdate>()
         when (val result = call.scoped(bookService).updateBook(res.id, patch)) {

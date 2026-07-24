@@ -85,65 +85,6 @@ class BookRepositoryFallbackTest :
                 verifySuspend(exactly(0)) { service.getBook(any()) }
             }
         }
-
-        test("search online hydrates server ids from Room in the server's rank order") {
-            withTestRepo(online = true) { repo, db, service ->
-                seedRoom(db, id = "b1", title = "Alpha")
-                seedRoom(db, id = "b2", title = "Bravo")
-                seedRoom(db, id = "b3", title = "Charlie")
-                // Server returns ranked ids — b3, b1, b2 — not insertion order.
-                everySuspend { service.searchBooks("kings", any()) } returns
-                    WireResult.Success(listOf(BookId("b3"), BookId("b1"), BookId("b2")))
-
-                repo.search("kings").test {
-                    awaitItem().map { it.id.value } shouldBe listOf("b3", "b1", "b2")
-                    awaitComplete()
-                }
-            }
-        }
-
-        test("search online hydrates a server result id absent from Room via getBook") {
-            withTestRepo(online = true) { repo, db, service ->
-                // b1 and b2 are already in Room; b3 is NOT seeded — it must be fetched on demand.
-                seedRoom(db, id = "b1", title = "Alpha")
-                seedRoom(db, id = "b2", title = "Bravo")
-                // Server returns b3 first (top rank), then b1, then b2.
-                everySuspend { service.searchBooks("kings", any()) } returns
-                    WireResult.Success(listOf(BookId("b3"), BookId("b1"), BookId("b2")))
-                // getBook is called for the cache-missing b3.
-                everySuspend { service.getBook(BookId("b3")) } returns
-                    WireResult.Success(payload(id = "b3", title = "Charlie"))
-
-                repo.search("kings").test {
-                    // Result must include the on-demand-fetched b3, in server rank order.
-                    awaitItem().map { it.id.value } shouldBe listOf("b3", "b1", "b2")
-                    awaitComplete()
-                }
-            }
-        }
-
-        test("search offline falls back to local FTS5") {
-            withTestRepo(online = false) { repo, db, service ->
-                seedRoom(db, id = "b1", title = "The Way of Kings")
-                db.searchDao().insertBookFts(
-                    bookId = "b1",
-                    title = "The Way of Kings",
-                    subtitle = null,
-                    description = null,
-                    author = null,
-                    narrator = null,
-                    seriesName = null,
-                    genres = null,
-                )
-
-                repo.search("kings").test {
-                    awaitItem().map { it.id.value } shouldBe listOf("b1")
-                    awaitComplete()
-                }
-
-                verifySuspend(exactly(0)) { service.searchBooks(any(), any()) }
-            }
-        }
     })
 
 /**

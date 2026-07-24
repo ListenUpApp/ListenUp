@@ -11,7 +11,6 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -111,12 +110,10 @@ private fun makeContributorPermService(db: SqlTestDatabases): ContributorPermDep
         )
     val tagRepo = TagRepository(db = db.sql, bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.sql, db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
-            reindexer = reindexer,
             sqlDb = db.sql,
             accessPolicy = BookAccessPolicy(db.sql, db.driver),
             permissionPolicy = UserPermissionPolicy(db.sql),

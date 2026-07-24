@@ -16,7 +16,6 @@ import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ScannerService
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
@@ -43,7 +42,6 @@ data class RpcServices(
     val playbackService: PlaybackService,
     val playbackProgressService: PlaybackProgressService,
     val metadataLookupService: MetadataLookupService,
-    val searchService: SearchService,
     val libraryAdminService: LibraryAdminService,
     val tagService: TagService,
     val moodService: MoodService,

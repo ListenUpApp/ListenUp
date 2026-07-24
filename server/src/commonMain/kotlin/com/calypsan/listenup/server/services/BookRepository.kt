@@ -105,7 +105,6 @@ private class PreparedBatch(
  * [driver] (the shared SQLDelight [SqlDriver] behind [db]) runs the access-filtered [pullSince]
  * / [digest] id reads engine-neutrally — the runtime-built [SqlFragment] access subquery now
  * carries plain raw args, so it splices over the driver inside the same `suspendTransaction(db)`.
- * The access-filtered FTS read ([searchFts]) is likewise engine-neutral inside [BookFinder].
  *
  * Genre writes ([bookGenreWriter]) now run over SQLDelight too, as a **separate, sequential**
  * pass after the book write commits (see [upsertFromAnalyzed]) — never nested inside the
@@ -168,11 +167,8 @@ class BookRepository(
     /** Book-row child-table write mechanics (transaction-scoped, no revision/bus calls). */
     private val bookAggregateWriter = BookAggregateWriter(db)
 
-    /** FTS index write mechanics (transaction-scoped, no revision/bus calls). */
-    private val bookFtsWriter = BookFtsWriter(db)
-
-    /** Read query helpers — FTS, path/inode lookup, and contributor/series joins. */
-    private val bookFinder = BookFinder(db, driver)
+    /** Read query helpers — path/inode lookup and contributor/series joins. */
+    private val bookFinder = BookFinder(db)
 
     /** Genre junction write helpers (SQLDelight) — `book_genres` and auto-create (no revision/bus). */
     private val bookGenreWriter = BookGenreWriter(db, clock, GenreAutoCreator(genreRepository))
@@ -479,7 +475,6 @@ class BookRepository(
         }
         bookAggregateWriter.replaceAudioFiles(value.id, value.audioFiles)
         bookAggregateWriter.replaceDocuments(value.id, value.documents)
-        bookFtsWriter.upsertFtsRow(value)
     }
 
     /**
@@ -1521,19 +1516,6 @@ class BookRepository(
      * [ManagedCoverFiles.coverInfo]. Returns null when the book is absent or has no cover.
      */
     suspend fun coverInfo(id: BookId): CoverInfo? = managedCoverFiles.coverInfo(id)
-
-    /**
-     * Runs an FTS5 full-text search against `book_search` and returns matching
-     * [BookId]s in rank order (best match first), capped at [limit] results.
-     *
-     * When [accessFilter] is non-null only ids the viewer can reach survive. See
-     * [BookFinder.searchFts] for the splicing contract.
-     */
-    suspend fun searchFts(
-        query: String,
-        limit: Int,
-        accessFilter: SqlFragment? = null,
-    ): List<BookId> = bookFinder.searchFts(query, limit, accessFilter)
 
     /**
      * Returns the full book aggregates for every book linked to [contributorId].

@@ -133,18 +133,6 @@ internal class BookServiceImpl(
             coverImageStore = coverImageStore,
         )
 
-    override suspend fun searchBooks(
-        query: String,
-        limit: Int,
-    ): AppResult<List<BookId>> {
-        if (query.isBlank()) return AppResult.Success(emptyList())
-        // Gate the FTS id set to the viewer's reachable books — an inaccessible match must
-        // never leak its existence (and from there feed cover/prepare). The caller is resolved
-        // from [principal] (never request fields); ROOT/ADMIN get a null filter (unfiltered).
-        val access = principal.current()?.let { accessPolicy.accessibleBookIdsSql(it.userId.value, it.role) }
-        return AppResult.Success(repo.searchFts(query, limit.coerceIn(1, MAX_SEARCH_LIMIT), access))
-    }
-
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
      * implicitly; a MEMBER passes iff their flag is set (fresh DB lookup per call). An

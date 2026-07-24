@@ -12,7 +12,6 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -74,8 +73,7 @@ class TagRoutesTest :
                 val registry = SyncRegistry()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
-                val service = TagServiceImpl(tagRepo, bookTagRepo, reindexer, sql, principal = rootPrincipal())
+                val service = TagServiceImpl(tagRepo, bookTagRepo, sql, principal = rootPrincipal())
                 val collectionRepo =
                     CollectionRepository(
                         db = sql,

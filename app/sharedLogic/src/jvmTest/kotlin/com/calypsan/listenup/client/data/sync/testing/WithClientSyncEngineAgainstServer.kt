@@ -79,7 +79,6 @@ import com.calypsan.listenup.server.api.createSeriesService
 import com.calypsan.listenup.server.api.genreServiceScopedTo
 import com.calypsan.listenup.server.api.seriesServiceScopedTo
 import com.calypsan.listenup.server.cover.CoverStorage
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -278,22 +277,11 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 driver = serverDriver,
                 genreRepo = serverRepos.genreRepo,
             )
-        // The deleteContributor cascade test needs `ContributorService`. The reindexer
-        // requires a [BookTagRepository] + [TagRepository]
-        // pair; both are already constructed inside `buildServerRepositories` (tagRepo
-        // for the Tags-domain tests), so only `BookTagRepository` is instantiated here.
-        val bookSearchReindexer =
-            BookSearchReindexer(
-                bookTagRepository = BookTagRepository(serverSqlDb, bus, syncRegistry),
-                tagRepository = serverRepos.tagRepo,
-                db = serverSqlDb,
-                driver = serverDriver,
-            )
+        // The deleteContributor cascade test needs `ContributorService`.
         val contributorService: ContributorService =
             createContributorService(
                 contributorRepo = serverRepos.contributorRepo,
                 bookRepo = serverRepos.bookRepo,
-                reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )
@@ -302,7 +290,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             createSeriesService(
                 seriesRepo = serverRepos.seriesRepo,
                 bookRepo = serverRepos.bookRepo,
-                reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )
@@ -311,7 +298,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             createGenreService(
                 genreRepository = serverRepos.genreRepo,
                 bookRepository = serverRepos.bookRepo,
-                reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )

@@ -3,7 +3,6 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -87,10 +86,10 @@ import org.koin.ktor.ext.inject
  *
  * The six seams (each `// SEAM n`):
  *  1. getBook       — `GET /api/v1/books/{id}` → NotFound on deny
- *  2. search        — `GET /api/v1/search` → B absent from results AND facet counts
- *  3. audio         — `GET /api/v1/audio/{book}/{file}?…` → validly-signed URL still 404s
- *  4. catch-up      — `GET /api/v1/sync/books?since=0` → B absent from the page
- *  5. digest        — `GET /api/v1/sync/books/digest?cursor=…` → B uncounted (vs admin)
+ *  2. audio         — `GET /api/v1/audio/{book}/{file}?…` → validly-signed URL still 404s
+ *  3. catch-up      — `GET /api/v1/sync/books?since=0` → B absent from the page
+ *  4. digest        — `GET /api/v1/sync/books/digest?cursor=…` → B uncounted (vs admin)
+ *  5. cover         — `GET /api/v1/books/{id}/cover` → cover bytes withheld on deny
  *  6. firehose      — RPC `SyncStreamService.observeEvents` → a live content event for B never delivers
  */
 class SeamLeakE2ETest :
@@ -113,7 +112,7 @@ class SeamLeakE2ETest :
                     writeAudioFile(libraryRoot, "B")
                     writeAudioFile(libraryRoot, "B_inbox")
                     writeAudioFile(libraryRoot, "P")
-                    // B and the public control P each carry a filesystem cover so SEAM 7 has a
+                    // B and the public control P each carry a filesystem cover so SEAM 6 has a
                     // 200-vs-404 control: m1 must be denied B's cover but served P's.
                     writeCoverFile(libraryRoot, "B")
                     writeCoverFile(libraryRoot, "P")
@@ -142,21 +141,7 @@ class SeamLeakE2ETest :
                     client.getBook(m1.token, "B").status shouldBe HttpStatusCode.NotFound
                     client.getBook(m1.token, "B_inbox").status shouldBe HttpStatusCode.NotFound
 
-                    // ─────────────────────────── SEAM 2: search ───────────────────────────
-                    // Control: P appears in m1's results. B / B_inbox must be absent from BOTH
-                    // the result rows AND the type-facet count (facets leak existence just as a
-                    // row does). m1 sees exactly 1 "Dragon" book; the admin sees 3.
-                    val m1Search = client.search(m1.token, "Dragon")
-                    m1Search.books.map { it.id.value } shouldContain "P"
-                    m1Search.books.map { it.id.value } shouldNotContain "B"
-                    m1Search.books.map { it.id.value } shouldNotContain "B_inbox"
-                    m1Search.facets.types.books shouldBe 1
-                    // Cross-check the control is real: the admin's facet count proves 3 books match.
-                    client
-                        .search(admin.token, "Dragon")
-                        .facets.types.books shouldBe 3
-
-                    // ─────────────────────────── SEAM 3: audio ───────────────────────────
+                    // ─────────────────────────── SEAM 2: audio ───────────────────────────
                     // A VALID HMAC signature for (m1, B, af-B) still 404s — the deny is an access
                     // decision, not a signature failure. Control: the same signing path for P serves
                     // bytes (200), so the 404 isn't a broken-signer artefact.
@@ -168,7 +153,7 @@ class SeamLeakE2ETest :
                     client.audio(signer.signedQuery(m1.userId, "B_inbox", "af-B_inbox"), "B_inbox", "af-B_inbox").status shouldBe
                         HttpStatusCode.NotFound
 
-                    // ─────────────────────────── SEAM 4: catch-up ───────────────────────────
+                    // ─────────────────────────── SEAM 3: catch-up ───────────────────────────
                     // Control: P is in m1's catch-up page; B / B_inbox are not. If the
                     // access fragment were dropped, the private book would replay to m1's Room.
                     val m1Page = client.catchUp(m1.token)
@@ -177,7 +162,7 @@ class SeamLeakE2ETest :
                     m1Ids shouldNotContain "B"
                     m1Ids shouldNotContain "B_inbox"
 
-                    // ─────────────────────────── SEAM 5: digest ───────────────────────────
+                    // ─────────────────────────── SEAM 4: digest ───────────────────────────
                     // Control: m1's digest folds only P (count 1); the admin's folds all 3.
                     // Different row-sets → different fingerprints. Equal hashes would mean the
                     // gate isn't exercised — the divergence is the regression guard.
@@ -187,7 +172,7 @@ class SeamLeakE2ETest :
                     adminDigest.count shouldBe 3
                     m1Digest.hash shouldNotBe adminDigest.hash
 
-                    // ─────────────────────────── SEAM 7: cover ───────────────────────────
+                    // ─────────────────────────── SEAM 5: cover ───────────────────────────
                     // Control: m1 fetches P's cover bytes (200). B's cover → NotFound — the
                     // denial is indistinguishable from a cover-less / absent book. If the route
                     // were ungated, m1 would receive B's artwork (book content) just like P's.
@@ -255,26 +240,20 @@ class SeamLeakE2ETest :
                     client.getBook(admin.token, "B").status shouldBe HttpStatusCode.OK
                     client.getBook(admin.token, "B_inbox").status shouldBe HttpStatusCode.OK
 
-                    // SEAM 2: search → both private books counted + present.
-                    val adminSearch = client.search(admin.token, "Dragon")
-                    adminSearch.books.map { it.id.value } shouldContain "B"
-                    adminSearch.books.map { it.id.value } shouldContain "B_inbox"
-                    adminSearch.facets.types.books shouldBe 2
-
-                    // SEAM 3: audio → validly-signed URL serves bytes.
+                    // SEAM 2: audio → validly-signed URL serves bytes.
                     val signer = AudioUrlSigner(signingKey = AudioUrlSigner.deriveSigningKey("x".repeat(32)))
                     client.audio(signer.signedQuery(admin.userId, "B", "af-B"), "B", "af-B").status shouldBe
                         HttpStatusCode.OK
 
-                    // SEAM 4: catch-up → both private books replay.
+                    // SEAM 3: catch-up → both private books replay.
                     val ids = client.catchUp(admin.token).items.map { it.id }
                     ids shouldContain "B"
                     ids shouldContain "B_inbox"
 
-                    // SEAM 5: digest → folds all books (count 2).
+                    // SEAM 4: digest → folds all books (count 2).
                     client.digest(admin.token).count shouldBe 2
 
-                    // SEAM 7: cover → the admin is served the private book's cover bytes.
+                    // SEAM 5: cover → the admin is served the private book's cover bytes.
                     client.cover(admin.token, "B").status shouldBe HttpStatusCode.OK
 
                     // SEAM 6: firehose → a live content event for the private B reaches the admin.
@@ -371,10 +350,9 @@ class SeamLeakE2ETest :
                     // neither owns nor was directly shared the book.
                     makeBookPublic("G")
 
-                    // getBook + catch-up + search: m1 (granted via ALL_BOOKS) sees the book.
+                    // getBook + catch-up: m1 (granted via ALL_BOOKS) sees the book.
                     client.getBook(m1.token, "G").status shouldBe HttpStatusCode.OK
                     client.catchUp(m1.token).items.map { it.id } shouldContain "G"
-                    client.search(m1.token, "Dragon").books.map { it.id.value } shouldContain "G"
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
@@ -427,11 +405,6 @@ private suspend fun HttpClient.getBook(
     token: String,
     bookId: String,
 ): HttpResponse = get("/api/v1/books/$bookId") { bearerAuth(token) }
-
-private suspend fun HttpClient.search(
-    token: String,
-    query: String,
-): SearchResults = get("/api/v1/search?query=$query") { bearerAuth(token) }.body()
 
 private suspend fun HttpClient.audio(
     query: String,

@@ -9,11 +9,9 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
-import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
@@ -69,7 +67,6 @@ class AdminRoutesTest :
                         activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
-                val reindexService = makeReindexService(sql, driver, bus, registry)
 
                 testApplication {
                     application {
@@ -79,7 +76,7 @@ class AdminRoutesTest :
                         }
                         routing {
                             authenticate(JWT_PROVIDER) {
-                                adminRoutes(statsRecorder, reindexService)
+                                adminRoutes(statsRecorder)
                             }
                         }
                     }
@@ -111,7 +108,6 @@ class AdminRoutesTest :
                         activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
-                val reindexService = makeReindexService(sql, driver, bus, registry)
 
                 testApplication {
                     application {
@@ -121,7 +117,7 @@ class AdminRoutesTest :
                         }
                         routing {
                             authenticate(JWT_PROVIDER) {
-                                adminRoutes(statsRecorder, reindexService)
+                                adminRoutes(statsRecorder)
                             }
                         }
                     }
@@ -134,107 +130,7 @@ class AdminRoutesTest :
                 }
             }
         }
-
-        test("POST /api/v1/admin/search/reindex returns 200 for admin principal") {
-            withSqlDatabase {
-                val bus = ChangeBus()
-                val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
-                val statsRecorder =
-                    StatsRecorder(
-                        sql = sql,
-                        userStatsRepo = statsRepo,
-                        bookReadsRepository = BookReadsRepository(db = sql),
-                        publicProfileMaintainer =
-                            PublicProfileMaintainer(
-                                sql = sql,
-                                publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
-                            ),
-                        activityRecorder = activityRecorder(bus = bus),
-                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
-                    )
-                val reindexService = makeReindexService(sql, driver, bus, registry)
-
-                testApplication {
-                    application {
-                        install(ContentNegotiation) { json(contractJson) }
-                        install(Authentication) {
-                            testAuthWithRole(JWT_PROVIDER, UserRole.ADMIN)
-                        }
-                        routing {
-                            authenticate(JWT_PROVIDER) {
-                                adminRoutes(statsRecorder, reindexService)
-                            }
-                        }
-                    }
-
-                    val response =
-                        client.post("/api/v1/admin/search/reindex") {
-                            bearerAuth("admin-user")
-                        }
-                    response.status shouldBe HttpStatusCode.OK
-                }
-            }
-        }
-
-        test("POST /api/v1/admin/search/reindex returns 403 for non-admin principal") {
-            withSqlDatabase {
-                val bus = ChangeBus()
-                val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
-                val statsRecorder =
-                    StatsRecorder(
-                        sql = sql,
-                        userStatsRepo = statsRepo,
-                        bookReadsRepository = BookReadsRepository(db = sql),
-                        publicProfileMaintainer =
-                            PublicProfileMaintainer(
-                                sql = sql,
-                                publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
-                            ),
-                        activityRecorder = activityRecorder(bus = bus),
-                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
-                    )
-                val reindexService = makeReindexService(sql, driver, bus, registry)
-
-                testApplication {
-                    application {
-                        install(ContentNegotiation) { json(contractJson) }
-                        install(Authentication) {
-                            testAuthWithRole(JWT_PROVIDER, UserRole.MEMBER)
-                        }
-                        routing {
-                            authenticate(JWT_PROVIDER) {
-                                adminRoutes(statsRecorder, reindexService)
-                            }
-                        }
-                    }
-
-                    val response =
-                        client.post("/api/v1/admin/search/reindex") {
-                            bearerAuth("member-user")
-                        }
-                    response.status shouldBe HttpStatusCode.Forbidden
-                }
-            }
-        }
     })
-
-/** Builds a [SearchReindexService] over the test database for the route harness. */
-private fun makeReindexService(
-    sql: ListenUpDatabase,
-    driver: app.cash.sqldelight.db.SqlDriver,
-    bus: ChangeBus,
-    registry: SyncRegistry,
-): SearchReindexService {
-    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
-    return SearchReindexService(
-        db = sql,
-        driver = driver,
-        reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver),
-    )
-}
 
 /**
  * Installs a test auth provider that always authenticates with the given [role].

@@ -29,7 +29,6 @@ import kotlinx.coroutines.test.runTest
  * Integration tests for [MoodServiceImpl].
  *
  * Uses a real in-memory Flyway-migrated SQLite database + real repositories; no mocks.
- * Moods are not part of `book_search` FTS, so there is no reindexer to wire.
  */
 class MoodServiceImplTest :
     FunSpec({

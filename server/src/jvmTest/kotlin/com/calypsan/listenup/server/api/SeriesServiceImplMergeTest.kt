@@ -18,7 +18,6 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -169,26 +168,6 @@ class SeriesServiceImplMergeTest :
         }
 
         // ── FTS reindex ────────────────────────────────────────────────────────
-
-        test("mergeSeries reindexes book_search.series_names for affected books") {
-            withSqlDatabase {
-                val dbs = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeMergeSeriesServiceAndDeps(dbs)
-                runTest {
-                    val sourceId = deps.seriesRepo.resolveOrCreate("Source Series")
-                    val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
-                    deps.bookRepo.upsert(bookFixtureForSeriesMerge("b1", "Book One", sourceId))
-
-                    deps.service.mergeSeries(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
-
-                    // After merge, FTS should find book via target's name.
-                    ftsSeriesNamesMatchForBook(dbs, bookId = "b1", searchTerm = "Target") shouldBe true
-                    // And should NOT find it via source's name any more.
-                    ftsSeriesNamesMatchForBook(dbs, bookId = "b1", searchTerm = "Source") shouldBe false
-                }
-            }
-        }
     })
 
 // ── Test fixtures and helpers ──────────────────────────────────────────────────
@@ -216,12 +195,10 @@ private fun makeMergeSeriesServiceAndDeps(dbs: SqlTestDatabases): MergeSeriesSer
         )
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
-            reindexer = reindexer,
             sqlDb = dbs.sql,
             accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             principal = rootPrincipal(),

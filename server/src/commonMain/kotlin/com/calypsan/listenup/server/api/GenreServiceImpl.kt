@@ -21,7 +21,6 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.uuid.Uuid
@@ -35,7 +34,7 @@ private const val MAX_BROWSE_LIMIT = 1000
  * [GenreService] implementation. Genres are a curator-controlled hierarchical
  * taxonomy with materialized-path storage; this class implements the read,
  * admin, and unmapped-curation surfaces against [GenreRepository] +
- * [BookRepository] + [BookSearchReindexer], all over SQLDelight ([sqlDb]).
+ * [BookRepository], all over SQLDelight ([sqlDb]).
  *
  * Genre reads + writes go through [genreRepository] (the SQLDelight syncable genre
  * substrate) and the generated junction/alias/pending queries on [sqlDb]. The genre
@@ -51,9 +50,7 @@ private const val MAX_BROWSE_LIMIT = 1000
  *
  * The materialized-path move/merge/subtree-delete orchestration is preserved exactly:
  * descendant snapshot, bulk `rewritePathPrefix`, parent re-point, then a per-affected-row
- * re-upsert so the substrate publishes one `genre.Updated` per row. Post-commit
- * `BookSearchReindexer.reindexAllBooksForGenre` / `reindexAllBooksForSubtree` keeps
- * `book_search.genres` consistent with the live junction state.
+ * re-upsert so the substrate publishes one `genre.Updated` per row.
  *
  * Genre reads ([listGenres], [getGenre], [getGenreChildren], [listUnmappedStrings]) are
  * open to any authenticated user; [browseBooks] is access-filtered so a non-admin caller
@@ -71,7 +68,6 @@ private const val MAX_BROWSE_LIMIT = 1000
 internal class GenreServiceImpl(
     private val genreRepository: GenreRepository,
     private val bookRepository: BookRepository,
-    private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
@@ -79,7 +75,7 @@ internal class GenreServiceImpl(
 ) : GenreService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): GenreServiceImpl =
-        GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, accessPolicy, permissionPolicy, principal)
+        GenreServiceImpl(genreRepository, bookRepository, sqlDb, accessPolicy, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -284,10 +280,6 @@ internal class GenreServiceImpl(
                 is AppResult.Success -> AppResult.Success(Unit)
                 is AppResult.Failure -> AppResult.Failure(upsertResult.error)
             }
-        if (result is AppResult.Success && nameChanged) {
-            runCatchingCancellable { reindexer.reindexAllBooksForGenre(id.value) }
-                .onFailure { logger.warn(it) { "FTS reindex failed after rename of genre ${id.value}" } }
-        }
         return result
     }
 
@@ -326,8 +318,6 @@ internal class GenreServiceImpl(
             is AppResult.Failure -> return AppResult.Failure(reupsert.error)
         }
 
-        runCatchingCancellable { reindexer.reindexAllBooksForGenre(id.value) }
-            .onFailure { logger.warn(it) { "FTS reindex failed during delete of genre ${id.value}" } }
         return AppResult.Success(Unit)
     }
 
@@ -348,8 +338,6 @@ internal class GenreServiceImpl(
             is AppResult.Failure -> return AppResult.Failure(moveResult.error)
         }
 
-        runCatchingCancellable { reindexer.reindexAllBooksForSubtree(plan.oldPathPrefix) }
-            .onFailure { logger.warn(it) { "FTS reindex failed after moveGenre id=${id.value}" } }
         return AppResult.Success(Unit)
     }
 
@@ -386,10 +374,6 @@ internal class GenreServiceImpl(
             is AppResult.Failure -> return AppResult.Failure(reupsert.error)
         }
 
-        runCatchingCancellable { reindexer.reindexAllBooksForGenre(target.value) }
-            .onFailure {
-                logger.warn(it) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
-            }
         return AppResult.Success(Unit)
     }
 
@@ -446,10 +430,6 @@ internal class GenreServiceImpl(
             is AppResult.Failure -> return AppResult.Failure(reupsert.error)
         }
 
-        runCatchingCancellable { reindexer.reindexAllBooksForGenre(genreId.value) }
-            .onFailure {
-                logger.warn(it) { "FTS reindex failed after mapUnmappedToGenre genreId=${genreId.value}" }
-            }
         return AppResult.Success(Unit)
     }
 
@@ -641,10 +621,9 @@ private sealed interface MovePlanResult {
 fun createGenreService(
     genreRepository: GenreRepository,
     bookRepository: BookRepository,
-    reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
-): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, BookAccessPolicy(sqlDb, driver))
+): GenreService = GenreServiceImpl(genreRepository, bookRepository, sqlDb, BookAccessPolicy(sqlDb, driver))
 
 /**
  * Scopes a [GenreService] built by [createGenreService] to [principal] for one request.

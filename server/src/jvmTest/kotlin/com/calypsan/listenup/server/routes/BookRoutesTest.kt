@@ -156,69 +156,6 @@ class BookRoutesTest :
             }
         }
 
-        test("GET /api/v1/books?q=&limit= returns 200 with matching book ids") {
-            val libraryRoot = Files.createTempDirectory("listenup-book-search-test-")
-            try {
-                testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
-                    application { module() }
-                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-
-                    val token = client.mintAccessToken()
-                    seedTestLibraryAndFolder()
-
-                    val repo by application.inject<BookRepository>()
-                    repo.upsert(bookRouteFixture(id = "b1", title = "The Way of Kings"))
-                    repo.upsert(bookRouteFixture(id = "b2", title = "Words of Radiance", rootRelPath = "books/b2"))
-                    repo.upsert(bookRouteFixture(id = "b3", title = "Mistborn", rootRelPath = "books/b3"))
-
-                    val response =
-                        client.get("/api/v1/books?q=Kings&limit=10") {
-                            bearerAuth(token)
-                        }
-
-                    response.status shouldBe HttpStatusCode.OK
-                    val ids = response.body<List<BookId>>()
-                    ids shouldContain BookId("b1")
-                }
-            } finally {
-                libraryRoot.toFile().deleteRecursively()
-            }
-        }
-
-        test("GET /api/v1/books?q= hammered past 60 requests returns 429 TooManyRequests") {
-            val libraryRoot = Files.createTempDirectory("listenup-book-ratelimit-test-")
-            try {
-                testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
-                    application { module() }
-                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-
-                    val token = client.mintAccessToken()
-
-                    repeat(BOOKS_SEARCH_BUCKET_LIMIT) {
-                        client.get("/api/v1/books?q=x") {
-                            bearerAuth(token)
-                        }
-                    }
-
-                    val response =
-                        client.get("/api/v1/books?q=x") {
-                            bearerAuth(token)
-                        }
-
-                    response.status shouldBe HttpStatusCode.TooManyRequests
-                }
-            } finally {
-                libraryRoot.toFile().deleteRecursively()
-            }
-        }
-
-        // ── Route-level access gate (member-deny / control / admin-bypass) ──
-        // getBook is access-scoped per-principal (BookRoutes.kt Detail handler →
-        // scoped.getBook). A book a member can't reach answers 404 — never 403 —
-        // so the response can't probe a private book's existence.
-
         test("GET /api/v1/books/{id} returns 404 when a member can't reach a private book") {
             val libraryRoot = Files.createTempDirectory("listenup-book-member-deny-")
             try {
