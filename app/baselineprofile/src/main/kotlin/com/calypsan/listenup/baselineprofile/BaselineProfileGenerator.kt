@@ -11,7 +11,7 @@ import org.junit.runner.RunWith
 /**
  * Generates a Baseline Profile for the ListenUp app.
  *
- * Run via: ./gradlew :androidApp:generateReleaseBaselineProfile
+ * Run via: ./gradlew :app:androidApp:generateReleaseBaselineProfile
  *
  * The journeys below are deliberately scoped to what is reliably reachable
  * without a live server: cold launch, splash screen dismissal, and the

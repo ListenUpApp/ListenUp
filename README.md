@@ -116,7 +116,7 @@ git clone https://github.com/ListenUpApp/ListenUp.git
 cd ListenUp
 
 # Android (debug APK)
-./gradlew :androidApp:assembleDebug
+./gradlew :app:androidApp:assembleDebug
 
 # Server
 ./gradlew :server:runJvm

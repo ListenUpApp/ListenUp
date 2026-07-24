@@ -31,7 +31,7 @@ android {
     }
 
     // Point at the app module that will consume the generated profile.
-    targetProjectPath = ":androidApp"
+    targetProjectPath = ":app:androidApp"
 
     // Gradle-managed device: API 34 AOSP ATD image — rooted by default, so
     // generation works without requiring a connected physical device.

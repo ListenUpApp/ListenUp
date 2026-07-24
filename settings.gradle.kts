@@ -43,11 +43,11 @@ dependencyResolutionManagement {
 
 includeBuild("tools/build-logic")
 
-include(":androidApp")
-include(":baselineprofile")
+include(":app:androidApp")
+include(":app:baselineprofile")
 include(":sharedUI")
 include(":contract")
-include(":desktopApp")
+include(":app:desktopApp")
 include(":server")
 include(":sharedLogic")
 include(":tools:rpc-guard-ksp")

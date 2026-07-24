@@ -124,7 +124,7 @@ dependencies {
     // on Android 7+ (Nougat) without requiring a full Play Store delivery pass.
     implementation(libs.androidx.profileinstaller)
 
-    // Baseline Profile — wires the :baselineprofile generator so the release build
+    // Baseline Profile — wires the :app:baselineprofile generator so the release build
     // embeds the generated baseline-prof.txt. The AGP plugin handles merging.
-    baselineProfile(project(":baselineprofile"))
+    baselineProfile(project(":app:baselineprofile"))
 }

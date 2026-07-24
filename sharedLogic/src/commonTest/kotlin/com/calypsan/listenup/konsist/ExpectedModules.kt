@@ -19,10 +19,10 @@ package com.calypsan.listenup.konsist
  */
 internal val EXPECTED_MODULE_DIRS: List<String> =
     listOf(
-        "androidApp",
-        "baselineprofile",
+        "app/androidApp",
+        "app/baselineprofile",
+        "app/desktopApp",
         "contract",
-        "desktopApp",
         "server",
         "sharedLogic",
         "sharedUI",
