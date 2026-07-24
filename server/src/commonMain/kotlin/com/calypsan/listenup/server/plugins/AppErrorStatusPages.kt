@@ -27,6 +27,7 @@ import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.error.UnknownError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.error.withCorrelationId as stampCorrelationId
 import com.calypsan.listenup.api.result.AppResult
@@ -160,10 +161,14 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is ValidationError -> HttpStatusCode.BadRequest
 
-        // InternalError, TransportError, and PlaybackError are all server-bug / client-local paths;
-        // grouped into a single branch so the function stays under the cyclomatic-complexity threshold
-        // while remaining exhaustive — a new AppError subtype will still fail this when at compile time.
-        is InternalError, is TransportError, is PlaybackError -> HttpStatusCode.InternalServerError
+        // InternalError, TransportError, PlaybackError, and UnknownError are all server-bug /
+        // client-local paths; grouped into a single branch so the function stays under the
+        // cyclomatic-complexity threshold while remaining exhaustive — a new AppError subtype will
+        // still fail this when at compile time. UnknownError is receive-only (the polymorphic
+        // fallback in contractJson); a server holding one means it decoded an error family it does
+        // not know, which is a 500 by definition.
+        is InternalError, is TransportError, is PlaybackError, is UnknownError,
+        -> HttpStatusCode.InternalServerError
     }
 
 private fun AuthError.toHttpStatus(): HttpStatusCode =

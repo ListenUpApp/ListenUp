@@ -63,7 +63,8 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is BackupError -> withCorrelationId(id)
 
-        is ValidationError, is InternalError, is TransportError, is PlaybackError -> leafWithCorrelationId(id)
+        is ValidationError, is InternalError, is TransportError, is PlaybackError, is UnknownError,
+        -> leafWithCorrelationId(id)
     }
 
 /**
@@ -79,6 +80,7 @@ private fun AppError.leafWithCorrelationId(id: String?): AppError =
     when (this) {
         is ValidationError -> copy(correlationId = id)
         is InternalError -> copy(correlationId = id)
+        is UnknownError -> copy(correlationId = id)
         is TransportError -> withCorrelationId(id)
         is PlaybackError -> withCorrelationId(id)
         else -> this // unreachable: only called from the grouped branch above
