@@ -12,7 +12,7 @@ dependencies {
     // Required so the source stubs compiled inside kctfork tests can resolve @Rpc,
     // AppResult<T>, and RpcEvent<T> — these are the types the processor validates.
     testImplementation(libs.kotlinx.rpc.core)
-    testImplementation(project(":sharedLogic"))
+    testImplementation(project(":app:sharedLogic"))
 }
 
 tasks.test {

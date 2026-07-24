@@ -229,7 +229,7 @@ kotlin {
                 // In-process client<->server end-to-end fixtures (server/src/jvmTest/.../e2e/) drive the
                 // real client auth stack against the embedded server. Test classpath only — the
                 // production :server artifact depends on :contract alone.
-                implementation(projects.sharedLogic)
+                implementation(projects.app.sharedLogic)
                 implementation(libs.ktor.server.test.host)
                 // Test-only: com.auth0 JWT lib (via ktor-server-auth-jwt) — an independent oracle that
                 // forges adversarial tokens to cross-check the hand-rolled HS256 verifier. Not in production.

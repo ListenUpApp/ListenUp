@@ -1,4 +1,4 @@
-# Keeps the OSS license manifest (sharedUI/.../aboutlibraries.json) in sync with the dependency
+# Keeps the OSS license manifest (app/sharedUI/.../aboutlibraries.json) in sync with the dependency
 # catalog automatically. Dependabot bumps `gradle/libs.versions.toml` but cannot run Gradle, so it
 # never regenerates the manifest — which then fails the `verifyLicenses` gate on main. This workflow
 # regenerates it on Linux (the authoritative platform — a macOS regen produces a different manifest
@@ -42,18 +42,18 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
-      # Rewrites sharedUI/src/commonMain/composeResources/files/aboutlibraries.json in place from the
+      # Rewrites app/sharedUI/src/commonMain/composeResources/files/aboutlibraries.json in place from the
       # current dependency graph. Deterministic (sorted entries, timestamp metadata disabled), so a
       # clean run leaves no diff.
       - name: Regenerate license manifest (Linux is authoritative)
-        run: ./gradlew :sharedUI:exportLibraryDefinitions --no-daemon
+        run: ./gradlew :app:sharedUI:exportLibraryDefinitions --no-daemon
 
       - name: Open a fix PR if the manifest drifted
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          MANIFEST="sharedUI/src/commonMain/composeResources/files/aboutlibraries.json"
+          MANIFEST="app/sharedUI/src/commonMain/composeResources/files/aboutlibraries.json"
 
           if git diff --quiet -- "$MANIFEST"; then
             echo "License manifest already in sync with the dependency catalog — nothing to do."

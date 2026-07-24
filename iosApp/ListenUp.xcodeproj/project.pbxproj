@@ -332,7 +332,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\n# Set JAVA_HOME to ensure Gradle uses the correct Java version\nexport JAVA_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\"\n\ncd \"$SRCROOT/..\"\n./gradlew :sharedLogic:embedSwiftExportForXcode\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\n# Set JAVA_HOME to ensure Gradle uses the correct Java version\nexport JAVA_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\"\n\ncd \"$SRCROOT/..\"\n./gradlew :app:sharedLogic:embedSwiftExportForXcode\n";
 		};
 		B7F3A1D2E8C94F00A1234567 /* Generate Localizable Strings */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -342,7 +342,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../sharedLogic/src/commonMain/resources/strings/en.json",
+				"$(SRCROOT)/../app/sharedLogic/src/commonMain/resources/strings/en.json",
 			);
 			name = "Generate Localizable Strings";
 			outputFileListPaths = (
@@ -352,7 +352,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\n# Set JAVA_HOME to ensure Gradle uses the correct Java version\nexport JAVA_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\"\n\ncd \"$SRCROOT/..\"\n./gradlew :sharedUI:generateStrings\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n\n# Set JAVA_HOME to ensure Gradle uses the correct Java version\nexport JAVA_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\"\n\ncd \"$SRCROOT/..\"\n./gradlew :app:sharedUI:generateStrings\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

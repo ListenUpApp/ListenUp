@@ -129,22 +129,24 @@ For iOS, open `iosApp/ListenUp.xcodeproj` in Xcode and run the `ListenUp` scheme
 ```
 ListenUp/
 ├── contract/      # Client↔server contract: @Rpc service interfaces, @Serializable DTOs, error hierarchy
-├── sharedLogic/   # KMP shared core — domain models, repositories, sync engine, DI, ViewModels (no UI)
-├── sharedUI/      # Compose Multiplatform UI (Android + Desktop), organized by feature
+├── app/
+│   ├── sharedLogic/   # KMP shared core — domain models, repositories, sync engine, DI, ViewModels (no UI)
+│   ├── sharedUI/      # Compose Multiplatform UI (Android + Desktop), organized by feature
+│   ├── androidApp/    # Android application entry point
+│   └── desktopApp/    # Desktop (JVM) application entry point (in progress)
 ├── server/        # Self-hostable Ktor server — the hub Android & iOS clients connect to
-├── androidApp/    # Android application entry point
 ├── iosApp/        # iOS app — SwiftUI shell over the shared Kotlin core
-├── desktopApp/    # Desktop (JVM) application entry point (in progress)
-├── build-logic/   # Gradle convention plugins + custom Detekt rules
-└── rpc-guard-ksp/ # KSP processor guarding the RPC boundary
+└── tools/
+    ├── build-logic/   # Gradle convention plugins + custom Detekt rules
+    └── rpc-guard-ksp/ # KSP processor guarding the RPC boundary
 ```
 
 ListenUp follows **MVVM** with offline-first data flow and a clean separation between layers:
 
 - **`contract`** is the single source of truth for the client↔server boundary — shared by both sides so a field rename breaks at compile time, not in production.
-- **`sharedLogic`** holds all business logic, data access, the sync engine, and ViewModels (shared across Android & iOS). The local database is the single source of truth; the UI reads from it, never from the network directly.
-- **`sharedUI`** holds the Compose Multiplatform screens, organized by feature.
-- **`androidApp`**, **`iosApp`**, and **`desktopApp`** are thin entry points that wire up platform-specific services and launch the shared experience.
+- **`app/sharedLogic`** holds all business logic, data access, the sync engine, and ViewModels (shared across Android & iOS). The local database is the single source of truth; the UI reads from it, never from the network directly.
+- **`app/sharedUI`** holds the Compose Multiplatform screens, organized by feature.
+- **`app/androidApp`**, **`iosApp`**, and **`app/desktopApp`** are thin entry points that wire up platform-specific services and launch the shared experience.
 
 ## Tech Stack
 

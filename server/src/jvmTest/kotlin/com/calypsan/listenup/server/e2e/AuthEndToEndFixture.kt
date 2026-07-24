@@ -132,8 +132,8 @@ internal class AuthEndToEndFixture private constructor(
                 single<CoroutineScope>(qualifier = named("appScope")) {
                     CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 }
-                // ApiClientFactory is bound by `clientApiClientFactoryTestModule()` (in :sharedLogic
-                // jvmMain) — the type is internal to :sharedLogic so it can't be bound from here.
+                // ApiClientFactory is bound by `clientApiClientFactoryTestModule()` (in :app:sharedLogic
+                // jvmMain) — the type is internal to :app:sharedLogic so it can't be bound from here.
                 // `UserRepository` and `PlaybackManager` are only needed by
                 // `LoginUseCase` / `LogoutUseCase` (factory bindings in
                 // `clientAuthModule`). These tests call `AuthRepository` directly and

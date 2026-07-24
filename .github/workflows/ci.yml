@@ -131,13 +131,13 @@ jobs:
       # failing with a per-file message if en.json was edited without regenerating (or
       # an artifact was hand-edited).
       - name: Verify localization artifacts in sync
-        run: ./gradlew :sharedUI:verifyStrings --no-daemon
+        run: ./gradlew :app:sharedUI:verifyStrings --no-daemon
 
       # Drift gate: regenerates the OSS license manifest from the dependency graph
       # and fails if the committed aboutlibraries.json is out of sync (e.g. a
       # catalog bump landed without re-running exportLibraryDefinitions).
       - name: Verify license manifest in sync
-        run: ./gradlew :sharedUI:verifyLicenses --no-daemon
+        run: ./gradlew :app:sharedUI:verifyLicenses --no-daemon
 
       # The Swift half of the localization contract. verifyStrings proves the generated
       # artifacts match en.json but cannot see which keys Swift asks for; iOS renders a
@@ -145,9 +145,9 @@ jobs:
       # Xcode also hides it locally by writing the missing key back into the generated
       # catalog as an empty entry. Found 5 live raw-key bugs the day it was added.
       - name: Verify iOS Swift localization keys exist
-        run: ./gradlew :sharedUI:verifySwiftStringKeys --no-daemon
+        run: ./gradlew :app:sharedUI:verifySwiftStringKeys --no-daemon
 
-      # :app:desktopApp is a thin entry-point wrapper over :sharedUI/:sharedLogic — neither
+      # :app:desktopApp is a thin entry-point wrapper over :app:sharedUI/:app:sharedLogic — neither
       # the Android nor the iOS build compiles it, so a shared composable signature
       # change (e.g. #1183) can drift the desktop callers silently until someone builds
       # desktop by hand. Cheap JVM compile; fails fast, ahead of the full test run.
@@ -155,9 +155,9 @@ jobs:
         run: ./gradlew :app:desktopApp:compileKotlin --no-daemon
 
       # Kotest across the contract DTOs, the shared client core (every client consumes
-      # :sharedLogic), and the server. :sharedUI host tests are Robolectric (JVM, no
+      # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
       # emulator) — included here so Compose-UI test rot can't land unnoticed.
-      # compileCommonMainKotlinMetadata type-checks :sharedLogic commonMain against the COMMON
+      # compileCommonMainKotlinMetadata type-checks :app:sharedLogic commonMain against the COMMON
       # (all-targets-intersection) stdlib, so JVM-only stdlib in shared code (e.g. toSortedSet(),
       # java.*) fails here on Linux instead of late on the macOS iOS lane.
       # :build-logic:convention:test runs the build-logic convention tests, including
@@ -170,10 +170,10 @@ jobs:
       # the rules are the only thing enforcing CLAUDE.md security rule 6 (no stacktrace
       # crosses the wire) and the en.json localization contract.
       - name: Run JVM tests
-        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon
+        run: ./gradlew :app:sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:jvmTest :app:sharedUI:testAndroidHostTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon
 
       # Generated-and-committed artifacts must match what this build regenerates. Room's
-      # schemaDirectory points at the tracked sharedLogic/schemas/, so every KSP run rewrites
+      # schemaDirectory points at the tracked app/sharedLogic/schemas/, so every KSP run rewrites
       # the current version's JSON IN PLACE — an entity change whose regenerated schema was
       # never committed lands green today (CI regenerates it fresh, and the migration tests
       # run against the regenerated copy, not the committed one), leaving the NEXT migration
@@ -186,7 +186,7 @@ jobs:
             exit 1
           fi
 
-      # The E2E retry extensions (sharedLogic + server ProjectConfig) absorb transient
+      # The E2E retry extensions (app/sharedLogic + server ProjectConfig) absorb transient
       # failures, so a flaking spec can trend worse while runs stay green. Each retry is
       # appended to <module>/build/e2e-retries.log; surface it in the job summary so
       # retries are visible per-PR without failing the build. The RetryExtensionProbe
@@ -195,7 +195,7 @@ jobs:
         if: always()
         run: |
           found=0
-          for f in sharedLogic/build/e2e-retries.log server/build/e2e-retries.log; do
+          for f in app/sharedLogic/build/e2e-retries.log server/build/e2e-retries.log; do
             [ -f "$f" ] || continue
             entries=$(grep -v 'RetryExtensionProbeE2ETest' "$f" || true)
             [ -n "$entries" ] || continue
@@ -237,9 +237,9 @@ jobs:
         with:
           name: jvm-test-results
           path: |
-            sharedLogic/build/reports/tests/
+            app/sharedLogic/build/reports/tests/
             server/build/reports/tests/
-            sharedLogic/build/e2e-retries.log
+            app/sharedLogic/build/e2e-retries.log
             server/build/e2e-retries.log
           retention-days: 7
 
@@ -328,7 +328,7 @@ jobs:
       # appends onto the generated `Shared.swift` (the caller-facing `import Shared`
       # surface), NOT the ObjC `Shared.h`. The xcodebuild step above already
       # generated + patched the SPM package, so the script auto-discovers
-      # `sharedLogic/build/SPMPackage/**/Shared.swift` and diffs it against the
+      # `app/sharedLogic/build/SPMPackage/**/Shared.swift` and diffs it against the
       # committed baseline (tools/scripts/export-surface-baseline.txt), failing on a banned
       # name or an unreviewed addition. See CLAUDE.md "Export Surface".
       - name: Export-surface inventory (gate)

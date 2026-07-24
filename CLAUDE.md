@@ -205,7 +205,7 @@ Day-to-day rules:
 
 ### Export Surface
 
-The shared modules (`:contract`, `:sharedLogic`) export their public API to every client platform — the iOS framework now, the planned Swift Export and JS bundles next; a leaner surface also lets R8 shrink the Android app. **Export only what client UI consumes; server-only and internal-plumbing types are dead weight on every client.** Levers, strongest first:
+The shared modules (`:contract`, `:app:sharedLogic`) export their public API to every client platform — the iOS framework now, the planned Swift Export and JS bundles next; a leaner surface also lets R8 shrink the Android app. **Export only what client UI consumes; server-only and internal-plumbing types are dead weight on every client.** Levers, strongest first:
 
 1. **Relocate** a type to its real consumer (the REST `@Resource` surface lives in `:server`, not `:contract`) — gone from _every_ export path, no annotation. `NoResourcesInContractRule` pins the `@Resource` case.
 2. **`internal`** for single-module types — honored by ObjC, Swift Export, JS, and R8 alike (not available for genuinely cross-module types).
@@ -246,7 +246,7 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 |---|---|---|
 | `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon` |
 | `Lint` (Swift) | Linux | `swiftlint lint` — run from `iosApp/` (`brew install swiftlint` — CI pins `ghcr.io/realm/swiftlint:0.63.3`; match that version locally if results differ). †iOS |
-| `Test (JVM)` | Linux | `./gradlew :sharedUI:verifyStrings :sharedUI:verifyLicenses :sharedUI:verifySwiftStringKeys :sharedLogic:compileCommonMainKotlinMetadata :app:desktopApp:compileKotlin :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon` — verbatim the five commands of CI's `test-jvm` job (localization + license drift gates, the desktop compile canary, and the full JVM test set, including the guards' own suites) folded into one invocation. |
+| `Test (JVM)` | Linux | `./gradlew :app:sharedUI:verifyStrings :app:sharedUI:verifyLicenses :app:sharedUI:verifySwiftStringKeys :app:sharedLogic:compileCommonMainKotlinMetadata :app:desktopApp:compileKotlin :contract:jvmTest :app:sharedLogic:jvmTest :app:sharedLogic:testAndroidHostTest :server:jvmTest :app:sharedUI:testAndroidHostTest :tools:rpc-guard-ksp:test :build-logic:convention:test :build-logic:detekt-rules:test --no-daemon` — verbatim the five commands of CI's `test-jvm` job (localization + license drift gates, the desktop compile canary, and the full JVM test set, including the guards' own suites) folded into one invocation. |
 | `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `iosApp/`. †iOS |
 | `Build & Test (server linuxX64)` | Linux | `./gradlew :server:compileKotlinLinuxX64 :server:linuxX64Test --no-daemon` — needs native link headers (CI: `apt-get install libargon2-dev libsqlite3-dev libcurl4-openssl-dev`; Arch: `argon2`, `sqlite`, `curl`). |
 | `Build (Android)` | Linux | `./gradlew :app:androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |

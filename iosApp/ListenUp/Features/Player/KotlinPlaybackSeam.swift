@@ -53,7 +53,7 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
 /// Adapts the Koin-resolved `PlaybackProgressReporter` to `PlaybackProgressReporting`.
 /// The reporter fans each signal out to position persistence *and* (on iOS, where a
 /// recorder is bound) listening-event recording — so iOS listening history reaches the
-/// server. See `PlaybackProgressReporter` in `:sharedLogic`.
+/// server. See `PlaybackProgressReporter` in `:app:sharedLogic`.
 @MainActor
 struct KotlinProgressReporting: PlaybackProgressReporting {
     let reporter: PlaybackProgressReporter

@@ -274,13 +274,13 @@ class SeriesRepository(
     /**
      * Returns `(id, revision)` pairs for the LIVE rows in the series table (soft-deleted
      * excluded), with no revision filter. Exists solely to feed the cross-stack digest
-     * parity test (`DigestParityE2ETest` in `:sharedLogic:jvmTest`) so the client
+     * parity test (`DigestParityE2ETest` in `:app:sharedLogic:jvmTest`) so the client
      * [com.calypsan.listenup.client.data.sync.DigestComputer] can be driven over the
      * identical row set the server [digest] covers — which, since F1, is LIVE rows only
      * (tombstones excluded, symmetric with the client's tombstone-excluding digest).
      *
      * Intentionally public (not internal) because the test lives in a different Gradle
-     * module (`:sharedLogic`) and Kotlin's `internal` does not cross module boundaries.
+     * module (`:app:sharedLogic`) and Kotlin's `internal` does not cross module boundaries.
      */
     suspend fun allIdRevisionsForTest(): List<Pair<String, Long>> =
         suspendTransaction(db) {

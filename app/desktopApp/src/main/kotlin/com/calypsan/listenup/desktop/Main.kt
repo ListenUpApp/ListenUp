@@ -27,8 +27,8 @@ fun main() {
         modules(
             jvmSharedModules() + // From :shared module
                 platformModule + // From :composeApp desktopMain
-                desktopPlaybackModule + // PlaybackManager wiring from :sharedLogic
-                desktopDownloadModule + // DownloadEnqueuer wiring from :sharedLogic
+                desktopPlaybackModule + // PlaybackManager wiring from :app:sharedLogic
+                desktopDownloadModule + // DownloadEnqueuer wiring from :app:sharedLogic
                 jvmPlaybackPresentationModule() + // Shared playback VM bindings
                 desktopAppModule, // Desktop app specific
         )

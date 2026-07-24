@@ -139,9 +139,9 @@ inline below.
 15. **Stale shared-framework escape hatch.** If an iOS build links *stale* shared types after
     a Kotlin edit (the Swift Export framework didn't pick up your change — new types missing,
     old shapes still linked, no compile error), run
-    `rm -rf sharedLogic/build/{SwiftExport,SPMPackage}` from the repo root and rebuild. The
+    `rm -rf app/sharedLogic/build/{SwiftExport,SPMPackage}` from the repo root and rebuild. The
     `*GenerateSPMPackage` task is now forced to never report `UP-TO-DATE`
-    (`sharedLogic/build.gradle.kts`), so this should no longer be necessary — keep this note
+    (`app/sharedLogic/build.gradle.kts`), so this should no longer be necessary — keep this note
     until that wiring is confirmed on real iOS builds, then remove it.
 
 16. **iOS local build setup.** The iOS build drives a Gradle Swift Export embed step that

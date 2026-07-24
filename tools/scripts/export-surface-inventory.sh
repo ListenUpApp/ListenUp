@@ -5,7 +5,7 @@
 # Objective-C framework. The caller-facing public surface is the flat-typealias
 # layer the Swift-Export patcher (build-logic SwiftExportSourcePatcher) appends onto
 # the generated `Shared.swift` — one `public typealias <Name> = ExportedKotlinPackages.…`
-# per exported type, for both the `:sharedLogic` and `:contract` modules. Those flat
+# per exported type, for both the `:app:sharedLogic` and `:contract` modules. Those flat
 # names are the stable `import Shared; <Name>` surface (the mangled
 # `_ExportedKotlinPackages_…` class names shift across tool bumps and are not what
 # callers reference), so the inventory measures the alias names.
@@ -25,7 +25,7 @@
 # and commit the diff — that diff is the review signal.
 #
 # Usage: export-surface-inventory.sh [path-to-Shared.swift] [--update-baseline]
-#   If no path is given (or it's missing), searches sharedLogic/build for the
+#   If no path is given (or it's missing), searches app/sharedLogic/build for the
 #   patched Shared.swift. The surface only exists after a Swift-Export build on a Mac.
 set -uo pipefail
 
@@ -42,14 +42,14 @@ for arg in "$@"; do
 done
 
 if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
-  echo "-> Shared.swift not at '${SHARED:-<unset>}'; searching sharedLogic/build ..."
+  echo "-> Shared.swift not at '${SHARED:-<unset>}'; searching app/sharedLogic/build ..."
   # Prefer the patched SPMPackage copy (it carries the flat-typealias layer); fall back to any.
-  SHARED="$(find sharedLogic/build -name 'Shared.swift' -path '*Shared*' 2>/dev/null \
+  SHARED="$(find app/sharedLogic/build -name 'Shared.swift' -path '*Shared*' 2>/dev/null \
     | grep -E 'SPMPackage' | head -1)"
-  [[ -z "$SHARED" ]] && SHARED="$(find sharedLogic/build -name 'Shared.swift' -path '*Shared*' 2>/dev/null | head -1)"
+  [[ -z "$SHARED" ]] && SHARED="$(find app/sharedLogic/build -name 'Shared.swift' -path '*Shared*' 2>/dev/null | head -1)"
 fi
 if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
-  echo "export-surface-inventory: Shared.swift not found (run :sharedLogic:embedSwiftExportForXcode first)." >&2
+  echo "export-surface-inventory: Shared.swift not found (run :app:sharedLogic:embedSwiftExportForXcode first)." >&2
   # Fail closed, matching check-no-appresult-await.sh. The previous `exit 0` here meant a
   # Swift-Export/Gradle change that RELOCATED the SPMPackage output would silently disarm this
   # gate forever — leaving a WARN line in a green log. "The framework build step gates separately"

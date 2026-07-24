@@ -22,8 +22,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 SHARED="${1:-}"
 if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
-  SHARED="$(find "$REPO_ROOT/sharedLogic/build" -name 'Shared.swift' -path '*SPMPackage*' 2>/dev/null | head -1)"
-  [[ -z "$SHARED" ]] && SHARED="$(find "$REPO_ROOT/sharedLogic/build" -name 'Shared.swift' 2>/dev/null | head -1)"
+  SHARED="$(find "$REPO_ROOT/app/sharedLogic/build" -name 'Shared.swift' -path '*SPMPackage*' 2>/dev/null | head -1)"
+  [[ -z "$SHARED" ]] && SHARED="$(find "$REPO_ROOT/app/sharedLogic/build" -name 'Shared.swift' 2>/dev/null | head -1)"
 fi
 if [[ -z "$SHARED" || ! -f "$SHARED" ]]; then
   echo "check-no-appresult-await: Shared.swift not found (run after a Swift Export build on macOS)." >&2
@@ -46,7 +46,7 @@ if [[ -z "$watch" ]]; then
   # never means "nothing to guard" — it means the perl signature matcher above stopped matching
   # the generated formatting (e.g. after a Swift-Export/Kotlin bump). The old `exit 0` turned
   # that into a silently-disarmed gate. Same floor-the-harvest reasoning as the sealed-subtype
-  # drift check in sharedLogic/build.gradle.kts.
+  # drift check in app/sharedLogic/build.gradle.kts.
   echo "check-no-appresult-await: no uniquely-AppResult exported funcs harvested from '$SHARED'." >&2
   echo "  The signature matcher is broken (Swift Export output format changed?), not the surface." >&2
   exit 2

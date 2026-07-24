@@ -390,7 +390,7 @@ internal class ContributorServiceImpl(
 
 /**
  * Constructs a [ContributorService] backed by [ContributorServiceImpl]. Public so
- * cross-module test harnesses (e.g. `:sharedLogic:jvmTest`'s
+ * cross-module test harnesses (e.g. `:app:sharedLogic:jvmTest`'s
  * `WithClientSyncEngineAgainstServer`) can build the service without depending on
  * the Koin graph or piercing the `internal` access on [ContributorServiceImpl].
  * Production wiring continues to construct the impl directly inside the books

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Section-letter grouping for title/name lists, mirroring the shared
-/// `TitleSortUtils.sortLetter` (`sharedLogic/.../util/TitleSortUtils.kt`).
+/// `TitleSortUtils.sortLetter` (`app/sharedLogic/.../util/TitleSortUtils.kt`).
 ///
 /// **Why iOS needs its own copy.** The shared `LibraryViewModel` already returns books/series in
 /// article-aware *sorted order* (it sorts with `ignoreTitleArticles`). But iOS groups them into

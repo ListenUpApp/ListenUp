@@ -116,7 +116,7 @@ androidComponents {
 }
 
 dependencies {
-    implementation(projects.sharedUI)
+    implementation(projects.app.sharedUI)
     // SLF4J Android backend - routes kotlin-logging to Logcat
     implementation(libs.slf4j.android)
 

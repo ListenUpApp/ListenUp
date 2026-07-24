@@ -8,20 +8,20 @@ plugins {
 
 kotlin {
     compilerOptions {
-        // :sharedLogic/:sharedUI carry pre-release-marked metadata via the kotlinx-rpc dev-channel pin (see gradle/libs.versions.toml); drop this flag when migrating to rpc stable.
+        // :app:sharedLogic/:app:sharedUI carry pre-release-marked metadata via the kotlinx-rpc dev-channel pin (see gradle/libs.versions.toml); drop this flag when migrating to rpc stable.
         freeCompilerArgs.add("-Xskip-prerelease-check")
     }
 }
 
 dependencies {
-    implementation(projects.sharedUI)
-    implementation(projects.sharedLogic)
+    implementation(projects.app.sharedUI)
+    implementation(projects.app.sharedLogic)
 
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.material3)
     implementation(libs.androidx.material.icons.extended)
 
-    // Lifecycle (needed for ViewModel supertype from :sharedUI)
+    // Lifecycle (needed for ViewModel supertype from :app:sharedUI)
     implementation(libs.androidx.lifecycle.viewmodelCompose)
     implementation(libs.androidx.lifecycle.runtimeCompose)
 

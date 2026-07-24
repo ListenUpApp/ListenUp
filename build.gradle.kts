@@ -17,7 +17,7 @@ plugins {
     alias(libs.plugins.spotless)
     // Note: Kover coverage is applied per-module on the JVM-pure modules only
     // (:server, :tools:rpc-guard-ksp — see their build files). The androidKmpLibrary
-    // modules (:contract, :sharedLogic, :sharedUI) remain uncovered: Kover is
+    // modules (:contract, :app:sharedLogic, :app:sharedUI) remain uncovered: Kover is
     // incompatible with the com.android.kotlin.multiplatform.library plugin.
     // Extend coverage to them when upstream Kover supports that plugin.
 }
@@ -38,15 +38,15 @@ detekt {
         "$rootDir/contract/src/appleMain/kotlin",
         "$rootDir/contract/src/linuxMain/kotlin",
         "$rootDir/contract/src/nativeMain/kotlin",
-        "$rootDir/sharedLogic/src/commonMain/kotlin",
-        "$rootDir/sharedLogic/src/androidMain/kotlin",
-        "$rootDir/sharedLogic/src/iosMain/kotlin",
-        "$rootDir/sharedLogic/src/appleMain/kotlin",
-        "$rootDir/sharedLogic/src/jvmMain/kotlin",
-        "$rootDir/sharedLogic/src/jvmTest/kotlin",
-        "$rootDir/sharedUI/src/commonMain/kotlin",
-        "$rootDir/sharedUI/src/androidMain/kotlin",
-        "$rootDir/sharedUI/src/desktopMain/kotlin",
+        "$rootDir/app/sharedLogic/src/commonMain/kotlin",
+        "$rootDir/app/sharedLogic/src/androidMain/kotlin",
+        "$rootDir/app/sharedLogic/src/iosMain/kotlin",
+        "$rootDir/app/sharedLogic/src/appleMain/kotlin",
+        "$rootDir/app/sharedLogic/src/jvmMain/kotlin",
+        "$rootDir/app/sharedLogic/src/jvmTest/kotlin",
+        "$rootDir/app/sharedUI/src/commonMain/kotlin",
+        "$rootDir/app/sharedUI/src/androidMain/kotlin",
+        "$rootDir/app/sharedUI/src/desktopMain/kotlin",
         "$rootDir/app/desktopApp/src/main/kotlin",
         "$rootDir/server/src/commonMain/kotlin",
         "$rootDir/server/src/jvmMain/kotlin",
@@ -113,16 +113,16 @@ tasks.register("verifyLocal") {
     dependsOn(
         "spotlessCheck",
         "detekt",
-        ":sharedUI:verifyStrings",
-        ":sharedUI:verifyLicenses",
-        ":sharedUI:verifySwiftStringKeys",
-        ":sharedLogic:compileCommonMainKotlinMetadata",
+        ":app:sharedUI:verifyStrings",
+        ":app:sharedUI:verifyLicenses",
+        ":app:sharedUI:verifySwiftStringKeys",
+        ":app:sharedLogic:compileCommonMainKotlinMetadata",
         ":app:desktopApp:compileKotlin",
         ":contract:jvmTest",
-        ":sharedLogic:jvmTest",
-        ":sharedLogic:testAndroidHostTest",
+        ":app:sharedLogic:jvmTest",
+        ":app:sharedLogic:testAndroidHostTest",
         ":server:jvmTest",
-        ":sharedUI:testAndroidHostTest",
+        ":app:sharedUI:testAndroidHostTest",
         ":tools:rpc-guard-ksp:test",
     )
     // build-logic is an included build (settings.gradle.kts: includeBuild("tools/build-logic")) — a plain

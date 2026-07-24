@@ -19,7 +19,7 @@ kotlin {
     }
 
     // Apple targets carried over from :shared so a future native macOS app can link
-    // :contract through :sharedLogic's framework. No framework binary here — :sharedLogic
+    // :contract through :app:sharedLogic's framework. No framework binary here — :app:sharedLogic
     // owns the framework export.
     iosArm64()
     iosSimulatorArm64()

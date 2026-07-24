@@ -22,7 +22,7 @@ import java.io.File
 //  - The iOS String Catalog (`Localizable.xcstrings`, dotted keys, all locales) is a committed
 //    artifact consumed by Xcode.
 
-val stringsDir: File = rootProject.file("sharedLogic/src/commonMain/resources/strings")
+val stringsDir: File = rootProject.file("app/sharedLogic/src/commonMain/resources/strings")
 val composeResourcesDir: File = layout.projectDirectory.dir("src/commonMain/composeResources").asFile
 val xcstringsOut: File = rootProject.file("iosApp/ListenUp/Resources/Localizable.xcstrings")
 val rootDir: File = rootProject.projectDir
@@ -81,7 +81,7 @@ tasks.register("verifyStrings") {
             throw GradleException(
                 "Localization artifacts are out of sync with the shared JSON source:\n" +
                     offenders +
-                    "\nRun ./gradlew :sharedUI:generateStrings and commit the result.",
+                    "\nRun ./gradlew :app:sharedUI:generateStrings and commit the result.",
             )
         }
     }
@@ -104,7 +104,7 @@ tasks.register("verifySwiftStringKeys") {
     // Track ONLY the .swift sources, not the whole `iosApp/ListenUp` tree: that tree also holds
     // `Resources/Localizable.xcstrings`, which `generateStrings` writes — so `inputs.dir(iosSwiftDir)`
     // made Gradle flag an undeclared dependency on `generateStrings` whenever both tasks were
-    // scheduled together (e.g. the CI test-jvm lane, which also runs `:sharedUI:testAndroidHostTest`
+    // scheduled together (e.g. the CI test-jvm lane, which also runs `:app:sharedUI:testAndroidHostTest`
     // → `generateStrings`). The gate reads en.json for the key set and Swift for the references; it
     // never touches the generated catalog, so a filtered file tree is both correct and overlap-free.
     inputs.dir(stringsDir)
@@ -141,7 +141,7 @@ tasks.register("verifySwiftStringKeys") {
                 "iOS Swift references localization key(s) missing from en.json:\n" +
                     offenders +
                     "\niOS renders a missing key as its own text, so these ship as visible garbage. " +
-                    "Add the key to en.json (then ./gradlew :sharedUI:generateStrings) or fix the reference.",
+                    "Add the key to en.json (then ./gradlew :app:sharedUI:generateStrings) or fix the reference.",
             )
         }
     }
