@@ -23,8 +23,13 @@ private fun moduleCandidates(dir: File): List<File> =
  * Modules sit either at the root (`contract/src`, `server/src`) or one level inside a grouping
  * directory (`app/sharedLogic/src`, `tools/rpc-guard-ksp/src`). A grouping directory has no
  * `src/` of its own, so a one-level scan silently misses everything inside it — every rule
- * would still run and still pass, over a fraction of the codebase. Descending exactly one
- * extra level into src-less directories covers both shapes and nothing deeper.
+ * would still run and still pass, over a fraction of the codebase.
+ *
+ * The walk stops at two levels by design. The only deeper nesting in the repo is
+ * `tools/build-logic/{convention,detekt-rules}/src`, which is a separate included build with its
+ * own test suites and is deliberately out of scope. `KonsistScopeTest` asserts the result equals
+ * [EXPECTED_MODULE_SRC_DIRS] exactly, so this bound cannot silently narrow the gate — exceeding
+ * it fails that test by name.
  */
 internal fun discoverModuleSrcDirs(root: File): List<String> =
     moduleCandidates(root).flatMap { candidate ->

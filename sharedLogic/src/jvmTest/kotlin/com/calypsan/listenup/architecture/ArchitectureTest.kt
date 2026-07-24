@@ -1,5 +1,6 @@
 package com.calypsan.listenup.architecture
 
+import com.calypsan.listenup.konsist.EXPECTED_MODULE_DIRS
 import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.ext.list.modifierprovider.withoutValueModifier
 import com.lemonappdev.konsist.api.verify.assertFalse
@@ -38,18 +39,10 @@ class ArchitectureTest :
         // hangs `:sharedLogic:jvmTest` for hours. Listing the real modules keeps every rule sound
         // (all modules are still scanned) while ignoring `.worktrees/`. Built once and shared
         // across rules — also avoids re-parsing the tree per test.
-        // NOTE: a new Gradle module must be added here or it escapes these architectural checks.
-        val moduleDirs =
-            listOf(
-                "androidApp",
-                "baselineprofile",
-                "contract",
-                "desktopApp",
-                "tools/rpc-guard-ksp",
-                "server",
-                "sharedLogic",
-                "sharedUI",
-            )
+        // NOTE: the canonical module list lives in EXPECTED_MODULE_DIRS (commonTest, konsist
+        // package). KonsistScopeTest asserts filesystem discovery matches it exactly, so a new
+        // or moved Gradle module fails there by name rather than silently escaping these checks.
+        val moduleDirs = EXPECTED_MODULE_DIRS
         // Scope each module's `src/` (not its root): unlike `scopeFromProject()`,
         // `scopeFromDirectories()` does NOT skip `build/`, and scanning module roots would pull
         // in generated KSP output (e.g. `contract/build/generated/.../rpcguard/*Guarded.kt`, which

@@ -1,7 +1,6 @@
 package com.calypsan.listenup.konsist
 
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.shouldBe
 import java.io.File
 import java.nio.file.Files
@@ -49,17 +48,24 @@ class KonsistScopeTest :
             discoverModuleSrcDirs(root) shouldBe listOf("contract/src")
         }
 
-        test("skips build output directories") {
+        test("skips build output directories at both levels") {
             val root = Files.createTempDirectory("konsist-scope-build").toFile()
-            listOf("contract/src", "build/generated/thing/src").forEach { File(root, it).mkdirs() }
+            listOf(
+                "contract/src",
+                "build/generated/thing/src",
+                "app/build/generated/thing/src",
+                "app/sharedLogic/src",
+            ).forEach { File(root, it).mkdirs() }
 
-            discoverModuleSrcDirs(root) shouldBe listOf("contract/src")
+            discoverModuleSrcDirs(root) shouldBe listOf("app/sharedLogic/src", "contract/src")
         }
 
-        test("the real production scope covers every module that holds production code") {
+        test("discovery of the real repo matches the canonical module list exactly") {
             val discovered = discoverModuleSrcDirs(File(com.lemonappdev.konsist.api.Konsist.projectRootPath))
 
-            discovered shouldContainAll
-                listOf("contract/src", "server/src", "sharedLogic/src", "sharedUI/src")
+            // Exact match, not containment: a module that appears, disappears, or moves must fail
+            // here. Containment would let the gate silently narrow — the failure this test exists
+            // to catch. If this fails after a deliberate module change, update EXPECTED_MODULE_DIRS.
+            discovered shouldBe EXPECTED_MODULE_SRC_DIRS
         }
     })
