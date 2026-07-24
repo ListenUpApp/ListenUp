@@ -61,8 +61,8 @@ internal class FtsPopulator(
      * This is a full rebuild that clears and repopulates all FTS tables.
      * Call after sync operations complete to ensure search is up-to-date.
      *
-     * Note: FTS tables are created by FtsTableCallback in DatabaseModule on database open,
-     * so they will exist by the time this method is called.
+     * Note: FTS tables are created by FtsTableCallback on database open (registered in
+     * `buildConfigured`), so they will exist by the time this method is called.
      */
     override suspend fun rebuildAll() =
         withContext(IODispatcher) {
