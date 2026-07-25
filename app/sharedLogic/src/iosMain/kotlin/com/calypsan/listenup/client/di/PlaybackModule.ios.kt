@@ -140,6 +140,7 @@ internal val iosPlaybackModule: Module =
                 channel = rpcChannel<BookService>(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
+                localPreferences = get(),
             )
         }
 

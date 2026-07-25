@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -74,6 +75,7 @@ internal class PlaybackManagerImpl(
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
+    private val localPreferences: LocalPreferences,
     /**
      * When true, this instance is the reporter-based persistence owner: [setPlaybackState]
      * routes Playing/Paused transitions through [reporter] (position + listening span), and
@@ -108,6 +110,7 @@ internal class PlaybackManagerImpl(
             channel = channel,
             scope = scope,
             bookSyncDomainHandler = bookSyncDomainHandler,
+            localPreferences = localPreferences,
         )
 
     override val currentBookId: StateFlow<BookId?>

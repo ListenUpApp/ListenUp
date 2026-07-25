@@ -48,6 +48,7 @@ val desktopPlaybackModule: Module =
                 scope = get(qualifier = named("playbackScope")),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
                 playbackBandwidthCoordinator = get(),
+                localPreferences = get(),
             )
         }
     }

@@ -12,8 +12,10 @@ import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -23,6 +25,7 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
 
@@ -75,22 +78,27 @@ class PlaybackManagerFallbackFetchAtomicityTest :
             channel: RpcChannel<BookService>,
             handler: SyncDomainHandler<BookSyncPayload>,
         ): PlaybackPreparer =
-            PlaybackPreparer(
-                serverConfig = mock(),
-                playbackPreferences = mock(),
-                bookDao = db.bookDao(),
-                audioFileDao = db.audioFileDao(),
-                chapterDao = db.chapterDao(),
-                imageStorage = mock(),
-                progressTracker = buildProgressTracker(),
-                tokenProvider = mock(),
-                deviceContext = DeviceContext(type = DeviceType.Phone),
-                downloadService = mock(),
-                prepareRepository = testPlaybackPrepareRepository("af-1"),
-                channel = channel,
-                scope = CoroutineScope(Job()),
-                bookSyncDomainHandler = handler,
-            )
+            run {
+                val localPreferences: LocalPreferences = mock()
+                every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
+                PlaybackPreparer(
+                    serverConfig = mock(),
+                    playbackPreferences = mock(),
+                    bookDao = db.bookDao(),
+                    audioFileDao = db.audioFileDao(),
+                    chapterDao = db.chapterDao(),
+                    imageStorage = mock(),
+                    progressTracker = buildProgressTracker(),
+                    tokenProvider = mock(),
+                    deviceContext = DeviceContext(type = DeviceType.Phone),
+                    downloadService = mock(),
+                    prepareRepository = testPlaybackPrepareRepository("af-1"),
+                    channel = channel,
+                    scope = CoroutineScope(Job()),
+                    bookSyncDomainHandler = handler,
+                    localPreferences = localPreferences,
+                )
+            }
 
         test("fetchBookFromServer delegates the write to bookSyncDomainHandler.onCatchUpItem") {
             val db = createInMemoryTestDatabase()

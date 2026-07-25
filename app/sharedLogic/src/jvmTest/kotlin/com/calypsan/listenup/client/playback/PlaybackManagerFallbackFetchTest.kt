@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
@@ -36,6 +37,7 @@ import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
 
@@ -147,6 +149,8 @@ class PlaybackManagerFallbackFetchTest :
                     imageStorage = stubImageStorage(),
                 ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
 
+            val localPreferences: LocalPreferences = mock()
+            every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
             return PlaybackManagerImpl(
                 serverConfig = serverConfig,
                 playbackPreferences = playbackPreferences,
@@ -163,6 +167,7 @@ class PlaybackManagerFallbackFetchTest :
                 channel = channel,
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = bookSyncDomainHandler,
+                localPreferences = localPreferences,
                 playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
             )
         }

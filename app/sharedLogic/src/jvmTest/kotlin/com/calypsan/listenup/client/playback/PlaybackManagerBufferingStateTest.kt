@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
@@ -34,6 +35,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -73,6 +75,8 @@ class PlaybackManagerBufferingStateTest :
             val playbackPreferences: PlaybackPreferences = mock()
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
 
+            val localPreferences: LocalPreferences = mock()
+            every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
             return PlaybackManagerImpl(
                 serverConfig = serverConfig,
                 playbackPreferences = playbackPreferences,
@@ -89,6 +93,7 @@ class PlaybackManagerBufferingStateTest :
                 channel = RpcChannel.forTest(mock<BookService>()),
                 scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                localPreferences = localPreferences,
                 playbackBandwidthCoordinator = bandwidthCoordinator,
             )
         }
