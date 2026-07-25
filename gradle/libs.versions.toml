@@ -268,6 +268,10 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+# Kotest 6 renamed the multiplatform plugin to `io.kotest` and replaced its compiler plugin with
+# KSP. It generates the Kotlin/Native test entry point, which is the only thing the native lane
+# was missing — `kotest-framework-engine` is already on that classpath via commonTest.
+kotest = { id = "io.kotest", version.ref = "kotest" }
 mokkery = { id = "dev.mokkery", version.ref = "mokkery" }
 # Quality Tools
 detekt = { id = "dev.detekt", version.ref = "detekt" }

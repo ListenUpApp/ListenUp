@@ -1,15 +1,17 @@
 package com.calypsan.listenup.server.db.sqldelight
 
 import app.cash.sqldelight.db.QueryResult
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.random.Random
-import kotlin.test.Test
+
+private const val HEX_RADIX = 16
+private const val CONCURRENT_READS = 32
 
 /**
  * Native runtime proof for [DriverFactory] on linuxX64: with the WAL reader pool (maxReaderConnections > 1)
@@ -17,10 +19,9 @@ import kotlin.test.Test
  * transient SQLITE_BUSY. Regression guard for the reader-pool sizing — if WAL or the busy-timeout were ever
  * dropped, or the pool returned to a single connection that BUSY'd under contention, this would surface it.
  */
-class DriverFactoryConcurrentReadNativeTest {
-    @Test
-    fun concurrentReadsAllSucceedUnderTheWalReaderPool(): Unit =
-        runBlocking {
+class DriverFactoryConcurrentReadNativeTest :
+    FunSpec({
+        test("concurrent reads all succeed under the wal reader pool") {
             val dbName = "lu-driver-pool-test-${Random.nextInt(1, Int.MAX_VALUE).toString(HEX_RADIX)}.db"
             val driver = DriverFactory().createDriver(dbName)
             try {
@@ -53,9 +54,4 @@ class DriverFactoryConcurrentReadNativeTest {
                 }
             }
         }
-
-    private companion object {
-        const val HEX_RADIX = 16
-        const val CONCURRENT_READS = 32
-    }
-}
+    })

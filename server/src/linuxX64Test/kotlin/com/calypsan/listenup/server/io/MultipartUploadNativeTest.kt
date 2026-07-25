@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.io
 
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO as ClientCIO
@@ -17,12 +18,13 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readByteArray
-import kotlin.test.Test
+
+private const val RECEIVED = "received"
+private const val EMPTY = "empty"
 
 /**
  * Proves the Kotlin/Native runtime serves multipart uploads at parity with the JVM. Ktor's CIO server
@@ -31,18 +33,11 @@ import kotlin.test.Test
  * by `MultipartFormDataTest` on the JVM runner). This drives a real `embeddedServer(CIO)` over an
  * ephemeral port and asserts the uploaded file lands on disk byte-for-byte.
  *
- * `kotlin.test.@Test` + `runBlocking` and a `Unit` body so the K/N runner discovers it; the upload
- * target is a CWD-relative path because the native test runner has no usable temp directory.
+ * The upload target is a CWD-relative path.
  */
-class MultipartUploadNativeTest {
-    private companion object {
-        const val RECEIVED = "received"
-        const val EMPTY = "empty"
-    }
-
-    @Test
-    fun nativeServerStreamsTheFirstFilePartToDisk(): Unit =
-        runBlocking {
+class MultipartUploadNativeTest :
+    FunSpec({
+        test("native server streams the first file part to disk") {
             val dest = Path("lu-native-multipart-upload-test.bin")
             val payload = ByteArray(50_000) { (it * 7).toByte() }
             val server =
@@ -88,9 +83,7 @@ class MultipartUploadNativeTest {
             }
         }
 
-    @Test
-    fun nativeServerReadsTheFirstFilePartIntoMemory(): Unit =
-        runBlocking {
+        test("native server reads the first file part into memory") {
             // The avatar route needs the first file part's bytes in memory (magic-number validation),
             // not a stream to disk. The Kotlin/Native CIO server can't use `receiveMultipart`
             // (KTOR-7361), so this exercises the raw-channel path over a real embeddedServer(CIO).
@@ -137,4 +130,4 @@ class MultipartUploadNativeTest {
                 server.stop(0, 0)
             }
         }
-}
+    })

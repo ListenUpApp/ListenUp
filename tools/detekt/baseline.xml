@@ -131,7 +131,7 @@
     <ID>ThrowsCount:ZipReader.kt:ZipReader$private fun parseHeaders: List&lt;ZipEntryInfo&gt;</ID>
     <ID>ThrowsCount:ZipReader.kt:ZipReader$private fun readZip64Eocd: Zip64Eocd</ID>
     <ID>ThrowsCount:ZipReader.kt:ZipReader$public fun openEntry: RawSource</ID>
-    <ID>TooGenericExceptionThrown:RpcGuardNativeTest.kt:RpcGuardNativeTest.ThrowingPing$throw RuntimeException("boom")</ID>
+    <ID>TooGenericExceptionThrown:RpcGuardNativeTest.kt:ThrowingPing$throw RuntimeException("boom")</ID>
     <ID>TooGenericExceptionThrown:ScannerServiceGuardedBehaviorTest.kt:ScannerServiceGuardedBehaviorTest$throw RuntimeException("boom")</ID>
     <ID>TooManyFunctions:Koin.ios.kt:KoinHelper</ID>
     <ID>UnderscoresInNumericLiterals:Lz77.kt:1640531527</ID>

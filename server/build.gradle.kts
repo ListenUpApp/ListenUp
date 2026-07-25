@@ -7,6 +7,10 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.sqldelight)
     alias(libs.plugins.kover)
+    // KSP must be applied BEFORE the Kotest plugin — Kotest 6 generates the Kotlin/Native test
+    // entry point through KSP, and the processor is only registered if KSP is already present.
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.kotest)
 }
 
 sqldelight {
@@ -449,6 +453,42 @@ tasks.named<Test>("jvmTest") {
                         "of $minDiscoveredTests. This usually means a source set silently dropped " +
                         "out of the compilation rather than a legitimate test deletion — " +
                         "investigate before lowering this floor.",
+                )
+            }
+        }),
+    )
+}
+
+// Give the native test binaries a real temp directory — the native mirror of the `java.io.tmpdir`
+// redirect on jvmTest above. The Kotlin/Native test runner inherits the ambient environment, and
+// TMPDIR is unset on a stock Linux login; kotlinx.io resolves
+// `SystemTemporaryDirectory` as `getenv("TMPDIR") ?: getenv("TMP") ?: ""`, so with neither set it
+// hands back the EMPTY path and every `createTempFileIn(SystemTemporaryDirectory, …)` dies with
+// `mkdir failed: No such file or directory`. That is why the older native specs root their
+// scratch dirs under $HOME instead. Pointing TMPDIR under build/ makes commonTest specs behave
+// identically on both lanes and keeps the artefacts inside `clean`'s reach.
+tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest>().configureEach {
+    val nativeTestTmpDir = layout.buildDirectory.dir("native-test-tmp/$name").get().asFile
+    environment("TMPDIR", nativeTestTmpDir.absolutePath)
+    doFirst {
+        nativeTestTmpDir.deleteRecursively()
+        nativeTestTmpDir.mkdirs()
+    }
+    // "Did this lane actually run?" guard, the native counterpart of the jvmTest floor above.
+    // This lane earned one: before the Kotest plugin was applied it reported a green 28 tests while
+    // 54 Kotest specs from commonTest sat on the classpath unexecuted — the K/N runner only ever
+    // collected the `kotlin.test`-annotated ones, so a lane running a third of its own suite looked
+    // indistinguishable from a healthy one. The floor catches COLLAPSE, not attrition: 82 tests ran
+    // green on 2026-07-25, and the bar sits far enough below that honest deletion does not trip it.
+    val minDiscoveredTests = 65
+    afterSuite(
+        KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
+            if (desc.parent == null && result.testCount < minDiscoveredTests) {
+                throw GradleException(
+                    ":server:$name discovered only ${result.testCount} tests, below the floor " +
+                        "of $minDiscoveredTests. This usually means a source set silently dropped " +
+                        "out of the compilation, or the Kotest native entry point stopped being " +
+                        "generated — investigate before lowering this floor.",
                 )
             }
         }),

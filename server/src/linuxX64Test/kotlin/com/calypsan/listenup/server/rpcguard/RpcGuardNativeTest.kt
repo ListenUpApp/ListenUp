@@ -7,14 +7,13 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.foundation.FoundationDeps
 import com.calypsan.listenup.server.foundation.foundationServer
 import com.calypsan.listenup.server.auth.JwtConfiguration
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO as ClientCIO
 import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
-import kotlin.test.Test
-import kotlinx.coroutines.runBlocking
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -30,20 +29,13 @@ import io.ktor.server.routing.routing
  * constant user-facing message (no stacktrace can ride InternalError) — running on linuxX64 over
  * the real CIO/krpc transport.
  *
- * `kotlin.test.@Test` + `runBlocking` (Kotest's FunSpec is invisible to the K/N test runner;
- * its assertions still run). Lives in `linuxX64Test` because `PingServiceGuarded` is generated
- * into `:contract`'s linuxX64 source set, not commonMain.
+ * Lives in `linuxX64Test` because `PingServiceGuarded` is generated into `:contract`'s linuxX64
+ * source set, not commonMain.
  */
-class RpcGuardNativeTest {
-    private val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client")
-
-    private class ThrowingPing : PingService {
-        override suspend fun ping(): AppResult<String> = throw RuntimeException("boom")
-    }
-
-    @Test
-    fun guardSanitizesThrownExceptionOnNative(): Unit =
-        runBlocking {
+class RpcGuardNativeTest :
+    FunSpec({
+        test("guard sanitizes thrown exception on native") {
+            val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client")
             val server =
                 foundationServer(port = 0, deps = FoundationDeps(jwt) { true }) {
                     routing {
@@ -88,4 +80,8 @@ class RpcGuardNativeTest {
                 server.stop(0, 0)
             }
         }
+    })
+
+private class ThrowingPing : PingService {
+    override suspend fun ping(): AppResult<String> = throw RuntimeException("boom")
 }

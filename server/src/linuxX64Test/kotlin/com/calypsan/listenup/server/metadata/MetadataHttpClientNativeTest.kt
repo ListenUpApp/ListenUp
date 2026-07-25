@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.metadata
 
 import com.calypsan.listenup.server.di.metadataHttpClient
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
@@ -14,11 +15,9 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import kotlin.test.Test
 
 /**
  * Native capability proof for the metadata HTTP client seam (`metadataHttpClient`): on Kotlin/Native
@@ -27,22 +26,11 @@ import kotlin.test.Test
  * metadata client can perform a GET **and deserialize a JSON body via ContentNegotiation** — the exact
  * path the scrapers rely on. Real outbound HTTPS is verified manually via `runNative` (CI has no
  * outbound network), so this exercises the request + JSON-deserialize seam over loopback HTTP.
- *
- * `kotlin.test.@Test` + `runBlocking`, `Unit` body, real `embeddedServer(CIO)` over an ephemeral port.
  */
-class MetadataHttpClientNativeTest {
-    @Serializable
-    @SerialName("CatalogItem")
-    private data class CatalogItem(
-        val asin: String,
-        val title: String,
-    )
-
-    private val lenientJson = Json { ignoreUnknownKeys = true }
-
-    @Test
-    fun nativeCioClientGetsAndDeserializesJson(): Unit =
-        runBlocking {
+class MetadataHttpClientNativeTest :
+    FunSpec({
+        test("native CIO client gets and deserializes JSON") {
+            val lenientJson = Json { ignoreUnknownKeys = true }
             val server =
                 embeddedServer(CIO, port = 0) {
                     install(ServerContentNegotiation) { json(lenientJson) }
@@ -71,4 +59,11 @@ class MetadataHttpClientNativeTest {
                 server.stop(0, 0)
             }
         }
-}
+    })
+
+@Serializable
+@SerialName("CatalogItem")
+private data class CatalogItem(
+    val asin: String,
+    val title: String,
+)
