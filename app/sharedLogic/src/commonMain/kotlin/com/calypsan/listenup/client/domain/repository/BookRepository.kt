@@ -135,6 +135,21 @@ interface BookRepository {
      * @return Detail shape, or null if the book doesn't exist.
      */
     suspend fun getBookDetail(id: String): BookDetail?
+
+    /**
+     * Search books by title, author or narrator against the local Room FTS5 index.
+     *
+     * Local-only, and deliberately so: the server's search index was removed once both ends
+     * ran the same FTS5 algorithm over the same synced corpus, so a round trip could only
+     * return what this already computes. Consumed by iOS App Intents (the spoken
+     * "Play <book>" path), which is why it stays on [BookRepository] rather than folding into
+     * [SearchRepository] — Siri resolves a book, not a multi-type search result.
+     *
+     * Emits exactly once: this is a query, not a live subscription.
+     *
+     * @param query The raw search query. A blank query yields an empty list.
+     */
+    fun search(query: String): Flow<List<BookListItem>>
 }
 
 /**

@@ -305,6 +305,25 @@ internal class BookRepositoryImpl(
         return row.toDetail(imageStorage, genres, tags, moods, audioFiles)
     }
 
+    /** Local Room FTS5 search — the only search path there is. Emits exactly once. */
+    override fun search(query: String): Flow<List<BookListItem>> =
+        flow {
+            if (query.isBlank()) {
+                emit(emptyList())
+                return@flow
+            }
+            val ids =
+                searchDao
+                    .searchBooks(QueryUtils.toFtsQuery(query), limit = SEARCH_LIMIT)
+                    .map { it.book.id }
+            if (ids.isEmpty()) {
+                emit(emptyList())
+                return@flow
+            }
+            val byId = bookDao.getByIdsWithContributors(ids).associateBy { it.book.id }
+            emit(ids.mapNotNull { byId[it]?.toListItem(imageStorage) })
+        }
+
     override suspend fun upsertWithAudioFiles(
         book: BookEntity,
         audioFiles: List<AudioFileEntity>,

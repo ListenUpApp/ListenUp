@@ -153,6 +153,8 @@ class FakeBookRepository : BookRepository {
 
     override fun observeBookDetail(id: String): Flow<BookDetail?> = MutableStateFlow(null)
 
+    override fun search(query: String): Flow<List<BookListItem>> = MutableStateFlow(emptyList())
+
     override suspend fun getBookDetail(id: String): BookDetail? = null
 }
 
