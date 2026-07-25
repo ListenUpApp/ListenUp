@@ -1,15 +1,9 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.api.dto.BookContributorInput
-import com.calypsan.listenup.api.dto.BookGenreInput
-import com.calypsan.listenup.api.dto.BookSeriesInput
-import com.calypsan.listenup.api.dto.BookUpdate
-import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.server.routes.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
@@ -50,44 +44,35 @@ private const val AUTH_WALL_REGRESSION_MSG =
 private const val COVER_MAX_BYTES = 10L * 1024 * 1024
 
 /**
- * REST surface for [BookService]. Eleven endpoints:
+ * REST surface for [BookService]. Five endpoints, all blob transfer:
  *
- *  - `GET /api/v1/books/{id}` — returns the full [BookSyncPayload] for the
- *    given id. HTTP 200 on success; HTTP 404 when no book with that id exists.
- *    Responds the **unwrapped** value (RESTful convention for the third-party
- *    surface, not the AppResult-wrapped envelope that authRoutes uses).
- *  - `GET /api/v1/books?q=&limit=` — runs a server-side FTS5 query and returns
- *    a [List]<[com.calypsan.listenup.core.BookId]> in rank order.
- *    Rate-limited to 60 req/min per host.
  *  - `GET /api/v1/books/{id}/cover` — serves the book's cover image bytes
  *    (filesystem image or embedded artwork). HTTP 200 with the image on
  *    success, HTTP 404 when the book is absent or has no servable cover.
  *  - `GET /api/v1/covers/{id}` — legacy cover alias used by the KMP/mobile client;
  *    identical access-gate semantics to the nested route above.
+ *  - `GET /api/v1/books/{id}/documents/{docId}` — serves the bytes of a supplementary
+ *    document (PDF/ebook) shipped with the book.
  *  - `PUT /api/v1/books/{id}/cover` — uploads a replacement cover image (multipart).
  *    Gated on the `canEdit` permission flag; ROOT/ADMIN pass implicitly. HTTP 204 on
  *    success; 403 when the caller lacks `canEdit`; 413 when the part exceeds 10 MiB;
  *    422 when the bytes carry no recognised image magic number.
- *  - `PATCH /api/v1/books/{id}` — applies a [BookUpdate] patch to the book.
- *    HTTP 204 on success.
- *  - `PUT /api/v1/books/{id}/contributors` — replaces the full contributor list
- *    for a book (body: JSON array of [BookContributorInput]). HTTP 204 on success.
- *  - `PUT /api/v1/books/{id}/chapters` — replaces the full chapter list for a book
- *    (body: JSON array of [ChapterInput]). HTTP 204 on success.
- *  - `PUT /api/v1/books/{id}/series` — replaces the full series list for a book
- *    (body: JSON array of [BookSeriesInput]). HTTP 204 on success.
- *  - `PUT /api/v1/books/{id}/genres` — replaces the full genre list for a book
- *    (body: JSON array of [BookGenreInput]). HTTP 204 on success.
  *  - `DELETE /api/v1/books/{id}/cover` — removes the book's cover image.
  *    HTTP 204 on success.
  *
  * All endpoints require JWT authentication (mounted inside the authenticate
  * block in Application.kt). Cover serving is delegated to [coverResponder].
  *
- * The cover and search reads are access-gated through [accessPolicy] just like
- * `getBook`: a member must not fetch the artwork of — or surface an FTS id for —
- * a book they can't reach. A denied cover answers 404 (indistinguishable from an
- * absent/cover-less book — never 403, which would leak existence).
+ * These stay on REST rather than folding into [BookService]'s RPC surface because they
+ * carry blobs: a cacheable GET stays CDN- and range-request-friendly, and an upload
+ * streams as multipart instead of being framed into a JSON-RPC message. Everything else
+ * on [BookService] — book detail, patching, contributors/chapters/series/genres — is
+ * RPC-only; server-side search in particular was removed along with its FTS5 indexes.
+ *
+ * The cover and document reads are access-gated through [accessPolicy]: a member must
+ * not fetch the artwork or document bytes of a book they can't reach. A denied read
+ * answers 404 (indistinguishable from an absent/cover-less book — never 403, which
+ * would leak existence).
  */
 internal fun Route.bookRoutes(
     bookService: BookService,

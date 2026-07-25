@@ -1,8 +1,19 @@
 # Two-stage runtime image for the Kotlin/Native server.kexe.
-# We COMPILE a modern SQLite (>= 3.43, FTS5+JSON1) inside a debian:12 builder so the server's SQLite is
-# pinned and links the same glibc (2.36) the distroless base provides — NOT the base's 3.40.1, which is
-# too old for migration V9's contentless_delete=1 (added in SQLite 3.43.0). Static-linking is not an
-# option (K/N can't link host-built .a archives; no musl target) — see docs/plans/050 §5.
+#
+# We COMPILE SQLite inside a debian:12 builder because **distroless/cc ships no SQLite at all** —
+# verified by exporting the base: it carries glibc, libgcc, libstdc++, libcrypto/libssl and nothing
+# else. The binary links libsqlite3.so.0, so without this stage the image has no SQLite to load and
+# the server cannot start. (An earlier comment here claimed we were overriding "the base's 3.40.1";
+# there is no base SQLite to override. That mistake made this stage look like a deletion candidate
+# once FTS5 went away — it is not one.) Building against debian:12 links the same glibc 2.36 the
+# distroless base provides. Static-linking is not an option (K/N can't link host-built .a archives;
+# no musl target) — see docs/plans/050 §5.
+#
+# Version floor: our own SQL needs **3.35** (`ALTER TABLE ... DROP COLUMN`, in
+# V53__drop_blurhash_columns.sql). We pin far above that because the base ships nothing, so the
+# version is ours to choose and a pinned modern one beats an accidental old one. FTS5 is no longer
+# compiled in: the server's four FTS indexes and its search surface were removed (V55), leaving zero
+# FTS5 usage. Re-adding any FTS5 table means re-adding -DSQLITE_ENABLE_FTS5 here.
 FROM debian:12-slim AS libs
 ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip
 RUN apt-get update \
@@ -13,10 +24,9 @@ WORKDIR /build
 RUN curl -fsSL -o amalg.zip "$SQLITE_AMALGAMATION_URL" \
     && unzip -q amalg.zip \
     && cd sqlite-amalgamation-* \
-    && gcc -O2 -fPIC -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_JSON1 \
-        -shared -o /build/libsqlite3.so.0 sqlite3.c \
+    && gcc -O2 -fPIC -shared -o /build/libsqlite3.so.0 sqlite3.c \
     && cat sqlite3.h | grep -m1 '#define SQLITE_VERSION ' \
-    && awk '/#define SQLITE_VERSION_NUMBER/ { if ($3 < 3043000) { print "SQLite too old: " $3; exit 1 } }' sqlite3.h
+    && awk '/#define SQLITE_VERSION_NUMBER/ { if ($3 < 3035000) { print "SQLite too old: " $3; exit 1 } }' sqlite3.h
 # An empty /data to seed the runtime image's data dir — the distroless base has no shell, so the dir is
 # created here and COPY --chown'd into the final stage below.
 RUN mkdir -p /data
@@ -31,8 +41,9 @@ RUN mkdir -p /curl-deps \
         | while read -r lib; do cp -L "$lib" /curl-deps/; done
 
 FROM gcr.io/distroless/cc-debian12:nonroot
-# libcrypt.so.1 is NOT in distroless/cc (Debian split it out of glibc into libcrypt1); the binary links
-# crypt(3). libsqlite3.so.0 is our self-built modern build. libargon2.so.1 is debian's.
+# None of these three are in distroless/cc. libcrypt.so.1 — Debian split it out of glibc into
+# libcrypt1 and the binary links crypt(3). libsqlite3.so.0 — our self-built build from the stage
+# above; the base ships no SQLite whatsoever. libargon2.so.1 — debian's.
 COPY --from=libs /build/libsqlite3.so.0                     /usr/lib/x86_64-linux-gnu/
 COPY --from=libs /usr/lib/x86_64-linux-gnu/libargon2.so.1   /usr/lib/x86_64-linux-gnu/
 COPY --from=libs /usr/lib/x86_64-linux-gnu/libcrypt.so.1    /usr/lib/x86_64-linux-gnu/

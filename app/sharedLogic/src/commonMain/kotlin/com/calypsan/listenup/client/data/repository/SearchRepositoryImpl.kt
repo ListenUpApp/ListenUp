@@ -24,11 +24,10 @@ private val logger = KotlinLogging.logger {}
 /**
  * Repository for search operations, backed entirely by the local Room FTS5 index.
  *
- * The server runs the identical FTS5 algorithm over the same library, so for a client that already
- * holds the library in Room there is nothing to gain from a network round-trip — search reads the
- * local index directly. This is faster, works offline by construction, and is correctly scoped to
- * the books this client can see. (The server's REST search endpoint remains for data-less clients,
- * e.g. web, that have no local index.)
+ * The server has no search index of its own — server-side FTS5 was dropped along with its
+ * indexes — so for a client that already holds the library in Room there is nothing to gain
+ * from a network round-trip anyway: search reads the local index directly. This is faster,
+ * works offline by construction, and is correctly scoped to the books this client can see.
  *
  * The local index is kept in sync by [com.calypsan.listenup.client.data.sync.FtsPopulator], which
  * rebuilds it after each catch-up/scan and self-heals an empty index on startup.
