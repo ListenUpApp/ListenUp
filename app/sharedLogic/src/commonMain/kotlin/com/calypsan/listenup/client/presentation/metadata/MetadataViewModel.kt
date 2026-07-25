@@ -221,7 +221,23 @@ sealed interface PreviewLoadState {
         val coverSourceLabel: String? = null,
         val coverResolution: String? = null,
         val contributingSources: List<String> = emptyList(),
-    ) : PreviewLoadState
+    ) : PreviewLoadState {
+        /**
+         * Bridge-safe per-field provenance lookup: the [fallbackSources] subscript happens HERE, in
+         * Kotlin, so Swift only ever passes a [BookField] as a function argument.
+         *
+         * Swift Export bridges the `Map<BookField, String>` as an `NSDictionary` whose keys are
+         * opaque Kotlin enum-entry objects, then force-casts them to the Swift `BookField` — a *pure
+         * Swift* enum with no Objective-C identity. Reading the map from Swift traps as soon as it
+         * has an entry, i.e. exactly when a match carries fallback provenance. Passing an enum
+         * *into* Kotlin is the direction that bridges, so this accessor is safe where the subscript
+         * is not. Same idiom as `BookEditUiState.searchResultsForRole`.
+         *
+         * Compose subscripts [fallbackSources] directly — enum-keyed maps are only hazardous across
+         * the Swift Export boundary.
+         */
+        fun fallbackSourceFor(field: BookField): String? = fallbackSources[field]
+    }
 
     /** Preview fetch failed; [message] is shown in-line. */
     data class Failed(

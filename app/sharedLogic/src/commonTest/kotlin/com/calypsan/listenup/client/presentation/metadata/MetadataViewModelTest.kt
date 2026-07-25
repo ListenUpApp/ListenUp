@@ -1071,4 +1071,43 @@ class MetadataViewModelTest :
                 ready.contributingSources shouldBe listOf("Audible", "Audnexus", "iTunes")
             }
         }
+
+        test("fallbackSourceFor resolves per-field provenance for the bridged iOS read path") {
+            runTest {
+                val book =
+                    makeBook(asin = "B001", title = "Dune").copy(
+                        matchProvenance =
+                            MatchProvenance(
+                                contributingSources = listOf("Audible", "Audnexus"),
+                                fallbackFields =
+                                    mapOf(
+                                        BookField.DESCRIPTION to "Audnexus",
+                                        BookField.AUTHORS to "iTunes",
+                                    ),
+                                coverSource = null,
+                                coverWidth = null,
+                                coverHeight = null,
+                            ),
+                    )
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any(), any()) } returns AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                everySuspend { repo.getBookChapters(any(), any()) } returns AppResult.Success(MetadataChapters(emptyList()))
+                val vm = buildVm(repo)
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val ready = (vm.state.value as MetadataUiState.Preview).loadState as PreviewLoadState.Ready
+
+                // The subscript must happen HERE, in Kotlin. iOS cannot subscript the bridged
+                // `Map<BookField, String>` — Swift Export force-casts the opaque Kotlin enum keys and
+                // traps. This is the accessor `MetadataMatchMapping` calls per field instead.
+                ready.fallbackSourceFor(BookField.DESCRIPTION) shouldBe "Audnexus"
+                ready.fallbackSourceFor(BookField.AUTHORS) shouldBe "iTunes"
+                ready.fallbackSourceFor(BookField.TITLE) shouldBe null
+            }
+        }
     })
