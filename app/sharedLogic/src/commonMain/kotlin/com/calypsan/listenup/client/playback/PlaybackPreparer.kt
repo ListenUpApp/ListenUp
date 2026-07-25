@@ -24,11 +24,13 @@ import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.playback.TimelineFileInput
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -117,6 +119,8 @@ class PlaybackPreparer internal constructor(
     private val channel: RpcChannel<BookService>,
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
+    private val localPreferences: LocalPreferences,
+    private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     /**
      * Prepare playback for [bookId].
@@ -232,13 +236,7 @@ class PlaybackPreparer internal constructor(
                 ?: if (timeline.isFullyDownloaded) fetchAuthoritativePosition(bookId) else null
         val resolved = resolveResumePosition(savedPosition, serverPosition)
 
-        val resumePositionMs =
-            if (resolved?.isFinished == true) {
-                logger.info { "Book is finished - starting from beginning for re-read" }
-                0L
-            } else {
-                resolved?.positionMs ?: 0L
-            }
+        val resumePositionMs = resumeStartPositionMs(resolved)
 
         val resumeSpeed =
             if (savedPosition != null && savedPosition.hasCustomSpeed) {
@@ -380,6 +378,36 @@ class PlaybackPreparer internal constructor(
                 null
             }
         }
+
+    /**
+     * The position playback should START at, given the reconciled [resolved] row.
+     *
+     * A finished book restarts at zero for a re-read. Otherwise the graduated [autoRewindMs] ladder
+     * backs the start up by however long the listener has been away, so returning to a book does
+     * not drop them mid-sentence.
+     *
+     * The rewind is a START OFFSET and never a write. The resolved row keeps the position the
+     * listener actually reached; only the value handed to the player moves. Persisting the rewound
+     * value would let repeated open/close cycles walk someone backwards through content they never
+     * un-listened to.
+     */
+    private fun resumeStartPositionMs(resolved: ResolvedResumePosition?): Long {
+        if (resolved == null) return 0L
+        if (resolved.isFinished) {
+            logger.info { "Book is finished - starting from beginning for re-read" }
+            return 0L
+        }
+        val rewindMs =
+            if (localPreferences.autoRewindEnabled.value) {
+                autoRewindMs(nowMillis() - resolved.lastPlayedAtMs)
+            } else {
+                0L
+            }
+        if (rewindMs > 0) {
+            logger.debug { "Auto-rewind: backing up ${rewindMs}ms from ${resolved.positionMs}" }
+        }
+        return (resolved.positionMs - rewindMs).coerceAtLeast(0L)
+    }
 
     /**
      * Build the [PlaybackTimeline]: resolve each file's local path, fetch signed
@@ -540,6 +568,12 @@ private data class TimelineBuildResult(
 internal data class ResolvedResumePosition(
     val positionMs: Long,
     val isFinished: Boolean,
+    /**
+     * When the WINNING side was last played. Carried out of the resolver rather than recomputed by
+     * callers: the resolver already picks by this key, so deriving it a second time at the call
+     * site would be a second copy of the conflict rule, free to drift from this one.
+     */
+    val lastPlayedAtMs: Long,
 )
 
 /**
@@ -563,11 +597,12 @@ internal fun resolveResumePosition(
 ): ResolvedResumePosition? =
     when {
         local == null && server == null -> null
-        server == null -> ResolvedResumePosition(local!!.positionMs, local.isFinished)
-        local == null -> ResolvedResumePosition(server.positionMs, server.finished)
+        server == null ->
+            ResolvedResumePosition(local!!.positionMs, local.isFinished, local.effectiveLastPlayedAtMs)
+        local == null -> ResolvedResumePosition(server.positionMs, server.finished, server.lastPlayedAt)
         server.lastPlayedAt > local.effectiveLastPlayedAtMs ->
-            ResolvedResumePosition(server.positionMs, server.finished)
-        else -> ResolvedResumePosition(local.positionMs, local.isFinished)
+            ResolvedResumePosition(server.positionMs, server.finished, server.lastPlayedAt)
+        else -> ResolvedResumePosition(local.positionMs, local.isFinished, local.effectiveLastPlayedAtMs)
     }
 
 // ========== Type Conversions ==========

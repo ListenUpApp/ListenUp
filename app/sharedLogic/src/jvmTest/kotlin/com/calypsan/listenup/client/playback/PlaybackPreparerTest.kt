@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
@@ -48,6 +49,7 @@ import io.kotest.matchers.string.shouldEndWith
 import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -132,11 +134,18 @@ class PlaybackPreparerTest :
 
         // ── fake factory builder ───────────────────────────────────────────────────────
 
+        // autoRewindEnabled defaults OFF so the resume-merge tests above assert the raw resolved
+        // position; the auto-rewind tests opt in explicitly. Production defaults it ON.
         fun buildPreparer(
             downloadService: DownloadService,
             prepareRepository: PlaybackPrepareRepository,
             progressTracker: ProgressTracker = buildProgressTracker(),
+            autoRewindEnabled: Boolean = false,
+            nowMillis: () -> Long = { 1_000_000_000_000L },
         ): PlaybackPreparer {
+            val localPreferences: LocalPreferences = mock()
+            every { localPreferences.autoRewindEnabled } returns MutableStateFlow(autoRewindEnabled)
+
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
 
@@ -164,6 +173,8 @@ class PlaybackPreparerTest :
                 channel = RpcChannel.forTest(mock<BookService>()),
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                localPreferences = localPreferences,
+                nowMillis = nowMillis,
             )
         }
 
@@ -319,6 +330,128 @@ class PlaybackPreparerTest :
 
                 result.shouldNotBeNull()
                 result.resumePositionMs shouldBe 0L
+            }
+        }
+
+        // ── auto-rewind on resume ──────────────────────────────────────────────────────
+
+        test("returning after a long gap rewinds the start position") {
+            runTest {
+                // Away for two days: the ladder's top rung replays 30s so the listener can
+                // re-establish the scene instead of landing mid-sentence.
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = trackerWithLocalPosition(localPosition(pos600, baseTime)),
+                        autoRewindEnabled = true,
+                        nowMillis = { baseTime + 2 * 86_400_000L },
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumePositionMs shouldBe pos600 - 30_000L
+            }
+        }
+
+        test("resuming immediately does not rewind") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = trackerWithLocalPosition(localPosition(pos600, baseTime)),
+                        autoRewindEnabled = true,
+                        nowMillis = { baseTime + 5_000L },
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumePositionMs shouldBe pos600
+            }
+        }
+
+        test("auto-rewind disabled leaves the resume position untouched") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = trackerWithLocalPosition(localPosition(pos600, baseTime)),
+                        autoRewindEnabled = false,
+                        nowMillis = { baseTime + 2 * 86_400_000L },
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumePositionMs shouldBe pos600
+            }
+        }
+
+        test("rewind near the start of a book clamps at zero rather than going negative") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = trackerWithLocalPosition(localPosition(2_000L, baseTime)),
+                        autoRewindEnabled = true,
+                        nowMillis = { baseTime + 2 * 86_400_000L },
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumePositionMs shouldBe 0L
+            }
+        }
+
+        test("a finished book still restarts at zero and is not rewound below it") {
+            runTest {
+                // Finished wins the re-read branch (start at 0); auto-rewind must not turn that
+                // into a negative seek or reintroduce a position.
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker =
+                            trackerWithLocalPosition(localPosition(pos600, baseTime, isFinished = true)),
+                        autoRewindEnabled = true,
+                        nowMillis = { baseTime + 2 * 86_400_000L },
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumePositionMs shouldBe 0L
+            }
+        }
+
+        test("the rewind is a start offset only — the stored position is never walked backwards") {
+            runTest {
+                // Repeated open/close must not creep. The preparer reports a rewound START, but the
+                // persisted row it read stays where the listener actually stopped, so preparing
+                // twice from the same row yields the same offset rather than compounding.
+                val tracker = trackerWithLocalPosition(localPosition(pos600, baseTime))
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = tracker,
+                        autoRewindEnabled = true,
+                        nowMillis = { baseTime + 2 * 86_400_000L },
+                    )
+
+                val first = preparer.prepare(bookId)
+                val second = preparer.prepare(bookId)
+
+                first.shouldNotBeNull()
+                second.shouldNotBeNull()
+                first.resumePositionMs shouldBe pos600 - 30_000L
+                second.resumePositionMs shouldBe pos600 - 30_000L
             }
         }
 

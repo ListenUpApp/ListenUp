@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
@@ -89,6 +90,8 @@ class PlaybackManagerSpeedTest :
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns AppResult.Success(DownloadOutcome.AlreadyDownloaded)
 
+            val localPreferences: LocalPreferences = mock()
+            every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
             return PlaybackManagerImpl(
                 serverConfig = serverConfig,
                 playbackPreferences = playbackPreferences,
@@ -105,6 +108,7 @@ class PlaybackManagerSpeedTest :
                 channel = RpcChannel.forTest(mock<BookService>()),
                 scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                localPreferences = localPreferences,
                 playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
             )
         }
