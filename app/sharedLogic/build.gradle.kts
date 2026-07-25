@@ -170,6 +170,35 @@ kotlin {
     }
 }
 
+// "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a
+// collapsed classpath (a source set silently dropped from the compilation, a broken dependency)
+// still reports BUILD SUCCESSFUL with zero failures, which is worse than a run that fails
+// outright. Registered on the Gradle `Test` task itself rather than a Kotest `afterProject`
+// listener so it always reads the TASK TOTAL: Gradle aggregates every forked worker's results
+// into one root suite (`desc.parent == null`), whereas a Kotest-side listener fires once per
+// worker JVM and only sees that worker's slice — the same trap the `io.kotest.provided.
+// ProjectConfig` retry-ledger KDoc documents for `:server:jvmTest`'s forked workers. Shared by
+// this module's two JUnit-Platform Test tasks (jvmTest, testAndroidHostTest) below — a private
+// script-local helper, not new build-logic infrastructure. Raising [floor] is a conscious edit,
+// not a rubber stamp for a red build.
+private fun Test.failBelowDiscoveredTestCount(
+    floor: Int,
+    taskLabel: String,
+) {
+    afterSuite(
+        KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
+            if (desc.parent == null && result.testCount < floor) {
+                throw GradleException(
+                    "$taskLabel discovered only ${result.testCount} tests, below the floor of " +
+                        "$floor. This usually means a source set silently dropped out of the " +
+                        "compilation rather than a legitimate test deletion — investigate before " +
+                        "lowering this floor.",
+                )
+            }
+        }),
+    )
+}
+
 // Kotest uses JUnit 5 as its runner on JVM
 tasks.named<Test>("jvmTest") {
     useJUnitPlatform()
@@ -178,6 +207,10 @@ tasks.named<Test>("jvmTest") {
     // worker, and the Konsist architectural rules, which hold a single shared PSI scope of the whole
     // production tree (~1.5k files) for the lifetime of the run (see konsist/KonsistScope.kt).
     maxHeapSize = "4g"
+    // Catches COLLAPSE, not attrition — 3,423 ran green on 2026-07-25 and the bar sits well below,
+    // so an honest deletion never trips it. A floor hugging the current count is a ratchet, and a
+    // ratchet here just teaches people to edit the number without reading it.
+    failBelowDiscoveredTestCount(2700, ":app:sharedLogic:jvmTest")
     // Pin the E2E retry ledger (written by HeavyweightE2ERetryExtension) to an absolute path under
     // this module's build/, so its location is workingDir-independent and identical in shape to the
     // server's — CI reads app/sharedLogic/build/e2e-retries.log.
@@ -211,6 +244,8 @@ tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
         // Mirror jvmTest's heap: this surface runs the same Konsist rules, which hold a single
         // shared PSI scope of the whole production tree. The 512m default OOMs on it.
         maxHeapSize = "4g"
+        // Same posture as jvmTest above: 2,471 ran green on 2026-07-25; the bar catches collapse only.
+        failBelowDiscoveredTestCount(1950, ":app:sharedLogic:testAndroidHostTest")
     }
 }
 

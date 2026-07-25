@@ -73,6 +73,33 @@ kotlin {
 // Kotest uses JUnit 5 as its runner on JVM
 tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {
     useJUnitPlatform()
+    // "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a
+    // collapsed classpath (a source set silently dropped from the compilation, a broken
+    // dependency) still reports BUILD SUCCESSFUL with zero failures, which is worse than a run
+    // that fails outright. Registered on the Gradle `Test` task itself rather than a Kotest
+    // `afterProject` listener so it always reads the TASK TOTAL: Gradle aggregates every forked
+    // worker's results into one root suite (`desc.parent == null`), whereas a Kotest-side listener
+    // fires once per worker JVM and only sees that worker's slice — the same trap the
+    // `io.kotest.provided.ProjectConfig` retry-ledger KDoc documents for `:server:jvmTest`'s
+    // forked workers.
+    //
+    // The floor catches COLLAPSE, not attrition: 108 tests ran green on 2026-07-25, and the bar sits
+    // far enough below that a normal deletion does not trip it. Deliberately not a ratchet — PR #1214
+    // removed ~180 server tests in one legitimate change, so a floor set just under the current count
+    // would fail honest work and train people to edit the number without reading it.
+    val minDiscoveredTests = 85
+    afterSuite(
+        KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
+            if (desc.parent == null && result.testCount < minDiscoveredTests) {
+                throw GradleException(
+                    ":contract:jvmTest discovered only ${result.testCount} tests, below the floor " +
+                        "of $minDiscoveredTests. This usually means a source set silently dropped " +
+                        "out of the compilation rather than a legitimate test deletion — " +
+                        "investigate before lowering this floor.",
+                )
+            }
+        }),
+    )
 }
 
 dependencies {

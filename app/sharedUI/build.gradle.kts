@@ -294,6 +294,33 @@ tasks.withType<Test>().configureEach {
     if (name == "testAndroidHostTest" || name == "desktopTest") {
         useJUnitPlatform()
     }
+    // "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a
+    // collapsed classpath still reports BUILD SUCCESSFUL with zero failures, which is worse than
+    // a run that fails outright. Registered on the Gradle `Test` task itself rather than a Kotest
+    // `afterProject` listener so it always reads the TASK TOTAL, aggregated across any forked
+    // workers (`desc.parent == null`) — see `io.kotest.provided.ProjectConfig`'s retry-ledger
+    // KDoc for the per-worker trap this avoids. `testAndroidHostTest` only: `desktopTest` is not
+    // part of `verifyLocal`/CI's `test-jvm` job, so it has no floor to protect.
+    //
+    // The floor catches COLLAPSE, not attrition: 255 tests ran green on 2026-07-25, and the bar sits
+    // far enough below that a normal deletion does not trip it. Deliberately not a ratchet — a floor
+    // set just under the current count fails honest deletions and trains people to edit the number
+    // without reading it.
+    if (name == "testAndroidHostTest") {
+        val minDiscoveredTests = 200
+        afterSuite(
+            KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
+                if (desc.parent == null && result.testCount < minDiscoveredTests) {
+                    throw GradleException(
+                        ":app:sharedUI:testAndroidHostTest discovered only ${result.testCount} " +
+                            "tests, below the floor of $minDiscoveredTests. This usually means a " +
+                            "source set silently dropped out of the compilation rather than a " +
+                            "legitimate test deletion — investigate before lowering this floor.",
+                    )
+                }
+            }),
+        )
+    }
 }
 
 // Compose UI tooling for Android preview support
