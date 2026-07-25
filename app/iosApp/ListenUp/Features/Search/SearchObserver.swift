@@ -2,8 +2,8 @@ import SwiftUI
 import Shared
 
 /// Observes `SearchViewModel` — flattens the sealed `SearchUiState` into flat
-/// `@Observable` properties and projects the additive `selectedTypes` filter onto a
-/// single-select `SearchScope`. Thin over `FlowBridge`, mirroring `LibraryObserver`.
+/// `@Observable` properties and projects the VM's type filter onto a single-select
+/// `SearchScope`. Thin over `FlowBridge`, mirroring `LibraryObserver`.
 @Observable
 @MainActor
 final class SearchObserver {
@@ -17,10 +17,6 @@ final class SearchObserver {
     /// One-shot navigation target produced by a tapped hit. The view consumes and
     /// clears it (`nil`) once the push is enqueued.
     var pendingNavigation: SearchRoute?
-
-    /// The VM's current filter set — the source of truth for translating a scope
-    /// selection into the right sequence of additive `toggleTypeFilter` calls.
-    private var selectedTypes: Set<SearchHitType> = []
 
     private let viewModel: SearchViewModel
     private let bridge = FlowBridge()
@@ -43,11 +39,15 @@ final class SearchObserver {
         viewModel.clearQuery()
     }
 
-    /// Move the VM's additive filter set to exactly this scope. The VM only exposes a
-    /// toggle, so we fire one toggle per differing type (the symmetric difference).
+    /// Move the VM's filter to exactly this scope — one call, no intermediate state.
+    ///
+    /// Passing a `SearchHitType` *into* Kotlin is the direction Swift Export bridges safely,
+    /// so the write path needs no name projection (unlike the read; see `SearchScope`).
     func selectScope(_ scope: SearchScope) {
-        for type in scope.toggles(from: selectedTypes) {
-            viewModel.toggleTypeFilter(type: type)
+        if let type = scope.hitType {
+            viewModel.setTypeFilter(type: type)
+        } else {
+            viewModel.clearTypeFilters()
         }
     }
 
@@ -62,8 +62,9 @@ final class SearchObserver {
 
     private func apply(_ state: SearchUiState) {
         query = state.query
-        selectedTypes = state.selectedTypes
-        selectedScope = SearchScope.from(selectedTypes: state.selectedTypes)
+        // Never read `state.selectedTypes`: the bridged Kotlin `Set<SearchHitType>` traps on
+        // element cast. See `SearchScope.from(typeNames:)`.
+        selectedScope = SearchScope.from(typeNames: state.selectedTypeNames)
 
         switch onEnum(of: state) {
         case .idle:
