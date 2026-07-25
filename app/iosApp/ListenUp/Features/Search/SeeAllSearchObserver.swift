@@ -46,6 +46,11 @@ final class SeeAllSearchObserver {
             phase = .idle
         case .loading:
             phase = .loading
+        case .tooShort:
+            // Must precede any empty-collapse: routing this through .empty (or, before this case
+            // existed, through .unknown's error branch) tells the user their search failed when
+            // they have simply not typed enough for the trigram index to answer yet.
+            phase = .tooShort
         case .results(let results):
             phase = results.hits.isEmpty ? .empty : .results(results.hits.map { SearchRow($0) })
         case .error(let error):
@@ -72,6 +77,7 @@ final class SeeAllSearchObserver {
 enum SeeAllPhase: Equatable {
     case idle
     case loading
+    case tooShort
     case results([SearchRow])
     case empty
     case error(String)

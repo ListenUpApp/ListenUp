@@ -11,16 +11,20 @@ import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
@@ -1039,6 +1043,60 @@ class ContributorRepositoryImplTest :
                 result.size shouldBe 1
                 result[0].sortName shouldBe "Kramer, Michael"
                 result[0].asin shouldBe "B0029Y7RL0"
+            }
+        }
+
+        // ========== searchContributors Tests ==========
+        // The local FTS5 index uses `tokenize='trigram'`, which cannot match a query shorter
+        // than MIN_SEARCH_QUERY_LENGTH — a below-floor query must never reach the index.
+
+        test("searchContributors below MIN_SEARCH_QUERY_LENGTH never queries the FTS index") {
+            runTest {
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                val networkMonitor = mock<NetworkMonitor>()
+                every { networkMonitor.isOnline() } returns false
+                val repository =
+                    ContributorRepositoryImpl(
+                        contributorDao = createMockDao(),
+                        bookDao = mock<BookDao>(MockMode.autoUnit),
+                        searchDao = searchDao,
+                        networkMonitor = networkMonitor,
+                        imageStorage = mock<ImageStorage>(),
+                        channel = RpcChannel.forTest(mock<ContributorService>(MockMode.autoUnit)),
+                        contributorSyncHandler = mock<SyncDomainHandler<ContributorSyncPayload>>(MockMode.autoUnit),
+                    )
+
+                val belowFloor = "a".repeat(MIN_SEARCH_QUERY_LENGTH - 1)
+                val result = repository.searchContributors(belowFloor, limit = 10)
+
+                result.contributors.shouldBeEmpty()
+                verifySuspend(VerifyMode.not) { searchDao.searchContributors(any(), any()) }
+            }
+        }
+
+        test("searchContributors at MIN_SEARCH_QUERY_LENGTH queries the FTS index") {
+            runTest {
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                everySuspend { searchDao.searchContributors(any(), any()) } returns
+                    listOf(createTestContributorEntity(id = "contrib-1", name = "Abcdef"))
+                val networkMonitor = mock<NetworkMonitor>()
+                every { networkMonitor.isOnline() } returns false
+                val repository =
+                    ContributorRepositoryImpl(
+                        contributorDao = createMockDao(),
+                        bookDao = mock<BookDao>(MockMode.autoUnit),
+                        searchDao = searchDao,
+                        networkMonitor = networkMonitor,
+                        imageStorage = mock<ImageStorage>(),
+                        channel = RpcChannel.forTest(mock<ContributorService>(MockMode.autoUnit)),
+                        contributorSyncHandler = mock<SyncDomainHandler<ContributorSyncPayload>>(MockMode.autoUnit),
+                    )
+
+                val atFloor = "a".repeat(MIN_SEARCH_QUERY_LENGTH)
+                val result = repository.searchContributors(atFloor, limit = 10)
+
+                result.contributors.map { it.id } shouldBe listOf("contrib-1")
+                verifySuspend { searchDao.searchContributors(any(), any()) }
             }
         }
     })

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.search
 
 import app.cash.turbine.test
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
@@ -11,6 +12,7 @@ import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -75,6 +77,48 @@ class SeeAllSearchViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.state.value shouldBe SeeAllSearchUiState.Idle
+            }
+        }
+
+        test("load below MIN_SEARCH_QUERY_LENGTH emits TooShort without calling search") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+
+                val belowFloor = "a".repeat(MIN_SEARCH_QUERY_LENGTH - 1)
+                viewModel.load(query = belowFloor, type = SearchHitType.BOOK)
+                advanceUntilIdle()
+
+                viewModel.state.value shouldBe SeeAllSearchUiState.TooShort
+                verifySuspend(VerifyMode.not) {
+                    fixture.searchRepository.search(any(), any(), any(), any(), any())
+                }
+            }
+        }
+
+        test("load at MIN_SEARCH_QUERY_LENGTH calls search") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.searchRepository.search(any(), any(), any(), any(), any()) } returns
+                    searchResult(emptyList())
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+
+                val atFloor = "a".repeat(MIN_SEARCH_QUERY_LENGTH)
+                viewModel.load(query = atFloor, type = SearchHitType.BOOK)
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<SeeAllSearchUiState.Results>()
+                verifySuspend {
+                    fixture.searchRepository.search(
+                        query = atFloor,
+                        types = listOf(SearchHitType.BOOK),
+                        genres = null,
+                        genrePath = null,
+                        limit = 100,
+                    )
+                }
             }
         }
 

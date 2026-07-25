@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.CollectionShare
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.AdminRepository
@@ -244,11 +245,15 @@ class AdminCollectionDetailViewModel internal constructor(
      * `.debounce()` flow pipeline), so the debounce lives in the launched job, not in the state flow.
      * A backend search failure is surfaced (logged + emitted to [errorBus]) rather than swallowed, so
      * it isn't indistinguishable from "no results"; results then collapse to empty.
+     *
+     * A query below [MIN_SEARCH_QUERY_LENGTH] is treated the same as a blank one: the trigram FTS5
+     * index cannot match anything shorter, so running the search would only produce a false "no
+     * results" rather than a genuine miss.
      */
     fun onBookQueryChange(query: String) {
         updateReady { it.copy(bookQuery = query) }
         bookSearchJob?.cancel()
-        if (query.isBlank()) {
+        if (query.isBlank() || query.length < MIN_SEARCH_QUERY_LENGTH) {
             updateReady { it.copy(bookResults = emptyList(), isSearchingBooks = false) }
             return
         }

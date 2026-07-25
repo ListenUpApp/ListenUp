@@ -4,6 +4,22 @@ import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
+ * Shortest query the local search index can answer.
+ *
+ * The client's FTS5 tables are built with `tokenize='trigram'`, which indexes three-character
+ * sequences and therefore **cannot match a shorter query at all** — not "matches nothing", but
+ * "can never match". A query below this length must not be run: doing so returns an empty result
+ * that is indistinguishable from a genuine miss, so the UI reports "no results" for something the
+ * user could still complete by typing one more letter.
+ *
+ * It lives here, once, on purpose. This floor was previously copied into each caller as a private
+ * constant, and when the tokenizer moved from `porter` (which had no such floor) to trigram, none
+ * of the copies were updated — every search surface silently kept a stale value. A property of the
+ * index belongs with the domain, not duplicated across its consumers.
+ */
+const val MIN_SEARCH_QUERY_LENGTH: Int = 3
+
+/**
  * Type of search result.
  */
 enum class SearchHitType {

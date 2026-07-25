@@ -594,6 +594,8 @@
     "count_books": "%1$s books",
     "cover_for": "Cover for %1$s",
     "find_description": "Find books by title, author, narrator, or series",
+    "keep_typing": "Keep typing",
+    "keep_typing_description": "Enter at least %1$d characters to search",
     "no_results_for_query": "No results for “%1$s”",
     "people": "People",
     "results_count_for": "%1$d results for “%2$s”",

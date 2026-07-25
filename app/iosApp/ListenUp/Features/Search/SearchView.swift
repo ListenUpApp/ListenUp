@@ -63,6 +63,14 @@ struct SearchView: View {
                 systemImage: "magnifyingglass",
                 description: Text(String(localized: "search.find_description"))
             )
+        case .tooShort:
+            ContentUnavailableView(
+                String(localized: "search.keep_typing"),
+                systemImage: "keyboard",
+                description: Text(
+                    String(format: String(localized: "search.keep_typing_description"), minSearchQueryLength)
+                )
+            )
         case .searching:
             LoadingStateView(label: String(localized: "search.searching"))
         case .empty:

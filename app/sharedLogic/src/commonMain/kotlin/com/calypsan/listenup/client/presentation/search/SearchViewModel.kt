@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
@@ -38,10 +39,23 @@ sealed interface SearchUiState {
     val query: String
     val selectedTypes: Set<SearchHitType>
 
-    /** No query entered, or query too short to trigger a search. */
+    /** No query entered. */
     data class Idle(
         override val query: String = "",
         override val selectedTypes: Set<SearchHitType> = emptySet(),
+    ) : SearchUiState
+
+    /**
+     * [query] is non-blank but shorter than [MIN_SEARCH_QUERY_LENGTH], so no search was run.
+     *
+     * Distinct from [Results] with zero hits, and the distinction is the whole point: the user has
+     * typed something the index *cannot* answer yet, which is a prompt to keep typing, not a
+     * report that their book isn't there. Rendering this as "no results" is what made a two-letter
+     * search look like a broken app.
+     */
+    data class TooShort(
+        override val query: String,
+        override val selectedTypes: Set<SearchHitType>,
     ) : SearchUiState
 
     /** A search is in flight for the current [query] and [selectedTypes]. */
@@ -113,6 +127,7 @@ class SearchViewModel(
         combine(queryFlow, typesFlow, phaseFlow()) { query, types, phase ->
             when (phase) {
                 is Phase.Idle -> SearchUiState.Idle(query, types)
+                is Phase.TooShort -> SearchUiState.TooShort(query, types)
                 is Phase.Searching -> SearchUiState.Searching(query, types)
                 is Phase.Results -> SearchUiState.Results(query, types, phase.data)
                 is Phase.Error -> SearchUiState.Error(query, types, phase.message)
@@ -133,7 +148,13 @@ class SearchViewModel(
                 flow {
                     when {
                         query.isBlank() -> emit(Phase.Idle)
-                        query.length < MIN_QUERY_LENGTH -> Unit
+
+                        // Emit, don't skip. Emitting nothing here left the previous phase in place
+                        // while the query text moved on underneath it, so backspacing out of a
+                        // finished search stranded its hits on screen under a query that no longer
+                        // produced them.
+                        query.length < MIN_SEARCH_QUERY_LENGTH -> emit(Phase.TooShort)
+
                         else -> emitSearch(query, types)
                     }
                 }
@@ -214,6 +235,9 @@ class SearchViewModel(
     private sealed interface Phase {
         data object Idle : Phase
 
+        /** Query is below [MIN_SEARCH_QUERY_LENGTH]; no search was issued. */
+        data object TooShort : Phase
+
         data object Searching : Phase
 
         /** Search call completed successfully; carries the raw result for the public state. */
@@ -229,7 +253,6 @@ class SearchViewModel(
 
     companion object {
         private const val SEARCH_DEBOUNCE_MS = 300L
-        private const val MIN_QUERY_LENGTH = 2
         private const val DEFAULT_RESULT_LIMIT = 30
         private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
     }

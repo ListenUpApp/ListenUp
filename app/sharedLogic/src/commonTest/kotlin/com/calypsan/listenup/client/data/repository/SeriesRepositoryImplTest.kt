@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.api.result.AppResult
@@ -29,8 +30,10 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verify
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
@@ -978,6 +981,60 @@ class SeriesRepositoryImplTest :
                 result.shouldNotBeNull()
                 result.coverPath shouldBe null
                 result.asin shouldBe null
+            }
+        }
+
+        // ========== searchSeries Tests ==========
+        // The local FTS5 index uses `tokenize='trigram'`, which cannot match a query shorter
+        // than MIN_SEARCH_QUERY_LENGTH — a below-floor query must never reach the index.
+
+        test("searchSeries below MIN_SEARCH_QUERY_LENGTH never queries the FTS index") {
+            runTest {
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                val networkMonitor = mock<NetworkMonitor>()
+                every { networkMonitor.isOnline() } returns false
+                val repository =
+                    SeriesRepositoryImpl(
+                        seriesDao = createMockDao(),
+                        bookDao = mock<BookDao>(MockMode.autoUnit),
+                        searchDao = searchDao,
+                        networkMonitor = networkMonitor,
+                        imageStorage = mock<ImageStorage>(),
+                        channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
+                        seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
+                    )
+
+                val belowFloor = "a".repeat(MIN_SEARCH_QUERY_LENGTH - 1)
+                val result = repository.searchSeries(belowFloor, limit = 10)
+
+                result.series.shouldBeEmpty()
+                verifySuspend(VerifyMode.not) { searchDao.searchSeries(any(), any()) }
+            }
+        }
+
+        test("searchSeries at MIN_SEARCH_QUERY_LENGTH queries the FTS index") {
+            runTest {
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                everySuspend { searchDao.searchSeries(any(), any()) } returns
+                    listOf(createTestSeriesEntity(id = "series-1", name = "Abcdef"))
+                val networkMonitor = mock<NetworkMonitor>()
+                every { networkMonitor.isOnline() } returns false
+                val repository =
+                    SeriesRepositoryImpl(
+                        seriesDao = createMockDao(),
+                        bookDao = mock<BookDao>(MockMode.autoUnit),
+                        searchDao = searchDao,
+                        networkMonitor = networkMonitor,
+                        imageStorage = mock<ImageStorage>(),
+                        channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
+                        seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
+                    )
+
+                val atFloor = "a".repeat(MIN_SEARCH_QUERY_LENGTH)
+                val result = repository.searchSeries(atFloor, limit = 10)
+
+                result.series.map { it.id } shouldBe listOf("series-1")
+                verifySuspend { searchDao.searchSeries(any(), any()) }
             }
         }
     })

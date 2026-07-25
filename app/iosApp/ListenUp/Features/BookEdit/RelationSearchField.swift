@@ -35,8 +35,14 @@ struct RelationSearchField: View {
 
     /// The create row shows only when creation is permitted, the query is long enough, nothing is
     /// loading, and no result already matches the typed name exactly (case-insensitively).
+    ///
+    /// Gated on the same `minSearchQueryLength` floor as search itself: below it, the local index
+    /// cannot yet tell us whether a matching entry already exists, so inviting the user to *create*
+    /// one is exactly how duplicates get made.
     private var showsCreateRow: Bool {
-        guard allowsCreate, onCreate != nil, !isLoading, trimmedQuery.count >= 2 else { return false }
+        guard allowsCreate, onCreate != nil, !isLoading, trimmedQuery.count >= minSearchQueryLength else {
+            return false
+        }
         return !results.contains { $0.name.caseInsensitiveCompare(trimmedQuery) == .orderedSame }
     }
 
@@ -62,10 +68,21 @@ struct RelationSearchField: View {
             if !results.isEmpty || showsCreateRow {
                 resultsList
             } else if !trimmedQuery.isEmpty, !isLoading {
-                Text(String(localized: "book.edit_no_matches"))
+                // Below the floor, the local index hasn't run at all — "No matches." would lie
+                // about the state of the world. Prompt the user to keep typing instead.
+                if trimmedQuery.count < minSearchQueryLength {
+                    Text(
+                        String(format: String(localized: "search.keep_typing_description"), minSearchQueryLength)
+                    )
                     .font(.subheadline)
                     .foregroundStyle(Color.luLabel3)
                     .padding(.horizontal, 4)
+                } else {
+                    Text(String(localized: "book.edit_no_matches"))
+                        .font(.subheadline)
+                        .foregroundStyle(Color.luLabel3)
+                        .padding(.horizontal, 4)
+                }
             }
         }
     }
@@ -137,7 +154,7 @@ struct RelationSearchField: View {
     private func submit() {
         if let top = results.first {
             onSelect(top)
-        } else if allowsCreate, let onCreate, trimmedQuery.count >= 2 {
+        } else if allowsCreate, let onCreate, trimmedQuery.count >= minSearchQueryLength {
             onCreate(trimmedQuery)
         }
     }

@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.FacetCount
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.model.Library
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.SearchFacets
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -800,6 +801,74 @@ class ImportFlowViewModelTest :
                 bookSearch.query shouldBe ""
                 bookSearch.results.shouldBeEmpty()
                 // Only 1 search call was made (for "something"); blank didn't trigger another
+                searchRepo.searchCallCount shouldBe 1
+            }
+        }
+
+        // Regression: the client's FTS5 tables are tokenize='trigram', which cannot match a query
+        // shorter than MIN_SEARCH_QUERY_LENGTH — not "matches nothing", but "can never match". Running
+        // the search anyway would produce an indistinguishable false "no matches".
+        test("updateBookSearchQuery below the trigram floor never calls search and clears stale results") {
+            runTest(testDispatcher) {
+                val floorQuery = "d".repeat(MIN_SEARCH_QUERY_LENGTH)
+                val duneHit = SearchHit(id = "book-dune", type = SearchHitType.BOOK, name = "Dune", author = "Frank Herbert")
+                val searchRepo = FakeSearchRepository(results = listOf(duneHit))
+                val repo =
+                    FakeImportRepository(
+                        uploadResult = AppResult.Success(importSummary()),
+                        analyzeResult = AppResult.Success(importAnalysis()),
+                    )
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), searchRepo)
+                driveToReview(vm, repo)
+                vm.openBookSearch(AbsItemId("abs-item-99"))
+
+                // An at-floor query populates real hits...
+                vm.updateBookSearchQuery(floorQuery)
+                advanceTimeBy(301)
+                advanceUntilIdle()
+                vm.uiState.value
+                    .shouldBeInstanceOf<ImportFlowUiState.Review>()
+                    .bookSearch!!
+                    .results.size shouldBe 1
+                searchRepo.searchCallCount shouldBe 1
+
+                // ...but backspacing below the floor must not strand them on screen, and must not search.
+                val belowFloorQuery = floorQuery.dropLast(1)
+                vm.updateBookSearchQuery(belowFloorQuery)
+                advanceTimeBy(301)
+                advanceUntilIdle()
+
+                val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
+                val bookSearch = review.bookSearch.shouldNotBeNull()
+                bookSearch.query shouldBe belowFloorQuery
+                bookSearch.results.shouldBeEmpty()
+                bookSearch.isSearching shouldBe false
+                // No additional search call was made for the below-floor query.
+                searchRepo.searchCallCount shouldBe 1
+            }
+        }
+
+        test("updateBookSearchQuery at the trigram floor invokes search") {
+            runTest(testDispatcher) {
+                val floorQuery = "d".repeat(MIN_SEARCH_QUERY_LENGTH)
+                val duneHit = SearchHit(id = "book-dune", type = SearchHitType.BOOK, name = "Dune", author = "Frank Herbert")
+                val searchRepo = FakeSearchRepository(results = listOf(duneHit))
+                val repo =
+                    FakeImportRepository(
+                        uploadResult = AppResult.Success(importSummary()),
+                        analyzeResult = AppResult.Success(importAnalysis()),
+                    )
+                val vm = ImportFlowViewModel(repo, ErrorBus(), FakeSyncRepository(), FakeAdminRepository(), searchRepo)
+                driveToReview(vm, repo)
+                vm.openBookSearch(AbsItemId("abs-item-99"))
+
+                vm.updateBookSearchQuery(floorQuery)
+                advanceTimeBy(301)
+                advanceUntilIdle()
+
+                val review = vm.uiState.value.shouldBeInstanceOf<ImportFlowUiState.Review>()
+                val bookSearch = review.bookSearch.shouldNotBeNull()
+                bookSearch.results.size shouldBe 1
                 searchRepo.searchCallCount shouldBe 1
             }
         }

@@ -10541,6 +10541,26 @@
         }
       }
     },
+    "search.keep_typing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep typing"
+          }
+        }
+      }
+    },
+    "search.keep_typing_description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter at least %1$d characters to search"
+          }
+        }
+      }
+    },
     "search.no_results_for_query": {
       "localizations": {
         "en": {

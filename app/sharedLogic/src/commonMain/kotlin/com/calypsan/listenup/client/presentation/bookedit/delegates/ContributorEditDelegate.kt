@@ -3,6 +3,7 @@
 package com.calypsan.listenup.client.presentation.bookedit.delegates
 
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.client.presentation.bookedit.ContributorRole
@@ -23,7 +24,6 @@ import kotlinx.coroutines.launch
 private val logger = KotlinLogging.logger {}
 
 private const val SEARCH_DEBOUNCE_MS = 300L
-private const val MIN_QUERY_LENGTH = 2
 private const val SEARCH_LIMIT = 10
 
 /**
@@ -62,7 +62,7 @@ class ContributorEditDelegate(
         queryFlow
             .debounce(SEARCH_DEBOUNCE_MS)
             .distinctUntilChanged()
-            .filter { it.length >= MIN_QUERY_LENGTH || it.isEmpty() }
+            .filter { it.length >= MIN_SEARCH_QUERY_LENGTH || it.isEmpty() }
             .onEach { query ->
                 if (query.isBlank()) {
                     state.update {

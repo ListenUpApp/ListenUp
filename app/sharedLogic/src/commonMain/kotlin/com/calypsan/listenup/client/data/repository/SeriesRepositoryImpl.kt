@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.Series
 import com.calypsan.listenup.client.domain.model.SeriesSearchResponse
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
@@ -235,7 +236,7 @@ internal class SeriesRepositoryImpl(
         limit: Int,
     ): SeriesSearchResponse {
         val sanitizedQuery = QueryUtils.sanitize(query)
-        if (sanitizedQuery.isBlank() || sanitizedQuery.length < 2) {
+        if (sanitizedQuery.isBlank() || sanitizedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
             return SeriesSearchResponse(
                 series = emptyList(),
                 isOfflineResult = false,
