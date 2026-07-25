@@ -5,6 +5,7 @@ import io.kotest.core.extensions.Extension
 import io.kotest.core.extensions.TestCaseExtension
 import io.kotest.core.listeners.AfterProjectListener
 import io.kotest.core.listeners.BeforeProjectListener
+import io.kotest.core.names.DuplicateTestNameMode
 import io.kotest.core.test.TestCase
 import io.kotest.core.test.TestType
 import io.kotest.engine.test.TestResult
@@ -32,10 +33,23 @@ import kotlinx.coroutines.delay
  *    CI job as the ultimate backstop for a non-interruptible thread deadlock.)
  *  - [extensions] → [FlakyServerSpecRetryExtension] — bounded auto-retry for the known timing-flaky
  *    specs + the heavyweight end-to-end specs.
+ *  - [failOnEmptyTestSuite]: a spec that registers zero tests is almost always a mistake (a
+ *    misnamed `test`, a `context` that never adds leaves) — fail instead of passing silently.
+ *  - [duplicateTestNameMode]: two tests with the same name inside one spec silently shadow each
+ *    other's results — make it an error so the copy-paste is caught.
+ *
+ * The discovered-test-count floor for this lane lives in Gradle (`server/build.gradle.kts`'s
+ * `jvmTest` task), not here — this task forks a fresh worker JVM every 25 classes
+ * (`setForkEvery(25)`), and a Kotest [io.kotest.core.listeners.AfterProjectListener] like the one
+ * [FlakyServerSpecRetryExtension] uses for its retry ledger fires once *per worker*, so it would
+ * only ever see that worker's slice of tests — never the task's true total. Gradle's `Test` task
+ * aggregates every worker's results into one root suite, so the floor belongs there.
  */
 class ProjectConfig : AbstractProjectConfig() {
     override val timeout: Duration = 120.seconds
     override val extensions: List<Extension> = listOf(FlakyServerSpecRetryExtension)
+    override val failOnEmptyTestSuite: Boolean = true
+    override val duplicateTestNameMode: DuplicateTestNameMode = DuplicateTestNameMode.Error
 }
 
 /**
