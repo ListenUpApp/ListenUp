@@ -11,6 +11,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -257,8 +259,8 @@ class AccessChangedEmissionTest :
                     drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
 
                     admin.releaseBooks(
-                        "test-library",
-                        mapOf("book1" to listOf(target.data.id.value)),
+                        LibraryId("test-library"),
+                        mapOf(BookId("book1") to listOf(target.data.id)),
                     ) shouldBe AppResult.Success(Unit)
                     drainControlFrames()
 
@@ -348,8 +350,8 @@ class AccessChangedEmissionTest :
 
                     val result =
                         admin.releaseBooks(
-                            "test-library",
-                            mapOf("book1" to listOf("does-not-exist")),
+                            LibraryId("test-library"),
+                            mapOf(BookId("book1") to listOf(CollectionId("does-not-exist"))),
                         )
                     require(result is AppResult.Failure)
                     result.error.shouldBeInstanceOf<CollectionError.NotFound>()

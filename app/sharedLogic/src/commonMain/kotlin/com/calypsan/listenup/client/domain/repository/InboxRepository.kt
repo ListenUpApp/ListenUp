@@ -8,9 +8,10 @@ import com.calypsan.listenup.api.result.AppResult
  * Repository contract for the admin collection inbox.
  *
  * The inbox is a system collection holding freshly-ingested books awaiting admin
- * triage. Both operations are admin-internal REST calls (Collections-1b admin routes),
- * not part of the `@Rpc CollectionService` surface. Reads are direct REST fetches of
- * the authoritative book-id set — the inbox is not mirrored into Room.
+ * triage. Both operations ride `CollectionService.listInbox` /
+ * `CollectionService.releaseBooks` on the `@Rpc CollectionService` contract. Reads are
+ * direct RPC fetches of the authoritative book-id set — the inbox is not mirrored into
+ * Room.
  *
  * Implementations live in the data layer.
  */

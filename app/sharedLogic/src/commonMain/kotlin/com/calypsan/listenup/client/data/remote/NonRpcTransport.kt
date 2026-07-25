@@ -6,9 +6,11 @@ package com.calypsan.listenup.client.data.remote
  * a data-layer class that reaches for the Ktor client instead must name which of these deliberate,
  * architecturally-sanctioned exceptions applies.
  *
- * These are the only shapes that genuinely can't be a JSON-RPC frame over the shared channel. If a
- * surface doesn't fit one of them, the honest conclusion is that it *should* be on RPC — tag it with
- * the closest fit to keep the build green, but treat that as a migration signal, not a resting place.
+ * Exactly one reason survives, and that is the point: raw bytes are the only thing that genuinely
+ * cannot be a JSON-RPC frame. A `THIRD_PARTY_REST` case once sat here for endpoints kept on REST by
+ * product choice; every one of them turned out to be a surface that *should* have been RPC, so both
+ * they and the reason are gone. If a new surface doesn't carry bytes, it belongs on RPC — adding a
+ * reason to make it fit would be arguing with the architecture rather than following it.
  */
 internal enum class NonRpcReason {
     /**
@@ -18,15 +20,6 @@ internal enum class NonRpcReason {
      * arbitrary binary), so they ride a dedicated REST endpoint via the Ktor client.
      */
     BINARY_TRANSFER,
-
-    /**
-     * A REST endpoint deliberately kept off the `@Rpc` service contract — the third-party-facing
-     * surface that mirrors the `@Resource` REST API (e.g. the admin collection-inbox triage routes).
-     * It speaks JSON request/response, so unlike the other reasons it *could* technically ride RPC;
-     * it stays on REST by product choice, which makes any surface tagged this way the first candidate
-     * to reconsider when the RPC-by-default line is drawn tighter.
-     */
-    THIRD_PARTY_REST,
 }
 
 /**

@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.testing.AccessModelOracle
@@ -221,7 +222,7 @@ class AccessInvariantMatrixTest :
                             deletedAt = null,
                         ),
                     )
-                    admin.releaseBooks("test-library", mapOf("B" to listOf(c.data.id.value))) shouldBe AppResult.Success(Unit)
+                    admin.releaseBooks(LibraryId("test-library"), mapOf(BookId("B") to listOf(c.data.id))) shouldBe AppResult.Success(Unit)
 
                     AccessModelOracle.assertAccessInvariants(h.bookAccessPolicy, h.db, h.driver, "m", listOf("B"))
                     h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "B").shouldBeTrue()

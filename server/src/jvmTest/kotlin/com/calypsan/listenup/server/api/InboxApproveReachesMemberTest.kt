@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -152,7 +153,7 @@ class InboxApproveReachesMemberTest :
                     val revisionBeforeApprove = readBookRevision(sql, "b1")
 
                     // Approve to library (empty target list → ALL_BOOKS → public substrate).
-                    admin.releaseBooks("test-library", mapOf("b1" to emptyList<String>())).let {
+                    admin.releaseBooks(LibraryId("test-library"), mapOf(BookId("b1") to emptyList())).let {
                         require(it is AppResult.Success)
                     }
 

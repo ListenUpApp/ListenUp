@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.toColumn
@@ -486,9 +487,10 @@ internal class CollectionServiceImpl(
 
     // ── Inbox (system collection + release flow) ──────────────────────────────────
     //
-    // These are ADMIN-INTERNAL operations, deliberately NOT part of the @Rpc
-    // CollectionService contract (frozen at 12 user-facing methods). They are exposed as
-    // public methods so the admin REST routes (and potentially the scanner) can call them.
+    // listInbox/releaseBooks (below) are admin-gated methods on the @Rpc CollectionService
+    // contract. getOrCreateSystemCollection/getOrCreateInbox/addToInbox are deliberately NOT
+    // on the contract — internal system operations with no caller-principal gate of their
+    // own, used by the scan path (auto-quarantine) and by listInbox/releaseBooks themselves.
 
     /**
      * Resolves the library's per-library system collection of [type], creating it on first use.
@@ -608,12 +610,19 @@ internal class CollectionServiceImpl(
      *
      * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
      */
-    suspend fun releaseBooks(
-        libraryId: String,
-        assignments: Map<String, List<String>>,
+    override suspend fun releaseBooks(
+        libraryId: LibraryId,
+        assignments: Map<BookId, List<CollectionId>>,
     ): AppResult<Unit> {
         val caller = resolveCaller() ?: return noPrincipal()
         adminGate(caller.role)?.let { return AppResult.Failure(it) }
+
+        val libraryId = libraryId.value
+        val assignments =
+            assignments.entries.associate { (bookId, targets) ->
+                bookId.value to
+                    targets.map(CollectionId::value)
+            }
 
         val inbox = getOrCreateInbox(libraryId).getOrElse { return AppResult.Failure(it) }
         val inboxId = inbox.id.value
@@ -845,10 +854,11 @@ internal class CollectionServiceImpl(
      *
      * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
      */
-    suspend fun listInbox(libraryId: String): AppResult<List<BookId>> {
+    override suspend fun listInbox(libraryId: LibraryId): AppResult<List<BookId>> {
         val caller = resolveCaller() ?: return noPrincipal()
         adminGate(caller.role)?.let { return AppResult.Failure(it) }
 
+        val libraryId = libraryId.value
         val inbox = collectionRepo.findInboxForLibrary(libraryId) ?: return AppResult.Success(emptyList())
         val bookIds = collectionBookRepo.findBookIdsForCollection(inbox.id).map { BookId(it) }
         return AppResult.Success(bookIds)

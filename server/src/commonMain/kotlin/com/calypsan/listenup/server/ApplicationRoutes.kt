@@ -40,7 +40,6 @@ import com.calypsan.listenup.server.routes.RpcServices
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.backupRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
-import com.calypsan.listenup.server.routes.collectionAdminRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.coverCastRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
@@ -93,7 +92,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val tagService by inject<TagService>()
     val moodService by inject<MoodService>()
     val genreService by inject<GenreService>()
-    val collectionService by inject<CollectionService>()
     val shelfService by inject<ShelfService>()
     val socialService by inject<SocialService>()
     val profileService by inject<ProfileService>()
@@ -118,7 +116,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             contributorRoutes(contributorService, homeDir, imageStorage)
             seriesRoutes(seriesService, homeDir, imageStorage)
             metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
-            collectionAdminRoutes(collectionService)
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)

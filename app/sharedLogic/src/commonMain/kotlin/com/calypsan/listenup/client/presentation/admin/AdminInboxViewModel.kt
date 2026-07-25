@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
  * ViewModel for the admin inbox screen.
  *
  * The inbox holds freshly-ingested books awaiting admin triage. The authoritative id set
- * comes from [InboxRepository.listInbox] (the 1b admin REST surface returns ids only); the
+ * comes from [InboxRepository.listInbox] (the admin `CollectionService` RPC returns ids only); the
  * VM then hydrates each id into an [InboxBookItem] (cover/title/author/duration) by observing
  * [BookDao.observeByIdsWithContributors] so the review-and-release queue shows real book detail
  * rather than raw ids. The admin selects books and **releases** them: every inbox release is

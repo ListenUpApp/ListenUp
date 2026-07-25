@@ -160,20 +160,20 @@ class InboxQuarantineE2ETest :
                         // ── getBook: the member is denied the quarantined book (NotFound — the deny
                         // is indistinguishable from absent). The admin's inbox list contains it.
                         getBook(m1.token, quarantinedId).shouldBeInstanceOf<AppResult.Failure>()
-                        val inboxIds = (collections.listInbox(libraryId) as AppResult.Success).data.map { it.value }
+                        val inboxIds = (collections.listInbox(LibraryId(libraryId)) as AppResult.Success).data.map { it.value }
                         inboxIds shouldContain quarantinedId
 
                         // ── Release the quarantined book with no explicit target → it joins ALL_BOOKS
                         // (the public substrate). The member (default ALL_BOOKS grant) now sees it.
                         collections
-                            .releaseBooks(libraryId, mapOf(quarantinedId to emptyList()))
+                            .releaseBooks(LibraryId(libraryId), mapOf(BookId(quarantinedId) to emptyList()))
                             .requireSuccess()
                         getBook(m1.token, quarantinedId).shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
 
                         // ── Re-scan the now-released book: only-on-create means it must NOT be re-inboxed.
                         persister.scanSubtree(libraryRoot.toString(), book("Quarantined"))
                         val inboxAfterRescan =
-                            (collections.listInbox(libraryId) as AppResult.Success).data.map { it.value }
+                            (collections.listInbox(LibraryId(libraryId)) as AppResult.Success).data.map { it.value }
                         inboxAfterRescan shouldNotContain quarantinedId
                         getBook(m1.token, quarantinedId).shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     }

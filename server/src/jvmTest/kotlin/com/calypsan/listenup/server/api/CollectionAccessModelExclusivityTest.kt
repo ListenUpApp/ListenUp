@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.testing.actAs
 import com.calypsan.listenup.server.testing.collectionAccessHarness
@@ -140,8 +141,8 @@ class CollectionAccessModelExclusivityTest :
                     require(c is AppResult.Success)
 
                     admin.releaseBooks(
-                        "test-library",
-                        mapOf("sorted" to listOf(c.data.id.value), "unsorted" to emptyList()),
+                        LibraryId("test-library"),
+                        mapOf(BookId("sorted") to listOf(c.data.id), BookId("unsorted") to emptyList()),
                     ) shouldBe AppResult.Success(Unit)
 
                     val allBooksId =
