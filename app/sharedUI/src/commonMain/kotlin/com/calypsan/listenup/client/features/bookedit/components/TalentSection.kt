@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AutocompleteEmptyResultsHint
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
 import com.calypsan.listenup.client.design.components.ListenUpAutocompleteField
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
@@ -207,7 +209,7 @@ private fun RoleContributorSection(
                     val topResult = searchResults.firstOrNull()
                     if (topResult != null) {
                         onResultSelected(topResult)
-                    } else if (trimmed.length >= 2) {
+                    } else if (trimmed.length >= MIN_SEARCH_QUERY_LENGTH) {
                         onNameEntered(trimmed)
                     }
                 }
@@ -226,12 +228,13 @@ private fun RoleContributorSection(
             },
             placeholder = "Add ${role.displayName.lowercase()}...",
             isLoading = isSearching,
+            emptyResultsContent = { AutocompleteEmptyResultsHint(query = searchQuery) },
         )
 
         // Add new chip
         val trimmedQuery = searchQuery.trim()
         val hasExactMatch = searchResults.any { it.name.equals(trimmedQuery, ignoreCase = true) }
-        if (trimmedQuery.length >= 2 && !isSearching && !hasExactMatch) {
+        if (trimmedQuery.length >= MIN_SEARCH_QUERY_LENGTH && !isSearching && !hasExactMatch) {
             AssistChip(
                 onClick = { onNameEntered(trimmedQuery) },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },

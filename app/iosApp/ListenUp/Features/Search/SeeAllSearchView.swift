@@ -43,6 +43,14 @@ struct SeeAllSearchView: View {
         switch observer.phase {
         case .idle, .loading:
             LoadingStateView(label: String(localized: "search.searching"))
+        case .tooShort:
+            ContentUnavailableView(
+                String(localized: "search.keep_typing"),
+                systemImage: "keyboard",
+                description: Text(
+                    String(format: String(localized: "search.keep_typing_description"), minSearchQueryLength)
+                )
+            )
         case .empty:
             ContentUnavailableView.search(text: destination.query)
         case .error(let message):

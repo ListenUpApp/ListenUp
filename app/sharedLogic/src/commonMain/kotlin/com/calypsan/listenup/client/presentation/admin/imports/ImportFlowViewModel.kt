@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
@@ -277,7 +278,9 @@ class ImportFlowViewModel(
      *
      * Cancels the previous search job and launches a new one. After a 300 ms debounce,
      * calls [SearchRepository.search] filtered to [SearchHitType.BOOK] and maps the hits
-     * to [BookSearchHit]s. A blank [query] clears results without triggering a search call.
+     * to [BookSearchHit]s. A blank [query], or one shorter than [MIN_SEARCH_QUERY_LENGTH],
+     * clears results without triggering a search call — the trigram FTS5 index can never
+     * match a query below that floor, so running it would only produce a false "no results".
      *
      * Stale-result guard: results are only applied when the current
      * [ImportFlowUiState.Review.bookSearch]'s [absItemId] and query still match the search
@@ -298,7 +301,7 @@ class ImportFlowViewModel(
 
         bookSearchJob?.cancel()
 
-        if (query.isBlank()) {
+        if (query.isBlank() || query.length < MIN_SEARCH_QUERY_LENGTH) {
             updateReview { it.copy(bookSearch = it.bookSearch?.copy(results = emptyList(), isSearching = false)) }
             return
         }

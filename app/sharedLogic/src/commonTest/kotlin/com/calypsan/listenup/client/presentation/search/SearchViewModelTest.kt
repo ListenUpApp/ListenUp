@@ -11,6 +11,7 @@ import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
+import dev.mokkery.verify.VerifyMode.Companion.not
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -137,7 +138,7 @@ class SearchViewModelTest :
             }
         }
 
-        test("search triggers after debounce for query with min 2 chars") {
+        test("search triggers after debounce once the query reaches the trigram floor") {
             runTest {
                 val fixture = createFixture()
                 everySuspend { fixture.searchRepository.search(any(), any(), any(), any(), any()) } returns
@@ -149,7 +150,7 @@ class SearchViewModelTest :
                 keepStateHot(viewModel)
                 advanceUntilIdle()
 
-                viewModel.onQueryChanged("te")
+                viewModel.onQueryChanged("tes")
 
                 // Before debounce fires: phase still Idle (search hasn't started).
                 // Don't call advanceUntilIdle here — it would advance through the 300ms debounce.
@@ -163,12 +164,35 @@ class SearchViewModelTest :
                 results.result.hits.size shouldBe 1
                 verifySuspend {
                     fixture.searchRepository.search(
-                        query = "te",
+                        query = "tes",
                         types = null,
                         genres = null,
                         genrePath = null,
                         limit = 30,
                     )
+                }
+            }
+        }
+
+        // The trigram tokenizer cannot match a query shorter than three characters, so a two-char
+        // query is not "a search that found nothing" — it is a search that could never succeed.
+        // Running it anyway is what produced a "no results" screen for `JK`, indistinguishable from
+        // a real miss. The floor is MIN_SEARCH_QUERY_LENGTH; below it we must not query at all.
+        test("a below-floor query surfaces TooShort and never reaches the repository") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.onQueryChanged("te")
+                advanceTimeBy(500.milliseconds)
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<SearchUiState.TooShort>()
+                state.query shouldBe "te"
+                verifySuspend(not) {
+                    fixture.searchRepository.search(any(), any(), any(), any(), any())
                 }
             }
         }
@@ -184,9 +208,33 @@ class SearchViewModelTest :
                 advanceTimeBy(500.milliseconds)
                 advanceUntilIdle()
 
-                // Phase stays Idle; search never executes.
-                viewModel.state.value.shouldBeInstanceOf<SearchUiState.Idle>()
+                viewModel.state.value.shouldBeInstanceOf<SearchUiState.TooShort>()
                 viewModel.state.value.query shouldBe "a"
+            }
+        }
+
+        // Backspacing out of a completed search used to leave the old hits on screen: the
+        // below-floor branch emitted nothing at all, so the phase kept its last value while the
+        // query text updated underneath it — results for a query the user no longer had typed.
+        test("backspacing below the floor clears prior results instead of stranding them") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.searchRepository.search(any(), any(), any(), any(), any()) } returns
+                    createSearchResult(query = "test", hits = listOf(createBookHit()))
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.onQueryChanged("test")
+                advanceTimeBy(500.milliseconds)
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<SearchUiState.Results>()
+
+                viewModel.onQueryChanged("te")
+                advanceTimeBy(500.milliseconds)
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<SearchUiState.TooShort>()
             }
         }
 

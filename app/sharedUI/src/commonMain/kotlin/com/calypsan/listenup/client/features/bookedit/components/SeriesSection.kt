@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AutocompleteEmptyResultsHint
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
 import com.calypsan.listenup.client.design.components.ListenUpAutocompleteField
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
@@ -81,7 +83,7 @@ fun SeriesSection(
                     val topResult = searchResults.firstOrNull()
                     if (topResult != null) {
                         onSeriesSelected(topResult)
-                    } else if (trimmed.length >= 2) {
+                    } else if (trimmed.length >= MIN_SEARCH_QUERY_LENGTH) {
                         onSeriesEntered(trimmed)
                     }
                 }
@@ -100,6 +102,7 @@ fun SeriesSection(
             },
             placeholder = "Add series...",
             isLoading = isLoading,
+            emptyResultsContent = { AutocompleteEmptyResultsHint(query = searchQuery) },
         )
 
         // Add new chip
@@ -108,7 +111,7 @@ fun SeriesSection(
             searchResults.any {
                 it.name.equals(trimmedQuery, ignoreCase = true)
             }
-        if (trimmedQuery.length >= 2 && !isLoading && !hasExactMatch) {
+        if (trimmedQuery.length >= MIN_SEARCH_QUERY_LENGTH && !isLoading && !hasExactMatch) {
             AssistChip(
                 onClick = { onSeriesEntered(trimmedQuery) },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },

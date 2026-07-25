@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.Contributor
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
 import com.calypsan.listenup.client.domain.model.ContributorSearchResult
@@ -190,7 +191,7 @@ internal class ContributorRepositoryImpl(
         limit: Int,
     ): ContributorSearchResponse {
         val sanitizedQuery = QueryUtils.sanitize(query)
-        if (sanitizedQuery.isBlank() || sanitizedQuery.length < 2) {
+        if (sanitizedQuery.isBlank() || sanitizedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
             return ContributorSearchResponse(
                 contributors = emptyList(),
                 isOfflineResult = false,

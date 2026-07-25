@@ -4,6 +4,14 @@ import Shared
 
 /// Pure-mapping coverage for the search observer's two seams: the single-select
 /// scope ↔ `Set<SearchHitType>` projection, and the de-duplicating hit grouping.
+///
+/// `SearchObserver.apply`'s flatten of the sealed `SearchUiState` (including the
+/// `.tooShort` phase added for the trigram-index minimum-query-length floor) can't be
+/// exercised here: SKIE bridges `SearchUiState` as a sealed protocol whose cases aren't
+/// constructible from Swift, so that `onEnum` mapping — including the new `TooShort` →
+/// `.tooShort` arm landing before any empty-collapse logic — is proven at the
+/// green-build pass (the app target's exhaustive `switch` compiling). What *is* pure and
+/// constructible is the mirrored `minSearchQueryLength` floor, pinned below.
 struct SearchObserverTests {
     // MARK: - Scope ↔ types projection
 
@@ -130,6 +138,32 @@ struct SearchObserverTests {
         #expect(SearchSeeAllType.book.hitType == .book)
         #expect(SearchSeeAllType.contributor.hitType == .contributor)
         #expect(SearchSeeAllType.series.hitType == .series)
+    }
+
+    // MARK: - Minimum query length floor
+
+    /// Mirrors `MIN_SEARCH_QUERY_LENGTH` (`client/.../domain/model/Search.kt`). Unlike
+    /// `SearchDisplayCap`, this can't cross-check against the shared source directly — the
+    /// Kotlin constant is a top-level `const val`, not an exported type/object, so it isn't
+    /// part of the Swift Export surface (see `SearchModels.swift`). This pins the mirrored
+    /// value so a change on either side without the other shows up as a failing test rather
+    /// than silent drift.
+    @Test func minSearchQueryLengthMatchesTheSharedFloor() {
+        #expect(minSearchQueryLength == 3)
+    }
+
+    @Test func tooShortPhaseIsDistinctFromOtherPhases() {
+        #expect(SearchPhase.tooShort != .idle)
+        #expect(SearchPhase.tooShort != .searching)
+        #expect(SearchPhase.tooShort != .empty)
+        #expect(SearchPhase.tooShort != .results)
+    }
+
+    @Test func seeAllTooShortPhaseIsDistinctFromOtherPhases() {
+        #expect(SeeAllPhase.tooShort != .idle)
+        #expect(SeeAllPhase.tooShort != .loading)
+        #expect(SeeAllPhase.tooShort != .empty)
+        #expect(SeeAllPhase.tooShort != .results([]))
     }
 
     // MARK: - Helpers

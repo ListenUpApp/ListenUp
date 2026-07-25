@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.client.presentation.bookedit.delegates
 
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
@@ -24,7 +25,6 @@ import kotlinx.coroutines.flow.update
 private val logger = KotlinLogging.logger {}
 
 private const val SEARCH_DEBOUNCE_MS = 300L
-private const val MIN_QUERY_LENGTH = 2
 private const val SEARCH_LIMIT = 10
 
 /**
@@ -196,7 +196,7 @@ class SeriesEditDelegate(
         seriesQueryFlow
             .debounce(SEARCH_DEBOUNCE_MS)
             .distinctUntilChanged()
-            .filter { it.length >= MIN_QUERY_LENGTH || it.isEmpty() }
+            .filter { it.length >= MIN_SEARCH_QUERY_LENGTH || it.isEmpty() }
             .flatMapLatest { query ->
                 if (query.isBlank()) {
                     flowOf<SeriesSearchFlowResult>(SeriesSearchFlowResult.Empty)

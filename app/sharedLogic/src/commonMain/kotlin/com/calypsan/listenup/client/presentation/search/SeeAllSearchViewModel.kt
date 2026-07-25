@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.search
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.SearchRepository
@@ -31,6 +32,14 @@ private val logger = KotlinLogging.logger {}
 sealed interface SeeAllSearchUiState {
     /** No request loaded yet. */
     data object Idle : SeeAllSearchUiState
+
+    /**
+     * [Request.query] is non-blank but shorter than [MIN_SEARCH_QUERY_LENGTH], so no search was
+     * run. The FTS5 index is `tokenize='trigram'` and cannot match below that floor — a doomed
+     * search would surface as "no results" rather than the "keep typing" prompt this state exists
+     * to render instead.
+     */
+    data object TooShort : SeeAllSearchUiState
 
     /** A search is in flight for the requested type. */
     data object Loading : SeeAllSearchUiState
@@ -69,10 +78,10 @@ class SeeAllSearchViewModel(
         request
             .flatMapLatest { current ->
                 flow {
-                    if (current == null) {
-                        emit(SeeAllSearchUiState.Idle)
-                    } else {
-                        emitSearch(current.query, current.type)
+                    when {
+                        current == null -> emit(SeeAllSearchUiState.Idle)
+                        current.query.length < MIN_SEARCH_QUERY_LENGTH -> emit(SeeAllSearchUiState.TooShort)
+                        else -> emitSearch(current.query, current.type)
                     }
                 }
             }.stateIn(

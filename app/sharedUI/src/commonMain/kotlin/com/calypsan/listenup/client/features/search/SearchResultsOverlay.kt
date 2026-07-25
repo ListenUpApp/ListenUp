@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -68,6 +69,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.ContentRow
+import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.PillChip
 import com.calypsan.listenup.client.design.components.ScallopBadge
@@ -75,6 +77,7 @@ import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.components.highlightMatch
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.library.BookCard
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.model.SearchResult
@@ -93,6 +96,8 @@ import listenup.composeapp.generated.resources.genre_book_count
 import listenup.composeapp.generated.resources.genre_books_count
 import listenup.composeapp.generated.resources.library_books
 import listenup.composeapp.generated.resources.search_cover_for
+import listenup.composeapp.generated.resources.search_keep_typing
+import listenup.composeapp.generated.resources.search_keep_typing_description
 import listenup.composeapp.generated.resources.search_no_results_for_query
 import listenup.composeapp.generated.resources.search_people
 import listenup.composeapp.generated.resources.search_results_count_for
@@ -193,6 +198,10 @@ fun SearchResultsOverlay(
 
                     when (state) {
                         is SearchUiState.Idle -> {
+                        }
+
+                        is SearchUiState.TooShort -> {
+                            TooShortState(modifier = Modifier.weight(1f))
                         }
 
                         is SearchUiState.Searching -> {
@@ -323,7 +332,7 @@ private fun ResultsContent(
     modifier: Modifier = Modifier,
 ) {
     if (result.hits.isEmpty()) {
-        EmptyState(query = query, modifier = modifier)
+        NoResultsState(query = query, modifier = modifier)
         return
     }
     val grouped = result.hits.groupBy { it.type }
@@ -682,13 +691,17 @@ private fun SearchSeeAllPage(
                     LoadingState(modifier = Modifier.weight(1f))
                 }
 
+                is SeeAllSearchUiState.TooShort -> {
+                    TooShortState(modifier = Modifier.weight(1f))
+                }
+
                 is SeeAllSearchUiState.Error -> {
                     ErrorState(message = current.message, modifier = Modifier.weight(1f))
                 }
 
                 is SeeAllSearchUiState.Results -> {
                     if (current.hits.isEmpty()) {
-                        EmptyState(query = query, modifier = Modifier.weight(1f))
+                        NoResultsState(query = query, modifier = Modifier.weight(1f))
                     } else {
                         SeeAllList(
                             type = type,
@@ -1009,29 +1022,32 @@ private fun LoadingState(modifier: Modifier = Modifier) {
     FullScreenLoadingIndicator(modifier = modifier)
 }
 
+/** A search for [query] returned zero hits — reuses the canonical [EmptyState] scaffolding. */
 @Composable
-private fun EmptyState(
+private fun NoResultsState(
     query: String,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = stringResource(Res.string.search_no_results_for_query, query),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(Res.string.search_try_a_different_search_term),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
+    EmptyState(
+        title = stringResource(Res.string.search_no_results_for_query, query),
+        subtitle = stringResource(Res.string.search_try_a_different_search_term),
+        modifier = modifier,
+    )
+}
+
+/**
+ * [query] is below [MIN_SEARCH_QUERY_LENGTH], so no search ran. Reuses the same [EmptyState]
+ * scaffolding as [NoResultsState] but with keep-typing copy and a search icon, so the two states
+ * read as visually related while staying unmistakably distinct in meaning.
+ */
+@Composable
+private fun TooShortState(modifier: Modifier = Modifier) {
+    EmptyState(
+        title = stringResource(Res.string.search_keep_typing),
+        subtitle = stringResource(Res.string.search_keep_typing_description, MIN_SEARCH_QUERY_LENGTH),
+        modifier = modifier,
+        icon = Icons.Default.Search,
+    )
 }
 
 @Composable

@@ -69,6 +69,9 @@ final class SearchObserver {
         case .idle:
             phase = .idle
             groups = SearchHitGroups()
+        case .tooShort:
+            phase = .tooShort
+            groups = SearchHitGroups()
         case .searching:
             phase = .searching
         case .results(let results):

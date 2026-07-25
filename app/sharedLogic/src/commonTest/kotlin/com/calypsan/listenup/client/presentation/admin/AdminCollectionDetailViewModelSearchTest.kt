@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.CollectionShare
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import com.calypsan.listenup.client.domain.model.SearchFacets
 import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
@@ -33,6 +34,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -235,6 +237,73 @@ class AdminCollectionDetailViewModelSearchTest :
                 // Only the non-member hit should appear
                 ready.bookResults.map { it.id } shouldBe listOf("b-new")
                 ready.isSearchingBooks shouldBe false
+            }
+        }
+
+        // Regression: the client's FTS5 tables are tokenize='trigram', which cannot match a query
+        // shorter than MIN_SEARCH_QUERY_LENGTH — not "matches nothing", but "can never match". Running
+        // the search anyway would produce an indistinguishable false "no results".
+        test("onBookQueryChange below the trigram floor never calls search and clears stale results") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                everySuspend {
+                    f.searchRepo.search(
+                        query = "dun",
+                        types = listOf(SearchHitType.BOOK),
+                        limit = 20,
+                    )
+                } returns searchResult(searchHit("b-new", "Dune Messiah"))
+                val vm = f.build()
+                advanceUntilIdle()
+
+                vm.openAddBooks()
+                // A prior at-floor query populated real hits...
+                vm.onBookQueryChange("dun")
+                advanceTimeBy(301L)
+                advanceUntilIdle()
+                vm.state.value
+                    .shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                    .bookResults
+                    .map { it.id } shouldBe listOf("b-new")
+
+                // ...but backspacing below the floor must not strand them on screen.
+                vm.onBookQueryChange("du")
+                advanceTimeBy(301L)
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                ready.bookResults shouldBe emptyList()
+                ready.isSearchingBooks shouldBe false
+                verifySuspend(VerifyMode.not) {
+                    f.searchRepo.search(query = "du", types = any(), limit = any())
+                }
+            }
+        }
+
+        test("onBookQueryChange at the trigram floor invokes search") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                val floorQuery = "d".repeat(MIN_SEARCH_QUERY_LENGTH)
+                everySuspend {
+                    f.searchRepo.search(
+                        query = floorQuery,
+                        types = listOf(SearchHitType.BOOK),
+                        limit = 20,
+                    )
+                } returns searchResult(searchHit("b-new", "Dune Messiah"))
+                val vm = f.build()
+                advanceUntilIdle()
+
+                vm.openAddBooks()
+                vm.onBookQueryChange(floorQuery)
+                advanceTimeBy(301L)
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                ready.bookResults.map { it.id } shouldBe listOf("b-new")
+                verifySuspend {
+                    f.searchRepo.search(query = floorQuery, types = listOf(SearchHitType.BOOK), limit = 20)
+                }
             }
         }
 

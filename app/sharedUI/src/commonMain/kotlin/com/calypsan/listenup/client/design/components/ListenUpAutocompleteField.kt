@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
@@ -23,9 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_add_name
+import listenup.composeapp.generated.resources.search_keep_typing
+import listenup.composeapp.generated.resources.search_keep_typing_description
 
 /**
  * Search field with autocomplete dropdown results.
@@ -43,7 +47,11 @@ import listenup.composeapp.generated.resources.common_add_name
  * @param placeholder Hint text for search field
  * @param modifier Optional modifier
  * @param isLoading Whether search is in progress
- * @param emptyResultsContent Optional content to show when results are empty but query is valid
+ * @param emptyResultsContent Optional content to show when results are empty and the query is
+ * non-blank — invoked for both a below-floor query (too short to have searched) and a genuinely
+ * empty result, since this field has no notion of the caller's search floor. Callers wanting the
+ * two cases to read differently pass [AutocompleteEmptyResultsHint], which makes that distinction
+ * using [MIN_SEARCH_QUERY_LENGTH].
  */
 @Composable
 @Suppress("UnusedParameter")
@@ -83,9 +91,53 @@ fun <T> ListenUpAutocompleteField(
                     }
                 }
             }
-        } else if (value.length >= 2 && !isLoading && emptyResultsContent != null) {
-            // Show empty state when query is valid but no results
+        } else if (value.isNotBlank() && !isLoading && emptyResultsContent != null) {
+            // Show empty state whenever there's a query and no results. Previously gated on
+            // `value.length >= 2`, which silently dropped a 1-character query entirely (no
+            // dropdown, no hint) — the caller, not this generic field, owns the notion of a
+            // search floor, so the gate here is just "there's something to say something about."
             emptyResultsContent()
+        }
+    }
+}
+
+/**
+ * Content for [ListenUpAutocompleteField]'s `emptyResultsContent` slot: nudges the user to keep
+ * typing when [query] is shorter than [MIN_SEARCH_QUERY_LENGTH] — below the floor, no search
+ * could have run, so "no results" would be a lie. Renders nothing for a [query] at or above the
+ * floor, preserving the field's existing (silent) behaviour for a genuinely empty result.
+ *
+ * @param query The current search text, used only to decide which of the two cases applies.
+ */
+@Composable
+fun AutocompleteEmptyResultsHint(
+    query: String,
+    modifier: Modifier = Modifier,
+) {
+    if (query.length < MIN_SEARCH_QUERY_LENGTH) {
+        Row(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = stringResource(Res.string.search_keep_typing),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    text = stringResource(Res.string.search_keep_typing_description, MIN_SEARCH_QUERY_LENGTH),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

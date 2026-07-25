@@ -1055,6 +1055,8 @@ One beautiful library.</string>
     <string name="search_count_books">%1$s books</string>
     <string name="search_cover_for">Cover for %1$s</string>
     <string name="search_find_description">Find books by title, author, narrator, or series</string>
+    <string name="search_keep_typing">Keep typing</string>
+    <string name="search_keep_typing_description">Enter at least %1$d characters to search</string>
     <string name="search_no_results_for_query">No results for “%1$s”</string>
     <string name="search_people">People</string>
     <string name="search_results_count_for">%1$d results for “%2$s”</string>

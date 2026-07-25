@@ -206,11 +206,24 @@ enum SearchRoute: Hashable {
 /// The render phase of the search screen, flattened from the shared `SearchUiState`.
 enum SearchPhase: Equatable {
     case idle
+    case tooShort
     case searching
     case results
     case empty
     case error(String)
 }
+
+/// Mirrors the shared `MIN_SEARCH_QUERY_LENGTH` floor
+/// (`client/.../domain/model/Search.kt`) — the client's local FTS5 index is built with
+/// `tokenize='trigram'`, which cannot match a query shorter than this at all.
+///
+/// The Kotlin constant is a top-level `const val`, not a type, so it isn't part of the
+/// flat-typealias Swift Export surface (`tools/scripts/export-surface-inventory.sh`
+/// only covers exported types/objects — see `SearchResultCaps.shared` for that pattern)
+/// and no existing Swift call site bridges a top-level Kotlin constant to confirm the
+/// generated symbol name. Kept here as a single named constant, mirrored by hand, rather
+/// than scattering the literal `3` across `SearchView`/`RelationSearchField`.
+let minSearchQueryLength = 3
 
 extension String {
     var nilIfEmpty: String? { isEmpty ? nil : self }
