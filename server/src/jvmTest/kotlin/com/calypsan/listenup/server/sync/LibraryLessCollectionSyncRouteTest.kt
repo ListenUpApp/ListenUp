@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -41,8 +45,8 @@ class LibraryLessCollectionSyncRouteTest :
                 application { module() }
                 val client = jsonClient()
 
-                client.mintRootToken()
-                val memberToken = client.registerMember()
+                mintRootToken()
+                val memberToken = registerMember()
 
                 listOf(
                     "/api/v1/sync/collections?since=0",
@@ -61,20 +65,16 @@ private fun io.ktor.server.testing.ApplicationTestBuilder.jsonClient(): HttpClie
         install(ContentNegotiation) { json(contractJson) }
     }
 
-private suspend fun HttpClient.mintRootToken(): String =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintRootToken(): String =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .let { it as AppResult.Success<AuthSession> }
         .data.accessToken.value
 
-private suspend fun HttpClient.registerMember(): String {
+private suspend fun ApplicationTestBuilder.registerMember(): String {
     val result =
-        post("/api/v1/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
-        }.body<AppResult<com.calypsan.listenup.api.dto.auth.RegisterResult>>()
+        publicAuthService()
+            .register(RegisterRequest("member@x", "y".repeat(8), "Member"))
             .let { it as AppResult.Success<com.calypsan.listenup.api.dto.auth.RegisterResult> }
             .data
     return (result as com.calypsan.listenup.api.dto.auth.RegisterResult.Authenticated).session.accessToken.value

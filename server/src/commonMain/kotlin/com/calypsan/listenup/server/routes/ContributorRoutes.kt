@@ -65,37 +65,6 @@ fun Route.contributorRoutes(
     imageHome: Path,
     imageStorage: ImageStorage,
 ) {
-    get<ContributorResources.Detail> { res ->
-        when (val result = contributorService.getContributor(ContributorId(res.id))) {
-            is AppResult.Success -> {
-                val payload = result.data
-                if (payload != null) call.respond(payload) else call.respond(HttpStatusCode.NotFound)
-            }
-
-            is AppResult.Failure -> {
-                call.respondBareAppError(result.error)
-            }
-        }
-    }
-
-    get<ContributorResources.Books> { res ->
-        // The scoped service access-filters the listing: a book the caller can't reach is
-        // simply absent — existence-preserving, identical to a contributor with no accessible
-        // books. ROOT/ADMIN bypass the filter inside the service.
-        when (val result = call.scoped(contributorService).listBooksByContributor(ContributorId(res.id))) {
-            is AppResult.Success -> call.respond(result.data)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    patch<ContributorResources.Detail> { res ->
-        val patch = call.receive<ContributorUpdate>()
-        when (val result = call.scoped(contributorService).updateContributor(ContributorId(res.id), patch)) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
     put<ContributorResources.Image> { res ->
         // Store the bytes content-addressed, then persist the path through the scoped service so its
         // internal requireCanEdit gate + revision bump + sync-event publication fire (contributor's
@@ -124,29 +93,6 @@ fun Route.contributorRoutes(
                     }
                 }
             }
-        }
-    }
-
-    delete<ContributorResources.Detail> { res ->
-        when (val result = call.scoped(contributorService).deleteContributor(ContributorId(res.id))) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    post<ContributorResources.Merge> {
-        val body = call.receive<MergeContributorsBody>()
-        when (val result = call.scoped(contributorService).mergeContributors(body.source, body.target)) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    post<ContributorResources.Unmerge> { res ->
-        val body = call.receive<UnmergeContributorBody>()
-        when (val result = call.scoped(contributorService).unmergeContributor(ContributorId(res.id), body.aliasName)) {
-            is AppResult.Success -> call.respond(result.data)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
 }

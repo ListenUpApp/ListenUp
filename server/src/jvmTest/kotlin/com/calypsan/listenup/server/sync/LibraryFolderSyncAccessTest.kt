@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -169,8 +171,8 @@ private fun withFolderSyncApp(
                 createClient {
                     install(ContentNegotiation) { json(contractJson) }
                 }
-            val admin = client.mintRoot()
-            val member = client.registerMember()
+            val admin = mintRoot()
+            val member = registerMember()
             block(client, admin, member)
         }
     } finally {
@@ -178,20 +180,16 @@ private fun withFolderSyncApp(
     }
 }
 
-private suspend fun HttpClient.mintRoot(): TestUser =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintRoot(): TestUser =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .let { it as AppResult.Success<AuthSession> }
         .data
         .let { TestUser(token = it.accessToken.value, userId = it.user.id.value) }
 
-private suspend fun HttpClient.registerMember(): TestUser =
-    post("/api/v1/auth/register") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
-    }.body<AppResult<RegisterResult>>()
+private suspend fun ApplicationTestBuilder.registerMember(): TestUser =
+    publicAuthService()
+        .register(RegisterRequest("member@x", "y".repeat(8), "Member"))
         .let { it as AppResult.Success<RegisterResult> }
         .data
         .let { it as RegisterResult.Authenticated }

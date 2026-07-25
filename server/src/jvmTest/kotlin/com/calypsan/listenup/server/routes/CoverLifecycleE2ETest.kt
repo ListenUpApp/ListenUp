@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -94,11 +96,8 @@ class CoverLifecycleE2ETest :
 
                     // ── Step 0: auth ─────────────────────────────────────────────────────────
                     val token =
-                        client
-                            .post("/api/v1/auth/setup") {
-                                contentType(ContentType.Application.Json)
-                                setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-                            }.body<AppResult<AuthSession>>()
+                        publicAuthService()
+                            .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
                             .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                             .data
                             .accessToken

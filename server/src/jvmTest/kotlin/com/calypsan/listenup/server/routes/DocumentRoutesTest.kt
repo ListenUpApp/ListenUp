@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -47,15 +51,10 @@ import java.nio.file.Files
 class DocumentRoutesTest :
     FunSpec({
 
-        suspend fun HttpClient.mintAccessToken(): String {
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-            }
-            return post("/api/v1/auth/login") {
-                contentType(ContentType.Application.Json)
-                setBody(LoginRequest("root@x", "x".repeat(8)))
-            }.body<AppResult<AuthSession>>()
+        suspend fun ApplicationTestBuilder.mintAccessToken(): String {
+            publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+            return publicAuthService()
+                .login(LoginRequest("root@x", "x".repeat(8)))
                 .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 .data
                 .accessToken
@@ -69,7 +68,7 @@ class DocumentRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
@@ -106,7 +105,7 @@ class DocumentRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b2"))
@@ -136,7 +135,7 @@ class DocumentRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b3"))

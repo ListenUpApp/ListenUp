@@ -20,6 +20,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import io.kotest.matchers.shouldBe
 import kotlin.time.Duration.Companion.seconds
+import com.calypsan.listenup.server.testing.publicAuthService
 
 class DemoProfileBootTest :
     FunSpec({
@@ -31,17 +32,14 @@ class DemoProfileBootTest :
 
                 eventually(5.seconds) {
                     val response =
-                        client.post("/api/v1/auth/login") {
-                            contentType(ContentType.Application.Json)
-                            setBody(
+                        publicAuthService()
+                            .login(
                                 LoginRequest(
                                     email = UserDomainSeeder.DEMO_EMAIL,
                                     password = UserDomainSeeder.DEMO_PASSWORD,
                                 ),
                             )
-                        }
-                    response.status shouldBe HttpStatusCode.OK
-                    response.body<AppResult<AuthSession>>().shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                    response.shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 }
             }
         }

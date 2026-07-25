@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -30,6 +34,11 @@ import java.nio.file.Files
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
+import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.server.testing.authedService
+import io.kotest.matchers.types.shouldBeInstanceOf
+import com.calypsan.listenup.api.dto.Library
+import com.calypsan.listenup.api.dto.LibraryFolder
 
 /**
  * The capstone proof of library-less onboarding: a server that boots with NO
@@ -38,7 +47,7 @@ import kotlinx.serialization.Serializable
  * in a single running process and with no restart:
  *
  *  1. report `needsSetup == true` (no folder yet),
- *  2. accept a wizard `addFolder` call (`POST /api/v1/libraries/folders`),
+ *  2. accept a wizard `LibraryAdminService.addFolder` call,
  *  3. live-mount + scan the new folder via the already-running `ScanOrchestrator`,
  *  4. serve the scanned books over the always-loaded `/api/v1/sync/books` substrate.
  *
@@ -70,27 +79,26 @@ class LibraryLessOnboardingE2ETest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     // 1. Mint the ROOT/ADMIN bearer (also serves as the wizard's admin caller).
-                    val adminToken = client.mintRootToken()
+                    val adminToken = mintRootToken()
 
                     // 2. The library-admin surface is PRESENT on a library-less boot (not 404),
                     //    and reports that the server still needs onboarding (no folders yet).
-                    val statusResponse = client.get("/api/v1/libraries/setup-status") { bearerAuth(adminToken) }
-                    statusResponse.status shouldBe HttpStatusCode.OK
-                    val status = statusResponse.body<SetupStatus>()
+                    val status =
+                        authedService<LibraryAdminService>(adminToken)
+                            .getSetupStatus()
+                            .shouldBeInstanceOf<AppResult.Success<SetupStatus>>()
+                            .data
                     status.needsSetup shouldBe true
 
                     // 3. Wizard fetches THE library to confirm it exists (singleton model).
-                    val libraryResponse = client.get("/api/v1/libraries") { bearerAuth(adminToken) }
-                    libraryResponse.status shouldBe HttpStatusCode.OK
+                    authedService<LibraryAdminService>(adminToken)
+                        .getLibrary()
+                        .shouldBeInstanceOf<AppResult.Success<Library>>()
 
                     // 4. Wizard adds a folder to THE library pointing at the temp dir.
-                    val addFolderResponse =
-                        client.post("/api/v1/libraries/folders") {
-                            bearerAuth(adminToken)
-                            contentType(ContentType.Application.Json)
-                            setBody(AddFolderBody(path = libraryDir.toString()))
-                        }
-                    addFolderResponse.status shouldBe HttpStatusCode.Created
+                    authedService<LibraryAdminService>(adminToken)
+                        .addFolder(libraryDir.toString())
+                        .shouldBeInstanceOf<AppResult.Success<LibraryFolder>>()
 
                     // 5. Kick the live scan via the already-mounted orchestrator.
                     //    Library bootstrap — which registers the library with the orchestrator and warms
@@ -102,9 +110,10 @@ class LibraryLessOnboardingE2ETest :
                     //    status fails fast. (In production the wizard runs long after boot, never racing.)
                     withTimeout(SCAN_TRIGGER_TIMEOUT_MS) {
                         while (true) {
-                            val scanResponse = client.post("/api/v1/libraries/scan") { bearerAuth(adminToken) }
-                            if (scanResponse.status == HttpStatusCode.Accepted) break
-                            scanResponse.status shouldBe HttpStatusCode.NotFound
+                            val scanResult = authedService<LibraryAdminService>(adminToken).scanLibrary()
+                            if (scanResult is AppResult.Success) break
+                            // Only the startup-race "library not yet registered" failure is tolerated.
+                            scanResult.shouldBeInstanceOf<AppResult.Failure>()
                             delay(POLL_INTERVAL_MS)
                         }
                     }
@@ -135,16 +144,10 @@ private const val SCAN_AWAIT_TIMEOUT_MS = 20_000L
 private const val POLL_INTERVAL_MS = 100L
 
 /** Request body for `POST /api/v1/libraries/folders`. */
-@Serializable
-private data class AddFolderBody(
-    val path: String,
-)
 
-private suspend fun HttpClient.mintRootToken(): String =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintRootToken(): String =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .let { it as AppResult.Success<AuthSession> }
         .data.accessToken.value
 

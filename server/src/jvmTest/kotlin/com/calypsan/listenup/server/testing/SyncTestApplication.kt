@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.testing
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.calypsan.listenup.api.PlaybackService
@@ -14,7 +16,6 @@ import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
-import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
@@ -142,7 +143,7 @@ internal data class SyncTestScope(
  *   (domain `playback_positions`) and exposes it as [SyncTestScope.playbackPositionRepo].
  *   The table is created by Flyway migrations, so no manual schema creation is needed.
  * @param playbackEvents when true, also wires [ListeningEventRepository], [UserStatsRepository],
- *   [UserStatsUpdater], and [PlaybackServiceImpl], mounts [playbackRoutes], and exposes
+ *   [UserStatsUpdater], and [PlaybackServiceImpl], and exposes
  *   [SyncTestScope.listeningEventRepo] and [SyncTestScope.userStatsRepo]. Enables end-to-end
  *   tests of the `POST /api/v1/playback/events` → stats materialization → sync catch-up path.
  */
@@ -253,7 +254,6 @@ internal fun withTestApplication(
             routing {
                 authenticate(JWT_PROVIDER) {
                     syncRoutes()
-                    if (playbackService != null) playbackRoutes(playbackService)
                 }
             }
         }

@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -55,15 +59,10 @@ import java.nio.file.Files
 class BookCoverRouteTest :
     FunSpec({
 
-        suspend fun HttpClient.mintAccessToken(): String {
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-            }
-            return post("/api/v1/auth/login") {
-                contentType(ContentType.Application.Json)
-                setBody(LoginRequest("root@x", "x".repeat(8)))
-            }.body<AppResult<AuthSession>>()
+        suspend fun ApplicationTestBuilder.mintAccessToken(): String {
+            publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+            return publicAuthService()
+                .login(LoginRequest("root@x", "x".repeat(8)))
                 .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 .data
                 .accessToken
@@ -75,12 +74,10 @@ class BookCoverRouteTest :
         // (accessToken, userId). The member-role JWT is what makes the route-level
         // [BookAccessPolicy] gate run for real instead of the all-bypassing ROOT
         // that [mintAccessToken]'s first-user-is-ROOT setup produces.
-        suspend fun HttpClient.registerMember(email: String): Pair<String, String> {
+        suspend fun ApplicationTestBuilder.registerMember(email: String): Pair<String, String> {
             val session =
-                post("/api/v1/auth/register") {
-                    contentType(ContentType.Application.Json)
-                    setBody(RegisterRequest(email, "x".repeat(8), "Member"))
-                }.body<AppResult<RegisterResult>>()
+                publicAuthService()
+                    .register(RegisterRequest(email, "x".repeat(8), "Member"))
                     .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
                     .data
                     .shouldBeInstanceOf<RegisterResult.Authenticated>()
@@ -99,7 +96,7 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
@@ -143,7 +140,7 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b2"))
@@ -176,7 +173,7 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val response = client.get("/api/v1/books/nonexistent/cover") { bearerAuth(token) }
 
@@ -194,7 +191,7 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
@@ -238,8 +235,8 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    client.mintAccessToken() // first user → ROOT (seeds the instance)
-                    val (memberToken, _) = client.registerMember("member@x")
+                    mintAccessToken() // first user → ROOT (seeds the instance)
+                    val (memberToken, _) = registerMember("member@x")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     // b1 has a real, servable filesystem cover — so a 404 can only come
@@ -272,8 +269,8 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    client.mintAccessToken()
-                    val (memberToken, memberId) = client.registerMember("member@x")
+                    mintAccessToken()
+                    val (memberToken, memberId) = registerMember("member@x")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
@@ -311,7 +308,7 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
@@ -338,8 +335,8 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    client.mintAccessToken()
-                    val (memberToken, _) = client.registerMember("member@x")
+                    mintAccessToken()
+                    val (memberToken, _) = registerMember("member@x")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
@@ -383,7 +380,7 @@ class BookCoverRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val rootToken = client.mintAccessToken() // first user → ROOT
+                    val rootToken = mintAccessToken() // first user → ROOT
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
@@ -421,7 +418,7 @@ class BookCoverRouteTest :
                     )
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     // Write the managed cover under $homeDir/covers/
@@ -463,7 +460,7 @@ class BookCoverRouteTest :
                     )
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     val coversDir = Files.createDirectories(homeRoot.resolve("covers"))

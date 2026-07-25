@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.sync
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -59,19 +63,15 @@ class CollectionBooksFirehoseAccessTest :
 
         val sentinelMarker = "SENTINEL-cb-firehose"
 
-        suspend fun HttpClient.setupRootId(): String =
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("owner@cb-firehose.example", "x".repeat(8), "Owner"))
-            }.body<AppResult<AuthSession>>()
+        suspend fun ApplicationTestBuilder.setupRootId(): String =
+            publicAuthService()
+                .setupRoot(RegisterRequest("owner@cb-firehose.example", "x".repeat(8), "Owner"))
                 .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 .data.user.id.value
 
-        suspend fun HttpClient.registerMemberId(): String =
-            post("/api/v1/auth/register") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("member@cb-firehose.example", "y".repeat(8), "Member"))
-            }.body<AppResult<RegisterResult>>()
+        suspend fun ApplicationTestBuilder.registerMemberId(): String =
+            publicAuthService()
+                .register(RegisterRequest("member@cb-firehose.example", "y".repeat(8), "Member"))
                 .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
                 .data
                 .let { it as RegisterResult.Authenticated }
@@ -87,8 +87,8 @@ class CollectionBooksFirehoseAccessTest :
                     application { module() }
 
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val ownerId = restClient.setupRootId()
-                    val memberId = restClient.registerMemberId()
+                    val ownerId = setupRootId()
+                    val memberId = registerMemberId()
 
                     seedTestLibraryAndFolder()
                     val sql by application.inject<ListenUpDatabase>()

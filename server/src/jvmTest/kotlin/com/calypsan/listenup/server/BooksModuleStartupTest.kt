@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -47,16 +51,10 @@ import java.nio.file.Files
 class BooksModuleStartupTest :
     FunSpec({
 
-        suspend fun HttpClient.seedAndLoginAlice(): AuthSession {
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-            }
+        suspend fun ApplicationTestBuilder.seedAndLoginAlice(): AuthSession {
+            publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
             val registered =
-                post("/api/v1/auth/register") {
-                    contentType(ContentType.Application.Json)
-                    setBody(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
-                }.body<AppResult<RegisterResult>>()
+                publicAuthService().register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
             return registered
                 .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
                 .data
@@ -72,7 +70,7 @@ class BooksModuleStartupTest :
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
-                    val session = client.seedAndLoginAlice()
+                    val session = seedAndLoginAlice()
 
                     val response =
                         client.get("/api/v1/sync/domains") {

@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -55,7 +59,7 @@ class BackupRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (token, _) = client.setupRoot()
+                    val (token, _) = setupRoot()
 
                     // Place a real backup archive in the server's backups dir using a fixture that
                     // shares the same homeDir so BackupPaths.archiveFor resolves it correctly.
@@ -104,7 +108,7 @@ class BackupRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (token, _) = client.setupRoot()
+                    val (token, _) = setupRoot()
 
                     val response =
                         client.get("/api/v1/admin/backups/backup-nonexistent/download") {
@@ -127,7 +131,7 @@ class BackupRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (token, _) = client.setupRoot()
+                    val (token, _) = setupRoot()
 
                     // Build a valid archive in a separate temp home so it's "foreign" to the server.
                     val zipBytes: ByteArray
@@ -195,7 +199,7 @@ class BackupRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (token, _) = client.setupRoot()
+                    val (token, _) = setupRoot()
 
                     val uploadResponse =
                         client.post("/api/v1/admin/backups/upload") {
@@ -232,7 +236,7 @@ class BackupRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (_, memberToken) = client.setupRootAndRegisterMember()
+                    val (_, memberToken) = setupRootAndRegisterMember()
 
                     val response =
                         client.get("/api/v1/admin/backups/backup-any-id/download") {
@@ -260,7 +264,7 @@ class BackupRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (token, _) = client.setupRoot()
+                    val (token, _) = setupRoot()
 
                     // 51 MiB of zeros — exceeds Ktor's default 50 MiB cap but well within
                     // MAX_BACKUP_RESTORE_BYTES (5 GiB). Content is intentionally invalid (not a
@@ -306,7 +310,7 @@ class BackupRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (_, memberToken) = client.setupRootAndRegisterMember()
+                    val (_, memberToken) = setupRootAndRegisterMember()
 
                     val response =
                         client.post("/api/v1/admin/backups/upload") {
@@ -337,12 +341,10 @@ class BackupRoutesTest :
     })
 
 /** Runs first-user setup and returns (accessToken, userId). */
-private suspend fun HttpClient.setupRoot(): Pair<String, String> {
+private suspend fun ApplicationTestBuilder.setupRoot(): Pair<String, String> {
     val session =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-        }.body<AppResult<AuthSession>>()
+        publicAuthService()
+            .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
             .let { it as AppResult.Success<AuthSession> }
             .data
     return session.accessToken.value to session.user.id.value
@@ -352,13 +354,11 @@ private suspend fun HttpClient.setupRoot(): Pair<String, String> {
  * Runs first-user setup (ROOT) and registers a second MEMBER user. Returns
  * (rootToken, memberToken). The OPEN registration policy makes the second user ACTIVE immediately.
  */
-private suspend fun HttpClient.setupRootAndRegisterMember(): Pair<String, String> {
+private suspend fun ApplicationTestBuilder.setupRootAndRegisterMember(): Pair<String, String> {
     val (rootToken, _) = setupRoot()
     val memberSession =
-        post("/api/v1/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("member@x", "x".repeat(8), "Member"))
-        }.body<AppResult<com.calypsan.listenup.api.dto.auth.RegisterResult>>()
+        publicAuthService()
+            .register(RegisterRequest("member@x", "x".repeat(8), "Member"))
             .let { it as AppResult.Success<com.calypsan.listenup.api.dto.auth.RegisterResult> }
             .data
             .let { it as com.calypsan.listenup.api.dto.auth.RegisterResult.Authenticated }

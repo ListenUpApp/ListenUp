@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -62,8 +64,8 @@ class BooksDigestRouteAccessTest :
                     application { module() }
                     val client = jsonClient()
 
-                    val adminToken = client.mintRootToken()
-                    val member = client.registerMember()
+                    val adminToken = mintRootToken()
+                    val member = registerMember()
                     seedTestLibraryAndFolder()
 
                     val sql by application.inject<ListenUpDatabase>()
@@ -134,14 +136,10 @@ private data class Member(
 )
 
 /** Runs first-user setup and returns the ROOT access token. */
-private suspend fun HttpClient.mintRootToken(): String {
+private suspend fun ApplicationTestBuilder.mintRootToken(): String {
     val response =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-        }
+        publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
     return response
-        .body<AppResult<AuthSession>>()
         .let { it as AppResult.Success<AuthSession> }
         .data
         .accessToken
@@ -149,15 +147,11 @@ private suspend fun HttpClient.mintRootToken(): String {
 }
 
 /** Registers a second user (MEMBER role under OPEN policy) and returns their token + id. */
-private suspend fun HttpClient.registerMember(): Member {
+private suspend fun ApplicationTestBuilder.registerMember(): Member {
     val response =
-        post("/api/v1/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
-        }
+        publicAuthService().register(RegisterRequest("member@x", "y".repeat(8), "Member"))
     val session =
         response
-            .body<AppResult<RegisterResult>>()
             .let { it as AppResult.Success<RegisterResult> }
             .data
             .let { it as RegisterResult.Authenticated }

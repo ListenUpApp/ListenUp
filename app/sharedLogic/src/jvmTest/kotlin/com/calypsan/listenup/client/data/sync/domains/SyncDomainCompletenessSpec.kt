@@ -32,6 +32,14 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
+import com.calypsan.listenup.api.AuthServicePublic
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
+import kotlinx.rpc.krpc.serialization.json.json
+import kotlinx.rpc.withService
+import io.ktor.client.plugins.websocket.WebSockets
+import kotlinx.rpc.krpc.ktor.client.installKrpc
+import io.ktor.server.testing.ApplicationTestBuilder
 
 /**
  * The Phase-2 closing invariant: the contract ([SyncDomains.all]), the client
@@ -41,7 +49,7 @@ import java.nio.file.Files
  * symptom (a missing SSE stream, an un-bootstrapped table) can appear.
  *
  * The server leg boots the **real** production [module] in a Ktor
- * `testApplication`, mints a ROOT token via `/api/v1/auth/setup`, and reads
+ * `testApplication`, mints a ROOT token via `AuthServicePublic.setupRoot`, and reads
  * `GET /api/v1/sync/domains`. That route responds with
  * `DomainList(domains = registry.knownDomains())`, where the registry is
  * populated by every `SqlSyncableRepository` self-registering at bootstrap —
@@ -372,7 +380,7 @@ class SyncDomainCompletenessSpec :
                         }
                     // The sync/domains route is mounted inside authenticate(JWT_PROVIDER),
                     // so it needs a real bearer token — mint the first user as ROOT.
-                    val accessToken = client.setupRoot()
+                    val accessToken = setupRoot()
 
                     val domains =
                         client
@@ -388,19 +396,22 @@ class SyncDomainCompletenessSpec :
         }
     })
 
-/** Registers the first user as ROOT via `/api/v1/auth/setup` and returns the access token. */
-private suspend fun HttpClient.setupRoot(): String {
+/** Registers the first user as ROOT via `AuthServicePublic.setupRoot` and returns the access token. */
+private suspend fun ApplicationTestBuilder.setupRoot(): String {
     val result =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(
+        createClient {
+            install(WebSockets)
+            installKrpc()
+        }.rpc("ws://localhost/api/rpc/public") {
+            rpcConfig { serialization { json(contractJson) } }
+        }.withService<AuthServicePublic>()
+            .setupRoot(
                 RegisterRequest(
                     email = "root@completeness.test",
                     password = "password1234",
                     displayName = "Root",
                 ),
             )
-        }.body<AppResult<AuthSession>>()
     return (result as AppResult.Success<AuthSession>).data.accessToken.value
 }
 

@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -46,7 +50,7 @@ class CollectionIdsAllowlistTest :
                     application { module() }
                     val client = jsonClient()
 
-                    val token = client.mintRootToken()
+                    val token = mintRootToken()
 
                     val response =
                         client.get("/api/v1/sync/books?collectionIds=c1,c2") {
@@ -67,7 +71,7 @@ class CollectionIdsAllowlistTest :
                     application { module() }
                     val client = jsonClient()
 
-                    val token = client.mintRootToken()
+                    val token = mintRootToken()
                     seedTestLibraryAndFolder()
 
                     val sql by application.inject<ListenUpDatabase>()
@@ -101,11 +105,9 @@ private fun io.ktor.server.testing.ApplicationTestBuilder.jsonClient(): HttpClie
         install(ContentNegotiation) { json(contractJson) }
     }
 
-private suspend fun HttpClient.mintRootToken(): String =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintRootToken(): String =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .let { it as AppResult.Success<AuthSession> }
         .data.accessToken.value
 

@@ -52,6 +52,8 @@ import kotlinx.coroutines.test.runTest
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
 import kotlinx.io.files.Path as IoPath
+import com.calypsan.listenup.server.testing.publicAuthService
+import io.ktor.server.testing.ApplicationTestBuilder
 
 /**
  * Integration tests for Task 5: persist-at-scan and sticky-upload-merge.
@@ -156,7 +158,7 @@ class BookPersistCoverTest :
                     )
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     // Write an MP3 with embedded artwork under the library root.
@@ -587,7 +589,7 @@ class BookPersistCoverTest :
                     )
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
                     // Write the MP3 with embeddedBytes artwork to disk.
@@ -713,15 +715,10 @@ private fun minimalBookWithMp3(
 
 // --- Auth helper (mirrors BookCoverRouteTest) --------------------------------
 
-private suspend fun HttpClient.mintAccessToken(): String {
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }
-    return post("/api/v1/auth/login") {
-        contentType(ContentType.Application.Json)
-        setBody(LoginRequest("root@x", "x".repeat(8)))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintAccessToken(): String {
+    publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+    return publicAuthService()
+        .login(LoginRequest("root@x", "x".repeat(8)))
         .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
         .data
         .accessToken

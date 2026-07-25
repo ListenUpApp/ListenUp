@@ -533,6 +533,22 @@ class AuthServiceImplTest :
             }
         }
 
+        test("login throttles after the LOGIN ceiling from one host") {
+            runTest {
+                val svc = newSvcWithRateLimiter("10.0.0.8")
+
+                repeat(AuthRateBucket.LOGIN.perMinuteLimit) {
+                    svc.login(LoginRequest("nobody@x", "x".repeat(8)))
+                }
+
+                svc
+                    .login(LoginRequest("nobody@x", "x".repeat(8)))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.RateLimited>()
+            }
+        }
+
         test("observeRegistrationStatus throttles after the OBSERVE_REGISTRATION_STATUS ceiling from one host") {
             runTest {
                 val svc = newSvcWithRateLimiter("10.0.0.9")

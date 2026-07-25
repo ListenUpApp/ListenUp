@@ -27,6 +27,9 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.coroutines.flow.first
+import com.calypsan.listenup.api.result.AppResult
+import io.kotest.matchers.types.shouldBeInstanceOf
+import io.kotest.matchers.nulls.shouldBeNull
 
 /**
  * End-to-end integration test confirming the listening-events + user-stats
@@ -44,7 +47,7 @@ import kotlinx.coroutines.flow.first
  * 1. **Domains list** — `GET /api/v1/sync/domains` includes both
  *    `"listening_events"` and `"user_stats"`.
  *
- * 2. **End-to-end event → stats flow** — `POST /api/v1/playback/events` for u1
+ * 2. **End-to-end event → stats flow** — a recorded event for u1
  *    delivers a 30-second event; the subsequent sync catch-up and stats read
  *    both reflect it with `totalSecondsAllTime == 30`.
  *
@@ -63,6 +66,26 @@ class ListeningEventAndStatsRouteTest :
         /** Wall-clock span for the listening event seeded in cases 2–4. */
         val nowMs = 1_779_451_200_000L
         val wallSeconds = 30L
+
+        fun eventPayload(
+            id: String,
+            bookId: String,
+        ): ListeningEventSyncPayload =
+            ListeningEventSyncPayload(
+                id = id,
+                bookId = bookId,
+                startPositionMs = 0L,
+                endPositionMs = wallSeconds * 1_000L,
+                startedAt = nowMs - wallSeconds * 1_000L,
+                endedAt = nowMs,
+                playbackSpeed = 1.0f,
+                tz = "UTC",
+                deviceLabel = null,
+                revision = 0L,
+                updatedAt = nowMs,
+                createdAt = nowMs,
+                deletedAt = null,
+            )
 
         fun recordRequest(
             id: String,
@@ -90,17 +113,13 @@ class ListeningEventAndStatsRouteTest :
             }
         }
 
-        test("POST /api/v1/playback/events materialises into sync catch-up and stats for the owning user") {
+        test("a recorded listening event materialises into sync catch-up and stats for the owning user") {
             withTestApplication(playbackEvents = true) {
                 seedBook("book-a")
                 // Record a 30-second listening event as u1.
                 val postResponse =
-                    client.post("/api/v1/playback/events") {
-                        bearerAuth("u1")
-                        contentType(ContentType.Application.Json)
-                        setBody(recordRequest(id = "evt-u1-1", bookId = "book-a"))
-                    }
-                postResponse.status shouldBe HttpStatusCode.OK
+                    listeningEventRepo.upsert(eventPayload("evt-u1-1", "book-a"), clientOpId = null, userId = "u1")
+                postResponse.shouldBeInstanceOf<AppResult.Success<ListeningEventSyncPayload>>()
 
                 // The event must appear in the per-user catch-up page with a non-zero revision.
                 val catchUpResponse =
@@ -113,9 +132,7 @@ class ListeningEventAndStatsRouteTest :
                 event.revision shouldBeGreaterThan 0L
 
                 // The stats row must reflect the 30 seconds.
-                val statsResponse = client.get("/api/v1/playback/stats") { bearerAuth("u1") }
-                statsResponse.status shouldBe HttpStatusCode.OK
-                val stats: UserStatsSyncPayload = statsResponse.body()
+                val stats = userStatsRepo.getForUser("u1").shouldNotBeNull()
                 stats.totalSecondsAllTime shouldBe wallSeconds
             }
         }
@@ -124,11 +141,7 @@ class ListeningEventAndStatsRouteTest :
             withTestApplication(playbackEvents = true) {
                 seedBook("book-a")
                 // Seed u1's event.
-                client.post("/api/v1/playback/events") {
-                    bearerAuth("u1")
-                    contentType(ContentType.Application.Json)
-                    setBody(recordRequest(id = "evt-u1-2", bookId = "book-a"))
-                }
+                listeningEventRepo.upsert(eventPayload("evt-u1-2", "book-a"), clientOpId = null, userId = "u1")
 
                 // u2's catch-up must return an empty page — u1's event must not leak.
                 val u2CatchUp =
@@ -138,8 +151,7 @@ class ListeningEventAndStatsRouteTest :
                 u2Page.items.size shouldBe 0
 
                 // u2's stats endpoint returns 204 (no history yet).
-                val u2Stats = client.get("/api/v1/playback/stats") { bearerAuth("u2") }
-                u2Stats.status shouldBe HttpStatusCode.NoContent
+                userStatsRepo.getForUser("u2").shouldBeNull()
             }
         }
 
@@ -151,17 +163,9 @@ class ListeningEventAndStatsRouteTest :
                 // holds both, so the collection is deterministic. u2's write is skipped
                 // for the u1 subscriber; a leaked u2 event would arrive first and the
                 // book-id assertion below would see "book-u2" instead of "book-u1".
-                client.post("/api/v1/playback/events") {
-                    bearerAuth("u2")
-                    contentType(ContentType.Application.Json)
-                    setBody(recordRequest(id = "evt-u2-sse", bookId = "book-u2"))
-                }
+                listeningEventRepo.upsert(eventPayload("evt-u2-sse", "book-u2"), clientOpId = null, userId = "u2")
                 // u1's write — must be the first `listening_events` frame u1 sees.
-                client.post("/api/v1/playback/events") {
-                    bearerAuth("u1")
-                    contentType(ContentType.Application.Json)
-                    setBody(recordRequest(id = "evt-u1-sse", bookId = "book-u1"))
-                }
+                listeningEventRepo.upsert(eventPayload("evt-u1-sse", "book-u1"), clientOpId = null, userId = "u1")
 
                 val frame =
                     rpcFirehose(bus, rootPrincipal("u1"))

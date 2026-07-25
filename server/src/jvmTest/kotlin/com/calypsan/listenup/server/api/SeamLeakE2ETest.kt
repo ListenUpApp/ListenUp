@@ -35,6 +35,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.testing.domainFrames
 import com.calypsan.listenup.server.testing.memberPrincipal
+import com.calypsan.listenup.server.testing.publicAuthService
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -69,6 +70,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.transformWhile
 import org.koin.ktor.ext.inject
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.server.testing.authedService
 
 /**
  * The Collections-1b deliverable: the adversarial seam-leak proof.
@@ -106,8 +109,8 @@ class SeamLeakE2ETest :
                     val client = jsonClient()
 
                     // ── Seed: admin `a`, member `m1` (no access), books on disk + FTS ──
-                    val admin = client.runSetup()
-                    val m1 = client.registerMember("m1")
+                    val admin = runSetup()
+                    val m1 = registerMember("m1")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                     writeAudioFile(libraryRoot, "B")
                     writeAudioFile(libraryRoot, "B_inbox")
@@ -137,9 +140,9 @@ class SeamLeakE2ETest :
                     // Control: m1 fetches P (public) → 200. B / B_inbox → NotFound (indistinguishable
                     // from absent — a Forbidden would itself leak existence). If the gate were
                     // removed, getBook(B) would 200 like P does.
-                    client.getBook(m1.token, "P").status shouldBe HttpStatusCode.OK
-                    client.getBook(m1.token, "B").status shouldBe HttpStatusCode.NotFound
-                    client.getBook(m1.token, "B_inbox").status shouldBe HttpStatusCode.NotFound
+                    getBook(m1.token, "P").shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    getBook(m1.token, "B").shouldBeInstanceOf<AppResult.Failure>()
+                    getBook(m1.token, "B_inbox").shouldBeInstanceOf<AppResult.Failure>()
 
                     // ─────────────────────────── SEAM 2: audio ───────────────────────────
                     // A VALID HMAC signature for (m1, B, af-B) still 404s — the deny is an access
@@ -220,7 +223,7 @@ class SeamLeakE2ETest :
                     application { module() }
                     val client = jsonClient()
 
-                    val admin = client.runSetup()
+                    val admin = runSetup()
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                     writeAudioFile(libraryRoot, "B")
                     writeAudioFile(libraryRoot, "B_inbox")
@@ -237,8 +240,8 @@ class SeamLeakE2ETest :
                     collections.addToInbox("B_inbox", "test-library").requireSuccess()
 
                     // SEAM 1: getBook → 200 for both.
-                    client.getBook(admin.token, "B").status shouldBe HttpStatusCode.OK
-                    client.getBook(admin.token, "B_inbox").status shouldBe HttpStatusCode.OK
+                    getBook(admin.token, "B").shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
+                    getBook(admin.token, "B_inbox").shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
 
                     // SEAM 2: audio → validly-signed URL serves bytes.
                     val signer = AudioUrlSigner(signingKey = AudioUrlSigner.deriveSigningKey("x".repeat(32)))
@@ -280,8 +283,8 @@ class SeamLeakE2ETest :
                     application { module() }
                     val client = jsonClient()
 
-                    val admin = client.runSetup()
-                    val m2 = client.registerMember("m2")
+                    val admin = runSetup()
+                    val m2 = registerMember("m2")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                     writeAudioFile(libraryRoot, "B")
 
@@ -292,7 +295,7 @@ class SeamLeakE2ETest :
                     val privateCol = ownerService.createPrivateCollection("Private", "B")
 
                     // Before sharing: m2 cannot reach B (control — the gate is active).
-                    client.getBook(m2.token, "B").status shouldBe HttpStatusCode.NotFound
+                    getBook(m2.token, "B").shouldBeInstanceOf<AppResult.Failure>()
                     client.catchUp(m2.token).items.map { it.id } shouldNotContain "B"
 
                     // Subscribe m2 to the firehose CONTROL channel, then share. An AccessChanged
@@ -316,12 +319,12 @@ class SeamLeakE2ETest :
                     }
 
                     // After sharing: B converges into m2's reachable set via getBook + catch-up.
-                    client.getBook(m2.token, "B").status shouldBe HttpStatusCode.OK
+                    getBook(m2.token, "B").shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     client.catchUp(m2.token).items.map { it.id } shouldContain "B"
 
                     // Revoke → B disappears again from getBook + catch-up.
                     ownerService.revokeShare(privateCol, m2.userId).requireSuccess()
-                    client.getBook(m2.token, "B").status shouldBe HttpStatusCode.NotFound
+                    getBook(m2.token, "B").shouldBeInstanceOf<AppResult.Failure>()
                     client.catchUp(m2.token).items.map { it.id } shouldNotContain "B"
                 }
             } finally {
@@ -337,8 +340,8 @@ class SeamLeakE2ETest :
                     application { module() }
                     val client = jsonClient()
 
-                    val admin = client.runSetup()
-                    val m1 = client.registerMember("m1")
+                    val admin = runSetup()
+                    val m1 = registerMember("m1")
                     seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                     writeAudioFile(libraryRoot, "G")
 
@@ -351,7 +354,7 @@ class SeamLeakE2ETest :
                     makeBookPublic("G")
 
                     // getBook + catch-up: m1 (granted via ALL_BOOKS) sees the book.
-                    client.getBook(m1.token, "G").status shouldBe HttpStatusCode.OK
+                    getBook(m1.token, "G").shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     client.catchUp(m1.token).items.map { it.id } shouldContain "G"
                 }
             } finally {
@@ -374,24 +377,20 @@ private fun ApplicationTestBuilder.jsonClient(): HttpClient =
     }
 
 /** Runs first-user setup; returns the ROOT (admin) token + id. */
-private suspend fun HttpClient.runSetup(): TestUser {
+private suspend fun ApplicationTestBuilder.runSetup(): TestUser {
     val session =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-        }.body<AppResult<AuthSession>>()
+        publicAuthService()
+            .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
             .let { it as AppResult.Success<AuthSession> }
             .data
     return TestUser(token = session.accessToken.value, userId = session.user.id.value)
 }
 
 /** Registers a MEMBER (OPEN policy); returns token + id. */
-private suspend fun HttpClient.registerMember(name: String): TestUser {
+private suspend fun ApplicationTestBuilder.registerMember(name: String): TestUser {
     val session =
-        post("/api/v1/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("$name@x", "y".repeat(8), name))
-        }.body<AppResult<RegisterResult>>()
+        publicAuthService()
+            .register(RegisterRequest("$name@x", "y".repeat(8), name))
             .let { it as AppResult.Success<RegisterResult> }
             .data
             .let { it as RegisterResult.Authenticated }
@@ -401,10 +400,10 @@ private suspend fun HttpClient.registerMember(name: String): TestUser {
 
 // ── Per-seam HTTP calls against the real routes ──
 
-private suspend fun HttpClient.getBook(
+private suspend fun ApplicationTestBuilder.getBook(
     token: String,
     bookId: String,
-): HttpResponse = get("/api/v1/books/$bookId") { bearerAuth(token) }
+): AppResult<BookSyncPayload> = authedService<BookService>(token).getBook(BookId(bookId))
 
 private suspend fun HttpClient.audio(
     query: String,

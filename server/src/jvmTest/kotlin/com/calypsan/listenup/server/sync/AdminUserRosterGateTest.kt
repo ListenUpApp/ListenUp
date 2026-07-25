@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.sync
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -39,8 +41,8 @@ class AdminUserRosterGateTest :
                 useIsolatedTestConfig()
                 application { module() }
                 val client = jsonClient()
-                val admin = client.mintRootToken()
-                val member = client.registerMember()
+                val admin = mintRootToken()
+                val member = registerMember()
 
                 val roster by application.inject<AdminUserRosterRepository>()
                 roster.upsert(rosterRowFixture("roster-user"))
@@ -61,19 +63,15 @@ private fun ApplicationTestBuilder.jsonClient(): HttpClient =
         install(ContentNegotiation) { json(contractJson) }
     }
 
-private suspend fun HttpClient.mintRootToken(): String =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintRootToken(): String =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .let { it as AppResult.Success<AuthSession> }
         .data.accessToken.value
 
-private suspend fun HttpClient.registerMember(): String =
-    post("/api/v1/auth/register") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
-    }.body<AppResult<RegisterResult>>()
+private suspend fun ApplicationTestBuilder.registerMember(): String =
+    publicAuthService()
+        .register(RegisterRequest("member@x", "y".repeat(8), "Member"))
         .let { it as AppResult.Success<RegisterResult> }
         .data
         .let { it as RegisterResult.Authenticated }

@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -56,15 +60,10 @@ class BookServiceRpcTest :
          * Seeds the root user and returns the access token by walking the real auth REST
          * surface — mirrors the pattern in [BookRoutesTest].
          */
-        suspend fun HttpClient.mintAccessToken(): String {
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("root@rpc-test.example", "x".repeat(8), "Root"))
-            }
-            return post("/api/v1/auth/login") {
-                contentType(ContentType.Application.Json)
-                setBody(LoginRequest("root@rpc-test.example", "x".repeat(8)))
-            }.body<AppResult<AuthSession>>()
+        suspend fun ApplicationTestBuilder.mintAccessToken(): String {
+            publicAuthService().setupRoot(RegisterRequest("root@rpc-test.example", "x".repeat(8), "Root"))
+            return publicAuthService()
+                .login(LoginRequest("root@rpc-test.example", "x".repeat(8)))
                 .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 .data
                 .accessToken
@@ -80,7 +79,7 @@ class BookServiceRpcTest :
 
                     // Mint JWT via REST — same pattern as BookRoutesTest.
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = restClient.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder()
 
                     // Seed the book directly through the Koin-resolved repository.

@@ -60,37 +60,6 @@ fun Route.seriesRoutes(
     imageHome: Path,
     imageStorage: ImageStorage,
 ) {
-    get<SeriesResources.Detail> { res ->
-        when (val result = seriesService.getSeries(SeriesId(res.id))) {
-            is AppResult.Success -> {
-                val payload = result.data
-                if (payload != null) call.respond(payload) else call.respond(HttpStatusCode.NotFound)
-            }
-
-            is AppResult.Failure -> {
-                call.respondBareAppError(result.error)
-            }
-        }
-    }
-
-    get<SeriesResources.Books> { res ->
-        // The scoped service access-filters the listing: a book the caller can't reach is
-        // simply absent — existence-preserving, identical to a series with no accessible
-        // books. ROOT/ADMIN bypass the filter inside the service.
-        when (val result = call.scoped(seriesService).listBooksBySeries(SeriesId(res.id))) {
-            is AppResult.Success -> call.respond(result.data)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    patch<SeriesResources.Detail> { res ->
-        val patch = call.receive<SeriesUpdate>()
-        when (val result = call.scoped(seriesService).updateSeries(SeriesId(res.id), patch)) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
     put<SeriesResources.Cover> { res ->
         // Store the bytes content-addressed, then persist the path through the scoped service so its
         // internal requireCanEdit gate + revision bump + sync-event publication fire (series' canEdit
@@ -119,21 +88,6 @@ fun Route.seriesRoutes(
                     }
                 }
             }
-        }
-    }
-
-    delete<SeriesResources.Detail> { res ->
-        when (val result = call.scoped(seriesService).deleteSeries(SeriesId(res.id))) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    post<SeriesResources.Merge> {
-        val body = call.receive<MergeSeriesBody>()
-        when (val result = call.scoped(seriesService).mergeSeries(body.source, body.target)) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
 }

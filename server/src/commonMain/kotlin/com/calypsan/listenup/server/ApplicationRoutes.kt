@@ -37,32 +37,19 @@ import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.RpcServices
-import com.calypsan.listenup.server.routes.adminInviteRoutes
 import com.calypsan.listenup.server.routes.adminRoutes
-import com.calypsan.listenup.server.routes.adminUserRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
-import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.backupRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.collectionAdminRoutes
-import com.calypsan.listenup.server.routes.collectionRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.coverCastRoutes
-import com.calypsan.listenup.server.routes.genreRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.importRoutes
-import com.calypsan.listenup.server.routes.instanceRoutes
-import com.calypsan.listenup.server.routes.libraryAdminRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
-import com.calypsan.listenup.server.routes.metadataRoutes
-import com.calypsan.listenup.server.routes.playbackProgressRoutes
-import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
-import com.calypsan.listenup.server.routes.publicInviteRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
-import com.calypsan.listenup.server.routes.scannerRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
-import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -129,31 +116,18 @@ internal fun Application.installAppRoutes(homeDir: Path) {
 
     routing {
         healthRoutes()
-        instanceRoutes(instanceService)
-        authRoutes(authService)
-        publicInviteRoutes(inviteService)
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
             syncRoutes()
-            adminUserRoutes(adminUserService)
-            adminInviteRoutes(inviteService)
-            libraryAdminRoutes(libraryAdminService)
             bookRoutes(bookService, coverResponder, bookAccessPolicy, documentFileLocator)
             contributorRoutes(contributorService, homeDir, imageStorage)
             seriesRoutes(seriesService, homeDir, imageStorage)
-            playbackRoutes(playbackService)
-            playbackProgressRoutes(playbackProgressService, bookAccessPolicy)
             adminRoutes(statsRecorder)
             metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
-            metadataRoutes(metadataLookupService)
-            tagRoutes(tagService, bookAccessPolicy)
-            genreRoutes(genreService)
-            collectionRoutes(collectionService)
             collectionAdminRoutes(collectionService)
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
-            scannerRoutes(scannerService)
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)

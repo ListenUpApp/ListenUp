@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -57,6 +59,9 @@ import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.first
 import org.koin.ktor.ext.inject
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.server.testing.authedService
+import io.kotest.matchers.types.shouldBeInstanceOf
 
 /**
  * The crown-jewel auto-quarantine proof.
@@ -101,8 +106,8 @@ class InboxQuarantineE2ETest :
                         application { module() }
                         val client = jsonClient()
 
-                        val admin = client.runSetup()
-                        val m1 = client.registerMember("m1")
+                        val admin = runSetup()
+                        val m1 = registerMember("m1")
 
                         // The default library is bootstrapped at libraryRoot; resolve the id the
                         // scan path actually uses (LibraryRegistry.currentLibrary), then enable its
@@ -166,7 +171,7 @@ class InboxQuarantineE2ETest :
 
                         // ── getBook: the member is denied the quarantined book (NotFound — the deny
                         // is indistinguishable from absent). The admin's inbox list contains it.
-                        client.getBook(m1.token, quarantinedId).status shouldBe HttpStatusCode.NotFound
+                        getBook(m1.token, quarantinedId).shouldBeInstanceOf<AppResult.Failure>()
                         val inboxIds = (collections.listInbox(libraryId) as AppResult.Success).data.map { it.value }
                         inboxIds shouldContain quarantinedId
 
@@ -175,14 +180,14 @@ class InboxQuarantineE2ETest :
                         collections
                             .releaseBooks(libraryId, mapOf(quarantinedId to emptyList()))
                             .requireSuccess()
-                        client.getBook(m1.token, quarantinedId).status shouldBe HttpStatusCode.OK
+                        getBook(m1.token, quarantinedId).shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
 
                         // ── Re-scan the now-released book: only-on-create means it must NOT be re-inboxed.
                         persister.scanSubtree(libraryRoot.toString(), book("Quarantined"))
                         val inboxAfterRescan =
                             (collections.listInbox(libraryId) as AppResult.Success).data.map { it.value }
                         inboxAfterRescan shouldNotContain quarantinedId
-                        client.getBook(m1.token, quarantinedId).status shouldBe HttpStatusCode.OK
+                        getBook(m1.token, quarantinedId).shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     }
                 } finally {
                     libraryRoot.toFile().deleteRecursively()
@@ -197,8 +202,8 @@ class InboxQuarantineE2ETest :
                     application { module() }
                     val client = jsonClient()
 
-                    val admin = client.runSetup()
-                    val m1 = client.registerMember("m1")
+                    val admin = runSetup()
+                    val m1 = registerMember("m1")
                     // The bootstrap library at libraryRoot is the only library; inboxEnabled stays
                     // false (the default) — no quarantine.
 
@@ -207,7 +212,7 @@ class InboxQuarantineE2ETest :
 
                     // In ALL_BOOKS: the member sees it through getBook immediately, no release step needed.
                     val openId = client.findBookIdByTitle(admin.token, "Open")
-                    client.getBook(m1.token, openId).status shouldBe HttpStatusCode.OK
+                    getBook(m1.token, openId).shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
@@ -341,23 +346,19 @@ private fun ApplicationTestBuilder.jsonClient(): HttpClient =
         install(ContentNegotiation) { json(contractJson) }
     }
 
-private suspend fun HttpClient.runSetup(): QuarantineUser {
+private suspend fun ApplicationTestBuilder.runSetup(): QuarantineUser {
     val session =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-        }.body<AppResult<AuthSession>>()
+        publicAuthService()
+            .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
             .let { it as AppResult.Success<AuthSession> }
             .data
     return QuarantineUser(token = session.accessToken.value, userId = session.user.id.value)
 }
 
-private suspend fun HttpClient.registerMember(name: String): QuarantineUser {
+private suspend fun ApplicationTestBuilder.registerMember(name: String): QuarantineUser {
     val session =
-        post("/api/v1/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("$name@x", "y".repeat(8), name))
-        }.body<AppResult<RegisterResult>>()
+        publicAuthService()
+            .register(RegisterRequest("$name@x", "y".repeat(8), name))
             .let { it as AppResult.Success<RegisterResult> }
             .data
             .let { it as RegisterResult.Authenticated }
@@ -365,10 +366,10 @@ private suspend fun HttpClient.registerMember(name: String): QuarantineUser {
     return QuarantineUser(token = session.accessToken.value, userId = session.user.id.value)
 }
 
-private suspend fun HttpClient.getBook(
+private suspend fun ApplicationTestBuilder.getBook(
     token: String,
     bookId: String,
-): HttpResponse = get("/api/v1/books/$bookId") { bearerAuth(token) }
+): AppResult<BookSyncPayload> = authedService<BookService>(token).getBook(BookId(bookId))
 
 /** Resolves a book's minted id by its (unique-in-test) title via the admin catch-up page. */
 private suspend fun HttpClient.findBookIdByTitle(

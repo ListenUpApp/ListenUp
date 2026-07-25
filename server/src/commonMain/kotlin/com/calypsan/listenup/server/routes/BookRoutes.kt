@@ -95,13 +95,6 @@ internal fun Route.bookRoutes(
     accessPolicy: BookAccessPolicy,
     documentFileLocator: DocumentFileLocator,
 ) {
-    get<BookResources.Detail> { res ->
-        when (val result = call.scoped(bookService).getBook(res.id)) {
-            is AppResult.Success -> call.respond(result.data)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
     get<BookResources.Cover> { res ->
         call.respondGatedCover(res.id, accessPolicy, coverResponder)
     }
@@ -120,55 +113,6 @@ internal fun Route.bookRoutes(
 
     put<BookResources.Cover> { res ->
         call.handleCoverUpload(res.id, call.scoped(bookService))
-    }
-
-    patch<BookResources.Detail> { res ->
-        val patch = call.receive<BookUpdate>()
-        when (val result = call.scoped(bookService).updateBook(res.id, patch)) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    put<BookResources.Contributors> { res ->
-        val contributors = call.receive<List<BookContributorInput>>()
-        when (val result = call.scoped(bookService).setBookContributors(res.id, contributors)) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    put<BookResources.Chapters> { res ->
-        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
-        val chapters = call.receive<List<ChapterInput>>()
-        when (
-            val result =
-                (bookService as BookServiceImpl)
-                    .copyWith(
-                        PrincipalProvider {
-                            p
-                        },
-                    ).setBookChapters(res.id, chapters)
-        ) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    put<BookResources.Series> { res ->
-        val series = call.receive<List<BookSeriesInput>>()
-        when (val result = call.scoped(bookService).setBookSeries(res.id, series)) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
-    }
-
-    put<BookResources.Genres> { res ->
-        val genres = call.receive<List<BookGenreInput>>()
-        when (val result = call.scoped(bookService).setBookGenres(res.id, genres)) {
-            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-            is AppResult.Failure -> call.respondBareAppError(result.error)
-        }
     }
 
     delete<BookResources.Cover> { res ->

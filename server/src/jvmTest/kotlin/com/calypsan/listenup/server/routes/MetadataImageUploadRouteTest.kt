@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -40,6 +44,9 @@ import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteReadChannel
 import java.nio.file.Files
 import org.koin.ktor.ext.inject
+import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.server.testing.authedService
 
 /**
  * Integration tests for the two contributor / series image UPLOAD routes:
@@ -80,7 +87,7 @@ class MetadataImageUploadRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintRootToken()
+                    val token = mintRootToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
@@ -116,7 +123,7 @@ class MetadataImageUploadRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintRootToken()
+                    val token = mintRootToken()
 
                     val seriesRepo by application.inject<SeriesRepository>()
                     val id = seriesRepo.resolveOrCreate("The Stormlight Archive")
@@ -152,13 +159,10 @@ class MetadataImageUploadRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val rootToken = client.mintRootToken()
-                    val (memberToken, memberId) = client.registerMember("member@x")
-                    client.patch("/api/v1/admin/users/$memberId") {
-                        bearerAuth(rootToken)
-                        contentType(ContentType.Application.Json)
-                        setBody(AdminUserPatch(permissions = UserPermissions(canEdit = false, canShare = true)))
-                    }
+                    val rootToken = mintRootToken()
+                    val (memberToken, memberId) = registerMember("member@x")
+                    authedService<AdminUserService>(rootToken)
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false, canShare = true)))
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Denied Author", sortName = null)
@@ -184,7 +188,7 @@ class MetadataImageUploadRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintRootToken()
+                    val token = mintRootToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("No File Author", sortName = null)
@@ -210,7 +214,7 @@ class MetadataImageUploadRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintRootToken()
+                    val token = mintRootToken()
 
                     val seriesRepo by application.inject<SeriesRepository>()
                     val id = seriesRepo.resolveOrCreate("Oversize Series")
@@ -250,7 +254,7 @@ class MetadataImageUploadRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintRootToken()
+                    val token = mintRootToken()
 
                     val seriesRepo by application.inject<SeriesRepository>()
                     val id = seriesRepo.resolveOrCreate("Oversize Streaming Series")
@@ -292,13 +296,10 @@ class MetadataImageUploadRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val rootToken = client.mintRootToken()
-                    val (memberToken, memberId) = client.registerMember("orphan-member@x")
-                    client.patch("/api/v1/admin/users/$memberId") {
-                        bearerAuth(rootToken)
-                        contentType(ContentType.Application.Json)
-                        setBody(AdminUserPatch(permissions = UserPermissions(canEdit = false, canShare = true)))
-                    }
+                    val rootToken = mintRootToken()
+                    val (memberToken, memberId) = registerMember("orphan-member@x")
+                    authedService<AdminUserService>(rootToken)
+                        .updateUser(UserId(memberId), AdminUserPatch(permissions = UserPermissions(canEdit = false, canShare = true)))
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Orphan Author", sortName = null)
@@ -329,7 +330,7 @@ class MetadataImageUploadRouteTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintRootToken()
+                    val token = mintRootToken()
 
                     val response =
                         client.put("/api/v1/series/nonexistent-series-id/cover") {
@@ -354,12 +355,10 @@ class MetadataImageUploadRouteTest :
 private const val IMAGE_MAX_BYTES_TEST = 10L * 1024 * 1024
 
 /** Mints a ROOT access token via the setup flow and returns it. */
-private suspend fun HttpClient.mintRootToken(): String {
+private suspend fun ApplicationTestBuilder.mintRootToken(): String {
     val session =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-        }.body<AppResult<AuthSession>>()
+        publicAuthService()
+            .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
             .let { it as AppResult.Success<AuthSession> }
             .data
     return session.accessToken.value
@@ -369,12 +368,10 @@ private suspend fun HttpClient.mintRootToken(): String {
  * Registers a second user under the OPEN policy (ACTIVE MEMBER, canEdit defaults true) and
  * returns (accessToken, userId).
  */
-private suspend fun HttpClient.registerMember(email: String): Pair<String, String> {
+private suspend fun ApplicationTestBuilder.registerMember(email: String): Pair<String, String> {
     val session =
-        post("/api/v1/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest(email, "x".repeat(8), "Member"))
-        }.body<AppResult<RegisterResult>>()
+        publicAuthService()
+            .register(RegisterRequest(email, "x".repeat(8), "Member"))
             .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
             .data
             .shouldBeInstanceOf<RegisterResult.Authenticated>()
