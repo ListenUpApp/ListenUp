@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.sync
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -53,7 +57,7 @@ import java.nio.file.Files
  * same `(userId, role)` their JWT carried on the old SSE surface, so the three surfaces cannot
  * disagree.
  *
- * Setup mirrors [com.calypsan.listenup.server.api.ActivityAclE2ETest]: A (ROOT, via `/auth/setup`)
+ * Setup mirrors [com.calypsan.listenup.server.api.ActivityAclE2ETest]: A (ROOT, via `setupRoot`)
  * records the activities; B (MEMBER, via `/auth/register` under OPEN policy) is the constrained
  * viewer holding the default ALL_BOOKS grant. `public-book` joins ALL_BOOKS (reachable by B under
  * pure union); `private-book` is gated into A's own collection (invisible to B).
@@ -75,20 +79,16 @@ class ActivityFirehoseAccessTest :
         val sentinelMarker = "SENTINEL-firehose"
 
         /** Runs first-user setup; returns A's ROOT user id. */
-        suspend fun HttpClient.setupRootId(): String =
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("alice@firehose-acl.example", "x".repeat(8), "Alice"))
-            }.body<AppResult<AuthSession>>()
+        suspend fun ApplicationTestBuilder.setupRootId(): String =
+            publicAuthService()
+                .setupRoot(RegisterRequest("alice@firehose-acl.example", "x".repeat(8), "Alice"))
                 .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 .data.user.id.value
 
         /** Registers a second user (MEMBER under OPEN policy); returns B's user id. */
-        suspend fun HttpClient.registerMemberId(): String =
-            post("/api/v1/auth/register") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("bob@firehose-acl.example", "y".repeat(8), "Bob"))
-            }.body<AppResult<RegisterResult>>()
+        suspend fun ApplicationTestBuilder.registerMemberId(): String =
+            publicAuthService()
+                .register(RegisterRequest("bob@firehose-acl.example", "y".repeat(8), "Bob"))
                 .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
                 .data
                 .let { it as RegisterResult.Authenticated }
@@ -102,8 +102,8 @@ class ActivityFirehoseAccessTest :
                     application { module() }
 
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val aliceId = restClient.setupRootId()
-                    val bobId = restClient.registerMemberId()
+                    val aliceId = setupRootId()
+                    val bobId = registerMemberId()
 
                     // ── Seed library + two books: one public (joins ALL_BOOKS), one gated private ──
                     seedTestLibraryAndFolder()

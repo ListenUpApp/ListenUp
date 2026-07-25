@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -35,6 +37,10 @@ import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
+import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.server.testing.authedService
 
 /**
  * End-to-end proof of the terminal-completing registration-status RPC flow (public channel).
@@ -61,8 +67,8 @@ class RegistrationStatusRpcTest :
                 application { module() }
 
                 val rest = createClient { install(ContentNegotiation) { json(contractJson) } }
-                val rootToken = rest.setupRoot()
-                val pendingId = rest.registerPending("darlene")
+                val rootToken = setupRoot()
+                val pendingId = registerPending("darlene")
                 val service = publicAuthService()
 
                 val statuses = mutableListOf<String>()
@@ -73,7 +79,7 @@ class RegistrationStatusRpcTest :
                         // Fire the admin decision once we've observed the live "pending" frame — proves
                         // the live broadcast (not just the persisted-status poll) drives the terminal
                         // emission, and that `collect` genuinely returns once it lands.
-                        if (data.value.status == "pending") rest.approve(rootToken, pendingId)
+                        if (data.value.status == "pending") approve(rootToken, pendingId)
                     }
                 }
 
@@ -92,10 +98,10 @@ class RegistrationStatusRpcTest :
                 application { module() }
 
                 val rest = createClient { install(ContentNegotiation) { json(contractJson) } }
-                val rootToken = rest.setupRoot()
-                val pendingId = rest.registerPending("darlene")
+                val rootToken = setupRoot()
+                val pendingId = registerPending("darlene")
                 // Decide BEFORE subscribing — no SSE/RPC connection is live when the admin approves.
-                rest.approve(rootToken, pendingId)
+                approve(rootToken, pendingId)
                 val service = publicAuthService()
 
                 val events =
@@ -125,36 +131,19 @@ class RegistrationStatusRpcTest :
         }
     })
 
-/** Opens an unauthenticated [AuthServicePublic] proxy against the harness's in-process public RPC mount. */
-private suspend fun ApplicationTestBuilder.publicAuthService(): AuthServicePublic {
-    val rpcClient =
-        createClient {
-            install(WebSockets)
-            installKrpc()
-        }
-    return rpcClient
-        .rpc("ws://localhost/api/rpc/public") {
-            rpcConfig { serialization { json(contractJson) } }
-        }.withService<AuthServicePublic>()
-}
-
 /** Runs first-user setup; returns the ROOT (admin) access token. */
-private suspend fun HttpClient.setupRoot(): String =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.setupRoot(): String =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
         .data
         .accessToken
         .value
 
 /** Registers under APPROVAL_QUEUE; returns the server-issued PENDING_APPROVAL user id. */
-private suspend fun HttpClient.registerPending(name: String): String =
-    post("/api/v1/auth/register") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("$name@x", "y".repeat(8), name))
-    }.body<AppResult<RegisterResult>>()
+private suspend fun ApplicationTestBuilder.registerPending(name: String): String =
+    publicAuthService()
+        .register(RegisterRequest("$name@x", "y".repeat(8), name))
         .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
         .data
         .shouldBeInstanceOf<RegisterResult.PendingApproval>()
@@ -162,13 +151,10 @@ private suspend fun HttpClient.registerPending(name: String): String =
         .value
 
 /** Admin-approves the pending registration [userId]. */
-private suspend fun HttpClient.approve(
+private suspend fun ApplicationTestBuilder.approve(
     rootToken: String,
     userId: String,
 ) {
-    post("/api/v1/admin/users/pending-decision") {
-        bearerAuth(rootToken)
-        contentType(ContentType.Application.Json)
-        setBody("""{"userId":"$userId","approved":true}""")
-    }
+    authedService<AdminUserService>(rootToken)
+        .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true))
 }

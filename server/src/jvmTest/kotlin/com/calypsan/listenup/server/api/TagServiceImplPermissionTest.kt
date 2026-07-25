@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -82,11 +81,9 @@ private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
     val registry = SyncRegistry()
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
     val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
     return TagServiceImpl(
         tagRepository = tagRepo,
         bookTagRepository = bookTagRepo,
-        reindexer = reindexer,
         sql = dbs.sql,
         permissionPolicy = UserPermissionPolicy(dbs.sql),
     )

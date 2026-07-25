@@ -189,6 +189,7 @@ class SyncStreamServiceTest :
                 val events =
                     SyncStreamServiceImpl(
                         bus = ChangeBus(),
+                        registry = SyncRegistry(),
                         bookAccessPolicy = { error("must not resolve the policy without a caller") },
                         principal = PrincipalProvider.None,
                     ).observeEvents(sinceRevision = null).toList()
@@ -255,7 +256,11 @@ class SyncStreamServiceTest :
         }
     })
 
-/** Builds the service under test over [bus]; the policy thunk throws — no driven domain is book-gated. */
+/**
+ * Builds the service under test over [bus]; the policy thunk throws — no driven domain is
+ * book-gated. The registry is empty because every test here drives the stream half only; the pull
+ * half has its own coverage in [SyncStreamPullTest].
+ */
 private fun streamService(
     bus: ChangeBus,
     principal: PrincipalProvider = rootPrincipal(),
@@ -263,6 +268,7 @@ private fun streamService(
 ): SyncStreamServiceImpl =
     SyncStreamServiceImpl(
         bus = bus,
+        registry = SyncRegistry(),
         bookAccessPolicy = { error("BookAccessPolicy must not be resolved for ungated domains") },
         principal = principal,
         heartbeatIntervalMillis = heartbeatIntervalMillis,

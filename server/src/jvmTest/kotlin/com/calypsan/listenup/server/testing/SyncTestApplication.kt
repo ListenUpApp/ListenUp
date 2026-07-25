@@ -1,20 +1,20 @@
 package com.calypsan.listenup.server.testing
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.api.BookAccessPolicy
-import com.calypsan.listenup.server.api.PlaybackServiceImpl
-import com.calypsan.listenup.server.audio.AudioFileLocator
-import com.calypsan.listenup.server.audio.AudioUrlSigner
-import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.plugins.JWT_PROVIDER
-import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
@@ -34,15 +34,11 @@ import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.UserScopedFixtureRepository
-import com.calypsan.listenup.server.sync.syncRoutes
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import com.calypsan.listenup.server.sync.createSyncStreamService
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
-import io.ktor.server.auth.authenticate
 import io.ktor.server.resources.Resources
-import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import org.koin.dsl.module
@@ -51,10 +47,9 @@ import org.sqlite.SQLiteConfig
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
 
 /**
- * Test scope exposing the JSON-capable [client] and the wired repositories to
- * test bodies. Decouples test code from
- * [io.ktor.server.testing.ApplicationTestBuilder] so the overloads of
- * [withTestApplication] are unambiguous.
+ * Test scope exposing the pull surface via [syncService] and the wired repositories to test
+ * bodies. Decouples test code from [io.ktor.server.testing.ApplicationTestBuilder] so the
+ * overloads of [withTestApplication] are unambiguous.
  *
  * [userScopedRepo] is the per-user fixture domain (`user_scoped_fixtures`); it
  * is wired only when [withTestApplication] is called with `userScoped = true`,
@@ -69,7 +64,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  * and accessing them otherwise throws.
  */
 internal data class SyncTestScope(
-    val client: HttpClient,
+    private val syncServiceFor: (String) -> SyncStreamService,
     val tagRepo: TagRepository,
     /** The server-side change bus; tests observe the live tail via [rpcFirehose] over it. */
     val bus: ChangeBus,
@@ -81,6 +76,17 @@ internal data class SyncTestScope(
     private val userStatsRepoOrNull: UserStatsRepository?,
     private val bookRepoOrNull: BookRepository?,
 ) {
+    /**
+     * The pull surface (`pullDomain` / `pullByIds` / `digest` / `listDomains`) as [userId] sees
+     * it — the production [SyncStreamService], scoped to that caller's principal.
+     *
+     * The caller's role comes from the harness's `roleResolver`, so a test exercising an access
+     * gate gets the same `(userId, role)` pair the read-time filter would see in production.
+     * Only the transport is absent; the RPC mount itself is covered by the client-side e2e
+     * harness in `:app:sharedLogic`.
+     */
+    fun syncService(userId: String = "test-user"): SyncStreamService = syncServiceFor(userId)
+
     /**
      * The server book repository, wired only with `playbackEvents = true`. A
      * `test-library` / `test-folder` pair is pre-seeded, so tests can
@@ -118,22 +124,19 @@ internal data class SyncTestScope(
 }
 
 /**
- * Minimal Ktor test harness for Sync Foundation route tests.
+ * Minimal test harness for the Sync Foundation pull surface.
  *
  * Constructs an isolated SQLite database (same temp-file pattern as
  * [withSqlDatabase]): [DatabaseFactory.init] migrates the schema, then a SQLDelight
  * [SqlDriver] + [ListenUpDatabase] are opened over the same file. It wires a small
  * Koin module with the SQLDelight database, `ChangeBus`, and a global [TagRepository],
- * installs `ContentNegotiation` and a test [Authentication] provider, then mounts
- * [syncRoutes] inside `authenticate(JWT_PROVIDER)` — mirroring production, where the sync
- * routes are auth-gated.
+ * and hands the test body a [SyncTestScope] whose [SyncTestScope.syncService] serves the
+ * production [SyncStreamService] scoped to any caller the test names.
  *
- * The [testAuth] provider authenticates every request without a real JWT: it
- * derives the user id from an `Authorization: Bearer <token>` header when one
- * is present (the token is the user id verbatim) and falls back to
- * `test-user` otherwise. Tests that send no header authenticate as
- * `test-user`; tests exercising per-user scoping send `bearerAuth("u1")` /
- * `bearerAuth("u2")`.
+ * There is no HTTP surface: catch-up, digest and domain discovery ride the RPC socket, so a
+ * test names its caller directly (`syncService("u1")`) instead of sending a bearer token.
+ * Callers default to [UserRole.ROOT] — the all-bypassing behaviour most tests rely on; pass
+ * [roleResolver] to exercise an access gate against a real `(userId, role)` pair.
  *
  * @param userScoped when true, also wires a per-user [UserScopedFixtureRepository]
  *   (domain `user_scoped_fixtures`) and exposes it as [SyncTestScope.userScopedRepo].
@@ -142,14 +145,17 @@ internal data class SyncTestScope(
  *   (domain `playback_positions`) and exposes it as [SyncTestScope.playbackPositionRepo].
  *   The table is created by Flyway migrations, so no manual schema creation is needed.
  * @param playbackEvents when true, also wires [ListeningEventRepository], [UserStatsRepository],
- *   [UserStatsUpdater], and [PlaybackServiceImpl], mounts [playbackRoutes], and exposes
- *   [SyncTestScope.listeningEventRepo] and [SyncTestScope.userStatsRepo]. Enables end-to-end
- *   tests of the `POST /api/v1/playback/events` → stats materialization → sync catch-up path.
+ *   [UserStatsUpdater], and exposes [SyncTestScope.listeningEventRepo] and
+ *   [SyncTestScope.userStatsRepo]. Enables end-to-end tests of the
+ *   record-event → stats materialization → sync catch-up path.
+ * @param roleResolver maps an authenticated user id to its [UserRole]; the default grants
+ *   every caller [UserRole.ROOT].
  */
 internal fun withTestApplication(
     userScoped: Boolean = false,
     playbackPositions: Boolean = false,
     playbackEvents: Boolean = false,
+    roleResolver: (String) -> UserRole = { UserRole.ROOT },
     block: suspend SyncTestScope.() -> Unit,
 ) {
     testApplication {
@@ -172,7 +178,6 @@ internal fun withTestApplication(
         // UserStatsUpdater mutual reference — same pattern as the production Koin binding.
         val listeningEventRepo: ListeningEventRepository?
         val userStatsRepo: UserStatsRepository?
-        val playbackService: PlaybackService?
         var bookRepoForScope: BookRepository? = null
         if (playbackEvents) {
             lateinit var updater: UserStatsUpdater
@@ -199,33 +204,15 @@ internal fun withTestApplication(
                     registry = registry,
                     statsRecorder = statsRecorder,
                 )
-            val positionRepoForPlayback = PlaybackPositionRepository(sqlDb, bus, SyncRegistry())
-            val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
-            val coverSigner = CoverUrlSigner(CoverUrlSigner.deriveSigningKey("x".repeat(32)))
-            val bookRepo = buildPlaybackBookRepository(sqlDb, driver, bus)
-            bookRepoForScope = bookRepo
+            bookRepoForScope = buildPlaybackBookRepository(sqlDb, driver, bus)
             // Seed the library + folder a test book FKs to, so playback-event tests
             // can upsert a real (accessible) book for the access gate to admit.
             sqlDb.seedTestLibraryAndFolder()
-            playbackService =
-                PlaybackServiceImpl(
-                    bookRepository = bookRepo,
-                    audioFileLocator = AudioFileLocator(sqlDb),
-                    audioUrlSigner = signer,
-                    coverUrlSigner = coverSigner,
-                    playbackPositionRepository = positionRepoForPlayback,
-                    listeningEventRepository = eventRepo,
-                    userStatsRepository = statsRepo,
-                    accessPolicy = BookAccessPolicy(sqlDb, driver),
-                    principal = PrincipalProvider { error("unscoped — copyWith required") },
-                    sql = sqlDb,
-                )
             listeningEventRepo = eventRepo
             userStatsRepo = statsRepo
         } else {
             listeningEventRepo = null
             userStatsRepo = null
-            playbackService = null
         }
 
         application {
@@ -250,22 +237,27 @@ internal fun withTestApplication(
                     },
                 )
             }
-            routing {
-                authenticate(JWT_PROVIDER) {
-                    syncRoutes()
-                    if (playbackService != null) playbackRoutes(playbackService)
-                }
-            }
         }
 
-        val jsonClient =
-            createClient {
-                install(ContentNegotiation) { json(contractJson) }
-            }
+        val bookAccessPolicy = BookAccessPolicy(sqlDb, driver)
 
         try {
             SyncTestScope(
-                client = jsonClient,
+                syncServiceFor = { userId ->
+                    createSyncStreamService(
+                        bus = bus,
+                        registry = registry,
+                        bookAccessPolicy = { bookAccessPolicy },
+                        principal =
+                            PrincipalProvider {
+                                UserPrincipal(
+                                    userId = UserId(userId),
+                                    sessionId = SessionId("test-session-$userId"),
+                                    role = roleResolver(userId),
+                                )
+                            },
+                    )
+                },
                 tagRepo = tagRepo,
                 bus = bus,
                 sqlDb = sqlDb,

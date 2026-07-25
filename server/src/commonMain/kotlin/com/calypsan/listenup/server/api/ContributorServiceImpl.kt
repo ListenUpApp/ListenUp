@@ -15,7 +15,6 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 
@@ -94,7 +93,6 @@ private val logger = loggerFor<ContributorServiceImpl>()
 internal class ContributorServiceImpl(
     private val contributorRepo: ContributorRepository,
     private val bookRepo: BookRepository,
-    private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
@@ -102,7 +100,7 @@ internal class ContributorServiceImpl(
 ) : ContributorService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
-        ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, accessPolicy, permissionPolicy, principal)
+        ContributorServiceImpl(contributorRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -152,15 +150,6 @@ internal class ContributorServiceImpl(
                 is AppResult.Success -> UpdateOutcome(nameChanged, AppResult.Success(Unit))
                 is AppResult.Failure -> UpdateOutcome(false, AppResult.Failure(upsertResult.error))
             }
-        if (outcome.result is AppResult.Success && outcome.reindexNeeded) {
-            try {
-                reindexer.reindexAllBooksForContributor(id.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed for contributor ${id.value}" }
-            }
-        }
         return outcome.result
     }
 
@@ -173,16 +162,6 @@ internal class ContributorServiceImpl(
             return AppResult.Failure(ContributorError.MergeSelfTarget())
         }
         val result = mergeCore(source, target)
-        if (result is AppResult.Success) {
-            try {
-                reindexer.reindexAllBooksForContributor(target.value)
-                reindexer.reindexContributorAliases(target.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed after merge of ${source.value} into ${target.value}" }
-            }
-        }
         return result
     }
 
@@ -262,19 +241,6 @@ internal class ContributorServiceImpl(
     ): AppResult<ContributorId> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         val result = unmergeCore(contributorId, aliasName)
-        if (result is AppResult.Success) {
-            try {
-                reindexer.reindexAllBooksForContributor(contributorId.value)
-                reindexer.reindexAllBooksForContributor(result.data.value)
-                reindexer.reindexContributorAliases(contributorId.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) {
-                    "FTS reindex failed after unmerge of alias=$aliasName from ${contributorId.value}"
-                }
-            }
-        }
         return result
     }
 
@@ -345,15 +311,6 @@ internal class ContributorServiceImpl(
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
-        if (result is AppResult.Success) {
-            try {
-                reindexer.reindexAllBooksForContributor(id.value)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "FTS reindex failed during delete of contributor ${id.value}" }
-            }
-        }
         return result
     }
 
@@ -399,11 +356,9 @@ internal class ContributorServiceImpl(
 fun createContributorService(
     contributorRepo: ContributorRepository,
     bookRepo: BookRepository,
-    reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
-): ContributorService =
-    ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, BookAccessPolicy(sqlDb, driver))
+): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, sqlDb, BookAccessPolicy(sqlDb, driver))
 
 /**
  * Scopes a [ContributorService] built by [createContributorService] to [principal] for one

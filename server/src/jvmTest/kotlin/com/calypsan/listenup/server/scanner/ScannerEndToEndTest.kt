@@ -26,10 +26,10 @@ import kotlinx.coroutines.delay
  *  - lastScanResult returns the latest result with all fields populated
  *  - metadata.json overlay precedence end-to-end (server reads sidecar,
  *    folder fields are overridden, wire round-trips correctly)
- *  - POST /api/v1/scan returns Success after the library is registered
+ *  - ScannerService.scanFull returns Success after the library is registered
  *
  * No auto-scan on boot: the server does NOT scan at startup. Tests
- * trigger a scan explicitly via POST /api/v1/scan and then poll for the
+ * trigger a scan explicitly via ScannerService.scanFull and then poll for the
  * result. This removes the race between the bootstrap scan and test assertions.
  *
  * The `AlreadyRunning` failure mode is exercised at the unit level in
@@ -109,7 +109,7 @@ class ScannerEndToEndTest :
 
 /**
  * Triggers a scan via POST /api/v1/scan (retrying until the library is
- * registered with the orchestrator, then polls GET /api/v1/scan/last until
+ *  registered with the orchestrator, then polls ScannerService.lastScanResult until
  * a result is available.
  *
  * No auto-scan on boot: `bootstrapLibraries` registers the library
@@ -130,18 +130,13 @@ private suspend fun triggerScanAndWait(
     // Guard against non-200 responses (e.g. 404 during server startup races on CI)
     // by checking HTTP status before attempting AppResult deserialization.
     while (System.currentTimeMillis() < deadline) {
-        val response = fix.client.post("${fix.baseUrl}/api/v1/scan")
-        if (response.status == HttpStatusCode.OK) {
-            val postBody = response.bodyAsAppResult<ScanResultSummary>()
-            if (postBody is AppResult.Success) break
-        }
+        if (fix.scannerService().scanFull() is AppResult.Success) break
         delay(100)
     }
 
     // Step 2: Poll GET /scan/last until a result is available.
     while (System.currentTimeMillis() < deadline) {
-        val response = fix.client.get("${fix.baseUrl}/api/v1/scan/last")
-        val body = response.bodyAsAppResult<ScanResult>()
+        val body = fix.scannerService().lastScanResult()
         if (body is AppResult.Success) return body.data
         delay(50)
     }

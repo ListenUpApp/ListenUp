@@ -1,24 +1,18 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.sync.SyncFrame
-import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.presenceDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.json
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -208,41 +202,20 @@ private class DriftingRefreshHandler(
     override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = rows
 }
 
-/** Digest client backed by an in-memory map: GET `/api/v1/sync/<domain>/digest` → preset digest or 404. */
-private fun fakeRefreshDigestClient(
-    domainDigests: Map<String, DomainDigest>,
-): DomainDigestClient {
-    val mockClient =
-        HttpClient(
-            MockEngine { req ->
-                val domain =
-                    req.url.pathSegments
-                        .dropLast(1)
-                        .last()
-                val digest = domainDigests[domain]
-                if (digest != null) {
-                    respond(
-                        content =
-                            contractJson.encodeToString(
-                                DomainDigest.serializer(),
-                                digest,
-                            ),
-                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
-                    )
-                } else {
-                    respond(
-                        content = "not found",
-                        status = HttpStatusCode.NotFound,
-                    )
-                }
-            },
-        ) {
-            install(ContentNegotiation) {
-                json(contractJson)
-            }
+/**
+ * Digest client backed by an in-memory map: a known domain yields its preset [DomainDigest], an
+ * unknown one the typed [SyncError.UnknownDomain] the server would return.
+ */
+private fun fakeRefreshDigestClient(domainDigests: Map<String, DomainDigest>): DomainDigestClient {
+    val service =
+        object : FakeSyncStreamService() {
+            override suspend fun digest(
+                domain: String,
+                cursor: Long,
+            ): AppResult<DomainDigest> =
+                domainDigests[domain]
+                    ?.let { AppResult.Success(it) }
+                    ?: AppResult.Failure(SyncError.UnknownDomain(domain = domain))
         }
-    return DomainDigestClient(
-        httpClientProvider = { mockClient },
-        serverUrlProvider = { "http://test" },
-    )
+    return DomainDigestClient(channel = RpcChannel.forTest(service))
 }

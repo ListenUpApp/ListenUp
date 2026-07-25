@@ -136,7 +136,7 @@ class ClientKoinGraphE2ETest :
             val invalidator = koin.get<RpcCacheInvalidator>()
             val defaultInvalidator = invalidator.shouldBeInstanceOf<DefaultRpcCacheInvalidator>()
 
-            // getAll<RemoteCache>() must return exactly 24: ApiClientFactory + 23 RPC dispatch caches
+            // getAll<RemoteCache>() must return exactly 25: ApiClientFactory + 24 RPC dispatch caches
             // (Ktor*RpcFactory implementations and RpcChannel<S> singles). This pins the count so a
             // silently-dropped `binds arrayOf(RemoteCache::class)` declaration causes an immediate test
             // failure before production code ever misses an invalidation.
@@ -150,7 +150,9 @@ class ClientKoinGraphE2ETest :
             // the contributor/series server search that previously 404'd over REST, so 24 → 25.
             // The firehose RPC migration added rpcChannel<SyncStreamService>() — the sync firehose now
             // rides the RPC socket via RpcSyncStreamClient — so 25 → 26.
-            defaultInvalidator.caches shouldHaveSize 26
+            // The search drain removed rpcChannel<SearchService>() — the server has no search index and
+            // the channel had zero consumers; search is local-only — so 26 → 25.
+            defaultInvalidator.caches shouldHaveSize 25
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

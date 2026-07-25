@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -156,12 +158,9 @@ private fun buildCoalesceEngine(
             SyncReconciler(
                 registry = registry,
                 store = store,
-                // handleCursorStale never touches the reconciler; providers are never invoked.
-                digestClient =
-                    DomainDigestClient(
-                        httpClientProvider = { error("digest client unused in coalesce test") },
-                        serverUrlProvider = { error("digest client unused in coalesce test") },
-                    ),
+                // handleCursorStale never touches the reconciler, so every member of this fake
+                // throws — an unexpected digest call names itself instead of passing silently.
+                digestClient = DomainDigestClient(channel = RpcChannel.forTest(object : FakeSyncStreamService() {})),
                 catchUp = catchUp,
             ),
         dispatcher = dispatcher,

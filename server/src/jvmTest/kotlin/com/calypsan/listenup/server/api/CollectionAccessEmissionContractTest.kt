@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.konsist.stripComments
@@ -265,7 +266,7 @@ class CollectionAccessEmissionContractTest :
                     h.revisionTouch.touched.clear()
                     val recipients =
                         captureAccessChanged(h.bus) {
-                            admin.releaseBooks("test-library", mapOf("B" to listOf(c.value), "U" to emptyList()))
+                            admin.releaseBooks(LibraryId("test-library"), mapOf(BookId("B") to listOf(c), BookId("U") to emptyList()))
                         }
 
                     recipients shouldBe setOf("admin", "s7", "m1", "m2")

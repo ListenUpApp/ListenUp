@@ -137,17 +137,17 @@ interface BookRepository {
     suspend fun getBookDetail(id: String): BookDetail?
 
     /**
-     * Search books with an offline-first, never-stranded strategy.
+     * Search books by title, author or narrator against the local Room FTS5 index.
      *
-     * When online, runs server-side FTS5 search via [com.calypsan.listenup.api.BookService.searchBooks],
-     * hydrating the ranked result ids from Room and preserving the server's rank
-     * order. When offline — or when the server call fails — falls back to local
-     * Room FTS5 so search always works.
+     * Local-only, and deliberately so: the server's search index was removed once both ends
+     * ran the same FTS5 algorithm over the same synced corpus, so a round trip could only
+     * return what this already computes. Consumed by iOS App Intents (the spoken
+     * "Play <book>" path), which is why it stays on [BookRepository] rather than folding into
+     * [SearchRepository] — Siri resolves a book, not a multi-type search result.
      *
      * Emits exactly once: this is a query, not a live subscription.
      *
      * @param query The raw search query. A blank query yields an empty list.
-     * @return Flow emitting the ranked [BookListItem] matches a single time.
      */
     fun search(query: String): Flow<List<BookListItem>>
 }

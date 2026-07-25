@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -27,6 +31,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
+import com.calypsan.listenup.api.AuthServiceAuthed
+import com.calypsan.listenup.server.testing.authedService
 
 /**
  * End-to-end proof of the device-management vertical, exercised through the
@@ -38,25 +44,19 @@ import io.ktor.server.testing.testApplication
 class SessionDeviceE2ETest :
     FunSpec({
 
-        suspend fun HttpClient.seedRoot() {
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-            }
+        suspend fun ApplicationTestBuilder.seedRoot() {
+            publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         }
 
-        suspend fun HttpClient.loginAs(deviceModel: String): AuthSession =
-            post("/api/v1/auth/login") {
-                contentType(ContentType.Application.Json)
-                setBody(
+        suspend fun ApplicationTestBuilder.loginAs(deviceModel: String): AuthSession =
+            publicAuthService()
+                .login(
                     LoginRequest(
                         email = "root@x",
                         password = "x".repeat(8),
                         deviceInfo = DeviceInfo(deviceModel = deviceModel),
                     ),
-                )
-            }.body<AppResult<AuthSession>>()
-                .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
+                ).shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 .data
 
         test("two devices log in, list shows both, revoking one kills its refresh while the other survives") {
@@ -65,43 +65,32 @@ class SessionDeviceE2ETest :
                 application { module() }
                 val client = createClient { install(ContentNegotiation) { json() } }
 
-                client.seedRoot()
+                seedRoot()
 
-                val s1 = client.loginAs("Pixel 10")
-                val s2 = client.loginAs("iPad")
+                val s1 = loginAs("Pixel 10")
+                val s2 = loginAs("iPad")
 
                 val sessions =
-                    client
-                        .get("/api/v1/auth/sessions") { bearerAuth(s1.accessToken.value) }
-                        .body<AppResult<List<SessionSummary>>>()
+                    authedService<AuthServiceAuthed>(s1.accessToken.value)
+                        .listSessions()
                         .shouldBeInstanceOf<AppResult.Success<List<SessionSummary>>>()
                         .data
                 sessions.mapNotNull { it.deviceInfo?.deviceModel } shouldContainAll listOf("Pixel 10", "iPad")
 
-                client
-                    .delete("/api/v1/auth/sessions/${s2.sessionId.value}") { bearerAuth(s1.accessToken.value) }
-                    .status shouldBe HttpStatusCode.OK
+                authedService<AuthServiceAuthed>(s1.accessToken.value)
+                    .revokeSession(s2.sessionId)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val revokedRefresh =
-                    client.post("/api/v1/auth/refresh") {
-                        contentType(ContentType.Application.Json)
-                        setBody(RefreshRequest(s2.refreshToken))
-                    }
-                revokedRefresh.status shouldBe HttpStatusCode.Unauthorized
+                    publicAuthService().refreshSession(RefreshRequest(s2.refreshToken))
                 revokedRefresh
-                    .body<AppResult<AuthSession>>()
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
                     .shouldBeInstanceOf<AuthError.InvalidRefreshToken>()
 
                 val survivingRefresh =
-                    client.post("/api/v1/auth/refresh") {
-                        contentType(ContentType.Application.Json)
-                        setBody(RefreshRequest(s1.refreshToken))
-                    }
-                survivingRefresh.status shouldBe HttpStatusCode.OK
+                    publicAuthService().refreshSession(RefreshRequest(s1.refreshToken))
                 survivingRefresh
-                    .body<AppResult<AuthSession>>()
                     .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
             }
         }

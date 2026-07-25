@@ -1,25 +1,21 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.api.sync.DomainDigest
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.suspendRunCatching
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.get
+import com.calypsan.listenup.api.sync.DomainDigest
+import com.calypsan.listenup.client.data.remote.RpcChannel
 
 /**
  * Fetches the server's per-domain [DomainDigest] for drift detection.
  *
- * Calls `GET /api/v1/sync/<domain>/digest?cursor=<rev>` and returns the bare
- * [DomainDigest] response as an [AppResult]. A mismatch between the server digest
- * and the client's locally-computed digest triggers a full domain re-pull (`?since=0`).
+ * A mismatch between the server digest and the client's locally-computed digest triggers a full
+ * domain re-pull via [CatchUp.catchUpFromZero].
  *
- * Constructor shape mirrors [SyncCatchUpClient]: two suspend lambdas so production
- * wiring passes method references and tests pass any [HttpClient] + base URL.
+ * Rides the same [SyncStreamService] channel as the firehose and catch-up paging, so drift
+ * detection and the repair it triggers share one connection and one recovery policy.
  */
 internal class DomainDigestClient(
-    private val httpClientProvider: suspend () -> HttpClient,
-    private val serverUrlProvider: suspend () -> String,
+    private val channel: RpcChannel<SyncStreamService>,
 ) {
     /**
      * Fetches the [DomainDigest] for [domain] at [cursor] from the server.
@@ -30,11 +26,5 @@ internal class DomainDigestClient(
     suspend fun fetch(
         domain: String,
         cursor: Long,
-    ): AppResult<DomainDigest> =
-        suspendRunCatching {
-            val baseUrl = serverUrlProvider()
-            httpClientProvider()
-                .get("$baseUrl/api/v1/sync/$domain/digest?cursor=$cursor")
-                .body<DomainDigest>()
-        }
+    ): AppResult<DomainDigest> = channel.call(idempotent = true) { it.digest(domain, cursor) }
 }

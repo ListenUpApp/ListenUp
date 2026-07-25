@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.backup
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -93,7 +97,7 @@ class RestoreBroadcastE2ETest :
                     application { module() }
 
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val rootSession = restClient.setupRoot()
+                    val rootSession = setupRoot()
                     val accessToken = rootSession.accessToken.value
 
                     // Admin device: open a BackupService RPC proxy and create a backup to restore.
@@ -147,15 +151,19 @@ class RestoreBroadcastE2ETest :
     })
 
 /**
- * Registers the first user as ROOT via `/api/v1/auth/setup` and returns the session — the
+ * Registers the first user as ROOT via `AuthServicePublic.setupRoot` and returns the session — the
  * access token drives the RPC calls; the user id scopes the firehose subscriber's principal.
  * Mirrors the `setupRootForBackup` helper in `BackupUploadRestoreE2ETest`.
  */
-private suspend fun HttpClient.setupRoot(): AuthSession {
+private suspend fun ApplicationTestBuilder.setupRoot(): AuthSession {
     val result =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest(email = "root@restore-broadcast.test", password = "password1234", displayName = "Root"))
-        }.body<AppResult<AuthSession>>()
+        publicAuthService()
+            .setupRoot(
+                RegisterRequest(
+                    email = "root@restore-broadcast.test",
+                    password = "password1234",
+                    displayName = "Root",
+                ),
+            )
     return (result as AppResult.Success<AuthSession>).data
 }

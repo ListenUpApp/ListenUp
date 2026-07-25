@@ -42,6 +42,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.runTest
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
+import com.calypsan.listenup.server.testing.publicAuthService
+import io.ktor.server.testing.ApplicationTestBuilder
 
 private const val PULL_LIMIT = 100
 
@@ -180,8 +182,8 @@ class CollectionRowVisibilityTest :
                     application { module() }
                     val client = jsonClient()
 
-                    client.mintRootToken()
-                    val memberId = client.registerMemberId()
+                    mintRootToken()
+                    val memberId = registerMemberId()
                     seedTestLibraryAndFolder()
                     val collections by application.inject<CollectionRepository>()
                     val grants by application.inject<CollectionGrantRepository>()
@@ -222,19 +224,15 @@ private fun io.ktor.server.testing.ApplicationTestBuilder.jsonClient(): HttpClie
         install(ContentNegotiation) { json(contractJson) }
     }
 
-private suspend fun HttpClient.mintRootToken(): String =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintRootToken(): String =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .let { it as AppResult.Success<AuthSession> }
         .data.accessToken.value
 
-private suspend fun HttpClient.registerMemberId(): String =
-    post("/api/v1/auth/register") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
-    }.body<AppResult<RegisterResult>>()
+private suspend fun ApplicationTestBuilder.registerMemberId(): String =
+    publicAuthService()
+        .register(RegisterRequest("member@x", "y".repeat(8), "Member"))
         .let { it as AppResult.Success<RegisterResult> }
         .data
         .let { it as RegisterResult.Authenticated }

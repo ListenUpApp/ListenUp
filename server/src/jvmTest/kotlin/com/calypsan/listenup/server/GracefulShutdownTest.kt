@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
@@ -37,10 +39,7 @@ class GracefulShutdownTest :
                         createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     // Trigger module start + the library bootstrap (which mounts a watcher).
-                    client.post("/api/v1/auth/setup") {
-                        contentType(ContentType.Application.Json)
-                        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-                    }
+                    publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
 
                     handle = application.inject<DatabaseHandle>().value
                     handle.isPoolClosed() shouldBe false

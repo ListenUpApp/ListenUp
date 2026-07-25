@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -56,15 +60,10 @@ class BookServiceRpcTest :
          * Seeds the root user and returns the access token by walking the real auth REST
          * surface — mirrors the pattern in [BookRoutesTest].
          */
-        suspend fun HttpClient.mintAccessToken(): String {
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("root@rpc-test.example", "x".repeat(8), "Root"))
-            }
-            return post("/api/v1/auth/login") {
-                contentType(ContentType.Application.Json)
-                setBody(LoginRequest("root@rpc-test.example", "x".repeat(8)))
-            }.body<AppResult<AuthSession>>()
+        suspend fun ApplicationTestBuilder.mintAccessToken(): String {
+            publicAuthService().setupRoot(RegisterRequest("root@rpc-test.example", "x".repeat(8), "Root"))
+            return publicAuthService()
+                .login(LoginRequest("root@rpc-test.example", "x".repeat(8)))
                 .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 .data
                 .accessToken
@@ -80,7 +79,7 @@ class BookServiceRpcTest :
 
                     // Mint JWT via REST — same pattern as BookRoutesTest.
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = restClient.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder()
 
                     // Seed the book directly through the Koin-resolved repository.
@@ -106,44 +105,6 @@ class BookServiceRpcTest :
                     val success = result.shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
                     success.data.id shouldBe "rpc-b1"
                     success.data.title shouldBe "The Final Empire"
-                }
-            } finally {
-                libraryRoot.toFile().deleteRecursively()
-            }
-        }
-
-        test("BookService.searchBooks is reachable over the authed RPC surface and returns matching ids") {
-            val libraryRoot = Files.createTempDirectory("listenup-book-rpc-search-test-")
-            try {
-                testApplication {
-                    useIsolatedTestConfig(libraryPath = libraryRoot.toString())
-                    application { module() }
-
-                    val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = restClient.mintAccessToken()
-                    seedTestLibraryAndFolder()
-
-                    val repo by application.inject<BookRepository>()
-                    repo.upsert(bookRpcFixture(id = "rpc-s1", title = "The Well of Ascension"))
-                    repo.upsert(bookRpcFixture(id = "rpc-s2", title = "The Hero of Ages", rootRelPath = "books/rpc-s2"))
-
-                    val rpcClient =
-                        createClient {
-                            install(WebSockets)
-                            installKrpc()
-                        }
-
-                    val service =
-                        rpcClient
-                            .rpc("ws://localhost/api/rpc/authed") {
-                                rpcConfig { serialization { json(contractJson) } }
-                                bearerAuth(token)
-                            }.withService<BookService>()
-
-                    val result = service.searchBooks("Ascension", limit = 10)
-
-                    val success = result.shouldBeInstanceOf<AppResult.Success<List<BookId>>>()
-                    success.data shouldBe listOf(BookId("rpc-s1"))
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()

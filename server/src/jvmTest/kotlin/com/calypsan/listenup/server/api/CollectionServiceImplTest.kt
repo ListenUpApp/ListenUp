@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -687,7 +688,7 @@ class CollectionServiceImplTest :
 
                     service.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
 
-                    val inboxBooks = service.actAs("admin", UserRole.ADMIN).listInbox("test-library")
+                    val inboxBooks = service.actAs("admin", UserRole.ADMIN).listInbox(LibraryId("test-library"))
                     require(inboxBooks is AppResult.Success)
                     inboxBooks.data shouldBe listOf(BookId("book1"))
 
@@ -721,16 +722,16 @@ class CollectionServiceImplTest :
                     // Release: book1 → [collA], book2 → [] (empty target → ALL_BOOKS, stays public).
                     val released =
                         admin.releaseBooks(
-                            "test-library",
+                            LibraryId("test-library"),
                             mapOf(
-                                "book1" to listOf(collA.data.id.value),
-                                "book2" to emptyList(),
+                                BookId("book1") to listOf(collA.data.id),
+                                BookId("book2") to emptyList(),
                             ),
                         )
                     released shouldBe AppResult.Success(Unit)
 
                     // Inbox is now empty.
-                    val inboxBooks = admin.listInbox("test-library")
+                    val inboxBooks = admin.listInbox(LibraryId("test-library"))
                     require(inboxBooks is AppResult.Success)
                     inboxBooks.data shouldHaveSize 0
 
@@ -762,11 +763,11 @@ class CollectionServiceImplTest :
 
                     val member = service.actAs("u1", UserRole.MEMBER)
 
-                    val memberList = member.listInbox("test-library")
+                    val memberList = member.listInbox(LibraryId("test-library"))
                     require(memberList is AppResult.Failure)
                     memberList.error.shouldBeInstanceOf<CollectionError.Forbidden>()
 
-                    val memberRelease = member.releaseBooks("test-library", mapOf("book1" to emptyList()))
+                    val memberRelease = member.releaseBooks(LibraryId("test-library"), mapOf(BookId("book1") to emptyList()))
                     require(memberRelease is AppResult.Failure)
                     memberRelease.error.shouldBeInstanceOf<CollectionError.Forbidden>()
                 }

@@ -26,6 +26,14 @@ import io.ktor.server.engine.embeddedServer
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
+import com.calypsan.listenup.api.AuthServicePublic
+import io.ktor.client.plugins.websocket.WebSockets
+import kotlinx.rpc.krpc.ktor.client.installKrpc
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
+import kotlinx.rpc.krpc.serialization.json.json
+import kotlinx.rpc.withService
+import com.calypsan.listenup.api.ScannerService
 
 /**
  * Fixture that boots a real `Application.module()` against a temp library
@@ -35,7 +43,7 @@ import java.nio.file.Path
  * breaks production identically.
  *
  * The returned [client] is ROOT-authenticated: on boot, this fixture mints a
- * fresh ROOT account via `POST /api/v1/auth/setup` and attaches the resulting
+ * fresh ROOT account via `AuthServicePublic.setupRoot` and attaches the resulting
  * access token to every request via `defaultRequest`, so scanner tests can
  * exercise the now-JWT-gated `/api/v1/scan*` surface without minting tokens
  * themselves.
@@ -44,7 +52,7 @@ import java.nio.file.Path
  * triggers an initial full scan via `bootstrapScannerOnStartup` so by the
  * time the fixture is returned, [HttpClient] requests can race the
  * bootstrap scan — tests should account for that (e.g. poll
- * `GET /api/v1/scan/last`, or call POST /api/v1/scan and accept that the
+ * `ScannerService.lastScanResult`, or call `scanFull()` and accept that the
  * first call may return `AlreadyRunning` while bootstrap is still running).
  */
 internal class ScannerEndToEndFixture private constructor(
@@ -53,6 +61,13 @@ internal class ScannerEndToEndFixture private constructor(
     val client: HttpClient,
     val baseUrl: String,
 ) : AutoCloseable {
+    /** An authed [ScannerService] proxy against the live server — the transport the app uses. */
+    suspend fun scannerService(): ScannerService =
+        client
+            .rpc(baseUrl.replace("http://", "ws://") + "/api/rpc/authed") {
+                rpcConfig { serialization { json(contractJson) } }
+            }.withService<ScannerService>()
+
     override fun close() {
         client.close()
         @Suppress("MagicNumber")
@@ -104,14 +119,19 @@ internal class ScannerEndToEndFixture private constructor(
             val resolvedPort = runBlocking { server.engine.resolvedConnectors() }.first().port
             val baseUrl = "http://127.0.0.1:$resolvedPort"
 
-            val setupClient = HttpClient(CIO) { install(ContentNegotiation) { json(contractJson) } }
+            val setupClient =
+                HttpClient(CIO) {
+                    install(ContentNegotiation) { json(contractJson) }
+                    install(WebSockets)
+                    installKrpc()
+                }
             val accessToken =
                 runBlocking {
                     setupClient
-                        .post("$baseUrl/api/v1/auth/setup") {
-                            contentType(ContentType.Application.Json)
-                            setBody(RegisterRequest("root@scanner.test", "x".repeat(MIN_PASSWORD_LENGTH), "Root"))
-                        }.body<AppResult<AuthSession>>()
+                        .rpc("ws://127.0.0.1:$resolvedPort/api/rpc/public") {
+                            rpcConfig { serialization { json(contractJson) } }
+                        }.withService<AuthServicePublic>()
+                        .setupRoot(RegisterRequest("root@scanner.test", "x".repeat(MIN_PASSWORD_LENGTH), "Root"))
                         .let { it as? AppResult.Success ?: error("fixture setup-root failed: $it") }
                         .data.accessToken.value
                 }.also { setupClient.close() }
@@ -119,6 +139,8 @@ internal class ScannerEndToEndFixture private constructor(
             val client =
                 HttpClient(CIO) {
                     install(ContentNegotiation) { json(contractJson) }
+                    install(WebSockets)
+                    installKrpc()
                     install(HttpTimeout) {
                         requestTimeoutMillis = REQUEST_TIMEOUT_MS
                     }

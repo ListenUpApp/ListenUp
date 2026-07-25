@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
@@ -9,9 +11,7 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
-import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -22,26 +22,19 @@ import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.testing.authedService
 import com.calypsan.listenup.server.testing.domainFrames
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rows
 import com.calypsan.listenup.server.testing.rpcFirehose
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
@@ -56,37 +49,43 @@ import org.koin.ktor.ext.inject
  * Its rows carry absolute server filesystem paths (operator disk topology), so a plain member
  * must never receive them; an admin sees them all.
  *
- * Sibling to [BookCatchUpAccessTest] / [BooksDigestRouteAccessTest] (per-row book gating) and
+ * Sibling to [BookCatchUpAccessTest] / [BooksDigestAccessTest] (per-row book gating) and
  * [BooksSyncFirehoseTest] (live tail). Here the gate is whole-domain by role, so the live tail
- * and REST replay agree on "members see nothing on library_folders".
+ * and RPC pull replay agree on "members see nothing on library_folders".
  */
 class LibraryFolderSyncAccessTest :
     FunSpec({
 
         test("library_folders catch-up returns folders to an admin but nothing to a member") {
-            withFolderSyncApp { client, admin, member ->
+            withFolderSyncApp { admin, member ->
                 seedTestLibraryAndFolder()
 
                 // The bootstrap library folder (revision > 0) is visible to the admin on a since=0 pull.
-                val adminPage: Page<LibraryFolderSyncPayload> =
-                    client.get("/api/v1/sync/library_folders?since=0") { bearerAuth(admin.token) }.body()
-                adminPage.items.shouldNotBeEmpty()
+                // Old REST route defaulted to limit=500 when omitted; pass it explicitly to preserve
+                // that paging behaviour now that limit is a required RPC argument.
+                val adminPage =
+                    authedService<SyncStreamService>(admin.token)
+                        .pullDomain("library_folders", since = 0, limit = 500)
+                        .shouldSucceed()
+                adminPage.rows(LibraryFolderSyncPayload.serializer()).shouldNotBeEmpty()
 
-                val memberPage: Page<LibraryFolderSyncPayload> =
-                    client.get("/api/v1/sync/library_folders?since=0") { bearerAuth(member.token) }.body()
-                memberPage.items.shouldBeEmpty()
+                val memberPage =
+                    authedService<SyncStreamService>(member.token)
+                        .pullDomain("library_folders", since = 0, limit = 500)
+                        .shouldSucceed()
+                memberPage.rows(LibraryFolderSyncPayload.serializer()).shouldBeEmpty()
             }
         }
 
         test("library_folders digest folds the domain for an admin but is empty for a member") {
-            withFolderSyncApp { client, admin, member ->
+            withFolderSyncApp { admin, member ->
                 seedTestLibraryAndFolder()
                 val cursor = 1_000_000L
 
-                val adminDigest: DomainDigest =
-                    client.get("/api/v1/sync/library_folders/digest?cursor=$cursor") { bearerAuth(admin.token) }.body()
-                val memberDigest: DomainDigest =
-                    client.get("/api/v1/sync/library_folders/digest?cursor=$cursor") { bearerAuth(member.token) }.body()
+                val adminDigest =
+                    authedService<SyncStreamService>(admin.token).digest("library_folders", cursor).shouldSucceed()
+                val memberDigest =
+                    authedService<SyncStreamService>(member.token).digest("library_folders", cursor).shouldSucceed()
 
                 (adminDigest.count >= 1) shouldBe true
                 memberDigest.count shouldBe 0
@@ -94,7 +93,7 @@ class LibraryFolderSyncAccessTest :
         }
 
         test("live firehose delivers a library_folders event to an admin") {
-            withFolderSyncApp { _, admin, _ ->
+            withFolderSyncApp { admin, _ ->
                 seedTestLibraryAndFolder()
                 val folders by application.inject<LibraryFolderRepository>()
                 val bus by application.inject<ChangeBus>()
@@ -114,7 +113,7 @@ class LibraryFolderSyncAccessTest :
         }
 
         test("live firehose withholds library_folders events from a member") {
-            withFolderSyncApp { _, _, member ->
+            withFolderSyncApp { _, member ->
                 seedTestLibraryAndFolder()
                 val folders by application.inject<LibraryFolderRepository>()
                 val books by application.inject<BookRepository>()
@@ -154,44 +153,36 @@ private data class TestUser(
 
 /**
  * Boots the full server, mints a ROOT user and registers a MEMBER, then runs [block] with both
- * users inside the `testApplication` receiver (so `application`, `seedTestLibraryAndFolder`,
- * and the HTTP client are all in scope).
+ * users inside the `testApplication` receiver (so `application` and `seedTestLibraryAndFolder`
+ * are in scope).
  */
 private fun withFolderSyncApp(
-    block: suspend ApplicationTestBuilder.(client: HttpClient, admin: TestUser, member: TestUser) -> Unit,
+    block: suspend ApplicationTestBuilder.(admin: TestUser, member: TestUser) -> Unit,
 ) {
     val libraryRoot = Files.createTempDirectory("listenup-library-folder-access-")
     try {
         testApplication {
             useIsolatedTestConfig(libraryPath = libraryRoot.toString())
             application { module() }
-            val client =
-                createClient {
-                    install(ContentNegotiation) { json(contractJson) }
-                }
-            val admin = client.mintRoot()
-            val member = client.registerMember()
-            block(client, admin, member)
+            val admin = mintRoot()
+            val member = registerMember()
+            block(admin, member)
         }
     } finally {
         libraryRoot.toFile().deleteRecursively()
     }
 }
 
-private suspend fun HttpClient.mintRoot(): TestUser =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintRoot(): TestUser =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .let { it as AppResult.Success<AuthSession> }
         .data
         .let { TestUser(token = it.accessToken.value, userId = it.user.id.value) }
 
-private suspend fun HttpClient.registerMember(): TestUser =
-    post("/api/v1/auth/register") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("member@x", "y".repeat(8), "Member"))
-    }.body<AppResult<RegisterResult>>()
+private suspend fun ApplicationTestBuilder.registerMember(): TestUser =
+    publicAuthService()
+        .register(RegisterRequest("member@x", "y".repeat(8), "Member"))
         .let { it as AppResult.Success<RegisterResult> }
         .data
         .let { it as RegisterResult.Authenticated }

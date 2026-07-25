@@ -10,14 +10,12 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
-import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.TagSlug
@@ -30,9 +28,7 @@ private const val MIN_LIMIT = 1
 /**
  * [TagService] implementation.
  *
- * Tags are server-wide (curator model, not user-scoped). All mutation methods
- * call [BookSearchReindexer] after writes so the FTS `book_search.tags` column
- * stays consistent with the live junction state.
+ * Tags are server-wide (curator model, not user-scoped).
  *
  * Slug conflict on rename: only the [Tag.name] is updated — [Tag.slug] is
  * intentionally preserved per the contract spec so existing URLs remain valid.
@@ -49,7 +45,6 @@ private const val MIN_LIMIT = 1
 internal class TagServiceImpl(
     private val tagRepository: TagRepository,
     private val bookTagRepository: BookTagRepository,
-    private val reindexer: BookSearchReindexer,
     private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
@@ -57,7 +52,7 @@ internal class TagServiceImpl(
 ) : TagService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): TagServiceImpl =
-        TagServiceImpl(tagRepository, bookTagRepository, reindexer, sql, clock, permissionPolicy, principal)
+        TagServiceImpl(tagRepository, bookTagRepository, sql, clock, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -172,9 +167,6 @@ internal class TagServiceImpl(
             is AppResult.Failure -> return AppResult.Failure(result.error)
         }
 
-        // Reindex FTS after junction write.
-        reindexer.reindexBook(bookId.value)
-
         return AppResult.Success(tag)
     }
 
@@ -193,7 +185,6 @@ internal class TagServiceImpl(
         // softDelete is idempotent via the substrate — returns Failure(NotFound) if
         // already tombstoned, which we treat as success (caller's intent is satisfied).
         bookTagRepository.softDelete(bookId = bookId.value, tagId = tagId.value)
-        reindexer.reindexBook(bookId.value)
         return AppResult.Success(Unit)
     }
 
@@ -211,9 +202,6 @@ internal class TagServiceImpl(
         val updated =
             tagRepository.updateName(tagId.value, newName.trim())
                 ?: return AppResult.Failure(TagError.NotFound())
-
-        // Reindex all books that have this tag so FTS sees the updated name.
-        reindexer.reindexAllBooksForTag(tagId.value)
 
         return AppResult.Success(updated)
     }
@@ -235,11 +223,6 @@ internal class TagServiceImpl(
         bookTagRepository.softDeleteAllForTag(tagId.value)
         tagRepository.softDelete(tagId.value)
 
-        // Reindex outside the cascade (FTS writes are separate).
-        for (bookId in affectedBookIds) {
-            reindexer.reindexBook(bookId)
-        }
-
         return AppResult.Success(Unit)
     }
 
@@ -260,8 +243,7 @@ internal class TagServiceImpl(
 }
 
 /**
- * Builds a [TagService] over the given repositories, constructing the
- * [BookSearchReindexer] the rename/delete paths need internally.
+ * Builds a [TagService] over the given repositories.
  *
  * Public so cross-module test harnesses can mount a real [TagService] without piercing the
  * `internal` access on [TagServiceImpl]. Production wiring builds [TagServiceImpl] directly in
@@ -271,18 +253,10 @@ fun createTagService(
     tagRepository: TagRepository,
     bookTagRepository: BookTagRepository,
     sqlDb: ListenUpDatabase,
-    driver: SqlDriver,
 ): TagService =
     TagServiceImpl(
         tagRepository = tagRepository,
         bookTagRepository = bookTagRepository,
-        reindexer =
-            BookSearchReindexer(
-                bookTagRepository = bookTagRepository,
-                tagRepository = tagRepository,
-                db = sqlDb,
-                driver = driver,
-            ),
         sql = sqlDb,
     )
 

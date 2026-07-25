@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.CollectionService
-import com.calypsan.listenup.client.data.remote.CollectionInboxApi
-import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.InboxRepositoryImpl
@@ -11,8 +9,6 @@ import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase
 import org.koin.core.module.Module
-import org.koin.dsl.bind
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
@@ -43,14 +39,9 @@ internal val collectionModule: Module =
             )
         }
 
-        // AdminInboxApi for the 1b admin collection-inbox REST routes
-        single {
-            CollectionInboxApi(clientFactory = get())
-        } bind CollectionInboxApiContract::class
-
-        // InboxRepository — admin collection-inbox over the 1b REST routes
+        // InboxRepository — admin collection-inbox over CollectionService RPC
         single<InboxRepository> {
-            InboxRepositoryImpl(api = get())
+            InboxRepositoryImpl(channel = rpcChannel())
         }
 
         // AddBooksToCollectionUseCase — bulk add for multi-select flows

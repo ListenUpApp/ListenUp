@@ -1,25 +1,18 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.SyncPage
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.SyncCursorDao
 import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.test.db.passThroughTransactionRunner
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -28,20 +21,6 @@ import kotlinx.coroutines.test.runTest
  */
 class SyncCatchUpFromZeroTest :
     FunSpec({
-
-        fun mockClient(handler: (since: Long?) -> String): HttpClient =
-            HttpClient(
-                MockEngine { req ->
-                    val since = req.url.parameters["since"]?.toLongOrNull()
-                    respond(
-                        content = handler(since),
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                },
-            ) {
-                install(ContentNegotiation) { json(contractJson) }
-            }
 
         fun tagHandler(seenItems: MutableList<Tag>): SyncDomainHandler<Tag> =
             object : SyncDomainHandler<Tag> {
@@ -75,36 +54,42 @@ class SyncCatchUpFromZeroTest :
                 dao.setCursor(SyncCursorEntity(domainName = "tags", revision = 500L))
                 val store = SyncCursorStore(dao)
 
-                val sinceValues = mutableListOf<Long?>()
-                val httpClient =
-                    mockClient { since ->
-                        sinceValues += since
-                        when (since) {
-                            0L -> {
-                                contractJson.encodeToString(
-                                    Page.serializer(Tag.serializer()),
-                                    Page(
-                                        items =
-                                            listOf(
-                                                Tag("x", "ex", "ex", 1L, 10L),
-                                                Tag("y", "why", "why", 2L, 20L),
-                                            ),
-                                        nextCursor = 2L,
-                                        hasMore = false,
-                                    ),
-                                )
-                            }
+                val sinceValues = mutableListOf<Long>()
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> {
+                            sinceValues += since
+                            return when (since) {
+                                0L -> {
+                                    AppResult.Success(
+                                        syncPageOf(
+                                            domain = "tags",
+                                            serializer = Tag.serializer(),
+                                            items =
+                                                listOf(
+                                                    Tag("x", "ex", "ex", 1L, 10L),
+                                                    Tag("y", "why", "why", 2L, 20L),
+                                                ),
+                                            nextCursor = 2L,
+                                            hasMore = false,
+                                        ),
+                                    )
+                                }
 
-                            else -> {
-                                error("unexpected since=$since")
+                                else -> {
+                                    error("unexpected since=$since")
+                                }
                             }
                         }
                     }
 
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClientProvider = { httpClient },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = store,
                         transactionRunner = passThroughTransactionRunner(),
                     )

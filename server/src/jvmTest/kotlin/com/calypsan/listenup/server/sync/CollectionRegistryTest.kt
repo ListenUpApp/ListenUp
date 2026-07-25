@@ -9,7 +9,7 @@ import io.kotest.matchers.collections.shouldContainAll
  * domains with the [SyncRegistry]. Each repository's `init` block calls
  * `registry.register(this)`, so the act of constructing them must make
  * `"collections"`, `"collection_books"`, and `"collection_shares"` visible on
- * `SyncRegistry.knownDomains()` — the data backing `/api/v1/sync/domains`.
+ * `SyncRegistry.knownDomains()` — the data backing `SyncStreamService.listDomains()`.
  *
  * A regression here (a repo that forgets to register, or a domainName typo) would silently
  * drop a collection domain from the sync firehose; this test catches it at the substrate.

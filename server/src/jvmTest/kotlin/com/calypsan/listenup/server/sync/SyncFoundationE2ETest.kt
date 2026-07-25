@@ -1,20 +1,17 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.sync.DomainDigest
-import com.calypsan.listenup.api.sync.DomainList
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.testing.domainFrames
 import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rows
 import com.calypsan.listenup.server.testing.rpcFirehose
+import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.withTestApplication
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
-import io.ktor.client.call.body
-import io.ktor.client.request.get
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
@@ -22,13 +19,14 @@ import kotlinx.coroutines.flow.toList
 /**
  * End-to-end lifecycle of the sync foundation: the RPC firehose ([rpcFirehose]
  * over the harness bus) for the live tail — observe, write, receive, then
- * resume via `sinceRevision` — followed by the REST discovery/digest/catch-up
- * routes and the soft-delete tombstone.
+ * resume via `sinceRevision` — followed by the RPC discovery/digest/catch-up
+ * (`listDomains` / `digest` / `pullDomain` on [com.calypsan.listenup.api.SyncStreamService])
+ * and the soft-delete tombstone.
  */
 class SyncFoundationE2ETest :
     FunSpec({
 
-        test("end-to-end lifecycle: RPC stream → write → receive → resume with sinceRevision → REST catch-up") {
+        test("end-to-end lifecycle: RPC stream → write → receive → resume with sinceRevision → RPC catch-up") {
             withTestApplication {
                 // ---- Step 1: Write, observe the firehose, assert receive ----
                 // The bus's replay buffer holds the write, so subscribing after it is
@@ -48,8 +46,8 @@ class SyncFoundationE2ETest :
                 // ---- Step 3: Resubscribe with sinceRevision, verify replay + live tail ----
                 // With replay=256, resuming with sinceRevision = t1's revision delivers t2
                 // (missed while disconnected) from the replay cache, then t3. This is the
-                // desired catch-up behavior — the client doesn't need REST for events still
-                // in the bus buffer.
+                // desired catch-up behavior — the client doesn't need a pullDomain call for
+                // events still in the bus buffer.
                 tagRepo.upsert(Tag("t3", "gamma", "gamma", 0, 0))
                 val resumed =
                     rpcFirehose(bus, rootPrincipal("test-user"), sinceRevision = firstReceivedRevision)
@@ -60,21 +58,21 @@ class SyncFoundationE2ETest :
                 resumed[1].json shouldContain """"id":"t3""""
 
                 // ---- Step 4: Verify domain-list discovery ----
-                val list: DomainList = client.get("/api/v1/sync/domains").body()
-                list.domains shouldBe listOf("tags")
+                val domains = syncService().listDomains().shouldSucceed()
+                domains shouldBe listOf("tags")
 
                 // ---- Step 5: Verify digest ----
-                val digest: DomainDigest = client.get("/api/v1/sync/tags/digest?cursor=999").body()
+                val digest = syncService().digest("tags", cursor = 999).shouldSucceed()
                 digest.count shouldBe 3 // t1, t2, t3
 
-                // ---- Step 6: REST catch-up returns all rows ----
-                val page: Page<Tag> = client.get("/api/v1/sync/tags?since=0").body()
-                page.items shouldHaveSize 3
+                // ---- Step 6: RPC catch-up returns all rows ----
+                val page = syncService().pullDomain("tags", since = 0, limit = 100).shouldSucceed()
+                page.rows(Tag.serializer()) shouldHaveSize 3
 
                 // ---- Step 7: Soft-delete a row, assert tombstone in catch-up ----
                 tagRepo.softDelete("t1")
-                val pageAfterDelete: Page<Tag> = client.get("/api/v1/sync/tags?since=0").body()
-                val t1 = pageAfterDelete.items.first { it.id == "t1" }
+                val pageAfterDelete = syncService().pullDomain("tags", since = 0, limit = 100).shouldSucceed()
+                val t1 = pageAfterDelete.rows(Tag.serializer()).first { it.id == "t1" }
                 t1.deletedAt shouldNotBe null
             }
         }

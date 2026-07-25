@@ -14,7 +14,6 @@ import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.ScannerService
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.SocialService
@@ -38,39 +37,20 @@ import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.RpcServices
-import com.calypsan.listenup.server.routes.adminInviteRoutes
-import com.calypsan.listenup.server.routes.adminRoutes
-import com.calypsan.listenup.server.routes.adminUserRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
-import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.backupRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
-import com.calypsan.listenup.server.routes.collectionAdminRoutes
-import com.calypsan.listenup.server.routes.collectionRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.coverCastRoutes
-import com.calypsan.listenup.server.routes.genreRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
 import com.calypsan.listenup.server.routes.importRoutes
-import com.calypsan.listenup.server.routes.instanceRoutes
-import com.calypsan.listenup.server.routes.libraryAdminRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
-import com.calypsan.listenup.server.routes.metadataRoutes
-import com.calypsan.listenup.server.routes.playbackProgressRoutes
-import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
-import com.calypsan.listenup.server.routes.publicInviteRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
-import com.calypsan.listenup.server.routes.scannerRoutes
-import com.calypsan.listenup.server.routes.searchRoutes
 import com.calypsan.listenup.server.routes.seriesRoutes
-import com.calypsan.listenup.server.routes.tagRoutes
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
-import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.services.StatsRecorder
-import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
@@ -101,8 +81,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val bookAccessPolicy by inject<BookAccessPolicy>()
     val playbackService by inject<PlaybackService>()
     val playbackProgressService by inject<PlaybackProgressService>()
-    val statsRecorder by inject<StatsRecorder>()
-    val searchReindexService by inject<SearchReindexService>()
     val audioFileLocator by inject<AudioFileLocator>()
     val audioUrlSigner by inject<AudioUrlSigner>()
     val coverUrlSigner by inject<CoverUrlSigner>()
@@ -110,12 +88,10 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val seriesRepository by inject<SeriesRepository>()
     val imageStorage by inject<com.calypsan.listenup.server.metadata.ImageStorage>()
     val metadataLookupService by inject<MetadataLookupService>()
-    val searchService by inject<SearchService>()
     val libraryAdminService by inject<LibraryAdminService>()
     val tagService by inject<TagService>()
     val moodService by inject<MoodService>()
     val genreService by inject<GenreService>()
-    val collectionService by inject<CollectionService>()
     val shelfService by inject<ShelfService>()
     val socialService by inject<SocialService>()
     val profileService by inject<ProfileService>()
@@ -134,32 +110,15 @@ internal fun Application.installAppRoutes(homeDir: Path) {
 
     routing {
         healthRoutes()
-        instanceRoutes(instanceService)
-        authRoutes(authService)
-        publicInviteRoutes(inviteService)
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
-            syncRoutes()
-            adminUserRoutes(adminUserService)
-            adminInviteRoutes(inviteService)
-            libraryAdminRoutes(libraryAdminService)
             bookRoutes(bookService, coverResponder, bookAccessPolicy, documentFileLocator)
             contributorRoutes(contributorService, homeDir, imageStorage)
             seriesRoutes(seriesService, homeDir, imageStorage)
-            playbackRoutes(playbackService)
-            playbackProgressRoutes(playbackProgressService, bookAccessPolicy)
-            adminRoutes(statsRecorder, searchReindexService)
             metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
-            metadataRoutes(metadataLookupService)
-            searchRoutes(searchService)
-            tagRoutes(tagService, bookAccessPolicy)
-            genreRoutes(genreService)
-            collectionRoutes(collectionService)
-            collectionAdminRoutes(collectionService)
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
-            scannerRoutes(scannerService)
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
@@ -184,7 +143,6 @@ private fun Application.rpcServiceBundle(): RpcServices =
         playbackService = koinGet<PlaybackService>(),
         playbackProgressService = koinGet<PlaybackProgressService>(),
         metadataLookupService = koinGet<MetadataLookupService>(),
-        searchService = koinGet<SearchService>(),
         libraryAdminService = koinGet<LibraryAdminService>(),
         tagService = koinGet<TagService>(),
         moodService = koinGet<MoodService>(),

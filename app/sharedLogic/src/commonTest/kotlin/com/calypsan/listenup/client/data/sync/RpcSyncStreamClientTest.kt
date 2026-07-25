@@ -44,7 +44,7 @@ class RpcSyncStreamClientTest :
             val scope = TestScope(StandardTestDispatcher())
             var attempts = 0
             val service =
-                object : SyncStreamService {
+                object : FakeSyncStreamService() {
                     override fun observeEvents(sinceRevision: Long?): Flow<RpcEvent<SyncFrame>> =
                         flow {
                             attempts++
@@ -78,7 +78,7 @@ class RpcSyncStreamClientTest :
         test("lastEventId does not advance past a frame whose delivery never completed") {
             val scope = TestScope(StandardTestDispatcher())
             val service =
-                object : SyncStreamService {
+                object : FakeSyncStreamService() {
                     override fun observeEvents(sinceRevision: Long?): Flow<RpcEvent<SyncFrame>> =
                         flow {
                             emit(RpcEvent.Data(heartbeatFrame())) // hello — swallowed, latches Connected
@@ -124,7 +124,7 @@ class RpcSyncStreamClientTest :
             val scope = TestScope(StandardTestDispatcher())
             var subscriptions = 0
             val service =
-                object : SyncStreamService {
+                object : FakeSyncStreamService() {
                     override fun observeEvents(sinceRevision: Long?): Flow<RpcEvent<SyncFrame>> =
                         flow {
                             subscriptions++
@@ -171,7 +171,7 @@ class RpcSyncStreamClientTest :
             var invalidations = 0
             var invalidationsAtSecondSubscribe = -1
             val service =
-                object : SyncStreamService {
+                object : FakeSyncStreamService() {
                     override fun observeEvents(sinceRevision: Long?): Flow<RpcEvent<SyncFrame>> =
                         flow {
                             subscriptions++

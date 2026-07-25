@@ -14,8 +14,8 @@ import io.ktor.server.auth.parseAuthorizationHeader
 /**
  * Test-only [AuthenticationProvider] registered under [JWT_PROVIDER]. It
  * unconditionally authenticates every request with a [UserPrincipal], so
- * the [withClientSyncEngineAgainstServer] harness can mount auth-gated
- * `syncRoutes()` without minting a real JWT.
+ * the [withClientSyncEngineAgainstServer] harness can mount the auth-gated
+ * RPC surface without minting a real JWT.
  *
  * The principal's [UserPrincipal.userId] is taken from the request's
  * `Authorization: Bearer <token>` header when present — the token string is

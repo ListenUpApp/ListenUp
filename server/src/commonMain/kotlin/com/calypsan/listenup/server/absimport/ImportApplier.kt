@@ -43,7 +43,7 @@ private val logger = loggerFor<ImportApplier>()
  * bulk import can produce an arbitrarily large burst, and the lossy live-tail would overflow; the
  * per-row `user_stats` upsert and `public_profiles` refresh would also misfire repeatedly against
  * stale base totals mid-import. The source rows still commit and bump the sync revision, so clients
- * catch up via REST `pullSince`. The per-user [StatsEvent.BulkRecompute] runs *after* (outside) the
+ * catch up via `SyncStreamService.pullDomain`. The per-user [StatsEvent.BulkRecompute] runs *after* (outside) the
  * suppressed block, so the final authoritative stats row publishes live.
  *
  * **On success, apply broadcasts [SyncControl.LibraryDataChanged]** to every connected client. The
@@ -134,7 +134,7 @@ class ImportApplier internal constructor(
                 // Bulk import: suppress the live firehose so the burst can't overflow the lossy
                 // tail, and defer the per-row stats cascade so the importer doesn't refresh
                 // user_stats/public_profiles once per row. Source rows still commit + bump the
-                // revision, so clients catch up via REST.
+                // revision, so clients catch up on their next pull.
                 val result =
                     withContext(FirehoseSuppressed + StatsCascadeDeferred) {
                         val perUser =

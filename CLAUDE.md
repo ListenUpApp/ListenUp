@@ -146,7 +146,7 @@ When the codebase has more than one way to do the same thing, every contributor 
 - When a new canonical pattern is genuinely needed, replace the old one everywhere in the same PR. Don't leave two coexisting.
 - Konsist rules pin the canonical shape so drift can't reintroduce. If a pattern matters, write the rule.
 
-Concrete example: `data/remote/` API methods route through exactly one of the two sanctioned boundaries — `RpcChannel.call { ... }` for RPC (the overwhelming majority) or `suspendRunCatching { ... }` for the handful of non-RPC REST endpoints (the `CollectionInboxApi` shape). Not direct `try/catch`, not a hand-rolled envelope fold. One shape per transport, every file. The Konsist rule `NoThrowsInDataLayerRule` enforces it.
+Concrete example: `data/remote/` API methods route through exactly one of the two sanctioned boundaries — `RpcChannel.call { ... }` for RPC (the overwhelming majority) or `suspendRunCatching { ... }` for the handful of non-RPC REST endpoints (the `ImageApi` shape). Not direct `try/catch`, not a hand-rolled envelope fold. One shape per transport, every file. The Konsist rule `NoThrowsInDataLayerRule` enforces it.
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, fewer "wait, when do I use this version vs that version?" questions, and clarifying questions come before implementation rather than after mistakes.
 
@@ -156,7 +156,7 @@ Concrete example: `data/remote/` API methods route through exactly one of the tw
 
 ### Modern Everything
 
-This codebase targets the latest stable versions. Kotlin 2.4.0, Compose Multiplatform 1.11.1, Room KMP 2.8, Ktor 3.5, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
+This codebase targets the latest stable versions. Kotlin 2.4.0, Compose Multiplatform 1.11.1, Room 3.0, Ktor 3.5, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
 
 ### The Stack
 
@@ -167,7 +167,7 @@ This codebase targets the latest stable versions. Kotlin 2.4.0, Compose Multipla
 | Navigation | Compose Navigation 3 (multiplatform) |
 | DI | Koin 4.2 |
 | Networking | Ktor 3.5 |
-| Persistence | Room KMP 2.8 + SQLite (BundledSQLiteDriver) |
+| Persistence | Room 3.0 + SQLite (BundledSQLiteDriver) |
 | Playback | Media3 / ExoPlayer (Android), platform-specific (Desktop, iOS) |
 | Serialization | kotlinx.serialization |
 | Image Loading | Coil 3 |
@@ -195,7 +195,7 @@ These are the rules most likely to affect day-to-day work.
 Day-to-day rules:
 
 - **Fallible suspend functions return `AppResult<T>`** (`contract/.../api/result/AppResult.kt`). Not `Result<T>`, not `throw`. A small set of un-migrated APIs still throws; those files are tracked in `NoThrowsInDataLayerRule`'s `RESIDUAL_THROWS_ALLOWLIST` and migrate opportunistically as the in-place rewrite re-touches each domain.
-- **Data-layer APIs route through one of two sanctioned boundaries.** RPC (the default transport) goes through `RpcChannel.call { ... }` (`data/remote/RpcChannel.kt`) — engine-level recovery (bounded timeout, 401-heal, single-flight reconnect) folds into a typed `AppResult` for free; a business `AppResult.Failure` returned by the service passes through untouched. The handful of non-RPC REST endpoints (e.g. `CollectionInboxApi`) call `suspendRunCatching { ... }` (`core/ResultCatching.kt`) directly, which routes any caught throwable through `ErrorMapper`. Ktor's `installListenUpErrorHandling` (`expectSuccess = true`) raises `ResponseException` on non-2xx for both paths. API method bodies are just request shape + a `.map { it.toDomain() }` transform on success.
+- **Data-layer APIs route through one of two sanctioned boundaries.** RPC (the default transport) goes through `RpcChannel.call { ... }` (`data/remote/RpcChannel.kt`) — engine-level recovery (bounded timeout, 401-heal, single-flight reconnect) folds into a typed `AppResult` for free; a business `AppResult.Failure` returned by the service passes through untouched. The handful of non-RPC REST endpoints (e.g. `ImageApi`) call `suspendRunCatching { ... }` (`core/ResultCatching.kt`) directly, which routes any caught throwable through `ErrorMapper`. Ktor's `installListenUpErrorHandling` (`expectSuccess = true`) raises `ResponseException` on non-2xx for both paths. API method bodies are just request shape + a `.map { it.toDomain() }` transform on success.
 - **Errors are typed `AppError` subtypes** in `commonMain api.error.*` — `@Serializable`. Hierarchy: `AppError`, `AuthError`, `TransportError`, `SyncError`, `ScanError`, `DownloadError`, `ImportError`, `ServerConnectError`. Every subtype carries `correlationId`, `message`, `code`, `isRetryable`, `debugInfo`.
 - **`message` is a body-level constant per subtype** — user-facing-quality, period-terminated, no jargon. Per-instance technical detail goes in `debugInfo`. UI consumes `message` directly; logs consume `debugInfo`.
 - **`isRetryable = true` only when retry middleware can blindly re-fire the same call** (transient network, rate-limit-after-wait, idempotent 5xx). `false` for everything that needs user action (re-auth, fix input, contact admin).
@@ -294,41 +294,40 @@ never ships. That split is the structure — if you can't name which of the five
 thing belongs to, that's the signal to stop and think, not to add a sixth.
 
 ```
-client/
-├── app/                        # Everything that ships to a user
-│   ├── sharedLogic/            # KMP shared core (no UI)
-│   │   └── src/
-│   │       ├── commonMain/.../
-│   │       │   ├── core/       # Utilities — ResultCatching, Flow extensions, error plumbing (AppResult lives in :contract)
-│   │       │   ├── data/       # Repositories, sync, Room DAOs
-│   │       │   ├── di/         # Koin module definitions
-│   │       │   ├── domain/     # Domain models, repository interfaces
-│   │       │   └── presentation/  # ViewModels (shared across Android + iOS)
-│   │       ├── androidMain/    # Android-specific implementations
-│   │       ├── appleMain/      # Apple-shared implementations
-│   │       ├── iosMain/        # iOS implementations
-│   │       ├── jvmMain/        # JVM-shared implementations
-│   │       └── desktopMain/    # Desktop JVM implementations
-│   ├── sharedUI/               # Compose Multiplatform UI (Android + Desktop)
-│   │   └── src/
-│   │       ├── commonMain/.../
-│   │       │   ├── design/     # Theme, components
-│   │       │   └── features/   # Per-screen composables
-│   │       ├── androidMain/    # Android-specific UI
-│   │       └── desktopMain/    # Desktop-specific UI
-│   ├── androidApp/             # Android entry point (thin wrapper)
-│   ├── desktopApp/             # Desktop entry point (thin wrapper)
-│   ├── iosApp/                 # Xcode project — SwiftUI shell over :app:sharedLogic
-│   └── baselineprofile/        # Baseline profile generator for :app:androidApp
-├── contract/                   # Client↔server contract: @Rpc service interfaces,
-│                               #   @Serializable DTOs, the error hierarchy
-├── server/                     # Ktor server (KMP: JVM + linuxX64 native)
-├── gradle/                     # Wrapper + libs.versions.toml
-└── tools/                      # Build machinery — never ships
-    ├── build-logic/            # Gradle convention plugins + detekt-rules (included build)
-    ├── rpc-guard-ksp/          # KSP RPC-guard processor
-    ├── scripts/                # Export-surface + AppResult-await gate scripts
-    └── detekt/                 # detekt.yml + baseline.xml
+app/                           # Everything that ships to a user
+├── sharedLogic/                # KMP shared core (no UI)
+│   └── src/
+│       ├── commonMain/.../
+│       │   ├── core/           # Utilities — ResultCatching, Flow extensions, error plumbing (AppResult lives in :contract)
+│       │   ├── data/           # Repositories, sync, Room DAOs
+│       │   ├── di/             # Koin module definitions
+│       │   ├── domain/         # Domain models, repository interfaces
+│       │   └── presentation/   # ViewModels (shared across Android + iOS)
+│       ├── androidMain/        # Android-specific implementations
+│       ├── appleMain/          # Apple-shared implementations
+│       ├── iosMain/            # iOS implementations
+│       ├── jvmMain/            # JVM-shared implementations
+│       └── desktopMain/        # Desktop JVM implementations
+├── sharedUI/                   # Compose Multiplatform UI (Android + Desktop)
+│   └── src/
+│       ├── commonMain/.../
+│       │   ├── design/         # Theme, components
+│       │   └── features/       # Per-screen composables
+│       ├── androidMain/        # Android-specific UI
+│       └── desktopMain/        # Desktop-specific UI
+├── androidApp/                 # Android entry point (thin wrapper)
+├── desktopApp/                 # Desktop entry point (thin wrapper)
+├── iosApp/                     # Xcode project — SwiftUI shell over :app:sharedLogic
+└── baselineprofile/            # Baseline profile generator for :app:androidApp
+contract/                      # Client↔server contract: @Rpc service interfaces,
+                                #   @Serializable DTOs, the error hierarchy
+server/                        # Ktor server (KMP: JVM + linuxX64 native)
+gradle/                        # Wrapper + libs.versions.toml
+tools/                         # Build machinery — never ships
+├── build-logic/                # Gradle convention plugins + detekt-rules (included build)
+├── rpc-guard-ksp/               # KSP RPC-guard processor
+├── scripts/                     # Export-surface + AppResult-await gate scripts
+└── detekt/                      # detekt.yml + baseline.xml
 ```
 
 Module IDs follow the directories: `:app:sharedLogic`, `:app:sharedUI`,

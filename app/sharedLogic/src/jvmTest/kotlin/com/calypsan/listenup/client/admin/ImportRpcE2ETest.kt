@@ -47,6 +47,10 @@ import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
 import kotlinx.rpc.withService
+import com.calypsan.listenup.api.AuthServicePublic
+import kotlinx.rpc.krpc.serialization.json.json
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.server.testing.ApplicationTestBuilder
 
 /**
  * Cross-module E2E: the client's [ImportRepositoryImpl] drives the real `:server`
@@ -111,7 +115,7 @@ class ImportRpcE2ETest :
                         }
 
                     // Mint a ROOT account so the import admin gate passes.
-                    val accessToken = restClient.setupRoot()
+                    val accessToken = setupRoot()
 
                     // An authenticated REST client for upload — mirrors what ApiClientFactory
                     // produces: ContentNegotiation + a static bearer token. The production
@@ -192,7 +196,7 @@ class ImportRpcE2ETest :
  * Opens an [ImportService] proxy against `ws://localhost/api/rpc/authed` on the in-process
  * [testApplication], wrapped by [RpcChannel.forTest] so the repository drives the real fold
  * semantics over a real socket. The [accessToken] is a real JWT minted by the server's
- * `/api/v1/auth/setup` route so the bearer-gated RPC surface authenticates.
+ * `AuthServicePublic.setupRoot` RPC so the bearer-gated RPC surface authenticates.
  */
 private suspend fun HttpClient.importServiceProxy(accessToken: String): ImportService =
     rpc("ws://localhost/api/rpc/authed") {
@@ -203,16 +207,19 @@ private suspend fun HttpClient.importServiceProxy(accessToken: String): ImportSe
 // ── fixture helpers ───────────────────────────────────────────────────────────
 
 /**
- * Registers the first user as ROOT via `/api/v1/auth/setup` and returns the access token.
+ * Registers the first user as ROOT via `AuthServicePublic.setupRoot` and returns the access token.
  * Mirrors the pattern used in [com.calypsan.listenup.server.routes.ImportRoutesTest.setupRoot].
  */
-private suspend fun HttpClient.setupRoot(): String {
-    val result =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest(email = "root@import.test", password = "password1234", displayName = "Root"))
-        }.body<AppResult<AuthSession>>()
-    return (result as AppResult.Success<AuthSession>).data.accessToken.value
+private suspend fun ApplicationTestBuilder.setupRoot(): String {
+    val session =
+        createClient {
+            install(WebSockets)
+            installKrpc()
+        }.rpc("ws://localhost/api/rpc/public") {
+            rpcConfig { serialization { json(contractJson) } }
+        }.withService<AuthServicePublic>()
+            .setupRoot(RegisterRequest(email = "root@import.test", password = "password1234", displayName = "Root"))
+    return (session as AppResult.Success<AuthSession>).data.accessToken.value
 }
 
 /**

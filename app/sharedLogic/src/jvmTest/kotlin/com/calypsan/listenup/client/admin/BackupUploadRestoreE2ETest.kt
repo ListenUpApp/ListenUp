@@ -47,6 +47,10 @@ import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
 import kotlinx.rpc.withService
+import com.calypsan.listenup.api.AuthServicePublic
+import kotlinx.rpc.krpc.serialization.json.json
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.server.testing.ApplicationTestBuilder
 
 /**
  * Cross-module E2E: the client's [BackupRepositoryImpl.uploadBackup] streams a `.listenup.zip`
@@ -110,7 +114,7 @@ class BackupUploadRestoreE2ETest :
                     application { module() }
 
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val accessToken = restClient.setupRootForBackup()
+                    val accessToken = setupRootForBackup()
 
                     val authedRestClient =
                         createClient {
@@ -191,7 +195,7 @@ class BackupUploadRestoreE2ETest :
 /**
  * Opens a [BackupService] proxy against `ws://localhost/api/rpc/authed` on the in-process
  * [testApplication], wrapped by [RpcChannel.forTest]. Here [accessToken] is a real JWT minted
- * by the server's `/api/v1/auth/setup` route (the full [module] is booted), so the bearer-gated
+ * by the server's `AuthServicePublic.setupRoot` RPC (the full [module] is booted), so the bearer-gated
  * RPC surface authenticates correctly.
  */
 private suspend fun HttpClient.backupServiceProxy(accessToken: String): BackupService =
@@ -203,16 +207,19 @@ private suspend fun HttpClient.backupServiceProxy(accessToken: String): BackupSe
 // ── fixture helpers ───────────────────────────────────────────────────────────
 
 /**
- * Registers the first user as ROOT via `/api/v1/auth/setup` and returns the access token.
+ * Registers the first user as ROOT via `AuthServicePublic.setupRoot` and returns the access token.
  * Mirrors the [setupRoot] pattern used in [ImportRpcE2ETest].
  */
-private suspend fun HttpClient.setupRootForBackup(): String {
-    val result =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest(email = "root@backup.test", password = "password1234", displayName = "Root"))
-        }.body<AppResult<AuthSession>>()
-    return (result as AppResult.Success<AuthSession>).data.accessToken.value
+private suspend fun ApplicationTestBuilder.setupRootForBackup(): String {
+    val session =
+        createClient {
+            install(WebSockets)
+            installKrpc()
+        }.rpc("ws://localhost/api/rpc/public") {
+            rpcConfig { serialization { json(contractJson) } }
+        }.withService<AuthServicePublic>()
+            .setupRoot(RegisterRequest(email = "root@backup.test", password = "password1234", displayName = "Root"))
+    return (session as AppResult.Success<AuthSession>).data.accessToken.value
 }
 
 /**

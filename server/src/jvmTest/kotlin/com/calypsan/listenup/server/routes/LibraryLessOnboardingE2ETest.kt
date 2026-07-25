@@ -1,35 +1,31 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.api.contractJson
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.scanner.AudioLibraryFixture
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
+import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.api.SyncStreamService
+import com.calypsan.listenup.server.testing.authedService
+import com.calypsan.listenup.server.testing.shouldSucceed
+import io.kotest.matchers.types.shouldBeInstanceOf
+import com.calypsan.listenup.api.dto.Library
+import com.calypsan.listenup.api.dto.LibraryFolder
 
 /**
  * The capstone proof of library-less onboarding: a server that boots with NO
@@ -38,9 +34,9 @@ import kotlinx.serialization.Serializable
  * in a single running process and with no restart:
  *
  *  1. report `needsSetup == true` (no folder yet),
- *  2. accept a wizard `addFolder` call (`POST /api/v1/libraries/folders`),
+ *  2. accept a wizard `LibraryAdminService.addFolder` call,
  *  3. live-mount + scan the new folder via the already-running `ScanOrchestrator`,
- *  4. serve the scanned books over the always-loaded `/api/v1/sync/books` substrate.
+ *  4. serve the scanned books over the always-loaded `SyncStreamService` `books` domain.
  *
  * This is the end-to-end guarantee that the unconditional-module / unconditional-route
  * boot rework actually closes the loop — if books never appear after a scan, the
@@ -67,30 +63,28 @@ class LibraryLessOnboardingE2ETest :
                 testApplication {
                     useIsolatedTestConfig() // NO scanner.libraryPath → library-less boot
                     application { module() }
-                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     // 1. Mint the ROOT/ADMIN bearer (also serves as the wizard's admin caller).
-                    val adminToken = client.mintRootToken()
+                    val adminToken = mintRootToken()
 
                     // 2. The library-admin surface is PRESENT on a library-less boot (not 404),
                     //    and reports that the server still needs onboarding (no folders yet).
-                    val statusResponse = client.get("/api/v1/libraries/setup-status") { bearerAuth(adminToken) }
-                    statusResponse.status shouldBe HttpStatusCode.OK
-                    val status = statusResponse.body<SetupStatus>()
+                    val status =
+                        authedService<LibraryAdminService>(adminToken)
+                            .getSetupStatus()
+                            .shouldBeInstanceOf<AppResult.Success<SetupStatus>>()
+                            .data
                     status.needsSetup shouldBe true
 
                     // 3. Wizard fetches THE library to confirm it exists (singleton model).
-                    val libraryResponse = client.get("/api/v1/libraries") { bearerAuth(adminToken) }
-                    libraryResponse.status shouldBe HttpStatusCode.OK
+                    authedService<LibraryAdminService>(adminToken)
+                        .getLibrary()
+                        .shouldBeInstanceOf<AppResult.Success<Library>>()
 
                     // 4. Wizard adds a folder to THE library pointing at the temp dir.
-                    val addFolderResponse =
-                        client.post("/api/v1/libraries/folders") {
-                            bearerAuth(adminToken)
-                            contentType(ContentType.Application.Json)
-                            setBody(AddFolderBody(path = libraryDir.toString()))
-                        }
-                    addFolderResponse.status shouldBe HttpStatusCode.Created
+                    authedService<LibraryAdminService>(adminToken)
+                        .addFolder(libraryDir.toString())
+                        .shouldBeInstanceOf<AppResult.Success<LibraryFolder>>()
 
                     // 5. Kick the live scan via the already-mounted orchestrator.
                     //    Library bootstrap — which registers the library with the orchestrator and warms
@@ -102,20 +96,21 @@ class LibraryLessOnboardingE2ETest :
                     //    status fails fast. (In production the wizard runs long after boot, never racing.)
                     withTimeout(SCAN_TRIGGER_TIMEOUT_MS) {
                         while (true) {
-                            val scanResponse = client.post("/api/v1/libraries/scan") { bearerAuth(adminToken) }
-                            if (scanResponse.status == HttpStatusCode.Accepted) break
-                            scanResponse.status shouldBe HttpStatusCode.NotFound
+                            val scanResult = authedService<LibraryAdminService>(adminToken).scanLibrary()
+                            if (scanResult is AppResult.Success) break
+                            // Only the startup-race "library not yet registered" failure is tolerated.
+                            scanResult.shouldBeInstanceOf<AppResult.Failure>()
                             delay(POLL_INTERVAL_MS)
                         }
                     }
 
                     // 6. Await books on the always-loaded sync substrate. The scan is async,
-                    //    so poll the books page until at least one book lands.
+                    //    so poll the books pull until at least one book lands.
                     val bookCount =
                         withTimeout(SCAN_AWAIT_TIMEOUT_MS) {
                             var count = 0
                             while (count == 0) {
-                                count = client.syncBookCount(adminToken)
+                                count = syncBookCount(adminToken)
                                 if (count == 0) delay(POLL_INTERVAL_MS)
                             }
                             count
@@ -135,24 +130,17 @@ private const val SCAN_AWAIT_TIMEOUT_MS = 20_000L
 private const val POLL_INTERVAL_MS = 100L
 
 /** Request body for `POST /api/v1/libraries/folders`. */
-@Serializable
-private data class AddFolderBody(
-    val path: String,
-)
 
-private suspend fun HttpClient.mintRootToken(): String =
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintRootToken(): String =
+    publicAuthService()
+        .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
         .let { it as AppResult.Success<AuthSession> }
         .data.accessToken.value
 
-/** Reads `GET /api/v1/sync/books?since=0` and returns the number of book rows served. */
-private suspend fun HttpClient.syncBookCount(token: String): Int {
-    val text =
-        get("/api/v1/sync/books?since=0") { bearerAuth(token) }
-            .bodyAsText()
-    val page = contractJson.decodeFromString(Page.serializer(BookSyncPayload.serializer()), text)
-    return page.items.size
-}
+/** Pulls the `books` sync domain since the beginning and returns the number of rows served. */
+private suspend fun ApplicationTestBuilder.syncBookCount(token: String): Int =
+    authedService<SyncStreamService>(token)
+        .pullDomain("books", since = 0, limit = 500)
+        .shouldSucceed()
+        .items
+        .size

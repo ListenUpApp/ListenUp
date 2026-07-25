@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -60,7 +64,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
@@ -100,7 +104,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val response =
                         client.get("/api/v1/contributors/nonexistent/photo") {
@@ -121,7 +125,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("No Photo Author", sortName = null)
@@ -146,7 +150,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Missing File Author", sortName = null)
@@ -183,7 +187,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Traversal Author", sortName = null)
@@ -237,7 +241,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val contributorRepo by application.inject<ContributorRepository>()
                     val id = contributorRepo.resolveOrCreate("Range Author", sortName = null)
@@ -280,7 +284,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val seriesRepo by application.inject<SeriesRepository>()
                     val id = seriesRepo.resolveOrCreate("The Stormlight Archive")
@@ -320,7 +324,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val response =
                         client.get("/api/v1/series/nonexistent/cover") {
@@ -341,7 +345,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val seriesRepo by application.inject<SeriesRepository>()
                     val id = seriesRepo.resolveOrCreate("No Cover Series")
@@ -366,7 +370,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val seriesRepo by application.inject<SeriesRepository>()
                     val id = seriesRepo.resolveOrCreate("Missing Cover Series")
@@ -403,7 +407,7 @@ class MetadataImageRoutesTest :
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = libraryRoot.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
 
                     val seriesRepo by application.inject<SeriesRepository>()
                     val id = seriesRepo.resolveOrCreate("Traversal Series")
@@ -453,15 +457,10 @@ class MetadataImageRoutesTest :
 
 // ─── Auth helper (mirrors pattern in BookRoutesTest) ─────────────────────────
 
-private suspend fun HttpClient.mintAccessToken(): String {
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }
-    return post("/api/v1/auth/login") {
-        contentType(ContentType.Application.Json)
-        setBody(LoginRequest("root@x", "x".repeat(8)))
-    }.body<AppResult<AuthSession>>()
+private suspend fun ApplicationTestBuilder.mintAccessToken(): String {
+    publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+    return publicAuthService()
+        .login(LoginRequest("root@x", "x".repeat(8)))
         .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
         .data
         .accessToken

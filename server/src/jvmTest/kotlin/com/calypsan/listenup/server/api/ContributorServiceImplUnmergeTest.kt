@@ -17,7 +17,6 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -210,65 +209,6 @@ class ContributorServiceImplUnmergeTest :
         }
 
         // ── FTS reindex ────────────────────────────────────────────────────────
-
-        test("unmergeContributor reindexes book_search.contributor_names for relinked books") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeUnmergeServiceAndDeps(db)
-                val service = deps.service
-                val contributorRepo = deps.contributorRepo
-                val bookRepo = deps.bookRepo
-                runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
-                    val targetPayload = contributorRepo.findById(targetId.value)!!
-                    contributorRepo
-                        .upsert(targetPayload.copy(aliases = listOf("Richard Bachman")))
-                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    bookRepo.upsert(
-                        bookFixtureForUnmerge("b1", "The Long Walk", targetId, "Stephen King", "Richard Bachman"),
-                    )
-
-                    service
-                        .unmergeContributor(targetId, "Richard Bachman")
-                        .shouldBeInstanceOf<AppResult.Success<ContributorId>>()
-
-                    // book_search.contributor_names for b1 must now MATCH "Bachman" (the new contributor's name).
-                    ftsBookContributorMatchUnmerge(db, "b1", "Bachman") shouldBe true
-                }
-            }
-        }
-
-        test("unmergeContributor reindexes contributor_search.aliases for the target") {
-            withSqlDatabase {
-                val db = this
-                sql.seedTestLibraryAndFolder()
-                val deps = makeUnmergeServiceAndDeps(db)
-                val service = deps.service
-                val contributorRepo = deps.contributorRepo
-                val reindexer = deps.reindexer
-                runTest {
-                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
-                    val targetPayload = contributorRepo.findById(targetId.value)!!
-                    contributorRepo
-                        .upsert(targetPayload.copy(aliases = listOf("Richard Bachman")))
-                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    // Substrate upsert doesn't auto-reindex FTS — prime the precondition
-                    // explicitly so we can verify the post-state actually changed.
-                    reindexer.reindexContributorAliases(targetId.value)
-
-                    // Before unmerge: target's contributor_search.aliases MATCHes "Bachman".
-                    ftsAliasesMatchUnmerge(db, targetId.value, "Bachman") shouldBe true
-
-                    service
-                        .unmergeContributor(targetId, "Richard Bachman")
-                        .shouldBeInstanceOf<AppResult.Success<ContributorId>>()
-
-                    // After unmerge: target's contributor_search.aliases no longer MATCHes "Bachman".
-                    ftsAliasesMatchUnmerge(db, targetId.value, "Bachman") shouldBe false
-                }
-            }
-        }
     })
 
 // ── Test fixtures and helpers ──────────────────────────────────────────────────
@@ -282,7 +222,6 @@ private data class UnmergeServiceDeps(
     val service: ContributorServiceImpl,
     val contributorRepo: ContributorRepository,
     val bookRepo: BookRepository,
-    val reindexer: BookSearchReindexer,
 )
 
 private fun makeUnmergeServiceAndDeps(db: SqlTestDatabases): UnmergeServiceDeps {
@@ -302,17 +241,15 @@ private fun makeUnmergeServiceAndDeps(db: SqlTestDatabases): UnmergeServiceDeps 
         )
     val tagRepo = TagRepository(db = db.sql, bus = bus, registry = syncRegistry)
     val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.sql, db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
-            reindexer = reindexer,
             sqlDb = db.sql,
             accessPolicy = BookAccessPolicy(db.sql, db.driver),
             principal = rootPrincipal(),
         )
-    return UnmergeServiceDeps(service, contributorRepo, bookRepo, reindexer)
+    return UnmergeServiceDeps(service, contributorRepo, bookRepo)
 }
 
 /**

@@ -1,6 +1,10 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -12,12 +16,14 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.testing.authedService
+import com.calypsan.listenup.server.testing.rows
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeFalse
@@ -25,35 +31,24 @@ import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
 
 /**
  * Tier-2 integration tests: Books catch-up pagination via
- * `GET /api/v1/sync/books?since=<Long>&limit=<Int>`.
+ * [SyncStreamService.pullDomain] on the `books` domain.
  *
  * Verifies that the Books domain's [BookRepository] correctly paginates
- * through the sync catch-up endpoint: page-1 returns `limit` items with
+ * through the sync catch-up call: page-1 returns `limit` items with
  * `hasMore = true`; following `nextCursor` returns the remainder with
  * `hasMore = false`. Round-trips through real wire serialization
- * ([BookSyncPayload] inside [Page]).
+ * ([BookSyncPayload] rows inside the returned `SyncPage`).
  *
  * Boots the full [module] (same approach as [com.calypsan.listenup.server.routes.BookRoutesTest])
  * with a temp library path so `booksModule` is installed and [BookRepository]
- * self-registers with the [SyncRegistry]. Sync routes are auth-gated in
- * `Application.module()`, so requests carry a JWT minted via the real auth
+ * self-registers with the [SyncRegistry]. The sync RPC surface is auth-gated in
+ * `Application.module()`, so calls carry a JWT minted via the real auth
  * REST surface.
  */
 class BooksSyncCatchUpTest :
@@ -65,22 +60,20 @@ class BooksSyncCatchUpTest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
                     repeat(150) { i -> repo.upsert(bookSyncFixture(id = "book-$i", title = "Book $i")) }
 
-                    val response =
-                        client.get("/api/v1/sync/books?since=0&limit=100") {
-                            bearerAuth(token)
-                        }
+                    val page =
+                        authedService<SyncStreamService>(token)
+                            .pullDomain("books", since = 0, limit = 100)
+                            .shouldSucceed()
+                    val items = page.rows(BookSyncPayload.serializer())
 
-                    response.status shouldBe HttpStatusCode.OK
-                    val page = response.body<Page<BookSyncPayload>>()
-                    page.items shouldHaveSize 100
+                    items shouldHaveSize 100
                     page.hasMore.shouldBeTrue()
                     page.nextCursor shouldNotBe null
                 }
@@ -95,36 +88,30 @@ class BooksSyncCatchUpTest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
                     repeat(150) { i -> repo.upsert(bookSyncFixture(id = "book-$i", title = "Book $i")) }
 
+                    val sync = authedService<SyncStreamService>(token)
+
                     // Page 1
-                    val page1 =
-                        client
-                            .get("/api/v1/sync/books?since=0&limit=100") {
-                                bearerAuth(token)
-                            }.body<Page<BookSyncPayload>>()
-                    page1.items shouldHaveSize 100
+                    val page1 = sync.pullDomain("books", since = 0, limit = 100).shouldSucceed()
+                    val page1Items = page1.rows(BookSyncPayload.serializer())
+                    page1Items shouldHaveSize 100
                     page1.hasMore.shouldBeTrue()
                     val cursor = page1.nextCursor!!
 
                     // Page 2 — follow cursor
-                    val page2Response =
-                        client.get("/api/v1/sync/books?since=$cursor&limit=100") {
-                            bearerAuth(token)
-                        }
-                    page2Response.status shouldBe HttpStatusCode.OK
-                    val page2 = page2Response.body<Page<BookSyncPayload>>()
-                    page2.items shouldHaveSize 50
+                    val page2 = sync.pullDomain("books", since = cursor, limit = 100).shouldSucceed()
+                    val page2Items = page2.rows(BookSyncPayload.serializer())
+                    page2Items shouldHaveSize 50
                     page2.hasMore.shouldBeFalse()
 
                     // Both pages together cover all 150 books
-                    val allIds = (page1.items + page2.items).map { it.id }.toSet()
+                    val allIds = (page1Items + page2Items).map { it.id }.toSet()
                     allIds.size shouldBe 150
                 }
             } finally {
@@ -138,9 +125,8 @@ class BooksSyncCatchUpTest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
-                    val token = client.mintAccessToken()
+                    val token = mintAccessToken()
                     seedTestLibraryAndFolder()
 
                     val repo by application.inject<BookRepository>()
@@ -158,14 +144,16 @@ class BooksSyncCatchUpTest :
                         ),
                     )
 
+                    // Old REST route defaulted to limit=500 when omitted; pass it explicitly to
+                    // preserve that paging behaviour now that limit is a required RPC argument.
                     val page =
-                        client
-                            .get("/api/v1/sync/books?since=0") {
-                                bearerAuth(token)
-                            }.body<Page<BookSyncPayload>>()
+                        authedService<SyncStreamService>(token)
+                            .pullDomain("books", since = 0, limit = 500)
+                            .shouldSucceed()
+                    val items = page.rows(BookSyncPayload.serializer())
 
-                    page.items shouldHaveSize 1
-                    val book = page.items.first()
+                    items shouldHaveSize 1
+                    val book = items.first()
                     book.id shouldBe "rt-book"
                     book.title shouldBe "Round-trip Title"
                     book.contributors shouldHaveSize 1
@@ -179,18 +167,11 @@ class BooksSyncCatchUpTest :
         }
     })
 
-private suspend fun HttpClient.mintAccessToken(): String {
-    post("/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-    }
+private suspend fun ApplicationTestBuilder.mintAccessToken(): String {
+    publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
     val response =
-        post("/api/v1/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody(LoginRequest("root@x", "x".repeat(8)))
-        }
+        publicAuthService().login(LoginRequest("root@x", "x".repeat(8)))
     return response
-        .body<AppResult<AuthSession>>()
         .let { it as AppResult.Success<AuthSession> }
         .data
         .accessToken

@@ -50,10 +50,12 @@ class ConnectionResilienceE2ETest :
                 // No peer server observed yet — the server starts empty and no request has landed.
                 localPreferences.peerServerVersion.value.shouldBeNull()
 
-                // A real, anonymous REST request through the real KtorApiClientFactory against the
-                // real server's InstanceRoutes.
+                // A real, anonymous HTTP request through the real KtorApiClientFactory. `/healthz` is
+                // used because it is one of the few surviving non-blob HTTP routes: the REST mirror
+                // surface was retired in favour of RPC, and `installVersionHeaders()` stamps every
+                // response regardless of route, so any live endpoint exercises the same exchange.
                 val apiClientFactory = koin.get<ApiClientFactory>()
-                val response = apiClientFactory.getClient().get("/api/v1/instance")
+                val response = apiClientFactory.getClient().get("/healthz")
 
                 // Client and server both derive their version from the same repo-root VERSION file,
                 // so the server's reported version equals this build's DefaultClientIdentity.version.

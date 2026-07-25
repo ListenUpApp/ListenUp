@@ -7,9 +7,8 @@ import com.calypsan.listenup.api.sync.SyncFrame
 
 /**
  * The minimal sync-substrate contract the firehose/catch-up plumbing
- * ([ChangeBus], [SyncRegistry], [com.calypsan.listenup.server.sync.syncRoutes])
- * needs from a syncable-domain repository — independent of the storage engine
- * behind it.
+ * ([ChangeBus], [SyncRegistry], [SyncStreamServiceImpl]) needs from a
+ * syncable-domain repository — independent of the storage engine behind it.
  *
  * Both bases implement it: the Exposed [SyncableRepository] (production today)
  * and the SQLDelight [SqlSyncableRepository] (the cutover twin). The consumers
@@ -20,10 +19,10 @@ import com.calypsan.listenup.api.sync.SyncFrame
  *
  * Kept deliberately small — only what the three consumers actually touch:
  *  - [domainName] — the registry key, the firehose frame's `domain`, the error domain.
- *  - [encodePageAsJson] / [encodeSyncEventAsJson] — the type-erasure-defeating
- *    serializer helpers the routes call on the `SyncableRepo<Any>` cast (the
- *    registry is keyed by `String`, so the element type is erased at lookup).
- *  - [pullSince] / [digest] — the REST catch-up + drift-detection reads.
+ *  - [encodeItemAsJson] / [encodeSyncEventAsJson] — the type-erasure-defeating
+ *    serializer helpers the pull and the firehose call on the `SyncableRepo<Any>`
+ *    cast (the registry is keyed by `String`, so the element type is erased at lookup).
+ *  - [pullSince] / [digest] — the catch-up + drift-detection reads.
  *
  * The single type parameter [T] (the aggregate's wire DTO) is what binds a
  * [BusEvent]'s `repo` to its `event` payload type at compile time — a
@@ -35,12 +34,13 @@ interface SyncableRepo<T : Any> {
     val domainName: String
 
     /**
-     * Encodes a [Page] of [T] to a JSON string via the repo's own concrete
-     * element serializer. The catch-up route calls this on the type-erased
-     * `SyncableRepo<Any>` because `call.respond(page)` cannot infer the element
-     * serializer from `Page<Any>`.
+     * Encodes ONE row to JSON via the repo's own concrete element serializer.
+     *
+     * The RPC catch-up pull carries a page as a list of encoded rows rather than one encoded
+     * page, so the client never holds a whole-page JSON tree alongside the decoded rows and a
+     * single malformed row fails alone.
      */
-    fun encodePageAsJson(page: Page<T>): String
+    fun encodeItemAsJson(item: T): String
 
     /**
      * Encodes a [SyncEvent] to a JSON string via the repo's own concrete element

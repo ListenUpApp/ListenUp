@@ -79,7 +79,6 @@ import com.calypsan.listenup.server.api.createSeriesService
 import com.calypsan.listenup.server.api.genreServiceScopedTo
 import com.calypsan.listenup.server.api.seriesServiceScopedTo
 import com.calypsan.listenup.server.cover.CoverStorage
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -111,7 +110,6 @@ import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.createSyncStreamService
-import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
 import kotlin.time.Clock
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -244,7 +242,7 @@ internal data class ClientEngineScope(
  * with a real in-memory Room DB on the client side. Use for Tier 3 e2e tests.
  *
  * Wires:
- *  - server: temp-file SQLite + Koin module + `syncRoutes`, mirroring
+ *  - server: temp-file SQLite + Koin module + the RPC sync surface, mirroring
  *    `server/.../testing/SyncTestApplication.kt`
  *  - client: Room in-memory DB + a real [SyncEngine] backed by [SyncCatchUpClient]
  *    and [RpcSyncStreamClient] talking to the server's testApplication over a real
@@ -278,22 +276,11 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 driver = serverDriver,
                 genreRepo = serverRepos.genreRepo,
             )
-        // The deleteContributor cascade test needs `ContributorService`. The reindexer
-        // requires a [BookTagRepository] + [TagRepository]
-        // pair; both are already constructed inside `buildServerRepositories` (tagRepo
-        // for the Tags-domain tests), so only `BookTagRepository` is instantiated here.
-        val bookSearchReindexer =
-            BookSearchReindexer(
-                bookTagRepository = BookTagRepository(serverSqlDb, bus, syncRegistry),
-                tagRepository = serverRepos.tagRepo,
-                db = serverSqlDb,
-                driver = serverDriver,
-            )
+        // The deleteContributor cascade test needs `ContributorService`.
         val contributorService: ContributorService =
             createContributorService(
                 contributorRepo = serverRepos.contributorRepo,
                 bookRepo = serverRepos.bookRepo,
-                reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )
@@ -302,7 +289,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             createSeriesService(
                 seriesRepo = serverRepos.seriesRepo,
                 bookRepo = serverRepos.bookRepo,
-                reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )
@@ -311,7 +297,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             createGenreService(
                 genreRepository = serverRepos.genreRepo,
                 bookRepository = serverRepos.bookRepo,
-                reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )
@@ -348,7 +333,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             }
             routing {
                 authenticate(JWT_PROVIDER) {
-                    syncRoutes()
                     // BookService RPC route — Books-C1+ Tier 3 e2e harness mounts
                     // the bearer-gated `BookService` here so client→RPC→server
                     // round trips work in-process. `guard(...)` wraps the service
@@ -392,7 +376,14 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                             val p =
                                 call.userPrincipalOrNull()
                                     ?: error("authed RPC mount reached without a principal")
-                            guard(createSyncStreamService(bus, { bookAccessPolicy }, PrincipalProvider { p }))
+                            guard(
+                                createSyncStreamService(
+                                    bus,
+                                    syncRegistry,
+                                    { bookAccessPolicy },
+                                    PrincipalProvider { p },
+                                ),
+                            )
                         }
                     }
                 }
@@ -677,28 +668,29 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                         seriesDomain(clientDb).toHandler(RoomTransactionRunner(clientDb), ClientSyncDomainRegistry()),
                 )
 
-            val catchUp =
-                SyncCatchUpClient(
-                    httpClientProvider = { testClient },
-                    // testApplication serves relative URLs in-process — an empty base URL is correct here.
-                    serverUrlProvider = { "" },
-                    store = store,
-                    transactionRunner = RoomTransactionRunner(clientDb),
-                )
-
-            val digestClient = DomainDigestClient(httpClientProvider = { testClient }, serverUrlProvider = { "" })
-            val reconciler = SyncReconciler(registry, store, digestClient, catchUp)
-
-            // The production firehose client over a real kotlinx.rpc proxy into the harness's
-            // in-process server — same transport shape as production DI wires.
+            // One real kotlinx.rpc proxy into the harness's in-process server, shared by the
+            // firehose, the catch-up pull and the digest — the same one-socket shape production
+            // DI wires, where all three ride a single `rpcChannel<SyncStreamService>()`.
             val syncStreamServiceProxy =
                 testClient
                     .rpc("ws://localhost/api/rpc/authed") {
                         rpcConfig { serialization { krpcJson(contractJson) } }
                     }.withService<SyncStreamService>()
+            val syncChannel = RpcChannel.forTest(syncStreamServiceProxy)
+
+            val catchUp =
+                SyncCatchUpClient(
+                    channel = syncChannel,
+                    store = store,
+                    transactionRunner = RoomTransactionRunner(clientDb),
+                )
+
+            val digestClient = DomainDigestClient(channel = syncChannel)
+            val reconciler = SyncReconciler(registry, store, digestClient, catchUp)
+
             val syncStreamClient =
                 RpcSyncStreamClient(
-                    channel = RpcChannel.forTest(syncStreamServiceProxy),
+                    channel = syncChannel,
                     state = state,
                     scope = clientScope,
                 )

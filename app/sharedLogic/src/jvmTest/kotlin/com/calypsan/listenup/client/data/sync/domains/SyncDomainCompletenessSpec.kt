@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
@@ -19,19 +18,20 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContainAnyOf
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
+import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.SyncStreamService
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
+import kotlinx.rpc.krpc.serialization.json.json
+import kotlinx.rpc.withService
+import io.ktor.client.plugins.websocket.WebSockets
+import kotlinx.rpc.krpc.ktor.client.installKrpc
+import io.ktor.server.testing.ApplicationTestBuilder
 
 /**
  * The Phase-2 closing invariant: the contract ([SyncDomains.all]), the client
@@ -41,12 +41,11 @@ import java.nio.file.Files
  * symptom (a missing SSE stream, an un-bootstrapped table) can appear.
  *
  * The server leg boots the **real** production [module] in a Ktor
- * `testApplication`, mints a ROOT token via `/api/v1/auth/setup`, and reads
- * `GET /api/v1/sync/domains`. That route responds with
- * `DomainList(domains = registry.knownDomains())`, where the registry is
- * populated by every `SqlSyncableRepository` self-registering at bootstrap —
- * so the assertion is against the full production DI graph, not a test
- * re-listing that could drift from it.
+ * `testApplication`, mints a ROOT token via `AuthServicePublic.setupRoot`, and calls
+ * [SyncStreamService.listDomains] over a real RPC proxy. That returns
+ * `registry.knownDomains()`, where the registry is populated by every
+ * `SqlSyncableRepository` self-registering at bootstrap — so the assertion is against the
+ * full production DI graph, not a test re-listing that could drift from it.
  */
 class SyncDomainCompletenessSpec :
     FunSpec({
@@ -366,19 +365,15 @@ class SyncDomainCompletenessSpec :
                     }
                     application { module() }
 
-                    val client =
-                        createClient {
-                            install(ContentNegotiation) { json(contractJson) }
-                        }
-                    // The sync/domains route is mounted inside authenticate(JWT_PROVIDER),
-                    // so it needs a real bearer token — mint the first user as ROOT.
-                    val accessToken = client.setupRoot()
+                    // The authed RPC mount is inside authenticate(JWT_PROVIDER), so it needs a
+                    // real bearer token — mint the first user as ROOT.
+                    val accessToken = setupRoot()
 
                     val domains =
-                        client
-                            .get("/api/v1/sync/domains") { bearerAuth(accessToken) }
-                            .body<DomainList>()
-                            .domains
+                        authedSyncService(accessToken)
+                            .listDomains()
+                            .shouldBeInstanceOf<AppResult.Success<List<String>>>()
+                            .data
 
                     domains.toSet() shouldBe SyncDomains.all.map { it.name }.toSet()
                 }
@@ -388,19 +383,32 @@ class SyncDomainCompletenessSpec :
         }
     })
 
-/** Registers the first user as ROOT via `/api/v1/auth/setup` and returns the access token. */
-private suspend fun HttpClient.setupRoot(): String {
+/** The authed [SyncStreamService] over a real kotlinx.rpc proxy, as [accessToken]'s caller. */
+private suspend fun ApplicationTestBuilder.authedSyncService(accessToken: String): SyncStreamService =
+    createClient {
+        install(WebSockets)
+        installKrpc()
+    }.rpc("ws://localhost/api/rpc/authed") {
+        rpcConfig { serialization { json(contractJson) } }
+        bearerAuth(accessToken)
+    }.withService<SyncStreamService>()
+
+/** Registers the first user as ROOT via `AuthServicePublic.setupRoot` and returns the access token. */
+private suspend fun ApplicationTestBuilder.setupRoot(): String {
     val result =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(
+        createClient {
+            install(WebSockets)
+            installKrpc()
+        }.rpc("ws://localhost/api/rpc/public") {
+            rpcConfig { serialization { json(contractJson) } }
+        }.withService<AuthServicePublic>()
+            .setupRoot(
                 RegisterRequest(
                     email = "root@completeness.test",
                     password = "password1234",
                     displayName = "Root",
                 ),
             )
-        }.body<AppResult<AuthSession>>()
     return (result as AppResult.Success<AuthSession>).data.accessToken.value
 }
 

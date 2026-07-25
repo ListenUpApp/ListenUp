@@ -1,27 +1,20 @@
 package com.calypsan.listenup.server
 
-import com.calypsan.listenup.api.contractJson
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.DomainList
+import com.calypsan.listenup.server.testing.authedService
+import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 
@@ -34,9 +27,9 @@ import java.nio.file.Files
  * `BookRepository` (`createdAtStart`) and `BookPersister` are both constructed
  * at bootstrap.
  *
- * It then asserts `GET /api/v1/sync/domains` lists `"books"`, which is only
- * possible if `BookRepository`'s `init` block ran and registered the domain
- * with `SyncRegistry` at startup.
+ * It then asserts `SyncStreamService.listDomains()` lists `"books"`, which is
+ * only possible if `BookRepository`'s `init` block ran and registered the
+ * domain with `SyncRegistry` at startup.
  *
  * Approach: `testApplication { module() }` rather than a bare
  * `booksModule().verify()`. `verify()` cannot see the cross-module bindings
@@ -47,16 +40,10 @@ import java.nio.file.Files
 class BooksModuleStartupTest :
     FunSpec({
 
-        suspend fun HttpClient.seedAndLoginAlice(): AuthSession {
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-            }
+        suspend fun ApplicationTestBuilder.seedAndLoginAlice(): AuthSession {
+            publicAuthService().setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
             val registered =
-                post("/api/v1/auth/register") {
-                    contentType(ContentType.Application.Json)
-                    setBody(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
-                }.body<AppResult<RegisterResult>>()
+                publicAuthService().register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
             return registered
                 .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
                 .data
@@ -70,17 +57,14 @@ class BooksModuleStartupTest :
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
-                    val session = client.seedAndLoginAlice()
+                    val session = seedAndLoginAlice()
 
-                    val response =
-                        client.get("/api/v1/sync/domains") {
-                            bearerAuth(session.accessToken.value)
-                        }
+                    val domains =
+                        authedService<SyncStreamService>(session.accessToken.value)
+                            .listDomains()
+                            .shouldSucceed()
 
-                    response.status shouldBe HttpStatusCode.OK
-                    val domains = response.body<DomainList>().domains
                     domains shouldContain "books"
                 }
             } finally {

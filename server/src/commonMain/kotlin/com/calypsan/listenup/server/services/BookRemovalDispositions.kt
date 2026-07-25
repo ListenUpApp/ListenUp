@@ -34,14 +34,6 @@ internal enum class RemovalDisposition {
      * contract), and a dead book never surfaces because every read path gates on live books.
      */
     USER_DATA,
-
-    /**
-     * The FTS5 search-index shadow keyed by `book_id`. Maintained by the search-index write path
-     * ([com.calypsan.listenup.server.services.BookFtsWriter]) — a rowid↔book_id map, not a removal
-     * cascade target. A tombstoned book is filtered from search results by the book-liveness join +
-     * access gate, so its stale map row is inert and is overwritten (rowid reused) on re-ingest.
-     */
-    SEARCH_SHADOW,
 }
 
 /**
@@ -49,11 +41,6 @@ internal enum class RemovalDisposition {
  * name. [BookCascadeRegistryParityTest] asserts this key set equals the set discovered by live schema
  * introspection — in **both** directions — so a new `book_id` table forces an explicit entry here (and,
  * if [RemovalDisposition.CASCADE_TOMBSTONED], a wired soft-delete/revive proven by that same test).
- *
- * Note on the search tables: the FTS5 virtual table `book_search` tracks books by `rowid`, not a
- * `book_id` column (recreated contentless in V21), so it is not a `book_id` table. Its persistent
- * rowid↔book_id map `book_search_map` (V9) **does** carry `book_id` and is the [RemovalDisposition
- * .SEARCH_SHADOW] entry below.
  */
 internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
     mapOf(
@@ -76,6 +63,4 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         "activities" to RemovalDisposition.USER_DATA,
         "shelf_books" to RemovalDisposition.USER_DATA,
         "active_sessions" to RemovalDisposition.USER_DATA,
-        // ── FTS5 search-index shadow (rowid↔book_id map) ──
-        "book_search_map" to RemovalDisposition.SEARCH_SHADOW,
     )

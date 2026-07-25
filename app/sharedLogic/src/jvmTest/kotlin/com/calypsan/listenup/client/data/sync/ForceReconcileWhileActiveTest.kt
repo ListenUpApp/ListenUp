@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.sync.SyncFrame
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.DomainDigest
@@ -26,13 +25,6 @@ import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.http.HttpHeaders
-import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.json
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -254,33 +246,22 @@ private fun buildEngine(
 }
 
 /**
- * [DomainDigestClient] backed by an in-memory map: a GET to `/api/v1/sync/<domain>/digest`
- * responds with the pre-set [DomainDigest] for that domain, or 404 if absent.
+ * [DomainDigestClient] backed by an in-memory map: a known domain yields its pre-set
+ * [DomainDigest], an unknown one the typed [SyncError.UnknownDomain] the server would return.
  * Mirrors `SyncReconcilerTest`'s fake.
  */
 private fun fakeDigestClient(domainDigests: Map<String, DomainDigest>): DomainDigestClient {
-    val mockClient =
-        HttpClient(
-            MockEngine { req ->
-                val domain =
-                    req.url.pathSegments
-                        .dropLast(1)
-                        .last()
-                val digest = domainDigests[domain]
-                if (digest != null) {
-                    respond(
-                        content = contractJson.encodeToString(DomainDigest.serializer(), digest),
-                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
-                    )
-                } else {
-                    respond(content = "not found", status = io.ktor.http.HttpStatusCode.NotFound)
-                }
-            },
-        ) { install(ContentNegotiation) { json(contractJson) } }
-    return DomainDigestClient(
-        httpClientProvider = { mockClient },
-        serverUrlProvider = { "http://test" },
-    )
+    val service =
+        object : FakeSyncStreamService() {
+            override suspend fun digest(
+                domain: String,
+                cursor: Long,
+            ): AppResult<DomainDigest> =
+                domainDigests[domain]
+                    ?.let { AppResult.Success(it) }
+                    ?: AppResult.Failure(SyncError.UnknownDomain(domain = domain))
+        }
+    return DomainDigestClient(channel = RpcChannel.forTest(service))
 }
 
 /**

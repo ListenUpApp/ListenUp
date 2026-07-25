@@ -159,37 +159,6 @@ class BookRepositoryUpsertTest :
             }
         }
 
-        test("FTS row is upserted in book_search and mapped via book_search_map") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                val repo = makeRepo()
-                runTest {
-                    sql.transaction {
-                        sql.seedContributor("c1", "Brandon Sanderson")
-                        sql.seedSeries("s1", "Stormlight Archive")
-                    }
-                    repo.upsert(
-                        bookPayloadFixture(
-                            id = "b1",
-                            title = "Way of Kings",
-                            contributors = listOf(contributor("c1", "Brandon Sanderson", "author")),
-                            series = listOf(series("s1", "Stormlight Archive", "1")),
-                        ),
-                    )
-
-                    val mappedRowid = sql.bookSearchQueries.selectRowidForBook("b1").executeAsOne()
-
-                    driver.ftsRowids("SELECT rowid FROM book_search WHERE book_search MATCH 'Kings' ORDER BY rank") shouldBe
-                        listOf(mappedRowid)
-
-                    // Also search by contributor name — confirms FTS contributor_names column populated.
-                    driver.ftsRowids(
-                        "SELECT rowid FROM book_search WHERE book_search MATCH 'Sanderson' ORDER BY rank",
-                    ) shouldBe listOf(mappedRowid)
-                }
-            }
-        }
-
         test("upsertFromAnalyzed persists and round-trips hasScanWarning") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
@@ -396,30 +365,6 @@ class BookRepositoryUpsertTest :
                 }
             }
         }
-
-        test("update re-uses existing rowid; book_search has exactly one row per book") {
-            withSqlDatabase {
-                sql.seedTestLibraryAndFolder()
-                val repo = makeRepo()
-                runTest {
-                    repo.upsert(bookPayloadFixture(id = "b1", title = "Old Title"))
-                    val firstRowid = sql.bookSearchQueries.selectRowidForBook("b1").executeAsOne()
-
-                    repo.upsert(bookPayloadFixture(id = "b1", title = "New Title"))
-
-                    // Mapping unchanged.
-                    sql.bookSearchQueries.selectRowidForBook("b1").executeAsOne() shouldBe firstRowid
-
-                    // Old title no longer matches; new title does.
-                    driver.ftsRowids(
-                        "SELECT rowid FROM book_search WHERE book_search MATCH 'Old' ORDER BY rank",
-                    ) shouldBe emptyList()
-                    driver.ftsRowids(
-                        "SELECT rowid FROM book_search WHERE book_search MATCH 'New' ORDER BY rank",
-                    ) shouldBe listOf(firstRowid)
-                }
-            }
-        }
     })
 
 // --- Fixtures ---------------------------------------------------------------
@@ -437,31 +382,6 @@ private fun SqlTestDatabases.makeRepo(bus: ChangeBus = ChangeBus()): BookReposit
     )
 }
 
-/** Runs a raw FTS5 MATCH query and collects the matched rowids in rank order. */
-private fun SqlDriver.ftsRowids(query: String): List<Long> {
-    val result = mutableListOf<Long>()
-    executeQuery(
-        identifier = null,
-        sql = query,
-        parameters = 0,
-        mapper = { cursor ->
-            while (cursor.next().value) {
-                cursor.getLong(0)?.let { result += it }
-            }
-            QueryResult.Value(Unit)
-        },
-    )
-    return result
-}
-
-/**
- * Seeds one `contributors` row directly. `replaceContributors` requires the
- * contributor id to pre-exist (its junction-row FK); these inserts satisfy that
- * without touching the global revision counter or the change bus — so tests can
- * still assert on the book's own revision and Created event.
- *
- * Must be called inside a `transaction { }` block.
- */
 private fun ListenUpDatabase.seedContributor(
     id: String,
     name: String,

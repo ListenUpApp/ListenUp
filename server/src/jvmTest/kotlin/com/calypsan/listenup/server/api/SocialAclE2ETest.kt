@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -59,7 +63,7 @@ import java.nio.file.Files
  * private-book session over the real wire — not just in a hand-built service instance.
  *
  * Two users:
- *  - **A** (ROOT, via `/auth/setup`) listens to a public book (placed in the library's
+ *  - **A** (ROOT, via `setupRoot`) listens to a public book (placed in the library's
  *    `ALL_BOOKS` system collection — the public substrate under the pure-union rule) and a
  *    book gated into A's own private collection.
  *  - **B** (MEMBER, via `/auth/register` under OPEN policy) is the viewer. B is registered
@@ -84,41 +88,38 @@ class SocialAclE2ETest :
     FunSpec({
 
         /** Runs first-user setup; returns A's ROOT user id and bearer token. */
-        suspend fun HttpClient.setupRoot(): AuthIdentity {
+        suspend fun ApplicationTestBuilder.setupRoot(): AuthIdentity {
             val session =
-                post("/api/v1/auth/setup") {
-                    contentType(ContentType.Application.Json)
-                    setBody(RegisterRequest("alice@social-e2e.example", "x".repeat(8), "Alice"))
-                }.body<AppResult<AuthSession>>()
+                publicAuthService()
+                    .setupRoot(RegisterRequest("alice@social-e2e.example", "x".repeat(8), "Alice"))
                     .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                     .data
             return AuthIdentity(userId = session.user.id.value, token = session.accessToken.value)
         }
 
         /** Registers a second user (MEMBER under OPEN policy); returns B's id and bearer token. */
-        suspend fun HttpClient.registerMember(): AuthIdentity {
+        suspend fun ApplicationTestBuilder.registerMember(): AuthIdentity {
             val registered =
-                post("/api/v1/auth/register") {
-                    contentType(ContentType.Application.Json)
-                    setBody(RegisterRequest("bob@social-e2e.example", "y".repeat(8), "Bob"))
-                }.body<AppResult<RegisterResult>>()
+                publicAuthService()
+                    .register(RegisterRequest("bob@social-e2e.example", "y".repeat(8), "Bob"))
                     .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
                     .data
                     .shouldBeInstanceOf<RegisterResult.Authenticated>()
             // Re-login so the bearer token is independent of the register-issued one.
             val session =
-                post("/api/v1/auth/login") {
-                    contentType(ContentType.Application.Json)
-                    setBody(LoginRequest("bob@social-e2e.example", "y".repeat(8)))
-                }.body<AppResult<AuthSession>>()
+                publicAuthService()
+                    .login(LoginRequest("bob@social-e2e.example", "y".repeat(8)))
                     .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                     .data
             return AuthIdentity(userId = registered.session.user.id.value, token = session.accessToken.value)
         }
 
         /** Opens an authed [SocialService] proxy bound to [token]'s principal. */
-        suspend fun HttpClient.socialServiceFor(token: String): SocialService =
-            rpc("ws://localhost/api/rpc/authed") {
+        suspend fun ApplicationTestBuilder.socialServiceFor(token: String): SocialService =
+            createClient {
+                install(WebSockets)
+                installKrpc()
+            }.rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { json(contractJson) } }
                 bearerAuth(token)
             }.withService<SocialService>()
@@ -166,8 +167,8 @@ class SocialAclE2ETest :
                     application { module() }
 
                     val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val alice = restClient.setupRoot()
-                    val bob = restClient.registerMember()
+                    val alice = setupRoot()
+                    val bob = registerMember()
 
                     // ── Seed library + two books: one public (joins ALL_BOOKS), one gated private ──
                     val sqlDb by application.inject<ListenUpDatabase>()
@@ -238,7 +239,7 @@ class SocialAclE2ETest :
                             install(WebSockets)
                             installKrpc()
                         }
-                    val social = rpcClient.socialServiceFor(bob.token)
+                    val social = socialServiceFor(bob.token)
 
                     // currentlyListening: only the public-book session; the private one is omitted.
                     val listening =

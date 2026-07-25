@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
 import com.calypsan.listenup.server.seed.MoodDomainSeeder
 import com.calypsan.listenup.api.MoodService
-import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.dto.scanner.ScanResult
@@ -19,13 +18,11 @@ import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
 import com.calypsan.listenup.server.api.MoodServiceImpl
-import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.sync.BookMoodRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
@@ -51,7 +48,6 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.OrphanParentPurger
 import com.calypsan.listenup.server.services.PendingGenrePromotion
-import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.io.files.Path
@@ -66,11 +62,11 @@ import org.koin.dsl.module
  *  - [ContributorRepository] / [SeriesRepository] — the contributors and series
  *    syncable domains. `createdAtStart = true` so each registers with
  *    `SyncRegistry` at bootstrap, listing `"contributors"` / `"series"` on
- *    `/api/v1/sync/domains`. [BookRepository] depends on both to resolve the
+ *    `SyncStreamService.listDomains()`. [BookRepository] depends on both to resolve the
  *    aggregate's contributor/series ids before its junction-row writes.
  *  - [BookRepository] — the books aggregate's [SyncableRepository][com.calypsan.listenup.server.sync.SyncableRepository].
  *    `createdAtStart = true` so its `init` block registers with `SyncRegistry`
- *    at bootstrap, making `/api/v1/sync/domains` list `"books"` on the first request.
+ *    at bootstrap, making `SyncStreamService.listDomains()` list `"books"` on the first request.
  *  - [BookIngestPort] — bound to the same [BookRepository] instance.
  *  - [BookPersister] — consumes the scanner's [ScanResult] stream.
  *  - [EmbeddedCoverCache] — LRU cache for extracted embedded artwork.
@@ -90,7 +86,7 @@ import org.koin.dsl.module
  * configured): [BookPersister] depends on the scanner's `scanResultBus` and
  * the application [CoroutineScope][kotlinx.coroutines.CoroutineScope], both of
  * which only exist when the scanner slice is wired. With no library configured
- * there is no books domain — `/api/v1/sync/domains` correctly omits `"books"`.
+ * there is no books domain — `SyncStreamService.listDomains()` correctly omits `"books"`.
  *
  * @param metadataPrecedence the operator-configured textual-metadata precedence
  *   (resolved from `LISTENUP_METADATA_PRECEDENCE`). [LibraryRegistry] persists it
@@ -164,7 +160,6 @@ fun booksModule(
             ContributorServiceImpl(
                 contributorRepo = get(),
                 bookRepo = get(),
-                reindexer = get(),
                 sqlDb = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
@@ -175,19 +170,16 @@ fun booksModule(
             SeriesServiceImpl(
                 seriesRepo = get(),
                 bookRepo = get(),
-                reindexer = get(),
                 sqlDb = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("SeriesService"),
             )
         }
-        searchBindings()
         single<TagService> {
             TagServiceImpl(
                 tagRepository = get<TagRepository>(),
                 bookTagRepository = get<BookTagRepository>(),
-                reindexer = get<BookSearchReindexer>(),
                 sql = get<ListenUpDatabase>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("TagService"),
@@ -198,7 +190,6 @@ fun booksModule(
             GenreServiceImpl(
                 genreRepository = get<GenreRepository>(),
                 bookRepository = get<BookRepository>(),
-                reindexer = get<BookSearchReindexer>(),
                 sqlDb = get<ListenUpDatabase>(),
                 accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
@@ -225,30 +216,6 @@ fun booksModule(
         genreBootstrapBindings()
         coverAndPersisterBindings(embeddedCoverCacheSize, homeDir)
     }
-
-/**
- * Search-slice singletons — the [SearchService] (over SQLDelight via the shared [SqlDriver]),
- * the FTS reindexer, and the manual reindex trigger. Split out of [booksModule] to keep that
- * module body under the length budget.
- */
-private fun Module.searchBindings() {
-    single<SearchService> {
-        SearchServiceImpl(
-            db = get<ListenUpDatabase>(),
-            driver = get<SqlDriver>(),
-            accessPolicy = get<BookAccessPolicy>(),
-            principal = unscopedPlaceholder("SearchService"),
-        )
-    }
-    single { BookSearchReindexer(get(), get(), get<ListenUpDatabase>(), get<SqlDriver>()) }
-    single {
-        SearchReindexService(
-            db = get<ListenUpDatabase>(),
-            driver = get<SqlDriver>(),
-            reindexer = get<BookSearchReindexer>(),
-        )
-    }
-}
 
 /**
  * Moods slice bindings — the affective axis, mirroring tags (flat, syncable, soft-delete):

@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.testing.publicAuthService
+
+import io.ktor.server.testing.ApplicationTestBuilder
+
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
@@ -50,7 +54,7 @@ class ProfileRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (token, _) = client.setupRoot()
+                    val (token, _) = setupRoot()
 
                     // Ktor route parameter captures the decoded value; a traversal attempt must
                     // not return 200 with bytes — the ImageStore safeResolve rejects it with null
@@ -76,7 +80,7 @@ class ProfileRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (token, _) = client.setupRoot()
+                    val (token, _) = setupRoot()
 
                     // A part whose declared Content-Length exceeds the 5 MiB cap — the handler
                     // should reject before buffering the bytes.
@@ -116,7 +120,7 @@ class ProfileRoutesTest :
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
-                    val (token, userId) = client.setupRoot()
+                    val (token, userId) = setupRoot()
                     val beforeUpload = System.currentTimeMillis()
 
                     // Upload a valid PNG — expect 200 OK carrying the server avatar version.
@@ -193,7 +197,7 @@ class ProfileRoutesTest :
                     useIsolatedTestConfig(homeDir = homeDir.toString())
                     application { module() }
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
-                    val (token, userId) = client.setupRoot()
+                    val (token, userId) = setupRoot()
 
                     client
                         .post("/api/v1/profile/avatar") {
@@ -230,12 +234,10 @@ class ProfileRoutesTest :
     })
 
 /** Runs first-user setup and returns (accessToken, userId). */
-private suspend fun HttpClient.setupRoot(): Pair<String, String> {
+private suspend fun ApplicationTestBuilder.setupRoot(): Pair<String, String> {
     val session =
-        post("/api/v1/auth/setup") {
-            contentType(ContentType.Application.Json)
-            setBody(RegisterRequest("root@x", "x".repeat(8), "Root"))
-        }.body<AppResult<AuthSession>>()
+        publicAuthService()
+            .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
             .let { it as AppResult.Success<AuthSession> }
             .data
     return session.accessToken.value to session.user.id.value

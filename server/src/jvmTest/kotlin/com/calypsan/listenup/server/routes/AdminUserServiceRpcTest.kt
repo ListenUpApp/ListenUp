@@ -1,5 +1,9 @@
 package com.calypsan.listenup.server.routes
 
+import io.ktor.server.testing.ApplicationTestBuilder
+
+import com.calypsan.listenup.server.testing.publicAuthService
+
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
@@ -42,26 +46,19 @@ import kotlinx.rpc.withService
 class AdminUserServiceRpcTest :
     FunSpec({
 
-        suspend fun HttpClient.mintRootToken(): String {
-            post("/api/v1/auth/setup") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("root@rpc-admin.example", "x".repeat(8), "Root"))
-            }
-            return post("/api/v1/auth/login") {
-                contentType(ContentType.Application.Json)
-                setBody(LoginRequest("root@rpc-admin.example", "x".repeat(8)))
-            }.body<AppResult<AuthSession>>()
+        suspend fun ApplicationTestBuilder.mintRootToken(): String {
+            publicAuthService().setupRoot(RegisterRequest("root@rpc-admin.example", "x".repeat(8), "Root"))
+            return publicAuthService()
+                .login(LoginRequest("root@rpc-admin.example", "x".repeat(8)))
                 .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
                 .data
                 .accessToken
                 .value
         }
 
-        suspend fun HttpClient.registerPending(name: String): String =
-            post("/api/v1/auth/register") {
-                contentType(ContentType.Application.Json)
-                setBody(RegisterRequest("$name@rpc-admin.example", "y".repeat(8), name))
-            }.body<AppResult<RegisterResult>>()
+        suspend fun ApplicationTestBuilder.registerPending(name: String): String =
+            publicAuthService()
+                .register(RegisterRequest("$name@rpc-admin.example", "y".repeat(8), name))
                 .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
                 .data
                 .shouldBeInstanceOf<RegisterResult.PendingApproval>()
@@ -74,8 +71,8 @@ class AdminUserServiceRpcTest :
                 application { module() }
 
                 val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                val token = restClient.mintRootToken()
-                val pendingId = restClient.registerPending("pending")
+                val token = mintRootToken()
+                val pendingId = registerPending("pending")
 
                 val rpcClient =
                     createClient {
@@ -105,8 +102,8 @@ class AdminUserServiceRpcTest :
                 application { module() }
 
                 val restClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-                val token = restClient.mintRootToken()
-                val pendingId = restClient.registerPending("pending")
+                val token = mintRootToken()
+                val pendingId = registerPending("pending")
 
                 val rpcClient =
                     createClient {

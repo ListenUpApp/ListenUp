@@ -4,12 +4,14 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
 /**
- * The REST `@Resource` route surface is server-side only — third-party REST integrations
- * consume it; first-party Kotlin clients use the `@Rpc` proxies. It lives in `:server`
- * (`routes/resources/`), NOT in `:contract`, so it never enters the iOS Swift framework
+ * The `@Resource` blob routes are server-side only. They live in `:server`
+ * (`routes/resources/`), NOT in `:contract`, so they never enter the iOS Swift framework
  * (`:app:sharedLogic` exports `:contract` wholesale) or the future JS bundle. This rule pins
- * that boundary: a new `@Resource` added to `:contract` would silently re-bloat every
- * client export, so make it a build failure.
+ * that boundary: a new `@Resource` added to `:contract` would silently re-bloat every client
+ * export, so make it a build failure.
+ *
+ * This is about *placement* only. [NoRestSurfaceRegrowthRule] is the one that governs whether a
+ * given `@Resource` may exist at all.
  */
 class NoResourcesInContractRule :
     FunSpec({

@@ -203,9 +203,20 @@ private fun ScanError.toHttpStatus(): HttpStatusCode =
 private fun SyncError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is SyncError.SyncFailed -> HttpStatusCode.ServiceUnavailable
+
         is SyncError.RealtimeDisconnected -> HttpStatusCode.ServiceUnavailable
+
         is SyncError.PushFailed -> HttpStatusCode.ServiceUnavailable
+
         is SyncError.NotFound -> HttpStatusCode.NotFound
+
+        // These three are RPC-only refusals (the REST catch-up routes they replaced are gone),
+        // but the mapping stays total so any future HTTP surface renders them sanely.
+        is SyncError.UnknownDomain -> HttpStatusCode.NotFound
+
+        is SyncError.TooManyIds -> HttpStatusCode.BadRequest
+
+        is SyncError.UnsupportedMatch -> HttpStatusCode.BadRequest
     }
 
 private fun DownloadError.toHttpStatus(): HttpStatusCode =

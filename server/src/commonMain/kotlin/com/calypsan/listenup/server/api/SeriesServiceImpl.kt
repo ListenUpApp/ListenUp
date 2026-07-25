@@ -15,7 +15,6 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
 
@@ -64,7 +63,6 @@ private val logger = loggerFor<SeriesServiceImpl>()
 internal class SeriesServiceImpl(
     private val seriesRepo: SeriesRepository,
     private val bookRepo: BookRepository,
-    private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
@@ -72,7 +70,7 @@ internal class SeriesServiceImpl(
 ) : SeriesService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
-        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, accessPolicy, permissionPolicy, principal)
+        SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, accessPolicy, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -122,10 +120,6 @@ internal class SeriesServiceImpl(
                 is AppResult.Success -> SeriesUpdateOutcome(nameChanged, AppResult.Success(Unit))
                 is AppResult.Failure -> SeriesUpdateOutcome(false, AppResult.Failure(upsertResult.error))
             }
-        if (outcome.result is AppResult.Success && outcome.reindexNeeded) {
-            runCatchingCancellable { reindexer.reindexAllBooksForSeries(id.value) }
-                .onFailure { logger.warn(it) { "FTS reindex failed for series ${id.value}" } }
-        }
         return outcome.result
     }
 
@@ -138,12 +132,6 @@ internal class SeriesServiceImpl(
             return AppResult.Failure(SeriesError.MergeSelfTarget())
         }
         val result = mergeCore(source, target)
-        if (result is AppResult.Success) {
-            runCatchingCancellable { reindexer.reindexAllBooksForSeries(target.value) }
-                .onFailure {
-                    logger.warn(it) { "FTS reindex failed after series merge ${source.value} -> ${target.value}" }
-                }
-        }
         return result
     }
 
@@ -196,10 +184,6 @@ internal class SeriesServiceImpl(
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
         val result = deleteCore(id)
-        if (result is AppResult.Success) {
-            runCatchingCancellable { reindexer.reindexAllBooksForSeries(id.value) }
-                .onFailure { logger.warn(it) { "FTS reindex failed during delete of series ${id.value}" } }
-        }
         return result
     }
 
@@ -244,10 +228,9 @@ internal class SeriesServiceImpl(
 fun createSeriesService(
     seriesRepo: SeriesRepository,
     bookRepo: BookRepository,
-    reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
-): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, BookAccessPolicy(sqlDb, driver))
+): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, sqlDb, BookAccessPolicy(sqlDb, driver))
 
 /**
  * Scopes a [SeriesService] built by [createSeriesService] to [principal] for one request.

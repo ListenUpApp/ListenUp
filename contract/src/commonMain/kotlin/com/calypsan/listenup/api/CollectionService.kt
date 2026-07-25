@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.LibraryId
 import kotlinx.rpc.annotations.Rpc
 
 /**
@@ -29,8 +30,7 @@ import kotlinx.rpc.annotations.Rpc
  * collections, collections shared with the caller, and — for admins — all
  * collections on the server.
  *
- * REST mirrors are defined in
- * `CollectionResources`.
+ * There is no REST mirror; this contract is the whole collection surface.
  */
 @Rpc
 interface CollectionService {
@@ -214,4 +214,34 @@ interface CollectionService {
      * is not the owner.
      */
     suspend fun listShares(id: CollectionId): AppResult<List<CollectionShareDto>>
+
+    // ── Admin inbox ──────────────────────────────────────────────────────────
+
+    /**
+     * Returns the live (unreleased) book ids in the inbox — the system collection holding
+     * freshly-ingested books awaiting admin triage — for the library identified by
+     * [libraryId], or an empty list when no inbox exists yet for it.
+     *
+     * **Admin-only** — gated to ROOT/ADMIN; everyone else gets
+     * [com.calypsan.listenup.api.error.CollectionError.Forbidden].
+     */
+    suspend fun listInbox(libraryId: LibraryId): AppResult<List<BookId>>
+
+    /**
+     * Releases the books keyed in [assignments] out of the library's inbox into their
+     * assigned target collections.
+     *
+     * [assignments] maps a book id to the collection ids it should join on release. A book
+     * with an **empty** target list is released as **public**: it lands in the library's
+     * shared `ALL_BOOKS` collection rather than any explicit collection, so it stays visible
+     * to every member under the pure-union visibility rule — releasing into no collection at
+     * all would otherwise silently hide it.
+     *
+     * **Admin-only** — gated to ROOT/ADMIN; everyone else gets
+     * [com.calypsan.listenup.api.error.CollectionError.Forbidden].
+     */
+    suspend fun releaseBooks(
+        libraryId: LibraryId,
+        assignments: Map<BookId, List<CollectionId>>,
+    ): AppResult<Unit>
 }
