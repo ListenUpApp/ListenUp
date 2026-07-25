@@ -1,8 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncPayload
 import com.calypsan.listenup.api.sync.Tombstoned
@@ -10,10 +8,12 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.suspendRunCatching
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.get
-import kotlinx.serialization.json.JsonElement
+import com.calypsan.listenup.api.SyncStreamService
+import com.calypsan.listenup.api.sync.TargetedMatch
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.core.pullCatching
+import com.calypsan.listenup.client.core.TypedAppErrorException
+import com.calypsan.listenup.api.result.getOrElse
 
 private val logger = KotlinLogging.logger {}
 
@@ -22,15 +22,14 @@ private val logger = KotlinLogging.logger {}
 // transient spike during onboarding. Stability over raw sync speed (a 1000-book initial population
 // otherwise pushed the client to OOM).
 private const val PAGE_LIMIT = 100
-private const val SERVER_URL_NOT_CONFIGURED = "Server URL not configured"
 
-// Per-request cap on a targeted `?ids=` / `?collectionIds=` fetch — matches the server's
-// MAX_TARGETED_IDS. A scope larger than this is chunked, never truncated: a truncated response
-// would read to the client as "these ids are gone" and wrongly tombstone still-accessible rows.
+// Per-request cap on a targeted fetch — matches the server's MAX_TARGETED_IDS. A scope larger than
+// this is chunked, never truncated: a truncated response would read to the client as "these ids are
+// gone" and wrongly tombstone still-accessible rows.
 private const val TARGETED_FETCH_LIMIT = 100
 
 /**
- * Drives REST `?since=<rev>` per-domain pagination for client sync catch-up.
+ * Drives per-domain catch-up paging over [SyncStreamService.pullDomain].
  *
  * Iterates pages until `hasMore == false`, advancing the per-domain cursor in
  * [SyncCursorStore] after each page so a crash mid-pagination resumes from the
@@ -40,17 +39,16 @@ private const val TARGETED_FETCH_LIMIT = 100
  * The flow is silent: no per-item progress events leak to UI. Only the cursor
  * advance is observable, and only via the cursor store's normal Room reactivity.
  *
- * Wire shape: `body<JsonElement>()` then manual decode via
- * [contractJson.decodeFromJsonElement] with the handler's payload serializer —
- * Ktor's reified `body<Page<T>>()` cannot carry the generic through type erasure.
+ * Wire shape: the server hands back a [com.calypsan.listenup.api.sync.SyncPage] whose envelope is
+ * typed and whose rows are encoded strings, decoded here by `toPage` with the handler's payload
+ * serializer. The domain selects its serializer at runtime, so the association is pinned by
+ * `SyncDomainRoundTripSpec` rather than by the compiler.
  *
- * Constructor takes two suspend lambdas instead of concrete `HttpClient` /
- * base URL so production wiring (D1) passes method references and tests pass
- * any [HttpClient] + base URL.
+ * Rides the same channel as the firehose ([RpcSyncStreamClient]) and drift detection
+ * ([DomainDigestClient]): one socket, one connection-truth.
  */
 internal class SyncCatchUpClient(
-    private val httpClientProvider: suspend () -> HttpClient,
-    private val serverUrlProvider: suspend () -> String?,
+    private val channel: RpcChannel<SyncStreamService>,
     private val store: SyncCursorStore,
     private val transactionRunner: TransactionRunner,
     // Typed-failure forward to the connection-issue seam (spec §6.4). Defaults to a no-op so
@@ -83,20 +81,14 @@ internal class SyncCatchUpClient(
         startSince: Long,
         resetCursor: Boolean = false,
     ): AppResult<Unit> =
-        suspendRunCatching {
-            val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
-            val httpClient = httpClientProvider()
+        pullCatching {
             var since = startSince
             while (true) {
-                val element: JsonElement =
-                    httpClient
-                        .get("$baseUrl/api/v1/sync/${handler.domainName}?since=$since&limit=$PAGE_LIMIT")
-                        .body()
                 val page: Page<T> =
-                    contractJson.decodeFromJsonElement(
-                        Page.serializer(handler.payloadSerializer),
-                        element,
-                    )
+                    channel
+                        .call(idempotent = true) { it.pullDomain(handler.domainName, since, PAGE_LIMIT) }
+                        .getOrElse { error -> throw TypedAppErrorException(error) }
+                        .toPage(handler.payloadSerializer)
                 val outcome = applyPage(handler, page, since)
                 if (outcome.failures > 0 && !handler.hasDigestBackstop) {
                     // Digest OPT-OUT domain (positions): the reconciler never re-pulls it, so the
@@ -200,21 +192,15 @@ internal class SyncCatchUpClient(
      * persisted cursor must not move, because the live firehose/cursor path continues independently.
      */
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> =
-        suspendRunCatching {
-            val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
-            val httpClient = httpClientProvider()
+        pullCatching {
             val accessibleIds = mutableSetOf<String>()
             var since = 0L
             while (true) {
-                val element: JsonElement =
-                    httpClient
-                        .get("$baseUrl/api/v1/sync/${handler.domainName}?since=$since&limit=$PAGE_LIMIT")
-                        .body()
                 val page: Page<T> =
-                    contractJson.decodeFromJsonElement(
-                        Page.serializer(handler.payloadSerializer),
-                        element,
-                    )
+                    channel
+                        .call(idempotent = true) { it.pullDomain(handler.domainName, since, PAGE_LIMIT) }
+                        .getOrElse { error -> throw TypedAppErrorException(error) }
+                        .toPage(handler.payloadSerializer)
                 transactionRunner.atomically {
                     for (item in page.items) {
                         val isTomb = (item as? Tombstoned)?.deletedAt != null
@@ -241,27 +227,20 @@ internal class SyncCatchUpClient(
         handler: SyncDomainHandler<T>,
         fetch: TargetedFetch,
     ): AppResult<Set<String>> =
-        suspendRunCatching {
-            val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
-            val httpClient = httpClientProvider()
-            val (paramName, values) =
+        pullCatching {
+            val (match, values) =
                 when (fetch) {
-                    is TargetedFetch.ByIds -> "ids" to fetch.ids
-                    is TargetedFetch.ByCollectionIds -> "collectionIds" to fetch.collectionIds
-                    is TargetedFetch.ByBookIds -> "bookIds" to fetch.bookIds
+                    is TargetedFetch.ByIds -> TargetedMatch.ID to fetch.ids
+                    is TargetedFetch.ByCollectionIds -> TargetedMatch.COLLECTION_ID to fetch.collectionIds
+                    is TargetedFetch.ByBookIds -> TargetedMatch.BOOK_ID to fetch.bookIds
                 }
             val returnedIds = mutableSetOf<String>()
             for (chunk in values.distinct().chunked(TARGETED_FETCH_LIMIT)) {
-                val csv = chunk.joinToString(",")
-                val element: JsonElement =
-                    httpClient
-                        .get("$baseUrl/api/v1/sync/${handler.domainName}?$paramName=$csv")
-                        .body()
                 val page: Page<T> =
-                    contractJson.decodeFromJsonElement(
-                        Page.serializer(handler.payloadSerializer),
-                        element,
-                    )
+                    channel
+                        .call(idempotent = true) { it.pullByIds(handler.domainName, match, chunk) }
+                        .getOrElse { error -> throw TypedAppErrorException(error) }
+                        .toPage(handler.payloadSerializer)
                 transactionRunner.atomically {
                     for (item in page.items) {
                         val isTomb = (item as? Tombstoned)?.deletedAt != null
@@ -293,11 +272,6 @@ internal class SyncCatchUpClient(
             }
         }
 
-    /** Server-side domain discovery via `GET /api/v1/sync/domains`. */
-    override suspend fun domains(): AppResult<List<String>> =
-        suspendRunCatching {
-            val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
-            val httpClient = httpClientProvider()
-            httpClient.get("$baseUrl/api/v1/sync/domains").body<DomainList>().domains
-        }
+    /** Server-side domain discovery — the live repository registry, over RPC. */
+    override suspend fun domains(): AppResult<List<String>> = channel.call(idempotent = true) { it.listDomains() }
 }

@@ -37,7 +37,6 @@ import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.RpcServices
-import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
 import com.calypsan.listenup.server.routes.backupRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
@@ -53,8 +52,6 @@ import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.services.StatsRecorder
-import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
@@ -85,7 +82,6 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val bookAccessPolicy by inject<BookAccessPolicy>()
     val playbackService by inject<PlaybackService>()
     val playbackProgressService by inject<PlaybackProgressService>()
-    val statsRecorder by inject<StatsRecorder>()
     val audioFileLocator by inject<AudioFileLocator>()
     val audioUrlSigner by inject<AudioUrlSigner>()
     val coverUrlSigner by inject<CoverUrlSigner>()
@@ -118,11 +114,9 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         healthRoutes()
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
-            syncRoutes()
             bookRoutes(bookService, coverResponder, bookAccessPolicy, documentFileLocator)
             contributorRoutes(contributorService, homeDir, imageStorage)
             seriesRoutes(seriesService, homeDir, imageStorage)
-            adminRoutes(statsRecorder)
             metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
             collectionAdminRoutes(collectionService)
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)

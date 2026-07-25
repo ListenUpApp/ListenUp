@@ -18,12 +18,6 @@ import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.encodeToJsonElement
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
 
 private val log = loggerFor<SqlSyncableRepository<*, *>>()
 
@@ -175,24 +169,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         existed: Boolean,
     )
 
-    /**
-     * Encodes a [Page] of [T] to a JSON string using [contractJson] and the
-     * concrete [elementSerializer]. Verbatim from [SyncableRepository] — pure
-     * serialization, no DB access.
-     */
-    override fun encodePageAsJson(page: Page<T>): String {
-        val json: JsonObject =
-            buildJsonObject {
-                putJsonArray("items") {
-                    page.items.forEach { item ->
-                        add(contractJson.encodeToJsonElement(elementSerializer, item))
-                    }
-                }
-                put("nextCursor", page.nextCursor)
-                put("hasMore", page.hasMore)
-            }
-        return contractJson.encodeToString(JsonElement.serializer(), json)
-    }
+    override fun encodeItemAsJson(item: T): String = contractJson.encodeToString(elementSerializer, item)
 
     /**
      * Encodes a [SyncEvent] to a JSON string using [contractJson] and the concrete

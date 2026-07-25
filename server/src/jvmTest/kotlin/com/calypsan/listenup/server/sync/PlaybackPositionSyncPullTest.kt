@@ -1,34 +1,31 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.sync.DomainList
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
 import com.calypsan.listenup.server.testing.domainFrames
 import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.rows
 import com.calypsan.listenup.server.testing.rpcFirehose
+import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.withTestApplication
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
-import io.ktor.client.call.body
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.flow.first
 
 /**
  * Integration guard confirming [PlaybackPositionRepository] composes correctly
- * with the per-user sync substrate over the real HTTP routes.
+ * with the per-user sync substrate over the real [com.calypsan.listenup.api.SyncStreamService]
+ * RPC surface.
  *
  * Boots the minimal [withTestApplication] harness with `playbackPositions = true`,
  * seeds positions directly via the repository, and asserts:
  *
- * 1. `GET /api/v1/sync/domains` lists `"playback_positions"` among the
+ * 1. `listDomains()` lists `"playback_positions"` among the
  *    registered domains — the repository self-registered at startup.
  *
- * 2. **Per-user catch-up isolation**: `GET /api/v1/sync/playback_positions?since=0`
- *    for u1 returns only u1's row; the same route for u2 returns only u2's row.
+ * 2. **Per-user catch-up isolation**: `pullDomain("playback_positions", since = 0, ...)`
+ *    for u1 returns only u1's row; the same call for u2 returns only u2's row.
  *    Neither user sees the other's data.
  *
  * 3. **Per-user RPC firehose isolation**: u1's firehose stream ([rpcFirehose]
@@ -40,18 +37,17 @@ import kotlinx.coroutines.flow.first
  * call), which is the same path [PlaybackServiceImpl] uses at runtime, making
  * this a genuine end-to-end smoke of the substrate.
  *
- * The [testAuth] provider authenticates the bearer token verbatim as the
- * user id, so `bearerAuth("u1")` resolves to `UserPrincipal(UserId("u1"))`.
+ * The harness names the caller directly — `syncService("u1")` resolves to
+ * `UserPrincipal(UserId("u1"))` via the harness's `roleResolver` — there is no
+ * bearer-token transport to authenticate.
  */
-class PlaybackPositionSyncRouteTest :
+class PlaybackPositionSyncPullTest :
     FunSpec({
 
-        test("GET /api/v1/sync/domains lists 'playback_positions' when the repository is wired") {
+        test("listDomains() includes 'playback_positions' when the repository is wired") {
             withTestApplication(playbackPositions = true) {
-                val response = client.get("/api/v1/sync/domains") { bearerAuth("u1") }
-                response.status shouldBe HttpStatusCode.OK
-                val domains: DomainList = response.body()
-                domains.domains shouldContain "playback_positions"
+                val domains = syncService("u1").listDomains().shouldSucceed()
+                domains shouldContain "playback_positions"
             }
         }
 
@@ -85,20 +81,18 @@ class PlaybackPositionSyncRouteTest :
                     currentChapterId = null,
                 )
 
-                val u1Response =
-                    client.get("/api/v1/sync/playback_positions?since=0") { bearerAuth("u1") }
-                u1Response.status shouldBe HttpStatusCode.OK
-                val u1Page: Page<PlaybackPositionSyncPayload> = u1Response.body()
-                u1Page.items shouldHaveSize 2
-                u1Page.items.map { it.bookId }.toSet() shouldBe setOf("book-a", "book-b")
+                val u1Page =
+                    syncService("u1").pullDomain("playback_positions", since = 0, limit = 100).shouldSucceed()
+                val u1Rows = u1Page.rows(PlaybackPositionSyncPayload.serializer())
+                u1Rows shouldHaveSize 2
+                u1Rows.map { it.bookId }.toSet() shouldBe setOf("book-a", "book-b")
 
-                val u2Response =
-                    client.get("/api/v1/sync/playback_positions?since=0") { bearerAuth("u2") }
-                u2Response.status shouldBe HttpStatusCode.OK
-                val u2Page: Page<PlaybackPositionSyncPayload> = u2Response.body()
-                u2Page.items shouldHaveSize 1
-                u2Page.items.first().bookId shouldBe "book-a"
-                u2Page.items.first().positionMs shouldBe 99_000L
+                val u2Page =
+                    syncService("u2").pullDomain("playback_positions", since = 0, limit = 100).shouldSucceed()
+                val u2Rows = u2Page.rows(PlaybackPositionSyncPayload.serializer())
+                u2Rows shouldHaveSize 1
+                u2Rows.first().bookId shouldBe "book-a"
+                u2Rows.first().positionMs shouldBe 99_000L
             }
         }
 

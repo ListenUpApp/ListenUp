@@ -43,7 +43,7 @@ import com.calypsan.listenup.api.ScannerService
  * breaks production identically.
  *
  * The returned [client] is ROOT-authenticated: on boot, this fixture mints a
- * fresh ROOT account via `POST /api/v1/auth/setup` and attaches the resulting
+ * fresh ROOT account via `AuthServicePublic.setupRoot` and attaches the resulting
  * access token to every request via `defaultRequest`, so scanner tests can
  * exercise the now-JWT-gated `/api/v1/scan*` surface without minting tokens
  * themselves.

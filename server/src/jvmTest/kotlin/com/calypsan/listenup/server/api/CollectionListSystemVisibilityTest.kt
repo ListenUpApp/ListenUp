@@ -41,7 +41,7 @@ import kotlinx.coroutines.test.runTest
  * filters out any id present in [CollectionRepository.systemCollectionIds]. Admins continue
  * to see the full god-view (including system collections) unaltered.
  *
- * **Inconsistency addressed:** The sync path (`GET /api/v1/sync/collections`) already
+ * **Inconsistency addressed:** The sync path (`SyncStreamService.pullDomain("collections", …)`) already
  * excluded system collections via `BookAccessPolicy.accessibleCollectionIdsSql`. This test
  * ensures the REST path now matches.
  */

@@ -127,10 +127,15 @@ class ArchitectureTest :
                 // kotlinx.rpc transport. Same exemption class as the Backup RPC E2E — confined to jvmTest.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/collections/" !in it.path }
                 // Sync-domain completeness spec: boots the real server module in-process and reads
-                // GET /api/v1/sync/domains to assert contract ↔ client catalog ↔ server registrations
+                // SyncStreamService.listDomains() to assert contract ↔ client catalog ↔ server registrations
                 // are exactly 1:1:1. Asserting against the real production DI graph is the whole point,
                 // so the server import is intentional. Same exemption class — confined to jvmTest.
                 .filter { "data/sync/domains/SyncDomainCompletenessSpec" !in it.path }
+                // Sync-domain round-trip spec: boots the real server module in-process, pulls every
+                // registered domain over RPC, and decodes each row with the client handler's own
+                // serializer — the check that licenses carrying sync rows as encoded text. Both real
+                // ends are the whole point. Same exemption class — confined to jvmTest.
+                .filter { "data/sync/domains/SyncDomainRoundTripSpec" !in it.path }
                 // Access-gate parity spec: reads the server's declared `perRowAccessGatedSyncDomains` /
                 // `roleGatedSyncDomains` catalogs and asserts them equal to the client domains that declare
                 // an AccessGate — a runtime data comparison (no source-parsing). Reading the real server

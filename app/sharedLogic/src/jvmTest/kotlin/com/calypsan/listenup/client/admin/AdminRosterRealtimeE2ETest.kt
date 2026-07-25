@@ -45,7 +45,6 @@ import com.calypsan.listenup.server.sync.AdminUserRosterRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.createSyncStreamService
-import com.calypsan.listenup.server.sync.syncRoutes
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -164,13 +163,12 @@ class AdminRosterRealtimeE2ETest :
                     }
                     routing {
                         authenticate(JWT_PROVIDER) {
-                            syncRoutes()
-                            // The RPC firehose — per-connection principal scoping exactly as
-                            // production does, so each engine's stream carries the (userId, role)
-                            // its WebSocket upgrade authenticated with. The roster domain is
-                            // role-gated inside the stream; no book-gated domain is driven here,
-                            // so no BookAccessPolicy is wired (the thunk resolves only for
-                            // book-gated content events).
+                            // The RPC sync surface — firehose AND catch-up pull, with
+                            // per-connection principal scoping exactly as production does, so each
+                            // engine's stream and pull carry the (userId, role) its WebSocket
+                            // upgrade authenticated with. The roster domain is role-gated inside
+                            // both; no book-gated domain is driven here, so no BookAccessPolicy is
+                            // wired (the thunk resolves only for book-gated content).
                             serverRpc("/api/rpc/authed") {
                                 rpcConfig { serialization { krpcJson(contractJson) } }
                                 registerService<SyncStreamService> {
@@ -180,6 +178,7 @@ class AdminRosterRealtimeE2ETest :
                                     guard(
                                         createSyncStreamService(
                                             bus,
+                                            syncRegistry,
                                             { error("no book-gated domain in this harness") },
                                             PrincipalProvider { p },
                                         ),
@@ -322,23 +321,26 @@ private suspend fun buildRosterSyncEngine(
             dao = clientDb.pendingOperationV2Dao(),
             sender = DomainPendingOperationSender(emptyMap()),
         )
-    val catchUp =
-        SyncCatchUpClient(
-            httpClientProvider = { httpClient },
-            // testApplication serves relative URLs in-process — an empty base URL is correct here.
-            serverUrlProvider = { "" },
-            store = store,
-            transactionRunner = RoomTransactionRunner(clientDb),
-        )
+    // One real kotlinx.rpc proxy into the harness's in-process server, shared by the firehose,
+    // the catch-up pull and the digest — the same one-socket shape production DI wires. The
+    // bearer rides the upgrade, so all three are scoped to this engine's own principal.
     val syncStreamServiceProxy =
         httpClient
             .rpc("ws://localhost/api/rpc/authed") {
                 bearerAuth(bearerToken)
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<SyncStreamService>()
+    val syncChannel = RpcChannel.forTest(syncStreamServiceProxy)
+
+    val catchUp =
+        SyncCatchUpClient(
+            channel = syncChannel,
+            store = store,
+            transactionRunner = RoomTransactionRunner(clientDb),
+        )
     val syncStreamClient =
         RpcSyncStreamClient(
-            channel = RpcChannel.forTest(syncStreamServiceProxy),
+            channel = syncChannel,
             state = state,
             scope = scope,
         )
@@ -354,7 +356,7 @@ private suspend fun buildRosterSyncEngine(
             },
         )
 
-    val digestClient = DomainDigestClient(httpClientProvider = { httpClient }, serverUrlProvider = { "" })
+    val digestClient = DomainDigestClient(channel = syncChannel)
     val reconciler = SyncReconciler(registry, store, digestClient, catchUp)
 
     return SyncEngine(

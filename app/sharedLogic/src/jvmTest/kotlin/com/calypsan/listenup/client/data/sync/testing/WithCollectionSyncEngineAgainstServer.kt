@@ -46,7 +46,6 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.createSyncStreamService
-import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
@@ -151,7 +150,7 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
 
         seedCollectionE2ERows(serverDriver)
 
-        // Repos self-register into the SyncRegistry on construction, so syncRoutes() can look
+        // Repos self-register into the SyncRegistry on construction, so the pull can look
         // them up by domain name. BookRepository needs contributor + series repos as deps.
         val contributorRepo = ContributorRepository(serverSqlDb, bus, syncRegistry)
         val seriesRepo = SeriesRepository(serverSqlDb, bus, syncRegistry)
@@ -202,9 +201,8 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
                     module {
                         single { bus }
                         single { syncRegistry }
-                        // syncRoutes() injects BookAccessPolicy to gate the access-filtered
-                        // catch-up for the four access-gated domains. Same instance the RPC
-                        // firehose registration below closes over.
+                        // The access-filtered catch-up for the four access-gated domains needs
+                        // BookAccessPolicy. Same instance the RPC registration below closes over.
                         single { bookAccessPolicy }
                         single(createdAtStart = true) { bookRepo }
                         single(createdAtStart = true) { collectionRepo }
@@ -215,17 +213,24 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
             }
             routing {
                 authenticate(JWT_PROVIDER) {
-                    syncRoutes()
-                    // The RPC firehose — the same per-connection principal scoping production
-                    // uses, over the harness's shared ChangeBus and the real BookAccessPolicy,
-                    // so the member's stream is genuinely access-gated.
+                    // The RPC sync surface — firehose AND catch-up pull, the same per-connection
+                    // principal scoping production uses, over the harness's shared ChangeBus,
+                    // registry and the real BookAccessPolicy, so the member's stream and pull are
+                    // both genuinely access-gated.
                     serverRpc("/api/rpc/authed") {
                         rpcConfig { serialization { krpcJson(contractJson) } }
                         registerService<SyncStreamService> {
                             val p =
                                 call.userPrincipalOrNull()
                                     ?: error("authed RPC mount reached without a principal")
-                            guard(createSyncStreamService(bus, { bookAccessPolicy }, PrincipalProvider { p }))
+                            guard(
+                                createSyncStreamService(
+                                    bus,
+                                    syncRegistry,
+                                    { bookAccessPolicy },
+                                    PrincipalProvider { p },
+                                ),
+                            )
                         }
                     }
                 }
@@ -295,23 +300,26 @@ private suspend fun buildMemberSyncEngine(
             dao = clientDb.pendingOperationV2Dao(),
             sender = DomainPendingOperationSender(emptyMap()),
         )
-    val catchUp =
-        SyncCatchUpClient(
-            httpClientProvider = { testClient },
-            serverUrlProvider = { "" },
-            store = store,
-            transactionRunner = RoomTransactionRunner(clientDb),
-        )
-    // The production firehose client over a real kotlinx.rpc proxy into the harness's
-    // in-process server — the member's bearer rides the default request on [testClient].
+    // One real kotlinx.rpc proxy into the harness's in-process server, shared by the firehose,
+    // the catch-up pull and the digest — the same one-socket shape production DI wires. The
+    // member's bearer rides the default request on [testClient], so all three are access-gated
+    // as that member.
     val syncStreamServiceProxy =
         testClient
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<SyncStreamService>()
+    val syncChannel = RpcChannel.forTest(syncStreamServiceProxy)
+
+    val catchUp =
+        SyncCatchUpClient(
+            channel = syncChannel,
+            store = store,
+            transactionRunner = RoomTransactionRunner(clientDb),
+        )
     val syncStreamClient =
         RpcSyncStreamClient(
-            channel = RpcChannel.forTest(syncStreamServiceProxy),
+            channel = syncChannel,
             state = state,
             scope = clientScope,
         )
@@ -330,7 +338,7 @@ private suspend fun buildMemberSyncEngine(
             },
         )
 
-    val digestClient = DomainDigestClient(httpClientProvider = { testClient }, serverUrlProvider = { "" })
+    val digestClient = DomainDigestClient(channel = syncChannel)
     val reconciler = SyncReconciler(registry, store, digestClient, catchUp)
 
     return SyncEngine(

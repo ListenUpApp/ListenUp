@@ -22,6 +22,12 @@ import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onSubscription
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.sync.SyncPage
+import com.calypsan.listenup.api.sync.TargetedMatch
+import com.calypsan.listenup.api.sync.DomainDigest
+import com.calypsan.listenup.api.sync.Page
 
 private val log = KotlinLogging.logger("com.calypsan.listenup.server.sync.SyncStreamService")
 
@@ -46,6 +52,7 @@ private const val HEARTBEAT_INTERVAL_MILLIS = 25_000L
  */
 internal class SyncStreamServiceImpl(
     private val bus: ChangeBus,
+    private val registry: SyncRegistry,
     private val bookAccessPolicy: () -> BookAccessPolicy,
     private val principal: PrincipalProvider = PrincipalProvider.None,
     private val heartbeatIntervalMillis: Long = HEARTBEAT_INTERVAL_MILLIS,
@@ -64,7 +71,7 @@ internal class SyncStreamServiceImpl(
 
     /** Returns a copy scoped to [principal]. The RPC mount calls this per-connection. */
     fun copyWith(principal: PrincipalProvider): SyncStreamServiceImpl =
-        SyncStreamServiceImpl(bus, bookAccessPolicy, principal, heartbeatIntervalMillis)
+        SyncStreamServiceImpl(bus, registry, bookAccessPolicy, principal, heartbeatIntervalMillis)
 
     /**
      * One connection's frame stream: stale pre-check, hello, then the merged live tail
@@ -177,6 +184,99 @@ internal class SyncStreamServiceImpl(
                 json = contractJson.encodeToString(SyncControl.serializer(), control),
             )
     }
+
+    override suspend fun pullDomain(
+        domain: String,
+        since: Long,
+        limit: Int,
+    ): AppResult<SyncPage> =
+        withDomain(domain) { caller, typedRepo, extraWhere ->
+            val page =
+                typedRepo.pullSince(
+                    caller.userId.value,
+                    since,
+                    limit.coerceIn(MIN_PAGE_LIMIT, MAX_PAGE_LIMIT),
+                    extraWhere,
+                )
+            typedRepo.toSyncPage(domain, page)
+        }
+
+    override suspend fun pullByIds(
+        domain: String,
+        match: TargetedMatch,
+        ids: List<String>,
+    ): AppResult<SyncPage> {
+        // Refuse rather than truncate: a short response is indistinguishable from "these ids are
+        // gone" and would make the caller tombstone rows it can still reach.
+        if (ids.size > MAX_TARGETED_IDS) {
+            return AppResult.Failure(SyncError.TooManyIds(requested = ids.size, maxIds = MAX_TARGETED_IDS))
+        }
+        if (!match.isSupportedFor(domain)) {
+            return AppResult.Failure(SyncError.UnsupportedMatch(domain = domain, match = match.name))
+        }
+        val distinct = ids.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+        return withDomain(domain) { caller, typedRepo, extraWhere ->
+            val page =
+                typedRepo.pullByIds(
+                    caller.userId.value,
+                    matchColumn = match.column,
+                    matchValues = distinct,
+                    extraWhere = extraWhere,
+                )
+            typedRepo.toSyncPage(domain, page)
+        }
+    }
+
+    override suspend fun digest(
+        domain: String,
+        cursor: Long,
+    ): AppResult<DomainDigest> =
+        withDomain(domain) { caller, typedRepo, extraWhere ->
+            typedRepo.digest(caller.userId.value, cursor, extraWhere)
+        }
+
+    override suspend fun listDomains(): AppResult<List<String>> =
+        if (principal.current() == null) {
+            AppResult.Failure(AuthError.PermissionDenied())
+        } else {
+            AppResult.Success(registry.knownDomains())
+        }
+
+    /**
+     * Resolves the caller and the domain's repository, applies that domain's read-time access
+     * filter, and runs [block]. Every pull entry point funnels through here so the access gate
+     * cannot be forgotten on one of them.
+     */
+    private suspend fun <T> withDomain(
+        domain: String,
+        block: suspend (UserPrincipal, SyncableRepo<Any>, SqlFragment?) -> T,
+    ): AppResult<T> {
+        val caller = principal.current() ?: return AppResult.Failure(AuthError.PermissionDenied())
+        val repo = registry.lookup(domain) ?: return AppResult.Failure(SyncError.UnknownDomain(domain = domain))
+
+        @Suppress("UNCHECKED_CAST")
+        val typedRepo = repo as SyncableRepo<Any>
+        val extraWhere = accessFilterFor(domain, caller.userId.value, caller.role) { bookAccessPolicy() }
+        return AppResult.Success(block(caller, typedRepo, extraWhere))
+    }
+
+    /**
+     * Encodes a page into the wire shape: envelope typed, each row its own encoded string.
+     *
+     * One string per row (rather than one blob per page) keeps the client from holding a
+     * whole-page JSON tree alongside the decoded rows, and lets a single malformed row fail on
+     * its own instead of taking the page with it.
+     */
+    private fun SyncableRepo<Any>.toSyncPage(
+        domain: String,
+        page: Page<Any>,
+    ): SyncPage =
+        SyncPage(
+            domain = domain,
+            items = page.items.map { encodeItemAsJson(it) },
+            nextCursor = page.nextCursor,
+            hasMore = page.hasMore,
+        )
 }
 
 /**
@@ -196,6 +296,13 @@ private class CursorStaleAtAttach(
  */
 fun createSyncStreamService(
     bus: ChangeBus,
+    registry: SyncRegistry,
     bookAccessPolicy: () -> BookAccessPolicy,
     principal: PrincipalProvider,
-): SyncStreamService = SyncStreamServiceImpl(bus = bus, bookAccessPolicy = bookAccessPolicy, principal = principal)
+): SyncStreamService =
+    SyncStreamServiceImpl(
+        bus = bus,
+        registry = registry,
+        bookAccessPolicy = bookAccessPolicy,
+        principal = principal,
+    )

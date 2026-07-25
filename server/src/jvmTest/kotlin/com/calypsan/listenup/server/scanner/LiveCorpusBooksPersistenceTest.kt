@@ -1,5 +1,8 @@
 package com.calypsan.listenup.server.scanner
 
+import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
@@ -7,7 +10,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncPage
 import com.calypsan.listenup.server.module
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
@@ -15,18 +18,9 @@ import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.cio.CIO as ServerCIO
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.engine.EngineConnectorBuilder
@@ -35,7 +29,11 @@ import io.ktor.server.engine.embeddedServer
 import java.nio.file.Files
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.serializer
+import kotlinx.rpc.krpc.ktor.client.installKrpc
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
+import kotlinx.rpc.krpc.serialization.json.json
+import kotlinx.rpc.withService
 
 /**
  * Env-gated live-corpus regression guard for Books persistence.
@@ -116,22 +114,23 @@ class LiveCorpusBooksPersistenceTest :
                 try {
                     val resolvedPort =
                         runBlocking { server.engine.resolvedConnectors() }.first().port
-                    val baseUrl = "http://127.0.0.1:$resolvedPort"
+                    val wsBaseUrl = "ws://127.0.0.1:$resolvedPort"
 
-                    val client =
+                    val rpcClient =
                         HttpClient(CIO) {
-                            install(ContentNegotiation) { json(contractJson) }
-                            install(HttpTimeout) { requestTimeoutMillis = HTTP_TIMEOUT_MS }
+                            install(WebSockets)
+                            installKrpc()
                         }
 
                     try {
                         // Mint an auth token first — required for both the now JWT-gated
-                        // /api/v1/scan/last route and the sync (catch-up) route below.
-                        val token = mintAccessToken(client, baseUrl)
+                        // ScannerService.lastScanResult() RPC and the SyncStreamService.pullDomain()
+                        // catch-up RPC below.
+                        val token = mintAccessToken(rpcClient, wsBaseUrl)
 
                         // Wait for the bootstrap scan to complete. Real corpora can be large;
                         // use a generous timeout to avoid false failures on slow disks.
-                        val scanResult = waitForScanResult(client, baseUrl, token, timeoutMs = SCAN_TIMEOUT_MS)
+                        val scanResult = waitForScanResult(rpcClient, wsBaseUrl, token, timeoutMs = SCAN_TIMEOUT_MS)
 
                         val scannedCount = scanResult.books.size
                         withClue("Live corpus scan produced zero books — check $LIVE_CORPUS_ENV points to a valid audiobook library") {
@@ -147,7 +146,7 @@ class LiveCorpusBooksPersistenceTest :
                         var persistedBooks: List<BookSyncPayload>
                         var persistedCount: Int
                         do {
-                            persistedBooks = pullAllBooks(client, baseUrl, token, limit = scannedCount + LIMIT_HEADROOM)
+                            persistedBooks = pullAllBooks(rpcClient, wsBaseUrl, token, limit = scannedCount + LIMIT_HEADROOM)
                             persistedCount = persistedBooks.count { it.deletedAt == null }
                             if (persistedCount < scannedCount) delay(POLL_INTERVAL_MS)
                         } while (persistedCount < scannedCount && System.currentTimeMillis() < persistenceDeadline)
@@ -182,7 +181,7 @@ class LiveCorpusBooksPersistenceTest :
                             noAudio.size shouldBe 0
                         }
                     } finally {
-                        client.close()
+                        rpcClient.close()
                     }
                 } finally {
                     @Suppress("MagicNumber")
@@ -197,30 +196,29 @@ class LiveCorpusBooksPersistenceTest :
 // ---------------------------------------------------------------------------
 
 /**
- * Polls `GET /api/v1/scan/last` until it returns Success, indicating the
+ * Polls [ScannerService.lastScanResult] until it returns Success, indicating the
  * bootstrap scan has completed and [com.calypsan.listenup.server.services.BookPersister]
  * has drained the result. The persister subscribes to the scan-result bus
  * before the scan launches (see [com.calypsan.listenup.server.Application]),
- * so a Success result from this endpoint means persistence is complete.
+ * so a Success result from this call means persistence is complete.
  */
 private suspend fun waitForScanResult(
-    client: HttpClient,
-    baseUrl: String,
+    rpcClient: HttpClient,
+    wsBaseUrl: String,
     token: String,
     timeoutMs: Long,
 ): ScanResult {
+    val scanner =
+        rpcClient
+            .rpc("$wsBaseUrl/api/rpc/authed") {
+                rpcConfig { serialization { json(contractJson) } }
+                bearerAuth(token)
+            }.withService<ScannerService>()
+
     val deadline = System.currentTimeMillis() + timeoutMs
     while (System.currentTimeMillis() < deadline) {
-        val response = client.get("$baseUrl/api/v1/scan/last") { bearerAuth(token) }
-        if (response.status == HttpStatusCode.OK) {
-            val text: String = response.body()
-            val result =
-                contractJson.decodeFromString(
-                    AppResult.serializer(serializer<ScanResult>()),
-                    text,
-                )
-            if (result is AppResult.Success) return result.data
-        }
+        val result = scanner.lastScanResult()
+        if (result is AppResult.Success) return result.data
         delay(POLL_INTERVAL_MS)
     }
     error("Bootstrap scan did not complete within ${timeoutMs}ms — is the corpus readable?")
@@ -231,20 +229,19 @@ private suspend fun waitForScanResult(
  * always boots against a fresh DB, so there is no pre-existing account.
  */
 private suspend fun mintAccessToken(
-    client: HttpClient,
-    baseUrl: String,
+    rpcClient: HttpClient,
+    wsBaseUrl: String,
 ): String {
-    client.post("$baseUrl/api/v1/auth/setup") {
-        contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("root@listenup.test", "x".repeat(MIN_PASSWORD_LENGTH), "Root"))
-    }
-    val response =
-        client.post("$baseUrl/api/v1/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody(LoginRequest("root@listenup.test", "x".repeat(MIN_PASSWORD_LENGTH)))
-        }
-    return response
-        .body<AppResult<AuthSession>>()
+    val authPublic =
+        rpcClient
+            .rpc("$wsBaseUrl/api/rpc/public") {
+                rpcConfig { serialization { json(contractJson) } }
+            }.withService<AuthServicePublic>()
+
+    authPublic.setupRoot(RegisterRequest("root@listenup.test", "x".repeat(MIN_PASSWORD_LENGTH), "Root"))
+
+    return authPublic
+        .login(LoginRequest("root@listenup.test", "x".repeat(MIN_PASSWORD_LENGTH)))
         .shouldBeInstanceOf<AppResult.Success<AuthSession>>()
         .data
         .accessToken
@@ -252,34 +249,32 @@ private suspend fun mintAccessToken(
 }
 
 /**
- * Fetches all books from the sync catch-up route, paging until [Page.hasMore]
+ * Fetches all books from [SyncStreamService.pullDomain], paging until [SyncPage.hasMore]
  * is false. Returns the full flat list including soft-deleted rows so the
  * caller can filter and count independently.
  */
 private suspend fun pullAllBooks(
-    client: HttpClient,
-    baseUrl: String,
+    rpcClient: HttpClient,
+    wsBaseUrl: String,
     token: String,
     limit: Int,
 ): List<BookSyncPayload> {
+    val sync =
+        rpcClient
+            .rpc("$wsBaseUrl/api/rpc/authed") {
+                rpcConfig { serialization { json(contractJson) } }
+                bearerAuth(token)
+            }.withService<SyncStreamService>()
+
     val all = mutableListOf<BookSyncPayload>()
     var cursor = 0L
     do {
-        val response =
-            client.get("$baseUrl/api/v1/sync/books") {
-                bearerAuth(token)
-                url {
-                    parameters.append("since", cursor.toString())
-                    parameters.append("limit", limit.toString())
-                }
-            }
-        val text: String = response.body()
         val page =
-            contractJson.decodeFromString(
-                Page.serializer(BookSyncPayload.serializer()),
-                text,
-            )
-        all.addAll(page.items)
+            sync
+                .pullDomain("books", cursor, limit)
+                .shouldBeInstanceOf<AppResult.Success<SyncPage>>()
+                .data
+        all.addAll(page.items.map { contractJson.decodeFromString(BookSyncPayload.serializer(), it) })
         cursor = page.nextCursor ?: break
     } while (page.hasMore)
     return all
@@ -294,7 +289,6 @@ private const val MIN_PASSWORD_LENGTH = 8
 
 // Timeouts for a real, potentially large corpus on disk.
 private const val SCAN_TIMEOUT_MS = 5L * 60L * 1_000L // 5 minutes
-private const val HTTP_TIMEOUT_MS = 30_000L
 
 // Polling cadence while waiting for the bootstrap scan or persistence convergence.
 private const val POLL_INTERVAL_MS = 500L

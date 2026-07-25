@@ -18,7 +18,6 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.core.BookId
@@ -71,7 +70,10 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.transformWhile
 import org.koin.ktor.ext.inject
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.server.testing.authedService
+import com.calypsan.listenup.server.testing.rows
+import com.calypsan.listenup.server.testing.shouldSucceed
 
 /**
  * The Collections-1b deliverable: the adversarial seam-leak proof.
@@ -82,7 +84,7 @@ import com.calypsan.listenup.server.testing.authedService
  * global-access collection is visible to all members.
  *
  * Tasks 2-9 each gated one seam in isolation; this test combines them into one
- * multi-user scenario hitting the *real* HTTP routes / RPC firehose of a full
+ * multi-user scenario hitting the *real* HTTP routes / RPC surface of a full
  * [module]. Every seam assertion carries a **visible control** — a public book `P`
  * (or, for sharing, the admin's view) that `m1` *does* see — so the assertion fails
  * if the gate is removed, never because the query trivially returned nothing.
@@ -90,8 +92,8 @@ import com.calypsan.listenup.server.testing.authedService
  * The six seams (each `// SEAM n`):
  *  1. getBook       — `GET /api/v1/books/{id}` → NotFound on deny
  *  2. audio         — `GET /api/v1/audio/{book}/{file}?…` → validly-signed URL still 404s
- *  3. catch-up      — `GET /api/v1/sync/books?since=0` → B absent from the page
- *  4. digest        — `GET /api/v1/sync/books/digest?cursor=…` → B uncounted (vs admin)
+ *  3. catch-up      — RPC `SyncStreamService.pullDomain("books", since = 0)` → B absent from the page
+ *  4. digest        — RPC `SyncStreamService.digest("books", cursor)` → B uncounted (vs admin)
  *  5. cover         — `GET /api/v1/books/{id}/cover` → cover bytes withheld on deny
  *  6. firehose      — RPC `SyncStreamService.observeEvents` → a live content event for B never delivers
  */
@@ -159,8 +161,8 @@ class SeamLeakE2ETest :
                     // ─────────────────────────── SEAM 3: catch-up ───────────────────────────
                     // Control: P is in m1's catch-up page; B / B_inbox are not. If the
                     // access fragment were dropped, the private book would replay to m1's Room.
-                    val m1Page = client.catchUp(m1.token)
-                    val m1Ids = m1Page.items.map { it.id }
+                    val m1Page = catchUp(m1.token)
+                    val m1Ids = m1Page.map { it.id }
                     m1Ids shouldContain "P"
                     m1Ids shouldNotContain "B"
                     m1Ids shouldNotContain "B_inbox"
@@ -169,8 +171,8 @@ class SeamLeakE2ETest :
                     // Control: m1's digest folds only P (count 1); the admin's folds all 3.
                     // Different row-sets → different fingerprints. Equal hashes would mean the
                     // gate isn't exercised — the divergence is the regression guard.
-                    val m1Digest = client.digest(m1.token)
-                    val adminDigest = client.digest(admin.token)
+                    val m1Digest = digest(m1.token)
+                    val adminDigest = digest(admin.token)
                     m1Digest.count shouldBe 1
                     adminDigest.count shouldBe 3
                     m1Digest.hash shouldNotBe adminDigest.hash
@@ -249,12 +251,12 @@ class SeamLeakE2ETest :
                         HttpStatusCode.OK
 
                     // SEAM 3: catch-up → both private books replay.
-                    val ids = client.catchUp(admin.token).items.map { it.id }
+                    val ids = catchUp(admin.token).map { it.id }
                     ids shouldContain "B"
                     ids shouldContain "B_inbox"
 
                     // SEAM 4: digest → folds all books (count 2).
-                    client.digest(admin.token).count shouldBe 2
+                    digest(admin.token).count shouldBe 2
 
                     // SEAM 5: cover → the admin is served the private book's cover bytes.
                     client.cover(admin.token, "B").status shouldBe HttpStatusCode.OK
@@ -296,7 +298,7 @@ class SeamLeakE2ETest :
 
                     // Before sharing: m2 cannot reach B (control — the gate is active).
                     getBook(m2.token, "B").shouldBeInstanceOf<AppResult.Failure>()
-                    client.catchUp(m2.token).items.map { it.id } shouldNotContain "B"
+                    catchUp(m2.token).map { it.id } shouldNotContain "B"
 
                     // Subscribe m2 to the firehose CONTROL channel, then share. An AccessChanged
                     // control frame must arrive addressed to m2 (the firehose filters control frames
@@ -320,12 +322,12 @@ class SeamLeakE2ETest :
 
                     // After sharing: B converges into m2's reachable set via getBook + catch-up.
                     getBook(m2.token, "B").shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
-                    client.catchUp(m2.token).items.map { it.id } shouldContain "B"
+                    catchUp(m2.token).map { it.id } shouldContain "B"
 
                     // Revoke → B disappears again from getBook + catch-up.
                     ownerService.revokeShare(privateCol, m2.userId).requireSuccess()
                     getBook(m2.token, "B").shouldBeInstanceOf<AppResult.Failure>()
-                    client.catchUp(m2.token).items.map { it.id } shouldNotContain "B"
+                    catchUp(m2.token).map { it.id } shouldNotContain "B"
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
@@ -355,7 +357,7 @@ class SeamLeakE2ETest :
 
                     // getBook + catch-up: m1 (granted via ALL_BOOKS) sees the book.
                     getBook(m1.token, "G").shouldBeInstanceOf<AppResult.Success<BookSyncPayload>>()
-                    client.catchUp(m1.token).items.map { it.id } shouldContain "G"
+                    catchUp(m1.token).map { it.id } shouldContain "G"
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()
@@ -416,12 +418,21 @@ private suspend fun HttpClient.cover(
     bookId: String,
 ): HttpResponse = get("/api/v1/books/$bookId/cover") { bearerAuth(token) }
 
-private const val CATCH_UP_PATH = "/api/v1/sync/books?since=0&limit=1000"
-private const val DIGEST_PATH = "/api/v1/sync/books/digest?cursor=1000000"
+private const val CATCH_UP_LIMIT = 1000
+private const val DIGEST_CURSOR = 1_000_000L
 
-private suspend fun HttpClient.catchUp(token: String): Page<BookSyncPayload> = get(CATCH_UP_PATH) { bearerAuth(token) }.body()
+/** Seam 3: the caller's access-filtered `books` catch-up page, decoded to rows. */
+private suspend fun ApplicationTestBuilder.catchUp(token: String): List<BookSyncPayload> =
+    authedService<SyncStreamService>(token)
+        .pullDomain("books", since = 0, limit = CATCH_UP_LIMIT)
+        .shouldSucceed()
+        .rows(BookSyncPayload.serializer())
 
-private suspend fun HttpClient.digest(token: String): DomainDigest = get(DIGEST_PATH) { bearerAuth(token) }.body()
+/** Seam 4: the caller's access-filtered `books` digest. */
+private suspend fun ApplicationTestBuilder.digest(token: String): DomainDigest =
+    authedService<SyncStreamService>(token)
+        .digest("books", cursor = DIGEST_CURSOR)
+        .shouldSucceed()
 
 // ── CollectionService driving (real service, shares the firehose's singleton bus) ──
 

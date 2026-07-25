@@ -19,7 +19,7 @@ import org.koin.dsl.module
  * every [com.calypsan.listenup.server.sync.SyncableRepository]) so their `init` blocks
  * register the `"shelves"` / `"shelf_books"` sync domains with the [SyncRegistry]
  * [com.calypsan.listenup.server.sync.SyncRegistry] at bootstrap, making
- * `/api/v1/sync/domains` correct on the first request.
+ * `SyncStreamService.listDomains()` correct on the first request.
  *
  * [ShelfServiceImpl] carries the [unscopedPlaceholder] [PrincipalProvider]; the RPC
  * route binds the authenticated caller per-request via `copyWith`. [BookAccessPolicy]

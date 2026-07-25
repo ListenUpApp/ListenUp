@@ -62,11 +62,11 @@ import org.koin.dsl.module
  *  - [ContributorRepository] / [SeriesRepository] — the contributors and series
  *    syncable domains. `createdAtStart = true` so each registers with
  *    `SyncRegistry` at bootstrap, listing `"contributors"` / `"series"` on
- *    `/api/v1/sync/domains`. [BookRepository] depends on both to resolve the
+ *    `SyncStreamService.listDomains()`. [BookRepository] depends on both to resolve the
  *    aggregate's contributor/series ids before its junction-row writes.
  *  - [BookRepository] — the books aggregate's [SyncableRepository][com.calypsan.listenup.server.sync.SyncableRepository].
  *    `createdAtStart = true` so its `init` block registers with `SyncRegistry`
- *    at bootstrap, making `/api/v1/sync/domains` list `"books"` on the first request.
+ *    at bootstrap, making `SyncStreamService.listDomains()` list `"books"` on the first request.
  *  - [BookIngestPort] — bound to the same [BookRepository] instance.
  *  - [BookPersister] — consumes the scanner's [ScanResult] stream.
  *  - [EmbeddedCoverCache] — LRU cache for extracted embedded artwork.
@@ -86,7 +86,7 @@ import org.koin.dsl.module
  * configured): [BookPersister] depends on the scanner's `scanResultBus` and
  * the application [CoroutineScope][kotlinx.coroutines.CoroutineScope], both of
  * which only exist when the scanner slice is wired. With no library configured
- * there is no books domain — `/api/v1/sync/domains` correctly omits `"books"`.
+ * there is no books domain — `SyncStreamService.listDomains()` correctly omits `"books"`.
  *
  * @param metadataPrecedence the operator-configured textual-metadata precedence
  *   (resolved from `LISTENUP_METADATA_PRECEDENCE`). [LibraryRegistry] persists it

@@ -13,18 +13,4 @@ class DomainDiscoveryContractTest :
             val decoded = contractJson.decodeFromString(DomainDigest.serializer(), json)
             decoded shouldBe original
         }
-
-        test("DomainList round-trips") {
-            val original = DomainList(domains = listOf("books", "tags", "shelves"))
-            val json = contractJson.encodeToString(DomainList.serializer(), original)
-            val decoded = contractJson.decodeFromString(DomainList.serializer(), json)
-            decoded shouldBe original
-        }
-
-        test("Empty DomainList round-trips") {
-            val original = DomainList(domains = emptyList())
-            val json = contractJson.encodeToString(DomainList.serializer(), original)
-            val decoded = contractJson.decodeFromString(DomainList.serializer(), json)
-            decoded shouldBe original
-        }
     })

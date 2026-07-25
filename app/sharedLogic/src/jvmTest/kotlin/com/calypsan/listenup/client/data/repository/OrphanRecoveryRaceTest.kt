@@ -12,7 +12,9 @@ import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
+import com.calypsan.listenup.client.data.sync.FakeSyncStreamService
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
 import com.calypsan.listenup.client.data.sync.SearchIndexWatermark
 import com.calypsan.listenup.api.sync.SyncFrame
@@ -312,10 +314,11 @@ private fun buildOrphanTestEngine(
         SyncReconciler(
             registry = registry,
             store = store,
+            // Every FakeSyncStreamService member throws, so a digest call this test does not
+            // expect names itself rather than quietly returning a plausible empty answer.
             digestClient =
                 DomainDigestClient(
-                    httpClientProvider = { error("digest client should not be called in this test") },
-                    serverUrlProvider = { "" },
+                    channel = RpcChannel.forTest<SyncStreamService>(object : FakeSyncStreamService() {}),
                 ),
             catchUp = catchUp,
         )

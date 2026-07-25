@@ -2,7 +2,6 @@
 
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -37,7 +36,7 @@ class RpcSyncStreamClientResubscribeTest :
             val scope = TestScope(StandardTestDispatcher())
             val subscriptions = mutableListOf<Long?>()
             val service =
-                object : SyncStreamService {
+                object : FakeSyncStreamService() {
                     override fun observeEvents(sinceRevision: Long?): Flow<RpcEvent<SyncFrame>> =
                         flow {
                             subscriptions += sinceRevision

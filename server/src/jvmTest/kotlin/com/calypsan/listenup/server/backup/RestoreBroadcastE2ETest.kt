@@ -151,7 +151,7 @@ class RestoreBroadcastE2ETest :
     })
 
 /**
- * Registers the first user as ROOT via `/api/v1/auth/setup` and returns the session — the
+ * Registers the first user as ROOT via `AuthServicePublic.setupRoot` and returns the session — the
  * access token drives the RPC calls; the user id scopes the firehose subscriber's principal.
  * Mirrors the `setupRootForBackup` helper in `BackupUploadRestoreE2ETest`.
  */

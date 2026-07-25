@@ -7,9 +7,9 @@ import kotlin.native.HiddenFromObjC
 import kotlinx.serialization.KSerializer
 
 /**
- * Identity of one syncable domain: its wire [name] (the [SyncFrame.domain] value, the
- * `/api/v1/sync/{name}` path segment, and the client's cursor key) and the
- * [serializer] for its payload DTO.
+ * Identity of one syncable domain: its wire [name] (the [SyncFrame.domain] value, the `domain`
+ * argument to [SyncStreamService.pullDomain][com.calypsan.listenup.api.SyncStreamService.pullDomain],
+ * and the client's cursor key) and the [serializer] for its payload DTO.
  *
  * Read by BOTH sides — the server's `SqlSyncableRepository` registers under it and
  * the client's sync-domain catalog declares behavior against it — so a domain's wire

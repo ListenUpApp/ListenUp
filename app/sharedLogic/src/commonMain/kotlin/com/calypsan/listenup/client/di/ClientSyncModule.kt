@@ -17,7 +17,6 @@ import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
-import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.PlaybackPrepareRepositoryImpl
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
@@ -58,7 +57,6 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
-import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.api.dto.BookMoodMutation
 import com.calypsan.listenup.api.dto.BookMutation
@@ -372,26 +370,16 @@ internal val clientSyncModule =
         }
 
         single<CatchUp> {
-            val apiClientFactory: ApiClientFactory = get()
-            val serverConfig: ServerConfig = get()
             val reporter: ConnectionHealthStore = get()
             SyncCatchUpClient(
-                httpClientProvider = { apiClientFactory.getClient() },
-                serverUrlProvider = { serverConfig.getActiveUrl()?.value },
+                channel = rpcChannel<SyncStreamService>(),
                 store = get(),
                 transactionRunner = get(),
                 reportConnectionIssue = reporter::report,
             )
         }
 
-        single {
-            val apiClientFactory: ApiClientFactory = get()
-            val serverConfig: ServerConfig = get()
-            DomainDigestClient(
-                httpClientProvider = { apiClientFactory.getClient() },
-                serverUrlProvider = { serverConfig.getActiveUrl()?.value ?: "" },
-            )
-        }
+        single { DomainDigestClient(channel = rpcChannel<SyncStreamService>()) }
 
         single {
             SyncReconciler(

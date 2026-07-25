@@ -23,7 +23,7 @@ import org.koin.dsl.module
  * Sync Foundation DI bindings. `createdAtStart = true` is mandatory on every
  * [com.calypsan.listenup.server.sync.SyncableRepository] so the `init` block
  * (which calls `registry.register(this)`) runs at application bootstrap
- * rather than lazily on first use — that makes `/api/v1/sync/domains` correct
+ * rather than lazily on first use — that makes `SyncStreamService.listDomains()` correct
  * on the first request.
  *
  * Exposed as a **function** rather than a top-level `val` so each Koin container
@@ -47,12 +47,14 @@ fun syncModule(): Module =
         single { SyncRegistry() }
         single { BookAccessPolicy(db = get<ListenUpDatabase>(), driver = get<SqlDriver>()) }
         single(createdAtStart = true) { ChangeBus() }
-        // The RPC firehose over the change bus. The policy travels as a thunk (resolved lazily,
-        // only when a book-gated event must be probed) so harnesses driving only ungated domains
-        // need no BookAccessPolicy.
+        // The RPC sync surface: the firehose over the change bus, plus the resumable pull that
+        // backs it (both dispatch per-domain through the registry). The policy travels as a thunk
+        // (resolved lazily, only when a gated domain must be probed) so harnesses driving only
+        // ungated domains need no BookAccessPolicy.
         single<SyncStreamService> {
             SyncStreamServiceImpl(
                 bus = get(),
+                registry = get(),
                 bookAccessPolicy = { get() },
             )
         }

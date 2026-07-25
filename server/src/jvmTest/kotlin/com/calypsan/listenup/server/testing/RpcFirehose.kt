@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.SyncFrame
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncStreamServiceImpl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
@@ -28,6 +29,10 @@ internal fun rpcFirehose(
 ): Flow<SyncFrame> =
     SyncStreamServiceImpl(
         bus = bus,
+        // Empty: this helper observes the stream only. The registry serves the pull half
+        // (pullDomain/pullByIds/digest/listDomains), which no caller of rpcFirehose touches — an
+        // empty one fails a stray pull loudly rather than answering it from a half-built fixture.
+        registry = SyncRegistry(),
         bookAccessPolicy = bookAccessPolicy,
         principal = principal,
     ).observeEvents(sinceRevision)

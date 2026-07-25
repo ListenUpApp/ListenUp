@@ -1,11 +1,14 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.SyncCursorDao
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
 import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
 import com.calypsan.listenup.api.result.AppResult
@@ -17,14 +20,6 @@ import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.KSerializer
 
@@ -96,37 +91,27 @@ class SyncReconcilerTest :
         }
 
         /**
-         * Builds a [DomainDigestClient] backed by an in-memory map: each GET to
-         * `/api/v1/sync/<domain>/digest?cursor=…` responds with the pre-set [DomainDigest]
-         * for that domain, or 404 if the domain is absent.
+         * Builds a [DomainDigestClient] backed by an in-memory map: [SyncStreamService.digest]
+         * for a domain present in [domainDigests] returns that pre-set [DomainDigest]; a domain
+         * absent from the map fails with [SyncError.UnknownDomain] — the typed equivalent of the
+         * old REST route's 404.
          */
         fun fakeDigestClient(domainDigests: Map<String, DomainDigest>): DomainDigestClient {
-            val mockClient =
-                HttpClient(
-                    MockEngine { req ->
-                        // URL: /api/v1/sync/<domain>/digest  →  segments[-2] = domain
-                        val domain =
-                            req.url.pathSegments
-                                .dropLast(1)
-                                .last()
+            val service =
+                object : FakeSyncStreamService() {
+                    override suspend fun digest(
+                        domain: String,
+                        cursor: Long,
+                    ): AppResult<DomainDigest> {
                         val digest = domainDigests[domain]
-                        if (digest != null) {
-                            respond(
-                                content = contractJson.encodeToString(DomainDigest.serializer(), digest),
-                                headers = headersOf(HttpHeaders.ContentType, "application/json"),
-                            )
+                        return if (digest != null) {
+                            AppResult.Success(digest)
                         } else {
-                            respond(
-                                content = "not found",
-                                status = io.ktor.http.HttpStatusCode.NotFound,
-                            )
+                            AppResult.Failure(SyncError.UnknownDomain(domain = domain))
                         }
-                    },
-                ) { install(ContentNegotiation) { json(contractJson) } }
-            return DomainDigestClient(
-                httpClientProvider = { mockClient },
-                serverUrlProvider = { "http://test" },
-            )
+                    }
+                }
+            return DomainDigestClient(channel = RpcChannel.forTest(service))
         }
 
         // ---------------------------------------------------------------------------------
@@ -253,17 +238,17 @@ class SyncReconcilerTest :
             runTest {
                 val registry = ClientSyncDomainRegistry()
                 registry.register(fakeHandler("tags", rows = listOf("a" to 1L)))
-                // 401 + expectSuccess mirrors the production request client: the digest fetch's
-                // suspendRunCatching routes the ResponseException through ErrorMapper → SessionExpired.
-                val unauthorized401Client =
-                    HttpClient(MockEngine { respond("unauthorized", status = HttpStatusCode.Unauthorized) }) {
-                        expectSuccess = true
+                // A business AppResult.Failure returned by the service passes through the channel
+                // untouched (RpcChannel.call), mirroring the production shape of an auth-expiry
+                // digest fetch surfacing as a typed AuthError.SessionExpired.
+                val unauthorizedService =
+                    object : FakeSyncStreamService() {
+                        override suspend fun digest(
+                            domain: String,
+                            cursor: Long,
+                        ): AppResult<DomainDigest> = AppResult.Failure(AuthError.SessionExpired())
                     }
-                val failingDigestClient =
-                    DomainDigestClient(
-                        httpClientProvider = { unauthorized401Client },
-                        serverUrlProvider = { "http://test" },
-                    )
+                val failingDigestClient = DomainDigestClient(channel = RpcChannel.forTest(unauthorizedService))
                 val reported = mutableListOf<AppError>()
                 val reconciler =
                     SyncReconciler(

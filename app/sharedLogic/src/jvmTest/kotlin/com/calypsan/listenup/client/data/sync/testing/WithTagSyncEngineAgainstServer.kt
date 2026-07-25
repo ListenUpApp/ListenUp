@@ -47,7 +47,6 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.createSyncStreamService
-import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
@@ -181,11 +180,10 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
             }
             routing {
                 authenticate(JWT_PROVIDER) {
-                    syncRoutes()
-                    // The RPC firehose — the same per-connection principal scoping production
-                    // uses, over the harness's shared ChangeBus. Tags/book_tags are ungated,
-                    // so no BookAccessPolicy is wired; the thunk resolves only for book-gated
-                    // content events, which this harness never publishes.
+                    // The RPC sync surface — firehose AND catch-up pull, the same per-connection
+                    // principal scoping production uses, over the harness's shared ChangeBus and
+                    // registry. Tags/book_tags are ungated, so no BookAccessPolicy is wired; the
+                    // thunk resolves only for book-gated content, which this harness never publishes.
                     serverRpc("/api/rpc/authed") {
                         rpcConfig { serialization { krpcJson(contractJson) } }
                         registerService<SyncStreamService> {
@@ -195,6 +193,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                             guard(
                                 createSyncStreamService(
                                     bus,
+                                    syncRegistry,
                                     { error("no book-gated domain in this harness") },
                                     PrincipalProvider { p },
                                 ),
@@ -267,24 +266,26 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                     offlineEditor = offlineEditor,
                 )
 
-            val catchUp =
-                SyncCatchUpClient(
-                    httpClientProvider = { testClient },
-                    serverUrlProvider = { "" },
-                    store = store,
-                    transactionRunner = RoomTransactionRunner(clientDb),
-                )
-
-            // The production firehose client over a real kotlinx.rpc proxy into the harness's
-            // in-process server — same transport shape as production DI wires.
+            // One real kotlinx.rpc proxy into the harness's in-process server, shared by the
+            // firehose, the catch-up pull and the digest — the same one-socket shape production
+            // DI wires, where all three ride a single `rpcChannel<SyncStreamService>()`.
             val syncStreamServiceProxy =
                 testClient
                     .rpc("ws://localhost/api/rpc/authed") {
                         rpcConfig { serialization { krpcJson(contractJson) } }
                     }.withService<SyncStreamService>()
+            val syncChannel = RpcChannel.forTest(syncStreamServiceProxy)
+
+            val catchUp =
+                SyncCatchUpClient(
+                    channel = syncChannel,
+                    store = store,
+                    transactionRunner = RoomTransactionRunner(clientDb),
+                )
+
             val syncStreamClient =
                 RpcSyncStreamClient(
-                    channel = RpcChannel.forTest(syncStreamServiceProxy),
+                    channel = syncChannel,
                     state = state,
                     scope = clientScope,
                 )
@@ -301,7 +302,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                     },
                 )
 
-            val digestClient = DomainDigestClient(httpClientProvider = { testClient }, serverUrlProvider = { "" })
+            val digestClient = DomainDigestClient(channel = syncChannel)
             val reconciler = SyncReconciler(registry, store, digestClient, catchUp)
 
             val engine =

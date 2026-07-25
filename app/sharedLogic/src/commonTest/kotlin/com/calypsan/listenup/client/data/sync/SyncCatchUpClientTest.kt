@@ -1,54 +1,32 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.test.db.passThroughTransactionRunner
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.error.AppError
-import com.calypsan.listenup.api.sync.DomainList
-import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.SyncPage
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.SyncCursorDao
 import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.headersOf
-import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
 
 /**
- * Verifies [SyncCatchUpClient] drains REST catch-up pages until `hasMore == false`,
+ * Verifies [SyncCatchUpClient] drains RPC catch-up pages until `hasMore == false`,
  * advances the per-domain cursor incrementally, routes tombstones via [Tombstoned],
  * and iterates every domain in [ClientSyncDomainRegistry] for `catchUpAll`.
  *
- * Uses a `MockEngine`-backed `HttpClient` and a fake `SyncCursorDao` so the test
- * runs in commonTest with no Room dependency.
+ * Uses a [FakeSyncStreamService] over `RpcChannel.forTest` and a fake `SyncCursorDao`
+ * so the test runs in commonTest with no Room dependency.
  */
 class SyncCatchUpClientTest :
     FunSpec({
-
-        fun mockClient(handler: (path: String, since: Long?) -> String): HttpClient =
-            HttpClient(
-                MockEngine { req ->
-                    val path = req.url.encodedPath
-                    val since = req.url.parameters["since"]?.toLongOrNull()
-                    respond(
-                        content = handler(path, since),
-                        status = HttpStatusCode.OK,
-                        headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
-                    )
-                },
-            ) {
-                install(ContentNegotiation) { json(contractJson) }
-            }
 
         fun tagHandler(seenItems: MutableList<Pair<Tag, Boolean>>): SyncDomainHandler<Tag> =
             object : SyncDomainHandler<Tag> {
@@ -77,44 +55,50 @@ class SyncCatchUpClientTest :
                 val seenItems = mutableListOf<Pair<Tag, Boolean>>()
                 val handler = tagHandler(seenItems)
                 val store = SyncCursorStore(InMemorySyncCursorDao())
-                val httpClient =
-                    mockClient { _, since ->
-                        when (since) {
-                            0L -> {
-                                contractJson.encodeToString(
-                                    Page.serializer(Tag.serializer()),
-                                    Page(
-                                        items =
-                                            listOf(
-                                                Tag("a", "alpha", "alpha", 1L, 100L),
-                                                Tag("b", "beta", "beta", 2L, 200L),
-                                            ),
-                                        nextCursor = 2L,
-                                        hasMore = true,
-                                    ),
-                                )
-                            }
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> =
+                            when (since) {
+                                0L -> {
+                                    AppResult.Success(
+                                        syncPageOf(
+                                            domain = "tags",
+                                            serializer = Tag.serializer(),
+                                            items =
+                                                listOf(
+                                                    Tag("a", "alpha", "alpha", 1L, 100L),
+                                                    Tag("b", "beta", "beta", 2L, 200L),
+                                                ),
+                                            nextCursor = 2L,
+                                            hasMore = true,
+                                        ),
+                                    )
+                                }
 
-                            2L -> {
-                                contractJson.encodeToString(
-                                    Page.serializer(Tag.serializer()),
-                                    Page(
-                                        items = listOf(Tag("c", "gamma", "gamma", 3L, 300L, deletedAt = 300L)),
-                                        nextCursor = 3L,
-                                        hasMore = false,
-                                    ),
-                                )
-                            }
+                                2L -> {
+                                    AppResult.Success(
+                                        syncPageOf(
+                                            domain = "tags",
+                                            serializer = Tag.serializer(),
+                                            items = listOf(Tag("c", "gamma", "gamma", 3L, 300L, deletedAt = 300L)),
+                                            nextCursor = 3L,
+                                            hasMore = false,
+                                        ),
+                                    )
+                                }
 
-                            else -> {
-                                error("unexpected since=$since")
+                                else -> {
+                                    error("unexpected since=$since")
+                                }
                             }
-                        }
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClientProvider = { httpClient },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = store,
                         transactionRunner = passThroughTransactionRunner(),
                     )
@@ -134,27 +118,33 @@ class SyncCatchUpClientTest :
                 val handler = tagHandler(seenItems)
                 val store = SyncCursorStore(InMemorySyncCursorDao())
                 var requestCount = 0
-                val httpClient =
-                    mockClient { _, _ ->
-                        requestCount++
-                        // Cap the loop so a REGRESSION fails cleanly (returns Failure) instead of
-                        // hanging the suite. With the fix, only the first request is ever made.
-                        check(requestCount <= 3) { "paging did not terminate: made $requestCount identical requests" }
-                        contractJson.encodeToString(
-                            Page.serializer(Tag.serializer()),
-                            Page(
-                                items = listOf(Tag("a", "alpha", "alpha", 1L, 100L)),
-                                // No cursor to advance to, yet the server claims more pages — the
-                                // malformed contract that made `since` never move and spun the loop.
-                                nextCursor = null,
-                                hasMore = true,
-                            ),
-                        )
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> {
+                            requestCount++
+                            // Cap the loop so a REGRESSION fails cleanly (returns Failure) instead of
+                            // hanging the suite. With the fix, only the first request is ever made.
+                            check(requestCount <= 3) { "paging did not terminate: made $requestCount identical requests" }
+                            return AppResult.Success(
+                                syncPageOf(
+                                    domain = "tags",
+                                    serializer = Tag.serializer(),
+                                    items = listOf(Tag("a", "alpha", "alpha", 1L, 100L)),
+                                    // No cursor to advance to, yet the server claims more pages — the
+                                    // malformed contract that made `since` never move and spun the loop.
+                                    nextCursor = null,
+                                    hasMore = true,
+                                ),
+                            )
+                        }
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClientProvider = { httpClient },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = store,
                         transactionRunner = passThroughTransactionRunner(),
                     )
@@ -171,25 +161,30 @@ class SyncCatchUpClientTest :
                 val seenItems = mutableListOf<Pair<Tag, Boolean>>()
                 val handler = tagHandler(seenItems)
                 val store = SyncCursorStore(InMemorySyncCursorDao())
-                val httpClient =
-                    mockClient { _, _ ->
-                        contractJson.encodeToString(
-                            Page.serializer(Tag.serializer()),
-                            Page(
-                                items =
-                                    listOf(
-                                        Tag("alive", "current", "current", 10L, 1000L, deletedAt = null),
-                                        Tag("dead", "removed", "removed", 11L, 1100L, deletedAt = 1100L),
-                                    ),
-                                nextCursor = 11L,
-                                hasMore = false,
-                            ),
-                        )
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> =
+                            AppResult.Success(
+                                syncPageOf(
+                                    domain = "tags",
+                                    serializer = Tag.serializer(),
+                                    items =
+                                        listOf(
+                                            Tag("alive", "current", "current", 10L, 1000L, deletedAt = null),
+                                            Tag("dead", "removed", "removed", 11L, 1100L, deletedAt = 1100L),
+                                        ),
+                                    nextCursor = 11L,
+                                    hasMore = false,
+                                ),
+                            )
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClientProvider = { httpClient },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = store,
                         transactionRunner = passThroughTransactionRunner(),
                     )
@@ -200,19 +195,15 @@ class SyncCatchUpClientTest :
             }
         }
 
-        test("domains() returns the server's DomainList") {
+        test("domains() returns the server's domain list") {
             runTest {
-                val httpClient =
-                    mockClient { _, _ ->
-                        contractJson.encodeToString(
-                            DomainList.serializer(),
-                            DomainList(listOf("books", "tags")),
-                        )
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun listDomains(): AppResult<List<String>> = AppResult.Success(listOf("books", "tags"))
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClientProvider = { httpClient },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = SyncCursorStore(InMemorySyncCursorDao()),
                         transactionRunner = passThroughTransactionRunner(),
                     )
@@ -267,19 +258,22 @@ class SyncCatchUpClientTest :
                 registry.register(tagsHandler)
                 registry.register(booksHandler)
 
-                val httpClient =
-                    mockClient { path, _ ->
-                        // path is e.g. "/api/v1/sync/tags" — record the domain segment.
-                        seenDomains += path.substringAfterLast('/')
-                        contractJson.encodeToString(
-                            Page.serializer(Tag.serializer()),
-                            Page(items = emptyList<Tag>(), nextCursor = null, hasMore = false),
-                        )
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> {
+                            seenDomains += domain
+                            return AppResult.Success(
+                                syncPageOf(domain, Tag.serializer(), emptyList(), nextCursor = null, hasMore = false),
+                            )
+                        }
                     }
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClientProvider = { httpClient },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = SyncCursorStore(InMemorySyncCursorDao()),
                         transactionRunner = passThroughTransactionRunner(),
                     )
@@ -330,36 +324,42 @@ class SyncCatchUpClientTest :
                 val requestedSince = mutableListOf<Long>()
                 // Rev 1 applies, rev 2 fails, rev 3 would apply — for an OptOut domain the cursor
                 // must hold at rev 1 (last success before the hole) so pullSince(1) redelivers rev 2.
-                val httpClient =
-                    mockClient { _, since ->
-                        requestedSince += since ?: -1L
-                        when (since) {
-                            0L -> {
-                                contractJson.encodeToString(
-                                    Page.serializer(Tag.serializer()),
-                                    Page(
-                                        items =
-                                            listOf(
-                                                Tag("a", "alpha", "alpha", 1L, 100L),
-                                                Tag("fail", "beta", "beta", 2L, 200L),
-                                                Tag("c", "gamma", "gamma", 3L, 300L),
-                                            ),
-                                        nextCursor = 3L,
-                                        hasMore = true,
-                                    ),
-                                )
-                            }
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> {
+                            requestedSince += since
+                            return when (since) {
+                                0L -> {
+                                    AppResult.Success(
+                                        syncPageOf(
+                                            domain = "tags",
+                                            serializer = Tag.serializer(),
+                                            items =
+                                                listOf(
+                                                    Tag("a", "alpha", "alpha", 1L, 100L),
+                                                    Tag("fail", "beta", "beta", 2L, 200L),
+                                                    Tag("c", "gamma", "gamma", 3L, 300L),
+                                                ),
+                                            nextCursor = 3L,
+                                            hasMore = true,
+                                        ),
+                                    )
+                                }
 
-                            else -> {
-                                error("OptOut domain must NOT page past the hole (requested since=$since)")
+                                else -> {
+                                    error("OptOut domain must NOT page past the hole (requested since=$since)")
+                                }
                             }
                         }
                     }
                 val store = SyncCursorStore(InMemorySyncCursorDao())
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClientProvider = { httpClient },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = store,
                         transactionRunner = passThroughTransactionRunner(),
                     )
@@ -374,35 +374,40 @@ class SyncCatchUpClientTest :
 
         test("digest-participating domain: a failed item still advances the cursor past it (unchanged)") {
             runTest {
-                val httpClient =
-                    mockClient { _, since ->
-                        when (since) {
-                            0L -> {
-                                contractJson.encodeToString(
-                                    Page.serializer(Tag.serializer()),
-                                    Page(
-                                        items =
-                                            listOf(
-                                                Tag("a", "alpha", "alpha", 1L, 100L),
-                                                Tag("fail", "beta", "beta", 2L, 200L),
-                                                Tag("c", "gamma", "gamma", 3L, 300L),
-                                            ),
-                                        nextCursor = 3L,
-                                        hasMore = false,
-                                    ),
-                                )
-                            }
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> =
+                            when (since) {
+                                0L -> {
+                                    AppResult.Success(
+                                        syncPageOf(
+                                            domain = "tags",
+                                            serializer = Tag.serializer(),
+                                            items =
+                                                listOf(
+                                                    Tag("a", "alpha", "alpha", 1L, 100L),
+                                                    Tag("fail", "beta", "beta", 2L, 200L),
+                                                    Tag("c", "gamma", "gamma", 3L, 300L),
+                                                ),
+                                            nextCursor = 3L,
+                                            hasMore = false,
+                                        ),
+                                    )
+                                }
 
-                            else -> {
-                                error("unexpected since=$since")
+                                else -> {
+                                    error("unexpected since=$since")
+                                }
                             }
-                        }
                     }
                 val store = SyncCursorStore(InMemorySyncCursorDao())
                 val catchUp =
                     SyncCatchUpClient(
-                        httpClientProvider = { httpClient },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = store,
                         transactionRunner = passThroughTransactionRunner(),
                     )
@@ -416,9 +421,13 @@ class SyncCatchUpClientTest :
 
         test("catchUpAll forwards each domain's typed failure to the report seam and completes every domain") {
             runTest {
-                val unauthorized401Client =
-                    HttpClient(MockEngine { respond("unauthorized", status = HttpStatusCode.Unauthorized) }) {
-                        expectSuccess = true
+                val service =
+                    object : FakeSyncStreamService() {
+                        override suspend fun pullDomain(
+                            domain: String,
+                            since: Long,
+                            limit: Int,
+                        ): AppResult<SyncPage> = AppResult.Failure(AuthError.SessionExpired())
                     }
 
                 fun minimalHandler(name: String): SyncDomainHandler<Tag> =
@@ -446,8 +455,7 @@ class SyncCatchUpClientTest :
                 val reported = mutableListOf<AppError>()
                 val client =
                     SyncCatchUpClient(
-                        httpClientProvider = { unauthorized401Client },
-                        serverUrlProvider = { "http://test" },
+                        channel = RpcChannel.forTest(service),
                         store = SyncCursorStore(InMemorySyncCursorDao()),
                         transactionRunner = passThroughTransactionRunner(),
                         reportConnectionIssue = { reported += it },

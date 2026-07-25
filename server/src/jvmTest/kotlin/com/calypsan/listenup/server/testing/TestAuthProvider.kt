@@ -14,8 +14,7 @@ import io.ktor.server.auth.parseAuthorizationHeader
 /**
  * Test-only [AuthenticationProvider] registered under [JWT_PROVIDER]. It
  * unconditionally authenticates every request with a [UserPrincipal], so
- * route tests can mount auth-gated routes (e.g. [syncRoutes]) without minting
- * a real JWT.
+ * route tests can mount auth-gated routes without minting a real JWT.
  *
  * The principal's [UserPrincipal.userId] is taken from the request's
  * `Authorization: Bearer <token>` header when present — the token string is

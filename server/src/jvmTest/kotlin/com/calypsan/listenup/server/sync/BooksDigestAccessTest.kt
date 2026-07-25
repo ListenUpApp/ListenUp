@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.server.testing.publicAuthService
 
-import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -21,22 +21,14 @@ import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.authedService
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
@@ -44,25 +36,24 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import org.koin.ktor.ext.inject
 
 /**
- * Tier-2 route-level proof that `GET /api/v1/sync/books/digest` is access-scoped:
- * a member's digest folds only the books they may see, while an admin's covers every
- * live book. The hidden book lives in a stranger-owned private collection — denied to
+ * Tier-2 integration proof that [SyncStreamService.digest] on the `books` domain is
+ * access-scoped: a member's digest folds only the books they may see, while an admin's covers
+ * every live book. The hidden book lives in a stranger-owned private collection — denied to
  * the member until a share is granted, after which the member's recomputed digest
  * converges to include it.
  *
  * Sibling to [FirehoseBookAccessTest] (which gates the *live* tail); this guards the
  * *digest* drift-detection surface so the two never disagree on what a viewer can see.
  */
-class BooksDigestRouteAccessTest :
+class BooksDigestAccessTest :
     FunSpec({
 
-        test("books digest route is access-scoped; share grant changes the member's digest") {
+        test("books digest is access-scoped; share grant changes the member's digest") {
             val libraryRoot = Files.createTempDirectory("listenup-digest-access-")
             try {
                 testApplication {
                     useIsolatedTestConfig(libraryPath = libraryRoot.toString())
                     application { module() }
-                    val client = jsonClient()
 
                     val adminToken = mintRootToken()
                     val member = registerMember()
@@ -97,8 +88,8 @@ class BooksDigestRouteAccessTest :
                     // A cursor past every revision so the digest folds the whole domain.
                     val cursor = 1_000_000L
 
-                    val adminDigest = client.booksDigest(adminToken, cursor)
-                    val memberDigest = client.booksDigest(member.token, cursor)
+                    val adminDigest = booksDigest(adminToken, cursor)
+                    val memberDigest = booksDigest(member.token, cursor)
 
                     // The admin sees both books; the member sees only the public one.
                     adminDigest.count shouldBe 2
@@ -109,7 +100,7 @@ class BooksDigestRouteAccessTest :
 
                     // Grant the member a live share on the private collection, then recompute.
                     shares.upsert(shareFixture("private-col", member.userId))
-                    val memberDigestAfterShare = client.booksDigest(member.token, cursor)
+                    val memberDigestAfterShare = booksDigest(member.token, cursor)
 
                     // The member's digest now converges on the admin's: both books are visible.
                     memberDigestAfterShare.count shouldBe 2
@@ -122,12 +113,10 @@ class BooksDigestRouteAccessTest :
         }
     })
 
-private fun ApplicationTestBuilder.jsonClient(): HttpClient = createClient { install(ContentNegotiation) { json(contractJson) } }
-
-private suspend fun HttpClient.booksDigest(
+private suspend fun ApplicationTestBuilder.booksDigest(
     token: String,
     cursor: Long,
-): DomainDigest = get("/api/v1/sync/books/digest?cursor=$cursor") { bearerAuth(token) }.body()
+): DomainDigest = authedService<SyncStreamService>(token).digest("books", cursor).shouldSucceed()
 
 /** A registered member: their access token and server-issued user id. */
 private data class Member(

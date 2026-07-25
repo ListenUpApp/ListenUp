@@ -8,7 +8,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Per-domain row-set fingerprint. Returned by `GET /api/v1/sync/<domain>/digest?cursor=<rev>`
+ * Per-domain row-set fingerprint. Returned by
+ * [SyncStreamService.digest][com.calypsan.listenup.api.SyncStreamService.digest]
  * and computed identically on both server and client over `(id, revision)` pairs of every
  * row in the domain with `revision <= cursor`, soft-deleted rows included.
  *

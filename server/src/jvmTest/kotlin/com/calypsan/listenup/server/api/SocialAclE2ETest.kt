@@ -63,7 +63,7 @@ import java.nio.file.Files
  * private-book session over the real wire — not just in a hand-built service instance.
  *
  * Two users:
- *  - **A** (ROOT, via `/auth/setup`) listens to a public book (placed in the library's
+ *  - **A** (ROOT, via `setupRoot`) listens to a public book (placed in the library's
  *    `ALL_BOOKS` system collection — the public substrate under the pure-union rule) and a
  *    book gated into A's own private collection.
  *  - **B** (MEMBER, via `/auth/register` under OPEN policy) is the viewer. B is registered

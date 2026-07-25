@@ -57,7 +57,7 @@ import java.nio.file.Files
  * same `(userId, role)` their JWT carried on the old SSE surface, so the three surfaces cannot
  * disagree.
  *
- * Setup mirrors [com.calypsan.listenup.server.api.ActivityAclE2ETest]: A (ROOT, via `/auth/setup`)
+ * Setup mirrors [com.calypsan.listenup.server.api.ActivityAclE2ETest]: A (ROOT, via `setupRoot`)
  * records the activities; B (MEMBER, via `/auth/register` under OPEN policy) is the constrained
  * viewer holding the default ALL_BOOKS grant. `public-book` joins ALL_BOOKS (reachable by B under
  * pure union); `private-book` is gated into A's own collection (invisible to B).

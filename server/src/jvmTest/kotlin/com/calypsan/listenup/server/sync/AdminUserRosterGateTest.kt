@@ -2,28 +2,20 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.server.testing.publicAuthService
 
-import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.server.module
+import com.calypsan.listenup.server.testing.authedService
+import com.calypsan.listenup.server.testing.rows
+import com.calypsan.listenup.server.testing.shouldSucceed
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotBeEmpty
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import org.koin.ktor.ext.inject
@@ -40,28 +32,26 @@ class AdminUserRosterGateTest :
             testApplication {
                 useIsolatedTestConfig()
                 application { module() }
-                val client = jsonClient()
                 val admin = mintRootToken()
                 val member = registerMember()
 
                 val roster by application.inject<AdminUserRosterRepository>()
                 roster.upsert(rosterRowFixture("roster-user"))
 
-                val adminPage: Page<AdminUserRosterSyncPayload> =
-                    client.get("/api/v1/sync/admin_user_roster?since=0") { bearerAuth(admin) }.body()
-                adminPage.items.shouldNotBeEmpty()
+                val adminPage =
+                    authedService<SyncStreamService>(admin)
+                        .pullDomain("admin_user_roster", since = 0, limit = 500)
+                        .shouldSucceed()
+                adminPage.rows(AdminUserRosterSyncPayload.serializer()).shouldNotBeEmpty()
 
-                val memberPage: Page<AdminUserRosterSyncPayload> =
-                    client.get("/api/v1/sync/admin_user_roster?since=0") { bearerAuth(member) }.body()
-                memberPage.items.shouldBeEmpty()
+                val memberPage =
+                    authedService<SyncStreamService>(member)
+                        .pullDomain("admin_user_roster", since = 0, limit = 500)
+                        .shouldSucceed()
+                memberPage.rows(AdminUserRosterSyncPayload.serializer()).shouldBeEmpty()
             }
         }
     })
-
-private fun ApplicationTestBuilder.jsonClient(): HttpClient =
-    createClient {
-        install(ContentNegotiation) { json(contractJson) }
-    }
 
 private suspend fun ApplicationTestBuilder.mintRootToken(): String =
     publicAuthService()

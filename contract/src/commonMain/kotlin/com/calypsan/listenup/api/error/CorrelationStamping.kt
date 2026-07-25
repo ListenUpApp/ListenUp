@@ -144,6 +144,9 @@ private fun SyncError.withCorrelationId(id: String?): SyncError =
         is SyncError.RealtimeDisconnected -> copy(correlationId = id)
         is SyncError.PushFailed -> copy(correlationId = id)
         is SyncError.NotFound -> copy(correlationId = id)
+        is SyncError.UnknownDomain -> copy(correlationId = id)
+        is SyncError.TooManyIds -> copy(correlationId = id)
+        is SyncError.UnsupportedMatch -> copy(correlationId = id)
     }
 
 private fun DownloadError.withCorrelationId(id: String?): DownloadError =
