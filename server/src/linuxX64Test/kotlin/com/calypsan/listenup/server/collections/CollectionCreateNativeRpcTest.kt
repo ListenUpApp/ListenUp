@@ -26,14 +26,13 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO as ClientCIO
 import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
 import io.ktor.server.routing.routing
 import kotlin.random.Random
-import kotlin.test.Test
-import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.rpc.krpc.ktor.client.installKrpc
@@ -43,6 +42,9 @@ import kotlinx.rpc.krpc.ktor.server.rpc
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
+
+private const val JWT_SECRET_LEN = 32
+private const val HEX_RADIX = 16
 
 /**
  * Native (linuxX64) proof for the create-collection RPC — the exact Kotlin/Native kotlinx.rpc
@@ -56,19 +58,16 @@ import kotlinx.rpc.withService
  * native CIO/krpc WebSocket transport — if the create RPC (complex `CollectionSummary` return)
  * fails on native, it reproduces HERE, on Linux, where it can be fixed.
  *
- * Structure mirrors [com.calypsan.listenup.server.rpcguard.RpcGuardNativeTest]: `kotlin.test.@Test`
- * + `runBlocking` (Kotest's FunSpec is invisible to the K/N test runner), a real [foundationServer]
- * over the native CIO engine, and a native CIO/krpc client opening the service proxy.
+ * Drives a real [foundationServer] over the native CIO engine and a native CIO/krpc client
+ * opening the service proxy.
  */
-class CollectionCreateNativeRpcTest {
-    private val jwt = JwtConfiguration("x".repeat(JWT_SECRET_LEN), "listenup", "listenup-client")
+class CollectionCreateNativeRpcTest :
+    FunSpec({
+        test("create collection round-trips over native krpc") {
+            val jwt = JwtConfiguration("x".repeat(JWT_SECRET_LEN), "listenup", "listenup-client")
 
-    @Test
-    fun createCollectionRoundTripsOverNativeKrpc(): Unit =
-        runBlocking {
-            // A real, writable, ABSOLUTE dir under $HOME (the native test runner has no usable temp
-            // dir — see NativeServerBootTest). Absolute so MigrationRunner's admin connection and
-            // SQLiter's driver resolve to the SAME file: a bare filename sends SQLiter to its default
+            // A real, writable, ABSOLUTE dir under $HOME. Absolute so MigrationRunner's admin connection
+            // and SQLiter's driver resolve to the SAME file: a bare filename sends SQLiter to its default
             // dir while the admin connection opens it cwd-relative, and the two never meet
             // (DriverFactory.linux splits name/basePath).
             val home = readEnv("HOME")?.takeIf { it.isNotBlank() } ?: "."
@@ -172,9 +171,4 @@ class CollectionCreateNativeRpcTest {
                 }
             }
         }
-
-    private companion object {
-        const val JWT_SECRET_LEN = 32
-        const val HEX_RADIX = 16
-    }
-}
+    })

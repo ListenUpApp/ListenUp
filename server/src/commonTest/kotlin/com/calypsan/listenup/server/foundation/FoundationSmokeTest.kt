@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.JwtConfiguration
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO as ClientCIO
@@ -17,8 +18,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import kotlin.test.Test
-import kotlinx.coroutines.runBlocking
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
@@ -27,38 +26,39 @@ import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
 
+// One JwtConfiguration shared by the server (via deps) and the token minting, so a minted token
+// verifies against the same secret. Liveness is always-true: a validly-signed token is accepted.
+private val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client")
+
+private fun deps(): FoundationDeps = FoundationDeps(jwt) { true }
+
+/** Test-scope ping impl — unguarded by design (the rpc-guard decorator is jvmMain-only). */
+private class TestPing : PingService {
+    override suspend fun ping(): AppResult<String> = AppResult.Success("pong")
+}
+
 /**
  * Foundation smoke: the three-transport proof that the native HTTP skeleton actually *serves* —
  * REST, JWT auth, and kotlinx.rpc. As `commonTest` it runs on JVM **and** linuxX64; the native run
  * is the load-bearing "serves native" evidence (not just "compiles native").
  *
- * Uses `kotlin.test.@Test` + `runBlocking`, not Kotest FunSpec: Kotest 6.x dropped the multiplatform
- * Gradle plugin that generates native test entry points, so FunSpec specs are invisible to the K/N
- * runner. Kotest's assertions still compile and run on linuxX64, so they're kept.
+ * Uses Kotest FunSpec: the `:server` module's Kotest 6 Gradle plugin (`io.kotest`) plus KSP generates
+ * the Kotlin/Native test entry point, so FunSpec specs run on both the JVM and linuxX64 lanes.
  *
  * REST / auth go through `testApplication`. RPC goes through a real `embeddedServer(CIO)` on an
  * ephemeral port via [foundationServer], because the testApplication WebSocket bridge is unimplemented
  * on native and kotlinx.rpc rides WebSocket.
  */
-class FoundationSmokeTest {
-    // One JwtConfiguration shared by the server (via deps) and the token minting, so a minted token
-    // verifies against the same secret. Liveness is always-true: a validly-signed token is accepted.
-    private val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client")
-
-    private fun deps(): FoundationDeps = FoundationDeps(jwt) { true }
-
-    @Test
-    fun restHealthzServesOk(): Unit =
-        runBlocking {
+class FoundationSmokeTest :
+    FunSpec({
+        test("REST /healthz serves ok") {
             testApplication {
                 application { installFoundation(deps()) }
                 client.get("/healthz").bodyAsText().contains("ok") shouldBe true
             }
         }
 
-    @Test
-    fun whoamiRejectsAnonymousAndEchoesAuthedUser(): Unit =
-        runBlocking {
+        test("whoami rejects anonymous requests and echoes the authed user") {
             testApplication {
                 application { installFoundation(deps()) }
                 client.get("/healthz/whoami").status shouldBe HttpStatusCode.Unauthorized
@@ -70,9 +70,7 @@ class FoundationSmokeTest {
             }
         }
 
-    @Test
-    fun rpcPingServesOverRealCioServer(): Unit =
-        runBlocking {
+        test("RPC ping serves over a real CIO server") {
             // installFoundation installs the Krpc transport but registers no service (guarded
             // registration is jvmMain-only today — see installFoundation's KDoc); the smoke
             // registers an unguarded test ping via the configure hook, in test scope.
@@ -113,9 +111,4 @@ class FoundationSmokeTest {
                 server.stop(0, 0)
             }
         }
-
-    /** Test-scope ping impl — unguarded by design (the rpc-guard decorator is jvmMain-only). */
-    private class TestPing : PingService {
-        override suspend fun ping(): AppResult<String> = AppResult.Success("pong")
-    }
-}
+    })

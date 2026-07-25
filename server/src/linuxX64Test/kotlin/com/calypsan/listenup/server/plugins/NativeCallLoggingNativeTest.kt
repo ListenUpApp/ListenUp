@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.plugins
 
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO as ClientCIO
@@ -12,8 +13,6 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
-import kotlinx.coroutines.runBlocking
-import kotlin.test.Test
 
 /**
  * Native runtime proof for the linuxX64 [installCallLogging] actual: it installs on the real CIO
@@ -21,10 +20,9 @@ import kotlin.test.Test
  * interceptor's emitted line is not asserted (capturing the native logging appender's stdout is not
  * practical) — the contract under test is "installs + serves through the interceptor on native".
  */
-class NativeCallLoggingNativeTest {
-    @Test
-    fun installsAndServesARequestThroughTheLoggingInterceptor(): Unit =
-        runBlocking {
+class NativeCallLoggingNativeTest :
+    FunSpec({
+        test("installs and serves a request through the logging interceptor") {
             val server =
                 embeddedServer(
                     factory = CIO,
@@ -49,4 +47,4 @@ class NativeCallLoggingNativeTest {
                 server.stop(0, 0)
             }
         }
-}
+    })

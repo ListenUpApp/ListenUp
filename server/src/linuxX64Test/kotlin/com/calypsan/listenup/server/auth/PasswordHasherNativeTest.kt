@@ -1,9 +1,8 @@
 package com.calypsan.listenup.server.auth
 
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
-import kotlinx.coroutines.runBlocking
-import kotlin.test.Test
 
 /**
  * Native parity proof for [PasswordHasher] — the libargon2-cinterop actual. The cross-impl vector test
@@ -12,10 +11,9 @@ import kotlin.test.Test
  * drifts from password4j's encoding, native verify returns false and existing users can no longer log in
  * on the native server — this test fails first.
  */
-class PasswordHasherNativeTest {
-    @Test
-    fun nativeHashVerifyRoundTrips(): Unit =
-        runBlocking {
+class PasswordHasherNativeTest :
+    FunSpec({
+        test("native hash-verify round-trips") {
             val hasher = PasswordHasher()
             val phc = hasher.hash("native-round-trip-password")
             phc shouldStartWith "$" + "argon2id"
@@ -23,9 +21,7 @@ class PasswordHasherNativeTest {
             hasher.verify("wrong-password!!", phc) shouldBe false
         }
 
-    @Test
-    fun nativeVerifyAcceptsAJvmProducedHash(): Unit =
-        runBlocking {
+        test("native verify accepts a jvm-produced hash") {
             // VECTOR PROVENANCE: produced by the JVM actual (password4j) from `plaintext` below, via the
             // plan's Step 3 generation procedure. Do NOT hand-edit. If the Argon2 parameters ever change,
             // regenerate it from the JVM impl — a hand-written value defeats the anti-drift purpose.
@@ -34,4 +30,4 @@ class PasswordHasherNativeTest {
                 "\$argon2id\$v=19\$m=65536,t=3,p=4\$9j3C+x1TtkZNN1++COnYDQ\$x2M9twfkhkgdGh8DmhzTs4P2tKulagocBE6BDiontW4"
             PasswordHasher().verify(plaintext, jvmProducedHash) shouldBe true
         }
-}
+    })
