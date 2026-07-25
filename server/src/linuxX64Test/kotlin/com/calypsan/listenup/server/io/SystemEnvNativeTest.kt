@@ -1,9 +1,10 @@
 package com.calypsan.listenup.server.io
 
+import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.posix.setenv
-import kotlin.test.Test
+import platform.posix.unsetenv
 
 /**
  * Native proof for the [readEnv] / [userHomeDir] / [hostname] env seam: the
@@ -11,28 +12,35 @@ import kotlin.test.Test
  * `gethostname`. Round-trips a value set with `setenv`, confirms an unset name reads as null, and proves
  * the host-name actual returns a sane, NUL-stripped string.
  */
-class SystemEnvNativeTest {
-    @OptIn(ExperimentalForeignApi::class)
-    @Test
-    fun readEnvRoundTripsSetenvAndReturnsNullForUnset() {
-        setenv("LISTENUP_NATIVE_ENV_TEST", "native-value-42", 1)
-        readEnv("LISTENUP_NATIVE_ENV_TEST") shouldBe "native-value-42"
-        readEnv("LISTENUP_NATIVE_ENV_DEFINITELY_UNSET") shouldBe null
-    }
+@OptIn(ExperimentalForeignApi::class)
+class SystemEnvNativeTest :
+    FunSpec({
 
-    @OptIn(ExperimentalForeignApi::class)
-    @Test
-    fun userHomeDirReadsHomeEnv() {
-        setenv("HOME", "/home/listenup-native-test", 1)
-        userHomeDir() shouldBe "/home/listenup-native-test"
-    }
+        test("readEnv round-trips a setenv value and reads an unset name as null") {
+            setenv("LISTENUP_NATIVE_ENV_TEST", "native-value-42", 1)
+            readEnv("LISTENUP_NATIVE_ENV_TEST") shouldBe "native-value-42"
+            readEnv("LISTENUP_NATIVE_ENV_DEFINITELY_UNSET") shouldBe null
+        }
 
-    @Test
-    fun hostnameReturnsANonBlankHostName() {
-        // The value is host-dependent (the CI container's name), but `gethostname` always succeeds on a
-        // real host, and the actual must strip the trailing NUL padding from the fixed-size buffer.
-        val name = hostname()
-        name.isNotBlank() shouldBe true
-        name.all { it.code in 33..126 } shouldBe true
-    }
-}
+        test("userHomeDir reads HOME") {
+            // HOME is process-global and the native lane runs every spec in ONE process, so leaving it
+            // clobbered strands every later spec that resolves a writable directory from it — the boot
+            // and collection specs root their data home under $HOME, and SQLiter resolves a bare
+            // database name under $HOME too. Put it back.
+            val originalHome = readEnv("HOME")
+            try {
+                setenv("HOME", "/home/listenup-native-test", 1)
+                userHomeDir() shouldBe "/home/listenup-native-test"
+            } finally {
+                if (originalHome != null) setenv("HOME", originalHome, 1) else unsetenv("HOME")
+            }
+        }
+
+        test("hostname returns a non-blank host name") {
+            // The value is host-dependent (the CI container's name), but `gethostname` always succeeds on a
+            // real host, and the actual must strip the trailing NUL padding from the fixed-size buffer.
+            val name = hostname()
+            name.isNotBlank() shouldBe true
+            name.all { it.code in 33..126 } shouldBe true
+        }
+    })

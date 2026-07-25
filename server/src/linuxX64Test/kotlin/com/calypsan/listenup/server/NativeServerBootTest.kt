@@ -17,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import platform.posix.setenv
+import platform.posix.unsetenv
 import kotlin.test.Test
 
 /**
@@ -27,6 +28,8 @@ import kotlin.test.Test
  * where any remaining cinterop/glibc gap surfaces. The data home is a distinct hidden dir under
  * `$HOME` (the native test runner has no usable temp dir), so the boot never writes into the worktree.
  */
+private const val LISTENUP_HOME_ENV = "LISTENUP_HOME"
+
 class NativeServerBootTest {
     @OptIn(ExperimentalForeignApi::class)
     @Test
@@ -38,7 +41,12 @@ class NativeServerBootTest {
             val home =
                 readEnv("HOME")?.takeIf { it.isNotBlank() }?.let { "$it/.lu-native-boot-test" }
                     ?: "lu-native-boot-test"
-            setenv("LISTENUP_HOME", home, 1)
+            // LISTENUP_HOME is process-global and the native lane runs every spec in ONE process, so
+            // this has to be put back below — the finally deletes the directory, and a later spec that
+            // resolves its data home from the environment would otherwise silently boot against this
+            // deleted path instead of its own.
+            val originalListenupHome = readEnv(LISTENUP_HOME_ENV)
+            setenv(LISTENUP_HOME_ENV, home, 1)
             val server =
                 embeddedServer(
                     factory = CIO,
@@ -60,6 +68,11 @@ class NativeServerBootTest {
                 client.close()
                 server.stop(0, 0)
                 runCatching { deleteRecursivelyIfPresent(Path(home)) }
+                if (originalListenupHome != null) {
+                    setenv(LISTENUP_HOME_ENV, originalListenupHome, 1)
+                } else {
+                    unsetenv(LISTENUP_HOME_ENV)
+                }
             }
         }
 }
