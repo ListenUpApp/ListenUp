@@ -142,6 +142,30 @@ class ActivityFeedViewModelTest :
             }
         }
 
+        test("consecutive listening sessions on one book surface as a single feed entry") {
+            runTest {
+                // One sitting, interrupted: 10 minutes ending at T, preceded by 30s just before it.
+                // The feed should read as a single 10:30 entry, not two lines.
+                val fixture = createFixture()
+                val book = Activity.ActivityBook("book-1", "Dungeon Crawler Carl", "Matt Dinniman", null)
+                val tenMinutes = 600_000L
+                fixture.activitiesFlow.value =
+                    listOf(
+                        createActivity(id = "newer", type = "listening_session")
+                            .copy(occurredAtMs = 3_000_000L, durationMs = tenMinutes, book = book),
+                        createActivity(id = "older", type = "listening_session")
+                            .copy(occurredAtMs = 3_000_000L - tenMinutes, durationMs = 30_000L, book = book),
+                    )
+
+                val viewModel = fixture.build().also { keepStateHot(it) }
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Ready>()
+                ready.activities.size shouldBe 1
+                ready.activities.first().durationMs shouldBe tenMinutes + 30_000L
+            }
+        }
+
         test("Ready state has isEmpty true when activities list is empty") {
             runTest {
                 // Given - repository emits an empty list (default fixture state)

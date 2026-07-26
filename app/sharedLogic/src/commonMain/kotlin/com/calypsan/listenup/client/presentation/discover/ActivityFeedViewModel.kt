@@ -43,7 +43,11 @@ class ActivityFeedViewModel internal constructor(
         activityRepository
             .observeRecent(limit = MAX_ACTIVITIES)
             .map<_, ActivityFeedUiState> { activities ->
-                ActivityFeedUiState.Ready(activities = activities.map { it.toUiModel() })
+                // One sitting reads as one line: the server records an activity per closed playback
+                // span, so an interrupted evening otherwise arrives as a wall of entries.
+                ActivityFeedUiState.Ready(
+                    activities = activities.map { it.toUiModel() }.coalesceListeningSessions(),
+                )
             }.onStart { emit(ActivityFeedUiState.Loading) }
             .fallbackTo { e ->
                 logger.error(e) { "Error observing activity feed" }
