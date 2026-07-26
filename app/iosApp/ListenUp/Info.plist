@@ -4,6 +4,15 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- Export compliance, declared once here so it is not asked per-build. ListenUp ships no
+	     cryptography of its own: the client speaks HTTPS over the platform networking stack and
+	     stores its tokens via the platform keychain, and the Argon2id password hashing lives
+	     server-side, never in the app. That is exactly the standard-encryption exemption, so every
+	     TestFlight and App Store build can answer "no non-exempt encryption" up front. Without this
+	     key each upload processes and then stalls awaiting a manual answer before it can reach a
+	     tester. Revisit if the app ever bundles its own crypto. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>ListenUp needs local network access to discover your audiobook server.</string>
 	<key>NSBonjourServices</key>
