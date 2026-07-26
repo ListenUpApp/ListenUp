@@ -39,6 +39,26 @@ sealed interface SearchUiState {
     val query: String
     val selectedTypes: Set<SearchHitType>
 
+    /**
+     * iOS-safe projection of [selectedTypes] as [SearchHitType] entry names, in declaration order.
+     *
+     * Swift Export bridges a `Set<SearchHitType>` as an `NSSet` of opaque Kotlin enum-entry objects
+     * and force-casts each element to the Swift `SearchHitType` — a *pure Swift* enum with no
+     * Objective-C identity. The elements arrive as `AnyHashable` and the cast traps the instant the
+     * set is non-empty ("Could not cast value of type 'Swift.AnyHashable' to …SearchHitType"), which
+     * crashed the search screen on every scope selection. Reading [selectedTypes] from Swift is a
+     * bug; read this instead and rebuild the enum locally with Swift Export's generated
+     * `SearchHitType(_ description:)` init, which parses exactly these names. Passing a
+     * [SearchHitType] back *into* Kotlin as a function argument ([SearchViewModel.toggleTypeFilter])
+     * is the direction that bridges safely and needs no projection.
+     *
+     * Declaration order (not set-iteration order) so the derived iOS scope can't flicker.
+     * Compose reads [selectedTypes] directly — enum collections are only hazardous across the
+     * Swift Export boundary.
+     */
+    val selectedTypeNames: List<String>
+        get() = SearchHitType.entries.filter { it in selectedTypes }.map { it.name }
+
     /** No query entered. */
     data class Idle(
         override val query: String = "",
@@ -197,10 +217,24 @@ class SearchViewModel(
         queryFlow.value = ""
     }
 
+    /** Add or remove [type] from the filter set — the additive shape Compose's chips use. */
     fun toggleTypeFilter(type: SearchHitType) {
         typesFlow.update { current ->
             if (type in current) current - type else current + type
         }
+    }
+
+    /**
+     * Narrow the filter to exactly [type], discarding whatever was selected before.
+     *
+     * The single-select counterpart to [toggleTypeFilter], for UIs whose scope control is
+     * one-of-N rather than a set of chips (iOS's `.searchScopes`). Expressing that as a
+     * sequence of additive toggles meant switching Books → Series published an intermediate
+     * `{BOOK, SERIES}` state, which the search pipeline could pick up and run a query for a
+     * pair the user never asked for. Replacing the set outright cannot produce that state.
+     */
+    fun setTypeFilter(type: SearchHitType) {
+        typesFlow.value = setOf(type)
     }
 
     /** Reset all type filters, returning the overlay to its "All" (unfiltered) scope. */

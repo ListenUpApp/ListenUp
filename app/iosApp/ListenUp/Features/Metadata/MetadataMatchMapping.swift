@@ -51,15 +51,26 @@ enum MetadataMatchMapping {
         }
     }
 
+    /// Per-field provenance is resolved by a Kotlin accessor, never by subscripting the bridged
+    /// `Map<BookField, String>`: Swift Export force-casts the map's opaque Kotlin enum keys to this
+    /// *pure Swift* `BookField`, which has no Objective-C identity, so the cast traps as soon as the
+    /// match carries any fallback provenance. Passing a `BookField` *into* Kotlin as an argument is
+    /// the direction that bridges. Same trap that crashed search on `Set<SearchHitType>`; see
+    /// `NoBridgedEnumCollectionsInUiStateRule`.
     static func preview(from ready: PreviewLoadStateReady, match: MetadataBook) -> MetadataPreview {
+        preview(from: ready, match: match, sourceFor: { ready.fallbackSourceFor(field: $0) })
+    }
+
+    /// Provenance-injecting seam. Production passes the Kotlin accessor above; tests pass a native
+    /// closure, because a `[BookField: String]` built in Swift and handed to the Kotlin initializer
+    /// is not the map production sees — its keys are Swift-boxed, so a Kotlin-side lookup misses.
+    static func preview(
+        from ready: PreviewLoadStateReady,
+        match: MetadataBook,
+        sourceFor: (BookField) -> String?
+    ) -> MetadataPreview {
         let book = ready.preview
         let sel = ready.selections
-
-        // Read per-field provenance at the boundary. `fallbackSources` is a bridged Kotlin
-        // `Map<BookField, String>`; subscripting it here (not in a view/`ForEach`) is the same
-        // idiom as `BookEditObserver`'s per-role maps. Each closure call yields a native `String?`.
-        let fallback = ready.fallbackSources
-        let sourceFor: (BookField) -> String? = { fallback[$0] }
 
         let identity = identityFields(book: book, selections: sel, sourceFor: sourceFor)
         let details = detailFields(book: book, selections: sel, sourceFor: sourceFor)

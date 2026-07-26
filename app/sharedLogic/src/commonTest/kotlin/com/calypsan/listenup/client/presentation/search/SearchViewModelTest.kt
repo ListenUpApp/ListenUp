@@ -13,6 +13,7 @@ import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import dev.mokkery.verify.VerifyMode.Companion.not
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
@@ -350,6 +351,53 @@ class SearchViewModelTest :
             }
         }
 
+        test("selectedTypeNames projects the selected types as their enum names") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+                viewModel.state.value.selectedTypeNames
+                    .shouldBeEmpty()
+
+                viewModel.toggleTypeFilter(SearchHitType.SERIES)
+                advanceUntilIdle()
+
+                viewModel.state.value.selectedTypeNames shouldBe listOf("SERIES")
+            }
+        }
+
+        test("selectedTypeNames follows declaration order, not insertion order") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+
+                // Toggled tag-first; the projection must still read in SearchHitType.entries order so
+                // iOS's scope derivation can't flicker on set-iteration order.
+                viewModel.toggleTypeFilter(SearchHitType.TAG)
+                viewModel.toggleTypeFilter(SearchHitType.BOOK)
+                advanceUntilIdle()
+
+                viewModel.state.value.selectedTypeNames shouldBe listOf("BOOK", "TAG")
+            }
+        }
+
+        test("every SearchHitType survives the selectedTypeNames projection") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                SearchHitType.entries.forEach { viewModel.toggleTypeFilter(it) }
+                advanceUntilIdle()
+
+                // Pins the exact strings iOS parses back through Swift Export's generated
+                // `SearchHitType(_ description:)` init — a rename on either side must fail here.
+                viewModel.state.value.selectedTypeNames shouldBe
+                    listOf("BOOK", "CONTRIBUTOR", "SERIES", "TAG")
+            }
+        }
+
         test("toggleTypeFilter triggers re-search immediately when query present") {
             runTest {
                 val fixture = createFixture()
@@ -368,6 +416,62 @@ class SearchViewModelTest :
                     fixture.searchRepository.search(
                         query = "test",
                         types = listOf(SearchHitType.BOOK),
+                        genres = null,
+                        genrePath = null,
+                        limit = 30,
+                    )
+                }
+            }
+        }
+
+        test("setTypeFilter replaces the filter set rather than adding to it") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                viewModel.toggleTypeFilter(SearchHitType.BOOK)
+                viewModel.toggleTypeFilter(SearchHitType.TAG)
+                advanceUntilIdle()
+                viewModel.state.value.selectedTypes shouldBe setOf(SearchHitType.BOOK, SearchHitType.TAG)
+
+                viewModel.setTypeFilter(SearchHitType.SERIES)
+                advanceUntilIdle()
+
+                viewModel.state.value.selectedTypes shouldBe setOf(SearchHitType.SERIES)
+            }
+        }
+
+        test("setTypeFilter switches scope without searching the intermediate type pair") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.searchRepository.search(any(), any(), any(), any(), any()) } returns createSearchResult()
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+
+                viewModel.onQueryChanged("test")
+                advanceTimeBy(400.milliseconds)
+                viewModel.setTypeFilter(SearchHitType.BOOK)
+                advanceUntilIdle()
+
+                viewModel.setTypeFilter(SearchHitType.SERIES)
+                advanceUntilIdle()
+
+                verifySuspend {
+                    fixture.searchRepository.search(
+                        query = "test",
+                        types = listOf(SearchHitType.SERIES),
+                        genres = null,
+                        genrePath = null,
+                        limit = 30,
+                    )
+                }
+                // iOS used to switch scopes by firing the symmetric difference as additive toggles
+                // (BOOK off, SERIES on), so the VM briefly held both and could issue a search for a
+                // pair the user never selected. One replacing call cannot produce that state.
+                verifySuspend(not) {
+                    fixture.searchRepository.search(
+                        query = "test",
+                        types = listOf(SearchHitType.BOOK, SearchHitType.SERIES),
                         genres = null,
                         genrePath = null,
                         limit = 30,

@@ -3,10 +3,10 @@ import Shared
 
 /// Single-select search scope, surfaced as `.searchScopes` segments above the results.
 ///
-/// The shared `SearchViewModel` models filters as an additive `Set<SearchHitType>`
-/// (multi-select). iOS's search UI is single-select, so a `SearchScope` is the iOS
-/// projection of that set: an empty set is "All", and exactly one type maps to that
-/// scope. Any unexpected multi-type set collapses to `.all` — the safe superset.
+/// The shared `SearchViewModel` models filters as a `Set<SearchHitType>` (Compose's chips
+/// are multi-select). iOS's search UI is single-select, so a `SearchScope` is the iOS
+/// projection of that set: no types is "All", and exactly one type maps to that scope.
+/// Any unexpected multi-type set collapses to `.all` — the safe superset.
 enum SearchScope: Hashable, CaseIterable {
     case all
     case books
@@ -25,24 +25,24 @@ enum SearchScope: Hashable, CaseIterable {
         }
     }
 
-    /// The set of types this scope represents in the shared VM (`.all` → empty set).
-    var selectedTypes: Set<SearchHitType> {
-        guard let hitType else { return [] }
-        return [hitType]
-    }
-
-    /// Project the VM's `selectedTypes` set onto a single-select scope. Empty → `.all`,
-    /// a single type → its scope, anything else → `.all` (the safe superset).
-    static func from(selectedTypes: Set<SearchHitType>) -> SearchScope {
-        guard selectedTypes.count == 1, let only = selectedTypes.first else { return .all }
+    /// Project the VM's `selectedTypeNames` onto a single-select scope. No types → `.all`,
+    /// exactly one → its scope, anything else → `.all` (the safe superset).
+    ///
+    /// **Why names and not the VM's `selectedTypes`:** Swift Export bridges the Kotlin
+    /// `Set<SearchHitType>` as an `NSSet` of opaque Kotlin enum-entry objects and force-casts each
+    /// element to this *pure Swift* enum, which has no Objective-C identity. The elements arrive as
+    /// `AnyHashable` and the cast traps as soon as the set is non-empty — "Could not cast value of
+    /// type 'Swift.AnyHashable' to …SearchHitType" — so every scope selection crashed the screen.
+    /// The shared VM projects the entry names instead, and Swift Export's generated
+    /// `SearchHitType(_ description:)` init parses exactly those. Passing a type back *into* Kotlin
+    /// (`setTypeFilter`) is the direction that bridges, so the write path needs no projection.
+    ///
+    /// An unrecognized name is dropped rather than trapped: a shared-enum case this build predates
+    /// narrows the filter, which is the same safe-superset stance taken on a multi-type set.
+    static func from(typeNames: [String]) -> SearchScope {
+        let types = typeNames.compactMap { SearchHitType($0) }
+        guard types.count == 1, let only = types.first else { return .all }
         return SearchScope.allCases.first { $0.hitType == only } ?? .all
-    }
-
-    /// The symmetric difference between the current VM types and this scope's target
-    /// types — i.e. exactly the `toggleTypeFilter(_:)` calls needed to move the VM
-    /// from `current` to this scope, since the VM exposes only an additive toggle.
-    func toggles(from current: Set<SearchHitType>) -> [SearchHitType] {
-        Array(current.symmetricDifference(selectedTypes))
     }
 }
 

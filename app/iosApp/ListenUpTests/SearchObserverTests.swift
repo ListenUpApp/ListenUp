@@ -3,7 +3,12 @@ import Shared
 @testable import ListenUp
 
 /// Pure-mapping coverage for the search observer's two seams: the single-select
-/// scope ↔ `Set<SearchHitType>` projection, and the de-duplicating hit grouping.
+/// scope ← `selectedTypeNames` projection, and the de-duplicating hit grouping.
+///
+/// The projection is name-based on purpose: reading the VM's `Set<SearchHitType>` across
+/// Swift Export traps on element cast. That trap is a *runtime bridge* failure, so nothing
+/// here can catch it — these tests pin the shape of the safe path, and the guarantee that
+/// the unsafe one stays unused lives in `NoBridgedEnumCollectionsInUiStateRule`.
 ///
 /// `SearchObserver.apply`'s flatten of the sealed `SearchUiState` (including the
 /// `.tooShort` phase added for the trigram-index minimum-query-length floor) can't be
@@ -13,51 +18,57 @@ import Shared
 /// green-build pass (the app target's exhaustive `switch` compiling). What *is* pure and
 /// constructible is the mirrored `minSearchQueryLength` floor, pinned below.
 struct SearchObserverTests {
-    // MARK: - Scope ↔ types projection
+    // MARK: - Name projection → scope (the bridge-safe read path)
 
-    @Test func emptyTypesMapToAll() {
-        #expect(SearchScope.from(selectedTypes: []) == .all)
+    /// The shared VM hands iOS `selectedTypeNames`, not `selectedTypes`: bridging the Kotlin
+    /// `Set<SearchHitType>` traps on element cast ("Could not cast value of type
+    /// 'Swift.AnyHashable' to …SearchHitType") the moment a scope is selected.
+    @Test func noTypesMapToAll() {
+        #expect(SearchScope.from(typeNames: []) == .all)
     }
 
-    @Test func singleTypeMapsToItsScope() {
-        #expect(SearchScope.from(selectedTypes: [.book]) == .books)
-        #expect(SearchScope.from(selectedTypes: [.contributor]) == .people)
-        #expect(SearchScope.from(selectedTypes: [.series]) == .series)
-        #expect(SearchScope.from(selectedTypes: [.tag]) == .tags)
+    @Test func singleTypeNameMapsToItsScope() {
+        #expect(SearchScope.from(typeNames: ["BOOK"]) == .books)
+        #expect(SearchScope.from(typeNames: ["CONTRIBUTOR"]) == .people)
+        #expect(SearchScope.from(typeNames: ["SERIES"]) == .series)
+        #expect(SearchScope.from(typeNames: ["TAG"]) == .tags)
     }
 
-    @Test func multipleTypesCollapseToAll() {
-        #expect(SearchScope.from(selectedTypes: [.book, .series]) == .all)
+    /// Compose's chips are multi-select, so the shared state can legitimately hold several
+    /// types that iOS's one-of-N control cannot express. `.all` is the safe superset.
+    @Test func multipleTypeNamesCollapseToAll() {
+        #expect(SearchScope.from(typeNames: ["BOOK", "SERIES"]) == .all)
+        #expect(SearchScope.from(typeNames: ["BOOK", "TAG"]) == .all)
     }
 
-    @Test func scopeRoundTripsThroughItsTypes() {
+    /// Every scope survives the write→read round trip: `hitType` is what iOS sends to
+    /// `setTypeFilter`, and its name is what comes back in `selectedTypeNames`.
+    @Test func everyScopeRoundTripsThroughTheSharedProjection() {
         for scope in SearchScope.allCases {
-            #expect(SearchScope.from(selectedTypes: scope.selectedTypes) == scope)
+            let names = scope.hitType.map { [$0.description] } ?? []
+            #expect(SearchScope.from(typeNames: names) == scope)
         }
     }
 
-    @Test func allScopeHasNoFilterTypes() {
-        #expect(SearchScope.all.selectedTypes.isEmpty)
-        #expect(SearchScope.books.selectedTypes == [.book])
+    /// Pins the exact strings the shared `selectedTypeNames` projection emits (Kotlin's
+    /// `SearchHitType.entries.map { it.name }`) against Swift Export's generated
+    /// `LosslessStringConvertible` round-trip. A rename on either side breaks this, not the app.
+    @Test func everyHitTypeRoundTripsThroughItsName() {
+        for type in SearchHitType.allCases {
+            #expect(SearchHitType(type.description) == type)
+        }
+        #expect(SearchHitType.book.description == "BOOK")
+        #expect(SearchHitType.contributor.description == "CONTRIBUTOR")
+        #expect(SearchHitType.series.description == "SERIES")
+        #expect(SearchHitType.tag.description == "TAG")
     }
 
-    // MARK: - Toggle deltas (the VM exposes only an additive toggle)
-
-    @Test func selectingBooksFromAllTogglesBookOn() {
-        #expect(SearchScope.books.toggles(from: []) == [.book])
-    }
-
-    @Test func returningToAllTogglesTheActiveTypeOff() {
-        #expect(SearchScope.all.toggles(from: [.book]) == [.book])
-    }
-
-    @Test func switchingScopesTogglesBothTypes() {
-        let toggles = Set(SearchScope.series.toggles(from: [.book]))
-        #expect(toggles == [.book, .series])
-    }
-
-    @Test func reselectingTheSameScopeIsANoOp() {
-        #expect(SearchScope.books.toggles(from: [.book]).isEmpty)
+    /// An unknown name is dropped rather than trapping — a shared enum can gain a case that
+    /// this build predates. Matching is exact, so casing is not a near-miss.
+    @Test func unknownNamesAreDropped() {
+        #expect(SearchScope.from(typeNames: ["BOOK", "PODCAST"]) == .books)
+        #expect(SearchScope.from(typeNames: ["book"]) == .all)
+        #expect(SearchScope.from(typeNames: ["PODCAST"]) == .all)
     }
 
     // MARK: - Grouping (over native SearchRow)

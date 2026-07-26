@@ -149,12 +149,11 @@ struct MetadataMatchMappingTests {
             authors: [ref("Zogarth", asin: "AUTH1")],
             genres: ["Fantasy"]
         )
-        let state = ready(
-            book: book,
-            fallbackSources: [.description: "Audnexus", .authors: "iTunes", .genres: "Audnexus"],
-            contributingSources: ["Audible", "Audnexus", "iTunes"]
-        )
-        let preview = MetadataMatchMapping.preview(from: state, match: book)
+        let state = ready(book: book, contributingSources: ["Audible", "Audnexus", "iTunes"])
+        // Native provenance lookup, matching what the Kotlin `fallbackSourceFor` accessor returns in
+        // production. Reading the bridged `fallbackSources` map from Swift traps — see `ready(...)`.
+        let sources: [BookField: String] = [.description: "Audnexus", .authors: "iTunes", .genres: "Audnexus"]
+        let preview = MetadataMatchMapping.preview(from: state, match: book, sourceFor: { sources[$0] })
 
         // Per-field fallback labels flow to the matching row structs; unmapped fields stay nil.
         #expect(preview.identityFields.first { $0.field == .title }?.sourceLabel == nil)
@@ -266,10 +265,14 @@ struct MetadataMatchMappingTests {
         )
     }
 
+    /// Builds a Kotlin `Ready`. Deliberately takes **no** `fallbackSources`: a `[BookField: String]`
+    /// constructed in Swift and handed to the Kotlin initializer is not the map production sees —
+    /// Swift Export boxes the enum keys, so a Kotlin-side lookup misses them while a Swift-side
+    /// lookup succeeds. A fixture built that way passes for exactly the reason production crashes.
+    /// Provenance is injected natively instead; see `previewCarriesFieldSourceCoverAndContributingProvenance`.
     private func ready(
         book: MetadataBook,
         selections: MetadataSelections? = nil,
-        fallbackSources: [BookField: String] = [:],
         coverEntries: [CoverEntry] = [],
         coverSourceLabel: String? = nil,
         coverResolution: String? = nil,
@@ -287,7 +290,7 @@ struct MetadataMatchMappingTests {
             genreCandidates: book.genres,
             moodCandidates: book.moods,
             tagCandidates: book.tags,
-            fallbackSources: fallbackSources,
+            fallbackSources: [:],
             coverSourceLabel: coverSourceLabel,
             coverResolution: coverResolution,
             contributingSources: contributingSources
