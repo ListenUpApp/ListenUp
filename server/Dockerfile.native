@@ -11,9 +11,17 @@
 #
 # Version floor: our own SQL needs **3.35** (`ALTER TABLE ... DROP COLUMN`, in
 # V53__drop_blurhash_columns.sql). We pin far above that because the base ships nothing, so the
-# version is ours to choose and a pinned modern one beats an accidental old one. FTS5 is no longer
-# compiled in: the server's four FTS indexes and its search surface were removed (V55), leaving zero
-# FTS5 usage. Re-adding any FTS5 table means re-adding -DSQLITE_ENABLE_FTS5 here.
+# version is ours to choose and a pinned modern one beats an accidental old one.
+#
+# FTS5 IS REQUIRED, and the reason is easy to get wrong. The running server issues zero FTS5
+# queries — the four search indexes and the whole server-side search surface were removed — and the
+# linked binary exports zero fts5 symbols. Both facts are true and both are irrelevant: the SQLite
+# that has to understand `USING fts5` is THIS shared library, at migration time, and
+# `V1__baseline.sql` still creates four fts5 virtual tables because the squashed baseline
+# reproduces the historical schema. Dropping the flag on the strength of "no FTS5 usage" produced
+# an image that died on first boot with `no such module: fts5` — a release-blocking break that CI
+# could not see, because CI never builds this image and the tests run against the host's SQLite.
+# The verify step below turns that into a build failure instead of a runtime one.
 FROM debian:12-slim AS libs
 ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip
 RUN apt-get update \
@@ -24,9 +32,28 @@ WORKDIR /build
 RUN curl -fsSL -o amalg.zip "$SQLITE_AMALGAMATION_URL" \
     && unzip -q amalg.zip \
     && cd sqlite-amalgamation-* \
-    && gcc -O2 -fPIC -shared -o /build/libsqlite3.so.0 sqlite3.c \
+    && gcc -O2 -fPIC -shared -DSQLITE_ENABLE_FTS5 -o /build/libsqlite3.so.0 sqlite3.c -lm \
+    && cp sqlite3.h /build/ \
     && cat sqlite3.h | grep -m1 '#define SQLITE_VERSION ' \
     && awk '/#define SQLITE_VERSION_NUMBER/ { if ($3 < 3035000) { print "SQLite too old: " $3; exit 1 } }' sqlite3.h
+
+# Prove the fts5 module is actually loadable rather than trusting the compile flag: link a throwaway
+# client against the .so we just built and have it run the exact statement V1__baseline.sql runs.
+# A missing module now fails the BUILD, loudly, instead of the server's first boot.
+RUN printf '%s\n' \
+        '#include <sqlite3.h>' \
+        '#include <stdio.h>' \
+        'int main(void){' \
+        '  sqlite3 *db; char *err = 0;' \
+        '  if (sqlite3_open(":memory:", &db) != SQLITE_OK) { fprintf(stderr, "open failed\n"); return 1; }' \
+        '  if (sqlite3_exec(db, "CREATE VIRTUAL TABLE t USING fts5(x);", 0, 0, &err) != SQLITE_OK) {' \
+        '    fprintf(stderr, "FTS5 MISSING: %s\n", err ? err : "(no message)"); return 1;' \
+        '  }' \
+        '  printf("fts5 module present\n"); return 0;' \
+        '}' > /build/fts5check.c \
+    && gcc -O2 -o /build/fts5check /build/fts5check.c -I/build /build/libsqlite3.so.0 -lm \
+    && /build/fts5check \
+    && rm -f /build/fts5check /build/fts5check.c /build/sqlite3.h
 # An empty /data to seed the runtime image's data dir — the distroless base has no shell, so the dir is
 # created here and COPY --chown'd into the final stage below.
 RUN mkdir -p /data
