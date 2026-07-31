@@ -793,11 +793,25 @@ internal class CollectionServiceImpl(
             )
             notifyAccessChanged(listOf(id), listOf(bookId))
             bookRevisionTouch.touchRevision(BookId(bookId))
-        } else if (allBooksLive) {
-            collectionBookRepo.softDelete(collectionId = allBooksId, bookId = bookId)
-            notifyAccessChanged(listOf(allBooksId), listOf(bookId))
-            bookRevisionTouch.touchRevision(BookId(bookId))
+            return
         }
+
+        // The book is no longer an uncollected orphan, so it must not sit in ALL_BOOKS — and a real
+        // membership ALSO releases it from the inbox. [SystemCollectionType] documents both system
+        // collections as exclusive with regular ones, but this reconcile previously owned only the
+        // ALL_BOOKS junction: curating a held book left it in INBOX *and* the regular collection, so
+        // it was visible to that collection's audience while still listed as quarantined by
+        // `listInbox`. Dropping INBOX here is deliberate — curating a held book IS releasing it.
+        // A held book with no real membership stays held (it is still awaiting triage).
+        val toDrop =
+            buildList {
+                if (allBooksLive) add(allBooksId)
+                if (held && real.isNotEmpty()) add(inboxId)
+            }.filterNotNull()
+        if (toDrop.isEmpty()) return
+        toDrop.forEach { collectionBookRepo.softDelete(collectionId = it, bookId = bookId) }
+        notifyAccessChanged(toDrop, listOf(bookId))
+        bookRevisionTouch.touchRevision(BookId(bookId))
     }
 
     /** The `books.library_id` for [bookId], or null when the book is absent — resolves its system collections. */
