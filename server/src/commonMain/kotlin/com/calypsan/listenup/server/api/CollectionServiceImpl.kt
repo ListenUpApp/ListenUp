@@ -31,10 +31,19 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val LIST_BOOKS_MIN = 1
 private const val LIST_BOOKS_MAX = 1000
 private const val MAX_NAME_LENGTH = 200
+
+/**
+ * Stripe count for [CollectionServiceImpl.bookLocks]. A power of two well above the concurrency a
+ * self-hosted server sees, so same-stripe collisions between different books are rare and, when they
+ * happen, cost only serialisation.
+ */
+private const val BOOK_LOCK_STRIPES = 64
 
 /**
  * The largest scoped [AccessChanged][SyncControl.AccessChanged] delta the server will emit. Above
@@ -101,6 +110,36 @@ internal class CollectionServiceImpl(
     private val bookRevisionTouch: BookRevisionTouch,
     private val principal: PrincipalProvider,
 ) : CollectionService {
+    /**
+     * Striped locks serialising **membership mutation + [reconcileSystemMembership]** for one book.
+     *
+     * The reconcile reads the book's live memberships and then writes the system junction, and a
+     * suspend repo call cannot nest inside a non-suspend SQLDelight transaction body — so that
+     * read-then-write spans several independent commits. Ktor serves requests concurrently, so two
+     * mutations of the SAME book could interleave between the read and the write and settle on
+     * mutually stale decisions: the book ends up in a regular collection **and** ALL_BOOKS (a
+     * curated book made visible to every member — the #680/#730 leak class), or in **neither**
+     * (invisible, and nothing re-homes it until its memberships are next mutated).
+     *
+     * Fixed stripe count rather than a per-book map so the table cannot grow without bound and
+     * needs no eviction; two different books occasionally sharing a stripe merely serialises them,
+     * which is harmless. **Not reentrant** — [reconcileSystemMembership] deliberately does NOT take
+     * the lock itself; callers own it, so a caller holding the lock across mutation-then-reconcile
+     * cannot deadlock against its own reconcile.
+     *
+     * In-process only. A second server instance against the same database would reintroduce the
+     * race; closing that needs the write to be conditional in SQL, not a lock.
+     */
+    private val bookLocks = Array(BOOK_LOCK_STRIPES) { Mutex() }
+
+    /**
+     * The stripe guarding [bookId]. Stable for the process lifetime; collisions only over-serialise.
+     *
+     * `Int.mod` — never `%` — because `hashCode()` is signed and the remainder operator preserves the
+     * sign, which indexes the array out of bounds for any book whose hash is negative (about half).
+     */
+    private fun bookLock(bookId: String): Mutex = bookLocks[bookId.hashCode().mod(BOOK_LOCK_STRIPES)]
+
     // ── Observation ─────────────────────────────────────────────────────────
 
     override suspend fun listCollections(): AppResult<List<CollectionSummary>> {
@@ -223,9 +262,11 @@ internal class CollectionServiceImpl(
         // Every affected book's revision is touched regardless, so a member whose access just changed
         // re-derives visibility on their incremental `revision > cursor` pull (a book that stays in
         // other collections isn't reconciled but must still drop for this collection's lost audience).
+        // One book lock at a time — never two at once — so a bulk reconcile serialises against a
+        // concurrent single-book mutation without any lock-ordering deadlock. See [bookLocks].
         val lookups = SystemMembershipLookups()
         for (bookId in affectedBookIds) {
-            reconcileSystemMembership(bookId, lookups)
+            bookLock(bookId).withLock { reconcileSystemMembership(bookId, lookups) }
         }
         // One batched revision bump for every affected book (one transaction, per-book revisions) —
         // the reconcile above already bumps any book whose ALL_BOOKS membership flipped; this ensures
@@ -259,25 +300,29 @@ internal class CollectionServiceImpl(
                 revision = 0L,
                 deletedAt = null,
             )
-        return when (val result = collectionBookRepo.upsert(payload)) {
-            is AppResult.Success -> {
-                // Adding the book to this collection grants its visible users (owner + active-share
-                // recipients) a new access path — nudge each to re-derive, matching setBookCollections.
-                notifyAccessChanged(listOf(id.value), listOf(bookId.value))
-                // Bump the book's revision so each member's incremental `revision > cursor` pull
-                // re-delivers the now-visible book — the access nudge alone never carries the row.
-                bookRevisionTouch.touchRevision(bookId)
-                // First real membership ⇒ the book leaves the everyone-visible ALL_BOOKS substrate.
-                // Adding directly to a system collection (ALL_BOOKS/INBOX) is a managed action, not
-                // reconciled — reconcile there would immediately undo the deliberate placement.
-                if (id.value !in collectionRepo.systemCollectionIds()) {
-                    reconcileSystemMembership(bookId.value)
+        // The write and the reconcile that derives system membership FROM it must not interleave
+        // with another mutation of the same book — see [bookLocks].
+        return bookLock(bookId.value).withLock {
+            when (val result = collectionBookRepo.upsert(payload)) {
+                is AppResult.Success -> {
+                    // Adding the book to this collection grants its visible users (owner + active-share
+                    // recipients) a new access path — nudge each to re-derive, matching setBookCollections.
+                    notifyAccessChanged(listOf(id.value), listOf(bookId.value))
+                    // Bump the book's revision so each member's incremental `revision > cursor` pull
+                    // re-delivers the now-visible book — the access nudge alone never carries the row.
+                    bookRevisionTouch.touchRevision(bookId)
+                    // First real membership ⇒ the book leaves the everyone-visible ALL_BOOKS substrate.
+                    // Adding directly to a system collection (ALL_BOOKS/INBOX) is a managed action, not
+                    // reconciled — reconcile there would immediately undo the deliberate placement.
+                    if (id.value !in collectionRepo.systemCollectionIds()) {
+                        reconcileSystemMembership(bookId.value)
+                    }
+                    AppResult.Success(Unit)
                 }
-                AppResult.Success(Unit)
-            }
 
-            is AppResult.Failure -> {
-                AppResult.Failure(result.error)
+                is AppResult.Failure -> {
+                    AppResult.Failure(result.error)
+                }
             }
         }
     }
@@ -290,17 +335,21 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         writeGate(decision)?.let { return AppResult.Failure(it) }
 
-        // softDelete is idempotent: a Failure(NotFound) means the junction was already
-        // absent, which satisfies the caller's intent — treat as success.
-        collectionBookRepo.softDelete(collectionId = id.value, bookId = bookId.value)
-        // Removing the book may have severed a visible user's only access path to it — nudge this
-        // collection's visible users to re-derive (and prune if needed), matching setBookCollections.
-        notifyAccessChanged(listOf(id.value), listOf(bookId.value))
-        // Bump the book's revision so each member's incremental `revision > cursor` pull re-evaluates
-        // its now-changed visibility and prunes it when no access path remains.
-        bookRevisionTouch.touchRevision(bookId)
-        // Removing the last real membership ⇒ the book returns to ALL_BOOKS (never stranded).
-        reconcileSystemMembership(bookId.value)
+        // The removal and the reconcile that re-homes the book FROM it must not interleave with
+        // another mutation of the same book — see [bookLocks].
+        bookLock(bookId.value).withLock {
+            // softDelete is idempotent: a Failure(NotFound) means the junction was already
+            // absent, which satisfies the caller's intent — treat as success.
+            collectionBookRepo.softDelete(collectionId = id.value, bookId = bookId.value)
+            // Removing the book may have severed a visible user's only access path to it — nudge this
+            // collection's visible users to re-derive (and prune if needed), matching setBookCollections.
+            notifyAccessChanged(listOf(id.value), listOf(bookId.value))
+            // Bump the book's revision so each member's incremental `revision > cursor` pull re-evaluates
+            // its now-changed visibility and prunes it when no access path remains.
+            bookRevisionTouch.touchRevision(bookId)
+            // Removing the last real membership ⇒ the book returns to ALL_BOOKS (never stranded).
+            reconcileSystemMembership(bookId.value)
+        }
         return AppResult.Success(Unit)
     }
 
@@ -327,43 +376,48 @@ internal class CollectionServiceImpl(
             collectionRepo.findById(targetId) ?: return AppResult.Failure(CollectionError.NotFound())
         }
 
-        val current = collectionBookRepo.findCollectionIdsForBook(bookId.value).toSet() - systemIds
-        val added = targetIds - current
-        val removed = current - targetIds
+        // Read-modify-write: `current` is read, diffed, then written, and the reconcile derives
+        // system membership from the result. The whole sequence must be atomic per book — see
+        // [bookLocks].
+        bookLock(bookId.value).withLock {
+            val current = collectionBookRepo.findCollectionIdsForBook(bookId.value).toSet() - systemIds
+            val added = targetIds - current
+            val removed = current - targetIds
 
-        // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
-        // cannot nest inside a non-suspend SQLDelight transaction body.
-        for (collectionId in removed) {
-            collectionBookRepo.softDelete(collectionId = collectionId, bookId = bookId.value)
-        }
-        for (collectionId in added) {
-            collectionBookRepo.upsert(
-                CollectionBookSyncPayload(
-                    id = Uuid.random().toString(),
-                    collectionId = collectionId,
-                    bookId = bookId.value,
-                    createdAt = clock.now().toEpochMilliseconds(),
-                    revision = 0L,
-                    deletedAt = null,
-                ),
-            )
-        }
+            // Sequential suspend repo writes — each opens its own SQLDelight transaction, so they
+            // cannot nest inside a non-suspend SQLDelight transaction body.
+            for (collectionId in removed) {
+                collectionBookRepo.softDelete(collectionId = collectionId, bookId = bookId.value)
+            }
+            for (collectionId in added) {
+                collectionBookRepo.upsert(
+                    CollectionBookSyncPayload(
+                        id = Uuid.random().toString(),
+                        collectionId = collectionId,
+                        bookId = bookId.value,
+                        createdAt = clock.now().toEpochMilliseconds(),
+                        revision = 0L,
+                        deletedAt = null,
+                    ),
+                )
+            }
 
-        // Changing the book's collection set changes who can see the book. Every enumerable user
-        // whose access may have shifted — the visible users of each ADDED collection (they may have
-        // gained the book) and each REMOVED collection (they may have lost their only access path) —
-        // is nudged once to re-derive. The non-enumerable public↔private "everyone" edge converges on
-        // the next firehose catch-up — the documented 1b behavior.
-        notifyAccessChanged(added + removed, listOf(bookId.value))
-        // Bump the subject book's revision once when its membership actually changed, so each member's
-        // incremental `revision > cursor` pull re-evaluates its visibility (delivering or pruning it).
-        if (added.isNotEmpty() || removed.isNotEmpty()) {
-            bookRevisionTouch.touchRevision(bookId)
+            // Changing the book's collection set changes who can see the book. Every enumerable user
+            // whose access may have shifted — the visible users of each ADDED collection (they may have
+            // gained the book) and each REMOVED collection (they may have lost their only access path) —
+            // is nudged once to re-derive. The non-enumerable public↔private "everyone" edge converges on
+            // the next firehose catch-up — the documented 1b behavior.
+            notifyAccessChanged(added + removed, listOf(bookId.value))
+            // Bump the subject book's revision once when its membership actually changed, so each member's
+            // incremental `revision > cursor` pull re-evaluates its visibility (delivering or pruning it).
+            if (added.isNotEmpty() || removed.isNotEmpty()) {
+                bookRevisionTouch.touchRevision(bookId)
+            }
+            // Derive ALL_BOOKS from the resulting real set: in ALL_BOOKS iff no real membership remains
+            // (and not held in INBOX). This drops a curated book out of the everyone-collection (the
+            // #680/#730 leak) and re-homes an empty target set into ALL_BOOKS instead of orphaning it.
+            reconcileSystemMembership(bookId.value)
         }
-        // Derive ALL_BOOKS from the resulting real set: in ALL_BOOKS iff no real membership remains
-        // (and not held in INBOX). This drops a curated book out of the everyone-collection (the
-        // #680/#730 leak) and re-homes an empty target set into ALL_BOOKS instead of orphaning it.
-        reconcileSystemMembership(bookId.value)
         return AppResult.Success(Unit)
     }
 
@@ -605,8 +659,16 @@ internal class CollectionServiceImpl(
      * collection — so it stays visible to every member under the pure-union visibility rule.
      * (Under that rule "uncollected" means *invisible*, so approving a held book into no
      * collection would silently hide it; releasing into `ALL_BOOKS` is how a book becomes
-     * public.) The whole release runs in a single transaction so a partial failure does not
-     * strand books half-released.
+     * public.)
+     *
+     * **Not atomic.** Each junction write opens its own SQLDelight transaction — a suspend repo
+     * call cannot nest inside a non-suspend transaction body — so the release is a sequence of
+     * independent commits, not one. A crash or DB fault between the inbox tombstone and a target
+     * upsert leaves that book with no live membership: invisible to members under pure-union, and
+     * absent from [listInbox], with nothing that re-homes it until its memberships are next
+     * mutated. Targets are validated up front to keep the common failure typed and pre-flight, but
+     * that narrows the window rather than closing it. (This KDoc previously claimed a single
+     * transaction; it never had one — the implementation comment below always said so.)
      *
      * Admin-only ([CollectionError.Forbidden] otherwise); requires a caller principal.
      */
@@ -689,9 +751,11 @@ internal class CollectionServiceImpl(
         // not linger in ALL_BOOKS (defensive tombstone of any stale junction); one released unsorted
         // stays in ALL_BOOKS (the fallback added above). reconcile derives both. One memo hoists the
         // loop-invariant system-collection lookups across the whole release.
+        // One book lock at a time — never two at once — so a bulk reconcile serialises against a
+        // concurrent single-book mutation without any lock-ordering deadlock. See [bookLocks].
         val lookups = SystemMembershipLookups()
         for (bookId in assignments.keys) {
-            reconcileSystemMembership(bookId, lookups)
+            bookLock(bookId).withLock { reconcileSystemMembership(bookId, lookups) }
         }
         return AppResult.Success(Unit)
     }
