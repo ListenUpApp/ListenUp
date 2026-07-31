@@ -2138,10 +2138,10 @@
         },
         {
             "uniqueId": "androidx.navigation3:navigation3-runtime-android",
-            "artifactVersion": "1.1.4",
+            "artifactVersion": "1.1.5",
             "name": "Androidx Navigation 3 Runtime",
             "description": "Provides the building blocks for a Compose first Navigation solution that easily supports extensions.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/navigation3#1.1.4",
+            "website": "https://developer.android.com/jetpack/androidx/releases/navigation3#1.1.5",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2163,10 +2163,10 @@
         },
         {
             "uniqueId": "androidx.navigation3:navigation3-ui-android",
-            "artifactVersion": "1.1.4",
+            "artifactVersion": "1.1.5",
             "name": "Androidx Navigation 3 UI",
             "description": "Provides a Navigation3 display that uses the building blocks from runtime to create a higher level solution.",
-            "website": "https://developer.android.com/jetpack/androidx/releases/navigation3#1.1.4",
+            "website": "https://developer.android.com/jetpack/androidx/releases/navigation3#1.1.5",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2351,10 +2351,10 @@
         },
         {
             "uniqueId": "androidx.room3:room3-common-jvm",
-            "artifactVersion": "3.0.0",
+            "artifactVersion": "3.0.1",
             "name": "Room-Common",
             "description": "Android Room-Common",
-            "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2376,10 +2376,10 @@
         },
         {
             "uniqueId": "androidx.room3:room3-runtime-android",
-            "artifactVersion": "3.0.0",
+            "artifactVersion": "3.0.1",
             "name": "Room-Runtime",
             "description": "Android Room-Runtime",
-            "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.0",
+            "website": "https://developer.android.com/jetpack/androidx/releases/room3#3.0.1",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -3592,7 +3592,7 @@
         },
         {
             "uniqueId": "io.ktor:ktor-client-auth-jvm",
-            "artifactVersion": "3.5.1",
+            "artifactVersion": "3.5.2",
             "name": "ktor-client-auth",
             "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
             "website": "https://github.com/ktorio/ktor",
@@ -3614,7 +3614,7 @@
         },
         {
             "uniqueId": "io.ktor:ktor-client-content-negotiation-jvm",
-            "artifactVersion": "3.5.1",
+            "artifactVersion": "3.5.2",
             "name": "ktor-client-content-negotiation",
             "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
             "website": "https://github.com/ktorio/ktor",
@@ -3658,7 +3658,7 @@
         },
         {
             "uniqueId": "io.ktor:ktor-client-darwin",
-            "artifactVersion": "3.5.1",
+            "artifactVersion": "3.5.2",
             "name": "ktor-client-darwin",
             "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
             "website": "https://github.com/ktorio/ktor",
@@ -3680,7 +3680,7 @@
         },
         {
             "uniqueId": "io.ktor:ktor-client-logging-jvm",
-            "artifactVersion": "3.5.1",
+            "artifactVersion": "3.5.2",
             "name": "ktor-client-logging",
             "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
             "website": "https://github.com/ktorio/ktor",
@@ -3702,7 +3702,7 @@
         },
         {
             "uniqueId": "io.ktor:ktor-client-okhttp-jvm",
-            "artifactVersion": "3.5.1",
+            "artifactVersion": "3.5.2",
             "name": "ktor-client-okhttp",
             "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
             "website": "https://github.com/ktorio/ktor",
@@ -3856,7 +3856,7 @@
         },
         {
             "uniqueId": "io.ktor:ktor-network-tls",
-            "artifactVersion": "3.5.1",
+            "artifactVersion": "3.5.2",
             "name": "ktor-network-tls",
             "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
             "website": "https://github.com/ktorio/ktor",
@@ -3900,7 +3900,7 @@
         },
         {
             "uniqueId": "io.ktor:ktor-serialization-kotlinx-json-jvm",
-            "artifactVersion": "3.5.1",
+            "artifactVersion": "3.5.2",
             "name": "ktor-serialization-kotlinx-json",
             "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
             "website": "https://github.com/ktorio/ktor",
@@ -3922,7 +3922,7 @@
         },
         {
             "uniqueId": "io.ktor:ktor-serialization-kotlinx-jvm",
-            "artifactVersion": "3.5.1",
+            "artifactVersion": "3.5.2",
             "name": "ktor-serialization-kotlinx",
             "description": "Ktor is a framework for quickly creating web applications in Kotlin with minimal effort.",
             "website": "https://github.com/ktorio/ktor",
