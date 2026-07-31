@@ -104,6 +104,12 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew :app:androidApp:bundleRelease :app:androidApp:assembleRelease --no-daemon
 
+      # Gate the artifact before it can reach Play. kotlinx.rpc ships no consumer R8
+      # rules and resolves @Rpc services by interface name, so a missing keep rule
+      # silently produces a build that cannot reach ANY server. 0.8.0 shipped that way.
+      - name: Verify @Rpc surface survived R8
+        run: tools/scripts/verify-r8-rpc-surface.sh app/androidApp/build/outputs/apk/release/androidApp-release.apk
+
       - name: Upload to Google Play (internal, draft)
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
         with:
