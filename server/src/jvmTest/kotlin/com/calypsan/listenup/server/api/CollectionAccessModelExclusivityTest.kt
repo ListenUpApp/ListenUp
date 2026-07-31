@@ -245,6 +245,42 @@ class CollectionAccessModelExclusivityTest :
             }
         }
 
+        test("curating a held book out of the inbox releases it — INBOX is exclusive with real collections") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("B")
+                runTest {
+                    val h = collectionAccessHarness()
+                    val admin = h.service.actAs("admin", UserRole.ADMIN)
+
+                    val inbox = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.INBOX)
+                    require(inbox is AppResult.Success)
+                    val inboxId = inbox.data.id.value
+
+                    // Quarantine B, exactly as a scan does when the inbox gate is on.
+                    admin.addBookToCollection(CollectionId(inboxId), BookId("B")) shouldBe AppResult.Success(Unit)
+                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(listOf(BookId("B")))
+
+                    // Curating a held book into a real collection is the transition under test:
+                    // SystemCollectionType documents both system collections as exclusive with real
+                    // ones, but reconcileSystemMembership only ever owned the ALL_BOOKS junction — so
+                    // B stayed in INBOX *and* joined C, leaving a curated book listed as quarantined.
+                    val c = admin.createCollection("test-library", "C")
+                    require(c is AppResult.Success)
+                    admin.addBookToCollection(c.data.id, BookId("B")) shouldBe AppResult.Success(Unit)
+
+                    // The invariant: B is no longer held.
+                    admin.listInbox(LibraryId("test-library")) shouldBe AppResult.Success(emptyList())
+                    // mechanism diagnostic — not the invariant this test asserts.
+                    h.junctionDiagnostic("B").let {
+                        it shouldContain c.data.id.value
+                        it shouldNotContain inboxId
+                    }
+                }
+            }
+        }
+
         test("deleteCollection with multiple books returns each to a public ALL_BOOKS member") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
