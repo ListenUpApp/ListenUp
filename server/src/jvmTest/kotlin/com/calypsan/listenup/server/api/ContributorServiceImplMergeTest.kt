@@ -270,6 +270,54 @@ class ContributorServiceImplMergeTest :
             }
         }
 
+        // ── Alias hygiene: punctuation-variant names skip the noise alias ──────
+
+        test("mergeContributors does not alias source's name when it's a punctuation variant of target's") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("George R. R. Martin", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("George R.R. Martin", sortName = null)
+
+                    val result = service.mergeContributors(sourceId, targetId)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // Same normalized name as target — recording it as an alias would be noise.
+                    val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
+                    targetAfter.aliases.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("mergeContributors still aliases a source's genuine pre-existing alias despite a punctuation-variant name") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("George R. R. Martin", sortName = null)
+                    val sourcePayload = contributorRepo.findById(sourceId.value)!!
+                    contributorRepo
+                        .upsert(sourcePayload.copy(aliases = listOf("GRRM")))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    val targetId = contributorRepo.resolveOrCreate("George R.R. Martin", sortName = null)
+
+                    val result = service.mergeContributors(sourceId, targetId)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
+                    // The punctuation-variant name itself is skipped, but the genuine alias survives.
+                    targetAfter.aliases shouldContainExactlyInAnyOrder listOf("GRRM")
+                }
+            }
+        }
+
         // ── Same-book collision (composite PK (book_id, contributor_id, role)) ─
 
         test("mergeContributors dedupes when a book credits both source and target in the same role") {
