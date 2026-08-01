@@ -209,27 +209,29 @@ class ChapterWindowTest :
         }
 
         context("hasPreviousChapter / hasNextChapter") {
-            test("first chapter still reports a previous chapter — restart-current is always available") {
+            test("previous is always available — restart-current, even at chapter 0 or a chapterless book") {
+                // Not scenario-dependent: hasPreviousChapter() takes no window/chapters input by
+                // design (see its KDoc) — this is the one assertion of that invariant.
+                hasPreviousChapter() shouldBe true
+            }
+
+            test("first chapter has a next chapter") {
                 val window = currentChapterWindow(threeChapters, bookPositionMs = 0L, totalDurationMs)
-                hasPreviousChapter() shouldBe true
                 hasNextChapter(threeChapters, window) shouldBe true
             }
 
-            test("middle chapter has both a previous and a next chapter") {
+            test("middle chapter has a next chapter") {
                 val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
-                hasPreviousChapter() shouldBe true
                 hasNextChapter(threeChapters, window) shouldBe true
             }
 
-            test("last chapter still reports a previous chapter; has no next chapter") {
+            test("last chapter has no next chapter") {
                 val window = currentChapterWindow(threeChapters, bookPositionMs = 260_000L, totalDurationMs)
-                hasPreviousChapter() shouldBe true
                 hasNextChapter(threeChapters, window) shouldBe false
             }
 
-            test("chapterless book still reports a previous window (restart-the-book) but no next") {
+            test("chapterless book has no next chapter") {
                 val window = currentChapterWindow(emptyList(), bookPositionMs = 50_000L, totalDurationMs)
-                hasPreviousChapter() shouldBe true
                 hasNextChapter(emptyList(), window) shouldBe false
             }
         }

@@ -14,8 +14,19 @@ import com.google.common.util.concurrent.ListenableFuture
 /** Stable UID for the single [SimpleBasePlayer.MediaItemData] every reported [SimpleBasePlayer.State] carries. */
 private const val CHAPTER_WINDOW_MEDIA_ITEM_UID = "chapter-window"
 
-/** Restart-current-chapter threshold for the "previous" command — see [ChapterWindowPlayer] KDoc. */
-private const val PREVIOUS_RESTART_THRESHOLD_MS = 3_000L
+/**
+ * Snapshot of everything [ChapterWindowPlayer.getState] and [ChapterWindowPlayer.handleSeek]
+ * both need: the chapters, the underlying player's book-relative position, the [ChapterWindow]
+ * derived from it, and the [PlaybackTimeline] used to resolve book positions back to
+ * player coordinates. Computed once per call by `currentChapterContext()` so the two
+ * override points never drift on how they read the underlying player.
+ */
+private data class ChapterSeekContext(
+    val chapters: List<Chapter>,
+    val bookPositionMs: Long,
+    val window: ChapterWindow,
+    val timeline: PlaybackTimeline,
+)
 
 /**
  * Re-presents the wrapped local ExoPlayer as a single-window timeline scoped to the current
@@ -37,9 +48,10 @@ private const val PREVIOUS_RESTART_THRESHOLD_MS = 3_000L
  * `BasePlayer.seekToPrevious()`/`seekToNext()` always route through [handleSeek] with
  * `COMMAND_SEEK_TO_PREVIOUS`/`COMMAND_SEEK_TO_NEXT` (there is never a previous/next *media item*
  * to hop to), which is exactly what car head-unit prev/next buttons invoke. "Previous" restarts
- * the current chapter when more than [PREVIOUS_RESTART_THRESHOLD_MS] into it — standard
- * media-player behavior — otherwise it moves to the previous chapter's start (or, at the first
- * chapter / in a chapterless book, clamps to the window's own start — a harmless restart).
+ * the current chapter when more than [PREVIOUS_RESTART_THRESHOLD_MS] into it (the default
+ * [previousChapterTarget] applies) — standard media-player behavior — otherwise it moves to the
+ * previous chapter's start (or, at the first chapter / in a chapterless book, clamps to the
+ * window's own start — a harmless restart).
  * `COMMAND_SEEK_TO_PREVIOUS` (and its `_MEDIA_ITEM` variant) is therefore *always* advertised via
  * [getState] — [hasPreviousChapter] — matching standard Media3/media-player UX where "previous"
  * is never greyed out; it's always at least a restart affordance. `COMMAND_SEEK_TO_NEXT` (and its
@@ -92,23 +104,14 @@ class ChapterWindowPlayer(
 
     override fun getState(): State {
         val baseState = super.getState()
-        val timeline = timelineProvider() ?: return baseState
-        val chapters = chaptersProvider()
-        val underlyingPlayer = player
-
-        val bookPositionMs =
-            timeline.toBookPosition(
-                underlyingPlayer.currentMediaItemIndex,
-                underlyingPlayer.currentPosition,
-            )
-        val window = currentChapterWindow(chapters, bookPositionMs, timeline.totalDurationMs)
+        val context = currentChapterContext() ?: return baseState
 
         return baseState
             .buildUpon()
-            .setPlaylist(listOf(chapterMediaItemData(baseState, window, chapters, underlyingPlayer)))
+            .setPlaylist(listOf(chapterMediaItemData(baseState, context.window, context.chapters, player)))
             .setCurrentMediaItemIndex(0)
-            .setContentPositionMs(window.positionInWindowMs)
-            .setAvailableCommands(baseState.availableCommands.withChapterSeekCommands(chapters, window))
+            .setContentPositionMs(context.window.positionInWindowMs)
+            .setAvailableCommands(baseState.availableCommands.withChapterSeekCommands(context.chapters, context.window))
             .build()
     }
 
@@ -117,38 +120,29 @@ class ChapterWindowPlayer(
         positionMs: Long,
         seekCommand: Int,
     ): ListenableFuture<*> {
-        val timeline = timelineProvider() ?: return super.handleSeek(mediaItemIndex, positionMs, seekCommand)
         if (seekCommand == Player.COMMAND_SEEK_BACK || seekCommand == Player.COMMAND_SEEK_FORWARD) {
             // Skip-back/forward increments operate on the real player position directly —
             // they aren't chapter-relative, so the default handling is already correct.
             return super.handleSeek(mediaItemIndex, positionMs, seekCommand)
         }
-
-        val chapters = chaptersProvider()
-        val currentBookPositionMs = timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
-        val window = currentChapterWindow(chapters, currentBookPositionMs, timeline.totalDurationMs)
+        val context = currentChapterContext() ?: return super.handleSeek(mediaItemIndex, positionMs, seekCommand)
 
         val targetBookPositionMs =
             when (seekCommand) {
                 Player.COMMAND_SEEK_TO_PREVIOUS, Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> {
-                    previousChapterTarget(
-                        chapters,
-                        currentBookPositionMs,
-                        timeline.totalDurationMs,
-                        PREVIOUS_RESTART_THRESHOLD_MS,
-                    )
+                    previousChapterTarget(context.chapters, context.bookPositionMs, context.timeline.totalDurationMs)
                 }
 
                 Player.COMMAND_SEEK_TO_NEXT, Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> {
-                    nextChapterTarget(chapters, currentBookPositionMs, timeline.totalDurationMs)
+                    nextChapterTarget(context.chapters, context.bookPositionMs, context.timeline.totalDurationMs)
                 }
 
                 Player.COMMAND_SEEK_TO_DEFAULT_POSITION -> {
-                    window.windowStartMs
+                    context.window.windowStartMs
                 }
 
                 Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, Player.COMMAND_SEEK_TO_MEDIA_ITEM -> {
-                    window.seekTargetToBookPosition(positionMs)
+                    context.window.seekTargetToBookPosition(positionMs)
                 }
 
                 else -> {
@@ -156,9 +150,23 @@ class ChapterWindowPlayer(
                 }
             }
 
-        val resolved = timeline.resolve(targetBookPositionMs)
+        val resolved = context.timeline.resolve(targetBookPositionMs)
         player.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
         return Futures.immediateVoidFuture()
+    }
+
+    /**
+     * Reads the underlying player's current book position and derives the [ChapterWindow] it
+     * falls in — the single computation [getState] and [handleSeek] both build on. Returns null
+     * before playback has been prepared (no [PlaybackTimeline] yet), in which case callers fall
+     * back to default `ForwardingSimpleBasePlayer`/`SimpleBasePlayer` handling.
+     */
+    private fun currentChapterContext(): ChapterSeekContext? {
+        val timeline = timelineProvider() ?: return null
+        val chapters = chaptersProvider()
+        val bookPositionMs = timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
+        val window = currentChapterWindow(chapters, bookPositionMs, timeline.totalDurationMs)
+        return ChapterSeekContext(chapters, bookPositionMs, window, timeline)
     }
 
     /** Builds the single [SimpleBasePlayer.MediaItemData] representing [window]. */

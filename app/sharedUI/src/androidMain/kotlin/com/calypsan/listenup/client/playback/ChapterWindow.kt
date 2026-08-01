@@ -17,7 +17,7 @@ import com.calypsan.listenup.client.domain.model.Chapter
  * @property windowDurationMs Length of this window, in milliseconds.
  * @property positionInWindowMs Position within the window, clamped to `[0, windowDurationMs]`.
  */
-data class ChapterWindow(
+internal data class ChapterWindow(
     val chapterIndex: Int,
     val windowStartMs: Long,
     val windowDurationMs: Long,
@@ -37,7 +37,7 @@ data class ChapterWindow(
  * When [chapters] is empty, the whole book is presented as a single window — the
  * chapterless-book fallback required by every caller of this function.
  */
-fun currentChapterWindow(
+internal fun currentChapterWindow(
     chapters: List<Chapter>,
     bookPositionMs: Long,
     totalBookDurationMs: Long,
@@ -68,8 +68,11 @@ fun currentChapterWindow(
  * Translates a chapter-relative seek target (as reported by a system surface's seek bar)
  * into a book-relative position, clamped to this window's bounds.
  */
-fun ChapterWindow.seekTargetToBookPosition(chapterRelativePositionMs: Long): Long =
+internal fun ChapterWindow.seekTargetToBookPosition(chapterRelativePositionMs: Long): Long =
     windowStartMs + chapterRelativePositionMs.coerceIn(0L, windowDurationMs)
+
+/** Default "previous" restart-vs-jump threshold — see [previousChapterTarget]. */
+internal const val PREVIOUS_RESTART_THRESHOLD_MS = 3_000L
 
 /**
  * Book-relative target for a "previous" (skip-to-previous-chapter) command.
@@ -77,16 +80,18 @@ fun ChapterWindow.seekTargetToBookPosition(chapterRelativePositionMs: Long): Lon
  * Standard media-player "restart" behavior: more than [restartThresholdMs] into the
  * current chapter restarts it (returns its start); otherwise the target is the previous
  * chapter's start. Clamped at the first chapter — there is never a previous chapter to
- * move into, but restarting the current (first) chapter is always the fallback.
+ * move into, but restarting the current (first) chapter is always the fallback. A
+ * chapterless book resolves to [ChapterWindow.chapterIndex] `-1`, which is already `<= 0`,
+ * so it naturally falls into that same restart-the-window clamp without a separate check.
  */
-fun previousChapterTarget(
+internal fun previousChapterTarget(
     chapters: List<Chapter>,
     bookPositionMs: Long,
     totalBookDurationMs: Long,
-    restartThresholdMs: Long = 3_000L,
+    restartThresholdMs: Long = PREVIOUS_RESTART_THRESHOLD_MS,
 ): Long {
     val window = currentChapterWindow(chapters, bookPositionMs, totalBookDurationMs)
-    if (chapters.isEmpty() || window.chapterIndex <= 0 || window.positionInWindowMs > restartThresholdMs) {
+    if (window.chapterIndex <= 0 || window.positionInWindowMs > restartThresholdMs) {
         return window.windowStartMs
     }
     return chapters[window.chapterIndex - 1].startTime
@@ -96,17 +101,15 @@ fun previousChapterTarget(
  * Book-relative target for a "next" (skip-to-next-chapter) command.
  *
  * Clamped at the last chapter — there is no next chapter to move into, so the target
- * stays at the current chapter's own start.
+ * stays at the current chapter's own start. A chapterless book has no chapter at
+ * `chapterIndex + 1` to find, so it naturally falls into that same clamp.
  */
-fun nextChapterTarget(
+internal fun nextChapterTarget(
     chapters: List<Chapter>,
     bookPositionMs: Long,
     totalBookDurationMs: Long,
 ): Long {
     val window = currentChapterWindow(chapters, bookPositionMs, totalBookDurationMs)
-    if (chapters.isEmpty()) {
-        return window.windowStartMs
-    }
     return chapters.getOrNull(window.chapterIndex + 1)?.startTime ?: window.windowStartMs
 }
 
@@ -122,10 +125,15 @@ fun nextChapterTarget(
  * [ChapterWindowPlayer] reads the same way for both commands, and so a future change to this
  * rule has one place to land.
  */
-fun hasPreviousChapter(): Boolean = true
+internal fun hasPreviousChapter(): Boolean = true
 
-/** True when a chapter follows [window]'s chapter — gates COMMAND_SEEK_TO_NEXT availability. */
-fun hasNextChapter(
+/**
+ * True when a chapter follows [window]'s chapter — gates COMMAND_SEEK_TO_NEXT availability.
+ *
+ * A chapterless book resolves to `chapterIndex` `-1` against `chapters.lastIndex` `-1`,
+ * which is already false, so an empty [chapters] list needs no separate check.
+ */
+internal fun hasNextChapter(
     chapters: List<Chapter>,
     window: ChapterWindow,
-): Boolean = chapters.isNotEmpty() && window.chapterIndex < chapters.lastIndex
+): Boolean = window.chapterIndex < chapters.lastIndex
