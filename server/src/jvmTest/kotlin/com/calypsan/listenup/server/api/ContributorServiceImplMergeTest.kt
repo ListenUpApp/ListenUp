@@ -270,6 +270,155 @@ class ContributorServiceImplMergeTest :
             }
         }
 
+        // ── Same-book collision (composite PK (book_id, contributor_id, role)) ─
+
+        test("mergeContributors dedupes when a book credits both source and target in the same role") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                val bookRepo = deps.bookRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("George R. R. Martin", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("George R.R. Martin", sortName = null)
+
+                    // b1 credits BOTH spellings as author — the duplicate-spelling collision case.
+                    bookRepo.upsert(
+                        bookFixtureWithContributors(
+                            "b1",
+                            "A Game of Thrones",
+                            listOf(
+                                BookContributorPayload(
+                                    id = sourceId.value,
+                                    name = "George R. R. Martin",
+                                    sortName = null,
+                                    role = "author",
+                                    creditedAs = null,
+                                ),
+                                BookContributorPayload(
+                                    id = targetId.value,
+                                    name = "George R.R. Martin",
+                                    sortName = null,
+                                    role = "author",
+                                    creditedAs = null,
+                                ),
+                            ),
+                        ),
+                    )
+
+                    val result = service.mergeContributors(sourceId, targetId)
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    readBookIdsForContributor(db, sourceId.value).shouldBeEmpty()
+                    bookContributorRowCount(db, "b1", targetId.value, "author") shouldBe 1
+                }
+            }
+        }
+
+        test("mergeContributors preserves both credits when source and target hold different roles on the same book") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                val bookRepo = deps.bookRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Narrator King", sortName = null)
+
+                    // b1: source credited as author, target credited as narrator — no PK collision.
+                    bookRepo.upsert(
+                        bookFixtureWithContributors(
+                            "b1",
+                            "It",
+                            listOf(
+                                BookContributorPayload(
+                                    id = sourceId.value,
+                                    name = "Stephen King",
+                                    sortName = null,
+                                    role = "author",
+                                    creditedAs = null,
+                                ),
+                                BookContributorPayload(
+                                    id = targetId.value,
+                                    name = "Narrator King",
+                                    sortName = null,
+                                    role = "narrator",
+                                    creditedAs = null,
+                                ),
+                            ),
+                        ),
+                    )
+
+                    val result = service.mergeContributors(sourceId, targetId)
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    // Both roles survive on target — the relinked author credit and the
+                    // pre-existing narrator credit.
+                    bookContributorRowCount(db, "b1", targetId.value, "author") shouldBe 1
+                    bookContributorRowCount(db, "b1", targetId.value, "narrator") shouldBe 1
+                    creditedAsForRole(db, "b1", targetId.value, "author") shouldBe "Stephen King"
+                }
+            }
+        }
+
+        test("mergeContributors dedupes a colliding book while preserving creditedAs on a non-colliding book") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                val bookRepo = deps.bookRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("Richard Bachman", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
+
+                    // Book A: source and target both credited as author on the same book — collides.
+                    bookRepo.upsert(
+                        bookFixtureWithContributors(
+                            "book-a",
+                            "The Long Walk",
+                            listOf(
+                                BookContributorPayload(
+                                    id = sourceId.value,
+                                    name = "Richard Bachman",
+                                    sortName = null,
+                                    role = "author",
+                                    creditedAs = null,
+                                ),
+                                BookContributorPayload(
+                                    id = targetId.value,
+                                    name = "Stephen King",
+                                    sortName = null,
+                                    role = "author",
+                                    creditedAs = null,
+                                ),
+                            ),
+                            rootRelPath = "Bachman/TheLongWalk",
+                        ),
+                    )
+                    // Book B: only source credited — relinks normally, no collision.
+                    bookRepo.upsert(
+                        bookFixtureForMerge("book-b", "Thinner", sourceId, "Richard Bachman", rootRelPath = "Bachman/Thinner"),
+                    )
+
+                    val result = service.mergeContributors(sourceId, targetId)
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    readBookIdsForContributor(db, sourceId.value).shouldBeEmpty()
+                    // Book A deduplicated to a single target row.
+                    bookContributorRowCount(db, "book-a", targetId.value, "author") shouldBe 1
+                    // Book B relinked normally, creditedAs captured from the source's name.
+                    bookContributorRowCount(db, "book-b", targetId.value, "author") shouldBe 1
+                    creditedAsFor(db, "book-b", targetId.value) shouldBe "Richard Bachman"
+                }
+            }
+        }
+
         // ── FTS reindex ────────────────────────────────────────────────────────
     })
 
@@ -375,6 +524,94 @@ private fun bookFixtureForMerge(
         createdAt = 0L,
         deletedAt = null,
     )
+
+/**
+ * Builds a [BookSyncPayload] with an arbitrary set of contributor credits — used by the
+ * same-book collision tests, which need more than one contributor row per book.
+ */
+private fun bookFixtureWithContributors(
+    id: String,
+    title: String,
+    contributors: List<BookContributorPayload>,
+    rootRelPath: String = "books/$id",
+): BookSyncPayload =
+    BookSyncPayload(
+        id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
+        title = title,
+        sortTitle = title,
+        subtitle = null,
+        description = null,
+        publishYear = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = false,
+        explicit = false,
+        hasScanWarning = false,
+        totalDuration = 3_600_000L,
+        cover = null,
+        rootRelPath = rootRelPath,
+        inode = null,
+        scannedAt = 1_730_000_000_000L,
+        contributors = contributors,
+        series = emptyList(),
+        audioFiles =
+            listOf(
+                BookAudioFilePayload(
+                    id = "af-$id",
+                    index = 0,
+                    filename = "01.m4b",
+                    format = "m4b",
+                    codec = "aac",
+                    duration = 3_600_000L,
+                    size = 500_000_000L,
+                ),
+            ),
+        chapters =
+            listOf(
+                BookChapterPayload(id = "ch-$id", title = "Prologue", duration = 1_000_000L, startTime = 0L),
+            ),
+        revision = 0L,
+        updatedAt = 0L,
+        createdAt = 0L,
+        deletedAt = null,
+    )
+
+/** Count of `book_contributors` rows for (bookId, contributorId, role) — expected 0 or 1. */
+private suspend fun bookContributorRowCount(
+    db: SqlTestDatabases,
+    bookId: String,
+    contributorId: String,
+    role: String,
+): Int =
+    withContext(Dispatchers.IO) {
+        db.sql.bookContributorsQueries
+            .selectByBookIds(listOf(bookId))
+            .executeAsList()
+            .count { it.contributor_id == contributorId && it.role == role }
+    }
+
+/**
+ * Reads the `credited_as` column for the (bookId, contributorId, role) junction row —
+ * role-scoped, unlike [creditedAsFor], so it stays correct when a contributor holds more
+ * than one role on the same book (e.g. author + narrator after a merge).
+ */
+private suspend fun creditedAsForRole(
+    db: SqlTestDatabases,
+    bookId: String,
+    contributorId: String,
+    role: String,
+): String? =
+    withContext(Dispatchers.IO) {
+        db.sql.bookContributorsQueries
+            .selectByBookIds(listOf(bookId))
+            .executeAsList()
+            .firstOrNull { it.contributor_id == contributorId && it.role == role }
+            ?.credited_as
+    }
 
 /** Distinct book IDs currently linked to [contributorId] via any junction row. */
 private suspend fun readBookIdsForContributor(

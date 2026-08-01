@@ -79,11 +79,32 @@ selectCreditedAs:
 SELECT credited_as FROM book_contributors
 WHERE book_id = :book_id AND contributor_id = :contributor_id;
 
+-- Same-book collision guard for mergeContributors (run BEFORE
+-- relinkContributorPreservingCredit). The composite PK is (book_id,
+-- contributor_id, role); a book that already credits :to_id in some role also
+-- carried by :from_id would collide when the relink UPDATE re-points the
+-- :from_id row onto that same (book_id, role) pair — exactly what duplicate
+-- author spellings ("George R.R. Martin" / "George R. R. Martin") produce from
+-- sloppy embedded metadata. The target row already displays the merged
+-- identity, so the source's colliding row is simply dropped; its credited_as
+-- (if any) is discarded rather than merged.
+deleteCollidingSourceContributorRows:
+DELETE FROM book_contributors
+WHERE contributor_id = :from_id
+  AND EXISTS (
+    SELECT 1 FROM book_contributors existing
+    WHERE existing.book_id = book_contributors.book_id
+      AND existing.contributor_id = :to_id
+      AND existing.role = book_contributors.role
+  );
+
 -- COALESCE credit-preserving relink (mergeContributors). Re-points every junction
 -- row from :from_id to :to_id, capturing the source contributor's display name
 -- into credited_as only where it was previously NULL — books already carrying an
 -- explicit credit keep it. Exposed's update DSL can't express
 -- `SET col = COALESCE(col, ?)`, so this is the typed home for that raw SQL.
+-- Must run AFTER deleteCollidingSourceContributorRows so no (book_id, role) pair
+-- carries both a source and a target row when this UPDATE re-points contributor_id.
 relinkContributorPreservingCredit:
 UPDATE book_contributors
 SET credited_as = COALESCE(credited_as, :source_name), contributor_id = :to_id
