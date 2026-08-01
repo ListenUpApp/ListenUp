@@ -865,8 +865,11 @@ class MetadataViewModel(
             publisher = !preview.publisher.isNullOrBlank(),
             releaseDate = !preview.releaseDate.isNullOrBlank(),
             language = !preview.language.isNullOrBlank(),
-            selectedAuthors = preview.authors.mapNotNull { it.asin }.toSet(),
-            selectedNarrators = preview.narrators.mapNotNull { it.asin }.toSet(),
+            // Keyed on asin ?: name — the same fallback key the review sheet (Compose + SwiftUI)
+            // already emits when toggling a checkbox. Audible omits ASINs for narrators (and some
+            // authors), so seeding strictly by asin left every name-only contributor unchecked.
+            selectedAuthors = preview.authors.map { it.asin ?: it.name }.toSet(),
+            selectedNarrators = preview.narrators.map { it.asin ?: it.name }.toSet(),
             selectedSeries = preview.series.mapNotNull { it.asin }.toSet(),
             // Seeded all-on from union(current, proposed) so kept current items survive
             // the server's replace-style reconcile on apply.

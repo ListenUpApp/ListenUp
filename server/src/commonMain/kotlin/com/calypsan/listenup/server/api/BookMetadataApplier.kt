@@ -56,10 +56,13 @@ internal data class MetadataMatch(
  *  - **Scalar fields** (title, subtitle, description, publisher, language, publishYear via
  *    releaseDate) overwrite the book's value only when their flag is set; deselected fields
  *    are preserved. `asin` is always stamped (it is the match identifier).
- *  - **Contributors** are replaced PER ROLE only when that role's ASIN set is non-empty:
- *    selected authors replace the book's AUTHOR-role entries, selected narrators replace
- *    NARRATOR-role entries; an empty set leaves that role untouched. Other roles are never
- *    touched. Names resolve through [ContributorRepository.resolveOrCreate].
+ *  - **Contributors** are replaced PER ROLE only when that role's selection resolves at least one
+ *    match contributor: selected authors replace the book's AUTHOR-role entries, selected narrators
+ *    replace NARRATOR-role entries; an empty or unresolvable set leaves that role untouched. Other
+ *    roles are never touched. A selection entry is keyed on [MetadataContributorRef.asin] when
+ *    present, else [MetadataContributorRef.name] — Audible omits ASINs for narrators (and some
+ *    authors), so name is the only stable key for those. Names resolve through
+ *    [ContributorRepository.resolveOrCreate].
  *  - **Series** are replaced when [MetadataApplySelection.seriesAsins] is non-empty, else
  *    left untouched. Resolved through [SeriesRepository.resolveOrCreate].
  *  - **Genres** are reconciled to [MetadataApplySelection.genres] via the same 3-step cascade as
@@ -114,6 +117,8 @@ internal class BookMetadataApplier(
             applyGenreHierarchyBestEffort(bookId, asin, locale, selection)
             applyEnrichmentBestEffort(bookId, asin, selection)
 
+            val contributorMerge = mergeContributors(existing.contributors, match, selection)
+
             val updated =
                 existing.copy(
                     title = if (selection.title) match.title else existing.title,
@@ -123,7 +128,7 @@ internal class BookMetadataApplier(
                     language = if (selection.language) match.language else existing.language,
                     publishYear = selectedPublishYear(selection, match, existing.publishYear),
                     asin = asin,
-                    contributors = mergeContributors(existing.contributors, match, selection),
+                    contributors = contributorMerge.contributors,
                     series = mergeSeries(existing.series, match, selection),
                     // Stamp ENRICHMENT provenance for every field this apply overwrites so a later
                     // rescan preserves the enriched value instead of reverting it to file-derived data
@@ -131,7 +136,7 @@ internal class BookMetadataApplier(
                     // not a fake USER and not a blanket "audible" when another catalog won the field).
                     fieldProvenance =
                         existing.fieldProvenance.stampEnrichment(
-                            enrichedFields(selection),
+                            enrichedFields(selection, contributorMerge),
                             matched.fieldProviders,
                         ),
                 )
@@ -158,12 +163,16 @@ internal class BookMetadataApplier(
      * The fields this apply overwrites — every one is stamped [FieldSourceKind.ENRICHMENT] so a later
      * scan preserves the enriched value. This is also the *consented* set: an interactive apply is
      * selection-as-consent (a ticked field overrides even a USER pin because the apply writes directly,
-     * unconditionally). Contributors are stamped per role only when that role's ASIN set is non-empty
-     * (an empty set leaves the role untouched — see [mergeContributors]/[mergeSeries]); series/genres
-     * only when non-empty. (Background/auto enrichment, when it lands, is the caller that would narrow
-     * this consent set so USER/ENRICHMENT fields are skipped by default.)
+     * unconditionally). Contributors are stamped per role only when [contributorMerge] actually
+     * resolved + replaced that role — a selection that named a contributor absent from the match (or
+     * otherwise unresolvable) applies nothing, so it must not claim ENRICHMENT provenance either.
+     * Series/genres are stamped when non-empty. (Background/auto enrichment, when it lands, is the
+     * caller that would narrow this consent set so USER/ENRICHMENT fields are skipped by default.)
      */
-    private fun enrichedFields(selection: MetadataApplySelection): Set<BookField> =
+    private fun enrichedFields(
+        selection: MetadataApplySelection,
+        contributorMerge: ContributorMergeResult,
+    ): Set<BookField> =
         buildSet {
             // The apply always stamps the matched ASIN (it is the match identifier — see `asin = asin`
             // in the copy), so its provenance is always ENRICHMENT. Without this a rescan re-derives
@@ -175,8 +184,8 @@ internal class BookMetadataApplier(
             if (selection.publisher) add(BookField.PUBLISHER)
             if (selection.language) add(BookField.LANGUAGE)
             if (selection.releaseDate) add(BookField.PUBLISH_YEAR)
-            if (selection.authorAsins.isNotEmpty()) add(BookField.AUTHORS)
-            if (selection.narratorAsins.isNotEmpty()) add(BookField.NARRATORS)
+            if (contributorMerge.authorsApplied) add(BookField.AUTHORS)
+            if (contributorMerge.narratorsApplied) add(BookField.NARRATORS)
             if (selection.seriesAsins.isNotEmpty()) add(BookField.SERIES)
             if (selection.genres.isNotEmpty()) add(BookField.GENRES)
         }
@@ -189,27 +198,41 @@ internal class BookMetadataApplier(
     ): Int? = if (selection.releaseDate) parseYear(match.releaseDate) ?: current else current
 
     /**
+     * The result of [mergeContributors]: the merged roster plus which roles actually got replaced.
+     * [authorsApplied]/[narratorsApplied] drive [enrichedFields] so provenance is only stamped for a
+     * role that genuinely resolved — a selection naming a contributor absent from the match applies
+     * nothing and must not claim ENRICHMENT credit either.
+     */
+    private data class ContributorMergeResult(
+        val contributors: List<BookContributorPayload>,
+        val authorsApplied: Boolean,
+        val narratorsApplied: Boolean,
+    )
+
+    /**
      * Replaces a role's contributors only when the resolved replacement is non-empty; an empty
-     * ASIN set or a non-empty-but-unresolvable set leaves the role untouched. Other roles are
+     * selection or a non-empty-but-unresolvable one leaves the role untouched. Other roles are
      * never modified.
      */
     private suspend fun mergeContributors(
         existing: List<BookContributorPayload>,
         match: MetadataBook,
         selection: MetadataApplySelection,
-    ): List<BookContributorPayload> {
+    ): ContributorMergeResult {
         val merged = existing.toMutableList()
         val authors = match.authors.selected(selection.authorAsins).resolve(ContributorRole.AUTHOR)
-        if (authors.isNotEmpty()) {
+        val authorsApplied = authors.isNotEmpty()
+        if (authorsApplied) {
             merged.removeAll { it.role.equals(ContributorRole.AUTHOR.apiValue, ignoreCase = true) }
             merged += authors
         }
         val narrators = match.narrators.selected(selection.narratorAsins).resolve(ContributorRole.NARRATOR)
-        if (narrators.isNotEmpty()) {
+        val narratorsApplied = narrators.isNotEmpty()
+        if (narratorsApplied) {
             merged.removeAll { it.role.equals(ContributorRole.NARRATOR.apiValue, ignoreCase = true) }
             merged += narrators
         }
-        return merged
+        return ContributorMergeResult(merged, authorsApplied, narratorsApplied)
     }
 
     /** Replaces series only when the resolved set is non-empty; unresolvable ASINs leave series untouched. */
@@ -222,8 +245,14 @@ internal class BookMetadataApplier(
         return resolved.ifEmpty { existing }
     }
 
-    private fun List<MetadataContributorRef>.selected(asins: Set<String>): List<MetadataContributorRef> =
-        filter { it.asin != null && it.asin in asins }
+    /**
+     * Filters to the contributors the user selected, keyed on [MetadataContributorRef.asin] when
+     * present, else [MetadataContributorRef.name] — the same fallback key both the Compose and
+     * SwiftUI review sheets already emit when toggling a checkbox. Audible sends narrators (and some
+     * authors) with no ASIN at all, so gating strictly on ASIN silently dropped every one of them.
+     */
+    private fun List<MetadataContributorRef>.selected(selectedKeys: Set<String>): List<MetadataContributorRef> =
+        filter { (it.asin ?: it.name) in selectedKeys }
 
     private suspend fun List<MetadataContributorRef>.resolve(role: ContributorRole): List<BookContributorPayload> =
         map { ref ->

@@ -263,6 +263,39 @@ class MetadataViewModelTest :
             }
         }
 
+        test("selectMatch seeds every contributor selected, keyed asin ?: name — Audible omits ASINs for narrators") {
+            runTest {
+                val book =
+                    makeBook(asin = "B001", title = "Dune").copy(
+                        authors =
+                            listOf(
+                                MetadataContributorRef(asin = "A1", name = "Author One"),
+                                MetadataContributorRef(asin = null, name = "Author Two"),
+                            ),
+                        narrators = listOf(MetadataContributorRef(asin = null, name = "Narrator One")),
+                    )
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any(), any()) } returns
+                    AppResult.Success(MetadataSearchResults(listOf(book)))
+                everySuspend { repo.getBookMetadata(any(), any()) } returns AppResult.Success(book)
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
+                val ready = preview.loadState.shouldBeInstanceOf<PreviewLoadState.Ready>()
+                // "A1" keys the ASIN-bearing author; the name-only author and the (always
+                // name-only in this fixture) narrator key on their name instead — every
+                // contributor still starts checked.
+                ready.selections.selectedAuthors shouldBe setOf("A1", "Author Two")
+                ready.selections.selectedNarrators shouldBe setOf("Narrator One")
+            }
+        }
+
         test("selectMatch null preview falls back to search result data") {
             runTest {
                 val book = makeBook(title = "Fallback Title")
