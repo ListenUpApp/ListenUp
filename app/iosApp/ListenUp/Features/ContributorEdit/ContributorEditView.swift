@@ -89,6 +89,30 @@ struct ContributorEditView: View {
                 } message: {
                     Text(observer.error ?? "")
                 }
+                .alert(
+                    String(localized: "contributor.rename_collision_title"),
+                    isPresented: Binding(
+                        get: { observer.renameCollisionCandidate != nil },
+                        set: { if !$0 { observer.onDismissRenameCollision() } }
+                    ),
+                    presenting: observer.renameCollisionCandidate
+                ) { _ in
+                    Button(String(localized: "contributor.rename_collision_merge")) {
+                        observer.onConfirmMergeOnRename()
+                    }
+                    Button(String(localized: "contributor.rename_collision_keep_separate")) {
+                        observer.onKeepSeparateOnRename()
+                    }
+                    Button(String(localized: "common.cancel"), role: .cancel) {
+                        observer.onDismissRenameCollision()
+                    }
+                } message: { candidate in
+                    Text(String(
+                        format: String(localized: "contributor.rename_collision_body"),
+                        observer.name,
+                        candidate.name
+                    ))
+                }
                 .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeQueryChange("") }) {
                     ContributorMergeSheet(
                         candidates: observer.mergeCandidates,
