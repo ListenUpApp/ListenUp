@@ -2,9 +2,11 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
 
@@ -35,6 +37,18 @@ private val logger = KotlinLogging.logger {}
  * split the span — the span keeps its opening speed, which is metadata only; stats derive
  * listening time from wall-clock and content from positions, both accurate regardless.
  *
+ * **Also the in-session pause→resume auto-rewind seam (#1220).** [notePlaybackPaused] /
+ * [notePlaybackResumed] are a SEPARATE pair of methods from the trigger set above — they carry
+ * no persistence side effect of their own, so they are safe to call unconditionally from every
+ * platform's isPlaying-transition signal, even Android's (which opts OUT of routing
+ * [onPlaybackStarted]/[onPlaybackPaused] through this reporter — see [PlaybackManagerImpl]'s
+ * `persistTransitionsViaReporter`). [PlaybackManagerImpl.setPlaying] calls them on Android and
+ * Desktop. **iOS does not currently call them** — iOS's native `PlayerCoordinator` drives this
+ * reporter directly but only for the persisted trigger set; wiring `notePlaybackPaused` /
+ * `notePlaybackResumed` into its own play/pause transitions (plus registering
+ * [onAutoRewindSeek] and calling [resetAutoRewindWindow] at prepare/book-switch time) is
+ * outstanding native work, not yet done as of #1220.
+ *
  * @property progressTracker Position-persistence collaborator; always driven.
  * @property recorder Listening-event recorder; `null` on Android, non-null on
  *   iOS/Desktop/macOS. When `null`, every recording call is skipped and only [progressTracker]
@@ -42,11 +56,17 @@ private val logger = KotlinLogging.logger {}
  * @property scope Scope on which the recorder's suspend calls are launched, mirroring
  *   [ProgressTracker]'s own fire-and-forget style. Recording failures are non-fatal (the
  *   recorder logs and self-heals via orphan recovery), so they never block playback.
+ * @property localPreferences Read for `autoRewindEnabled` — the same user preference that
+ *   gates the prepare-time ladder in [PlaybackPreparer].
+ * @property nowMillis Injectable wall clock for the pause-window measurement, mirroring the
+ *   `nowMillis` seam already used by [PlaybackPreparer] / [ProgressTracker] / [SleepTimerManager].
  */
 class PlaybackProgressReporter(
     private val progressTracker: ProgressTracker,
     private val recorder: ListeningEventRecorder?,
     private val scope: CoroutineScope,
+    private val localPreferences: LocalPreferences,
+    private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     /** Playback started or resumed: save the position and open a listening span. */
     fun onPlaybackStarted(
@@ -130,6 +150,57 @@ class PlaybackProgressReporter(
      * non-null on iOS/Desktop) — see `androidPlaybackModule` / `desktopPlaybackModule`.
      */
     internal fun recorderForTest(): ListeningEventRecorder? = recorder
+
+    // ── In-session pause→resume auto-rewind (#1220) ──────────────────────────────────────
+
+    /** Wall-clock ms when playback last paused, or `null` when not currently paused (or the
+     *  window was cleared by [resetAutoRewindWindow]). */
+    private var pausedAtMs: Long? = null
+
+    /**
+     * Seeks the active player back by `rewindMs` when [notePlaybackResumed] decides a rewind
+     * applies. A TRANSIENT seek, never a persisted position — see [autoRewindMs] KDoc for why.
+     * Registered by whichever platform glue owns the real player handle: Android's
+     * `PlaybackService` (via the shared `MediaLibrarySession` player), Desktop's
+     * [PlaybackManagerImpl.startPlayback] (via its local `AudioPlayer`). `null` until wired;
+     * a computed rewind with no actuator registered is silently a no-op.
+     */
+    var onAutoRewindSeek: ((rewindMs: Long) -> Unit)? = null
+
+    /**
+     * Playback paused: record the moment so [notePlaybackResumed] can measure how long the
+     * listener was away. See class KDoc for why this is safe to call unconditionally from every
+     * platform's isPlaying-transition signal, independent of the persisted trigger set.
+     */
+    fun notePlaybackPaused() {
+        pausedAtMs = nowMillis()
+    }
+
+    /**
+     * Playback resumed after an in-session pause: apply the same graduated [autoRewindMs] ladder
+     * used at prepare-time, backing playback up via [onAutoRewindSeek]. No-op when auto-rewind is
+     * disabled, the break was too short to earn a rung, no pause was recorded (including a window
+     * cleared by [resetAutoRewindWindow] — see there for why), or no actuator is registered.
+     */
+    fun notePlaybackResumed() {
+        val pausedAt = pausedAtMs ?: return
+        pausedAtMs = null
+        if (!localPreferences.autoRewindEnabled.value) return
+        val rewindMs = autoRewindMs(nowMillis() - pausedAt)
+        if (rewindMs > 0) {
+            onAutoRewindSeek?.invoke(rewindMs)
+        }
+    }
+
+    /**
+     * Clears the in-session pause window WITHOUT applying a rewind. Call when a book activates
+     * (or playback tears down) — otherwise a pause left open on the PREVIOUS book/session would
+     * leak a transition rewind onto the next book's first play, stacking on top of the
+     * prepare-time offset [PlaybackPreparer] already applied for that book.
+     */
+    fun resetAutoRewindWindow() {
+        pausedAtMs = null
+    }
 
     /** Resume position read at prepare time — pure position concern, no recording. */
     suspend fun getResumePosition(bookId: BookId): PlaybackPosition? = progressTracker.getResumePosition(bookId)

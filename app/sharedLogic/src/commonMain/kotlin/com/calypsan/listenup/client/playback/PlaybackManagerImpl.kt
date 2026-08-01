@@ -164,6 +164,10 @@ internal class PlaybackManagerImpl(
     override fun activateBook(bookId: BookId) {
         currentBookId.value = bookId
         currentBookIdString.value = bookId.value
+        // A pause window left open by the PREVIOUS book must never leak a transition rewind
+        // onto this one's first play, stacking on top of the prepare-time offset already
+        // applied for THIS book — see PlaybackProgressReporter.resetAutoRewindWindow KDoc.
+        reporter.resetAutoRewindWindow()
     }
 
     /**
@@ -248,6 +252,16 @@ internal class PlaybackManagerImpl(
             player.seekTo(resumePositionMs)
         }
         currentPositionMs.value = resumePositionMs
+
+        // Auto-rewind-on-resume actuator (#1220) for the built-in-player (Desktop) path: the
+        // reporter owns the pause-window/ladder decision, but only this function has the
+        // AudioPlayer handle needed to actually seek. Re-registered every call so the closure
+        // always captures the CURRENT session's player, never a stale one from a prior book.
+        reporter.onAutoRewindSeek = { rewindMs ->
+            val newPositionMs = (currentPositionMs.value - rewindMs).coerceAtLeast(0L)
+            player.seekTo(newPositionMs)
+            updatePosition(newPositionMs)
+        }
 
         // Bridge player state and position back to PlaybackManager.
         // Both child launches are parented to playerObservationJob so a single
@@ -340,9 +354,22 @@ internal class PlaybackManagerImpl(
      * Update playing flag. Called by platform-specific event sources
      * (Android: MediaControllerHolder's Player.Listener; Desktop: PlaybackManager's
      * own AudioPlayer.state observation in startPlayback).
+     *
+     * The single shared isPlaying-transition seam for #1220's in-session auto-rewind: a
+     * Playing→Paused edge marks the pause moment ([PlaybackProgressReporter.notePlaybackPaused]),
+     * a Paused→Playing edge applies the graduated ladder for however long that pause lasted
+     * ([PlaybackProgressReporter.notePlaybackResumed]). Unconditional — unlike
+     * [setPlaybackState]'s persistence branches, these carry no persistence side effect, so they
+     * run the same way regardless of [persistTransitionsViaReporter] (see that reporter's KDoc for
+     * why Android is safe here too, and why iOS needs its own native wiring).
      */
     override fun setPlaying(playing: Boolean) {
+        val wasPlaying = isPlaying.value
         isPlaying.value = playing
+        when {
+            wasPlaying && !playing -> reporter.notePlaybackPaused()
+            !wasPlaying && playing -> reporter.notePlaybackResumed()
+        }
     }
 
     /**
@@ -488,6 +515,7 @@ internal class PlaybackManagerImpl(
         // buffering could leave downloads yielded until some later state change.
         playbackBandwidthCoordinator.setStreamingBuffering(false)
         playbackState.value = PlaybackState.Idle
+        reporter.resetAutoRewindWindow()
     }
 
     /**

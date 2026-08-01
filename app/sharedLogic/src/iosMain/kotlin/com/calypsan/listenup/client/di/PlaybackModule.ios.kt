@@ -105,6 +105,7 @@ internal val iosPlaybackModule: Module =
                 progressTracker = get(),
                 recorder = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
+                localPreferences = get(),
             )
         }
 
