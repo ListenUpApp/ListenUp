@@ -635,7 +635,7 @@ class PlaybackService : MediaLibraryService() {
 
     /**
      * Apply restored playback speed to ExoPlayer.
-     * Extracted to keep onAddMediaItems and onPlaybackResumption within complexity limits.
+     * Extracted to keep resolveMediaItems and onPlaybackResumption within complexity limits.
      */
     private fun applyResumeSpeed(speed: Float) {
         player?.setPlaybackSpeed(speed)
@@ -1088,10 +1088,78 @@ class PlaybackService : MediaLibraryService() {
         // ========== Playback Preparation ==========
 
         /**
-         * Called when Android Auto requests to play media items.
+         * Resolves controller-requested [MediaItem]s (voice-search queries and/or book mediaIds)
+         * to the actual playable [MediaItem]s Media3 needs, applying the restored playback speed
+         * as each book resolves. Shared by [onAddMediaItems] (the Auto "add to queue" callback)
+         * and [onSetMediaItems] (the Auto tap-to-play / voice-search callback, which additionally
+         * needs the resolved book's [PlaybackManager.PrepareResult] to compute a resume start
+         * position — see [onSetMediaItems]'s KDoc) so the two callbacks never drift on how a
+         * mediaId or voice query becomes a playable item.
          *
-         * Resolves book IDs from media items and prepares full playback timeline.
-         * Also handles voice search via requestMetadata.searchQuery (Media3 pattern).
+         * @return the resolved items, plus the last [PlaybackManager.PrepareResult] produced
+         *   while resolving [mediaItems] (null if none of them resolved to a book). "Last" rather
+         *   than "the" result because [onSetMediaItems] only relies on it when [mediaItems]
+         *   contained exactly one entry — the tap-to-play/voice-search shape.
+         */
+        private suspend fun resolveMediaItems(
+            mediaItems: List<MediaItem>,
+        ): Pair<List<MediaItem>, PlaybackManager.PrepareResult?> {
+            val resolvedItems = mutableListOf<MediaItem>()
+            var lastPrepareResult: PlaybackManager.PrepareResult? = null
+
+            for (item in mediaItems) {
+                // Check for voice search query (Media3 pattern)
+                val searchQuery = item.requestMetadata.searchQuery
+                if (searchQuery != null) {
+                    logger.info { "Voice search detected: query='$searchQuery'" }
+                    val (voiceItems, voicePrepareResult) = handleVoiceSearch(item)
+                    resolvedItems.addAll(voiceItems)
+                    if (voicePrepareResult != null) lastPrepareResult = voicePrepareResult
+                    continue
+                }
+
+                val bookId = BrowseTree.extractBookId(item.mediaId)
+                if (bookId != null) {
+                    // Prepare playback for this book
+                    val prepareResult = playbackManager.prepareForPlayback(BookId(bookId))
+                    if (prepareResult != null) {
+                        // Build MediaItems from timeline
+                        val bookItems =
+                            prepareResult.timeline.files.map { file ->
+                                MediaItem
+                                    .Builder()
+                                    .setMediaId(file.audioFileId)
+                                    .setUri(file.playbackUri)
+                                    .setMediaMetadata(
+                                        MediaMetadata
+                                            .Builder()
+                                            .setTitle(prepareResult.bookTitle)
+                                            .setArtist(prepareResult.bookAuthor)
+                                            .setAlbumTitle(prepareResult.seriesName)
+                                            .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
+                                            .build(),
+                                    ).build()
+                            }
+                        // Apply the restored playback speed to ExoPlayer
+                        applyResumeSpeed(prepareResult.resumeSpeed)
+                        resolvedItems.addAll(bookItems)
+                        lastPrepareResult = prepareResult
+                    }
+                } else {
+                    // Not a book ID, pass through as-is
+                    resolvedItems.add(item)
+                }
+            }
+
+            return resolvedItems to lastPrepareResult
+        }
+
+        /**
+         * Called when Android Auto adds media items to the queue.
+         *
+         * Resolves book IDs from media items and prepares full playback timeline via
+         * [resolveMediaItems]. Also handles voice search via requestMetadata.searchQuery (Media3
+         * pattern).
          *
          * Voice search flow:
          * 1. User says "Hey Google, play [book name] on ListenUp"
@@ -1109,50 +1177,7 @@ class PlaybackService : MediaLibraryService() {
             return CallbackToFutureAdapter.getFuture { completer ->
                 serviceScope.launch {
                     try {
-                        val resolvedItems = mutableListOf<MediaItem>()
-
-                        for (item in mediaItems) {
-                            // Check for voice search query (Media3 pattern)
-                            val searchQuery = item.requestMetadata.searchQuery
-                            if (searchQuery != null) {
-                                logger.info { "Voice search detected: query='$searchQuery'" }
-                                val voiceItems = handleVoiceSearch(item)
-                                resolvedItems.addAll(voiceItems)
-                                continue
-                            }
-
-                            val bookId = BrowseTree.extractBookId(item.mediaId)
-                            if (bookId != null) {
-                                // Prepare playback for this book
-                                val prepareResult = playbackManager.prepareForPlayback(BookId(bookId))
-                                if (prepareResult != null) {
-                                    // Build MediaItems from timeline
-                                    val bookItems =
-                                        prepareResult.timeline.files.map { file ->
-                                            MediaItem
-                                                .Builder()
-                                                .setMediaId(file.audioFileId)
-                                                .setUri(file.playbackUri)
-                                                .setMediaMetadata(
-                                                    MediaMetadata
-                                                        .Builder()
-                                                        .setTitle(prepareResult.bookTitle)
-                                                        .setArtist(prepareResult.bookAuthor)
-                                                        .setAlbumTitle(prepareResult.seriesName)
-                                                        .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
-                                                        .build(),
-                                                ).build()
-                                        }
-                                    // Apply the restored playback speed to ExoPlayer
-                                    applyResumeSpeed(prepareResult.resumeSpeed)
-                                    resolvedItems.addAll(bookItems)
-                                }
-                            } else {
-                                // Not a book ID, pass through as-is
-                                resolvedItems.add(item)
-                            }
-                        }
-
+                        val (resolvedItems, _) = resolveMediaItems(mediaItems)
                         completer.set(resolvedItems)
                     } catch (e: CancellationException) {
                         throw e
@@ -1166,13 +1191,84 @@ class PlaybackService : MediaLibraryService() {
         }
 
         /**
+         * Called when a controller sets (rather than adds to) the media items — the path Auto's
+         * tap-to-play and voice search actually take. Media3's default implementation delegates
+         * to [onAddMediaItems] and echoes back the controller-provided [startIndex]/[startPositionMs]
+         * verbatim; Auto never supplies either (`startIndex == C.INDEX_UNSET`), so without an
+         * override here every book tapped in Auto's browse list started from position zero.
+         *
+         * [startIndex] `!= C.INDEX_UNSET` means the controller expressed explicit start intent —
+         * that's the in-app [AndroidPlaybackController.setMediaQueue] path, which always supplies
+         * one — so this branch preserves [startIndex]/[startPositionMs] verbatim, keeping that path
+         * byte-identical to before this override existed.
+         *
+         * Otherwise (Auto tap-to-play / voice search): when [mediaItems] resolved to exactly one
+         * book — the shape both of those callers always send — resume it at its saved position via
+         * [PlaybackManager.PrepareResult.timeline]`.resolve(resumePositionMs)`, rather than the
+         * default index/position-zero. When more than one book resolved (or none), fall back to
+         * `C.INDEX_UNSET`/`C.TIME_UNSET`, which per [MediaSession.MediaItemsWithStartPosition]'s
+         * contract tells Media3 to apply its own default index/position.
+         */
+        override fun onSetMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: List<MediaItem>,
+            startIndex: Int,
+            startPositionMs: Long,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            logger.info { "onSetMediaItems: ${mediaItems.size} items, startIndex=$startIndex" }
+
+            return CallbackToFutureAdapter.getFuture { completer ->
+                serviceScope.launch {
+                    try {
+                        val (resolvedItems, prepareResult) = resolveMediaItems(mediaItems)
+
+                        if (startIndex != C.INDEX_UNSET) {
+                            completer.set(
+                                MediaSession.MediaItemsWithStartPosition(resolvedItems, startIndex, startPositionMs),
+                            )
+                            return@launch
+                        }
+
+                        val resumeStart =
+                            if (mediaItems.size == 1 && prepareResult != null) {
+                                prepareResult.timeline.resolve(prepareResult.resumePositionMs)
+                            } else {
+                                null
+                            }
+
+                        completer.set(
+                            if (resumeStart != null) {
+                                MediaSession.MediaItemsWithStartPosition(
+                                    resolvedItems,
+                                    resumeStart.mediaItemIndex,
+                                    resumeStart.positionInFileMs,
+                                )
+                            } else {
+                                MediaSession.MediaItemsWithStartPosition(resolvedItems, C.INDEX_UNSET, C.TIME_UNSET)
+                            },
+                        )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.error(e) { "Failed to resolve media items for onSetMediaItems" }
+                        completer.setException(e)
+                    }
+                }
+                "SetMediaItems"
+            }
+        }
+
+        /**
          * Handle voice search from Android Auto / Google Assistant.
          *
          * Extracts search query and extras from MediaItem's requestMetadata,
-         * resolves through VoiceIntentResolver, and returns playable media items.
+         * resolves through VoiceIntentResolver, and returns playable media items alongside the
+         * resolved book's [PlaybackManager.PrepareResult] (null when nothing resolved) — see
+         * [resolveMediaItems]'s KDoc for why the caller needs it too.
          */
-        private suspend fun handleVoiceSearch(item: MediaItem): List<MediaItem> {
-            val searchQuery = item.requestMetadata.searchQuery ?: return emptyList()
+        private suspend fun handleVoiceSearch(item: MediaItem): Pair<List<MediaItem>, PlaybackManager.PrepareResult?> {
+            val searchQuery = item.requestMetadata.searchQuery ?: return emptyList<MediaItem>() to null
             val extras = item.requestMetadata.extras
 
             // Extract structured hints from extras (if available)
@@ -1221,7 +1317,7 @@ class PlaybackService : MediaLibraryService() {
 
             if (bookId == null) {
                 logger.warn { "Could not resolve book ID from voice intent: $intent" }
-                return emptyList()
+                return emptyList<MediaItem>() to null
             }
 
             logger.info { "Playing book from voice search: $bookId" }
@@ -1230,25 +1326,27 @@ class PlaybackService : MediaLibraryService() {
             val prepareResult = playbackManager.prepareForPlayback(BookId(bookId))
             if (prepareResult == null) {
                 logger.error { "Failed to prepare book for voice playback: $bookId" }
-                return emptyList()
+                return emptyList<MediaItem>() to null
             }
 
             // Build MediaItems from timeline
-            return prepareResult.timeline.files.map { file ->
-                MediaItem
-                    .Builder()
-                    .setMediaId(file.audioFileId)
-                    .setUri(file.playbackUri)
-                    .setMediaMetadata(
-                        MediaMetadata
-                            .Builder()
-                            .setTitle(prepareResult.bookTitle)
-                            .setArtist(prepareResult.bookAuthor)
-                            .setAlbumTitle(prepareResult.seriesName)
-                            .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
-                            .build(),
-                    ).build()
-            }
+            val items =
+                prepareResult.timeline.files.map { file ->
+                    MediaItem
+                        .Builder()
+                        .setMediaId(file.audioFileId)
+                        .setUri(file.playbackUri)
+                        .setMediaMetadata(
+                            MediaMetadata
+                                .Builder()
+                                .setTitle(prepareResult.bookTitle)
+                                .setArtist(prepareResult.bookAuthor)
+                                .setAlbumTitle(prepareResult.seriesName)
+                                .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
+                                .build(),
+                        ).build()
+                }
+            return items to prepareResult
         }
 
         /**
