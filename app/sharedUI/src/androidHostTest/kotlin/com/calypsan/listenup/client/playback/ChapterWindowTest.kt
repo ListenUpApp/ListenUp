@@ -209,27 +209,27 @@ class ChapterWindowTest :
         }
 
         context("hasPreviousChapter / hasNextChapter") {
-            test("first chapter has no previous chapter") {
+            test("first chapter still reports a previous chapter — restart-current is always available") {
                 val window = currentChapterWindow(threeChapters, bookPositionMs = 0L, totalDurationMs)
-                hasPreviousChapter(threeChapters, window) shouldBe false
+                hasPreviousChapter() shouldBe true
                 hasNextChapter(threeChapters, window) shouldBe true
             }
 
             test("middle chapter has both a previous and a next chapter") {
                 val window = currentChapterWindow(threeChapters, bookPositionMs = 150_000L, totalDurationMs)
-                hasPreviousChapter(threeChapters, window) shouldBe true
+                hasPreviousChapter() shouldBe true
                 hasNextChapter(threeChapters, window) shouldBe true
             }
 
-            test("last chapter has no next chapter") {
+            test("last chapter still reports a previous chapter; has no next chapter") {
                 val window = currentChapterWindow(threeChapters, bookPositionMs = 260_000L, totalDurationMs)
-                hasPreviousChapter(threeChapters, window) shouldBe true
+                hasPreviousChapter() shouldBe true
                 hasNextChapter(threeChapters, window) shouldBe false
             }
 
-            test("chapterless book has neither") {
+            test("chapterless book still reports a previous window (restart-the-book) but no next") {
                 val window = currentChapterWindow(emptyList(), bookPositionMs = 50_000L, totalDurationMs)
-                hasPreviousChapter(emptyList(), window) shouldBe false
+                hasPreviousChapter() shouldBe true
                 hasNextChapter(emptyList(), window) shouldBe false
             }
         }

@@ -38,11 +38,13 @@ private const val PREVIOUS_RESTART_THRESHOLD_MS = 3_000L
  * `COMMAND_SEEK_TO_PREVIOUS`/`COMMAND_SEEK_TO_NEXT` (there is never a previous/next *media item*
  * to hop to), which is exactly what car head-unit prev/next buttons invoke. "Previous" restarts
  * the current chapter when more than [PREVIOUS_RESTART_THRESHOLD_MS] into it — standard
- * media-player behavior — otherwise it moves to the previous chapter's start. Both commands
- * (and their `_MEDIA_ITEM` variants, in case a controller prefers those) are only advertised via
- * [getState] when a previous/next chapter actually exists — [hasPreviousChapter]/
- * [hasNextChapter] — so a controller greys out the button at the first/last chapter rather than
- * firing a seek that silently restarts it.
+ * media-player behavior — otherwise it moves to the previous chapter's start (or, at the first
+ * chapter / in a chapterless book, clamps to the window's own start — a harmless restart).
+ * `COMMAND_SEEK_TO_PREVIOUS` (and its `_MEDIA_ITEM` variant) is therefore *always* advertised via
+ * [getState] — [hasPreviousChapter] — matching standard Media3/media-player UX where "previous"
+ * is never greyed out; it's always at least a restart affordance. `COMMAND_SEEK_TO_NEXT` (and its
+ * `_MEDIA_ITEM` variant) stays gated on [hasNextChapter]: past the last chapter there is genuinely
+ * nothing to skip to, so the button greys out there.
  *
  * **Invalidation.** [ForwardingSimpleBasePlayer] already invalidates state automatically on
  * every underlying-player event (play/pause, buffering, ExoPlayer-driven position
@@ -190,7 +192,7 @@ class ChapterWindowPlayer(
         chapters: List<Chapter>,
         window: ChapterWindow,
     ): Player.Commands {
-        val hasPrevious = hasPreviousChapter(chapters, window)
+        val hasPrevious = hasPreviousChapter()
         val hasNext = hasNextChapter(chapters, window)
         return buildUpon()
             .addIf(Player.COMMAND_SEEK_TO_PREVIOUS, hasPrevious)

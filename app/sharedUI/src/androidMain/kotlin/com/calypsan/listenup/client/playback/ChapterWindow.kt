@@ -110,11 +110,19 @@ fun nextChapterTarget(
     return chapters.getOrNull(window.chapterIndex + 1)?.startTime ?: window.windowStartMs
 }
 
-/** True when a chapter precedes [window]'s chapter — gates COMMAND_SEEK_TO_PREVIOUS availability. */
-fun hasPreviousChapter(
-    chapters: List<Chapter>,
-    window: ChapterWindow,
-): Boolean = chapters.isNotEmpty() && window.chapterIndex > 0
+/**
+ * Always true — `COMMAND_SEEK_TO_PREVIOUS` is never gated on a prior chapter existing.
+ *
+ * Standard Media3/media-player UX keeps "previous" available as a restart-the-current-window
+ * affordance even at the first chapter (or in a chapterless book): [previousChapterTarget]
+ * already resolves that case to a harmless clamp at the window's own start. Greying the button
+ * out here — the failure mode the design explicitly calls out to avoid — would only be correct
+ * if restart were unavailable too, which it never is. Kept as a named predicate (matching
+ * [hasNextChapter]'s shape, even though it needs no inputs) so the call site in
+ * [ChapterWindowPlayer] reads the same way for both commands, and so a future change to this
+ * rule has one place to land.
+ */
+fun hasPreviousChapter(): Boolean = true
 
 /** True when a chapter follows [window]'s chapter — gates COMMAND_SEEK_TO_NEXT availability. */
 fun hasNextChapter(
