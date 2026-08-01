@@ -1,3 +1,6 @@
+import com.calypsan.listenup.gradle.failBelowDiscoveredTestCount
+import com.calypsan.listenup.gradle.forwardKotestFilterProperties
+
 plugins {
     id("listenup.kmp.library")
     id("listenup.localization")
@@ -307,19 +310,8 @@ tasks.withType<Test>().configureEach {
     // set just under the current count fails honest deletions and trains people to edit the number
     // without reading it.
     if (name == "testAndroidHostTest") {
-        val minDiscoveredTests = 200
-        afterSuite(
-            KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
-                if (desc.parent == null && result.testCount < minDiscoveredTests) {
-                    throw GradleException(
-                        ":app:sharedUI:testAndroidHostTest discovered only ${result.testCount} " +
-                            "tests, below the floor of $minDiscoveredTests. This usually means a " +
-                            "source set silently dropped out of the compilation rather than a " +
-                            "legitimate test deletion — investigate before lowering this floor.",
-                    )
-                }
-            }),
-        )
+        forwardKotestFilterProperties()
+        failBelowDiscoveredTestCount(200, ":app:sharedUI:testAndroidHostTest")
     }
 }
 

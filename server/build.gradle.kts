@@ -1,3 +1,5 @@
+import com.calypsan.listenup.gradle.failBelowDiscoveredTestCount
+import com.calypsan.listenup.gradle.forwardKotestFilterProperties
 import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
@@ -412,6 +414,12 @@ tasks.named<Test>("jvmTest") {
             .get()
             .asFile
     systemProperty("java.io.tmpdir", testTmpDir.absolutePath)
+    // Forward Kotest's native filter properties into the forked test JVM, in case a future
+    // Kotest version wires `kotest.filter.specs` up (currently a no-op — see CLAUDE.md's
+    // "Running a single test" section). The actually-supported way to scope this lane to one
+    // spec today is Gradle's own `--tests` with the EXACT fully-qualified class name — a glob
+    // pattern fails outright here with Gradle's own "No tests found for given includes".
+    forwardKotestFilterProperties()
     // Pin the E2E retry ledger (written by FlakyServerSpecRetryExtension) to an absolute path under
     // this module's build/ — the redirected workingDir above would otherwise land it under
     // build/test-cwd/build/, where the CI summary + artifact steps don't look.
@@ -444,19 +452,7 @@ tasks.named<Test>("jvmTest") {
     // margin is generous — PR #1214 legitimately removed ~180 tests here in one change, so a floor
     // set just under the current count would fail honest work and train people to edit the number
     // without reading it.
-    val minDiscoveredTests = 2200
-    afterSuite(
-        KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
-            if (desc.parent == null && result.testCount < minDiscoveredTests) {
-                throw GradleException(
-                    ":server:jvmTest discovered only ${result.testCount} tests, below the floor " +
-                        "of $minDiscoveredTests. This usually means a source set silently dropped " +
-                        "out of the compilation rather than a legitimate test deletion — " +
-                        "investigate before lowering this floor.",
-                )
-            }
-        }),
-    )
+    failBelowDiscoveredTestCount(2200, ":server:jvmTest")
 }
 
 // Give the native test binaries a real temp directory — the native mirror of the `java.io.tmpdir`
@@ -480,19 +476,11 @@ tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest
     // collected the `kotlin.test`-annotated ones, so a lane running a third of its own suite looked
     // indistinguishable from a healthy one. The floor catches COLLAPSE, not attrition: 82 tests ran
     // green on 2026-07-25, and the bar sits far enough below that honest deletion does not trip it.
-    val minDiscoveredTests = 65
-    afterSuite(
-        KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
-            if (desc.parent == null && result.testCount < minDiscoveredTests) {
-                throw GradleException(
-                    ":server:$name discovered only ${result.testCount} tests, below the floor " +
-                        "of $minDiscoveredTests. This usually means a source set silently dropped " +
-                        "out of the compilation, or the Kotest native entry point stopped being " +
-                        "generated — investigate before lowering this floor.",
-                )
-            }
-        }),
-    )
+    // `--tests` genuinely filters this lane (KGP forwards Gradle's command-line include patterns
+    // into the compiled test binary as `--ktest_gradle_filter`), so the shared helper's
+    // command-line-filter probe stands the floor down here too; there is no Kotest
+    // system-property path on this lane (see the helper's KDoc).
+    failBelowDiscoveredTestCount(65, ":server:$name")
 }
 
 // Regenerate the committed golden schema snapshot from the runner (the SSOT after Flyway's
