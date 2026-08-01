@@ -89,6 +89,7 @@ private val logger = KotlinLogging.logger {}
 class PlaybackService : MediaLibraryService() {
     private var mediaLibrarySession: MediaLibraryService.MediaLibrarySession? = null
     private var player: ExoPlayer? = null
+    private var chapterWindowPlayer: ChapterWindowPlayer? = null
     private var notificationProvider: AudiobookNotificationProvider? = null
     private var castSessionController: CastSessionController? = null
 
@@ -127,16 +128,31 @@ class PlaybackService : MediaLibraryService() {
      * relative to the entire book for progress tracking. The PlaybackTimeline
      * handles this translation.
      *
-     * Reads the active session player — the local ExoPlayer normally, the cast
+     * Reads the active transport player — the local ExoPlayer normally, the cast
      * player while casting — so position recording follows wherever audio is playing.
      *
      * @return Book-relative position in milliseconds, or 0 if unavailable
      */
     private fun getBookRelativePosition(): Long {
-        val player = mediaLibrarySession?.player ?: player ?: return 0L
+        val player = activeTransportPlayer() ?: return 0L
         val timeline = playbackManager.currentTimeline.value ?: return player.currentPosition
         return timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
     }
+
+    /**
+     * The player actually producing audio right now — the cast player while [casting],
+     * otherwise the raw local ExoPlayer.
+     *
+     * The session player (`mediaLibrarySession?.player`) is a presentation wrapper once local
+     * playback is active: [ChapterWindowPlayer] re-presents the book's timeline as a single
+     * chapter-scoped window for system surfaces (Auto, notification, lock screen, Bluetooth), so
+     * its media-item index and positions are chapter-relative, not book-relative. Every internal
+     * consumer of transport state — progress sync, listening-event recording, the sleep timer,
+     * custom-command seek math — must read this instead of the session player, or it will
+     * silently compute against the wrong coordinate space. Cast surfaces stay file-scoped
+     * (pre-existing, tracked separately), so the cast player never needs this distinction.
+     */
+    private fun activeTransportPlayer(): Player? = if (casting) castSessionController?.castPlayer else player
 
     companion object {
         // Idle timeout tiers
@@ -163,6 +179,10 @@ class PlaybackService : MediaLibraryService() {
         // Register callback for chapter changes to update notification
         playbackManager.onChapterChanged = { chapterInfo ->
             logger.debug { "Chapter changed: ${chapterInfo.title}" }
+            // No underlying-player event fires for a chapter boundary crossed purely by elapsed
+            // playback time — invalidate() is the explicit hook so connected controllers pick up
+            // the new chapter window (see ChapterWindowPlayer's "Invalidation" KDoc).
+            chapterWindowPlayer?.invalidate()
             updateNotificationForChapter(chapterInfo)
         }
     }
@@ -250,7 +270,19 @@ class PlaybackService : MediaLibraryService() {
                 logger.error { "initializeMediaSession called before player init" }
                 return
             }
-        val builder = MediaLibrarySession.Builder(this, activePlayer, LibrarySessionCallback())
+
+        // System surfaces (Auto, notification, lock screen, Bluetooth) get the chapter-scoped
+        // presentation wrapper, never the raw local player — see ChapterWindowPlayer's class KDoc.
+        // In-app UI is unaffected: it reads PlaybackManager directly and never touches the session.
+        val wrapper =
+            ChapterWindowPlayer(
+                player = activePlayer,
+                chaptersProvider = { playbackManager.chapters.value },
+                timelineProvider = { playbackManager.currentTimeline.value },
+            )
+        chapterWindowPlayer = wrapper
+
+        val builder = MediaLibrarySession.Builder(this, wrapper, LibrarySessionCallback())
         if (sessionIntent != null) {
             builder.setSessionActivity(sessionIntent)
         }
@@ -357,8 +389,11 @@ class PlaybackService : MediaLibraryService() {
         val controller = castSessionController ?: return
         val session = mediaLibrarySession ?: return
         val local = player ?: return
+        val wrapper = chapterWindowPlayer ?: return
         // If the session isn't currently on the cast player, nothing to do (we never swapped).
-        if (session.player === local) return
+        // (Was an identity check against `local` before ChapterWindowPlayer existed — the session
+        // player is never `local` anymore even when not casting, since it's now the wrapper.)
+        if (!casting) return
         val cast = controller.castPlayer
         val index = cast.currentMediaItemIndex
         val positionInItem = cast.currentPosition
@@ -373,25 +408,27 @@ class PlaybackService : MediaLibraryService() {
         local.seekTo(index, positionInItem)
         local.playWhenReady = wasPlaying
         local.setPlaybackSpeed(speed)
-        session.player = local
+        session.player = wrapper
         casting = false // normal idle logic resumes now that the local player drives the session
         logger.info { "Swapped back to local at index=$index pos=$positionInItem" }
         saveCurrentPosition() // existing method — persists through the normal recorder
     }
 
     /**
-     * Update metadata when chapter changes.
+     * Push the chapter subtitle to session extras when the chapter changes.
      *
-     * Updates MediaMetadata on the player to show chapter info in:
-     * - Android notification
-     * - Android Auto display
-     * - Bluetooth metadata (car displays, headphones)
+     * Chapter title/track number/total count for system surfaces (Android Auto display,
+     * Bluetooth metadata, the lock screen) now come from [ChapterWindowPlayer]'s window
+     * `MediaItemData` — the single metadata source for the session player, kept in sync via
+     * [ChapterWindowPlayer.invalidate] (called alongside this function in `onCreate`'s
+     * `onChapterChanged` hook). This function's remaining job is the session-extras push:
+     * `AudiobookNotificationProvider` builds the phone notification's subtitle straight from
+     * `playbackManager.currentChapter` rather than session extras, but the extra is kept for any
+     * other consumer relying on it.
      */
     private fun updateNotificationForChapter(chapterInfo: PlaybackManager.ChapterInfo) {
         val session = mediaLibrarySession ?: return
-        val p = player ?: return
 
-        // Build chapter subtitle for display
         val chapterText =
             if (chapterInfo.isGenericTitle) {
                 "Chapter ${chapterInfo.index + 1} of ${chapterInfo.totalChapters}"
@@ -402,54 +439,20 @@ class PlaybackService : MediaLibraryService() {
         val timeRemaining = DurationFormatter.hoursMinutesOrUnderMinute(chapterInfo.remainingMs.milliseconds)
         val displaySubtitle = "$chapterText • $timeRemaining left"
 
-        // Get current book info from the existing metadata
-        val currentMetadata = p.mediaMetadata
-        val bookTitle = currentMetadata.title ?: "Unknown Book"
-        val author = currentMetadata.artist
-        val seriesName = currentMetadata.albumTitle
-        val artworkUri = currentMetadata.artworkUri
-
-        // Build updated metadata with chapter info
-        // MEDIA_TYPE_AUDIO_BOOK_CHAPTER tells Android Auto this is a chapter
-        val updatedMetadata =
-            MediaMetadata
-                .Builder()
-                .setTitle(bookTitle)
-                .setDisplayTitle(bookTitle)
-                .setSubtitle(chapterText)
-                .setDescription(displaySubtitle)
-                .setArtist(author)
-                .setAlbumTitle(seriesName)
-                .setArtworkUri(artworkUri)
-                .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER)
-                .setTrackNumber(chapterInfo.index + 1)
-                .setTotalTrackCount(chapterInfo.totalChapters)
-                .build()
-
-        // Update the current MediaItem's metadata
-        // This propagates to Android Auto, notifications, and Bluetooth
-        val currentIndex = p.currentMediaItemIndex
-        val currentItem = p.currentMediaItem
-        if (currentItem != null && currentIndex >= 0) {
-            val updatedItem =
-                currentItem
-                    .buildUpon()
-                    .setMediaMetadata(updatedMetadata)
-                    .build()
-            p.replaceMediaItem(currentIndex, updatedItem)
-        }
-
-        // Also update session extras for backward compatibility
         session.setSessionExtras(Bundle().apply { putString("chapter_subtitle", displaySubtitle) })
 
         logger.debug {
-            "Updated chapter metadata: $chapterText (${chapterInfo.index + 1}/${chapterInfo.totalChapters})"
+            "Updated chapter subtitle: $chapterText (${chapterInfo.index + 1}/${chapterInfo.totalChapters})"
         }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaLibrarySession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        // Legitimately the session player, not activeTransportPlayer(): this only issues a
+        // pause command (ForwardingSimpleBasePlayer forwards setPlayWhenReady verbatim to the
+        // wrapped local player) and checks session liveness — it never reads a chapter-relative
+        // position or index, so there's nothing here for the presentation wrapper to corrupt.
         val player = mediaLibrarySession?.player
 
         // Pause playback when user swipes app away — notification remains for resume
@@ -488,6 +491,7 @@ class PlaybackService : MediaLibraryService() {
         // when mediaLibrarySession was never built or was already null.
         mediaLibrarySession?.release()
         mediaLibrarySession = null
+        chapterWindowPlayer = null
         castSessionController?.release()
         castSessionController = null
         player?.release()
@@ -564,21 +568,24 @@ class PlaybackService : MediaLibraryService() {
             serviceScope.launch {
                 while (isActive) {
                     delay(POSITION_UPDATE_INTERVAL)
-                    // Gate + read off the ACTIVE session player — the cast player while casting, the
-                    // local ExoPlayer otherwise. The local player is paused during a cast (its audio
-                    // focus is released), so gating on player.isPlaying froze all periodic persistence
-                    // for the whole cast session: position stopped propagating to other devices and a
-                    // battery-death mid-cast lost the session + dropped the span. getBookRelativePosition()
-                    // already reads the session player, so only the gate had to follow it here.
-                    val sessionPlayer = mediaLibrarySession?.player ?: player ?: break
+                    // Gate + read off the TRANSPORT player — the cast player while casting, the
+                    // local ExoPlayer otherwise. Never the session player: once ChapterWindowPlayer
+                    // presents the session, its positions are chapter-relative and would corrupt
+                    // this data. The local player is paused during a cast (its audio focus is
+                    // released), so gating on player.isPlaying froze all periodic persistence for
+                    // the whole cast session: position stopped propagating to other devices and a
+                    // battery-death mid-cast lost the session + dropped the span.
+                    // getBookRelativePosition() already reads the transport player, so only the
+                    // gate had to follow it here.
+                    val transportPlayer = activeTransportPlayer() ?: break
                     val bookId = currentBookId ?: break
 
-                    if (sessionPlayer.isPlaying) {
+                    if (transportPlayer.isPlaying) {
                         val positionMs = getBookRelativePosition()
                         progressTracker.onPositionUpdate(
                             bookId = bookId,
                             positionMs = positionMs,
-                            speed = sessionPlayer.playbackParameters.speed,
+                            speed = transportPlayer.playbackParameters.speed,
                         )
                         listeningEventRecorder.onPeriodicTick(positionMs = positionMs)
                     }
@@ -1308,16 +1315,18 @@ class PlaybackService : MediaLibraryService() {
             customCommand: SessionCommand,
             args: Bundle,
         ): ListenableFuture<SessionResult> {
-            // Route transport controls to the ACTIVE session player — the cast player while
-            // casting — so skip/chapter/speed reach the receiver, not the paused local player.
-            // Queue order is identical on both (the index-shift guard in handoffToCast ensures
-            // a 1:1 map), so the timeline's book-relative → index/offset math holds unchanged.
+            // Route transport controls to the TRANSPORT player — the cast player while casting,
+            // the raw local ExoPlayer otherwise — so skip/chapter/speed reach the receiver, not
+            // the paused local player, and so the seek math below (which resolves book-relative
+            // positions via `timeline`) never runs against ChapterWindowPlayer's chapter-relative
+            // coordinates. Queue order is identical on both (the index-shift guard in
+            // handoffToCast ensures a 1:1 map), so the timeline's book-relative → index/offset
+            // math holds unchanged.
             val p =
-                mediaLibrarySession?.player ?: player ?: return Futures.immediateFuture(
+                activeTransportPlayer() ?: return Futures.immediateFuture(
                     SessionResult(SessionResult.RESULT_ERROR_UNKNOWN),
                 )
             val chapters = playbackManager.chapters.value
-            val currentChapter = playbackManager.currentChapter.value
             val timeline = playbackManager.currentTimeline.value
 
             when (customCommand.customAction) {
@@ -1354,22 +1363,26 @@ class PlaybackService : MediaLibraryService() {
                 }
 
                 AudiobookNotificationProvider.COMMAND_PREV_CHAPTER -> {
-                    if (currentChapter != null && chapters.isNotEmpty() && timeline != null) {
-                        val prevIndex = (currentChapter.index - 1).coerceAtLeast(0)
-                        val prevChapter = chapters[prevIndex]
-                        val resolved = timeline.resolve(prevChapter.startTime)
+                    // Shares its mapping with ChapterWindowPlayer.handleSeek's
+                    // COMMAND_SEEK_TO_PREVIOUS branch — one implementation, same
+                    // restart-vs-jump threshold everywhere (see previousChapterTarget's KDoc).
+                    if (chapters.isNotEmpty() && timeline != null) {
+                        val target =
+                            previousChapterTarget(chapters, getBookRelativePosition(), timeline.totalDurationMs)
+                        val resolved = timeline.resolve(target)
                         p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
-                        logger.debug { "Previous chapter: ${prevIndex + 1} of ${chapters.size}" }
+                        logger.debug { "Previous chapter target: ${target}ms" }
                     }
                 }
 
                 AudiobookNotificationProvider.COMMAND_NEXT_CHAPTER -> {
-                    if (currentChapter != null && chapters.isNotEmpty() && timeline != null) {
-                        val nextIndex = (currentChapter.index + 1).coerceAtMost(chapters.size - 1)
-                        val nextChapter = chapters[nextIndex]
-                        val resolved = timeline.resolve(nextChapter.startTime)
+                    // Shares its mapping with ChapterWindowPlayer.handleSeek's
+                    // COMMAND_SEEK_TO_NEXT branch — one implementation everywhere.
+                    if (chapters.isNotEmpty() && timeline != null) {
+                        val target = nextChapterTarget(chapters, getBookRelativePosition(), timeline.totalDurationMs)
+                        val resolved = timeline.resolve(target)
                         p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
-                        logger.debug { "Next chapter: ${nextIndex + 1} of ${chapters.size}" }
+                        logger.debug { "Next chapter target: ${target}ms" }
                     }
                 }
 
