@@ -189,12 +189,20 @@ internal class ContributorServiceImpl(
         }
 
         // Snapshot the affected books, then re-link junction rows source → target — both over
-        // the single SQLDelight connection, atomically in one mini-transaction. Capturing
-        // source.name into credited_as where it was NULL; books with an explicit override keep
-        // it (COALESCE).
+        // the single SQLDelight connection, atomically in one mini-transaction. A book that
+        // credits BOTH source and target in the same role (duplicate-author spellings from
+        // sloppy embedded metadata) would collide on the composite (book_id, contributor_id,
+        // role) PK when the relink re-points the source row onto the target's — so the
+        // colliding source rows are dropped first; the target's existing row (and its
+        // credited_as) survives untouched. Capturing source.name into credited_as where it was
+        // NULL; books with an explicit override keep it (COALESCE).
         val affectedBookIds =
             sqlTransaction(sqlDb) {
                 val ids = sqlDb.bookContributorsQueries.bookIdsForContributor(source.value).executeAsList()
+                sqlDb.bookContributorsQueries.deleteCollidingSourceContributorRows(
+                    to_id = target.value,
+                    from_id = source.value,
+                )
                 sqlDb.bookContributorsQueries.relinkContributorPreservingCredit(
                     source_name = sourcePayload.name,
                     to_id = target.value,

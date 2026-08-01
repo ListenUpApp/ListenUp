@@ -157,10 +157,18 @@ internal class SeriesServiceImpl(
         }
 
         // Snapshot affected book IDs, then re-link all membership rows source → target — both
-        // over the single SQLDelight connection in one mini-transaction.
+        // over the single SQLDelight connection in one mini-transaction. A book already
+        // belonging to BOTH source and target series (duplicate series entries from sloppy
+        // embedded metadata) would collide on the composite (book_id, series_id) PK when the
+        // relink re-points the source row onto the target's — so the colliding source rows are
+        // dropped first; the target's existing membership row survives untouched.
         val affectedBookIds =
             sqlTransaction(sqlDb) {
                 val ids = sqlDb.bookSeriesMembershipsQueries.bookIdsForSeries(source.value).executeAsList()
+                sqlDb.bookSeriesMembershipsQueries.deleteCollidingSourceSeriesMemberships(
+                    to_id = target.value,
+                    from_id = source.value,
+                )
                 sqlDb.bookSeriesMembershipsQueries.relinkSeries(to_id = target.value, from_id = source.value)
                 ids
             }

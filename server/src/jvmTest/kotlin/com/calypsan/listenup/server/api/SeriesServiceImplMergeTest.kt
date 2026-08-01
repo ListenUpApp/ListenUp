@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -167,6 +168,73 @@ class SeriesServiceImplMergeTest :
             }
         }
 
+        // ── Same-book collision (composite PK (book_id, series_id)) ─────────────
+
+        test("mergeSeries dedupes when a book already belongs to both source and target series") {
+            withSqlDatabase {
+                val dbs = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(dbs)
+                runTest {
+                    val sourceId = deps.seriesRepo.resolveOrCreate("The Expanse")
+                    val targetId = deps.seriesRepo.resolveOrCreate("Expanse Series")
+
+                    // b1 belongs to BOTH series entries — the duplicate-series collision case.
+                    deps.bookRepo.upsert(
+                        bookFixtureForSeriesMergeWithMemberships(
+                            "b1",
+                            "Leviathan Wakes",
+                            listOf(
+                                BookSeriesPayload(id = sourceId.value, name = "The Expanse", sequence = "1"),
+                                BookSeriesPayload(id = targetId.value, name = "Expanse Series", sequence = "1"),
+                            ),
+                        ),
+                    )
+
+                    val result = deps.service.mergeSeries(sourceId, targetId)
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    bookIdsForSeriesInTest(dbs, sourceId.value).shouldBeEmpty()
+                    bookIdsForSeriesInTest(dbs, targetId.value) shouldBe listOf("b1")
+                }
+            }
+        }
+
+        test("mergeSeries dedupes a colliding book while relinking a non-colliding book normally") {
+            withSqlDatabase {
+                val dbs = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(dbs)
+                runTest {
+                    val sourceId = deps.seriesRepo.resolveOrCreate("Source Series")
+                    val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
+
+                    // Book A belongs to both — collides.
+                    deps.bookRepo.upsert(
+                        bookFixtureForSeriesMergeWithMemberships(
+                            "book-a",
+                            "Book A",
+                            listOf(
+                                BookSeriesPayload(id = sourceId.value, name = "Source Series", sequence = "1"),
+                                BookSeriesPayload(id = targetId.value, name = "Target Series", sequence = "1"),
+                            ),
+                            rootRelPath = "books/book-a",
+                        ),
+                    )
+                    // Book B belongs only to source — relinks normally.
+                    deps.bookRepo.upsert(
+                        bookFixtureForSeriesMerge("book-b", "Book B", sourceId, rootRelPath = "books/book-b"),
+                    )
+
+                    val result = deps.service.mergeSeries(sourceId, targetId)
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    bookIdsForSeriesInTest(dbs, sourceId.value).shouldBeEmpty()
+                    bookIdsForSeriesInTest(dbs, targetId.value) shouldBe listOf("book-a", "book-b")
+                }
+            }
+        }
+
         // ── FTS reindex ────────────────────────────────────────────────────────
     })
 
@@ -244,6 +312,61 @@ private fun bookFixtureForSeriesMerge(
                     sequence = sequence,
                 ),
             ),
+        audioFiles =
+            listOf(
+                BookAudioFilePayload(
+                    id = "af-$id",
+                    index = 0,
+                    filename = "01.m4b",
+                    format = "m4b",
+                    codec = "aac",
+                    duration = 3_600_000L,
+                    size = 500_000_000L,
+                ),
+            ),
+        chapters =
+            listOf(
+                BookChapterPayload(id = "ch-$id", title = "Prologue", duration = 1_000_000L, startTime = 0L),
+            ),
+        revision = 0L,
+        updatedAt = 0L,
+        createdAt = 0L,
+        deletedAt = null,
+    )
+
+/**
+ * Builds a [BookSyncPayload] with an arbitrary set of series memberships — used by the
+ * same-book collision tests, which need more than one series entry per book.
+ */
+private fun bookFixtureForSeriesMergeWithMemberships(
+    id: String,
+    title: String,
+    seriesEntries: List<BookSeriesPayload>,
+    rootRelPath: String = "books/$id",
+): BookSyncPayload =
+    BookSyncPayload(
+        id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
+        title = title,
+        sortTitle = title,
+        subtitle = null,
+        description = null,
+        publishYear = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = false,
+        explicit = false,
+        hasScanWarning = false,
+        totalDuration = 3_600_000L,
+        cover = null,
+        rootRelPath = rootRelPath,
+        inode = null,
+        scannedAt = 1_730_000_000_000L,
+        contributors = emptyList(),
+        series = seriesEntries,
         audioFiles =
             listOf(
                 BookAudioFilePayload(

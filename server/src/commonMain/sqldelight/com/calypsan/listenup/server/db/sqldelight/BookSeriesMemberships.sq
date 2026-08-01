@@ -51,9 +51,27 @@ DELETE FROM book_series_memberships WHERE book_id = :book_id;
 deleteAllForSeries:
 DELETE FROM book_series_memberships WHERE series_id = :series_id;
 
+-- Same-book collision guard for mergeSeries (run BEFORE relinkSeries). The
+-- composite PK is (book_id, series_id); a book already belonging to BOTH the
+-- merge source and the merge target series would collide when relinkSeries
+-- re-points the source row onto that same book_id — e.g. duplicate series
+-- entries ("The Expanse" / "Expanse Series") both attached to one book from
+-- sloppy embedded metadata. The target's existing membership row already
+-- reflects the merged identity, so the source's colliding row is simply
+-- dropped.
+deleteCollidingSourceSeriesMemberships:
+DELETE FROM book_series_memberships
+WHERE series_id = :from_id
+  AND EXISTS (
+    SELECT 1 FROM book_series_memberships existing
+    WHERE existing.book_id = book_series_memberships.book_id
+      AND existing.series_id = :to_id
+  );
+
 -- Re-links every membership row from :from_id to :to_id (mergeSeries). Unlike the
 -- contributor merge there is no credited_as equivalent — the canonical name change
--- IS the intended semantic.
+-- IS the intended semantic. Must run AFTER deleteCollidingSourceSeriesMemberships so
+-- no book_id carries both a source and a target row when this UPDATE re-points series_id.
 relinkSeries:
 UPDATE book_series_memberships SET series_id = :to_id WHERE series_id = :from_id;
 
