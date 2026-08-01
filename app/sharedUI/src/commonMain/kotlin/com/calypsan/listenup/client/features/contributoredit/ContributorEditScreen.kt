@@ -49,6 +49,7 @@ import com.calypsan.listenup.client.features.contributoredit.components.Contribu
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorIdentityHeader
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorMergeDialog
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorStudioCard
+import com.calypsan.listenup.client.features.contributoredit.components.RenameCollisionDialog
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
@@ -220,6 +221,16 @@ fun ContributorEditScreen(
                 showMergeDialog = false
                 viewModel.onMergeQueryChange("")
             },
+        )
+    }
+
+    state.renameCollisionCandidate?.let { candidate ->
+        RenameCollisionDialog(
+            newName = state.name,
+            existingName = candidate.displayName,
+            onMerge = { viewModel.onEvent(ContributorEditUiEvent.ConfirmMergeOnRename) },
+            onKeepSeparate = { viewModel.onEvent(ContributorEditUiEvent.KeepSeparateOnRename) },
+            onDismiss = { viewModel.onEvent(ContributorEditUiEvent.DismissRenameCollision) },
         )
     }
 }
