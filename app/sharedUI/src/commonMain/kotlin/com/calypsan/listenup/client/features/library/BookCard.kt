@@ -492,18 +492,18 @@ private fun SelectionIndicator(
  */
 @Composable
 private fun CompletionBadge(modifier: Modifier = Modifier) {
-    val shape = cookieScallopShape()
-
     Box(
         modifier =
             modifier
                 .size(28.dp)
+                // Shadow must come from a convex shape: Skia's concave-shadow
+                // tessellator can wedge the RenderThread into an ANR on the scallop.
                 .shadow(
                     elevation = 3.dp,
-                    shape = shape,
+                    shape = CircleShape,
                 ).background(
                     color = MaterialTheme.colorScheme.tertiary,
-                    shape = shape,
+                    shape = cookieScallopShape(),
                 ),
         contentAlignment = Alignment.Center,
     ) {
