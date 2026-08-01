@@ -85,7 +85,7 @@ jobs:
           ref: ${{ needs.set-version.outputs.sha }}
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.6.0
         with:
           java-version: "21"
           distribution: temurin
@@ -179,7 +179,7 @@ jobs:
           xcode-version: '26.4.1'
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.6.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -271,7 +271,7 @@ jobs:
           ref: ${{ needs.set-version.outputs.sha }}
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v5.6.0
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -299,7 +299,7 @@ jobs:
         run: cp server/build/bin/linuxX64/releaseExecutable/server.kexe server/server-binary
 
       - name: Log in to GHCR
-        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
