@@ -171,6 +171,11 @@ class PlaybackService : MediaLibraryService() {
 
         // Search cache configuration
         private const val MAX_SEARCH_CACHE_SIZE = 5
+
+        // ExoPlayer's COMMAND_SEEK_BACK/SEEK_FORWARD increments — matches the in-app
+        // 10s-back/30s-forward skip amounts (see initializePlayer's comment for why).
+        private const val SEEK_BACK_INCREMENT_MS = 10_000L
+        private const val SEEK_FORWARD_INCREMENT_MS = 30_000L
     }
 
     override fun onCreate() {
@@ -236,6 +241,12 @@ class PlaybackService : MediaLibraryService() {
                     true,
                 ).setHandleAudioBecomingNoisy(true) // Pause when headphones unplugged
                 .setWakeMode(C.WAKE_MODE_LOCAL) // Keep CPU awake during playback
+                // Match the in-app 10s-back/30s-forward skip amounts (NowPlayingViewModel's
+                // defaults) rather than Media3's 5s/15s defaults, so head units/watches that
+                // render COMMAND_SEEK_BACK/SEEK_FORWARD (car steering-wheel buttons, Wear tiles)
+                // skip by the same amount the in-app buttons do.
+                .setSeekBackIncrementMs(SEEK_BACK_INCREMENT_MS)
+                .setSeekForwardIncrementMs(SEEK_FORWARD_INCREMENT_MS)
                 .build()
                 .apply {
                     addListener(PlayerListener())
@@ -1352,19 +1363,24 @@ class PlaybackService : MediaLibraryService() {
         /**
          * Handle playback resumption from system UI.
          *
-         * Called when user taps "Resume ListenUp" from Android Auto, Wear OS,
-         * or system notifications after device reboot.
+         * Called when user taps "Resume ListenUp" from Android Auto, Wear OS, or system
+         * notifications after device reboot.
          *
-         * Note: This callback is deprecated in Media3 1.4+ in favor of browse-based
-         * resumption via MediaLibraryService. We keep it for backward compatibility
-         * with older system UI integrations and as a fallback when browse isn't used.
+         * This is the 3-arg overload — the 2-arg `onPlaybackResumption(mediaSession, controller)`
+         * is the one that's deprecated (in favor of this one), not the reverse. [isForPlayback]
+         * distinguishes why the system is asking: `false` means it only wants the item/metadata to
+         * populate a resumption notification (e.g. right after a reboot), with no immediate
+         * intention to start audio; `true` means the user actually pressed play and playback should
+         * start once resolved. Our preparation work — reading the last-played book and resolving
+         * its start position — is needed to answer either request, so this implementation is
+         * identical for both flag values.
          */
-        @Deprecated("Kept for backward compatibility with older system UI integrations")
         override fun onPlaybackResumption(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
+            isForPlayback: Boolean,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
-            logger.info { "Playback resumption requested" }
+            logger.info { "Playback resumption requested (isForPlayback=$isForPlayback)" }
 
             return CallbackToFutureAdapter.getFuture { completer ->
                 serviceScope.launch {

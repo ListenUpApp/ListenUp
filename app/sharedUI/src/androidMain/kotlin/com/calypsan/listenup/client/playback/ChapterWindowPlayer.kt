@@ -115,10 +115,36 @@ class ChapterWindowPlayer(
             .buildUpon()
             .setPlaylist(listOf(chapterMediaItemData(baseState, context.window, context.chapters, player)))
             .setCurrentMediaItemIndex(0)
-            .setContentPositionMs(context.window.positionInWindowMs)
+            .setContentPositionMs(windowPositionSupplier(context.window))
             .setAvailableCommands(baseState.availableCommands.withChapterSeekCommands(context.chapters, context.window))
             .build()
     }
+
+    /**
+     * Live [SimpleBasePlayer.PositionSupplier] for [window]'s position, re-derived from the
+     * underlying player on every call rather than stamped once at [getState]-build time.
+     *
+     * `setContentPositionMs(Long)` freezes the position at the moment [getState] runs. That's
+     * fine for a Media3 controller, which re-polls [getState] on its own cadence and gets a fresh
+     * stamp each time — but an in-process reader holding onto a [State] between
+     * [ForwardingSimpleBasePlayer]'s automatic invalidations (see the class KDoc's "Invalidation"
+     * section) would see the position frozen at whatever it was when that [State] was built. A
+     * supplier fixes that the same way [SimpleBasePlayer.PositionSupplier.getExtrapolating] does
+     * for a raw player position, and matches [SimpleBasePlayer]'s own idiom for live-advancing
+     * positions (`setContentPositionMs(PositionSupplier)`).
+     */
+    private fun windowPositionSupplier(window: ChapterWindow): SimpleBasePlayer.PositionSupplier =
+        SimpleBasePlayer.PositionSupplier {
+            val timeline = timelineProvider()
+            if (timeline == null) {
+                // Timeline gone (playback torn down) — fall back to the position captured when
+                // this window was computed rather than crashing or returning a stale zero.
+                window.positionInWindowMs
+            } else {
+                val liveBookPositionMs = timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
+                (liveBookPositionMs - window.windowStartMs).coerceIn(0L, window.windowDurationMs)
+            }
+        }
 
     override fun handleSeek(
         mediaItemIndex: Int,
