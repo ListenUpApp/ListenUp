@@ -67,7 +67,6 @@ class NowPlayingProgressIsolationTest :
             everySuspend { bookRepository.getBookListItem(any()) } returns sampleBook()
             every { bookRepository.observeIsBookLive(any()) } returns flowOf(true)
             every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
-            every { playbackController.acquire() } returns Unit
             return NowPlayingViewModel(
                 playbackManager = fakePm,
                 bookRepository = bookRepository,
@@ -82,6 +81,7 @@ class NowPlayingProgressIsolationTest :
                 playbackPositionRepository =
                     com.calypsan.listenup.client.test.fake
                         .FakePlaybackPositionRepository(),
+                sheetState = NowPlayingSheetState(),
             )
         }
 

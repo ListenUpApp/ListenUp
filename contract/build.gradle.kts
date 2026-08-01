@@ -1,3 +1,6 @@
+import com.calypsan.listenup.gradle.failBelowDiscoveredTestCount
+import com.calypsan.listenup.gradle.forwardKotestFilterProperties
+
 plugins {
     id("listenup.kmp.library")
     alias(libs.plugins.kotlinSerialization)
@@ -73,6 +76,9 @@ kotlin {
 // Kotest uses JUnit 5 as its runner on JVM
 tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {
     useJUnitPlatform()
+    // Forward Kotest's native filter properties into the forked test JVM — see CLAUDE.md's
+    // "Running a single test" section for the supported single-spec commands per lane.
+    forwardKotestFilterProperties()
     // "Did this lane actually run?" guard, not a coverage target (canon-alignment plan A3) — a
     // collapsed classpath (a source set silently dropped from the compilation, a broken
     // dependency) still reports BUILD SUCCESSFUL with zero failures, which is worse than a run
@@ -87,19 +93,7 @@ tasks.named<org.gradle.api.tasks.testing.Test>("jvmTest") {
     // far enough below that a normal deletion does not trip it. Deliberately not a ratchet — PR #1214
     // removed ~180 server tests in one legitimate change, so a floor set just under the current count
     // would fail honest work and train people to edit the number without reading it.
-    val minDiscoveredTests = 85
-    afterSuite(
-        KotlinClosure2<TestDescriptor, TestResult, Unit>({ desc, result ->
-            if (desc.parent == null && result.testCount < minDiscoveredTests) {
-                throw GradleException(
-                    ":contract:jvmTest discovered only ${result.testCount} tests, below the floor " +
-                        "of $minDiscoveredTests. This usually means a source set silently dropped " +
-                        "out of the compilation rather than a legitimate test deletion — " +
-                        "investigate before lowering this floor.",
-                )
-            }
-        }),
-    )
+    failBelowDiscoveredTestCount(85, ":contract:jvmTest")
 }
 
 dependencies {

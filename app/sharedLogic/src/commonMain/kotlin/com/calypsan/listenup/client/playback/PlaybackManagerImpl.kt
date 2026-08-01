@@ -512,7 +512,7 @@ internal class PlaybackManagerImpl(
      * Clear the current playback error.
      * Called when user dismisses the error or error condition is resolved.
      */
-    fun clearError() {
+    override fun clearError() {
         playbackError.value = null
     }
 

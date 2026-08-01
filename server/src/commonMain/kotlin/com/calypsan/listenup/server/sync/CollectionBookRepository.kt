@@ -56,8 +56,11 @@ data class CollectionBookId(
  *  - [findBookIdsForCollection] — live book IDs for a collection
  *  - [findCollectionIdsForBook] — live collection IDs for a book
  *  - [countLiveForCollection] — count of live junction rows for a collection
+ *
+ * `open` so `jvmTest`'s `FaultInjectingCollectionBookRepository` can override [upsert] to simulate
+ * a membership-write DB fault (#1226) without a real transaction seam of its own.
  */
-class CollectionBookRepository(
+open class CollectionBookRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,

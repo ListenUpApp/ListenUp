@@ -77,6 +77,7 @@ class FakePlaybackManager : PlaybackManager {
     val startPlaybackCalls: MutableList<StartPlaybackCall> = mutableListOf()
     val reportedErrors: MutableList<PlaybackErrorUiState> = mutableListOf()
     var clearPlaybackCalls: Int = 0
+    var clearErrorCalls: Int = 0
     val setPlayingCalls: MutableList<Boolean> = mutableListOf()
     val setBufferingCalls: MutableList<Boolean> = mutableListOf()
     val setPlaybackStateCalls: MutableList<PlaybackState> = mutableListOf()
@@ -175,5 +176,10 @@ class FakePlaybackManager : PlaybackManager {
         isRecoverable: Boolean,
     ) {
         reportedErrors += PlaybackErrorUiState(message = message, isRecoverable = isRecoverable, timestampMs = 0L)
+    }
+
+    override fun clearError() {
+        clearErrorCalls += 1
+        playbackErrorFlow.value = null
     }
 }

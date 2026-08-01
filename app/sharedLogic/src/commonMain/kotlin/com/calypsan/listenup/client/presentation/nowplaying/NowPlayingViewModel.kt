@@ -61,12 +61,16 @@ private val logger = KotlinLogging.logger {}
  *
  * All command-side operations route through [PlaybackController].
  *
- * Lifecycle: Bound as a Koin `single` — survives recomposition
- * and lives for the process lifetime. `init { playbackController.acquire() }` establishes
- * the MediaController connection on first resolution and holds it for the process;
- * `onCleared` never fires, so a matching `release()` would be dead code. The
- * PlaybackController object's Koin singleton lifetime does **not** establish the
- * connection — only `acquire()` does.
+ * Lifecycle: a plain Koin `factory` — `koinViewModel()` scopes a fresh instance to each owning
+ * `ViewModelStore` (the shell's Activity-scoped store and the document viewer's nav-entry-scoped
+ * store), exactly like every other ViewModel. The two process-lifetime pieces that used to force
+ * this VM into being the app's sole `single` ViewModel now live outside it:
+ * [PlaybackController] acquisition happens once at Koin startup via
+ * `PlaybackControllerActivator`, and expand/collapse state lives in [sheetState] so every
+ * instance reads and writes the same expansion flag. A store clearing only cancels that store's
+ * instance; the next `koinViewModel()` builds a fresh one over these live singletons, so playback
+ * command state, expansion state, and the controller connection are all correct immediately —
+ * no re-served zombie instance with a permanently-cancelled `viewModelScope`.
  *
  * Exposes ~25 distinct, intent-named user actions (transport, chapter, speed,
  * sleep-timer, sheet visibility), each mapping to a single UI affordance; merging
@@ -74,7 +78,7 @@ private val logger = KotlinLogging.logger {}
  * the narrow [Suppress] (replaces the former file-level suppression).
  */
 @Suppress("TooManyFunctions")
-class NowPlayingViewModel(
+class NowPlayingViewModel internal constructor(
     private val playbackManager: PlaybackManager,
     private val bookRepository: BookRepository,
     private val sleepTimerManager: SleepTimerManager,
@@ -84,18 +88,14 @@ class NowPlayingViewModel(
     private val documentRepository: DocumentRepository,
     private val downloadRepository: DownloadRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
+    private val sheetState: NowPlayingSheetState,
 ) : ViewModel() {
     private companion object {
         const val FADE_DURATION_MS = 3000L
         const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
     }
 
-    init {
-        playbackController.acquire()
-    }
-
     private val overlayFlow = MutableStateFlow<NowPlayingOverlay>(NowPlayingOverlay.None)
-    private val isExpandedFlow = MutableStateFlow(false)
 
     private val _navActions = Channel<NowPlayingNavAction>(Channel.BUFFERED)
 
@@ -175,7 +175,7 @@ class NowPlayingViewModel(
         combine(
             nowPlayingState,
             overlayFlow,
-            isExpandedFlow,
+            sheetState.isExpanded,
             sleepTimerManager.state,
         ) { state, overlay, isExpanded, sleepTimer ->
             NowPlayingScreenState(
@@ -191,7 +191,11 @@ class NowPlayingViewModel(
                 NowPlayingScreenState(
                     state = NowPlayingState.Idle,
                     overlay = NowPlayingOverlay.None,
-                    isExpanded = false,
+                    // Read the live singleton's current value (not a hardcoded false) so a fresh
+                    // VM instance's screenState.value is correct even before the combine above
+                    // has had a chance to emit — e.g. a second koinViewModel() instance created
+                    // while the sheet is already expanded from the first instance's perspective.
+                    isExpanded = sheetState.isExpanded.value,
                     sleepTimerState = sleepTimerManager.state.value,
                 ),
         )
@@ -340,11 +344,11 @@ class NowPlayingViewModel(
     // === UI ephemera setters ===
 
     fun expand() {
-        isExpandedFlow.value = true
+        sheetState.expand()
     }
 
     fun collapse() {
-        isExpandedFlow.value = false
+        sheetState.collapse()
     }
 
     fun showChapterPicker() {
@@ -454,6 +458,10 @@ class NowPlayingViewModel(
         if (playbackManager.isPlaying.value) {
             playbackController.pause()
         } else {
+            // Clear any latched error synchronously so the mini player (hidden while
+            // NowPlayingState is Error) reappears the instant the user resumes, rather than
+            // waiting for the async Playing-state confirmation from the platform player.
+            playbackManager.clearError()
             playbackController.play()
         }
     }

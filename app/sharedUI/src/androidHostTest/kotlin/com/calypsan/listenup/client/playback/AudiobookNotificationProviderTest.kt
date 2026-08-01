@@ -235,6 +235,8 @@ private class StubPlaybackManager : PlaybackManager {
 
     override fun clearPlayback() = Unit
 
+    override fun clearError() = Unit
+
     override fun setPlaying(playing: Boolean) = Unit
 
     override fun setBuffering(buffering: Boolean) = Unit

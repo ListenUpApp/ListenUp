@@ -2,7 +2,12 @@ package com.calypsan.listenup.client.presentation.nowplaying
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDocument
+import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -72,6 +77,7 @@ class NowPlayingViewModelTest :
             val networkMonitor: NetworkMonitor = mock()
             val documentRepository: DocumentRepository = mock()
             val sleepTimerManager: SleepTimerManager = SleepTimerManager(CoroutineScope(Job()))
+            val sheetState = NowPlayingSheetState()
 
             init {
                 // Default: networkMonitor.isOnline() returns true. Tests override to false where needed.
@@ -87,10 +93,6 @@ class NowPlayingViewModelTest :
                 every { bookRepository.observeIsBookLive(any()) } returns flowOf(true)
                 // Default: documentRepository.observeDocuments returns empty list (no documents).
                 every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
-                // NowPlayingViewModel's init block calls playbackController.acquire() to
-                // establish the MediaController connection. Mokkery is strict by default
-                // and would raise CallNotMockedException without this stub.
-                every { playbackController.acquire() } returns Unit
             }
 
             fun newVm(): NowPlayingViewModel =
@@ -108,10 +110,25 @@ class NowPlayingViewModelTest :
                     playbackPositionRepository =
                         com.calypsan.listenup.client.test.fake
                             .FakePlaybackPositionRepository(),
+                    sheetState = sheetState,
                 )
         }
 
         // ========== Helpers ==========
+
+        fun sampleBook(bookId: BookId): BookListItem =
+            BookListItem(
+                id = bookId,
+                libraryId = LibraryId("lib"),
+                folderId = FolderId("folder"),
+                title = "Sample Book",
+                authors = listOf(BookContributor(id = "a1", name = "Author", roles = listOf("Author"))),
+                narrators = emptyList(),
+                duration = 100_000L,
+                coverPath = null,
+                addedAt = Timestamp(epochMillis = 1L),
+                updatedAt = Timestamp(epochMillis = 1L),
+            )
 
         fun stubPrepareResult(bookId: BookId): PrepareResult =
             PrepareResult(
@@ -178,18 +195,69 @@ class NowPlayingViewModelTest :
             Dispatchers.resetMain()
         }
 
-        // ========== lifecycle regression ==========
+        // ========== lifecycle regression (zombie-VM fix) ==========
 
-        test("init acquires the PlaybackController so MediaController connects") {
-            val fixture = TestFixture()
+        test("a fresh VM instance over the same singletons reflects live isPlaying changes") {
+            runTest(testDispatcher) {
+                // Regression for the zombie-VM bug: NowPlayingViewModel used to be a Koin `single`,
+                // so when its owning ViewModelStore cleared, onCleared() permanently cancelled its
+                // viewModelScope and Koin kept re-serving that same dead instance — its
+                // stateIn(WhileSubscribed) projections frozen forever. Now a `factory`, a "store
+                // clear" is simulated by simply building a SECOND instance from the same
+                // singletons (fakePm, sheetState) — as koinViewModel() would after the first
+                // instance's store cleared. The new instance must reflect live state immediately,
+                // proving there is no per-instance state left to zombie.
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                everySuspend { fixture.bookRepository.getBookListItem(any()) } returns sampleBook(bookId)
+                fixture.fakePm.activateBook(bookId)
 
-            fixture.newVm()
+                val firstInstance = fixture.newVm()
+                backgroundScope.launch { firstInstance.screenState.collect {} }
+                advanceUntilIdle()
 
-            // A refactor mistakenly removed acquire/release from the
-            // VM under the assumption that Koin-singleton lifetime obviated the call.
-            // It does not — only acquire() triggers MediaControllerHolder.connect().
-            // Without this call, every in-app playback command is a silent no-op.
-            verify(VerifyMode.exactly(1)) { fixture.playbackController.acquire() }
+                val secondInstance = fixture.newVm()
+                backgroundScope.launch { secondInstance.screenState.collect {} }
+                advanceUntilIdle()
+
+                fixture.fakePm.isPlayingFlow.value = true
+                advanceUntilIdle()
+                withClue("second instance must reflect live isPlaying=true from the shared PlaybackManager") {
+                    val state = secondInstance.screenState.value.state
+                    (state is NowPlayingState.Active && state.isPlaying) shouldBe true
+                }
+            }
+        }
+
+        test("collapse() on one instance is observed via a second instance's shared sheet state") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                fixture.fakePm.activateBook(BookId("book-1"))
+
+                val firstInstance = fixture.newVm()
+                backgroundScope.launch { firstInstance.screenState.collect {} }
+                advanceUntilIdle()
+                firstInstance.expand()
+                advanceUntilIdle()
+                withClue("precondition: expanded via the first instance") {
+                    firstInstance.screenState.value.isExpanded shouldBe true
+                }
+
+                // Second instance (simulating a fresh koinViewModel() after a store clear) must
+                // see the SAME expansion state — it is not per-instance anymore.
+                val secondInstance = fixture.newVm()
+                backgroundScope.launch { secondInstance.screenState.collect {} }
+                advanceUntilIdle()
+                withClue("second instance must start out expanded — shared sheet state, not per-instance") {
+                    secondInstance.screenState.value.isExpanded shouldBe true
+                }
+
+                secondInstance.collapse()
+                advanceUntilIdle()
+                withClue("collapse() on the second instance must propagate back to the first instance") {
+                    firstInstance.screenState.value.isExpanded shouldBe false
+                }
+            }
         }
 
         // ========== playBook ==========
@@ -313,6 +381,30 @@ class NowPlayingViewModelTest :
 
                 verify(VerifyMode.exactly(1)) { fixture.playbackController.play() }
                 verify(VerifyMode.not) { fixture.playbackController.pause() }
+            }
+        }
+
+        test("playPause when paused clears a latched playback error before resuming") {
+            runTest(testDispatcher) {
+                // Regression: PlaybackManagerImpl.clearError() had no callers, so a latched
+                // transient error demoted NowPlayingState to Error (hiding the mini player) until
+                // the async Playing-state confirmation arrived — or forever, if it never did.
+                // playPause's play-branch must clear it synchronously.
+                val fixture = TestFixture()
+                every { fixture.playbackController.play() } returns Unit
+                fixture.fakePm.isPlayingFlow.value = false
+                fixture.fakePm.playbackErrorFlow.value =
+                    PlaybackErrorUiState(message = "Network unavailable", isRecoverable = true, timestampMs = 1_000L)
+
+                val vm = fixture.newVm()
+                vm.playPause()
+                advanceUntilIdle()
+
+                fixture.fakePm.clearErrorCalls shouldBe 1
+                withClue("expected playbackError cleared before/with play(); got: ${fixture.fakePm.playbackErrorFlow.value}") {
+                    fixture.fakePm.playbackErrorFlow.value shouldBe null
+                }
+                verify(VerifyMode.exactly(1)) { fixture.playbackController.play() }
             }
         }
 

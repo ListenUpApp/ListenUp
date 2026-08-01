@@ -445,7 +445,7 @@ class MatchApplySelectionTest :
             }
         }
 
-        test("non-empty but unresolvable authorAsins leaves existing authors untouched") {
+        test("non-empty but unresolvable authorAsins leaves existing authors untouched, and stamps no ENRICHMENT provenance") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
@@ -458,7 +458,8 @@ class MatchApplySelectionTest :
                     val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
                     books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
                     val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, matchBook())
-                    // matchBook authors have asin "AUTH1"; select an asin that isn't in the match
+                    // matchBook authors have asin "AUTH1" and name "New Author"; select a key that
+                    // matches neither, so the role resolves to nothing and stays untouched.
                     val sel = allButCover().copy(authorAsins = setOf("NOT-IN-MATCH"), seriesAsins = setOf("NOT-IN-MATCH"))
                     a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), sel).shouldBeInstanceOf<AppResult.Success<*>>()
 
@@ -467,6 +468,79 @@ class MatchApplySelectionTest :
                         .filter { it.role.equals("author", ignoreCase = true) }
                         .single()
                         .name shouldBe "Old Author"
+                    // A selection that resolved nothing must not claim ENRICHMENT credit for AUTHORS —
+                    // otherwise a later rescan would treat the (unapplied) field as enriched and refuse
+                    // to re-derive it from the files. The seeded book was never enriched, so there is no
+                    // prior provenance entry for AUTHORS to preserve either.
+                    saved.fieldProvenance[BookField.AUTHORS].shouldBeNull()
+                }
+            }
+        }
+
+        test("a narrator with no ASIN is applied when selected by name") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    // Audible sends narrators with no ASIN at all — the match carries `asin = null`,
+                    // exactly like the wire mapper's `key.takeIf { it.isNotBlank() }` for a blank credit.
+                    val match = matchBook().copy(narrators = listOf(MetadataContributorRef(asin = null, name = "New Narrator")))
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, match)
+                    // Both review-sheet UIs key a name-only ref on its name when toggled.
+                    val sel = allButCover().copy(narratorAsins = setOf("New Narrator"))
+
+                    a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.contributors
+                        .filter { it.role.equals("narrator", ignoreCase = true) }
+                        .single()
+                        .name shouldBe "New Narrator"
+                    // The role genuinely resolved, so it IS entitled to ENRICHMENT provenance.
+                    val narratorProvenance = saved.fieldProvenance[BookField.NARRATORS].shouldNotBeNull()
+                    narratorProvenance.kind shouldBe FieldSourceKind.ENRICHMENT
+                }
+            }
+        }
+
+        test("a contributor absent from the selection is not applied, by ASIN or by name") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val books = BookRepository(sql, bus, registry, driver, contributors, series, genreRepo)
+                runTest {
+                    val oldAuthorId = contributors.resolveOrCreate("Old Author", sortName = null).value
+                    books.upsert(seedBook("b1", oldAuthorId), clientOpId = null).shouldBeInstanceOf<AppResult.Success<*>>()
+                    val match =
+                        matchBook().copy(
+                            authors =
+                                listOf(
+                                    MetadataContributorRef(asin = "AUTH1", name = "New Author"),
+                                    MetadataContributorRef(asin = null, name = "Unchecked Author"),
+                                ),
+                        )
+                    val a = applier(this@withSqlDatabase, genreRepo, books, contributors, series, match)
+                    // Only "AUTH1" is ticked — "Unchecked Author" (name-keyed, no ASIN) was left off.
+                    val sel = allButCover().copy(authorAsins = setOf("AUTH1"))
+
+                    a.apply(BookId("b1"), "B0NEW", MetadataLocale("us"), sel).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val saved = books.findById(BookId("b1"))!!
+                    saved.contributors
+                        .filter { it.role.equals("author", ignoreCase = true) }
+                        .map { it.name }
+                        .toSet() shouldBe setOf("New Author")
                 }
             }
         }
