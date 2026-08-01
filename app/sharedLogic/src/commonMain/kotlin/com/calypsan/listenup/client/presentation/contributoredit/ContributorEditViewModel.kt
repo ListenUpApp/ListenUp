@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -80,6 +81,10 @@ data class ContributorEditUiState(
     val mergeQuery: String = "",
     // Track if changes have been made
     val hasChanges: Boolean = false,
+    // Set when Save finds an existing contributor whose name matches the just-typed
+    // name under forgiving normalization. Non-null drives the rename-collision prompt;
+    // the rename is held back (not saved) until the user picks merge or keep-separate.
+    val renameCollisionCandidate: ContributorCandidate? = null,
 ) {
     /**
      * Returns the image path to display - staging if available, otherwise the original.
@@ -151,6 +156,22 @@ sealed interface ContributorEditUiEvent {
     data class UnmergeAlias(
         val aliasName: String,
     ) : ContributorEditUiEvent
+
+    // Rename-collision prompt (surfaced from Save when the new name matches an existing
+    // contributor under forgiving normalization; see [ContributorEditUiState.renameCollisionCandidate])
+
+    /**
+     * User chose to merge into [ContributorEditUiState.renameCollisionCandidate] instead of
+     * completing the rename: the contributor being edited is folded into the existing one,
+     * which survives under its own name.
+     */
+    data object ConfirmMergeOnRename : ContributorEditUiEvent
+
+    /** User chose to keep both contributors separate; the rename proceeds as typed. */
+    data object KeepSeparateOnRename : ContributorEditUiEvent
+
+    /** User dismissed the rename-collision prompt without choosing — the rename is NOT saved. */
+    data object DismissRenameCollision : ContributorEditUiEvent
 }
 
 /**
@@ -170,6 +191,8 @@ sealed interface ContributorEditNavAction {
  * - Image upload via [ImageRepository]
  * - Saving metadata changes via [UpdateContributorUseCase] (RPC-backed)
  * - Server-canonical merge/unmerge via [ContributorEditRepository]
+ * - Rename-collision prompt: Save holds back a rename that collides (under
+ *   [normalizeContributorName]) with another live contributor, offering merge or keep-separate
  * - Reactive alias display via [ContributorAliasDao] Room observation
  * - Tracking unsaved changes
  *
@@ -333,6 +356,18 @@ class ContributorEditViewModel internal constructor(
 
             is ContributorEditUiEvent.UnmergeAlias -> {
                 unmergeAlias(event.aliasName)
+            }
+
+            is ContributorEditUiEvent.ConfirmMergeOnRename -> {
+                mergeOnRename()
+            }
+
+            is ContributorEditUiEvent.KeepSeparateOnRename -> {
+                keepSeparateOnRename()
+            }
+
+            is ContributorEditUiEvent.DismissRenameCollision -> {
+                state.update { it.copy(renameCollisionCandidate = null) }
             }
         }
     }
@@ -517,7 +552,9 @@ class ContributorEditViewModel internal constructor(
     }
 
     /**
-     * Save all changes via the use case.
+     * Save all changes. If the name changed and now collides (under [normalizeContributorName])
+     * with another live contributor, the save is held back and [ContributorEditUiState.renameCollisionCandidate]
+     * is set instead — [persistChanges] runs only once the user picks merge or keep-separate.
      */
     private fun saveChanges() {
         val current = state.value
@@ -527,48 +564,141 @@ class ContributorEditViewModel internal constructor(
         }
 
         viewModelScope.launch {
-            state.update { it.copy(isSaving = true, error = null) }
+            if (current.name != originalName) {
+                val collision = findRenameCollision(current.name)
+                if (collision != null) {
+                    state.update { it.copy(renameCollisionCandidate = collision) }
+                    return@launch
+                }
+            }
+            persistChanges(current)
+        }
+    }
 
-            val result =
-                updateContributorUseCase(
-                    ContributorUpdateRequest(
-                        contributorId = current.contributorId,
-                        name = current.name,
-                        biography = current.description,
-                        website = current.website,
-                        birthDate = current.birthDate,
-                        deathDate = current.deathDate,
-                    ),
-                )
+    /**
+     * Looks for another live (non-deleted) contributor whose name normalizes equal to [newName]
+     * — a punctuation/spacing variant collision (e.g. "George R.R. Martin" vs "George R. R.
+     * Martin"). Reads the same Room-backed contributor list [mergeCandidates] draws from, but
+     * unfiltered by the merge-picker's search query and count cap.
+     */
+    private suspend fun findRenameCollision(newName: String): ContributorCandidate? {
+        val currentId = state.value.contributorId
+        val normalizedNew = normalizeContributorName(newName)
+        return contributorDao
+            .observeAll()
+            .first()
+            .asSequence()
+            .filter { it.deletedAt == null }
+            .filter { it.id.value != currentId }
+            .firstOrNull { normalizeContributorName(it.name) == normalizedNew }
+            ?.let { entity -> ContributorCandidate(id = entity.id, displayName = entity.name, bookCount = 0) }
+    }
 
-            when (result) {
+    /**
+     * Persists the metadata via the use case — the actual write, shared by the no-collision
+     * Save path and the "keep separate" choice on the rename-collision prompt.
+     */
+    private suspend fun persistChanges(current: ContributorEditUiState) {
+        state.update { it.copy(isSaving = true, error = null) }
+
+        val result =
+            updateContributorUseCase(
+                ContributorUpdateRequest(
+                    contributorId = current.contributorId,
+                    name = current.name,
+                    biography = current.description,
+                    website = current.website,
+                    birthDate = current.birthDate,
+                    deathDate = current.deathDate,
+                ),
+            )
+
+        when (result) {
+            is AppResult.Success -> {
+                // Metadata persisted — commit + upload the staged image if the user picked one.
+                commitAndUploadImageIfPending(current)
+                state.update {
+                    it.copy(
+                        isSaving = false,
+                        hasChanges = false,
+                        pendingImageData = null,
+                        pendingImageFilename = null,
+                        stagingImagePath = null,
+                    )
+                }
+                _navActions.trySend(ContributorEditNavAction.SaveSuccess)
+            }
+
+            is AppResult.Failure -> {
+                errorBus.emit(result.error)
+                logger.error { "Failed to save contributor: ${result.message}" }
+                state.update {
+                    it.copy(
+                        isSaving = false,
+                        error = "Failed to save: ${result.message}",
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * User chose to merge on the rename-collision prompt: the contributor being edited is
+     * the merge *source* (folded in, soft-deleted, its typed rename discarded) and
+     * [ContributorEditUiState.renameCollisionCandidate] is the *target* (survives under its own
+     * name — which is what collided with the typed rename in the first place). On success there
+     * is nothing left to show on this page, so we navigate back.
+     */
+    private fun mergeOnRename() {
+        val candidate = state.value.renameCollisionCandidate ?: return
+        val viewedId = state.value.contributorId
+        if (viewedId.isBlank()) {
+            logger.error { "Cannot merge: contributor ID is empty" }
+            return
+        }
+
+        viewModelScope.launch {
+            state.update { it.copy(mergeInProgress = true, renameCollisionCandidate = null, error = null) }
+
+            when (
+                val result =
+                    contributorEditRepository.mergeContributor(
+                        source = ContributorId(viewedId),
+                        target = candidate.id,
+                    )
+            ) {
                 is AppResult.Success -> {
-                    // Metadata persisted — commit + upload the staged image if the user picked one.
-                    commitAndUploadImageIfPending(current)
-                    state.update {
-                        it.copy(
-                            isSaving = false,
-                            hasChanges = false,
-                            pendingImageData = null,
-                            pendingImageFilename = null,
-                            stagingImagePath = null,
-                        )
-                    }
-                    _navActions.trySend(ContributorEditNavAction.SaveSuccess)
+                    state.update { it.copy(mergeInProgress = false) }
+                    _navActions.trySend(ContributorEditNavAction.NavigateBack)
                 }
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to save contributor: ${result.message}" }
+                    logger.error { "Failed to merge on rename: ${result.message}" }
                     state.update {
                         it.copy(
-                            isSaving = false,
-                            error = "Failed to save: ${result.message}",
+                            mergeInProgress = false,
+                            error =
+                                when (result.error) {
+                                    is ContributorError.MergeSelfTarget -> "Can't merge a contributor with itself."
+                                    is ContributorError.NotFound -> "One of these contributors no longer exists."
+                                    else -> result.error.message
+                                },
                         )
                     }
                 }
             }
         }
+    }
+
+    /**
+     * User chose to keep both contributors separate on the rename-collision prompt: clears the
+     * prompt and proceeds with the rename exactly as if no collision had been found.
+     */
+    private fun keepSeparateOnRename() {
+        if (state.value.renameCollisionCandidate == null) return
+        state.update { it.copy(renameCollisionCandidate = null) }
+        viewModelScope.launch { persistChanges(state.value) }
     }
 
     /**
