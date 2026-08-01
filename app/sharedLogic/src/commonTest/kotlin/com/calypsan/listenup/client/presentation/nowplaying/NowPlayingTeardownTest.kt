@@ -85,7 +85,6 @@ class NowPlayingTeardownTest :
             val playbackPreferences: PlaybackPreferences = mock()
             val networkMonitor: NetworkMonitor = mock()
             val documentRepository: DocumentRepository = mock()
-            every { playbackController.acquire() } returns Unit
             every { playbackController.stop() } returns Unit
             every { playbackPreferences.observeDefaultPlaybackSpeed() } returns flowOf(1.0f)
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
@@ -100,6 +99,7 @@ class NowPlayingTeardownTest :
                 documentRepository = documentRepository,
                 downloadRepository = downloadRepository,
                 playbackPositionRepository = positionRepository,
+                sheetState = NowPlayingSheetState(),
             )
         }
 
