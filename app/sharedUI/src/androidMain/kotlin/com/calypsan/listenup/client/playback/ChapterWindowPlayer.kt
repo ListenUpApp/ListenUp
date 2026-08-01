@@ -42,7 +42,7 @@ private data class ChapterSeekContext(
  * and pass through this wrapper unmodified.
  *
  * This is handed to `MediaLibrarySession.Builder` in place of the raw local player
- * (`PlaybackService`, in a follow-up change). All chapter-window math is pure and lives in
+ * (see `PlaybackService.initializeMediaSession`). All chapter-window math is pure and lives in
  * [ChapterWindow.kt][ChapterWindow] — this class is a thin [ForwardingSimpleBasePlayer] adapter
  * over it, following the same split as [ControllerTrust]/[controllerTrustOf] in
  * `ControllerGating.kt`.
