@@ -33,8 +33,13 @@ private data class ChapterSeekContext(
  * chapter, so every system playback surface (Android Auto now-playing, the phone notification,
  * the lock screen, Bluetooth/AVRCP, Wear) shows elapsed/remaining time and a seek bar for the
  * *chapter*, not the whole book or the underlying audio file — the same way a music player
- * shows the current track, not the whole album. In-app UI is unaffected; it reads
- * `PlaybackManager` directly and never touches this wrapper.
+ * shows the current track, not the whole album. In-app UI still reads `PlaybackManager`
+ * directly for its state (fed by `PlaybackService`'s own poll of the raw transport player, not
+ * a controller of this wrapper), and in-app seeks ride the `SEEK_TO_BOOK_POSITION` custom
+ * session command rather than a plain controller seek — a controller-side seek through this
+ * wrapper is reinterpreted chapter-relatively and clamped to the current chapter window, which
+ * cannot express a book position. Plain play/pause/speed controller calls are coordinate-agnostic
+ * and pass through this wrapper unmodified.
  *
  * This is handed to `MediaLibrarySession.Builder` in place of the raw local player
  * (`PlaybackService`, in a follow-up change). All chapter-window math is pure and lives in

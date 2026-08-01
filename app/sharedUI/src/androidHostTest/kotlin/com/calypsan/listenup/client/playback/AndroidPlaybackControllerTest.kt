@@ -14,8 +14,14 @@ import kotlinx.coroutines.test.runTest
  *
  * 1. acquire/release delegate to [ControllerHolder]
  * 2. isReady mirrors holder.isConnected
- * 3. All command methods are silent no-ops when controller is null (no crash)
- * 4. resolveQueuePosition index and offset arithmetic
+ * 3. All command methods are silent no-ops when controller is null (no crash) — including
+ *    [AndroidPlaybackController.seekTo], which now sends a `SEEK_TO_BOOK_POSITION` custom
+ *    command rather than resolving a cached queue; the null-controller guard fires first either
+ *    way, so no separate coverage of the custom-command send itself lives here (it's adapter
+ *    glue over a non-instantiable [MediaController], the same reasoning as `ChapterWindowPlayer`'s
+ *    "No androidHostTest for this class" KDoc).
+ * 4. resolveQueuePosition index and offset arithmetic (now [AndroidPlaybackController.setMediaQueue]'s
+ *    sole caller — see [AndroidPlaybackController.seekTo]'s KDoc for why seeks no longer use it)
  */
 class AndroidPlaybackControllerTest :
     FunSpec({
@@ -130,7 +136,8 @@ class AndroidPlaybackControllerTest :
 
         // ---------------------------------------------------------------------------
         // resolveQueuePosition — pure arithmetic, no Media3 needed
-        // Used by both setMediaQueue and seekTo call sites.
+        // Used by setMediaQueue only — seekTo rides the SEEK_TO_BOOK_POSITION custom
+        // command instead (see AndroidPlaybackController.seekTo's KDoc).
         // ---------------------------------------------------------------------------
 
         test("resolveQueuePosition returns 0 0 for empty item list") {
@@ -187,15 +194,6 @@ class AndroidPlaybackControllerTest :
             // Total duration = 150_000. seekTo(200_000) — past end.
             // Should return (1, 90_000L) — LAST item's durationMs, not controller.duration
             sut.resolveQueuePosition(items, 200_000L) shouldBe (1 to 90_000L)
-        }
-
-        test("seekTo with empty cached queue does not throw and falls back gracefully") {
-            val holder = FakeControllerHolder() // controller is always null
-            val sut = AndroidPlaybackController(holder)
-
-            // No setMediaQueue call — cachedQueue is empty. Controller is null so the
-            // null-check fires first; either way the call must not throw.
-            sut.seekTo(5_000L)
         }
     })
 

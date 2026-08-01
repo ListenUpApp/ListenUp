@@ -230,7 +230,6 @@ val playbackModule =
             MediaControllerHolder(
                 context = get(),
                 playbackManager = get(),
-                scope = get(),
             )
         }
 

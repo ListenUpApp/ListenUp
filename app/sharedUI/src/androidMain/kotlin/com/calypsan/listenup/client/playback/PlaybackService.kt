@@ -102,9 +102,11 @@ class PlaybackService : MediaLibraryService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var idleJob: Job? = null
     private var positionUpdateJob: Job? = null
+    private var uiPositionJob: Job? = null
 
     // Inject dependencies
     private val playbackManager: PlaybackManager by inject()
+    private val playbackStateWriter: PlaybackStateWriter by inject()
     private val progressTracker: ProgressTracker by inject()
     private val listeningEventRecorder: com.calypsan.listenup.client.playback.ListeningEventRecorder by inject()
     private val positionRepository: PlaybackPositionRepository by inject()
@@ -162,6 +164,10 @@ class PlaybackService : MediaLibraryService() {
 
         // Position update interval
         private const val POSITION_UPDATE_INTERVAL = 30_000L // 30 seconds
+
+        // UI-rate position poll interval — matches MediaControllerHolder's former poll cadence
+        // (see startPositionUpdates' KDoc for why this now lives here instead).
+        private const val POSITION_UI_UPDATE_INTERVAL = 250L
 
         // Search cache configuration
         private const val MAX_SEARCH_CACHE_SIZE = 5
@@ -273,7 +279,12 @@ class PlaybackService : MediaLibraryService() {
 
         // System surfaces (Auto, notification, lock screen, Bluetooth) get the chapter-scoped
         // presentation wrapper, never the raw local player — see ChapterWindowPlayer's class KDoc.
-        // In-app UI is unaffected: it reads PlaybackManager directly and never touches the session.
+        // In-app UI still reads PlaybackManager directly for its state (now fed by this service's
+        // raw-player poll — see startPositionUpdates), and in-app seeks ride the
+        // SEEK_TO_BOOK_POSITION custom command (see onCustomCommand) rather than a plain
+        // controller seek, which the wrapper would reinterpret chapter-relatively. Plain
+        // play/pause/speed controller calls are coordinate-agnostic and still go through the
+        // session unmodified.
         val wrapper =
             ChapterWindowPlayer(
                 player = activePlayer,
@@ -482,6 +493,7 @@ class PlaybackService : MediaLibraryService() {
 
         idleJob?.cancel()
         positionUpdateJob?.cancel()
+        uiPositionJob?.cancel()
 
         // Clear chapter change callback to avoid memory leaks
         playbackManager.onChapterChanged = null
@@ -591,11 +603,34 @@ class PlaybackService : MediaLibraryService() {
                     }
                 }
             }
+
+        // Second, faster poll driving in-app UI position display. This used to be
+        // MediaControllerHolder's job — it polled the MediaController it held on a 250ms loop —
+        // but the session player is now ChapterWindowPlayer, the chapter-scoped presentation
+        // wrapper (see activeTransportPlayer's KDoc), so a MediaController's coordinates are
+        // chapter-relative and can no longer feed PlaybackStateWriter.updatePositionFromMediaItem
+        // (it interprets its arguments as file coordinates). The service reads the raw transport
+        // player instead, which was never re-presented. Running it here rather than in-app also
+        // means the notification's chapter rollover (driven by playbackManager.onChapterChanged)
+        // now advances even when no UI client is bound, since the service itself keeps polling.
+        uiPositionJob?.cancel()
+        uiPositionJob =
+            serviceScope.launch {
+                while (isActive) {
+                    delay(POSITION_UI_UPDATE_INTERVAL)
+                    val p = activeTransportPlayer() ?: break
+                    if (p.isPlaying) {
+                        playbackStateWriter.updatePositionFromMediaItem(p.currentMediaItemIndex, p.currentPosition)
+                    }
+                }
+            }
     }
 
     private fun stopPositionUpdates() {
         positionUpdateJob?.cancel()
         positionUpdateJob = null
+        uiPositionJob?.cancel()
+        uiPositionJob = null
     }
 
     /**
@@ -794,7 +829,7 @@ class PlaybackService : MediaLibraryService() {
         ): MediaSession.ConnectionResult {
             val customCommands =
                 AudiobookNotificationProvider.getCustomCommands() +
-                    listOf(CustomActions.cycleSpeedCommand())
+                    listOf(CustomActions.cycleSpeedCommand(), CustomActions.seekToBookPositionCommand())
 
             // Limited to 3 custom actions by Android Auto guidelines.
             val customLayout =
@@ -1396,6 +1431,24 @@ class PlaybackService : MediaLibraryService() {
                             currentSpeed,
                         )} -> ${CustomActions.formatSpeed(newSpeed)}"
                     }
+                }
+
+                CustomActions.SEEK_TO_BOOK_POSITION -> {
+                    // The in-app seek transport (see AndroidPlaybackController.seekTo's KDoc):
+                    // book-relative because the session player is ChapterWindowPlayer, and a
+                    // controller-side seek would be reinterpreted chapter-relatively and clamped
+                    // to the current chapter window.
+                    val target = args.getLong(CustomActions.EXTRA_BOOK_POSITION_MS, -1L)
+                    if (target < 0) {
+                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_BAD_VALUE))
+                    }
+                    if (timeline != null) {
+                        val resolved = timeline.resolve(target.coerceIn(0L, timeline.totalDurationMs))
+                        p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
+                    } else {
+                        p.seekTo(target)
+                    }
+                    logger.debug { "Seek to book position: ${target}ms" }
                 }
             }
 
