@@ -1,30 +1,48 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.playback.PlaybackControllerActivator
+import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingSheetState
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import org.koin.dsl.module
 
 /**
  * Koin module providing the playback presentation layer.
  *
- * Currently exposes [NowPlayingViewModel] as the single playback VM consumed by
- * Android, Desktop, and iOS.
+ * Exposes [NowPlayingViewModel] — the playback VM consumed by Android and Desktop (iOS drives
+ * playback through its own native `PlayerCoordinator`, not this module) — plus the two
+ * process-lifetime collaborators that let it be a plain `factory` like every other ViewModel:
  *
- * Bound as `single` — the deliberate, documented exception to the "VMs are `factory`" rule (the
- * guard test `no ViewModel is registered as a Koin singleton` allows exactly this one). Its `init`
- * acquires a process-singleton playback controller (`playbackController.acquire()`) and it has two
- * `koinViewModel()` consumers in separate nav stores (the shell mini-player and the document
- * viewer), so a `factory` would create two instances and double-acquire the controller. (The earlier
- * rationale here cited `LibraryViewModel` as a `single` precedent; that is stale — `LibraryViewModel`
- * is now a `factory`, because a singleton VM zombies when its owning store is cleared.) The correct
- * end state is to extract the controller acquisition into a singleton service so this VM can become a
- * pure `factory` projection too — tracked in `docs/superpowers/followups.md`.
+ * - [PlaybackControllerActivator] (`createdAtStart = true`) acquires the `PlaybackController`
+ *   connection once at Koin startup. This used to happen in `NowPlayingViewModel.init`, which
+ *   forced the VM itself to be a `single` — the app's one documented exception to the "VMs are
+ *   `factory`" rule — because a `factory` would create a fresh instance (and double-acquire the
+ *   controller) at each of its two `koinViewModel()` consumers (the shell mini-player and the
+ *   document viewer). Extracting acquisition here removes that constraint entirely.
+ * - [NowPlayingSheetState] holds the sheet's expand/collapse `StateFlow` so every VM instance —
+ *   now one per owning store — reads and writes the SAME expansion state, rather than each
+ *   instance owning its own (which would desync the shell and document-viewer sheets).
+ *
+ * Binding [NowPlayingViewModel] as a `single` was the proximate cause of a zombie-VM bug: when
+ * either owning `ViewModelStore` cleared (an overnight Activity destroy with the process
+ * retained; popping the document viewer), `onCleared()` permanently cancelled the singleton's
+ * `viewModelScope`, and Koin kept re-serving that same dead instance forever — frozen play/pause
+ * icon, a back-swipe that fell through to the screen behind the sheet, and a mini player that
+ * never came back. As a plain `factory`, a store clearing kills only that store's VM instance;
+ * the next `koinViewModel()` call builds a fresh one over the live singletons above, so playback
+ * command state, expansion state, and the controller connection are all correct by construction.
  *
  * `viewModelOf` is not used because it ships in `koin-compose-viewmodel`, which is not on the
  * shared classpath; `factory { }` is the commonMain equivalent.
  */
 internal val playbackPresentationModule =
     module {
-        single {
+        single { NowPlayingSheetState() }
+
+        single(createdAtStart = true) {
+            PlaybackControllerActivator(playbackController = get())
+        }
+
+        factory {
             NowPlayingViewModel(
                 playbackManager = get(),
                 bookRepository = get(),
@@ -35,6 +53,7 @@ internal val playbackPresentationModule =
                 documentRepository = get(),
                 downloadRepository = get(),
                 playbackPositionRepository = get(),
+                sheetState = get(),
             )
         }
     }

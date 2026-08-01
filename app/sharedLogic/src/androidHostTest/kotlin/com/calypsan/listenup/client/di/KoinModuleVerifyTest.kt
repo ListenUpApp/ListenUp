@@ -68,7 +68,8 @@ class KoinModuleVerifyTest :
             )
         }
 
-        // Verify [playbackPresentationModule] — the single shared playback VM is bound as `single`.
+        // Verify [playbackPresentationModule] — NowPlayingViewModel is bound as `factory`, plus its
+        // two process-lifetime collaborators (PlaybackControllerActivator, NowPlayingSheetState).
         // This module was previously not covered by module.verify().
         //
         // `extraTypes` enumerates cross-module dependencies that other Koin modules satisfy.
