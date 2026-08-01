@@ -384,6 +384,30 @@ class NowPlayingViewModelTest :
             }
         }
 
+        test("playPause when paused clears a latched playback error before resuming") {
+            runTest(testDispatcher) {
+                // Regression: PlaybackManagerImpl.clearError() had no callers, so a latched
+                // transient error demoted NowPlayingState to Error (hiding the mini player) until
+                // the async Playing-state confirmation arrived — or forever, if it never did.
+                // playPause's play-branch must clear it synchronously.
+                val fixture = TestFixture()
+                every { fixture.playbackController.play() } returns Unit
+                fixture.fakePm.isPlayingFlow.value = false
+                fixture.fakePm.playbackErrorFlow.value =
+                    PlaybackErrorUiState(message = "Network unavailable", isRecoverable = true, timestampMs = 1_000L)
+
+                val vm = fixture.newVm()
+                vm.playPause()
+                advanceUntilIdle()
+
+                fixture.fakePm.clearErrorCalls shouldBe 1
+                withClue("expected playbackError cleared before/with play(); got: ${fixture.fakePm.playbackErrorFlow.value}") {
+                    fixture.fakePm.playbackErrorFlow.value shouldBe null
+                }
+                verify(VerifyMode.exactly(1)) { fixture.playbackController.play() }
+            }
+        }
+
         // ========== Skip/seek ==========
 
         test("skipForward at speed 1_5 advances by speed-multiplied delta and clamps to total") {

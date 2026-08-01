@@ -109,6 +109,15 @@ interface PlaybackManager :
      */
     fun onSpeedReset(defaultSpeed: Float)
 
+    /**
+     * Clear a latched [playbackError] immediately.
+     *
+     * Called by the VM when the user re-initiates play/resume, so the mini player reappears
+     * right away instead of waiting for the async Playing-state confirmation (which also clears
+     * it, in [PlaybackManagerImpl.setPlaybackState]) to arrive from the platform player.
+     */
+    fun clearError()
+
     // ====================================================================
     // Nested types
     //

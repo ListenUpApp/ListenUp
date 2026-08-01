@@ -458,6 +458,10 @@ class NowPlayingViewModel internal constructor(
         if (playbackManager.isPlaying.value) {
             playbackController.pause()
         } else {
+            // Clear any latched error synchronously so the mini player (hidden while
+            // NowPlayingState is Error) reappears the instant the user resumes, rather than
+            // waiting for the async Playing-state confirmation from the platform player.
+            playbackManager.clearError()
             playbackController.play()
         }
     }
