@@ -26,6 +26,9 @@ final class ContributorEditObserver {
     private(set) var aliases: [String] = []
     private(set) var mergeQuery: String = ""
     private(set) var mergeCandidates: [MergeCandidate] = []
+    /// Non-nil while Save is held back because the typed name matches an existing contributor
+    /// (punctuation/spacing-insensitive). Drives the merge-or-keep-separate alert.
+    private(set) var renameCollisionCandidate: MergeCandidate?
 
     private let viewModel: ContributorEditViewModel
     private let bridge = FlowBridge()
@@ -72,6 +75,9 @@ final class ContributorEditObserver {
     func onUnmergeAlias(_ aliasName: String) {
         viewModel.onEvent(event: ContributorEditUiEventUnmergeAlias(aliasName: aliasName))
     }
+    func onConfirmMergeOnRename() { viewModel.onEvent(event: ContributorEditUiEventConfirmMergeOnRename.shared) }
+    func onKeepSeparateOnRename() { viewModel.onEvent(event: ContributorEditUiEventKeepSeparateOnRename.shared) }
+    func onDismissRenameCollision() { viewModel.onEvent(event: ContributorEditUiEventDismissRenameCollision.shared) }
 
     private func apply(_ state: ContributorEditUiState) {
         isLoading = state.isLoading
@@ -88,6 +94,7 @@ final class ContributorEditObserver {
         error = state.error
         aliases = Array(state.aliases)
         mergeQuery = state.mergeQuery
+        renameCollisionCandidate = state.renameCollisionCandidate.map(MergeCandidate.init)
     }
 
     private func applyNav(_ action: ContributorEditNavAction) {

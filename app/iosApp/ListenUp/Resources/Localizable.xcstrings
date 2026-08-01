@@ -5801,6 +5801,46 @@
         }
       }
     },
+    "contributor.rename_collision_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "\"%1$@\" looks like the same person as \"%2$@\". Merge them into one contributor, or keep them as two separate ones."
+          }
+        }
+      }
+    },
+    "contributor.rename_collision_keep_separate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep Separate"
+          }
+        }
+      }
+    },
+    "contributor.rename_collision_merge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge"
+          }
+        }
+      }
+    },
+    "contributor.rename_collision_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Author Already Exists"
+          }
+        }
+      }
+    },
     "contributor.role_author": {
       "localizations": {
         "en": {

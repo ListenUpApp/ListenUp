@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.ContributorAliasDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
+import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
@@ -11,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.usecase.contributor.UpdateContributorUseCase
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -20,6 +22,8 @@ import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -97,6 +101,21 @@ class ContributorEditViewModelTest :
                 birthDate = null,
                 deathDate = null,
                 aliases = emptyList(),
+            )
+
+        fun createContributorEntity(
+            id: String,
+            name: String,
+        ): ContributorEntity =
+            ContributorEntity(
+                id =
+                    com.calypsan.listenup.core
+                        .ContributorId(id),
+                name = name,
+                description = null,
+                imagePath = null,
+                createdAt = Timestamp(0),
+                updatedAt = Timestamp(0),
             )
 
         beforeTest {
@@ -353,6 +372,144 @@ class ContributorEditViewModelTest :
                     viewModel.onEvent(ContributorEditUiEvent.Save)
                     advanceUntilIdle()
                     awaitItem().message shouldBe "Network error"
+                }
+            }
+        }
+
+        // ========== Rename-collision prompt ==========
+
+        test("save with a colliding rename holds back the save and surfaces the collision candidate") {
+            runTest {
+                // Given: another live contributor whose name is a punctuation variant away
+                // from the name we're about to rename into.
+                val fixture = createFixture()
+                val contributor = createContributor(name = "George Martin")
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(listOf(createContributorEntity(id = "other-1", name = "George R. R. Martin")))
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                // When: rename into a name that collides with "other-1" under normalization.
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("George R.R. Martin"))
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // Then: the rename is held back — no persist, no nav — and the candidate surfaces.
+                val candidate =
+                    viewModel.state.value.renameCollisionCandidate
+                        .shouldNotBeNull()
+                candidate.id shouldBe
+                    com.calypsan.listenup.core
+                        .ContributorId("other-1")
+                candidate.displayName shouldBe "George R. R. Martin"
+                verifySuspend(VerifyMode.not) { fixture.updateContributorUseCase.invoke(any()) }
+            }
+        }
+
+        test("confirming merge on rename merges the edited contributor into the candidate and navigates back") {
+            runTest {
+                // Given: a rename collision has surfaced.
+                val fixture = createFixture()
+                val contributor = createContributor(name = "George Martin")
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(listOf(createContributorEntity(id = "other-1", name = "George R. R. Martin")))
+                everySuspend { fixture.contributorEditRepository.mergeContributor(any(), any()) } returns
+                    AppResult.Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("George R.R. Martin"))
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // When / Then: merging folds the EDITED contributor (source) into the
+                // CANDIDATE (target) — the candidate survives under its own name.
+                viewModel.navActions.test {
+                    viewModel.onEvent(ContributorEditUiEvent.ConfirmMergeOnRename)
+                    advanceUntilIdle()
+
+                    verifySuspend(VerifyMode.exactly(1)) {
+                        fixture.contributorEditRepository.mergeContributor(
+                            com.calypsan.listenup.core
+                                .ContributorId("contributor-1"),
+                            com.calypsan.listenup.core
+                                .ContributorId("other-1"),
+                        )
+                    }
+                    verifySuspend(VerifyMode.not) { fixture.updateContributorUseCase.invoke(any()) }
+                    awaitItem() shouldBe ContributorEditNavAction.NavigateBack
+                }
+            }
+        }
+
+        test("keeping separate on rename proceeds with the save using the typed name") {
+            runTest {
+                // Given: a rename collision has surfaced.
+                val fixture = createFixture()
+                val contributor = createContributor(name = "George Martin")
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(listOf(createContributorEntity(id = "other-1", name = "George R. R. Martin")))
+                everySuspend { fixture.updateContributorUseCase.invoke(any()) } returns AppResult.Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("George R.R. Martin"))
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // When / Then: keeping separate proceeds with the rename exactly as typed.
+                viewModel.navActions.test {
+                    viewModel.onEvent(ContributorEditUiEvent.KeepSeparateOnRename)
+                    advanceUntilIdle()
+
+                    verifySuspend(VerifyMode.exactly(1)) {
+                        fixture.updateContributorUseCase.invoke(any())
+                    }
+                    verifySuspend(VerifyMode.not) {
+                        fixture.contributorEditRepository.mergeContributor(any(), any())
+                    }
+                    awaitItem() shouldBe ContributorEditNavAction.SaveSuccess
+                }
+                viewModel.state.value.renameCollisionCandidate
+                    .shouldBeNull()
+            }
+        }
+
+        test("dismissing the rename-collision prompt clears it without saving or merging") {
+            runTest {
+                // Given: a rename collision has surfaced.
+                val fixture = createFixture()
+                val contributor = createContributor(name = "George Martin")
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns contributor
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(listOf(createContributorEntity(id = "other-1", name = "George R. R. Martin")))
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.NameChanged("George R.R. Martin"))
+                viewModel.onEvent(ContributorEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // When
+                viewModel.onEvent(ContributorEditUiEvent.DismissRenameCollision)
+                advanceUntilIdle()
+
+                // Then: prompt clears, but nothing persisted or merged — the typed name is
+                // still sitting unsaved, so the user can decide again.
+                viewModel.state.value.renameCollisionCandidate
+                    .shouldBeNull()
+                viewModel.state.value.name shouldBe "George R.R. Martin"
+                verifySuspend(VerifyMode.not) { fixture.updateContributorUseCase.invoke(any()) }
+                verifySuspend(VerifyMode.not) {
+                    fixture.contributorEditRepository.mergeContributor(any(), any())
                 }
             }
         }

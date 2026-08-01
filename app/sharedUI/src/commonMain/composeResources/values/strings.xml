@@ -581,6 +581,10 @@ One beautiful library.</string>
     <string name="contributor_preview_changes">Preview Changes</string>
     <string name="contributor_remove_aliasname">Remove %1$s</string>
     <string name="contributor_remove_from_library">This will remove this contributor from your library. Books will not be deleted.</string>
+    <string name="contributor_rename_collision_body">"%1$s" looks like the same person as "%2$s". Merge them into one contributor, or keep them as two separate ones.</string>
+    <string name="contributor_rename_collision_keep_separate">Keep Separate</string>
+    <string name="contributor_rename_collision_merge">Merge</string>
+    <string name="contributor_rename_collision_title">This Author Already Exists</string>
     <string name="contributor_role_author">Author</string>
     <string name="contributor_role_narrator">Narrator</string>
     <string name="contributor_select_birth_date">Select birth date</string>

@@ -399,7 +399,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction" to 1,
             "com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState" to 4,
             "com.calypsan.listenup.client.presentation.contributoredit.ContributorEditNavAction" to 2,
-            "com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent" to 11,
+            "com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent" to 14,
             "com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataEvent" to 1,
             "com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataUiState" to 3,
             "com.calypsan.listenup.client.presentation.contributormetadata.ContributorPreviewLoadState" to 4,
