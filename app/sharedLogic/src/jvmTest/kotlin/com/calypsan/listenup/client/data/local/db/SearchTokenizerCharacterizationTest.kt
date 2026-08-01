@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
@@ -7,6 +8,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 
 /**
@@ -14,11 +16,11 @@ import io.kotest.matchers.shouldBe
  * test diff rather than as a user noticing their search got worse.
  *
  * These are characterization tests: they assert *current* behaviour, whatever it is. Their job is
- * to make a deliberate trade visible. The client indexes with `porter` (English stemming) today;
- * the server's `book_search` uses `unicode61 remove_diacritics 2`. Neither supports substring
- * matching, which is what `trigram` buys and what an audiobook library wants most — search intent
- * is dominated by titles, authors and narrators, where stemming does nothing and partial recall
- * ("undat" → *Foundation*) does a great deal.
+ * to make a deliberate trade visible. The client indexes with `trigram` today; the server's
+ * `book_search` uses `unicode61 remove_diacritics 2`. Neither supports English stemming, which is
+ * what `porter` bought and what `trigram` trades away in exchange for substring matching
+ * ("undat" → *Foundation*) — search intent is dominated by titles, authors and narrators, where
+ * stemming does nothing and partial recall does a great deal.
  *
  * Each test names which tokenizer it expects to satisfy it, so the pair reads as a ledger of the
  * trade rather than a set of assertions someone might "fix" in the wrong direction.
@@ -119,5 +121,78 @@ class SearchTokenizerCharacterizationTest :
             val hits = db.searchDao().searchBooks(query = "it")
 
             hits.shouldBeEmpty()
+        }
+
+        // ---- Punctuated names route through QueryUtils.toFtsQuery, not a raw bareword --------
+        //
+        // The trigram tokenizer itself has no trouble with "." or "'" or "-" — the bug lived
+        // entirely in how the client BUILT the MATCH query string. An unquoted bareword may only
+        // contain ASCII alphanumerics, `_`, and codepoints above 127; a "." in "R.R." or a "-" in
+        // "Anne-Marie" aborts FTS5's query parser before trigram ever sees the text. Quoting each
+        // token (QueryUtils.toFtsQuery's fix) makes the punctuation literal instead of a query
+        // parser error. These seed real punctuated names into books_fts and drive the query
+        // through the actual production query builder, so a regression here is a regression a
+        // user would hit.
+
+        suspend fun seedPunctuationFixtures(db: ListenUpDatabase) {
+            seedIndexedBook(db, id = "p1", title = "George R.R. Martin")
+            seedIndexedBook(db, id = "p2", title = "James S.A. Corey")
+            seedIndexedBook(db, id = "p3", title = "O'Brien")
+            seedIndexedBook(db, id = "p4", title = "Anne-Marie Duff")
+            seedIndexedBook(db, id = "p5", title = "Brandon Sanderson")
+        }
+
+        test("a name with embedded periods matches — FAILED before per-token quoting") {
+            val db = createInMemoryTestDatabase()
+            seedPunctuationFixtures(db)
+
+            val hits = db.searchDao().searchBooks(query = QueryUtils.toSanitizedFtsQuery("George R.R. Martin"))
+
+            hits.map { it.book.id.value } shouldContain "p1"
+        }
+
+        test("extra whitespace around the periods still matches — FAILED before per-token quoting") {
+            val db = createInMemoryTestDatabase()
+            seedPunctuationFixtures(db)
+
+            val hits = db.searchDao().searchBooks(query = QueryUtils.toSanitizedFtsQuery("George R. R. Martin"))
+
+            hits.map { it.book.id.value } shouldContain "p1"
+        }
+
+        test("a mid-typing partial name matches via prefix, periods and all") {
+            val db = createInMemoryTestDatabase()
+            seedPunctuationFixtures(db)
+
+            val hits = db.searchDao().searchBooks(query = QueryUtils.toSanitizedFtsQuery("George R."))
+
+            hits.map { it.book.id.value } shouldContain "p1"
+        }
+
+        test("an apostrophe in a surname matches") {
+            val db = createInMemoryTestDatabase()
+            seedPunctuationFixtures(db)
+
+            val hits = db.searchDao().searchBooks(query = QueryUtils.toSanitizedFtsQuery("O'Bri"))
+
+            hits.map { it.book.id.value } shouldContain "p3"
+        }
+
+        test("a hyphenated first name matches") {
+            val db = createInMemoryTestDatabase()
+            seedPunctuationFixtures(db)
+
+            val hits = db.searchDao().searchBooks(query = QueryUtils.toSanitizedFtsQuery("Anne-Marie"))
+
+            hits.map { it.book.id.value } shouldContain "p4"
+        }
+
+        test("plain-name prefix matching still works — regression guard") {
+            val db = createInMemoryTestDatabase()
+            seedPunctuationFixtures(db)
+
+            val hits = db.searchDao().searchBooks(query = QueryUtils.toSanitizedFtsQuery("Brandon Sander"))
+
+            hits.map { it.book.id.value } shouldContain "p5"
         }
     })

@@ -115,14 +115,17 @@ class ContributorRepositoryTest :
             }
         }
 
-        test("a query with FTS special characters is sanitized and still searches locally") {
+        test("a query with FTS special characters is quoted per-token, not stripped") {
             runTest {
                 val searchDao = mock<SearchDao>(MockMode.autoUnit)
                 everySuspend { searchDao.searchContributors(any(), any()) } returns emptyList()
 
                 createRepository(searchDao).searchContributors("test*()\":")
 
-                verifySuspend { searchDao.searchContributors(any(), any()) }
+                // Punctuation is neutralized by per-token quoting (QueryUtils.toFtsQuery), not by
+                // stripping it out — a stripped-character query would corrupt punctuated names
+                // like "O'Brien" or "George R.R. Martin".
+                verifySuspend { searchDao.searchContributors("\"test*()\"\":\"*", any()) }
             }
         }
 
