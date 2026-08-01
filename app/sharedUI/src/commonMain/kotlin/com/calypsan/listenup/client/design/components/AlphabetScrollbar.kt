@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -317,7 +318,10 @@ fun AlphabetScrollbar(
                                     y = (selectedLetterY - 36.dp.toPx()).toInt(),
                                 )
                             }.size(72.dp)
-                            .shadow(elevation = 12.dp, shape = cookieScallopShape())
+                            // Shadow must come from a convex shape: Skia's concave-shadow
+                            // tessellator can wedge the RenderThread for seconds on the
+                            // scallop path, freezing input until the system ANRs the app.
+                            .shadow(elevation = 12.dp, shape = CircleShape)
                             .clip(cookieScallopShape())
                             .background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center,
