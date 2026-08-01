@@ -74,12 +74,20 @@ fun principalFor(
  * Builds the shared [CollectionAccessHarness] over this migrated test db. The [bus] and
  * [SyncRegistry] are shared across every repo (matching production), so the collection service and
  * the book repo publish onto the same change bus.
+ *
+ * [collectionBookRepo] defaults to a real [CollectionBookRepository] over this db; a guard testing
+ * a failed membership write (e.g. #1226) supplies a [FaultInjectingCollectionBookRepository] built
+ * against the same `(bus, registry)` pair instead, so the rest of the graph is unchanged.
  */
-internal fun SqlTestDatabases.collectionAccessHarness(): CollectionAccessHarness {
+internal fun SqlTestDatabases.collectionAccessHarness(
+    collectionBookRepo: (bus: ChangeBus, registry: SyncRegistry) -> CollectionBookRepository = { bus, registry ->
+        CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
+    },
+): CollectionAccessHarness {
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val collectionRepo = CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver)
-    val collectionBookRepo = CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
+    val collectionBookRepo = collectionBookRepo(bus, registry)
     val grantRepo = CollectionGrantRepository(db = sql, bus = bus, registry = registry, driver = driver)
     val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
     val revisionTouch = FakeBookRevisionTouch()
