@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.CollectionSummary
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
@@ -24,6 +25,7 @@ import com.calypsan.listenup.server.auth.toContract
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.services.BookRevisionTouch
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -33,6 +35,8 @@ import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
+private val log = loggerFor<CollectionServiceImpl>()
 
 private const val LIST_BOOKS_MIN = 1
 private const val LIST_BOOKS_MAX = 1000
@@ -52,6 +56,48 @@ private const val BOOK_LOCK_STRIPES = 64
  * comfortably covers every realistic single collection mutation while capping the pathological case.
  */
 internal const val DELTA_MAX_BOOKS = 200
+
+/**
+ * Logs a discarded `collection_books` upsert [error] for [bookId]/[collectionId], tagged [op] —
+ * #1226's three call sites ([CollectionServiceImpl.setBookCollections],
+ * [CollectionServiceImpl.releaseBooks], the reconcile) that used to swallow this silently.
+ */
+private fun logFailedMembershipWrite(
+    op: String,
+    bookId: String,
+    collectionId: String,
+    error: AppError,
+) {
+    log.error { "$op: membership write failed for book=$bookId collection=$collectionId — $error" }
+}
+
+/**
+ * Logs that [op] skipped the ALL_BOOKS reconcile for [bookId] after a failed membership write
+ * above it — see [CollectionServiceImpl.setBookCollections] / [CollectionServiceImpl.releaseBooks].
+ */
+private fun logSkippedReconcile(
+    op: String,
+    bookId: String,
+) {
+    log.warn { "$op: skipping reconcile for book=$bookId after a failed membership write" }
+}
+
+/**
+ * Upserts [payload] via this repository, logging (tagged [op]) and returning `false` on a write
+ * failure instead of discarding the [AppResult] — #1226's single choke point for the three call
+ * sites in [CollectionServiceImpl] that used to swallow this silently.
+ */
+private suspend fun CollectionBookRepository.upsertOrLog(
+    op: String,
+    payload: CollectionBookSyncPayload,
+): Boolean {
+    val result = upsert(payload)
+    if (result is AppResult.Failure) {
+        logFailedMembershipWrite(op, payload.bookId, payload.collectionId, result.error)
+        return false
+    }
+    return true
+}
 
 /**
  * Builds the recipient-agnostic [AccessScope] naming the entities an access change touched, or
@@ -389,8 +435,14 @@ internal class CollectionServiceImpl(
             for (collectionId in removed) {
                 collectionBookRepo.softDelete(collectionId = collectionId, bookId = bookId.value)
             }
+            // A book whose membership write FAILED must never be reconciled below: reconcile derives
+            // ALL_BOOKS membership from the live junction rows, so a book that silently failed to join
+            // its intended (possibly private) collection would read back as an uncollected orphan and
+            // get re-homed into the everyone-visible ALL_BOOKS substrate — a silent access widening.
+            // Staying in limbo (unchanged) until the next mutation is the acceptable failure mode.
+            var hadFailedWrite = false
             for (collectionId in added) {
-                collectionBookRepo.upsert(
+                val payload =
                     CollectionBookSyncPayload(
                         id = Uuid.random().toString(),
                         collectionId = collectionId,
@@ -398,8 +450,8 @@ internal class CollectionServiceImpl(
                         createdAt = clock.now().toEpochMilliseconds(),
                         revision = 0L,
                         deletedAt = null,
-                    ),
-                )
+                    )
+                if (!collectionBookRepo.upsertOrLog("setBookCollections", payload)) hadFailedWrite = true
             }
 
             // Changing the book's collection set changes who can see the book. Every enumerable user
@@ -416,7 +468,12 @@ internal class CollectionServiceImpl(
             // Derive ALL_BOOKS from the resulting real set: in ALL_BOOKS iff no real membership remains
             // (and not held in INBOX). This drops a curated book out of the everyone-collection (the
             // #680/#730 leak) and re-homes an empty target set into ALL_BOOKS instead of orphaning it.
-            reconcileSystemMembership(bookId.value)
+            // Skipped when a write above failed — see [hadFailedWrite].
+            if (!hadFailedWrite) {
+                reconcileSystemMembership(bookId.value)
+            } else {
+                logSkippedReconcile("setBookCollections", bookId.value)
+            }
         }
         return AppResult.Success(Unit)
     }
@@ -722,12 +779,19 @@ internal class CollectionServiceImpl(
         // cannot nest inside a non-suspend SQLDelight transaction body. The pre-flight validation
         // above kept the release typed; a partial failure here is the same risk the prior outer
         // Exposed transaction carried, since it never took the SQLite write lock anyway.
+        //
+        // A book whose target write FAILS is recorded in [failedBookIds] and excluded from the
+        // reconcile pass below: the inbox tombstone can still have committed for that book, so
+        // reconcile would otherwise read back zero real memberships and re-home it into the
+        // everyone-visible ALL_BOOKS substrate — silently publishing a book meant for a private
+        // collection. Staying held/unchanged until the next mutation is the acceptable outcome.
+        val failedBookIds = mutableSetOf<String>()
         for ((bookId, targetCollectionIds) in assignments) {
             collectionBookRepo.softDelete(collectionId = inboxId, bookId = bookId)
             // Empty target → release to ALL_BOOKS so the book stays publicly visible.
             val resolvedTargets = targetCollectionIds.ifEmpty { listOfNotNull(allBooksId) }
             for (targetId in resolvedTargets) {
-                collectionBookRepo.upsert(
+                val payload =
                     CollectionBookSyncPayload(
                         id = Uuid.random().toString(),
                         collectionId = targetId,
@@ -735,8 +799,8 @@ internal class CollectionServiceImpl(
                         createdAt = clock.now().toEpochMilliseconds(),
                         revision = 0L,
                         deletedAt = null,
-                    ),
-                )
+                    )
+                if (!collectionBookRepo.upsertOrLog("releaseBooks", payload)) failedBookIds += bookId
             }
         }
 
@@ -753,8 +817,13 @@ internal class CollectionServiceImpl(
         // loop-invariant system-collection lookups across the whole release.
         // One book lock at a time — never two at once — so a bulk reconcile serialises against a
         // concurrent single-book mutation without any lock-ordering deadlock. See [bookLocks].
+        // Books with a failed membership write above are excluded — see [failedBookIds].
         val lookups = SystemMembershipLookups()
         for (bookId in assignments.keys) {
+            if (bookId in failedBookIds) {
+                logSkippedReconcile("releaseBooks", bookId)
+                continue
+            }
             bookLock(bookId).withLock { reconcileSystemMembership(bookId, lookups) }
         }
         return AppResult.Success(Unit)
@@ -845,7 +914,7 @@ internal class CollectionServiceImpl(
                         .getOrElse { return }
                         .id.value
                         .also { lookups.noteAllBooksCreated(libraryId, it) }
-            collectionBookRepo.upsert(
+            val payload =
                 CollectionBookSyncPayload(
                     id = Uuid.random().toString(),
                     collectionId = id,
@@ -853,8 +922,8 @@ internal class CollectionServiceImpl(
                     createdAt = clock.now().toEpochMilliseconds(),
                     revision = 0L,
                     deletedAt = null,
-                ),
-            )
+                )
+            if (!collectionBookRepo.upsertOrLog("reconcileSystemMembership", payload)) return
             notifyAccessChanged(listOf(id), listOf(bookId))
             bookRevisionTouch.touchRevision(BookId(bookId))
             return
