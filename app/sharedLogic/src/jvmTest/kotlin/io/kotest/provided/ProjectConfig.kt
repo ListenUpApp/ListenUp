@@ -97,6 +97,12 @@ private object GlobalKoinIsolationListener :
  * all attempts and stays red, while a transient hiccup gets a clean re-run instead of a false red.
  * Each retry is logged so a flaking test stays visible in CI output rather than being silently masked.
  *
+ * **Poisoned victims are retried regardless of spec.** A leaf in ANY spec that fails with
+ * kotlinx-coroutines-test's `UncaughtExceptionsBeforeTest` never ran its own body — a prior test
+ * leaked an uncaught background exception that `runTest` reports at entry (see
+ * [retriesForPoisoning] for the kotlinx.rpc teardown race behind it) — so it too gets the bounded
+ * re-run instead of turning an unrelated suite red.
+ *
  * Between attempts the global Koin context is stopped and a short [RETRY_DELAY_MS] elapses, giving any
  * late async `stopKoin()` from the failed attempt time to drain — otherwise the retry's
  * `install(Koin)` could hit "Koin already started" and fail deterministically.
@@ -177,16 +183,27 @@ private object HeavyweightE2ERetryExtension :
         testCase: TestCase,
         execute: suspend (TestCase) -> TestResult,
     ): TestResult {
-        if (!isHeavyweightE2ELeaf(testCase)) return execute(testCase)
+        if (testCase.type != TestType.Test) return execute(testCase)
+        val heavyweight = isHeavyweightE2ELeaf(testCase)
 
         var result = execute(testCase)
         var attempt = 1
-        while (attempt < MAX_ATTEMPTS && result.isErrorOrFailure) {
+        while (
+            attempt < MAX_ATTEMPTS &&
+            result.isErrorOrFailure &&
+            (heavyweight || retriesForPoisoning(result.errorOrNull))
+        ) {
             attempt++
             recordRetry(testCase, attempt, result)
+            val cause =
+                if (retriesForPoisoning(result.errorOrNull)) {
+                    "was poisoned by a prior test's uncaught background exception"
+                } else {
+                    "failed transiently"
+                }
             println(
                 "[E2E-RETRY] ${testCase.spec::class.simpleName} › ${testCase.name.name} " +
-                    "failed transiently; retry $attempt/$MAX_ATTEMPTS",
+                    "$cause; retry $attempt/$MAX_ATTEMPTS",
             )
             stopGlobalKoinIfRunning()
             delay(RETRY_DELAY_MS)
@@ -241,6 +258,28 @@ private object HeavyweightE2ERetryExtension :
  */
 internal fun retriesForFlakiness(specName: String): Boolean =
     specName in RETRY_COVERED_NAMES || RETRY_COVERED_SUFFIXES.any { specName.endsWith(it) }
+
+/**
+ * Whether [error] is kotlinx-coroutines-test's `UncaughtExceptionsBeforeTest` — the failure
+ * `runTest` manufactures at ENTRY when a *prior* test leaked an uncaught background exception, so
+ * the failing test never ran its own body and is a victim, not a culprit. Any leaf test may be
+ * retried on it (not just the heavyweight E2E specs), because which test gets poisoned is an
+ * accident of suite ordering.
+ *
+ * The known leak source is a kotlinx.rpc teardown race: when an E2E spec's RPC connection closes
+ * while a server-side call handler is still failing, `KrpcConnector.sendCallException` throws
+ * `ClosedSendChannelException` on an already-cancelled fire-and-forget coroutine; a cancelled job
+ * cannot deliver a non-cancellation failure, so it lands in the JVM uncaught handler, where
+ * kotlinx-coroutines-test's global collector holds it and fails the next `runTest`
+ * (CI evidence: CollectionsDomainTest red on run 30730375261, 2026-08-02). The retry is honest:
+ * throwing `UncaughtExceptionsBeforeTest` drains the collector, so the retry runs the test for
+ * real and a genuine regression still fails every attempt.
+ *
+ * The class is Kotlin-`internal` to kotlinx-coroutines-test, hence the class-name match instead of
+ * a type reference.
+ */
+internal fun retriesForPoisoning(error: Throwable?): Boolean =
+    error != null && error.javaClass.name == "kotlinx.coroutines.test.UncaughtExceptionsBeforeTest"
 
 internal val RETRY_COVERED_NAMES =
     setOf(
