@@ -5,6 +5,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.session.MediaController
+import com.calypsan.listenup.client.automotive.CustomActions
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.StateFlow
 
@@ -57,27 +58,35 @@ class AndroidPlaybackController(
             ?: logger.warn { "AndroidPlaybackController.pause: controller not ready" }
     }
 
+    /**
+     * Seeks to a book-relative position by round-tripping it through the session as a custom
+     * command, rather than resolving it to a `(index, offset)` pair and calling
+     * `controller.seekTo(index, offset)` directly.
+     *
+     * The session player is [ChapterWindowPlayer], the chapter-scoped presentation wrapper (see
+     * its class KDoc) — a plain controller-side seek is interpreted by the wrapper as
+     * chapter-relative and clamped to the current chapter window, so a cross-chapter book-relative
+     * seek would silently land in the wrong place. [CustomActions.SEEK_TO_BOOK_POSITION] carries
+     * the book-relative target as-is; [PlaybackService.onCustomCommand] resolves it against the
+     * raw transport player, bypassing the wrapper's chapter-relative reinterpretation entirely.
+     */
     override fun seekTo(positionMs: Long) {
         val controller = holder.controller
         if (controller == null) {
             logger.warn { "AndroidPlaybackController.seekTo($positionMs): controller not ready" }
             return
         }
-        if (cachedQueue.isEmpty()) {
-            logger.warn {
-                "AndroidPlaybackController.seekTo($positionMs): no cached queue, falling back to single-arg seek"
-            }
-            controller.seekTo(positionMs)
-            return
-        }
-        val (index, offset) = resolveQueuePosition(cachedQueue, positionMs)
-        logger.debug { "AndroidPlaybackController.seekTo: bookPos=$positionMs → idx=$index, offset=$offset" }
-        controller.seekTo(index, offset)
+        logger.debug { "AndroidPlaybackController.seekTo: bookPos=$positionMs via SEEK_TO_BOOK_POSITION" }
+        controller.sendCustomCommand(
+            CustomActions.seekToBookPositionCommand(),
+            CustomActions.seekToBookPositionArgs(positionMs),
+        )
     }
 
     /**
-     * Resolves a book-relative position (ms) to a `(itemIndex, offsetWithinItem)` pair
-     * suitable for Media3 `seekTo(windowIndex, positionMs)` and `setMediaItems(..., startIndex, positionMs)`.
+     * Resolves a book-relative position (ms) to a `(itemIndex, offsetWithinItem)` pair suitable
+     * for Media3 `setMediaItems(..., startIndex, positionMs)`. (Book-relative seeks no longer use
+     * this — see [seekTo]'s KDoc — this is now [setMediaQueue]'s sole caller.)
      *
      * - Empty list → `(0, 0)`
      * - Position within an item → `(itemIndex, bookPositionMs - item.offsetMs)`

@@ -10,14 +10,8 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
@@ -27,8 +21,16 @@ private val logger = KotlinLogging.logger {}
  * Singleton holder for the MediaController connection.
  *
  * NowPlayingViewModel consumes this controller via the PlaybackController seam
- * (there is no longer a separate PlayerViewModel). The holder also owns the
- * Player.Listener and position polling that drive PlaybackStateWriter on Android.
+ * (there is no longer a separate PlayerViewModel). The holder owns the
+ * Player.Listener that drives PlaybackStateWriter's state/speed/error updates on
+ * Android — those are coordinate-agnostic and forwarded faithfully by
+ * `ChapterWindowPlayer`, the chapter-scoped presentation wrapper the session now
+ * hands out to controllers. Position polling used to live here too, but once the
+ * session player became that wrapper, the controller's `currentMediaItemIndex`/
+ * `currentPosition` turned chapter-relative — polling them here would corrupt
+ * book-position tracking for any book past its first chapter. The poll now lives
+ * in `PlaybackService` instead, which reads the raw transport player directly and
+ * pushes book-relative coordinates through the same `PlaybackStateWriter` seam.
  *
  * The holder manages the lifecycle through reference counting:
  * - Each consumer calls acquire() on init
@@ -40,7 +42,6 @@ private val logger = KotlinLogging.logger {}
 class MediaControllerHolder(
     private val context: Context,
     private val playbackManager: PlaybackStateWriter,
-    private val scope: CoroutineScope,
 ) {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var _controller: MediaController? = null
@@ -101,37 +102,6 @@ class MediaControllerHolder(
             Player.STATE_ENDED -> PlaybackState.Ended
             else -> PlaybackState.Idle
         }
-
-    private var positionPollJob: Job? = null
-
-    private companion object {
-        const val POSITION_POLL_INTERVAL_MS = 250L
-    }
-
-    internal fun startPositionPolling(controller: MediaController) {
-        positionPollJob?.cancel()
-        // Media3's MediaController is single-threaded — isPlaying/currentPosition must
-        // be read on its application thread (the main thread). The injected scope runs
-        // on Dispatchers.IO, so the loop body is pinned to Main.immediate; without this
-        // the poll throws "MediaController method is called from a wrong thread".
-        positionPollJob =
-            scope.launch(Dispatchers.Main.immediate) {
-                while (isActive) {
-                    if (controller.isPlaying) {
-                        // controller.currentPosition is FILE-relative (position within the
-                        // current media item). For a multi-file book this is NOT the book
-                        // position — push through the media-item seam so PlaybackManager
-                        // converts to book-relative via the active timeline. Passing the raw
-                        // offset would corrupt currentPositionMs (regressed saves, wrong skips).
-                        playbackManager.updatePositionFromMediaItem(
-                            mediaItemIndex = controller.currentMediaItemIndex,
-                            positionInItemMs = controller.currentPosition,
-                        )
-                    }
-                    delay(POSITION_POLL_INTERVAL_MS)
-                }
-            }
-    }
 
     /**
      * Acquire a reference to the controller.
@@ -200,10 +170,7 @@ class MediaControllerHolder(
             try {
                 _controller = controllerFuture?.get()
                 isConnected.value = true
-                _controller?.let { newController ->
-                    newController.addListener(playerListener)
-                    startPositionPolling(newController)
-                }
+                _controller?.addListener(playerListener)
                 logger.info { "MediaControllerHolder: connected" }
             } catch (e: Exception) {
                 logger.error(e) { "MediaControllerHolder: connection failed" }
@@ -215,8 +182,6 @@ class MediaControllerHolder(
     private fun disconnect() {
         logger.info { "MediaControllerHolder: disconnecting" }
 
-        positionPollJob?.cancel()
-        positionPollJob = null
         _controller?.removeListener(playerListener)
 
         _controller?.release()

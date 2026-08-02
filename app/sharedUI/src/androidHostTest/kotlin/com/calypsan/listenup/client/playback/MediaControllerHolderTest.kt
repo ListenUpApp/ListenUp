@@ -27,7 +27,6 @@ class MediaControllerHolderTest :
                     MediaControllerHolder(
                         context = stubContext,
                         playbackManager = writer,
-                        scope = this.backgroundScope,
                     )
 
                 holder.playerListener.onIsPlayingChanged(true)
@@ -44,7 +43,6 @@ class MediaControllerHolderTest :
                     MediaControllerHolder(
                         context = stubContext,
                         playbackManager = writer,
-                        scope = this.backgroundScope,
                     )
 
                 holder.playerListener.onPlaybackStateChanged(Player.STATE_BUFFERING)
@@ -61,7 +59,6 @@ class MediaControllerHolderTest :
                     MediaControllerHolder(
                         context = stubContext,
                         playbackManager = writer,
-                        scope = this.backgroundScope,
                     )
                 // _controller is null at this point — toCommonPlaybackState returns Paused
                 holder.playerListener.onPlaybackStateChanged(Player.STATE_READY)
@@ -83,7 +80,6 @@ class MediaControllerHolderTest :
                     MediaControllerHolder(
                         context = stubContext,
                         playbackManager = writer,
-                        scope = this.backgroundScope,
                     )
 
                 holder.playerListener.onPlaybackParametersChanged(PlaybackParameters(1.5f))

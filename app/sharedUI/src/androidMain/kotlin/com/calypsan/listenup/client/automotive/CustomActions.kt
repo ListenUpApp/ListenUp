@@ -20,6 +20,17 @@ object CustomActions {
     // Bundle keys for sleep timer
     const val EXTRA_TIMER_MINUTES = "timer_minutes"
 
+    // In-app book-relative seek. The session player is ChapterWindowPlayer, the chapter-scoped
+    // presentation wrapper (see its class KDoc), so a plain controller.seekTo(index, positionMs)
+    // is reinterpreted chapter-relatively and clamped to the current chapter window — it cannot
+    // express a book position. This custom command carries the book-relative target explicitly
+    // instead, and PlaybackService's onCustomCommand handler resolves it against the raw
+    // transport player, bypassing the wrapper's chapter-relative reinterpretation entirely.
+    const val SEEK_TO_BOOK_POSITION = "com.calypsan.listenup.SEEK_TO_BOOK_POSITION"
+
+    // Bundle key for the book-relative seek target, in milliseconds.
+    const val EXTRA_BOOK_POSITION_MS = "book_position_ms"
+
     /**
      * Speed options for cycling (in order).
      */
@@ -80,4 +91,22 @@ object CustomActions {
      * Create SessionCommand for canceling sleep timer.
      */
     fun cancelSleepTimerCommand(): SessionCommand = SessionCommand(CANCEL_SLEEP_TIMER, Bundle.EMPTY)
+
+    /**
+     * Create SessionCommand for the in-app book-relative seek transport.
+     *
+     * Advertised with [Bundle.EMPTY] extras — [SessionCommand] equality (used by Media3 to match
+     * an advertised command against an incoming one) ignores extras, so this matches sends built
+     * with [seekToBookPositionArgs] carrying the actual target.
+     */
+    fun seekToBookPositionCommand(): SessionCommand = SessionCommand(SEEK_TO_BOOK_POSITION, Bundle.EMPTY)
+
+    /**
+     * Build the args [Bundle] for a [seekToBookPositionCommand] send: the book-relative seek
+     * target, in milliseconds.
+     */
+    fun seekToBookPositionArgs(positionMs: Long): Bundle =
+        Bundle().apply {
+            putLong(EXTRA_BOOK_POSITION_MS, positionMs)
+        }
 }

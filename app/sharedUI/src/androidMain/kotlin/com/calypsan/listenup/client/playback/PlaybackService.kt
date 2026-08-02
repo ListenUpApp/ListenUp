@@ -89,6 +89,7 @@ private val logger = KotlinLogging.logger {}
 class PlaybackService : MediaLibraryService() {
     private var mediaLibrarySession: MediaLibraryService.MediaLibrarySession? = null
     private var player: ExoPlayer? = null
+    private var chapterWindowPlayer: ChapterWindowPlayer? = null
     private var notificationProvider: AudiobookNotificationProvider? = null
     private var castSessionController: CastSessionController? = null
 
@@ -101,9 +102,11 @@ class PlaybackService : MediaLibraryService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var idleJob: Job? = null
     private var positionUpdateJob: Job? = null
+    private var uiPositionJob: Job? = null
 
     // Inject dependencies
     private val playbackManager: PlaybackManager by inject()
+    private val playbackStateWriter: PlaybackStateWriter by inject()
     private val reporter: PlaybackProgressReporter by inject()
     private val progressTracker: ProgressTracker by inject()
     private val listeningEventRecorder: com.calypsan.listenup.client.playback.ListeningEventRecorder by inject()
@@ -128,16 +131,31 @@ class PlaybackService : MediaLibraryService() {
      * relative to the entire book for progress tracking. The PlaybackTimeline
      * handles this translation.
      *
-     * Reads the active session player — the local ExoPlayer normally, the cast
+     * Reads the active transport player — the local ExoPlayer normally, the cast
      * player while casting — so position recording follows wherever audio is playing.
      *
      * @return Book-relative position in milliseconds, or 0 if unavailable
      */
     private fun getBookRelativePosition(): Long {
-        val player = mediaLibrarySession?.player ?: player ?: return 0L
+        val player = activeTransportPlayer() ?: return 0L
         val timeline = playbackManager.currentTimeline.value ?: return player.currentPosition
         return timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
     }
+
+    /**
+     * The player actually producing audio right now — the cast player while [casting],
+     * otherwise the raw local ExoPlayer.
+     *
+     * The session player (`mediaLibrarySession?.player`) is a presentation wrapper once local
+     * playback is active: [ChapterWindowPlayer] re-presents the book's timeline as a single
+     * chapter-scoped window for system surfaces (Auto, notification, lock screen, Bluetooth), so
+     * its media-item index and positions are chapter-relative, not book-relative. Every internal
+     * consumer of transport state — progress sync, listening-event recording, the sleep timer,
+     * custom-command seek math — must read this instead of the session player, or it will
+     * silently compute against the wrong coordinate space. Cast surfaces stay file-scoped
+     * (pre-existing, tracked separately), so the cast player never needs this distinction.
+     */
+    private fun activeTransportPlayer(): Player? = if (casting) castSessionController?.castPlayer else player
 
     companion object {
         // Idle timeout tiers
@@ -148,8 +166,17 @@ class PlaybackService : MediaLibraryService() {
         // Position update interval
         private const val POSITION_UPDATE_INTERVAL = 30_000L // 30 seconds
 
+        // UI-rate position poll interval — matches MediaControllerHolder's former poll cadence
+        // (see startPositionUpdates' KDoc for why this now lives here instead).
+        private const val POSITION_UI_UPDATE_INTERVAL = 250L
+
         // Search cache configuration
         private const val MAX_SEARCH_CACHE_SIZE = 5
+
+        // ExoPlayer's COMMAND_SEEK_BACK/SEEK_FORWARD increments — matches the in-app
+        // 10s-back/30s-forward skip amounts (see initializePlayer's comment for why).
+        private const val SEEK_BACK_INCREMENT_MS = 10_000L
+        private const val SEEK_FORWARD_INCREMENT_MS = 30_000L
     }
 
     override fun onCreate() {
@@ -164,6 +191,10 @@ class PlaybackService : MediaLibraryService() {
         // Register callback for chapter changes to update notification
         playbackManager.onChapterChanged = { chapterInfo ->
             logger.debug { "Chapter changed: ${chapterInfo.title}" }
+            // No underlying-player event fires for a chapter boundary crossed purely by elapsed
+            // playback time — invalidate() is the explicit hook so connected controllers pick up
+            // the new chapter window (see ChapterWindowPlayer's "Invalidation" KDoc).
+            chapterWindowPlayer?.invalidate()
             updateNotificationForChapter(chapterInfo)
         }
 
@@ -232,6 +263,12 @@ class PlaybackService : MediaLibraryService() {
                     true,
                 ).setHandleAudioBecomingNoisy(true) // Pause when headphones unplugged
                 .setWakeMode(C.WAKE_MODE_LOCAL) // Keep CPU awake during playback
+                // Match the in-app 10s-back/30s-forward skip amounts (NowPlayingViewModel's
+                // defaults) rather than Media3's 5s/15s defaults, so head units/watches that
+                // render COMMAND_SEEK_BACK/SEEK_FORWARD (car steering-wheel buttons, Wear tiles)
+                // skip by the same amount the in-app buttons do.
+                .setSeekBackIncrementMs(SEEK_BACK_INCREMENT_MS)
+                .setSeekForwardIncrementMs(SEEK_FORWARD_INCREMENT_MS)
                 .build()
                 .apply {
                     addListener(PlayerListener())
@@ -272,7 +309,24 @@ class PlaybackService : MediaLibraryService() {
                 logger.error { "initializeMediaSession called before player init" }
                 return
             }
-        val builder = MediaLibrarySession.Builder(this, activePlayer, LibrarySessionCallback())
+
+        // System surfaces (Auto, notification, lock screen, Bluetooth) get the chapter-scoped
+        // presentation wrapper, never the raw local player — see ChapterWindowPlayer's class KDoc.
+        // In-app UI still reads PlaybackManager directly for its state (now fed by this service's
+        // raw-player poll — see startPositionUpdates), and in-app seeks ride the
+        // SEEK_TO_BOOK_POSITION custom command (see onCustomCommand) rather than a plain
+        // controller seek, which the wrapper would reinterpret chapter-relatively. Plain
+        // play/pause/speed controller calls are coordinate-agnostic and still go through the
+        // session unmodified.
+        val wrapper =
+            ChapterWindowPlayer(
+                player = activePlayer,
+                chaptersProvider = { playbackManager.chapters.value },
+                timelineProvider = { playbackManager.currentTimeline.value },
+            )
+        chapterWindowPlayer = wrapper
+
+        val builder = MediaLibrarySession.Builder(this, wrapper, LibrarySessionCallback())
         if (sessionIntent != null) {
             builder.setSessionActivity(sessionIntent)
         }
@@ -379,8 +433,11 @@ class PlaybackService : MediaLibraryService() {
         val controller = castSessionController ?: return
         val session = mediaLibrarySession ?: return
         val local = player ?: return
+        val wrapper = chapterWindowPlayer ?: return
         // If the session isn't currently on the cast player, nothing to do (we never swapped).
-        if (session.player === local) return
+        // (Was an identity check against `local` before ChapterWindowPlayer existed — the session
+        // player is never `local` anymore even when not casting, since it's now the wrapper.)
+        if (!casting) return
         val cast = controller.castPlayer
         val index = cast.currentMediaItemIndex
         val positionInItem = cast.currentPosition
@@ -395,25 +452,27 @@ class PlaybackService : MediaLibraryService() {
         local.seekTo(index, positionInItem)
         local.playWhenReady = wasPlaying
         local.setPlaybackSpeed(speed)
-        session.player = local
+        session.player = wrapper
         casting = false // normal idle logic resumes now that the local player drives the session
         logger.info { "Swapped back to local at index=$index pos=$positionInItem" }
         saveCurrentPosition() // existing method — persists through the normal recorder
     }
 
     /**
-     * Update metadata when chapter changes.
+     * Push the chapter subtitle to session extras when the chapter changes.
      *
-     * Updates MediaMetadata on the player to show chapter info in:
-     * - Android notification
-     * - Android Auto display
-     * - Bluetooth metadata (car displays, headphones)
+     * Chapter title/track number/total count for system surfaces (Android Auto display,
+     * Bluetooth metadata, the lock screen) now come from [ChapterWindowPlayer]'s window
+     * `MediaItemData` — the single metadata source for the session player, kept in sync via
+     * [ChapterWindowPlayer.invalidate] (called alongside this function in `onCreate`'s
+     * `onChapterChanged` hook). This function's remaining job is the session-extras push:
+     * `AudiobookNotificationProvider` builds the phone notification's subtitle straight from
+     * `playbackManager.currentChapter` rather than session extras, but the extra is kept for any
+     * other consumer relying on it.
      */
     private fun updateNotificationForChapter(chapterInfo: PlaybackManager.ChapterInfo) {
         val session = mediaLibrarySession ?: return
-        val p = player ?: return
 
-        // Build chapter subtitle for display
         val chapterText =
             if (chapterInfo.isGenericTitle) {
                 "Chapter ${chapterInfo.index + 1} of ${chapterInfo.totalChapters}"
@@ -424,54 +483,20 @@ class PlaybackService : MediaLibraryService() {
         val timeRemaining = DurationFormatter.hoursMinutesOrUnderMinute(chapterInfo.remainingMs.milliseconds)
         val displaySubtitle = "$chapterText • $timeRemaining left"
 
-        // Get current book info from the existing metadata
-        val currentMetadata = p.mediaMetadata
-        val bookTitle = currentMetadata.title ?: "Unknown Book"
-        val author = currentMetadata.artist
-        val seriesName = currentMetadata.albumTitle
-        val artworkUri = currentMetadata.artworkUri
-
-        // Build updated metadata with chapter info
-        // MEDIA_TYPE_AUDIO_BOOK_CHAPTER tells Android Auto this is a chapter
-        val updatedMetadata =
-            MediaMetadata
-                .Builder()
-                .setTitle(bookTitle)
-                .setDisplayTitle(bookTitle)
-                .setSubtitle(chapterText)
-                .setDescription(displaySubtitle)
-                .setArtist(author)
-                .setAlbumTitle(seriesName)
-                .setArtworkUri(artworkUri)
-                .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK_CHAPTER)
-                .setTrackNumber(chapterInfo.index + 1)
-                .setTotalTrackCount(chapterInfo.totalChapters)
-                .build()
-
-        // Update the current MediaItem's metadata
-        // This propagates to Android Auto, notifications, and Bluetooth
-        val currentIndex = p.currentMediaItemIndex
-        val currentItem = p.currentMediaItem
-        if (currentItem != null && currentIndex >= 0) {
-            val updatedItem =
-                currentItem
-                    .buildUpon()
-                    .setMediaMetadata(updatedMetadata)
-                    .build()
-            p.replaceMediaItem(currentIndex, updatedItem)
-        }
-
-        // Also update session extras for backward compatibility
         session.setSessionExtras(Bundle().apply { putString("chapter_subtitle", displaySubtitle) })
 
         logger.debug {
-            "Updated chapter metadata: $chapterText (${chapterInfo.index + 1}/${chapterInfo.totalChapters})"
+            "Updated chapter subtitle: $chapterText (${chapterInfo.index + 1}/${chapterInfo.totalChapters})"
         }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaLibrarySession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        // Legitimately the session player, not activeTransportPlayer(): this only issues a
+        // pause command (ForwardingSimpleBasePlayer forwards setPlayWhenReady verbatim to the
+        // wrapped local player) and checks session liveness — it never reads a chapter-relative
+        // position or index, so there's nothing here for the presentation wrapper to corrupt.
         val player = mediaLibrarySession?.player
 
         // Pause playback when user swipes app away — notification remains for resume
@@ -501,6 +526,7 @@ class PlaybackService : MediaLibraryService() {
 
         idleJob?.cancel()
         positionUpdateJob?.cancel()
+        uiPositionJob?.cancel()
 
         // Clear chapter change callback to avoid memory leaks
         playbackManager.onChapterChanged = null
@@ -511,6 +537,7 @@ class PlaybackService : MediaLibraryService() {
         // when mediaLibrarySession was never built or was already null.
         mediaLibrarySession?.release()
         mediaLibrarySession = null
+        chapterWindowPlayer = null
         castSessionController?.release()
         castSessionController = null
         player?.release()
@@ -587,23 +614,47 @@ class PlaybackService : MediaLibraryService() {
             serviceScope.launch {
                 while (isActive) {
                     delay(POSITION_UPDATE_INTERVAL)
-                    // Gate + read off the ACTIVE session player — the cast player while casting, the
-                    // local ExoPlayer otherwise. The local player is paused during a cast (its audio
-                    // focus is released), so gating on player.isPlaying froze all periodic persistence
-                    // for the whole cast session: position stopped propagating to other devices and a
-                    // battery-death mid-cast lost the session + dropped the span. getBookRelativePosition()
-                    // already reads the session player, so only the gate had to follow it here.
-                    val sessionPlayer = mediaLibrarySession?.player ?: player ?: break
+                    // Gate + read off the TRANSPORT player — the cast player while casting, the
+                    // local ExoPlayer otherwise. Never the session player: once ChapterWindowPlayer
+                    // presents the session, its positions are chapter-relative and would corrupt
+                    // this data. The local player is paused during a cast (its audio focus is
+                    // released), so gating on player.isPlaying froze all periodic persistence for
+                    // the whole cast session: position stopped propagating to other devices and a
+                    // battery-death mid-cast lost the session + dropped the span.
+                    // getBookRelativePosition() already reads the transport player, so only the
+                    // gate had to follow it here.
+                    val transportPlayer = activeTransportPlayer() ?: break
                     val bookId = currentBookId ?: break
 
-                    if (sessionPlayer.isPlaying) {
+                    if (transportPlayer.isPlaying) {
                         val positionMs = getBookRelativePosition()
                         progressTracker.onPositionUpdate(
                             bookId = bookId,
                             positionMs = positionMs,
-                            speed = sessionPlayer.playbackParameters.speed,
+                            speed = transportPlayer.playbackParameters.speed,
                         )
                         listeningEventRecorder.onPeriodicTick(positionMs = positionMs)
+                    }
+                }
+            }
+
+        // Second, faster poll driving in-app UI position display. This used to be
+        // MediaControllerHolder's job — it polled the MediaController it held on a 250ms loop —
+        // but the session player is now ChapterWindowPlayer, the chapter-scoped presentation
+        // wrapper (see activeTransportPlayer's KDoc), so a MediaController's coordinates are
+        // chapter-relative and can no longer feed PlaybackStateWriter.updatePositionFromMediaItem
+        // (it interprets its arguments as file coordinates). The service reads the raw transport
+        // player instead, which was never re-presented. Running it here rather than in-app also
+        // means the notification's chapter rollover (driven by playbackManager.onChapterChanged)
+        // now advances even when no UI client is bound, since the service itself keeps polling.
+        uiPositionJob?.cancel()
+        uiPositionJob =
+            serviceScope.launch {
+                while (isActive) {
+                    delay(POSITION_UI_UPDATE_INTERVAL)
+                    val p = activeTransportPlayer() ?: break
+                    if (p.isPlaying) {
+                        playbackStateWriter.updatePositionFromMediaItem(p.currentMediaItemIndex, p.currentPosition)
                     }
                 }
             }
@@ -612,11 +663,13 @@ class PlaybackService : MediaLibraryService() {
     private fun stopPositionUpdates() {
         positionUpdateJob?.cancel()
         positionUpdateJob = null
+        uiPositionJob?.cancel()
+        uiPositionJob = null
     }
 
     /**
      * Apply restored playback speed to ExoPlayer.
-     * Extracted to keep onAddMediaItems and onPlaybackResumption within complexity limits.
+     * Extracted to keep resolveMediaItems and onPlaybackResumption within complexity limits.
      */
     private fun applyResumeSpeed(speed: Float) {
         player?.setPlaybackSpeed(speed)
@@ -810,7 +863,7 @@ class PlaybackService : MediaLibraryService() {
         ): MediaSession.ConnectionResult {
             val customCommands =
                 AudiobookNotificationProvider.getCustomCommands() +
-                    listOf(CustomActions.cycleSpeedCommand())
+                    listOf(CustomActions.cycleSpeedCommand(), CustomActions.seekToBookPositionCommand())
 
             // Limited to 3 custom actions by Android Auto guidelines.
             val customLayout =
@@ -1069,10 +1122,78 @@ class PlaybackService : MediaLibraryService() {
         // ========== Playback Preparation ==========
 
         /**
-         * Called when Android Auto requests to play media items.
+         * Resolves controller-requested [MediaItem]s (voice-search queries and/or book mediaIds)
+         * to the actual playable [MediaItem]s Media3 needs, applying the restored playback speed
+         * as each book resolves. Shared by [onAddMediaItems] (the Auto "add to queue" callback)
+         * and [onSetMediaItems] (the Auto tap-to-play / voice-search callback, which additionally
+         * needs the resolved book's [PlaybackManager.PrepareResult] to compute a resume start
+         * position — see [onSetMediaItems]'s KDoc) so the two callbacks never drift on how a
+         * mediaId or voice query becomes a playable item.
          *
-         * Resolves book IDs from media items and prepares full playback timeline.
-         * Also handles voice search via requestMetadata.searchQuery (Media3 pattern).
+         * @return the resolved items, plus the last [PlaybackManager.PrepareResult] produced
+         *   while resolving [mediaItems] (null if none of them resolved to a book). "Last" rather
+         *   than "the" result because [onSetMediaItems] only relies on it when [mediaItems]
+         *   contained exactly one entry — the tap-to-play/voice-search shape.
+         */
+        private suspend fun resolveMediaItems(
+            mediaItems: List<MediaItem>,
+        ): Pair<List<MediaItem>, PlaybackManager.PrepareResult?> {
+            val resolvedItems = mutableListOf<MediaItem>()
+            var lastPrepareResult: PlaybackManager.PrepareResult? = null
+
+            for (item in mediaItems) {
+                // Check for voice search query (Media3 pattern)
+                val searchQuery = item.requestMetadata.searchQuery
+                if (searchQuery != null) {
+                    logger.info { "Voice search detected: query='$searchQuery'" }
+                    val (voiceItems, voicePrepareResult) = handleVoiceSearch(item)
+                    resolvedItems.addAll(voiceItems)
+                    if (voicePrepareResult != null) lastPrepareResult = voicePrepareResult
+                    continue
+                }
+
+                val bookId = BrowseTree.extractBookId(item.mediaId)
+                if (bookId != null) {
+                    // Prepare playback for this book
+                    val prepareResult = playbackManager.prepareForPlayback(BookId(bookId))
+                    if (prepareResult != null) {
+                        // Build MediaItems from timeline
+                        val bookItems =
+                            prepareResult.timeline.files.map { file ->
+                                MediaItem
+                                    .Builder()
+                                    .setMediaId(file.audioFileId)
+                                    .setUri(file.playbackUri)
+                                    .setMediaMetadata(
+                                        MediaMetadata
+                                            .Builder()
+                                            .setTitle(prepareResult.bookTitle)
+                                            .setArtist(prepareResult.bookAuthor)
+                                            .setAlbumTitle(prepareResult.seriesName)
+                                            .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
+                                            .build(),
+                                    ).build()
+                            }
+                        // Apply the restored playback speed to ExoPlayer
+                        applyResumeSpeed(prepareResult.resumeSpeed)
+                        resolvedItems.addAll(bookItems)
+                        lastPrepareResult = prepareResult
+                    }
+                } else {
+                    // Not a book ID, pass through as-is
+                    resolvedItems.add(item)
+                }
+            }
+
+            return resolvedItems to lastPrepareResult
+        }
+
+        /**
+         * Called when Android Auto adds media items to the queue.
+         *
+         * Resolves book IDs from media items and prepares full playback timeline via
+         * [resolveMediaItems]. Also handles voice search via requestMetadata.searchQuery (Media3
+         * pattern).
          *
          * Voice search flow:
          * 1. User says "Hey Google, play [book name] on ListenUp"
@@ -1090,50 +1211,7 @@ class PlaybackService : MediaLibraryService() {
             return CallbackToFutureAdapter.getFuture { completer ->
                 serviceScope.launch {
                     try {
-                        val resolvedItems = mutableListOf<MediaItem>()
-
-                        for (item in mediaItems) {
-                            // Check for voice search query (Media3 pattern)
-                            val searchQuery = item.requestMetadata.searchQuery
-                            if (searchQuery != null) {
-                                logger.info { "Voice search detected: query='$searchQuery'" }
-                                val voiceItems = handleVoiceSearch(item)
-                                resolvedItems.addAll(voiceItems)
-                                continue
-                            }
-
-                            val bookId = BrowseTree.extractBookId(item.mediaId)
-                            if (bookId != null) {
-                                // Prepare playback for this book
-                                val prepareResult = playbackManager.prepareForPlayback(BookId(bookId))
-                                if (prepareResult != null) {
-                                    // Build MediaItems from timeline
-                                    val bookItems =
-                                        prepareResult.timeline.files.map { file ->
-                                            MediaItem
-                                                .Builder()
-                                                .setMediaId(file.audioFileId)
-                                                .setUri(file.playbackUri)
-                                                .setMediaMetadata(
-                                                    MediaMetadata
-                                                        .Builder()
-                                                        .setTitle(prepareResult.bookTitle)
-                                                        .setArtist(prepareResult.bookAuthor)
-                                                        .setAlbumTitle(prepareResult.seriesName)
-                                                        .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
-                                                        .build(),
-                                                ).build()
-                                        }
-                                    // Apply the restored playback speed to ExoPlayer
-                                    applyResumeSpeed(prepareResult.resumeSpeed)
-                                    resolvedItems.addAll(bookItems)
-                                }
-                            } else {
-                                // Not a book ID, pass through as-is
-                                resolvedItems.add(item)
-                            }
-                        }
-
+                        val (resolvedItems, _) = resolveMediaItems(mediaItems)
                         completer.set(resolvedItems)
                     } catch (e: CancellationException) {
                         throw e
@@ -1147,13 +1225,84 @@ class PlaybackService : MediaLibraryService() {
         }
 
         /**
+         * Called when a controller sets (rather than adds to) the media items — the path Auto's
+         * tap-to-play and voice search actually take. Media3's default implementation delegates
+         * to [onAddMediaItems] and echoes back the controller-provided [startIndex]/[startPositionMs]
+         * verbatim; Auto never supplies either (`startIndex == C.INDEX_UNSET`), so without an
+         * override here every book tapped in Auto's browse list started from position zero.
+         *
+         * [startIndex] `!= C.INDEX_UNSET` means the controller expressed explicit start intent —
+         * that's the in-app [AndroidPlaybackController.setMediaQueue] path, which always supplies
+         * one — so this branch preserves [startIndex]/[startPositionMs] verbatim, keeping that path
+         * byte-identical to before this override existed.
+         *
+         * Otherwise (Auto tap-to-play / voice search): when [mediaItems] resolved to exactly one
+         * book — the shape both of those callers always send — resume it at its saved position via
+         * [PlaybackManager.PrepareResult.timeline]`.resolve(resumePositionMs)`, rather than the
+         * default index/position-zero. When more than one book resolved (or none), fall back to
+         * `C.INDEX_UNSET`/`C.TIME_UNSET`, which per [MediaSession.MediaItemsWithStartPosition]'s
+         * contract tells Media3 to apply its own default index/position.
+         */
+        override fun onSetMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: List<MediaItem>,
+            startIndex: Int,
+            startPositionMs: Long,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            logger.info { "onSetMediaItems: ${mediaItems.size} items, startIndex=$startIndex" }
+
+            return CallbackToFutureAdapter.getFuture { completer ->
+                serviceScope.launch {
+                    try {
+                        val (resolvedItems, prepareResult) = resolveMediaItems(mediaItems)
+
+                        if (startIndex != C.INDEX_UNSET) {
+                            completer.set(
+                                MediaSession.MediaItemsWithStartPosition(resolvedItems, startIndex, startPositionMs),
+                            )
+                            return@launch
+                        }
+
+                        val resumeStart =
+                            if (mediaItems.size == 1 && prepareResult != null) {
+                                prepareResult.timeline.resolve(prepareResult.resumePositionMs)
+                            } else {
+                                null
+                            }
+
+                        completer.set(
+                            if (resumeStart != null) {
+                                MediaSession.MediaItemsWithStartPosition(
+                                    resolvedItems,
+                                    resumeStart.mediaItemIndex,
+                                    resumeStart.positionInFileMs,
+                                )
+                            } else {
+                                MediaSession.MediaItemsWithStartPosition(resolvedItems, C.INDEX_UNSET, C.TIME_UNSET)
+                            },
+                        )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.error(e) { "Failed to resolve media items for onSetMediaItems" }
+                        completer.setException(e)
+                    }
+                }
+                "SetMediaItems"
+            }
+        }
+
+        /**
          * Handle voice search from Android Auto / Google Assistant.
          *
          * Extracts search query and extras from MediaItem's requestMetadata,
-         * resolves through VoiceIntentResolver, and returns playable media items.
+         * resolves through VoiceIntentResolver, and returns playable media items alongside the
+         * resolved book's [PlaybackManager.PrepareResult] (null when nothing resolved) — see
+         * [resolveMediaItems]'s KDoc for why the caller needs it too.
          */
-        private suspend fun handleVoiceSearch(item: MediaItem): List<MediaItem> {
-            val searchQuery = item.requestMetadata.searchQuery ?: return emptyList()
+        private suspend fun handleVoiceSearch(item: MediaItem): Pair<List<MediaItem>, PlaybackManager.PrepareResult?> {
+            val searchQuery = item.requestMetadata.searchQuery ?: return emptyList<MediaItem>() to null
             val extras = item.requestMetadata.extras
 
             // Extract structured hints from extras (if available)
@@ -1202,7 +1351,7 @@ class PlaybackService : MediaLibraryService() {
 
             if (bookId == null) {
                 logger.warn { "Could not resolve book ID from voice intent: $intent" }
-                return emptyList()
+                return emptyList<MediaItem>() to null
             }
 
             logger.info { "Playing book from voice search: $bookId" }
@@ -1211,43 +1360,50 @@ class PlaybackService : MediaLibraryService() {
             val prepareResult = playbackManager.prepareForPlayback(BookId(bookId))
             if (prepareResult == null) {
                 logger.error { "Failed to prepare book for voice playback: $bookId" }
-                return emptyList()
+                return emptyList<MediaItem>() to null
             }
 
             // Build MediaItems from timeline
-            return prepareResult.timeline.files.map { file ->
-                MediaItem
-                    .Builder()
-                    .setMediaId(file.audioFileId)
-                    .setUri(file.playbackUri)
-                    .setMediaMetadata(
-                        MediaMetadata
-                            .Builder()
-                            .setTitle(prepareResult.bookTitle)
-                            .setArtist(prepareResult.bookAuthor)
-                            .setAlbumTitle(prepareResult.seriesName)
-                            .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
-                            .build(),
-                    ).build()
-            }
+            val items =
+                prepareResult.timeline.files.map { file ->
+                    MediaItem
+                        .Builder()
+                        .setMediaId(file.audioFileId)
+                        .setUri(file.playbackUri)
+                        .setMediaMetadata(
+                            MediaMetadata
+                                .Builder()
+                                .setTitle(prepareResult.bookTitle)
+                                .setArtist(prepareResult.bookAuthor)
+                                .setAlbumTitle(prepareResult.seriesName)
+                                .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
+                                .build(),
+                        ).build()
+                }
+            return items to prepareResult
         }
 
         /**
          * Handle playback resumption from system UI.
          *
-         * Called when user taps "Resume ListenUp" from Android Auto, Wear OS,
-         * or system notifications after device reboot.
+         * Called when user taps "Resume ListenUp" from Android Auto, Wear OS, or system
+         * notifications after device reboot.
          *
-         * Note: This callback is deprecated in Media3 1.4+ in favor of browse-based
-         * resumption via MediaLibraryService. We keep it for backward compatibility
-         * with older system UI integrations and as a fallback when browse isn't used.
+         * This is the 3-arg overload — the 2-arg `onPlaybackResumption(mediaSession, controller)`
+         * is the one that's deprecated (in favor of this one), not the reverse. [isForPlayback]
+         * distinguishes why the system is asking: `false` means it only wants the item/metadata to
+         * populate a resumption notification (e.g. right after a reboot), with no immediate
+         * intention to start audio; `true` means the user actually pressed play and playback should
+         * start once resolved. Our preparation work — reading the last-played book and resolving
+         * its start position — is needed to answer either request, so this implementation is
+         * identical for both flag values.
          */
-        @Deprecated("Kept for backward compatibility with older system UI integrations")
         override fun onPlaybackResumption(
             mediaSession: MediaSession,
             controller: MediaSession.ControllerInfo,
+            isForPlayback: Boolean,
         ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
-            logger.info { "Playback resumption requested" }
+            logger.info { "Playback resumption requested (isForPlayback=$isForPlayback)" }
 
             return CallbackToFutureAdapter.getFuture { completer ->
                 serviceScope.launch {
@@ -1331,16 +1487,18 @@ class PlaybackService : MediaLibraryService() {
             customCommand: SessionCommand,
             args: Bundle,
         ): ListenableFuture<SessionResult> {
-            // Route transport controls to the ACTIVE session player — the cast player while
-            // casting — so skip/chapter/speed reach the receiver, not the paused local player.
-            // Queue order is identical on both (the index-shift guard in handoffToCast ensures
-            // a 1:1 map), so the timeline's book-relative → index/offset math holds unchanged.
+            // Route transport controls to the TRANSPORT player — the cast player while casting,
+            // the raw local ExoPlayer otherwise — so skip/chapter/speed reach the receiver, not
+            // the paused local player, and so the seek math below (which resolves book-relative
+            // positions via `timeline`) never runs against ChapterWindowPlayer's chapter-relative
+            // coordinates. Queue order is identical on both (the index-shift guard in
+            // handoffToCast ensures a 1:1 map), so the timeline's book-relative → index/offset
+            // math holds unchanged.
             val p =
-                mediaLibrarySession?.player ?: player ?: return Futures.immediateFuture(
+                activeTransportPlayer() ?: return Futures.immediateFuture(
                     SessionResult(SessionResult.RESULT_ERROR_UNKNOWN),
                 )
             val chapters = playbackManager.chapters.value
-            val currentChapter = playbackManager.currentChapter.value
             val timeline = playbackManager.currentTimeline.value
 
             when (customCommand.customAction) {
@@ -1377,22 +1535,26 @@ class PlaybackService : MediaLibraryService() {
                 }
 
                 AudiobookNotificationProvider.COMMAND_PREV_CHAPTER -> {
-                    if (currentChapter != null && chapters.isNotEmpty() && timeline != null) {
-                        val prevIndex = (currentChapter.index - 1).coerceAtLeast(0)
-                        val prevChapter = chapters[prevIndex]
-                        val resolved = timeline.resolve(prevChapter.startTime)
+                    // Shares its mapping with ChapterWindowPlayer.handleSeek's
+                    // COMMAND_SEEK_TO_PREVIOUS branch — one implementation, same
+                    // restart-vs-jump threshold everywhere (see previousChapterTarget's KDoc).
+                    if (chapters.isNotEmpty() && timeline != null) {
+                        val target =
+                            previousChapterTarget(chapters, getBookRelativePosition(), timeline.totalDurationMs)
+                        val resolved = timeline.resolve(target)
                         p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
-                        logger.debug { "Previous chapter: ${prevIndex + 1} of ${chapters.size}" }
+                        logger.debug { "Previous chapter target: ${target}ms" }
                     }
                 }
 
                 AudiobookNotificationProvider.COMMAND_NEXT_CHAPTER -> {
-                    if (currentChapter != null && chapters.isNotEmpty() && timeline != null) {
-                        val nextIndex = (currentChapter.index + 1).coerceAtMost(chapters.size - 1)
-                        val nextChapter = chapters[nextIndex]
-                        val resolved = timeline.resolve(nextChapter.startTime)
+                    // Shares its mapping with ChapterWindowPlayer.handleSeek's
+                    // COMMAND_SEEK_TO_NEXT branch — one implementation everywhere.
+                    if (chapters.isNotEmpty() && timeline != null) {
+                        val target = nextChapterTarget(chapters, getBookRelativePosition(), timeline.totalDurationMs)
+                        val resolved = timeline.resolve(target)
                         p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
-                        logger.debug { "Next chapter: ${nextIndex + 1} of ${chapters.size}" }
+                        logger.debug { "Next chapter target: ${target}ms" }
                     }
                 }
 
@@ -1406,6 +1568,24 @@ class PlaybackService : MediaLibraryService() {
                             currentSpeed,
                         )} -> ${CustomActions.formatSpeed(newSpeed)}"
                     }
+                }
+
+                CustomActions.SEEK_TO_BOOK_POSITION -> {
+                    // The in-app seek transport (see AndroidPlaybackController.seekTo's KDoc):
+                    // book-relative because the session player is ChapterWindowPlayer, and a
+                    // controller-side seek would be reinterpreted chapter-relatively and clamped
+                    // to the current chapter window.
+                    val target = args.getLong(CustomActions.EXTRA_BOOK_POSITION_MS, -1L)
+                    if (target < 0) {
+                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_BAD_VALUE))
+                    }
+                    if (timeline != null) {
+                        val resolved = timeline.resolve(target.coerceIn(0L, timeline.totalDurationMs))
+                        p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
+                    } else {
+                        p.seekTo(target)
+                    }
+                    logger.debug { "Seek to book position: ${target}ms" }
                 }
             }
 
