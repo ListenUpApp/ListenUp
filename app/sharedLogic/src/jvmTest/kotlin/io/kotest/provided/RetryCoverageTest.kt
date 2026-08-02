@@ -30,4 +30,21 @@ class RetryCoverageTest :
             retriesForFlakiness("SearchRepositoryImplTest") shouldBe false
             retriesForFlakiness("ChapterMathTest") shouldBe false
         }
+
+        test("retries any test poisoned by a prior test's leaked background exception") {
+            // The class is Kotlin-internal to kotlinx-coroutines-test, hence reflection.
+            val poisoning =
+                Class
+                    .forName("kotlinx.coroutines.test.UncaughtExceptionsBeforeTest")
+                    .getDeclaredConstructor()
+                    .newInstance() as Throwable
+            retriesForPoisoning(poisoning) shouldBe true
+        }
+
+        test("does not treat an ordinary failure as poisoning") {
+            retriesForPoisoning(null) shouldBe false
+            // UncaughtExceptionsBeforeTest extends IllegalStateException — the supertype must not match.
+            retriesForPoisoning(IllegalStateException("boom")) shouldBe false
+            retriesForPoisoning(AssertionError("expected 1 but was 2")) shouldBe false
+        }
     })

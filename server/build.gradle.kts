@@ -394,6 +394,10 @@ tasks.named<Test>("jvmTest") {
     // lambda inner classes (`<Spec>$1$1` NoClassDefFoundError) and eventually wedges the worker.
     // Periodic forking isolates each batch's classpath extraction and keeps the suite green.
     setForkEvery(25)
+    // Gradle's 512 MB worker default is borderline for a 25-class batch of `testApplication`
+    // specs — a worker can die with OutOfMemoryError (surfacing as JPLISAgent assertions +
+    // "Test process encountered an unexpected problem") with zero failing tests.
+    maxHeapSize = "1g"
     // Redirect the working directory so any Ktor testApplication classpath-extraction
     // artefacts (META-INF/, io/) land under build/ rather than the project root.
     workingDir =

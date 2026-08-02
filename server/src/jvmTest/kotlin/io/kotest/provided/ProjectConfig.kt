@@ -63,6 +63,12 @@ class ProjectConfig : AbstractProjectConfig() {
  * so a genuine regression fails every attempt and stays red, while a transient hiccup gets a clean
  * re-run instead of a false red. Each retry is logged so a flaking test stays visible in CI output.
  *
+ * **Poisoned victims are retried regardless of spec.** A leaf in ANY spec that fails with
+ * kotlinx-coroutines-test's `UncaughtExceptionsBeforeTest` never ran its own body — a prior test
+ * leaked an uncaught background exception that `runTest` reports at entry (see
+ * [retriesForPoisoning]) — so it too gets the bounded re-run instead of turning an unrelated suite
+ * red.
+ *
  * A short [RETRY_DELAY_MS] between attempts lets the previous attempt's async teardown (the
  * `testApplication` shutdown, the port unbind, the connection-pool drain) settle before the retry
  * boots its own server — otherwise the retry can hit the very contention it is recovering from.
@@ -148,16 +154,27 @@ private object FlakyServerSpecRetryExtension :
         testCase: TestCase,
         execute: suspend (TestCase) -> TestResult,
     ): TestResult {
-        if (!isFlakyLeaf(testCase)) return execute(testCase)
+        if (testCase.type != TestType.Test) return execute(testCase)
+        val flaky = isFlakyLeaf(testCase)
 
         var result = execute(testCase)
         var attempt = 1
-        while (attempt < MAX_ATTEMPTS && result.isErrorOrFailure) {
+        while (
+            attempt < MAX_ATTEMPTS &&
+            result.isErrorOrFailure &&
+            (flaky || retriesForPoisoning(result.errorOrNull))
+        ) {
             attempt++
             recordRetry(testCase, attempt, result)
+            val cause =
+                if (retriesForPoisoning(result.errorOrNull)) {
+                    "was poisoned by a prior test's uncaught background exception"
+                } else {
+                    "failed transiently"
+                }
             println(
                 "[FLAKY-RETRY] ${testCase.spec::class.simpleName} › ${testCase.name.name} " +
-                    "failed transiently; retry $attempt/$MAX_ATTEMPTS",
+                    "$cause; retry $attempt/$MAX_ATTEMPTS",
             )
             delay(RETRY_DELAY_MS)
             result = execute(testCase)
@@ -202,3 +219,20 @@ private object FlakyServerSpecRetryExtension :
         return specName in FLAKY_SPEC_NAMES || FLAKY_SPEC_SUFFIXES.any { specName.endsWith(it) }
     }
 }
+
+/**
+ * Whether [error] is kotlinx-coroutines-test's `UncaughtExceptionsBeforeTest` — the failure
+ * `runTest` manufactures at ENTRY when a *prior* test leaked an uncaught background exception, so
+ * the failing test never ran its own body and is a victim, not a culprit. Any leaf test may be
+ * retried on it (not just the flaky/E2E specs), because which test gets poisoned is an accident of
+ * suite ordering. Twin of the `:app:sharedLogic` predicate; see that KDoc for the kotlinx.rpc
+ * teardown race that produces the leak (`KrpcConnector.sendCallException` →
+ * `ClosedSendChannelException` on an already-cancelled coroutine). The retry is honest: throwing
+ * `UncaughtExceptionsBeforeTest` drains the collector, so the retry runs the test for real and a
+ * genuine regression still fails every attempt.
+ *
+ * The class is Kotlin-`internal` to kotlinx-coroutines-test, hence the class-name match instead of
+ * a type reference.
+ */
+internal fun retriesForPoisoning(error: Throwable?): Boolean =
+    error != null && error.javaClass.name == "kotlinx.coroutines.test.UncaughtExceptionsBeforeTest"
