@@ -1,15 +1,20 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.test.di.KoinTestRule
 import com.calypsan.listenup.client.test.fake.FakeDownloadRepository
 import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.client.test.fake.FakeProgressTracker
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.koin.dsl.module
 import org.koin.mp.KoinPlatform
 
@@ -40,6 +45,9 @@ class AndroidPlaybackModuleRecorderBindingTest :
                     )
                 }
                 single { CoroutineScope(SupervisorJob()) }
+                single<LocalPreferences> {
+                    mock { every { autoRewindEnabled } returns MutableStateFlow(false) }
+                }
             }
         val koinRule = KoinTestRule(listOf(fixtureModule, androidPlaybackModule))
 

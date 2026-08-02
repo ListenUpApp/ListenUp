@@ -13,10 +13,12 @@ import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository
 import com.calypsan.listenup.client.test.fake.FakeProgressTracker
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -24,6 +26,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -198,7 +201,16 @@ private suspend fun withReporterFixture(
                 scope = scope,
             )
 
-        val reporter = PlaybackProgressReporter(tracker, recorder, scope)
+        val localPreferences: LocalPreferences = mock()
+        every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)
+        val reporter =
+            PlaybackProgressReporter(
+                tracker,
+                recorder,
+                scope,
+                localPreferences = localPreferences,
+                nowMillis = { now },
+            )
 
         block(reporter, db, captured, tracker) { now = it }
     } finally {

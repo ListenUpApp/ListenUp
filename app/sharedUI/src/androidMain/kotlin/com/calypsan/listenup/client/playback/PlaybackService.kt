@@ -104,6 +104,7 @@ class PlaybackService : MediaLibraryService() {
 
     // Inject dependencies
     private val playbackManager: PlaybackManager by inject()
+    private val reporter: PlaybackProgressReporter by inject()
     private val progressTracker: ProgressTracker by inject()
     private val listeningEventRecorder: com.calypsan.listenup.client.playback.ListeningEventRecorder by inject()
     private val positionRepository: PlaybackPositionRepository by inject()
@@ -164,6 +165,27 @@ class PlaybackService : MediaLibraryService() {
         playbackManager.onChapterChanged = { chapterInfo ->
             logger.debug { "Chapter changed: ${chapterInfo.title}" }
             updateNotificationForChapter(chapterInfo)
+        }
+
+        // Auto-rewind-on-resume actuator (#1220): PlaybackManagerImpl.setPlaying feeds every
+        // Playing/Paused transition (from the Player.Listener below, via MediaControllerHolder)
+        // into the reporter, which owns the pause-window/ladder decision and calls back here
+        // with a relative rewind once one applies. Mirrors COMMAND_SKIP_BACK_30's book-relative
+        // seek — routes to the active session player so it also seeks correctly while casting.
+        reporter.onAutoRewindSeek = { rewindMs ->
+            val p = mediaLibrarySession?.player ?: player
+            if (p != null) {
+                val timeline = playbackManager.currentTimeline.value
+                val newPosition = (getBookRelativePosition() - rewindMs).coerceAtLeast(0)
+                if (timeline != null) {
+                    val resolved = timeline.resolve(newPosition)
+                    p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
+                } else {
+                    p.seekTo((p.currentPosition - rewindMs).coerceAtLeast(0))
+                }
+                playbackManager.updatePosition(newPosition)
+                logger.debug { "Auto-rewind on resume: backed up ${rewindMs}ms to ${newPosition}ms" }
+            }
         }
     }
 
@@ -482,6 +504,7 @@ class PlaybackService : MediaLibraryService() {
 
         // Clear chapter change callback to avoid memory leaks
         playbackManager.onChapterChanged = null
+        reporter.onAutoRewindSeek = null
 
         // Release session before player — the session holds a reference to the player.
         // player?.release() runs unconditionally so the native decoder is freed even

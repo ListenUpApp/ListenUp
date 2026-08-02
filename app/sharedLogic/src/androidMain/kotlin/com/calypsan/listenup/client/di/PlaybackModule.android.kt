@@ -28,6 +28,7 @@ val androidPlaybackModule: Module =
                 progressTracker = get(),
                 recorder = null,
                 scope = get(),
+                localPreferences = get(),
             )
         }
 
