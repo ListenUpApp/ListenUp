@@ -102,6 +102,7 @@ class KoinModuleVerifyTest :
                         CoroutineScope::class,
                         ServerConfig::class,
                         PlaybackPreferences::class,
+                        LocalPreferences::class,
                         BookDao::class,
                         AudioFileDao::class,
                         ChapterDao::class,

@@ -27,6 +27,7 @@ val desktopPlaybackModule: Module =
                 progressTracker = get(),
                 recorder = get(),
                 scope = get(qualifier = named("playbackScope")),
+                localPreferences = get(),
             )
         }
 

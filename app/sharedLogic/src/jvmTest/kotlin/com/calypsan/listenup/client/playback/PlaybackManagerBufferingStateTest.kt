@@ -85,7 +85,13 @@ class PlaybackManagerBufferingStateTest :
                 chapterDao = db.chapterDao(),
                 imageStorage = imageStorage,
                 progressTracker = progressTracker,
-                reporter = PlaybackProgressReporter(progressTracker, recorder = null, scope = scope),
+                reporter =
+                    PlaybackProgressReporter(
+                        progressTracker,
+                        recorder = null,
+                        scope = scope,
+                        localPreferences = localPreferences,
+                    ),
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
