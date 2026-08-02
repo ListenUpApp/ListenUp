@@ -1257,6 +1257,12 @@ class PlaybackService : MediaLibraryService() {
                     try {
                         val (resolvedItems, prepareResult) = resolveMediaItems(mediaItems)
 
+                        // The queue is this book's now. currentBookId is what every progress
+                        // write is keyed on, and only the VM used to set it — so a book started
+                        // from Auto, the Assistant or a media button saved its position onto
+                        // whatever the app happened to activate last.
+                        prepareResult?.let { playbackManager.activateBook(it.timeline.bookId) }
+
                         if (startIndex != C.INDEX_UNSET) {
                             completer.set(
                                 MediaSession.MediaItemsWithStartPosition(resolvedItems, startIndex, startPositionMs),
@@ -1437,6 +1443,10 @@ class PlaybackService : MediaLibraryService() {
                             completer.setException(IllegalStateException("Failed to prepare book"))
                             return@launch
                         }
+
+                        // Same reason as onSetMediaItems: resumption is a play path the VM
+                        // never sees, so nothing else sets the book progress is keyed on.
+                        playbackManager.activateBook(lastPlayed.bookId)
 
                         // Build MediaItems from timeline
                         val resolvedMediaItems =
