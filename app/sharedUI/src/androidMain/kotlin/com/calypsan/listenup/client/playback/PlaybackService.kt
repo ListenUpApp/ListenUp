@@ -31,6 +31,7 @@ import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
+import com.calypsan.listenup.client.automotive.paginate
 import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
 import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.client.playback.cast.CastSessionController
@@ -923,7 +924,8 @@ class PlaybackService : MediaLibraryService() {
                 serviceScope.launch {
                     try {
                         val children = browseTreeProvider.getChildren(parentId)
-                        completer.set(LibraryResult.ofItemList(ImmutableList.copyOf(children), params))
+                        val pageItems = paginate(children, page, pageSize)
+                        completer.set(LibraryResult.ofItemList(ImmutableList.copyOf(pageItems), params))
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -1096,19 +1098,10 @@ class PlaybackService : MediaLibraryService() {
             logger.debug { "onGetSearchResult: query='$query', page=$page, pageSize=$pageSize" }
 
             val items = searchResultsCache[query] ?: emptyList()
+            val pageItems = paginate(items, page, pageSize)
 
-            // Apply pagination
-            val startIndex = page * pageSize
-            val endIndex = minOf(startIndex + pageSize, items.size)
-            val pageItems =
-                if (startIndex < items.size) {
-                    items.subList(startIndex, endIndex)
-                } else {
-                    emptyList()
-                }
-
-            // Clean up cache after last page is retrieved
-            val isLastPage = endIndex >= items.size
+            // Clean up cache after the last page is retrieved
+            val isLastPage = pageSize <= 0 || (page.coerceAtLeast(0).toLong() + 1) * pageSize >= items.size
             if (isLastPage) {
                 searchResultsCache.remove(query)
                 logger.debug { "Search cache cleared for query: $query" }

@@ -17,7 +17,11 @@ import kotlinx.coroutines.flow.first
 
 private val logger = KotlinLogging.logger {}
 
-private const val MAX_ITEMS_PER_LEVEL = 8
+/** Safety bound per catalog browse level; the head unit pages within it (#1238). */
+private const val MAX_ITEMS_PER_LEVEL = 100
+
+/** The continue-listening shelf stays a small curated row — a deliberate product choice. */
+private const val CONTINUE_LISTENING_LIMIT = 8
 
 /**
  * Provides browse tree data for Android Auto.
@@ -170,7 +174,7 @@ class BrowseTreeProvider(
         )
 
     private suspend fun getRecentBooks(): List<MediaItem> {
-        val result = homeRepository.getContinueListening(MAX_ITEMS_PER_LEVEL)
+        val result = homeRepository.getContinueListening(CONTINUE_LISTENING_LIMIT)
         if (result !is AppResult.Success) {
             return emptyList()
         }

@@ -292,19 +292,19 @@ class BrowseTreeProviderTest {
     // ──────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `getChildren LIBRARY_SERIES caps result at 8 items even with more series`(): Unit =
+    fun `getChildren LIBRARY_SERIES caps result at 100 items even with more series`(): Unit =
         runBlocking {
-            val manySeries = (1..12).map { makeSeries("s-$it", "Series $it") }
+            val manySeries = (1..105).map { makeSeries("s-$it", "Series $it") }
             val provider = makeProvider(allSeries = manySeries)
-            provider.getChildren(BrowseTree.LIBRARY_SERIES) shouldHaveSize 8
+            provider.getChildren(BrowseTree.LIBRARY_SERIES) shouldHaveSize 100
         }
 
     @Test
-    fun `getChildren LIBRARY_AUTHORS caps result at 8 items`(): Unit =
+    fun `getChildren LIBRARY_AUTHORS caps result at 100 items`(): Unit =
         runBlocking {
-            val manyAuthors = (1..15).map { makeContributor("a-$it", "Author $it") }
+            val manyAuthors = (1..105).map { makeContributor("a-$it", "Author $it") }
             val provider = makeProvider(allContributors = manyAuthors)
-            provider.getChildren(BrowseTree.LIBRARY_AUTHORS) shouldHaveSize 8
+            provider.getChildren(BrowseTree.LIBRARY_AUTHORS) shouldHaveSize 100
         }
 
     // ──────────────────────────────────────────────────────────────────────────────
