@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.automotive
 
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.session.MediaConstants
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -33,6 +35,8 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -108,6 +112,27 @@ class BrowseTreeProviderTest {
             }
         }
 
+    @Test
+    fun `book-level folders declare grid playable children`(): Unit =
+        runBlocking {
+            val provider = makeProvider()
+            val children = provider.getChildren(BrowseTree.LIBRARY)
+
+            val recent = children.first { it.mediaId == BrowseTree.LIBRARY_RECENT }
+            val styles = requireNotNull(recent.mediaMetadata.extras)
+            assertEquals(
+                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
+                styles.getInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE),
+            )
+
+            val downloaded = children.first { it.mediaId == BrowseTree.LIBRARY_DOWNLOADED }
+            assertEquals(
+                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
+                requireNotNull(downloaded.mediaMetadata.extras)
+                    .getInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE),
+            )
+        }
+
     // ──────────────────────────────────────────────────────────────────────────────
     // LIBRARY_RECENT branch
     // ──────────────────────────────────────────────────────────────────────────────
@@ -135,6 +160,16 @@ class BrowseTreeProviderTest {
             children[0].mediaMetadata.isPlayable shouldBe true
             children[1].mediaId shouldBe BrowseTree.bookId("book-2")
         }
+
+    @Test
+    fun `getChildren LIBRARY_RECENT throws when the continue-listening read fails`() {
+        // A repository failure must surface, not silently render as an empty shelf (#1239) —
+        // onGetChildren maps the thrown exception to RESULT_ERROR_UNKNOWN.
+        val provider = makeProvider(continueListeningFails = true)
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { provider.getChildren(BrowseTree.LIBRARY_RECENT) }
+        }
+    }
 
     // ──────────────────────────────────────────────────────────────────────────────
     // LIBRARY_DOWNLOADED branch
@@ -216,6 +251,14 @@ class BrowseTreeProviderTest {
             children[1].mediaId shouldBe BrowseTree.authorId("author-2")
         }
 
+    @Test
+    fun `author entries are typed as artists`(): Unit =
+        runBlocking {
+            val provider = makeProvider(allContributors = listOf(makeContributor("author-1", "Brandon Sanderson")))
+            val authors = provider.getChildren(BrowseTree.LIBRARY_AUTHORS)
+            assertEquals(MediaMetadata.MEDIA_TYPE_ARTIST, authors.first().mediaMetadata.mediaType)
+        }
+
     // ──────────────────────────────────────────────────────────────────────────────
     // Dynamic: series books
     // ──────────────────────────────────────────────────────────────────────────────
@@ -292,19 +335,19 @@ class BrowseTreeProviderTest {
     // ──────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `getChildren LIBRARY_SERIES caps result at 8 items even with more series`(): Unit =
+    fun `getChildren LIBRARY_SERIES caps result at 100 items even with more series`(): Unit =
         runBlocking {
-            val manySeries = (1..12).map { makeSeries("s-$it", "Series $it") }
+            val manySeries = (1..105).map { makeSeries("s-$it", "Series $it") }
             val provider = makeProvider(allSeries = manySeries)
-            provider.getChildren(BrowseTree.LIBRARY_SERIES) shouldHaveSize 8
+            provider.getChildren(BrowseTree.LIBRARY_SERIES) shouldHaveSize 100
         }
 
     @Test
-    fun `getChildren LIBRARY_AUTHORS caps result at 8 items`(): Unit =
+    fun `getChildren LIBRARY_AUTHORS caps result at 100 items`(): Unit =
         runBlocking {
-            val manyAuthors = (1..15).map { makeContributor("a-$it", "Author $it") }
+            val manyAuthors = (1..105).map { makeContributor("a-$it", "Author $it") }
             val provider = makeProvider(allContributors = manyAuthors)
-            provider.getChildren(BrowseTree.LIBRARY_AUTHORS) shouldHaveSize 8
+            provider.getChildren(BrowseTree.LIBRARY_AUTHORS) shouldHaveSize 100
         }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -337,6 +380,7 @@ class BrowseTreeProviderTest {
 
     private fun makeProvider(
         continueListeningBooks: List<ContinueListeningBook> = emptyList(),
+        continueListeningFails: Boolean = false,
         downloadedBooks: List<DownloadedBookSummary> = emptyList(),
         allSeries: List<Series> = emptyList(),
         seriesWithBooksById: Map<String, SeriesWithBooks> = emptyMap(),
@@ -373,7 +417,7 @@ class BrowseTreeProviderTest {
         every { downloadRepository.observeDownloadedBooks() } returns flowOf(downloadedBooks)
 
         return BrowseTreeProvider(
-            homeRepository = FakeHomeRepository(continueListeningBooks),
+            homeRepository = FakeHomeRepository(continueListeningBooks, continueListeningFails),
             bookRepository = bookRepository,
             seriesRepository = seriesRepository,
             contributorRepository = contributorRepository,
@@ -453,8 +497,14 @@ class BrowseTreeProviderTest {
 
 private class FakeHomeRepository(
     private val books: List<ContinueListeningBook>,
+    private val fails: Boolean = false,
 ) : HomeRepository {
-    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(books.take(limit))
+    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
+        if (fails) {
+            AppResult.Failure(InternalError())
+        } else {
+            AppResult.Success(books.take(limit))
+        }
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) })
 }

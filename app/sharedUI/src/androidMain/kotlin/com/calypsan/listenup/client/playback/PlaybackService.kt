@@ -28,9 +28,13 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.composeapp.R
+import com.calypsan.listenup.client.automotive.AutoBrowseErrors
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
+import com.calypsan.listenup.client.automotive.browseNeedsSignIn
+import com.calypsan.listenup.client.automotive.isLastPage
+import com.calypsan.listenup.client.automotive.paginate
 import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
 import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.client.playback.cast.CastSessionController
@@ -39,6 +43,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.result.getOrNull
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.voice.MediaFocus
@@ -116,6 +121,7 @@ class PlaybackService : MediaLibraryService() {
     private val tokenProvider: AndroidAudioTokenProvider by inject()
     private val sleepTimerManager: SleepTimerManager by inject()
     private val browseTreeProvider: BrowseTreeProvider by inject()
+    private val authSession: AuthSession by inject()
     private val voiceIntentResolver: VoiceIntentResolver by inject()
     private val homeRepository: HomeRepository by inject()
     private val castPreparer: CastPreparer by inject()
@@ -904,6 +910,12 @@ class PlaybackService : MediaLibraryService() {
                 logger.debug { "onGetLibraryRoot rejected for untrusted controller: ${browser.packageName}" }
                 return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_PERMISSION_DENIED))
             }
+            if (browseNeedsSignIn(authSession.authState.value)) {
+                logger.debug { "onGetLibraryRoot: signed out — returning auth error" }
+                return Futures.immediateFuture(
+                    LibraryResult.ofError(AutoBrowseErrors.signedOutError(applicationContext)),
+                )
+            }
             logger.debug { "onGetLibraryRoot" }
             val root = browseTreeProvider.getRoot()
             return Futures.immediateFuture(LibraryResult.ofItem(root, params))
@@ -919,11 +931,18 @@ class PlaybackService : MediaLibraryService() {
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
             logger.debug { "onGetChildren: parentId=$parentId, page=$page, pageSize=$pageSize" }
 
+            if (browseNeedsSignIn(authSession.authState.value)) {
+                return Futures.immediateFuture(
+                    LibraryResult.ofError(AutoBrowseErrors.signedOutError(applicationContext)),
+                )
+            }
+
             return CallbackToFutureAdapter.getFuture { completer ->
                 serviceScope.launch {
                     try {
                         val children = browseTreeProvider.getChildren(parentId)
-                        completer.set(LibraryResult.ofItemList(ImmutableList.copyOf(children), params))
+                        val pageItems = paginate(children, page, pageSize)
+                        completer.set(LibraryResult.ofItemList(ImmutableList.copyOf(pageItems), params))
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -1096,20 +1115,11 @@ class PlaybackService : MediaLibraryService() {
             logger.debug { "onGetSearchResult: query='$query', page=$page, pageSize=$pageSize" }
 
             val items = searchResultsCache[query] ?: emptyList()
+            val pageItems = paginate(items, page, pageSize)
 
-            // Apply pagination
-            val startIndex = page * pageSize
-            val endIndex = minOf(startIndex + pageSize, items.size)
-            val pageItems =
-                if (startIndex < items.size) {
-                    items.subList(startIndex, endIndex)
-                } else {
-                    emptyList()
-                }
-
-            // Clean up cache after last page is retrieved
-            val isLastPage = endIndex >= items.size
-            if (isLastPage) {
+            // Clean up cache after the last page is retrieved
+            val lastPage = isLastPage(items, page, pageSize)
+            if (lastPage) {
                 searchResultsCache.remove(query)
                 logger.debug { "Search cache cleared for query: $query" }
             }
@@ -1236,12 +1246,8 @@ class PlaybackService : MediaLibraryService() {
          * one — so this branch preserves [startIndex]/[startPositionMs] verbatim, keeping that path
          * byte-identical to before this override existed.
          *
-         * Otherwise (Auto tap-to-play / voice search): when [mediaItems] resolved to exactly one
-         * book — the shape both of those callers always send — resume it at its saved position via
-         * [PlaybackManager.PrepareResult.timeline]`.resolve(resumePositionMs)`, rather than the
-         * default index/position-zero. When more than one book resolved (or none), fall back to
-         * `C.INDEX_UNSET`/`C.TIME_UNSET`, which per [MediaSession.MediaItemsWithStartPosition]'s
-         * contract tells Media3 to apply its own default index/position.
+         * Otherwise (Auto tap-to-play / voice search), the start index/position is decided by
+         * [autoStartPosition] — see its KDoc for the full contract.
          */
         override fun onSetMediaItems(
             mediaSession: MediaSession,
@@ -1263,30 +1269,20 @@ class PlaybackService : MediaLibraryService() {
                         // whatever the app happened to activate last.
                         prepareResult?.let { playbackManager.activateBook(it.timeline.bookId) }
 
-                        if (startIndex != C.INDEX_UNSET) {
-                            completer.set(
-                                MediaSession.MediaItemsWithStartPosition(resolvedItems, startIndex, startPositionMs),
+                        val (resolvedStartIndex, resolvedStartPositionMs) =
+                            autoStartPosition(
+                                requestedStartIndex = startIndex,
+                                requestedStartPositionMs = startPositionMs,
+                                requestItemCount = mediaItems.size,
+                                resumeTimeline = prepareResult?.timeline,
+                                resumePositionMs = prepareResult?.resumePositionMs ?: 0L,
                             )
-                            return@launch
-                        }
-
-                        val resumeStart =
-                            if (mediaItems.size == 1 && prepareResult != null) {
-                                prepareResult.timeline.resolve(prepareResult.resumePositionMs)
-                            } else {
-                                null
-                            }
-
                         completer.set(
-                            if (resumeStart != null) {
-                                MediaSession.MediaItemsWithStartPosition(
-                                    resolvedItems,
-                                    resumeStart.mediaItemIndex,
-                                    resumeStart.positionInFileMs,
-                                )
-                            } else {
-                                MediaSession.MediaItemsWithStartPosition(resolvedItems, C.INDEX_UNSET, C.TIME_UNSET)
-                            },
+                            MediaSession.MediaItemsWithStartPosition(
+                                resolvedItems,
+                                resolvedStartIndex,
+                                resolvedStartPositionMs,
+                            ),
                         )
                     } catch (e: CancellationException) {
                         throw e

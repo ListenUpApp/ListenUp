@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.automotive
 
 import android.net.Uri
+import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.session.MediaConstants
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
@@ -17,7 +19,11 @@ import kotlinx.coroutines.flow.first
 
 private val logger = KotlinLogging.logger {}
 
-private const val MAX_ITEMS_PER_LEVEL = 8
+/** Safety bound per catalog browse level; the head unit pages within it (#1238). */
+private const val MAX_ITEMS_PER_LEVEL = 100
+
+/** The continue-listening shelf stays a small curated row — a deliberate product choice. */
+private const val CONTINUE_LISTENING_LIMIT = 8
 
 /**
  * Provides browse tree data for Android Auto.
@@ -102,6 +108,7 @@ class BrowseTreeProvider(
                     BrowseTree.LIBRARY,
                     "Library",
                     MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                    childStyleExtras(playableAsGrid = true),
                 )
             }
 
@@ -125,6 +132,7 @@ class BrowseTreeProvider(
                 mediaId = BrowseTree.LIBRARY,
                 title = "Library",
                 mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                childStyle = childStyleExtras(playableAsGrid = true),
             ),
         )
 
@@ -151,11 +159,13 @@ class BrowseTreeProvider(
                 mediaId = BrowseTree.LIBRARY_RECENT,
                 title = "Recently Played",
                 mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                childStyle = childStyleExtras(playableAsGrid = true),
             ),
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY_DOWNLOADED,
                 title = "Downloaded",
                 mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                childStyle = childStyleExtras(playableAsGrid = true),
             ),
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY_SERIES,
@@ -170,11 +180,12 @@ class BrowseTreeProvider(
         )
 
     private suspend fun getRecentBooks(): List<MediaItem> {
-        val result = homeRepository.getContinueListening(MAX_ITEMS_PER_LEVEL)
+        val result = homeRepository.getContinueListening(CONTINUE_LISTENING_LIMIT)
         if (result !is AppResult.Success) {
-            return emptyList()
+            // Surface as a typed browse error (onGetChildren maps this to RESULT_ERROR_UNKNOWN)
+            // rather than an empty library the head unit renders as "no content" (#1239).
+            error("continue-listening read failed: ${(result as AppResult.Failure).error.code}")
         }
-
         return result.data.map { book -> createPlayableBookItem(book) }
     }
 
@@ -195,6 +206,7 @@ class BrowseTreeProvider(
                     mediaId = BrowseTree.seriesId(series.id.value),
                     title = series.name,
                     mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                    childStyle = childStyleExtras(playableAsGrid = true),
                 )
             }
 
@@ -207,7 +219,8 @@ class BrowseTreeProvider(
                 createBrowsableItem(
                     mediaId = BrowseTree.authorId(author.id.value),
                     title = author.name,
-                    mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                    mediaType = MediaMetadata.MEDIA_TYPE_ARTIST,
+                    childStyle = childStyleExtras(playableAsGrid = true),
                 )
             }
 
@@ -260,10 +273,16 @@ class BrowseTreeProvider(
 
     // ========== Item Builders ==========
 
+    /**
+     * @param childStyle Content-style extras (#1240) declaring how THIS item's children
+     *   render on the head unit — grid for book-level folders (covers available), list
+     *   for category folders. Null leaves Auto's own default (list).
+     */
     private fun createBrowsableItem(
         mediaId: String,
         title: String,
         mediaType: Int,
+        childStyle: Bundle? = null,
     ): MediaItem =
         MediaItem
             .Builder()
@@ -275,8 +294,26 @@ class BrowseTreeProvider(
                     .setIsPlayable(false)
                     .setIsBrowsable(true)
                     .setMediaType(mediaType)
+                    .setExtras(childStyle)
                     .build(),
             ).build()
+
+    /** Extras declaring how this browsable's CHILDREN render on the head unit (#1240). */
+    private fun childStyleExtras(playableAsGrid: Boolean): Bundle =
+        Bundle().apply {
+            putInt(
+                MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE,
+                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM,
+            )
+            putInt(
+                MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE,
+                if (playableAsGrid) {
+                    MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
+                } else {
+                    MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
+                },
+            )
+        }
 
     private fun createPlayableBookItem(book: ContinueListeningBook): MediaItem {
         val artworkUri = book.coverPath?.let { Uri.parse("file://$it") }
