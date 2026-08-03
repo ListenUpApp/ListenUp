@@ -1236,12 +1236,8 @@ class PlaybackService : MediaLibraryService() {
          * one — so this branch preserves [startIndex]/[startPositionMs] verbatim, keeping that path
          * byte-identical to before this override existed.
          *
-         * Otherwise (Auto tap-to-play / voice search): when [mediaItems] resolved to exactly one
-         * book — the shape both of those callers always send — resume it at its saved position via
-         * [PlaybackManager.PrepareResult.timeline]`.resolve(resumePositionMs)`, rather than the
-         * default index/position-zero. When more than one book resolved (or none), fall back to
-         * `C.INDEX_UNSET`/`C.TIME_UNSET`, which per [MediaSession.MediaItemsWithStartPosition]'s
-         * contract tells Media3 to apply its own default index/position.
+         * Otherwise (Auto tap-to-play / voice search), the start index/position is decided by
+         * [autoStartPosition] — see its KDoc for the full contract.
          */
         override fun onSetMediaItems(
             mediaSession: MediaSession,
@@ -1263,30 +1259,20 @@ class PlaybackService : MediaLibraryService() {
                         // whatever the app happened to activate last.
                         prepareResult?.let { playbackManager.activateBook(it.timeline.bookId) }
 
-                        if (startIndex != C.INDEX_UNSET) {
-                            completer.set(
-                                MediaSession.MediaItemsWithStartPosition(resolvedItems, startIndex, startPositionMs),
+                        val (resolvedStartIndex, resolvedStartPositionMs) =
+                            autoStartPosition(
+                                requestedStartIndex = startIndex,
+                                requestedStartPositionMs = startPositionMs,
+                                requestItemCount = mediaItems.size,
+                                resumeTimeline = prepareResult?.timeline,
+                                resumePositionMs = prepareResult?.resumePositionMs ?: 0L,
                             )
-                            return@launch
-                        }
-
-                        val resumeStart =
-                            if (mediaItems.size == 1 && prepareResult != null) {
-                                prepareResult.timeline.resolve(prepareResult.resumePositionMs)
-                            } else {
-                                null
-                            }
-
                         completer.set(
-                            if (resumeStart != null) {
-                                MediaSession.MediaItemsWithStartPosition(
-                                    resolvedItems,
-                                    resumeStart.mediaItemIndex,
-                                    resumeStart.positionInFileMs,
-                                )
-                            } else {
-                                MediaSession.MediaItemsWithStartPosition(resolvedItems, C.INDEX_UNSET, C.TIME_UNSET)
-                            },
+                            MediaSession.MediaItemsWithStartPosition(
+                                resolvedItems,
+                                resolvedStartIndex,
+                                resolvedStartPositionMs,
+                            ),
                         )
                     } catch (e: CancellationException) {
                         throw e
