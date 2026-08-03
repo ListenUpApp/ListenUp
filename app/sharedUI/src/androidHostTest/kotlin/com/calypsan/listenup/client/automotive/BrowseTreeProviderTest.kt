@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.automotive
 
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.session.MediaConstants
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -34,6 +35,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -108,6 +110,27 @@ class BrowseTreeProviderTest {
                 item.mediaMetadata.isBrowsable shouldBe true
                 item.mediaMetadata.isPlayable shouldBe false
             }
+        }
+
+    @Test
+    fun `book-level folders declare grid playable children`(): Unit =
+        runBlocking {
+            val provider = makeProvider()
+            val children = provider.getChildren(BrowseTree.LIBRARY)
+
+            val recent = children.first { it.mediaId == BrowseTree.LIBRARY_RECENT }
+            val styles = requireNotNull(recent.mediaMetadata.extras)
+            assertEquals(
+                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
+                styles.getInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE),
+            )
+
+            val downloaded = children.first { it.mediaId == BrowseTree.LIBRARY_DOWNLOADED }
+            assertEquals(
+                MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
+                requireNotNull(downloaded.mediaMetadata.extras)
+                    .getInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE),
+            )
         }
 
     // ──────────────────────────────────────────────────────────────────────────────
@@ -226,6 +249,14 @@ class BrowseTreeProviderTest {
             children[0].mediaMetadata.title.toString() shouldBe "Brandon Sanderson"
             children[0].mediaMetadata.isBrowsable shouldBe true
             children[1].mediaId shouldBe BrowseTree.authorId("author-2")
+        }
+
+    @Test
+    fun `author entries are typed as artists`(): Unit =
+        runBlocking {
+            val provider = makeProvider(allContributors = listOf(makeContributor("author-1", "Brandon Sanderson")))
+            val authors = provider.getChildren(BrowseTree.LIBRARY_AUTHORS)
+            assertEquals(MediaMetadata.MEDIA_TYPE_ARTIST, authors.first().mediaMetadata.mediaType)
         }
 
     // ──────────────────────────────────────────────────────────────────────────────
