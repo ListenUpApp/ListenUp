@@ -31,6 +31,7 @@ import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
+import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
 import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
 import com.calypsan.listenup.client.playback.cast.CastPreparer
@@ -1101,8 +1102,8 @@ class PlaybackService : MediaLibraryService() {
             val pageItems = paginate(items, page, pageSize)
 
             // Clean up cache after the last page is retrieved
-            val isLastPage = pageSize <= 0 || (page.coerceAtLeast(0).toLong() + 1) * pageSize >= items.size
-            if (isLastPage) {
+            val lastPage = isLastPage(items, page, pageSize)
+            if (lastPage) {
                 searchResultsCache.remove(query)
                 logger.debug { "Search cache cleared for query: $query" }
             }

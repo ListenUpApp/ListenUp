@@ -27,4 +27,20 @@ class BrowsePaginationTest :
         test("negative page is treated as first page") {
             paginate(items, page = -1, pageSize = 10) shouldBe (1..10).toList()
         }
+
+        test("isLastPage: mid-sequence page is not last") {
+            isLastPage(items, page = 1, pageSize = 10) shouldBe false
+        }
+
+        test("isLastPage: final partial page is last") {
+            isLastPage(items, page = 2, pageSize = 10) shouldBe true
+        }
+
+        test("isLastPage: non-positive pageSize means the whole list was returned") {
+            isLastPage(items, page = 0, pageSize = 0) shouldBe true
+        }
+
+        test("isLastPage: exact boundary (items.size == (page+1)*pageSize) is last") {
+            isLastPage((1..20).toList(), page = 1, pageSize = 10) shouldBe true
+        }
     })

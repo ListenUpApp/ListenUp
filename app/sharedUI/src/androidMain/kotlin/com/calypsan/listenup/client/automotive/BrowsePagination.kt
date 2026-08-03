@@ -19,3 +19,14 @@ internal fun <T> paginate(
     val end = minOf(start + pageSize, items.size.toLong())
     return items.subList(start.toInt(), end.toInt())
 }
+
+/**
+ * Whether [page] is the final page of [items] under [paginate]'s clamping rules — kept beside
+ * it so the boundary math has exactly one home. A non-positive [pageSize] means the head unit
+ * didn't paginate: the whole list was returned, so it is by definition the last page.
+ */
+internal fun isLastPage(
+    items: List<*>,
+    page: Int,
+    pageSize: Int,
+): Boolean = pageSize <= 0 || (page.coerceAtLeast(0).toLong() + 1) * pageSize >= items.size
