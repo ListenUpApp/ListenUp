@@ -28,9 +28,11 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.composeapp.R
+import com.calypsan.listenup.client.automotive.AutoBrowseErrors
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
+import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
 import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
@@ -41,6 +43,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.result.getOrNull
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.voice.MediaFocus
@@ -118,6 +121,7 @@ class PlaybackService : MediaLibraryService() {
     private val tokenProvider: AndroidAudioTokenProvider by inject()
     private val sleepTimerManager: SleepTimerManager by inject()
     private val browseTreeProvider: BrowseTreeProvider by inject()
+    private val authSession: AuthSession by inject()
     private val voiceIntentResolver: VoiceIntentResolver by inject()
     private val homeRepository: HomeRepository by inject()
     private val castPreparer: CastPreparer by inject()
@@ -906,6 +910,12 @@ class PlaybackService : MediaLibraryService() {
                 logger.debug { "onGetLibraryRoot rejected for untrusted controller: ${browser.packageName}" }
                 return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_PERMISSION_DENIED))
             }
+            if (browseNeedsSignIn(authSession.authState.value)) {
+                logger.debug { "onGetLibraryRoot: signed out — returning auth error" }
+                return Futures.immediateFuture(
+                    LibraryResult.ofError(AutoBrowseErrors.signedOutError(applicationContext)),
+                )
+            }
             logger.debug { "onGetLibraryRoot" }
             val root = browseTreeProvider.getRoot()
             return Futures.immediateFuture(LibraryResult.ofItem(root, params))
@@ -920,6 +930,12 @@ class PlaybackService : MediaLibraryService() {
             params: MediaLibraryService.LibraryParams?,
         ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
             logger.debug { "onGetChildren: parentId=$parentId, page=$page, pageSize=$pageSize" }
+
+            if (browseNeedsSignIn(authSession.authState.value)) {
+                return Futures.immediateFuture(
+                    LibraryResult.ofError(AutoBrowseErrors.signedOutError(applicationContext)),
+                )
+            }
 
             return CallbackToFutureAdapter.getFuture { completer ->
                 serviceScope.launch {

@@ -176,9 +176,10 @@ class BrowseTreeProvider(
     private suspend fun getRecentBooks(): List<MediaItem> {
         val result = homeRepository.getContinueListening(CONTINUE_LISTENING_LIMIT)
         if (result !is AppResult.Success) {
-            return emptyList()
+            // Surface as a typed browse error (onGetChildren maps this to RESULT_ERROR_UNKNOWN)
+            // rather than an empty library the head unit renders as "no content" (#1239).
+            error("continue-listening read failed: ${(result as AppResult.Failure).error.code}")
         }
-
         return result.data.map { book -> createPlayableBookItem(book) }
     }
 

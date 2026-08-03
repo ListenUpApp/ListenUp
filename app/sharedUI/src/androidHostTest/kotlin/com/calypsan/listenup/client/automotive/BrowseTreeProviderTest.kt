@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.automotive
 
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -33,6 +34,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -135,6 +137,16 @@ class BrowseTreeProviderTest {
             children[0].mediaMetadata.isPlayable shouldBe true
             children[1].mediaId shouldBe BrowseTree.bookId("book-2")
         }
+
+    @Test
+    fun `getChildren LIBRARY_RECENT throws when the continue-listening read fails`() {
+        // A repository failure must surface, not silently render as an empty shelf (#1239) —
+        // onGetChildren maps the thrown exception to RESULT_ERROR_UNKNOWN.
+        val provider = makeProvider(continueListeningFails = true)
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { provider.getChildren(BrowseTree.LIBRARY_RECENT) }
+        }
+    }
 
     // ──────────────────────────────────────────────────────────────────────────────
     // LIBRARY_DOWNLOADED branch
@@ -337,6 +349,7 @@ class BrowseTreeProviderTest {
 
     private fun makeProvider(
         continueListeningBooks: List<ContinueListeningBook> = emptyList(),
+        continueListeningFails: Boolean = false,
         downloadedBooks: List<DownloadedBookSummary> = emptyList(),
         allSeries: List<Series> = emptyList(),
         seriesWithBooksById: Map<String, SeriesWithBooks> = emptyMap(),
@@ -373,7 +386,7 @@ class BrowseTreeProviderTest {
         every { downloadRepository.observeDownloadedBooks() } returns flowOf(downloadedBooks)
 
         return BrowseTreeProvider(
-            homeRepository = FakeHomeRepository(continueListeningBooks),
+            homeRepository = FakeHomeRepository(continueListeningBooks, continueListeningFails),
             bookRepository = bookRepository,
             seriesRepository = seriesRepository,
             contributorRepository = contributorRepository,
@@ -453,8 +466,14 @@ class BrowseTreeProviderTest {
 
 private class FakeHomeRepository(
     private val books: List<ContinueListeningBook>,
+    private val fails: Boolean = false,
 ) : HomeRepository {
-    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = AppResult.Success(books.take(limit))
+    override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> =
+        if (fails) {
+            AppResult.Failure(InternalError())
+        } else {
+            AppResult.Success(books.take(limit))
+        }
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) })
 }
