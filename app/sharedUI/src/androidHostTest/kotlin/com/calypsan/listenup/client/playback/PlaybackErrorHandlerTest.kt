@@ -712,13 +712,22 @@ private object ThrowingDownloadRepository : DownloadRepository {
 // ── Stubs ─────────────────────────────────────────────────────────────────────
 
 /**
- * [ExoPlayer] stub that records the calls made by [PlaybackErrorHandler.handle].
+ * Hand-written [ExoPlayer] fake that records the calls made against it.
  * All other methods are no-ops or return sensible defaults.
+ *
+ * `internal` rather than file-private so [ListenUpSessionCallbackTest] can drive the
+ * session callback's transport seam against it too. Implementing ExoPlayer's full surface
+ * costs ~400 lines, so one fake serves both suites rather than each growing its own.
  */
 @OptIn(UnstableApi::class)
-private class FakeExoPlayer(
+internal class FakeExoPlayer(
     stubbedPosition: Long = 5_000L,
     stubbedMediaItemIndex: Int = 0,
+    private val stubbedDuration: Long = 0L,
+    // Opt-in, because MediaSession.Builder rejects a player that answers `false` here.
+    // Defaults to false to keep the fake honest about what it is — only a fake standing in
+    // as a session's player needs to claim otherwise.
+    private val canAdvertiseSession: Boolean = false,
 ) : ExoPlayer {
     private val _currentPosition = stubbedPosition
     private val _currentMediaItemIndex = stubbedMediaItemIndex
@@ -726,7 +735,17 @@ private class FakeExoPlayer(
     var playCount = 0
     var stopCount = 0
     var prepareCount = 0
+
+    /** `seekTo(mediaItemIndex, positionMs)` calls — the book-relative, timeline-resolved path. */
     val seekCalls = mutableListOf<Pair<Int, Long>>()
+
+    /**
+     * `seekTo(positionMs)` calls — the single-argument overload, which seeks
+     * FILE-relatively within the current item. Recorded separately from [seekCalls]
+     * because conflating the two coordinate spaces is the #1241 bug class: a test that
+     * could not tell them apart would pass on exactly the defect it exists to catch.
+     */
+    val fileRelativeSeekCalls = mutableListOf<Long>()
 
     // ── Methods called by PlaybackErrorHandler.handle ──────────────────────────
     override fun pause() {
@@ -835,7 +854,7 @@ private class FakeExoPlayer(
 
     override fun isCommandAvailable(command: Int): Boolean = false
 
-    override fun canAdvertiseSession(): Boolean = false
+    override fun canAdvertiseSession(): Boolean = canAdvertiseSession
 
     override fun getAvailableCommands(): Player.Commands = Player.Commands.EMPTY
 
@@ -865,7 +884,9 @@ private class FakeExoPlayer(
 
     override fun seekToDefaultPosition(mediaItemIndex: Int) = Unit
 
-    override fun seekTo(positionMs: Long) = Unit
+    override fun seekTo(positionMs: Long) {
+        fileRelativeSeekCalls += positionMs
+    }
 
     override fun getSeekBackIncrement(): Long = 0L
 
@@ -931,7 +952,7 @@ private class FakeExoPlayer(
 
     override fun getMediaItemAt(index: Int): MediaItem = MediaItem.EMPTY
 
-    override fun getDuration(): Long = 0L
+    override fun getDuration(): Long = stubbedDuration
 
     override fun getBufferedPosition(): Long = 0L
 
