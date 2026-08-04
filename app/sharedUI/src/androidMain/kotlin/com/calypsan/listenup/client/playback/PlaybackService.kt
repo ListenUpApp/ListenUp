@@ -101,6 +101,14 @@ class PlaybackService : MediaLibraryService() {
     // idle timer learns to stand down while casting (see startIdleTimer).
     private var casting = false
 
+    /**
+     * Whether audio was actually sounding when the last transport change arrived.
+     *
+     * Read by [isPlaybackRefused] to separate a refused start from an ordinary interruption —
+     * Media3 reports both with `PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS`.
+     */
+    private var wasPlaying = false
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var idleJob: Job? = null
     private var positionUpdateJob: Job? = null
@@ -721,8 +729,31 @@ class PlaybackService : MediaLibraryService() {
             }
         }
 
+        /**
+         * Detects a play request the platform refused outright, as opposed to one interrupted
+         * partway. See [isPlaybackRefused] for why the two need telling apart.
+         */
+        override fun onPlayWhenReadyChanged(
+            playWhenReady: Boolean,
+            reason: Int,
+        ) {
+            if (isPlaybackRefused(playWhenReady, reason, wasPlaying)) {
+                logger.warn {
+                    "Playback refused: audio focus denied while backgrounded. " +
+                        "Check `adb shell dumpsys audio` for the AudioHardening entry."
+                }
+                errorBus.emit(
+                    PlaybackError.BlockedInBackground(
+                        debugInfo = "playWhenReady=false reason=AUDIO_FOCUS_LOSS before playback started",
+                    ),
+                )
+            }
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             logger.debug { "Is playing: $isPlaying" }
+
+            wasPlaying = isPlaying
 
             val bookId = currentBookId
             val player = player

@@ -18,11 +18,11 @@ import kotlinx.serialization.Serializable
 sealed interface PlaybackError : AppError {
     /**
      * Media3 detected the player stuck in `STATE_BUFFERING` past the watchdog threshold
-     * (default 10 minutes in Media3 1.9.0+).
+     * (`STUCK_BUFFERING_TIMEOUT_MS`, which the client sets well below Media3's ten-minute default).
      *
      * Surfaces via Media3's `PlaybackException.ERROR_CODE_TIMEOUT`.
-     * Recovery: the error handler re-prepares the player automatically; the
-     * accompanying snackbar lets the user retry manually if playback does not resume.
+     * Recovery: the error handler re-prepares the player automatically, within a bounded retry
+     * budget; the accompanying snackbar lets the user retry manually once that budget is spent.
      */
     @Serializable
     @SerialName("PlaybackError.Stalled")
@@ -33,5 +33,28 @@ sealed interface PlaybackError : AppError {
         override val message: String = "Playback stalled. Tap to retry."
         override val code: String = "PLAYBACK_STALLED"
         override val isRetryable: Boolean = true
+    }
+
+    /**
+     * The platform refused to let playback start because the app was in the background.
+     *
+     * Android 17's background audio hardening denies an audio-focus request outright when the app
+     * has neither a visible activity nor a running foreground service, and denies the foreground
+     * service start that would have made it eligible — a deadlock a background surface cannot
+     * break out of on its own. Nothing throws; without this value the refusal is silent.
+     *
+     * Not retryable in the middleware sense: re-firing the same request from the same background
+     * state is refused identically. It clears when the listener brings the app to the foreground,
+     * which is what the message asks for.
+     */
+    @Serializable
+    @SerialName("PlaybackError.BlockedInBackground")
+    data class BlockedInBackground(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : PlaybackError {
+        override val message: String = "Playback can't start in the background. Open ListenUp to resume."
+        override val code: String = "PLAYBACK_BLOCKED_IN_BACKGROUND"
+        override val isRetryable: Boolean = false
     }
 }
