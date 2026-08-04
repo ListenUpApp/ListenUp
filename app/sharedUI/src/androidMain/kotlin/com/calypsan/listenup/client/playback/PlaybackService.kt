@@ -65,14 +65,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import org.koin.android.ext.android.inject
 import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.toJavaDuration
 
 private val logger = KotlinLogging.logger {}
 
@@ -227,16 +224,13 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun initializePlayer() {
-        // Create OkHttp client with auth interceptor
+        // Create OkHttp client with auth interceptor. Timeouts — and why they are all
+        // finite — live in StallRecovery.kt.
         val okHttpClient =
-            OkHttpClient
-                .Builder()
-                .addInterceptor(tokenProvider.createInterceptor())
-                .authenticator(tokenProvider.createAuthenticator())
-                .connectTimeout(30.seconds.toJavaDuration())
-                .readTimeout(0.seconds.toJavaDuration()) // No read timeout for streaming
-                .writeTimeout(30.seconds.toJavaDuration())
-                .build()
+            buildStreamingHttpClient(
+                authInterceptor = tokenProvider.createInterceptor(),
+                tokenAuthenticator = tokenProvider.createAuthenticator(),
+            )
 
         // Create DataSource factory: OkHttp for HTTP(S) streaming, DefaultDataSource
         // wrapper to also handle file:// URIs for downloaded audiobooks
@@ -275,6 +269,9 @@ class PlaybackService : MediaLibraryService() {
                 // skip by the same amount the in-app buttons do.
                 .setSeekBackIncrementMs(SEEK_BACK_INCREMENT_MS)
                 .setSeekForwardIncrementMs(SEEK_FORWARD_INCREMENT_MS)
+                // Backstop for a stall the socket-read timeout can't see — see StallRecovery.kt.
+                // Media3's own default is ten minutes, which strands the listener.
+                .setStuckBufferingDetectionTimeoutMs(STUCK_BUFFERING_TIMEOUT_MS)
                 .build()
                 .apply {
                     addListener(PlayerListener())
@@ -695,6 +692,12 @@ class PlaybackService : MediaLibraryService() {
                     else -> "UNKNOWN"
                 }
             logger.debug { "Playback state: $stateName" }
+
+            // Reaching READY means whatever we last recovered from is behind us — refill the
+            // recovery budget so it is spent per incident, not per listening session.
+            if (playbackState == Player.STATE_READY) {
+                errorHandler.onPlaybackHealthy()
+            }
 
             when (playbackState) {
                 Player.STATE_ENDED -> {
