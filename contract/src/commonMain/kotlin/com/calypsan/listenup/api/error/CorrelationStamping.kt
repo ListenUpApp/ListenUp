@@ -185,6 +185,7 @@ private fun AudioMetadataError.withCorrelationId(id: String?): AudioMetadataErro
 private fun PlaybackError.withCorrelationId(id: String?): PlaybackError =
     when (this) {
         is PlaybackError.Stalled -> copy(correlationId = id)
+        is PlaybackError.BlockedInBackground -> copy(correlationId = id)
     }
 
 private fun MetadataError.withCorrelationId(id: String?): MetadataError =

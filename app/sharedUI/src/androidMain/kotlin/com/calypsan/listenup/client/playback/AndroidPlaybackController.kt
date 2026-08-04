@@ -49,8 +49,17 @@ class AndroidPlaybackController(
     override val isReady: StateFlow<Boolean> = holder.isConnected
 
     override fun play() {
-        holder.controller?.play()
-            ?: logger.warn { "AndroidPlaybackController.play: controller not ready" }
+        val controller =
+            holder.controller
+                ?: return logger.warn { "AndroidPlaybackController.play: controller not ready" }
+
+        // An idle player — left that way by a terminal error, or by the recovery stop/prepare
+        // cycle — ignores play() entirely. See needsPrepareBeforePlay.
+        if (needsPrepareBeforePlay(controller.playbackState)) {
+            logger.info { "AndroidPlaybackController.play: player idle, re-preparing before play" }
+            controller.prepare()
+        }
+        controller.play()
     }
 
     override fun pause() {

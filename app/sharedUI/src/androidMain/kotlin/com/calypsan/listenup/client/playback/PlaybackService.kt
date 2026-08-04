@@ -65,14 +65,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import org.koin.android.ext.android.inject
 import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.toJavaDuration
 
 private val logger = KotlinLogging.logger {}
 
@@ -103,6 +100,17 @@ class PlaybackService : MediaLibraryService() {
     // to the local ExoPlayer, so cast play/pause never reaches it — this flag is how the
     // idle timer learns to stand down while casting (see startIdleTimer).
     private var casting = false
+
+    /**
+     * Whether audio was actually sounding when the last transport change arrived.
+     *
+     * Read by [isPlaybackRefused] to separate a refused start from an ordinary interruption —
+     * Media3 reports both with `PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS`.
+     */
+    private var wasPlaying = false
+
+    /** Offers a way back in when the platform refuses a background start. */
+    private val refusalNotifier by lazy { PlaybackRefusalNotifier(this) }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var idleJob: Job? = null
@@ -227,16 +235,13 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun initializePlayer() {
-        // Create OkHttp client with auth interceptor
+        // Create OkHttp client with auth interceptor. Timeouts — and why they are all
+        // finite — live in StallRecovery.kt.
         val okHttpClient =
-            OkHttpClient
-                .Builder()
-                .addInterceptor(tokenProvider.createInterceptor())
-                .authenticator(tokenProvider.createAuthenticator())
-                .connectTimeout(30.seconds.toJavaDuration())
-                .readTimeout(0.seconds.toJavaDuration()) // No read timeout for streaming
-                .writeTimeout(30.seconds.toJavaDuration())
-                .build()
+            buildStreamingHttpClient(
+                authInterceptor = tokenProvider.createInterceptor(),
+                tokenAuthenticator = tokenProvider.createAuthenticator(),
+            )
 
         // Create DataSource factory: OkHttp for HTTP(S) streaming, DefaultDataSource
         // wrapper to also handle file:// URIs for downloaded audiobooks
@@ -275,6 +280,9 @@ class PlaybackService : MediaLibraryService() {
                 // skip by the same amount the in-app buttons do.
                 .setSeekBackIncrementMs(SEEK_BACK_INCREMENT_MS)
                 .setSeekForwardIncrementMs(SEEK_FORWARD_INCREMENT_MS)
+                // Backstop for a stall the socket-read timeout can't see — see StallRecovery.kt.
+                // Media3's own default is ten minutes, which strands the listener.
+                .setStuckBufferingDetectionTimeoutMs(STUCK_BUFFERING_TIMEOUT_MS)
                 .build()
                 .apply {
                     addListener(PlayerListener())
@@ -696,6 +704,12 @@ class PlaybackService : MediaLibraryService() {
                 }
             logger.debug { "Playback state: $stateName" }
 
+            // Reaching READY means whatever we last recovered from is behind us — refill the
+            // recovery budget so it is spent per incident, not per listening session.
+            if (playbackState == Player.STATE_READY) {
+                errorHandler.onPlaybackHealthy()
+            }
+
             when (playbackState) {
                 Player.STATE_ENDED -> {
                     // Book finished - longer grace period
@@ -718,13 +732,43 @@ class PlaybackService : MediaLibraryService() {
             }
         }
 
+        /**
+         * Detects a play request the platform refused outright, as opposed to one interrupted
+         * partway. See [isPlaybackRefused] for why the two need telling apart.
+         */
+        override fun onPlayWhenReadyChanged(
+            playWhenReady: Boolean,
+            reason: Int,
+        ) {
+            if (isPlaybackRefused(playWhenReady, reason, wasPlaying)) {
+                logger.warn {
+                    "Playback refused: audio focus denied while backgrounded. " +
+                        "Check `adb shell dumpsys audio` for the AudioHardening entry."
+                }
+                val refusal =
+                    PlaybackError.BlockedInBackground(
+                        debugInfo = "playWhenReady=false reason=AUDIO_FOCUS_LOSS before playback started",
+                    )
+                // The bus reaches the UI only when the app is already open — which is precisely
+                // when this can't happen. The notification is the path that actually reaches a
+                // listener staring at a lock-screen button that did nothing.
+                errorBus.emit(refusal)
+                refusalNotifier.notifyRefused(refusal)
+            }
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             logger.debug { "Is playing: $isPlaying" }
+
+            wasPlaying = isPlaying
 
             val bookId = currentBookId
             val player = player
 
             if (isPlaying) {
+                // Audio is sounding, so any refusal notice is stale — clear it rather than leave
+                // the listener with a notification telling them to fix something already fixed.
+                refusalNotifier.clearRefusal()
                 cancelIdleTimer()
                 startPositionUpdates()
 
