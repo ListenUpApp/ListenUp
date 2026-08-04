@@ -278,26 +278,17 @@ class ListenUp :
         // Idempotent — safe to call on every startup.
         NotificationChannels.registerAll(this)
 
-        // Initialize Koin dependency injection
-        startKoin {
-            // INFO, not DEBUG: Koin's DEBUG level logs every dependency resolution, which floods
-            // logcat during sync (e.g. per-event SyncCursorStore lookups across a 1000-book scan).
-            androidLogger(Level.INFO)
-
-            // Provide Android Context to Koin
-            androidContext(this@ListenUp)
-
-            // Load all shared and Android-specific modules
-            modules(
-                androidSharedModules() + androidModule + playbackModule + androidPlaybackModule +
-                    androidPlaybackPresentationModule() + androidDownloadModule + downloadModule,
-            )
-        }
-
-        // Configure WorkManager with custom factory for dependency injection.
-        // Dependencies are wrapped in lazy { get() } so constructing the factory does not
-        // resolve DownloadRepository → DownloadEnqueuer → WorkManager.getInstance() before
-        // WorkManager.initialize() is called below.
+        // WorkManager must be initialized BEFORE startKoin, not after.
+        //
+        // The default WorkManagerInitializer is removed from the manifest so we can supply a
+        // custom worker factory, which makes this call the only thing that initializes WorkManager
+        // — and startKoin eagerly creates every `createdAtStart = true` single. One of those
+        // (PlaybackControllerActivator) transitively resolves
+        // DownloadRepository → DownloadEnqueuer → WorkManager.getInstance(), so initializing
+        // afterwards crashed the app on launch with "WorkManager is not initialized properly".
+        //
+        // The factory's own dependencies stay wrapped in `lazy { get() }`: they are resolved when
+        // a Worker is first constructed, long after startKoin below has run.
         val workerFactory =
             ListenUpWorkerFactory(
                 downloadRepository = lazy { get() },
@@ -313,6 +304,22 @@ class ListenUp :
                 .build()
 
         WorkManager.initialize(this, workManagerConfig)
+
+        // Initialize Koin dependency injection
+        startKoin {
+            // INFO, not DEBUG: Koin's DEBUG level logs every dependency resolution, which floods
+            // logcat during sync (e.g. per-event SyncCursorStore lookups across a 1000-book scan).
+            androidLogger(Level.INFO)
+
+            // Provide Android Context to Koin
+            androidContext(this@ListenUp)
+
+            // Load all shared and Android-specific modules
+            modules(
+                androidSharedModules() + androidModule + playbackModule + androidPlaybackModule +
+                    androidPlaybackPresentationModule() + androidDownloadModule + downloadModule,
+            )
+        }
 
         // Verify critical Koin bindings off the first-frame path.
         // Launching on Default keeps DI resolution (including Media3 session init and
