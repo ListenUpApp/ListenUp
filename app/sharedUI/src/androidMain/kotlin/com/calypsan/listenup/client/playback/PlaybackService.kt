@@ -109,6 +109,9 @@ class PlaybackService : MediaLibraryService() {
      */
     private var wasPlaying = false
 
+    /** Offers a way back in when the platform refuses a background start. */
+    private val refusalNotifier by lazy { PlaybackRefusalNotifier(this) }
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var idleJob: Job? = null
     private var positionUpdateJob: Job? = null
@@ -742,11 +745,15 @@ class PlaybackService : MediaLibraryService() {
                     "Playback refused: audio focus denied while backgrounded. " +
                         "Check `adb shell dumpsys audio` for the AudioHardening entry."
                 }
-                errorBus.emit(
+                val refusal =
                     PlaybackError.BlockedInBackground(
                         debugInfo = "playWhenReady=false reason=AUDIO_FOCUS_LOSS before playback started",
-                    ),
-                )
+                    )
+                // The bus reaches the UI only when the app is already open — which is precisely
+                // when this can't happen. The notification is the path that actually reaches a
+                // listener staring at a lock-screen button that did nothing.
+                errorBus.emit(refusal)
+                refusalNotifier.notifyRefused(refusal)
             }
         }
 
@@ -759,6 +766,9 @@ class PlaybackService : MediaLibraryService() {
             val player = player
 
             if (isPlaying) {
+                // Audio is sounding, so any refusal notice is stale — clear it rather than leave
+                // the listener with a notification telling them to fix something already fixed.
+                refusalNotifier.clearRefusal()
                 cancelIdleTimer()
                 startPositionUpdates()
 
