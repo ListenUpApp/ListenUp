@@ -8,10 +8,12 @@ struct SystemIntegrationTests {
     private let info = NowPlayingInfo(
         title: "The Way of Kings",
         artist: "Brandon Sanderson",
-        durationMs: 3_600_000,
-        elapsedMs: 600_000,
+        windowDurationMs: 3_600_000,
+        windowElapsedMs: 600_000,
         rate: 1.5,
-        artworkPath: nil
+        artworkPath: nil,
+        chapterNumber: 3,
+        chapterCount: 92
     )
 
     @Test func mapsTitleAndArtist() {
@@ -29,5 +31,31 @@ struct SystemIntegrationTests {
     @Test func carriesRateForClockExtrapolation() {
         let dict = SystemIntegration.dictionary(from: info)
         #expect(dict[MPNowPlayingInfoPropertyPlaybackRate] as? Double == 1.5)
+    }
+
+    /// The system renders "3 of 92" from these; a CarPlay now-playing template reads the same
+    /// keys, which is why they land here rather than being folded into the title string.
+    @Test func carriesChapterNumberAndCount() {
+        let dict = SystemIntegration.dictionary(from: info)
+        #expect(dict[MPNowPlayingInfoPropertyChapterNumber] as? Int == 3)
+        #expect(dict[MPNowPlayingInfoPropertyChapterCount] as? Int == 92)
+    }
+
+    /// A chapterless book presents as one whole-book window, so there is no chapter to number.
+    /// Publishing 0-of-0 would render as a real (wrong) chapter position, so the keys are omitted.
+    @Test func omitsChapterKeysForAChapterlessBook() {
+        let chapterless = NowPlayingInfo(
+            title: "A Book",
+            artist: "An Author",
+            windowDurationMs: 3_600_000,
+            windowElapsedMs: 600_000,
+            rate: 1.0,
+            artworkPath: nil,
+            chapterNumber: nil,
+            chapterCount: nil
+        )
+        let dict = SystemIntegration.dictionary(from: chapterless)
+        #expect(dict[MPNowPlayingInfoPropertyChapterNumber] == nil)
+        #expect(dict[MPNowPlayingInfoPropertyChapterCount] == nil)
     }
 }

@@ -3,19 +3,32 @@ import MediaPlayer
 import os
 
 /// Immutable snapshot of what the lock screen should show. The `Now Playing`
-/// info center extrapolates the elapsed clock from `elapsedMs` + `rate`, so this
+/// info center extrapolates the elapsed clock from `windowElapsedMs` + `rate`, so this
 /// only needs pushing on discrete events (play/pause/seek/chapter/speed).
+///
+/// Every position field here is WINDOW-relative — scoped to the current chapter (or the whole
+/// book when chapterless). Nothing on this type carries a book-relative value.
 struct NowPlayingInfo: Equatable, Sendable {
     let title: String
     let artist: String
-    /// Whole-book duration in milliseconds.
-    let durationMs: Int64
-    /// Whole-book elapsed position in milliseconds.
-    let elapsedMs: Int64
+    /// Duration of the presented WINDOW in milliseconds — the current chapter's length, or the
+    /// whole book when the book has no chapters.
+    ///
+    /// Named for its coordinate space on purpose. This used to be `durationMs`, documented
+    /// "whole-book"; changing what it carries while leaving the name unqualified is exactly how the
+    /// Android side shipped #1251, where a book-relative value reached a chapter-relative surface.
+    /// If you are passing a whole-book value into this field, you are at the wrong altitude.
+    let windowDurationMs: Int64
+    /// Elapsed position WITHIN the presented window in milliseconds. See [windowDurationMs].
+    let windowElapsedMs: Int64
     /// Playback rate — 0 when paused, the playback speed when playing.
     let rate: Double
     /// Filesystem path to the cover image, or `nil` when none is available.
     let artworkPath: String?
+    /// 1-based chapter number, or `nil` for a chapterless book (nothing to number).
+    let chapterNumber: Int?
+    /// Total chapter count, or `nil` for a chapterless book.
+    let chapterCount: Int?
 }
 
 /// Remote-command intents `SystemIntegration` forwards to its handler. The
@@ -27,8 +40,11 @@ protocol RemoteCommandHandler: AnyObject {
     func remotePause()
     func remoteSkipForward()
     func remoteSkipBackward()
-    /// Seek to a whole-book position in milliseconds.
-    func remoteSeek(toMs positionMs: Int64)
+    /// Seek to a position within the CURRENTLY PRESENTED WINDOW (the current chapter, or the whole
+    /// book when chapterless) in milliseconds — which is what `changePlaybackPositionCommand`
+    /// reports once the info center is chapter-scoped. The handler owns translating it back to a
+    /// book position; see `PlayerCoordinator.remoteSeek(toWindowPositionMs:)`.
+    func remoteSeek(toWindowPositionMs positionMs: Int64)
 }
 
 /// Bridges player state to `MPNowPlayingInfoCenter` and routes
@@ -78,10 +94,15 @@ final class SystemIntegration {
         var dict: [String: Any] = [
             MPMediaItemPropertyTitle: info.title,
             MPMediaItemPropertyArtist: info.artist,
-            MPMediaItemPropertyPlaybackDuration: Double(info.durationMs) / 1000.0,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: Double(info.elapsedMs) / 1000.0,
+            MPMediaItemPropertyPlaybackDuration: Double(info.windowDurationMs) / 1000.0,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: Double(info.windowElapsedMs) / 1000.0,
             MPNowPlayingInfoPropertyPlaybackRate: info.rate
         ]
+        // Omitted rather than zeroed for a chapterless book: 0-of-0 renders as a real position.
+        if let number = info.chapterNumber, let count = info.chapterCount {
+            dict[MPNowPlayingInfoPropertyChapterNumber] = number
+            dict[MPNowPlayingInfoPropertyChapterCount] = count
+        }
         if let path = info.artworkPath, let artwork = artwork(forPath: path) {
             dict[MPMediaItemPropertyArtwork] = artwork
         }
@@ -129,7 +150,7 @@ final class SystemIntegration {
             guard let event = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
             }
-            self?.handler?.remoteSeek(toMs: Int64(event.positionTime * 1000))
+            self?.handler?.remoteSeek(toWindowPositionMs: Int64(event.positionTime * 1000))
             return .success
         }
     }

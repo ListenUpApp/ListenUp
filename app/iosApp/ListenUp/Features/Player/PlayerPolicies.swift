@@ -71,7 +71,7 @@ enum ChapterMath {
         let index: Int
         let startMs: Int64
         let durationMs: Int64
-        let count: Int
+        let chapterCount: Int
     }
 
     /// The [Window] containing `positionMs`.
@@ -91,12 +91,12 @@ enum ChapterMath {
     /// it would change in-app chapter display, which this change is scoped to leave alone.
     static func window(forPositionMs positionMs: Int64, in chapters: [Chapter], bookDurationMs: Int64) -> Window {
         guard !chapters.isEmpty else {
-            return Window(index: -1, startMs: 0, durationMs: max(0, bookDurationMs), count: 0)
+            return Window(index: -1, startMs: 0, durationMs: max(0, bookDurationMs), chapterCount: 0)
         }
         let index = chapters.lastIndex { $0.startTime <= positionMs } ?? 0
         let start = chapters[index].startTime
         let end = index + 1 < chapters.count ? chapters[index + 1].startTime : bookDurationMs
-        return Window(index: index, startMs: start, durationMs: max(0, end - start), count: chapters.count)
+        return Window(index: index, startMs: start, durationMs: max(0, end - start), chapterCount: chapters.count)
     }
 
     /// Translate a window-relative position (what the lock-screen scrubber reports once the info
@@ -108,5 +108,11 @@ enum ChapterMath {
     /// image of it here.
     static func bookPosition(forWindowPositionMs windowPositionMs: Int64, in window: Window) -> Int64 {
         window.startMs + min(max(0, windowPositionMs), window.durationMs)
+    }
+
+    /// The inverse of [bookPosition(forWindowPositionMs:in:)]: a book-relative position expressed
+    /// within `window`, clamped to it. This is what the info center's elapsed clock is built from.
+    static func windowPosition(forBookPositionMs bookPositionMs: Int64, in window: Window) -> Int64 {
+        min(max(0, bookPositionMs - window.startMs), window.durationMs)
     }
 }
