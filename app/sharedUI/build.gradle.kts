@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.mokkery)
     alias(libs.plugins.aboutlibraries)
+    alias(libs.plugins.kover)
 }
 
 // Mokkery is used in desktopTest and androidHostTest — see

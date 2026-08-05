@@ -15,11 +15,14 @@ plugins {
     // Quality Tools
     alias(libs.plugins.detekt)
     alias(libs.plugins.spotless)
-    // Note: Kover coverage is applied per-module on the JVM-pure modules only
-    // (:server, :tools:rpc-guard-ksp — see their build files). The androidKmpLibrary
-    // modules (:contract, :app:sharedLogic, :app:sharedUI) remain uncovered: Kover is
-    // incompatible with the com.android.kotlin.multiplatform.library plugin.
-    // Extend coverage to them when upstream Kover supports that plugin.
+    // Note: Kover coverage is applied per-module — see each module's build file.
+    // It now covers the androidKmpLibrary modules (:contract, :app:sharedLogic,
+    // :app:sharedUI) alongside the JVM-pure ones (:server, :tools:rpc-guard-ksp).
+    // The long-standing note here claimed Kover was incompatible with the
+    // com.android.kotlin.multiplatform.library plugin; that stopped being true at some
+    // point before Kover 0.9.9, which generates per-variant artifacts (Android, JVM,
+    // Desktop) for those modules — verified 2026-08-04 by applying it and reading the
+    // reports. Coverage is a signal, not a gate: there is deliberately no verify rule.
 }
 
 // =============================================================================

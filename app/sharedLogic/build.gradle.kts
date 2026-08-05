@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
     alias(libs.plugins.mokkery)
+    alias(libs.plugins.kover)
 }
 
 kotlin {
