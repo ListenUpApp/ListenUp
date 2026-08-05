@@ -212,13 +212,19 @@ jobs:
             echo 'No E2E auto-retries recorded (probe retries excluded).'
           fi
 
-      # Coverage signal (non-gating): Kover is applied on the JVM-pure modules only
-      # (:server, :tools:rpc-guard-ksp) — the androidKmpLibrary modules are unsupported
-      # upstream. The XML artifact enables future diff-coverage tooling; there is
-      # deliberately NO threshold/verify gate here.
+      # Coverage signal (non-gating): every module Kover can measure — the JVM-pure ones
+      # (:server, :tools:rpc-guard-ksp) plus the androidKmpLibrary ones (:contract,
+      # :app:sharedLogic, :app:sharedUI), which were long assumed unsupported upstream and
+      # verified working on 2026-08-04. Client code being unmeasured is how four launch
+      # bugs reached main on 2026-08-04 with no coverage signal at all.
+      # The XML artifacts enable diff-coverage tooling; there is deliberately NO
+      # threshold/verify gate here — this measures, it does not block.
       - name: Generate coverage reports (Kover, non-gating)
         continue-on-error: true
-        run: ./gradlew :server:koverXmlReport :tools:rpc-guard-ksp:koverXmlReport --no-daemon
+        run: >-
+          ./gradlew :server:koverXmlReport :tools:rpc-guard-ksp:koverXmlReport
+          :contract:koverXmlReport :app:sharedLogic:koverXmlReport :app:sharedUI:koverXmlReport
+          --no-daemon
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v7
@@ -228,6 +234,9 @@ jobs:
           path: |
             server/build/reports/kover/report.xml
             tools/rpc-guard-ksp/build/reports/kover/report.xml
+            contract/build/reports/kover/report.xml
+            app/sharedLogic/build/reports/kover/report.xml
+            app/sharedUI/build/reports/kover/report.xml
           retention-days: 7
           if-no-files-found: ignore
 
