@@ -75,17 +75,17 @@ private data class ChapterSeekContext(
  * [currentChapterWindow] presents the whole book as one window — no special-casing is visible to
  * controllers; they simply see a single "chapter" spanning the whole book.
  *
- * **No androidHostTest for this class.** Unlike `SpeedAwareCastPlayer`
- * (`playback/cast/SpeedAwareCastPlayer.kt`), which can be constructed with a bare
- * `mock<Player>()`, this class can't be instantiated at all in this Robolectric-free lane:
- * `SimpleBasePlayer`'s constructor calls `player.getApplicationLooper()` and builds a real
- * `Handler` from it immediately, and even stubbing that call with Mokkery to return
- * `Looper.getMainLooper()` throws `RuntimeException: Method getMainLooper in android.os.Looper
- * not mocked` (verified empirically) — there is no way to hand it a working `Looper` without
- * Robolectric. Every chapter-window calculation this class depends on lives in
- * [ChapterWindow.kt][ChapterWindow] and is fully covered by `ChapterWindowTest`; this adapter
- * layer (state/metadata assembly, command gating, seek dispatch) is exercised on a real device
- * instead.
+ * **Testing.** `SimpleBasePlayer`'s constructor calls `player.getApplicationLooper()` and builds a
+ * real `Handler` from it immediately, so a Mokkery `mock<Player>()` cannot construct this class —
+ * stubbing that call throws `RuntimeException: Method getMainLooper in android.os.Looper not
+ * mocked`. That much is still true, and is why this class is not built from a mock the way
+ * `SpeedAwareCastPlayer` (`playback/cast/SpeedAwareCastPlayer.kt`) is. It does NOT mean the class
+ * is untestable here: `androidHostTest` runs Robolectric, under which a hand-written fake returning
+ * `Looper.getMainLooper()` satisfies the constructor. `ChapterWindowPlayerSeekTest` drives this
+ * adapter's seek dispatch that way. (An earlier revision of this KDoc called the lane
+ * "Robolectric-free" and sent this layer to device-only verification; that was wrong, and the gap
+ * it left is where the #1237/#1241 auto-rewind regression hid.) The pure chapter-window
+ * calculations live in [ChapterWindow.kt][ChapterWindow], covered by `ChapterWindowTest`.
  *
  * @param player The local ExoPlayer instance to wrap.
  * @param chaptersProvider Synchronous snapshot of the current book's chapters (empty when the
