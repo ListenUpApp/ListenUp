@@ -156,7 +156,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private let engine: PlaybackEngine
     private let positionTracker = PositionTracker()
-    private let system = SystemIntegration()
+    /// Internal rather than private so the Now-Playing bridge can live in its own file
+    /// (`PlayerCoordinator+NowPlaying.swift`) — this coordinator is already at its file-length
+    /// budget, and the lock-screen concern earns a home of its own.
+    let system = SystemIntegration()
 
     // MARK: - Seam (native protocols — see PlaybackSeam.swift)
 
@@ -562,7 +565,17 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func remotePause() { if isPlaybackActive { togglePlayback() } }
     func remoteSkipForward() { skipForward() }
     func remoteSkipBackward() { skipBackward() }
-    func remoteSeek(toMs positionMs: Int64) { seekTo(positionMs: positionMs) }
+    /// The lock-screen scrubber spans the CURRENT CHAPTER (see `updateNowPlaying`), so the position
+    /// it reports is window-relative. Translate it back to a book position here — the single
+    /// translation point — and everything downstream keeps speaking book coordinates.
+    func remoteSeek(toWindowPositionMs positionMs: Int64) {
+        let window = ChapterMath.window(
+            forPositionMs: bookPositionMs,
+            in: chapters,
+            bookDurationMs: bookDurationMs
+        )
+        seekTo(positionMs: ChapterMath.bookPosition(forWindowPositionMs: positionMs, in: window))
+    }
 
     // MARK: - Prepare
 
@@ -684,6 +697,13 @@ final class PlayerCoordinator: RemoteCommandHandler {
             if chapterIndex != lastSyncedChapterIndex {
                 lastSyncedChapterIndex = chapterIndex
                 sleep.onChapterChanged(newChapterIndex: chapterIndex)
+                // Re-stamp the lock screen at the boundary. Now that the pushed duration/elapsed are
+                // scoped to the CURRENT chapter, crossing into the next one changes both
+                // discontinuously — and `MPNowPlayingInfoCenter` extrapolates `elapsed +
+                // rate·wallclock` from the last push, so without this the clock would keep running
+                // against the previous chapter's window and overshoot its duration. Guarded by the
+                // index change, so this is one push per boundary, not per position tick.
+                updateNowPlaying()
             }
         case .statusChanged(let status):
             applyEngineStatus(status)
@@ -766,29 +786,5 @@ final class PlayerCoordinator: RemoteCommandHandler {
         case .idle, .playing, .paused, .error: buffering = false
         }
         bandwidthCoordinator?.setStreamingBuffering(active: buffering && isCurrentBookStreaming)
-    }
-
-    // MARK: - System integration
-
-    private func updateNowPlaying() {
-        // `.error` keeps the in-app player visible (for the inline retry) but has no now-playing
-        // content — clear the lock-screen controls; the retry lives in the app.
-        guard isVisible, !isErrored else {
-            system.clear()
-            return
-        }
-        system.update(NowPlayingInfo(
-            title: chapterTitle ?? bookTitle,
-            artist: authorName,
-            durationMs: bookDurationMs,
-            elapsedMs: bookPositionMs,
-            // Report a live rate ONLY while audio is actually advancing (`.playing`) — not while
-            // buffering. `MPNowPlayingInfoCenter` extrapolates the displayed elapsed time as
-            // `elapsed + rate·wallclock`, so a non-zero rate during the (now much longer) pre-load
-            // buffer would tick the lock-screen clock forward from the resume point and then snap
-            // it back when real playback starts. Rate 0 while buffering keeps elapsed honest.
-            rate: isPlaying ? Double(playbackSpeed) : 0,
-            artworkPath: coverPath
-        ))
     }
 }
