@@ -20,8 +20,10 @@ import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.voice.VoiceIntentResolver
 import com.calypsan.listenup.core.BookId
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
+import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -58,6 +60,89 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class ListenUpSessionCallbackTest {
+    // ── Publishing the landing position ───────────────────────────────────────
+    //
+    // Seeking the player is only half the job: the in-app position comes from a poll that runs
+    // *only while playing*. A notification skip taken while paused therefore moved the player
+    // and left `PlaybackManager` on the old position — so the next in-app skip computed from
+    // the stale value and undid the notification's skip.
+
+    @Test
+    fun `skip forward 30 publishes the landing position`() {
+        val player = FakeExoPlayer()
+        val published = mutableListOf<Pair<Int, Long>>()
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 120_000L,
+                timeline = threeFileTimeline(),
+                publishedPositions = published,
+            )
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD_30)
+
+        // 120_000 + 30_000 = 150_000 book-relative → 30_000 into the third 60_000 ms file.
+        // The published pair must match the seek exactly, or the in-app position disagrees
+        // with where audio actually is.
+        published shouldBe listOf(2 to 30_000L)
+    }
+
+    @Test
+    fun `skip back 30 publishes the landing position`() {
+        val player = FakeExoPlayer()
+        val published = mutableListOf<Pair<Int, Long>>()
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 120_000L,
+                timeline = threeFileTimeline(),
+                publishedPositions = published,
+            )
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30)
+
+        published shouldBe listOf(1 to 30_000L)
+    }
+
+    @Test
+    fun `next chapter publishes the landing position`() {
+        val player = FakeExoPlayer()
+        val published = mutableListOf<Pair<Int, Long>>()
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 10_000L,
+                timeline = threeFileTimeline(),
+                chapters = twoChapters(),
+                publishedPositions = published,
+            )
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_NEXT_CHAPTER)
+
+        // Second chapter starts 90_000 into the book → 30_000 into the second file.
+        published shouldBe listOf(1 to 30_000L)
+    }
+
+    @Test
+    fun `a seek without a timeline still publishes the file-relative landing position`() {
+        val player = FakeExoPlayer(stubbedPosition = 45_000L, stubbedMediaItemIndex = 1)
+        val published = mutableListOf<Pair<Int, Long>>()
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 105_000L,
+                timeline = null,
+                publishedPositions = published,
+            )
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30)
+
+        // The only branch that legitimately seeks file-relatively: 45_000 − 30_000 within the
+        // current item, so the published index must be the item the player is already on.
+        player.fileRelativeSeekCalls shouldBe listOf(15_000L)
+        published shouldBe listOf(1 to 15_000L)
+    }
+
     // ── Skip back ─────────────────────────────────────────────────────────────
 
     @Test
@@ -206,6 +291,13 @@ class ListenUpSessionCallbackTest {
      * round number — a wrong index or a wrong offset reads as an obvious wrong number
      * rather than an arithmetic coincidence.
      */
+    /** Two chapters over the 180 s book: 0–90 s and 90–180 s. */
+    private fun twoChapters(): List<Chapter> =
+        listOf(
+            Chapter(id = "c1", title = "One", duration = 90_000L, startTime = 0L),
+            Chapter(id = "c2", title = "Two", duration = 90_000L, startTime = 90_000L),
+        )
+
     private fun threeFileTimeline(): PlaybackTimeline =
         PlaybackTimeline(
             bookId = BookId("book1"),
@@ -237,10 +329,14 @@ class ListenUpSessionCallbackTest {
         player: Player?,
         bookPositionMs: Long,
         timeline: PlaybackTimeline?,
+        chapters: List<Chapter> = emptyList(),
+        publishedPositions: MutableList<Pair<Int, Long>> = mutableListOf(),
     ): ListenUpSessionCallback {
         val playbackManager = mock<PlaybackManager>()
-        every { playbackManager.chapters } returns MutableStateFlow(emptyList<Chapter>())
+        every { playbackManager.chapters } returns MutableStateFlow(chapters)
         every { playbackManager.currentTimeline } returns MutableStateFlow(timeline)
+        every { playbackManager.updatePositionFromMediaItem(any(), any()) } calls
+            { (index: Int, positionMs: Long) -> publishedPositions += index to positionMs }
 
         return ListenUpSessionCallback(
             context = context,
