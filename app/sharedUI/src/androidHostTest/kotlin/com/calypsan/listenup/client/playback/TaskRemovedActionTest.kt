@@ -13,7 +13,7 @@ import io.kotest.matchers.shouldBe
  * the very notification the code was trying to leave behind — while swiping away when already
  * paused (timer already armed) correctly survived. Exactly inverted.
  */
-class TaskRemovedPolicyTest :
+class TaskRemovedActionTest :
     FunSpec({
 
         test("swiping away while a player exists leaves the notification and arms the timer") {

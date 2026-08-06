@@ -291,13 +291,6 @@ class ListenUpSessionCallbackTest {
      * round number — a wrong index or a wrong offset reads as an obvious wrong number
      * rather than an arithmetic coincidence.
      */
-    /** Two chapters over the 180 s book: 0–90 s and 90–180 s. */
-    private fun twoChapters(): List<Chapter> =
-        listOf(
-            Chapter(id = "c1", title = "One", duration = 90_000L, startTime = 0L),
-            Chapter(id = "c2", title = "Two", duration = 90_000L, startTime = 90_000L),
-        )
-
     private fun threeFileTimeline(): PlaybackTimeline =
         PlaybackTimeline(
             bookId = BookId("book1"),
@@ -316,6 +309,13 @@ class ListenUpSessionCallbackTest {
                         mediaItemIndex = index,
                     )
                 },
+        )
+
+    /** Two chapters over the 180 s book: 0–90 s and 90–180 s. */
+    private fun twoChapters(): List<Chapter> =
+        listOf(
+            Chapter(id = "c1", title = "One", duration = 90_000L, startTime = 0L),
+            Chapter(id = "c2", title = "Two", duration = 90_000L, startTime = 90_000L),
         )
 
     /**

@@ -807,8 +807,7 @@ class PlaybackService :
      * would recover the wrong player on a receiver-side failure.
      */
     private inner class CastPlaybackListener : Player.Listener {
-        override fun onIsPlayingChanged(isPlaying: Boolean) =
-            handleIsPlayingChanged(TransportSource.CAST, isPlaying)
+        override fun onIsPlayingChanged(isPlaying: Boolean) = handleIsPlayingChanged(TransportSource.CAST, isPlaying)
     }
 
     /**
