@@ -126,6 +126,41 @@ class AudiobookNotificationProviderTest {
         result shouldBe "Chapter 1 of 10 • < 1m left"
     }
 
+    // ── notificationTitle — book title, not chapter title ────────────────────
+    //
+    // The session player is ChapterWindowPlayer, which deliberately overrides the item title
+    // with the *chapter* title so system surfaces present a chapter the way a music player
+    // presents a track. The phone notification reading that same metadata is what silently
+    // replaced the book title with the chapter title — and the chapter is already the subtitle,
+    // so the book's name disappeared from the notification entirely.
+
+    @Test
+    fun `notificationTitle prefers the book title over the session player's chapter title`() {
+        provider.notificationTitle(
+            bookTitle = "The Way of Kings",
+            sessionTitle = "Chapter 14: The Shattered Plains",
+        ) shouldBe "The Way of Kings"
+    }
+
+    @Test
+    fun `notificationTitle falls back to the session title when no book title is available`() {
+        // Never stranded: a chapter title in the notification beats "Unknown Book".
+        provider.notificationTitle(
+            bookTitle = null,
+            sessionTitle = "Chapter 14: The Shattered Plains",
+        ) shouldBe "Chapter 14: The Shattered Plains"
+    }
+
+    @Test
+    fun `notificationTitle falls back to Unknown Book when nothing is known`() {
+        provider.notificationTitle(bookTitle = null, sessionTitle = null) shouldBe "Unknown Book"
+    }
+
+    @Test
+    fun `notificationTitle ignores a blank book title`() {
+        provider.notificationTitle(bookTitle = "  ", sessionTitle = "Chapter 3") shouldBe "Chapter 3"
+    }
+
     // ── formatDuration — boundary cases ──────────────────────────────────────
 
     @Test

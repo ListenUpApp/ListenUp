@@ -366,7 +366,14 @@ class PlaybackService :
     }
 
     private fun initializeNotificationProvider() {
-        notificationProvider = AudiobookNotificationProvider(this, playbackManager)
+        notificationProvider =
+            AudiobookNotificationProvider(
+                context = this,
+                playbackManager = playbackManager,
+                // Read off the transport player, never the session player: the session is
+                // presented by ChapterWindowPlayer, whose title is the current chapter.
+                bookTitle = { activeTransportPlayer()?.mediaMetadata?.title },
+            )
         val provider = notificationProvider ?: return
         setMediaNotificationProvider(provider)
         logger.info { "Notification provider initialized" }
