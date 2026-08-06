@@ -541,8 +541,12 @@ class PlaybackService :
         // position or index, so there's nothing here for the presentation wrapper to corrupt.
         val player = mediaLibrarySession?.player
 
-        // Pause playback when user swipes app away — notification remains for resume
-        player?.playWhenReady = false
+        // Pause playback when user swipes app away — notification remains for resume.
+        // Not while casting: the session player is then the *cast* player, so this would stop
+        // audio on the receiver because someone tidied their recent-apps list.
+        if (!casting) {
+            player?.playWhenReady = false
+        }
 
         // Always save position when the user swipes the app away — if the system
         // later kills the process, onDestroy may not get a chance to run.
@@ -550,10 +554,13 @@ class PlaybackService :
         // process death; saveCurrentPositionBlocking() completes before returning.
         saveCurrentPositionBlocking()
 
-        // Don't stop immediately - keep the idle timer running
-        // User can still resume from notification
-        if (player == null || idleJob == null) {
-            stopSelf()
+        // Don't stop immediately — the notification stays so the listener can resume.
+        // The timer is armed here rather than left to the pause above: Media3 delivers that
+        // pause's onIsPlayingChanged asynchronously, so nothing has armed it yet.
+        when (taskRemovedActionFor(hasPlayer = player != null, casting = casting)) {
+            TaskRemovedAction.STOP_SERVICE -> stopSelf()
+            TaskRemovedAction.ARM_IDLE_TIMER -> startIdleTimer(IDLE_TIMEOUT_SHORT, "task_removed")
+            TaskRemovedAction.KEEP_ALIVE -> logger.debug { "Task removed while casting — leaving the session alone" }
         }
     }
 
