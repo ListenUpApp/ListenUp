@@ -129,7 +129,12 @@ inline below.
     activate/deactivate. **Playback persistence lifecycle:** save position on pause, on
     seek, *and* on `scenePhase`/background/termination (guarded by `beginBackgroundTask`) —
     never rely on periodic ticks alone. App Intents/Siri/interactive widgets/Control Center
-    controls where they serve audiobooks. *CarPlay: evaluate later — not a current requirement.*
+    controls where they serve audiobooks. **CarPlay is in scope** — the entitlement
+    (`com.apple.developer.carplay-audio`, type Audio) was granted 2026-08-05. Its now-playing
+    screen is `CPNowPlayingTemplate.shared` rendering straight from the same
+    `MPNowPlayingInfoCenter`/`MPRemoteCommandCenter` this rule already requires, so **fix car
+    display bugs in `SystemIntegration`, never with a CarPlay-only patch** — the lock screen
+    shares that code, and a local patch just makes the two surfaces disagree.
 14. **Swift Testing (not XCTest) for native code**; shared logic keeps Kotest. Same TDD
     discipline as the root `CLAUDE.md` — no fix without a failing test first, no feature
     without a test.
