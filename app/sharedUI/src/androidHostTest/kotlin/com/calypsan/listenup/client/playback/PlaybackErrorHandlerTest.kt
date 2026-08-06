@@ -728,6 +728,10 @@ internal class FakeExoPlayer(
     // Defaults to false to keep the fake honest about what it is — only a fake standing in
     // as a session's player needs to claim otherwise.
     private val canAdvertiseSession: Boolean = false,
+    // Opt-in for the same reason: SimpleBasePlayer drops any command its state does not
+    // advertise, so a fake wrapped by ChapterWindowPlayer must declare the seek commands it
+    // wants exercised or handleSeek is never reached (see ChapterWindowPlayerSeekTest).
+    private val availableCommands: Player.Commands = Player.Commands.EMPTY,
 ) : ExoPlayer {
     private val _currentPosition = stubbedPosition
     private val _currentMediaItemIndex = stubbedMediaItemIndex
@@ -856,7 +860,7 @@ internal class FakeExoPlayer(
 
     override fun canAdvertiseSession(): Boolean = canAdvertiseSession
 
-    override fun getAvailableCommands(): Player.Commands = Player.Commands.EMPTY
+    override fun getAvailableCommands(): Player.Commands = availableCommands
 
     override fun getPlaybackState(): Int = Player.STATE_IDLE
 
