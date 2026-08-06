@@ -43,8 +43,8 @@ import kotlin.time.Instant
  * behavior of the shared streaming-token authority under virtual time:
  * init refresh + persistence, the [prepareForPlayback] fast path, mutex
  * serialization of concurrent refreshes (WITHOUT dedup — see test 4), the
- * stored-token grace fallback, the proactive expiry loop, and the
- * [CachedAudioTokenProvider.onUnauthorized] hook.
+ * stored-token grace fallback, the proactive expiry loop, and the awaited
+ * [CachedAudioTokenProvider.refreshToken] path.
  *
  * This is characterization, not verification of "correct" behavior — if a
  * test surfaces a real bug, that's a signal for a follow-up plan, not a
@@ -224,7 +224,7 @@ class CachedAudioTokenProviderTest :
             }
         }
 
-        test("onUnauthorized triggers a refresh through the shared path") {
+        test("refreshToken rotates the cached token through the shared path") {
             runTest {
                 val clock = VirtualClock(testScheduler)
                 var callCount = 0
@@ -240,8 +240,9 @@ class CachedAudioTokenProviderTest :
                 testScheduler.runCurrent()
                 provider.getToken() shouldBe "t1"
 
-                provider.onUnauthorized()
-                runCurrent()
+                // Awaited, not fire-and-forget: callers must be able to observe the outcome,
+                // which is what a 401 recovery decision depends on.
+                provider.refreshToken()
 
                 repo.calls shouldBe 2
                 provider.getToken() shouldBe "t2"

@@ -32,6 +32,7 @@ import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.playback.AndroidAudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioTokenProvider
+import com.calypsan.listenup.client.playback.AudioTokenRecovery
 import com.calypsan.listenup.client.playback.AndroidPlaybackController
 import com.calypsan.listenup.client.playback.MediaControllerHolder
 import com.calypsan.listenup.client.playback.asControllerHolder
@@ -167,6 +168,7 @@ val playbackModule =
         }
         single { AndroidAudioTokenProvider(core = get()) }
         single<AudioTokenProvider> { get<AndroidAudioTokenProvider>() }
+        single<AudioTokenRecovery> { get<AndroidAudioTokenProvider>() }
 
         // Progress tracker for position persistence and playback-session tracking
         single {
@@ -193,7 +195,7 @@ val playbackModule =
             }
         }
 
-        // Playback error handler (needs concrete Android type for onUnauthorized())
+        // Playback error handler (holds only the AudioTokenRecovery seam of the Android provider)
         single {
             PlaybackErrorHandler(
                 progressTracker = get(),

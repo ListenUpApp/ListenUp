@@ -54,9 +54,6 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -79,16 +76,15 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * - `classify()` — every branch: Network, AuthExpired (401/403), NotFound (404), server-5xx,
  *   Codec, Stuck, Unknown, and the NPE-safe HTTP-status extraction when `cause` is
  *   NOT an [HttpDataSource.InvalidResponseCodeException].
- * - `handle()` — decision logic and return values for Network, NotFound, Codec, Stuck, Unknown,
- *   including position-save verification and player interaction recording.
+ * - `handle()` — decision logic and return values for Network, AuthExpired, NotFound, Codec,
+ *   Stuck, Unknown, including position-save verification and player interaction recording.
  *
- * Note on AuthExpired in `handle()`: the AuthExpired branch calls
- * [AndroidAudioTokenProvider.onUnauthorized] and [AndroidAudioTokenProvider.getToken], which
- * delegate to [CachedAudioTokenProvider] methods that are not `open` and therefore cannot be
- * overridden in a test subclass. Building a full [CachedAudioTokenProvider] with fakes is
- * non-deterministic because the constructor launches a background proactive-refresh coroutine.
- * The `classify` tests for 401/403 confirm correct classification; the recovery path is noted
- * as a gap in the coverage report.
+ * AuthExpired in `handle()` was long uncovered here, and that is where a loop-forever bug lived:
+ * the branch depended on the concrete [AndroidAudioTokenProvider], whose delegate methods are not
+ * `open`, and building a real [CachedAudioTokenProvider] is non-deterministic because its
+ * constructor launches a background refresh. [PlaybackErrorHandler] now holds only the narrow
+ * [AudioTokenRecovery] seam, which [FakeAudioTokenRecovery] implements — so the recovery path is
+ * exercised directly rather than declared a coverage gap.
  */
 @RunWith(RobolectricTestRunner::class)
 @OptIn(UnstableApi::class)
@@ -449,6 +445,101 @@ class PlaybackErrorHandlerTest {
         }
     }
 
+    // ── handle — AuthExpired ──────────────────────────────────────────────────
+    //
+    // Regression cover for a loop that could never end. On a failed refresh the provider falls
+    // back to whatever is stored — re-caching the very token the server just rejected — so a
+    // null check could never fire. The handler re-prepared the player against that dead token,
+    // 401'd again, and repeated: no retry budget, and no error ever reaching the listener.
+
+    @Test
+    fun `handle AuthExpired gives up when the refresh re-caches the token that just failed`() =
+        runTest {
+            val tokens = FakeAudioTokenRecovery(initialToken = "rejected-token")
+            val player = FakeExoPlayer()
+            val errors = mutableListOf<String>()
+
+            val result =
+                makeHandler(tokens = tokens).handle(
+                    error = PlaybackErrorHandler.ClassifiedError.AuthExpired("401"),
+                    player = player,
+                    currentBookId = BookId("book5"),
+                    bookPositionMs = 7_000L,
+                    onShowError = { errors += it },
+                )
+
+            withClue("A refresh that changed nothing cannot fix a 401 — retrying is an infinite loop") {
+                result shouldBe false
+            }
+            withClue("Re-preparing against the rejected token just re-issues the same 401") {
+                player.prepareCount shouldBe 0
+            }
+            withClue("The listener must be told to sign in, not left in silence") { errors.size shouldBe 1 }
+            withClue("Playback is paused rather than left spinning") { player.pauseCount shouldBe 1 }
+        }
+
+    @Test
+    fun `handle AuthExpired retries when the refresh yields a genuinely new token`() =
+        runTest {
+            val tokens = FakeAudioTokenRecovery(initialToken = "rejected-token") { "fresh-token" }
+            val player = FakeExoPlayer()
+            val errors = mutableListOf<String>()
+
+            val result =
+                makeHandler(tokens = tokens).handle(
+                    error = PlaybackErrorHandler.ClassifiedError.AuthExpired("401"),
+                    player = player,
+                    currentBookId = BookId("book5"),
+                    bookPositionMs = 7_000L,
+                    onShowError = { errors += it },
+                )
+
+            withClue("A new credential is worth one retry") { result shouldBe true }
+            withClue("prepare() is what re-issues the request with the new token") { player.prepareCount shouldBe 1 }
+            player.playCount shouldBe 1
+            withClue("Nothing to surface while recovery is under way") { errors.isEmpty() shouldBe true }
+            withClue("The token is read AFTER the refresh completes — a fire-and-forget refresh reads the stale one") {
+                tokens.refreshCount shouldBe 1
+            }
+        }
+
+    @Test
+    fun `handle AuthExpired stops retrying once the recovery budget is spent`() =
+        runTest {
+            // A server handing out fresh tokens that are still rejected would otherwise retry
+            // forever: the token-comparison guard never fires, so only a budget bounds it.
+            val tokens = FakeAudioTokenRecovery(initialToken = "t0") { attempt -> "t$attempt" }
+            val handler = makeHandler(tokens = tokens)
+            val player = FakeExoPlayer()
+            val errors = mutableListOf<String>()
+
+            repeat(RECOVERY_ATTEMPT_BUDGET) {
+                handler.handle(
+                    error = PlaybackErrorHandler.ClassifiedError.AuthExpired("401"),
+                    player = player,
+                    currentBookId = BookId("book5"),
+                    bookPositionMs = 7_000L,
+                    onShowError = { errors += it },
+                )
+            }
+            withClue("Budget spent on recovery, nothing surfaced yet") { errors.isEmpty() shouldBe true }
+
+            val exhausted =
+                handler.handle(
+                    error = PlaybackErrorHandler.ClassifiedError.AuthExpired("401"),
+                    player = player,
+                    currentBookId = BookId("book5"),
+                    bookPositionMs = 7_000L,
+                    onShowError = { errors += it },
+                )
+
+            withClue("The budget has to bound the auth path too") { exhausted shouldBe false }
+            withClue("Listener is told once, not on every failed attempt") { errors.size shouldBe 1 }
+            withClue("No further prepare() once the budget is spent") {
+                player.prepareCount shouldBe RECOVERY_ATTEMPT_BUDGET
+            }
+        }
+
     // ── handle — Stuck ────────────────────────────────────────────────────────
 
     @Test
@@ -553,20 +644,21 @@ class PlaybackErrorHandlerTest {
     // ── helpers ───────────────────────────────────────────────────────────────
 
     /**
-     * Constructs a [PlaybackErrorHandler] backed by the given [tracker] (or a fresh default)
-     * alongside a minimal [AndroidAudioTokenProvider] wired from stub dependencies.
+     * Constructs a [PlaybackErrorHandler] backed by the given [tracker] and [tokens]
+     * (fresh defaults when omitted).
      *
-     * The [AndroidAudioTokenProvider] is only exercised in the AuthExpired branch of
-     * [PlaybackErrorHandler.handle], which is not covered here — see class-level KDoc.
+     * The default [FakeAudioTokenRecovery] reproduces the production failure mode — a refresh
+     * that leaves the cached token untouched — so any test that reaches the AuthExpired branch
+     * without opting in sees the hostile case rather than a convenient one.
      */
-    private fun makeHandler(tracker: FakeProgressTracker = FakeProgressTracker()): PlaybackErrorHandler {
-        val scope = CoroutineScope(Dispatchers.Unconfined + Job())
-        val core = CachedAudioTokenProvider(StubAuthSession(), StubAuthRepository(), scope)
-        return PlaybackErrorHandler(
+    private fun makeHandler(
+        tracker: FakeProgressTracker = FakeProgressTracker(),
+        tokens: AudioTokenRecovery = FakeAudioTokenRecovery(),
+    ): PlaybackErrorHandler =
+        PlaybackErrorHandler(
             progressTracker = tracker.tracker,
-            tokenProvider = AndroidAudioTokenProvider(core),
+            tokenProvider = tokens,
         )
-    }
 
     /**
      * Builds a [PlaybackException] with error code [PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS]
@@ -594,6 +686,35 @@ class PlaybackErrorHandlerTest {
 }
 
 // ── Fakes ─────────────────────────────────────────────────────────────────────
+
+/**
+ * [AudioTokenRecovery] whose refresh outcome the test dictates.
+ *
+ * [onRefresh] maps the refresh attempt number to the token that refresh installs; returning
+ * `null` means "the refresh changed nothing", which is what the real provider does when the
+ * server rejects the refresh and it falls back to the stored token. That is the default, because
+ * it is the case that produced the loop.
+ *
+ * The token only ever changes *inside* [refresh], so a caller that reads [currentToken] without
+ * awaiting the refresh observes the stale value — which is what makes the awaiting test honest.
+ */
+private class FakeAudioTokenRecovery(
+    initialToken: String? = "rejected-token",
+    private val onRefresh: (attempt: Int) -> String? = { null },
+) : AudioTokenRecovery {
+    private var token: String? = initialToken
+
+    /** How many times [refresh] has been awaited to completion. */
+    var refreshCount = 0
+        private set
+
+    override fun currentToken(): String? = token
+
+    override suspend fun refresh() {
+        refreshCount++
+        onRefresh(refreshCount)?.let { token = it }
+    }
+}
 
 /**
  * Minimal [ProgressTracker] that records position-save calls for handler tests.
@@ -1240,122 +1361,4 @@ internal class FakeExoPlayer(
     ) = Unit
 
     override fun removeVideoCodecParametersChangeListener(listener: CodecParametersChangeListener) = Unit
-}
-
-// ── Auth stubs for makeHandler() ──────────────────────────────────────────────
-
-private class StubAuthSession : com.calypsan.listenup.client.domain.repository.AuthSession {
-    override val authState: StateFlow<com.calypsan.listenup.client.domain.model.AuthState> =
-        MutableStateFlow(
-            com.calypsan.listenup.client.domain.model.AuthState.Authenticated(
-                com.calypsan.listenup.api.dto.auth
-                    .UserId("u1"),
-                com.calypsan.listenup.api.dto.auth
-                    .SessionId("s1"),
-            ),
-        )
-
-    override suspend fun getAccessToken() =
-        com.calypsan.listenup.api.dto.auth
-            .AccessToken("stub")
-
-    override suspend fun getRefreshToken() =
-        com.calypsan.listenup.api.dto.auth
-            .RefreshToken("stub-r")
-
-    override suspend fun getSessionId(): String? = "s1"
-
-    override suspend fun getUserId(): String? = "u1"
-
-    override suspend fun currentAuthEpoch(): Long = 0L
-
-    override suspend fun saveAuthTokens(
-        access: com.calypsan.listenup.api.dto.auth.AccessToken,
-        refresh: com.calypsan.listenup.api.dto.auth.RefreshToken,
-        sessionId: String,
-        userId: String,
-        ifEpoch: Long?,
-    ) = Unit
-
-    override suspend fun updateAccessToken(token: com.calypsan.listenup.api.dto.auth.AccessToken) = Unit
-
-    override suspend fun clearAuthTokens() = Unit
-
-    override suspend fun clearSessionCredentials() = Unit
-
-    override suspend fun isAuthenticated() = true
-
-    override suspend fun initializeAuthState() = Unit
-
-    override suspend fun checkServerStatus() =
-        com.calypsan.listenup.client.domain.model.AuthState.Authenticated(
-            com.calypsan.listenup.api.dto.auth
-                .UserId("u1"),
-            com.calypsan.listenup.api.dto.auth
-                .SessionId("s1"),
-        )
-
-    override suspend fun refreshOpenRegistration() = Unit
-
-    override suspend fun savePendingRegistration(
-        userId: String,
-        email: String,
-    ) = Unit
-
-    override suspend fun getPendingRegistration(): com.calypsan.listenup.client.domain.repository.PendingRegistration? = null
-
-    override suspend fun clearPendingRegistration() = Unit
-}
-
-private class StubAuthRepository : com.calypsan.listenup.client.domain.repository.AuthRepository {
-    private val rotatedSession
-        get() =
-            com.calypsan.listenup.api.dto.auth.AuthSession(
-                accessToken =
-                    com.calypsan.listenup.api.dto.auth
-                        .AccessToken("rotated"),
-                accessTokenExpiresAt = System.currentTimeMillis() + 60 * 60 * 1_000L,
-                refreshToken =
-                    com.calypsan.listenup.api.dto.auth
-                        .RefreshToken("rotated-r"),
-                refreshTokenExpiresAt = System.currentTimeMillis() + 60 * 60 * 1_000L,
-                sessionId =
-                    com.calypsan.listenup.api.dto.auth
-                        .SessionId("s1"),
-                user =
-                    com.calypsan.listenup.api.dto.auth.User(
-                        id =
-                            com.calypsan.listenup.api.dto.auth
-                                .UserId("u1"),
-                        email = "test@example.com",
-                        displayName = "Test",
-                        role = com.calypsan.listenup.api.dto.auth.UserRole.MEMBER,
-                        status = com.calypsan.listenup.api.dto.auth.UserStatus.ACTIVE,
-                        createdAt = 0L,
-                    ),
-            )
-
-    override suspend fun login(request: com.calypsan.listenup.api.dto.auth.LoginRequest) = TODO()
-
-    override suspend fun register(request: com.calypsan.listenup.api.dto.auth.RegisterRequest) = TODO()
-
-    override suspend fun setup(request: com.calypsan.listenup.api.dto.auth.RegisterRequest) = TODO()
-
-    override suspend fun logout() = TODO()
-
-    override suspend fun refreshAccessToken() =
-        com.calypsan.listenup.api.result.AppResult
-            .Success(rotatedSession)
-
-    override suspend fun listSessions(): com.calypsan.listenup.api.result.AppResult<List<com.calypsan.listenup.api.dto.auth.SessionSummary>> =
-        com.calypsan.listenup.api.result.AppResult
-            .Success(emptyList())
-
-    override suspend fun revokeSession(sessionId: com.calypsan.listenup.api.dto.auth.SessionId): com.calypsan.listenup.api.result.AppResult<Unit> =
-        com.calypsan.listenup.api.result.AppResult
-            .Success(Unit)
-
-    override suspend fun logoutAll(): com.calypsan.listenup.api.result.AppResult<Unit> =
-        com.calypsan.listenup.api.result.AppResult
-            .Success(Unit)
 }

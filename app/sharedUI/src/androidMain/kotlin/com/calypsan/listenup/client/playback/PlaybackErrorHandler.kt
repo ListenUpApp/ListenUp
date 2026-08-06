@@ -39,7 +39,7 @@ internal val RECOVERY_ATTEMPT_BUDGET = RECOVERY_BACKOFF_MS.size
  */
 class PlaybackErrorHandler(
     private val progressTracker: ProgressTracker,
-    private val tokenProvider: AndroidAudioTokenProvider,
+    private val tokenProvider: AudioTokenRecovery,
 ) {
     /**
      * Recovery attempts spent since playback was last healthy.
@@ -174,22 +174,27 @@ class PlaybackErrorHandler(
             is ClassifiedError.AuthExpired -> {
                 logger.warn { "Auth expired during playback" }
 
-                // Try token refresh
-                tokenProvider.onUnauthorized()
-                delay(1000) // Give refresh a moment
+                // The credential the server just rejected. A failed refresh re-caches this very
+                // value — the provider falls back to whatever is stored — so "a token exists"
+                // proves nothing. Only a *different* token is evidence anything changed, which is
+                // the same test AudioTokenAuthenticator applies on the OkHttp side.
+                val rejectedToken = tokenProvider.currentToken()
+                tokenProvider.refresh()
+                val refreshedToken = tokenProvider.currentToken()
 
-                val newToken = tokenProvider.getToken()
-                if (newToken != null) {
-                    // Token refreshed, retry
-                    logger.info { "Token refreshed, retrying playback" }
-                    player.prepare()
-                    player.play()
-                    true
-                } else {
-                    // Refresh failed - user needs to re-auth
+                if (refreshedToken == null || refreshedToken == rejectedToken) {
+                    logger.warn { "Token refresh produced no new token; the listener must sign in" }
                     onShowError("Session expired. Please sign in again.")
                     player.pause()
                     false
+                } else {
+                    // Budget-bounded even on success: a server that keeps issuing fresh tokens
+                    // which are still rejected walks past the guard above on every attempt.
+                    logger.info { "Token refreshed, retrying playback" }
+                    recoverOrGiveUp(player, onShowError, "auth") { authed ->
+                        authed.prepare()
+                        authed.play()
+                    }
                 }
             }
 
