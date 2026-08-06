@@ -37,5 +37,38 @@
 	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<!-- Two scenes: the SwiftUI window the phone shows, and the CarPlay template scene a head
+	     unit connects to. The window role is declared with NO delegate class on purpose —
+	     SwiftUI owns that scene, and naming a delegate here takes it away from SwiftUI. The
+	     configuration names must match SceneRoleRouting's constants exactly; a mismatch is not
+	     a build error, just a scene that never connects.
+
+	     UIApplicationSupportsMultipleScenes is required by CarPlay (the car scene is a second
+	     simultaneous scene). It also permits multiple windows on iPad, which suits the
+	     responsive direction rather than working against it. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+				</dict>
+			</array>
+			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>CarPlay Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).CarPlaySceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 </dict>
 </plist>

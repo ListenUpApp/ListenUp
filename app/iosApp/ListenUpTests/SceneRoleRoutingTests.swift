@@ -1,3 +1,4 @@
+import CarPlay
 import Testing
 import UIKit
 @testable import ListenUp
@@ -12,12 +13,16 @@ import UIKit
 @Suite("SceneRoleRouting")
 struct SceneRoleRoutingTests {
     @Test func windowRoleUsesTheDefaultConfiguration() {
-        #expect(SceneRoleRouting.configurationName(for: .windowApplication) == SceneRoleRouting.defaultConfigurationName)
+        #expect(
+            SceneRoleRouting.configurationName(for: .windowApplication)
+                == SceneRoleRouting.defaultConfigurationName
+        )
     }
 
     @Test func carPlayRoleUsesTheCarPlayConfiguration() {
         #expect(
-            SceneRoleRouting.configurationName(for: .templateApplication) == SceneRoleRouting.carPlayConfigurationName
+            SceneRoleRouting.configurationName(for: .carTemplateApplication)
+                == SceneRoleRouting.carPlayConfigurationName
         )
     }
 
@@ -31,7 +36,7 @@ struct SceneRoleRoutingTests {
     /// failure than an unused window scene.
     @Test func anUnknownRoleFallsBackToTheDefaultConfiguration() {
         #expect(
-            SceneRoleRouting.configurationName(for: UISceneSession.Role("UIUnknownFutureRole"))
+            SceneRoleRouting.configurationName(for: UISceneSession.Role(rawValue: "UIUnknownFutureRole"))
                 == SceneRoleRouting.defaultConfigurationName
         )
     }

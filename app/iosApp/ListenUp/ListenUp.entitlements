@@ -10,5 +10,11 @@
 	<array>
 		<string>applinks:link.listenup.audio</string>
 	</array>
+	<!-- Granted by Apple 2026-08-05 (type Audio / "Play Music & Audio Content"). The CarPlay
+	     Simulator renders templates without it, but a signed build needs the provisioning
+	     profile regenerated after the grant — otherwise signing fails with a profile mismatch
+	     that reads like an unrelated codesign error. -->
+	<key>com.apple.developer.carplay-audio</key>
+	<true/>
 </dict>
 </plist>
