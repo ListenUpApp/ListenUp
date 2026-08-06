@@ -25,6 +25,8 @@ class BrowseTreeMediaIdTest :
         test("the other browse prefixes are not book ids") {
             BrowseTree.extractBookId("${BrowseTree.PREFIX_SERIES}series-1") shouldBe null
             BrowseTree.extractBookId("${BrowseTree.PREFIX_AUTHOR}author-1") shouldBe null
-            BrowseTree.extractBookId("${BrowseTree.PREFIX_COLLECTION}collection-1") shouldBe null
+            // An unrecognised prefix must not be mistaken for a book id either — the guard is
+            // "starts with the book prefix", not "isn't one of the prefixes we know about".
+            BrowseTree.extractBookId("/__something_else__/thing-1") shouldBe null
         }
     })
