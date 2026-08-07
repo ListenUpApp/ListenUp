@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room3.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import platform.Foundation.NSDocumentDirectory
@@ -30,6 +31,6 @@ internal actual val platformDatabaseModule: Module =
 
             Room
                 .databaseBuilder<ListenUpDatabase>(name = documentsUrl.path + "/listenup.db")
-                .buildConfigured()
+                .buildConfigured(BundledSQLiteDriver())
         }
     }

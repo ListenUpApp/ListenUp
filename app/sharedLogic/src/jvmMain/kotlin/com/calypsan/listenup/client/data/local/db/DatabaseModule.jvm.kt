@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room3.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.images.JvmStoragePaths
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -18,6 +19,6 @@ internal actual val platformDatabaseModule: Module =
             val storagePaths: JvmStoragePaths = get()
             Room
                 .databaseBuilder<ListenUpDatabase>(name = storagePaths.getDatabasePath())
-                .buildConfigured()
+                .buildConfigured(BundledSQLiteDriver())
         }
     }

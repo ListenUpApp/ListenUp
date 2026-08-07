@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room3.RoomDatabase
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.SQLiteDriver
 import com.calypsan.listenup.core.IODispatcher
 import kotlin.coroutines.CoroutineContext
 
@@ -39,14 +39,20 @@ import kotlin.coroutines.CoroutineContext
  * [FtsTableCallback] registration rather than a test-local copy of it, so the wiring bug this
  * function exists to prevent cannot hide behind a green suite.
  *
+ * @param driver the platform's SQLite implementation. Native platforms pass
+ *   `BundledSQLiteDriver()`; a browser target would pass the `sqlite-web` driver, because
+ *   `sqlite-bundled` links the SQLite C amalgamation and publishes no js variant. Which
+ *   implementation exists is a "where" fact, so it belongs to the platform alongside the
+ *   builder — this function still owns the "how".
  * @param queryContext the coroutine context Room runs queries on. Defaults to [IODispatcher],
  *   the single canonical background dispatcher — it resolves to the real elastic IO pool on
  *   every platform, including Native.
  */
 internal fun RoomDatabase.Builder<ListenUpDatabase>.buildConfigured(
+    driver: SQLiteDriver,
     queryContext: CoroutineContext = IODispatcher,
 ): ListenUpDatabase =
-    setDriver(BundledSQLiteDriver())
+    setDriver(driver)
         .setQueryCoroutineContext(queryContext)
         // The three `*_fts` virtual tables are not Room entities (Room 3.0.0's @Fts5 is broken on
         // Kotlin/Native — see FtsTableCallback), so they are created here. This is the ONLY
