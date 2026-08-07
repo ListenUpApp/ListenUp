@@ -852,7 +852,13 @@ internal class FakeExoPlayer(
     // Opt-in for the same reason: SimpleBasePlayer drops any command its state does not
     // advertise, so a fake wrapped by ChapterWindowPlayer must declare the seek commands it
     // wants exercised or handleSeek is never reached (see ChapterWindowPlayerSeekTest).
-    private val availableCommands: Player.Commands = Player.Commands.EMPTY,
+    //
+    // Null rather than Player.Commands.EMPTY so constructing the fake does not, by itself,
+    // force Player.Commands' static initializer. As of Media3 1.11 that initializer builds
+    // through SparseBooleanArray, which throws under the plain android.jar stubs — that would
+    // confine every user of this fake to Robolectric, including suites like AutoRewindSeekTest
+    // whose subject is pure logic and never reads the command set.
+    private val availableCommands: Player.Commands? = null,
 ) : ExoPlayer {
     private val _currentPosition = stubbedPosition
     private val _currentMediaItemIndex = stubbedMediaItemIndex
@@ -981,7 +987,7 @@ internal class FakeExoPlayer(
 
     override fun canAdvertiseSession(): Boolean = canAdvertiseSession
 
-    override fun getAvailableCommands(): Player.Commands = availableCommands
+    override fun getAvailableCommands(): Player.Commands = availableCommands ?: Player.Commands.EMPTY
 
     override fun getPlaybackState(): Int = Player.STATE_IDLE
 
@@ -1319,6 +1325,10 @@ internal class FakeExoPlayer(
     override fun setPauseAtEndOfMediaItems(pauseAtEndOfMediaItems: Boolean) = Unit
 
     override fun getPauseAtEndOfMediaItems(): Boolean = false
+
+    // Media3 1.11 added this to ExoPlayer. Audiobooks carry no ads, so the fake
+    // records nothing — it exists only to satisfy the interface.
+    override fun setEnforceAdPlaybackOnTimelineRefresh(enforceAdPlaybackOnTimelineRefresh: Boolean) = Unit
 
     override fun getAudioFormat(): Format? = null
 
