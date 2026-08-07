@@ -102,14 +102,6 @@ class CachedAudioTokenProvider(
         refreshToken()
     }
 
-    /** Triggered by transport-level 401 handling; returns immediately. */
-    fun onUnauthorized() {
-        scope.launch {
-            logger.warn { "Token unauthorized, refreshing..." }
-            refreshToken()
-        }
-    }
-
     /**
      * Refreshes the cached token, blocking on the [refreshMutex] so concurrent
      * triggers coalesce. Public because it's the synchronous seam for OkHttp's

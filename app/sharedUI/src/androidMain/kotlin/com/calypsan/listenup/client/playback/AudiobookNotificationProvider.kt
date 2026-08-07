@@ -35,6 +35,7 @@ private const val RES_TYPE_DRAWABLE = "drawable"
 class AudiobookNotificationProvider(
     private val context: Context,
     private val playbackManager: PlaybackManager,
+    private val bookTitle: () -> CharSequence? = { null },
 ) : MediaNotification.Provider {
     companion object {
         const val NOTIFICATION_ID = 1
@@ -121,7 +122,7 @@ class AudiobookNotificationProvider(
 
         // Content: Book title and chapter info
         val metadata = player.mediaMetadata
-        builder.setContentTitle(metadata.title ?: "Unknown Book")
+        builder.setContentTitle(notificationTitle(bookTitle(), metadata.title))
 
         // Subtitle: chapter info with time remaining
         val subtitle = buildChapterSubtitle(chapterInfo)
@@ -241,6 +242,24 @@ class AudiobookNotificationProvider(
         action: String,
         extras: Bundle,
     ): Boolean = false
+
+    /**
+     * Picks the notification's headline: the book, falling back to whatever the session player
+     * is presenting.
+     *
+     * The session player is [ChapterWindowPlayer], which replaces the item title with the
+     * *chapter* title so system surfaces present a chapter the way a music player presents a
+     * track. Reading that here put the chapter in both lines and left the book nameless, so the
+     * book title is sourced from the underlying transport player instead. The fallback keeps the
+     * never-stranded property: a chapter title beats "Unknown Book".
+     */
+    internal fun notificationTitle(
+        bookTitle: CharSequence?,
+        sessionTitle: CharSequence?,
+    ): String =
+        bookTitle?.toString()?.takeIf { it.isNotBlank() }
+            ?: sessionTitle?.toString()?.takeIf { it.isNotBlank() }
+            ?: "Unknown Book"
 
     /**
      * Build chapter subtitle with time remaining.

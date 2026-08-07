@@ -14,7 +14,8 @@ import okhttp3.Response
  */
 class AndroidAudioTokenProvider(
     private val core: CachedAudioTokenProvider,
-) : AudioTokenProvider by core {
+) : AudioTokenProvider by core,
+    AudioTokenRecovery {
     /**
      * Creates an OkHttp interceptor that stamps the bearer token onto every
      * request when one is cached.
@@ -28,14 +29,9 @@ class AndroidAudioTokenProvider(
      */
     fun createAuthenticator(): AudioTokenAuthenticator = AudioTokenAuthenticator(core)
 
-    /**
-     * Forwarded to [CachedAudioTokenProvider.onUnauthorized] — exposed on the
-     * Android wrapper so callers like [PlaybackErrorHandler] can trigger the
-     * cache invalidation without depending on the shared concrete type.
-     * `by core` only forwards the [AudioTokenProvider] interface; this method
-     * sits outside it.
-     */
-    fun onUnauthorized() = core.onUnauthorized()
+    override fun currentToken(): String? = core.getToken()
+
+    override suspend fun refresh() = core.refreshToken()
 }
 
 /**

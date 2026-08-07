@@ -720,6 +720,38 @@ internal class ListenUpSessionCallback(
 
     // ========== Custom Commands ==========
 
+    /**
+     * Seeks the transport player and publishes where it landed.
+     *
+     * Publishing is not optional bookkeeping. The in-app position is fed by a poll that runs
+     * only while audio is playing, so a notification skip taken while paused moved the player
+     * and left [PlaybackManager] holding the old position — and the next in-app skip, computed
+     * from that stale value, silently undid the one the listener just made.
+     *
+     * The landing coordinates are the ones just resolved rather than read back from the player,
+     * so the published position cannot drift from the seek that produced it.
+     */
+    private fun seekAndPublish(
+        player: Player,
+        mediaItemIndex: Int,
+        positionInFileMs: Long,
+    ) {
+        player.seekTo(mediaItemIndex, positionInFileMs)
+        playbackManager.updatePositionFromMediaItem(mediaItemIndex, positionInFileMs)
+    }
+
+    /**
+     * The file-relative fallback taken when no [PlaybackTimeline] is loaded: the seek stays
+     * within the current media item, so that item's index is the one to publish against.
+     */
+    private fun seekAndPublish(
+        player: Player,
+        positionInFileMs: Long,
+    ) {
+        player.seekTo(positionInFileMs)
+        playbackManager.updatePositionFromMediaItem(player.currentMediaItemIndex, positionInFileMs)
+    }
+
     override fun onCustomCommand(
         session: MediaSession,
         controller: MediaSession.ControllerInfo,
@@ -749,11 +781,11 @@ internal class ListenUpSessionCallback(
                 // Resolve new position to mediaItemIndex and filePosition
                 if (timeline != null) {
                     val resolved = timeline.resolve(newPosition)
-                    p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
+                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                 } else {
                     // Fallback to simple seek within current file
                     val newFilePosition = (p.currentPosition - 30_000).coerceAtLeast(0)
-                    p.seekTo(newFilePosition)
+                    seekAndPublish(p, newFilePosition)
                 }
                 logger.debug { "Skip back 30s: $currentBookPosition -> $newPosition" }
             }
@@ -765,10 +797,10 @@ internal class ListenUpSessionCallback(
 
                 if (timeline != null) {
                     val resolved = timeline.resolve(newPosition)
-                    p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
+                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                 } else {
                     val newFilePosition = (p.currentPosition + 30_000).coerceAtMost(p.duration)
-                    p.seekTo(newFilePosition)
+                    seekAndPublish(p, newFilePosition)
                 }
                 logger.debug { "Skip forward 30s: $currentBookPosition -> $newPosition" }
             }
@@ -781,7 +813,7 @@ internal class ListenUpSessionCallback(
                     val target =
                         previousChapterTarget(chapters, transport.bookRelativePositionMs(), timeline.totalDurationMs)
                     val resolved = timeline.resolve(target)
-                    p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
+                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Previous chapter target: ${target}ms" }
                 }
             }
@@ -793,7 +825,7 @@ internal class ListenUpSessionCallback(
                     val target =
                         nextChapterTarget(chapters, transport.bookRelativePositionMs(), timeline.totalDurationMs)
                     val resolved = timeline.resolve(target)
-                    p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
+                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Next chapter target: ${target}ms" }
                 }
             }
@@ -821,9 +853,9 @@ internal class ListenUpSessionCallback(
                 }
                 if (timeline != null) {
                     val resolved = timeline.resolve(target.coerceIn(0L, timeline.totalDurationMs))
-                    p.seekTo(resolved.mediaItemIndex, resolved.positionInFileMs)
+                    seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                 } else {
-                    p.seekTo(target)
+                    seekAndPublish(p, target)
                 }
                 logger.debug { "Seek to book position: ${target}ms" }
             }
