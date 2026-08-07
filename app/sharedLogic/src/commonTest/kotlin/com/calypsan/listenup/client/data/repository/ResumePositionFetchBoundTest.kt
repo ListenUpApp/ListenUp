@@ -95,13 +95,11 @@ private class RecordingDispatch<S : Any>(
 
 /** Minimal [PlaybackService] stand-in — the tests assert on dispatch policy, not on payloads. */
 private object NoOpPlaybackService : PlaybackService {
-    override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> =
-        AppResult.Success(PreparedPlayback(bookId = bookId.value, audioFiles = emptyList(), resumePosition = null))
+    override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> = AppResult.Success(PreparedPlayback(bookId = bookId.value, audioFiles = emptyList(), resumePosition = null))
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = AppResult.Success(null)
 
-    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> =
-        throw NotImplementedError()
+    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> = throw NotImplementedError()
 
     override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = throw NotImplementedError()
 
