@@ -43,6 +43,7 @@ import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.cast.CastPreparer
+import com.calypsan.listenup.client.playback.cast.initializeCast
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -279,6 +280,12 @@ class ListenUp :
         // Register all notification channels before any service or worker can post a notification.
         // Idempotent — safe to call on every startup.
         NotificationChannels.registerAll(this)
+
+        // Configure Cast before anything can build a RemoteCastPlayer. Media3 1.11 routes that
+        // through Cast.ensureInitialized, which falls back to manifest options when nobody has
+        // initialized first — a path Media3 documents as unsupported. Loading is asynchronous
+        // inside Media3, so this does not sit on the startup path.
+        initializeCast(this)
 
         // WorkManager must be initialized BEFORE startKoin, not after.
         //
