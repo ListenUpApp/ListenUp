@@ -110,21 +110,26 @@ kotlin {
             // which is both a layering smell and the largest js-availability risk in this module.
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.room.runtime)
-            implementation(libs.androidx.sqlite.bundled)
         }
 
         androidMain.dependencies {
             implementation(libs.ktor.client.okhttp)
             implementation(libs.androidx.work.runtime.ktx)
+            // sqlite-bundled links the SQLite C amalgamation and publishes no js variant, so it
+            // cannot live in commonMain. Each native platform declares it and passes the driver
+            // into buildConfigured.
+            implementation(libs.androidx.sqlite.bundled)
         }
 
         // Apple (iOS + macOS) shared dependencies
         appleMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.androidx.sqlite.bundled)
         }
 
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.androidx.sqlite.bundled)
             implementation(libs.jmdns) // mDNS server discovery
             // Note: SLF4J backend provided by consuming app (desktopApp uses logback)
 
