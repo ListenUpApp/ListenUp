@@ -3,17 +3,18 @@ package com.calypsan.listenup.client.automotive
 /**
  * Constants for Android Auto browse tree media IDs.
  *
- * The browse tree structure:
+ * The browse tree structure — this is what [BrowseTreeProvider] actually serves, and the two
+ * are meant to stay in step. It previously also listed COLLECTIONS and BOOKMARKS nodes, which
+ * no code ever built: bookmarks are not a feature ListenUp has, and collections are an
+ * admin-side access-control mechanism rather than something to browse by in a car.
  * ```
  * ROOT
  * ├── RESUME (playable) - most recent in-progress book
- * ├── LIBRARY (browsable)
- * │   ├── RECENT - recently played books
- * │   ├── DOWNLOADED - offline-available books
- * │   ├── SERIES - series list
- * │   └── AUTHORS - author list
- * ├── COLLECTIONS (browsable, if any exist)
- * └── BOOKMARKS (browsable, if any exist)
+ * └── LIBRARY (browsable)
+ *     ├── RECENT - recently played books
+ *     ├── DOWNLOADED - offline-available books
+ *     ├── SERIES - series list
+ *     └── AUTHORS - author list
  * ```
  */
 object BrowseTree {
@@ -21,8 +22,6 @@ object BrowseTree {
     const val ROOT = "/__root__"
     const val RESUME = "/__resume__"
     const val LIBRARY = "/__library__"
-    const val COLLECTIONS = "/__collections__"
-    const val BOOKMARKS = "/__bookmarks__"
 
     // Library sub-nodes
     const val LIBRARY_RECENT = "/__library__/recent"
@@ -34,7 +33,6 @@ object BrowseTree {
     const val PREFIX_SERIES = "/__library__/series/"
     const val PREFIX_AUTHOR = "/__library__/authors/"
     const val PREFIX_BOOK = "/__book__/"
-    const val PREFIX_COLLECTION = "/__collections__/"
 
     /**
      * Extract book ID from a media ID.
