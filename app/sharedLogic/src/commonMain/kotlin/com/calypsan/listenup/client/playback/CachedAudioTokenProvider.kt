@@ -48,8 +48,12 @@ private val PROACTIVE_CHECK_CADENCE = 5.minutes
  * interface via delegation.
  *
  * Threading: the cached fields are `@Volatile` so [getToken] never blocks an
- * OkHttp dispatcher / URLSession thread. The refresh path serialises through
- * a [Mutex] so concurrent triggers (init, proactive loop, on-401) coalesce.
+ * OkHttp dispatcher / URLSession thread. The refresh path serialises through a
+ * [Mutex]. Serialising is not the same as coalescing, and the difference is
+ * load-bearing: [prepareForPlayback] re-checks the cache *after* taking the lock
+ * and adopts whatever an in-flight refresh produced, while [refreshToken] always
+ * rotates. Without that re-check every waiter ran its own full round-trip, which
+ * on a half-open socket is the 15s RPC bound each — the resume-latency bug.
  *
  * Concurrency note: this is a *separate* refresh authority from the Ktor
  * bearer plugin. Both write to [AuthSession.saveAuthTokens]. When two
@@ -94,39 +98,60 @@ class CachedAudioTokenProvider(
     override fun getToken(): String? = cachedToken?.value
 
     override suspend fun prepareForPlayback() {
-        if (cachedToken != null &&
-            tokenExpiresAt - now() > PREPARE_PLAYBACK_FAST_PATH.inWholeMilliseconds
-        ) {
-            return
+        if (hasUsableToken()) return
+        refreshMutex.withLock {
+            // Re-check under the lock. A refresh that landed while we waited has already produced a
+            // usable token — or installed the stored-token fallback — so firing our own would only
+            // queue a second full round-trip behind the first. On a half-open socket each one costs
+            // the entire 15s RPC bound, which is how a resume after a long idle spent 24s here
+            // before playing a book that was already downloaded.
+            if (hasUsableToken()) return
+            performRefresh()
         }
-        refreshToken()
     }
 
     /**
-     * Refreshes the cached token, blocking on the [refreshMutex] so concurrent
-     * triggers coalesce. Public because it's the synchronous seam for OkHttp's
-     * [okhttp3.Authenticator] contract — the Android Authenticator wraps this
-     * in `runBlocking` to satisfy OkHttp's blocking-thread expectation while
-     * still routing through the shared refresh path used by the proactive loop
-     * and `prepareForPlayback`. On success, [getToken] returns the new token;
-     * on failure, [fallbackToStored] surfaces whatever's in [AuthSession].
+     * Whether the cache holds a token with enough life left to start playback on — the shared
+     * predicate behind [prepareForPlayback]'s fast path and its re-check under the lock.
+     */
+    private fun hasUsableToken(): Boolean =
+        cachedToken != null &&
+            tokenExpiresAt - now() > PREPARE_PLAYBACK_FAST_PATH.inWholeMilliseconds
+
+    /**
+     * Force a token rotation, serialising on [refreshMutex]. Callers that merely need a *usable*
+     * token should use [prepareForPlayback], which coalesces onto an in-flight refresh instead;
+     * this entry point is for callers that know the cached token is bad (a 401) or due (the
+     * proactive loop), where re-checking the cache would defeat the point.
+     *
+     * The mutex **serialises — it does not dedupe.** Two forced rotations queue, and each performs
+     * its own upstream refresh; single-flight dedup of the rotation RPC itself lives one layer down,
+     * in [AuthRepository.refreshAccessToken].
+     *
+     * Public because it's the synchronous seam for OkHttp's [okhttp3.Authenticator] contract — the
+     * Android Authenticator wraps this in `runBlocking` to satisfy OkHttp's blocking-thread
+     * expectation while still routing through the shared refresh path. On success, [getToken]
+     * returns the new token; on failure, [fallbackToStored] surfaces whatever's in [AuthSession].
      */
     suspend fun refreshToken() {
-        refreshMutex.withLock {
-            when (val result = authRepository.refreshAccessToken()) {
-                is AppResult.Success -> {
-                    // Persistence already happened inside the single-flight refresh (C1); here we only
-                    // update this provider's in-memory cache so getToken() serves the fresh token.
-                    val session = result.data
-                    cachedToken = session.accessToken
-                    tokenExpiresAt = session.accessTokenExpiresAt
-                    logger.info { "Token refreshed successfully" }
-                }
+        refreshMutex.withLock { performRefresh() }
+    }
 
-                is AppResult.Failure -> {
-                    logger.warn { "Token refresh failed (${result.error}), falling back to stored" }
-                    fallbackToStored()
-                }
+    /** Rotate the token and cache it, or fall back to stored. Caller holds [refreshMutex]. */
+    private suspend fun performRefresh() {
+        when (val result = authRepository.refreshAccessToken()) {
+            is AppResult.Success -> {
+                // Persistence already happened inside the single-flight refresh (C1); here we only
+                // update this provider's in-memory cache so getToken() serves the fresh token.
+                val session = result.data
+                cachedToken = session.accessToken
+                tokenExpiresAt = session.accessTokenExpiresAt
+                logger.info { "Token refreshed successfully" }
+            }
+
+            is AppResult.Failure -> {
+                logger.warn { "Token refresh failed (${result.error}), falling back to stored" }
+                fallbackToStored()
             }
         }
     }

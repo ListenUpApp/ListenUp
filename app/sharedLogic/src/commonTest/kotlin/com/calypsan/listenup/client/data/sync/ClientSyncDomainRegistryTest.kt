@@ -50,6 +50,25 @@ class ClientSyncDomainRegistryTest :
             registry.registeredDomains() shouldContainExactlyInAnyOrder listOf("alpha", "mu", "zeta")
         }
 
+        test("playback_positions catches up first, ahead of alphabetically-earlier decoration") {
+            val registry = ClientSyncDomainRegistry()
+            // Registration order deliberately does not favour playback_positions.
+            listOf("activities", "admin_user_roster", "book_moods", "book_tags", "playback_positions", "tags")
+                .forEach { registry.register(handler(it)) }
+
+            // Catch-up is strictly sequential and each domain costs a full round-trip, so position
+            // in this list is latency. playback_positions decides WHERE A BOOK RESUMES; plain
+            // alphabetical order queued it behind four domains of decoration.
+            registry.registeredDomains().first() shouldBe "playback_positions"
+        }
+
+        test("domains with no declared priority stay alphabetical after the prioritised ones") {
+            val registry = ClientSyncDomainRegistry()
+            listOf("zeta", "alpha", "playback_positions", "mu").forEach { registry.register(handler(it)) }
+
+            registry.registeredDomains() shouldBe listOf("playback_positions", "alpha", "mu", "zeta")
+        }
+
         test("re-registering the same instance for the same domain is idempotent") {
             val registry = ClientSyncDomainRegistry()
             val h = handler("tags")

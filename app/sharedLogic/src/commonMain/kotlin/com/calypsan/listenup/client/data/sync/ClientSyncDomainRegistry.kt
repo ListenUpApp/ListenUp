@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.sync.SyncDomains
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 
@@ -42,11 +43,36 @@ internal class ClientSyncDomainRegistry : SynchronizedObject() {
             handlers[domainName]
         }
 
-    /** All registered domain names, sorted alphabetically for stable iteration. */
+    /**
+     * All registered domain names in catch-up order: [CATCH_UP_PRIORITY] first, then everything
+     * else alphabetically. Deterministic either way, so iteration stays stable.
+     *
+     * Order here is latency, not cosmetics. [SyncCatchUpClient.catchUpAll] walks this list
+     * **strictly sequentially**, one full round-trip per domain, so a domain's position is how
+     * long it waits to become correct.
+     */
     fun registeredDomains(): List<String> =
         synchronized(this) {
-            handlers.keys.sorted()
+            val prioritised = CATCH_UP_PRIORITY.filter { it in handlers }
+            prioritised + (handlers.keys - prioritised.toSet()).sorted()
         }
+
+    private companion object {
+        /**
+         * Domains that gate a correctness decision and must not queue behind decoration.
+         *
+         * `playback_positions` decides **where a book resumes**. Plain alphabetical order put it
+         * ~14th of 22, behind `activities`, `admin_user_roster`, `book_moods`, `book_tags` and the
+         * rest — purely because "p" sorts late. Until it lands, opening a book on a second device
+         * resolves against a stale local row, which is exactly the race the resume reconcile has
+         * to defend against; catching it up first means the reconcile usually has nothing to
+         * correct.
+         *
+         * Keep this list short. A domain belongs here only if being stale makes the app *wrong*,
+         * not merely out of date.
+         */
+        private val CATCH_UP_PRIORITY = listOf(SyncDomains.PLAYBACK_POSITIONS.name)
+    }
 
     /**
      * The registered handlers whose domain is access-gated (those implementing

@@ -104,6 +104,18 @@ class PlaybackService :
     private var casting = false
 
     /**
+     * Whether a play request is outstanding — `playWhenReady` went true and has not yet resolved
+     * into either audio or a refusal.
+     *
+     * This is the EDGE that arms [isPlaybackRefused]. Android freezes backgrounded processes and a
+     * frozen process receives no callbacks, so on thaw Media3 delivers whatever queued up while it
+     * slept. Without this flag a focus loss from 45 minutes earlier is indistinguishable from a
+     * refusal happening now — which is exactly what fired a spurious "playback blocked"
+     * notification 79ms after unfreeze on 2026-08-07.
+     */
+    private var playRequested = false
+
+    /**
      * Whether audio was actually sounding when the last transport change arrived.
      *
      * Read by [isPlaybackRefused] to separate a refused start from an ordinary interruption —
@@ -863,21 +875,29 @@ class PlaybackService :
             playWhenReady: Boolean,
             reason: Int,
         ) {
-            if (isPlaybackRefused(playWhenReady, reason, wasPlaying)) {
+            if (playWhenReady) {
+                // The app asking to play is the edge that arms the refusal check. Without it, a
+                // focus loss replayed on process unfreeze reads exactly like a fresh refusal.
+                playRequested = true
+                return
+            }
+            if (isPlaybackRefused(playWhenReady, playRequested, reason, wasPlaying)) {
                 logger.warn {
-                    "Playback refused: audio focus denied while backgrounded. " +
+                    "Playback refused: the platform denied audio focus for a play we just requested. " +
                         "Check `adb shell dumpsys audio` for the AudioHardening entry."
                 }
                 val refusal =
                     PlaybackError.BlockedInBackground(
                         debugInfo = "playWhenReady=false reason=AUDIO_FOCUS_LOSS before playback started",
                     )
-                // The bus reaches the UI only when the app is already open — which is precisely
-                // when this can't happen. The notification is the path that actually reaches a
-                // listener staring at a lock-screen button that did nothing.
+                // The bus reaches the UI when the app is open; the notification is the path that
+                // reaches a listener staring at a lock-screen button that did nothing. Both are
+                // wanted — a refusal is now known to happen with the app plainly on screen.
                 errorBus.emit(refusal)
                 refusalNotifier.notifyRefused(refusal)
             }
+            // Resolved either way: the next refusal needs its own play request to arm it.
+            playRequested = false
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) = handleIsPlayingChanged(source, isPlaying)

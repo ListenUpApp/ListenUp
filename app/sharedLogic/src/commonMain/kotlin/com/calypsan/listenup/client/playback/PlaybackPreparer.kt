@@ -356,13 +356,19 @@ class PlaybackPreparer internal constructor(
     }
 
     /**
-     * Best-effort, non-blocking fetch of the server-authoritative resume position for the
-     * fully-downloaded path (where [buildTimeline] skips `prepare()` and never sees it).
+     * Fetch the server-authoritative resume position for the fully-downloaded path (where
+     * [buildTimeline] skips `prepare()` and never sees it).
      *
-     * Routed through the bounded, self-healing [PlaybackPrepareRepository] so a dead-socket transport
-     * fault surfaces as a typed, time-bounded [AppResult.Failure] rather than an exception. On ANY
-     * failure — offline, RPC error — it returns null so resume resolves from the local Room row
-     * exactly as before: it never blocks or fails playback.
+     * **This DOES block — it is awaited, on the path between tapping play and hearing audio.** An
+     * earlier version of this KDoc claimed it was "non-blocking"; it never was, and that sentence
+     * is why a 30-second stall hid here in plain sight (15s bound + 15s idempotent retry on a
+     * half-open socket). The honest statement is that it is bounded SHORT — see
+     * [PlaybackPrepareRepository.getPosition] — so the cost is sub-second even when the socket is
+     * dead, and any failure returns null so resume resolves from the local Room row.
+     *
+     * If you are tempted to widen that bound, note what it buys: only a resume point that is
+     * server-fresher than Room. Losing it starts the listener a little behind; waiting for it
+     * starts them in silence.
      */
     private suspend fun fetchAuthoritativePosition(bookId: BookId): PlaybackPositionSyncPayload? =
         when (val result = prepareRepository.getPosition(bookId)) {
