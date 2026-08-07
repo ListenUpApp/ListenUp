@@ -105,7 +105,10 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.kotlin.logging)
 
-            implementation(libs.androidx.lifecycle.viewmodelCompose)
+            // Plain lifecycle-viewmodel, not -viewmodelCompose: commonMain uses only ViewModel and
+            // viewModelScope. The -compose variant drags the Compose runtime into the logic module,
+            // which is both a layering smell and the largest js-availability risk in this module.
+            implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.sqlite.bundled)
         }
