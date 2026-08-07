@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.playback
 
 import android.os.Process
 import androidx.annotation.OptIn
+import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
@@ -67,6 +68,29 @@ internal fun MediaSession.classifyController(controller: MediaSession.Controller
     )
 
 /**
+ * Transport (player) commands granted to a controller at [trust] — play, pause, seek.
+ *
+ * Extracted so the policy is a pure, testable value rather than an inherited default. Media3 1.11
+ * introduced `DEFAULT_UNTRUSTED_PLAYER_COMMANDS` and made `onConnect` hand untrusted controllers
+ * read-only access by default, which meant a dependency bump could revoke transport from Android
+ * Auto, Wear or the notification with no crash and no compile error — the failure would simply be
+ * buttons that do nothing.
+ *
+ * Every trust level currently grants full transport, exactly as on 1.10.1: [ControllerTrust] gates
+ * *custom commands, custom layout and browse*, and has never gated transport. The `when` is
+ * exhaustive so adding a trust level forces this decision rather than defaulting into it.
+ */
+internal fun playerCommandsFor(trust: ControllerTrust): Player.Commands =
+    when (trust) {
+        ControllerTrust.OWN_APP,
+        ControllerTrust.AUTO_OR_AUTOMOTIVE,
+        ControllerTrust.MEDIA_NOTIFICATION,
+        ControllerTrust.TRUSTED_SYSTEM,
+        ControllerTrust.UNKNOWN,
+        -> MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS
+    }
+
+/**
  * Builds an [MediaSession.ConnectionResult] tailored to the controller's trust level.
  *
  * - Full-trust controllers ([ControllerTrust.OWN_APP] / [ControllerTrust.AUTO_OR_AUTOMOTIVE]):
@@ -81,6 +105,7 @@ internal fun MediaSession.classifyController(controller: MediaSession.Controller
  */
 @OptIn(UnstableApi::class)
 internal fun MediaSession.buildConnectionResultFor(
+    controller: MediaSession.ControllerInfo,
     trust: ControllerTrust,
     customSessionCommands: List<SessionCommand>,
     customLayout: List<CommandButton>,
@@ -110,8 +135,21 @@ internal fun MediaSession.buildConnectionResultFor(
 
     val builder =
         MediaSession.ConnectionResult
-            .AcceptedResultBuilder(this)
+            // Media3 1.11 deprecated the session-only constructor in favour of this one, which lets
+            // the library derive per-controller defaults.
+            .AcceptedResultBuilder(this, controller)
             .setAvailableSessionCommands(sessionCommands)
+            // Set EXPLICITLY rather than inherited. 1.11 added DEFAULT_UNTRUSTED_PLAYER_COMMANDS and
+            // changed onConnect to hand untrusted controllers read-only access by default — so
+            // leaving this unset would have let a version bump silently revoke play/pause/seek from
+            // whichever surfaces Media3 deems untrusted (Auto, Wear, the notification), with no
+            // crash and no compile error. Transport availability is OUR policy decision; ControllerTrust
+            // above is where it is expressed, and it has never gated transport.
+            //
+            // This preserves exactly the permissions every controller had on 1.10.1. Tightening
+            // transport for untrusted controllers may well be right, but it is a deliberate product
+            // decision, not a side effect of a dependency bump.
+            .setAvailablePlayerCommands(playerCommandsFor(trust))
 
     if (includeCustom) {
         builder.setCustomLayout(customLayout)
