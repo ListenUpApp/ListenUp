@@ -131,8 +131,14 @@ internal class RpcChannel<S : Any> internal constructor(
         idempotent: Boolean = false,
         block: suspend (S) -> AppResult<T>,
     ): AppResult<T> =
-        catchingRpcResult { dispatch.call(timeout, idempotent) { service -> block(service) } }
-            .also { evidence?.recordOutcome(it) }
+        // The evidence sink is also the gate: when recent calls have proved the transport dead,
+        // boundFor collapses this call's timeout instead of committing the caller to the full
+        // bound on a socket we already know is not answering. One shared ConnectionEvidence means
+        // every channel — search, sync, admin, auth, playback — inherits this with no per-service
+        // wiring, which is the whole point of dispatching through one boundary.
+        catchingRpcResult {
+            dispatch.call(evidence?.boundFor(timeout) ?: timeout, idempotent) { service -> block(service) }
+        }.also { evidence?.recordOutcome(it) }
 
     /**
      * Run a mutation that returns a [Mutated] envelope, apply the sync frames it carries, and hand
