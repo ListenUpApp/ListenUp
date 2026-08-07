@@ -24,6 +24,7 @@ class PlaybackRefusalTest :
             // The hardening case: play was requested, focus was denied, nothing ever sounded.
             isPlaybackRefused(
                 playWhenReady = false,
+                playRequested = true,
                 reason = Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS,
                 wasPlaying = false,
             ) shouldBe true
@@ -33,6 +34,7 @@ class PlaybackRefusalTest :
             // A phone call. Routine, and playback resumes on its own afterwards.
             isPlaybackRefused(
                 playWhenReady = false,
+                playRequested = true,
                 reason = Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS,
                 wasPlaying = true,
             ) shouldBe false
@@ -41,12 +43,14 @@ class PlaybackRefusalTest :
         test("the listener pausing is never a refusal") {
             isPlaybackRefused(
                 playWhenReady = false,
+                playRequested = true,
                 reason = Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
                 wasPlaying = true,
             ) shouldBe false
 
             isPlaybackRefused(
                 playWhenReady = false,
+                playRequested = true,
                 reason = Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
                 wasPlaying = false,
             ) shouldBe false
@@ -55,6 +59,7 @@ class PlaybackRefusalTest :
         test("unplugging headphones is not a refusal") {
             isPlaybackRefused(
                 playWhenReady = false,
+                playRequested = true,
                 reason = Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY,
                 wasPlaying = true,
             ) shouldBe false
@@ -63,6 +68,7 @@ class PlaybackRefusalTest :
         test("reaching the end of the book is not a refusal") {
             isPlaybackRefused(
                 playWhenReady = false,
+                playRequested = true,
                 reason = Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM,
                 wasPlaying = true,
             ) shouldBe false
@@ -72,6 +78,25 @@ class PlaybackRefusalTest :
             // playWhenReady = true means the player is going; nothing was refused.
             isPlaybackRefused(
                 playWhenReady = true,
+                playRequested = true,
+                reason = Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS,
+                wasPlaying = false,
+            ) shouldBe false
+        }
+
+        test("a stale focus loss replayed on process unfreeze is NOT a refusal") {
+            // 2026-08-07, 08:32:29.011 — 79ms after the Android freezer thawed the process, and SIX
+            // SECONDS BEFORE the listener tapped anything, this fired and posted
+            // PLAYBACK_BLOCKED_IN_BACKGROUND. The loss it described was real but 45 minutes old: at
+            // 07:47:09 another app took focus. Frozen processes do not receive callbacks, so Media3
+            // delivered it on thaw and the old predicate could not tell "just refused" from "queued
+            // since breakfast".
+            //
+            // playRequested is what separates them: a genuine refusal is always PRECEDED by
+            // playWhenReady going true. A replay has no such edge.
+            isPlaybackRefused(
+                playWhenReady = false,
+                playRequested = false,
                 reason = Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS,
                 wasPlaying = false,
             ) shouldBe false
