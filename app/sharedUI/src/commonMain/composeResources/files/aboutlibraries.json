@@ -865,7 +865,7 @@
         },
         {
             "uniqueId": "androidx.compose:compose-bom",
-            "artifactVersion": "2024.12.01",
+            "artifactVersion": "2026.05.00",
             "name": "Jetpack Compose Libraries BOM",
             "description": "A compatible set of Jetpack Compose libraries.",
             "website": "https://developer.android.com/jetpack",
@@ -1839,9 +1839,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-cast",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 Cast module",
-            "description": "Media3 Cast module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1860,9 +1860,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-common",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 common module",
-            "description": "Media3 common module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1881,9 +1881,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-container",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 Container module",
-            "description": "Media3 Container module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1902,9 +1902,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-database",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 database module",
-            "description": "Media3 database module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1923,9 +1923,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-datasource",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 DataSource module",
-            "description": "Media3 DataSource module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1944,9 +1944,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-datasource-okhttp",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 OkHttp DataSource module",
-            "description": "Media3 OkHttp DataSource module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1965,9 +1965,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-decoder",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 decoder module",
-            "description": "Media3 decoder module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -1986,9 +1986,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-exoplayer",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 ExoPlayer module",
-            "description": "Media3 ExoPlayer module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2007,9 +2007,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-exoplayer-hls",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 ExoPlayer HLS module",
-            "description": "Media3 ExoPlayer HLS module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2028,9 +2028,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-extractor",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 Extractor module",
-            "description": "Media3 Extractor module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -2049,30 +2049,9 @@
         },
         {
             "uniqueId": "androidx.media3:media3-session",
-            "artifactVersion": "1.10.1",
+            "artifactVersion": "1.11.0",
             "name": "Media3 Session module",
-            "description": "Media3 Session module",
-            "developers": [
-                {
-                    "name": "The Android Open Source Project"
-                }
-            ],
-            "scm": {
-                "connection": "scm:git:https://github.com/androidx/media.git",
-                "url": "https://github.com/androidx/media"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
-            "uniqueId": "androidx.media3:media3-ui",
-            "artifactVersion": "1.10.1",
-            "name": "Media3 UI module",
-            "description": "Media3 UI module",
+            "description": "",
             "developers": [
                 {
                     "name": "The Android Open Source Project"
@@ -3040,7 +3019,7 @@
         },
         {
             "uniqueId": "com.google.android.gms:play-services-base",
-            "artifactVersion": "18.5.0",
+            "artifactVersion": "18.7.2",
             "name": "play-services-base",
             "description": "",
             "developers": [
@@ -3055,7 +3034,7 @@
         },
         {
             "uniqueId": "com.google.android.gms:play-services-basement",
-            "artifactVersion": "18.5.0",
+            "artifactVersion": "18.9.0",
             "name": "play-services-basement",
             "description": "",
             "developers": [
@@ -3070,7 +3049,7 @@
         },
         {
             "uniqueId": "com.google.android.gms:play-services-cast",
-            "artifactVersion": "22.1.0",
+            "artifactVersion": "22.3.1",
             "name": "play-services-cast",
             "description": "",
             "developers": [
@@ -3085,7 +3064,7 @@
         },
         {
             "uniqueId": "com.google.android.gms:play-services-cast-framework",
-            "artifactVersion": "22.1.0",
+            "artifactVersion": "22.3.1",
             "name": "play-services-cast-framework",
             "description": "",
             "developers": [
@@ -3115,7 +3094,7 @@
         },
         {
             "uniqueId": "com.google.android.gms:play-services-tasks",
-            "artifactVersion": "18.2.0",
+            "artifactVersion": "18.3.2",
             "name": "play-services-tasks",
             "description": "",
             "developers": [
@@ -5436,30 +5415,6 @@
                 "connection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
                 "developerConnection": "scm:git:https://github.com/JetBrains/compose-multiplatform.git",
                 "url": "https://github.com/JetBrains/compose-multiplatform"
-            },
-            "licenses": [
-                "Apache-2.0"
-            ],
-            "funding": [
-                
-            ]
-        },
-        {
-            "uniqueId": "org.jetbrains.kotlin:kotlin-bom",
-            "artifactVersion": "1.8.0",
-            "name": "Kotlin Libraries bill-of-materials",
-            "description": "Kotlin is a statically typed programming language that compiles to JVM byte codes and JavaScript",
-            "website": "https://kotlinlang.org/",
-            "developers": [
-                {
-                    "name": "JetBrains Team",
-                    "organisationUrl": "https://www.jetbrains.com"
-                }
-            ],
-            "scm": {
-                "connection": "scm:git:https://github.com/JetBrains/kotlin.git",
-                "developerConnection": "scm:git:https://github.com/JetBrains/kotlin.git",
-                "url": "https://github.com/JetBrains/kotlin"
             },
             "licenses": [
                 "Apache-2.0"

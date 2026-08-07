@@ -11,6 +11,9 @@ import com.calypsan.listenup.client.composeapp.R
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val logger = KotlinLogging.logger {}
 
 @Composable
 actual fun CastButton(modifier: Modifier) {
@@ -32,7 +35,18 @@ actual fun CastButton(modifier: Modifier) {
             // (#0) — crashing the button. Build it in an opaque AppCompat theme instead.
             val themed = ContextThemeWrapper(ctx, R.style.Theme_ListenUp_CastButton)
             MediaRouteButton(themed).also { button ->
-                CastButtonFactory.setUpMediaRouteButton(ctx.applicationContext, button)
+                // The Executor overload, not the plain one: the plain one resolves the CastContext
+                // synchronously and throws IllegalStateException unless Cast was configured from the
+                // manifest. Cast is now initialized in ListenUp.onCreate (see initializeCast), which
+                // Media3 loads asynchronously — so this awaits that load instead of racing it.
+                CastButtonFactory
+                    .setUpMediaRouteButton(ctx.applicationContext, ctx.mainExecutor, button)
+                    .addOnFailureListener { failure ->
+                        // Left unwired rather than crashing. MediaRouteButton shows nothing until it
+                        // has a route selector, so the user sees no cast affordance and plays
+                        // locally — never stranded.
+                        logger.warn(failure) { "Cast button setup failed — cast unavailable" }
+                    }
             }
         },
     )

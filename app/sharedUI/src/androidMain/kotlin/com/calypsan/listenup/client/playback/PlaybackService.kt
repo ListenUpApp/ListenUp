@@ -20,6 +20,8 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.mp4.Mp4Extractor
 import androidx.media3.session.CommandButton
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
@@ -260,9 +262,18 @@ class PlaybackService :
         val httpDataSourceFactory: DataSource.Factory = OkHttpDataSource.Factory(okHttpClient)
         val dataSourceFactory: DataSource.Factory = DefaultDataSource.Factory(this, httpDataSourceFactory)
 
+        // Every cover we display comes from our own library (MediaItem.artworkUri, set in
+        // AndroidPlaybackController and BrowseTreeProvider) — nothing reads MediaMetadata.artworkData.
+        // Media3 1.11's FLAG_DISABLE_ARTWORK_METADATA stops the MP4 extractor decoding the embedded
+        // cover art it would otherwise hold for the whole session. Audiobook m4b files routinely
+        // carry megabyte-scale artwork, and a multi-file book pays that per file.
+        val extractorsFactory =
+            DefaultExtractorsFactory()
+                .setMp4ExtractorFlags(Mp4Extractor.FLAG_DISABLE_ARTWORK_METADATA)
+
         // Create media source factory
         val mediaSourceFactory =
-            DefaultMediaSourceFactory(this)
+            DefaultMediaSourceFactory(this, extractorsFactory)
                 .setDataSourceFactory(dataSourceFactory)
 
         // Create renderers factory with AAC DRC for consistent loudness + decoder fallback

@@ -129,7 +129,7 @@ internal class ListenUpSessionCallback(
 
         val trust = session.classifyController(controller)
         logger.debug { "onConnect from ${controller.packageName} classified as $trust" }
-        return session.buildConnectionResultFor(trust, customCommands, customLayout)
+        return session.buildConnectionResultFor(controller, trust, customCommands, customLayout)
     }
 
     // ========== Browse Operations ==========

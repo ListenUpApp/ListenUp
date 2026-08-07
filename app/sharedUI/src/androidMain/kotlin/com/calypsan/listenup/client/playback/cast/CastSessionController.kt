@@ -2,11 +2,11 @@ package com.calypsan.listenup.client.playback.cast
 
 import android.content.Context
 import androidx.annotation.OptIn
+import androidx.media3.cast.Cast
 import androidx.media3.cast.RemoteCastPlayer
 import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -79,12 +79,20 @@ class CastSessionController private constructor(
                 logger.info { "Google Play Services unavailable ($available) — Cast disabled" }
                 return null
             }
+            // Media3 1.11's entry point. Initialization was started in ListenUp.onCreate (see
+            // initializeCast); building the player below joins it rather than racing it. Loading
+            // is asynchronous, so a null failure here means "not failed yet", not "will succeed" —
+            // the runCatching below remains the real guard.
+            val cast = Cast.getSingletonInstance(context)
+            cast.castContextLoadFailure?.let { failure ->
+                logger.warn(failure) { "Cast context failed to load — Cast disabled" }
+                return null
+            }
             return runCatching {
-                val castContext = CastContext.getSharedInstance(context)
                 val remotePlayer = RemoteCastPlayer.Builder(context).build()
                 val rateSetter =
                     CastRateSetter { rate ->
-                        castContext.sessionManager.currentCastSession
+                        cast.currentCastSession
                             ?.remoteMediaClient
                             ?.setPlaybackRate(rate)
                     }
