@@ -225,7 +225,11 @@ internal class PlaybackPositionRepositoryImpl(
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
-                        lastPlayedAt = now,
+                        // The row's own value, which handlePlaybackStarted deliberately left at the
+                        // last REAL listening (see there). Sending `now` would push a stale position
+                        // as globally-newest and discard another device's newer progress. `?: now`
+                        // only covers the never-played row, where blank() has already stamped now.
+                        lastPlayedAt = entity?.lastPlayedAt ?: now,
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
@@ -379,7 +383,12 @@ internal class PlaybackPositionRepositoryImpl(
                 positionMs = u.positionMs,
                 playbackSpeed = u.speed,
                 startedAt = existing.startedAt ?: now, // preserve original startedAt if set
-                lastPlayedAt = now,
+                // NOT `now`. lastPlayedAt is the conflict key, so writing it claims "this is the
+                // newest truth about where the listener is" — and starting playback is not that.
+                // Stamping here made a locally-stale row instantly outrank newer progress from
+                // another device that catch-up had not yet delivered. The claim belongs to the
+                // writes that follow from real listening (periodic at 30s, and pause).
+                lastPlayedAt = existing.lastPlayedAt,
                 updatedAt = now,
                 syncedAt = null,
             ) ?: blank(bookId, now).copy(
