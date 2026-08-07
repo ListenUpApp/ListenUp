@@ -39,16 +39,18 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
 /**
- * Characterization suite for [CachedAudioTokenProvider]. Pins the current
- * behavior of the shared streaming-token authority under virtual time:
- * init refresh + persistence, the [prepareForPlayback] fast path, mutex
- * serialization of concurrent refreshes (WITHOUT dedup — see test 4), the
- * stored-token grace fallback, the proactive expiry loop, and the awaited
+ * Suite for [CachedAudioTokenProvider], driven under virtual time: init refresh
+ * + persistence, the [prepareForPlayback] fast path, the stored-token grace
+ * fallback, the proactive expiry loop, and the awaited
  * [CachedAudioTokenProvider.refreshToken] path.
  *
- * This is characterization, not verification of "correct" behavior — if a
- * test surfaces a real bug, that's a signal for a follow-up plan, not a
- * license to change production behavior here.
+ * Mostly characterization, with one regression test. The characterization noted
+ * that concurrent refreshes serialize WITHOUT dedup (test 4) and left that as a
+ * signal for a follow-up plan; the follow-up found it on the critical path to
+ * audio, where each serialized waiter paid the full 15s RPC bound on a half-open
+ * socket. "prepareForPlayback coalesces onto an in-flight refresh" pins the fix.
+ * Test 4 still holds — [CachedAudioTokenProvider.refreshToken] is a *forced*
+ * rotation and deliberately still does not dedupe.
  */
 class CachedAudioTokenProviderTest :
     FunSpec({
@@ -146,6 +148,39 @@ class CachedAudioTokenProviderTest :
                 // down, in AuthRepositoryImpl.refreshAccessToken (lines 47-83), not
                 // in this class.
                 repo.calls shouldBe 4
+            }
+        }
+
+        test("prepareForPlayback coalesces onto an in-flight refresh instead of serialising its own") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val repo =
+                    FakeAudioAuthRepository {
+                        delay(1.seconds)
+                        AppResult.Failure(AuthError.SessionExpired())
+                    }
+                val storage = FakeStorageAuthSession(stored = AccessToken("stored"))
+                val provider = CachedAudioTokenProvider(storage, repo, backgroundScope, clock)
+
+                // init's refresh is parked inside the 1s delay, holding refreshMutex.
+                runCurrent()
+                repo.calls shouldBe 1
+
+                // The play tap lands while that refresh is still in flight. Launch it in the
+                // FOREGROUND scope (see test 4) and let it reach the mutex and park.
+                launch { provider.prepareForPlayback() }
+                runCurrent()
+
+                // init's refresh completes and releases the mutex; the tap then proceeds.
+                advanceTimeBy(2.seconds)
+                advanceUntilIdle()
+
+                // It must adopt whatever the in-flight refresh installed — here the stored-token
+                // fallback — NOT queue a second full round-trip behind it. On a half-open socket
+                // each round-trip costs the full 15s RPC bound, and two of them serialised are
+                // 24s of the 54s tap-to-audio delay reproduced on 2026-08-07.
+                repo.calls shouldBe 1
+                provider.getToken() shouldBe "stored"
             }
         }
 
