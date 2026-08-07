@@ -6,6 +6,10 @@ import UIKit
 
 @main
 struct ListenUpApp: App {
+    /// Present solely to answer `configurationForConnecting` for the CarPlay scene role;
+    /// see `AppDelegate`. SwiftUI still owns the window scene.
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         // Koin must be initialised before any UI (or observer) accesses it.
         ExportedKotlinPackages.com.calypsan.listenup.client.di.startDependencyInjection()
