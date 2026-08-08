@@ -26,6 +26,26 @@ plugins {
 }
 
 // =============================================================================
+// JS TOOLCHAIN - npm dependency overrides
+// =============================================================================
+// mocha 11.7.5 (pulled by the karma browser-test lane, which the Kotlin Multiplatform Gradle
+// plugin hardcodes) depends on serialize-javascript ^6.0.2, and every version up to and
+// including 7.0.2 carries GHSA-5c6j-r48x-rmvq — a high-severity RCE via unescaped
+// RegExp.flags, itself an incomplete fix for CVE-2020-7660. It fails CI's dependency-review
+// gate, which is set to fail-on-severity: high.
+//
+// Pinned rather than suppressed. This is build-time-only tooling that never reaches a shipped
+// artifact, and the injection needs attacker-controlled input to serialize() — which here is
+// our own test titles — so the practical risk is low. But "it's only build tooling" is exactly
+// the reasoning that normalises supply-chain risk, and a pin costs nothing.
+//
+// Remove when mocha ships a release depending on >= 7.0.3 (mochajs/mocha#5781).
+plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
+    the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>()
+        .resolution("serialize-javascript", "7.0.3")
+}
+
+// =============================================================================
 // DETEKT - Static Analysis
 // =============================================================================
 detekt {
