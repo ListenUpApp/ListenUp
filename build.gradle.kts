@@ -91,6 +91,14 @@ detekt {
         "$rootDir/server/src/linuxX64Test/kotlin",
         "$rootDir/tools/rpc-guard-ksp/src/main/kotlin",
         "$rootDir/tools/rpc-guard-ksp/src/test/kotlin",
+        // The js source sets. Absent until now, which meant every Kotlin file behind the web
+        // client — the browser store actuals, and now the Compose HTML body — was silently
+        // unlinted. A static-analysis gate that runs over less code than you think is worse
+        // than one that fails, because it reports green either way.
+        "$rootDir/contract/src/jsMain/kotlin",
+        "$rootDir/app/sharedLogic/src/jsMain/kotlin",
+        "$rootDir/app/webApp/src/jsMain/kotlin",
+        "$rootDir/app/webApp/src/jsTest/kotlin",
     )
 }
 
