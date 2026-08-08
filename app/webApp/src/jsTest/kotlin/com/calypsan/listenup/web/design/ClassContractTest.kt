@@ -84,6 +84,9 @@ class ClassContractTest :
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
                         }
                         Breadcrumb(listOf("Library", "The Institute"))
+                        Tabs(listOf(TabItem("a", "A", count = "3")), active = "a")
+                        SegmentedControl(listOf(SegmentItem("s", "S")), active = "s")
+                        Pill("Horror", selected = true, onRemove = {})
                     }
                 }
 

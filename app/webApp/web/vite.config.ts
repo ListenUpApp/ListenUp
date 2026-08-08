@@ -50,14 +50,17 @@ export default defineConfig({
   preview: { headers: crossOriginIsolation },
   build: {
     rollupOptions: {
-      // The Kotest page is a build input, not just a dev-server page, so `vite build` output
-      // can be verified by the real specs rather than a smoke check. Proving the store works
-      // in dev says nothing about the bundle: dev serves modules as authored, while the build
-      // path is where the worker gets chunked and the .wasm sidecar emitted.
-      input: {
-        index: resolve(__dirname, 'index.html'),
-        kotest: resolve(__dirname, 'test/kotest.html'),
-      },
+      // The Kotest page is a build input, not just a dev-server page, so `vite build` output can
+      // be verified by the real specs rather than a smoke check — dev serves modules as authored,
+      // while the build path is where the worker gets chunked and the .wasm sidecar emitted.
+      //
+      // It is opt-in because the app and the test page need DIFFERENT Kotlin variants synced into
+      // kotlin/ (main vs test), so building both at once cannot work: whichever variant is not
+      // synced fails to resolve. `LU_TEST_PAGE=1` selects the test build.
+      input:
+        process.env.LU_TEST_PAGE === '1'
+          ? { kotest: resolve(__dirname, 'test/kotest.html') }
+          : { index: resolve(__dirname, 'index.html') },
     },
   },
   // @sqlite.org/sqlite-wasm ships its own worker and .wasm sidecar; excluding it from
