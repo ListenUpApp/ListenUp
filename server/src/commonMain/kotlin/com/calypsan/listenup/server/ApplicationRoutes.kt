@@ -43,6 +43,7 @@ import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.coverCastRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
+import com.calypsan.listenup.server.routes.webAppRoutes
 import com.calypsan.listenup.server.routes.importRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
@@ -122,6 +123,9 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
+        // Mounted last: its catch-all falls back to the web shell, so it must not shadow the
+        // RPC mounts or the blob endpoints above.
+        webAppRoutes(resolveWebRoot())
     }
 }
 

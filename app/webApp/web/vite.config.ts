@@ -48,6 +48,18 @@ export default defineConfig({
     fs: { allow: [resolve(__dirname, '..')] },
   },
   preview: { headers: crossOriginIsolation },
+  build: {
+    rollupOptions: {
+      // The Kotest page is a build input, not just a dev-server page, so `vite build` output
+      // can be verified by the real specs rather than a smoke check. Proving the store works
+      // in dev says nothing about the bundle: dev serves modules as authored, while the build
+      // path is where the worker gets chunked and the .wasm sidecar emitted.
+      input: {
+        index: resolve(__dirname, 'index.html'),
+        kotest: resolve(__dirname, 'test/kotest.html'),
+      },
+    },
+  },
   // @sqlite.org/sqlite-wasm ships its own worker and .wasm sidecar; excluding it from
   // dep-optimisation keeps Vite from rewriting those into a form the worker can't load.
   optimizeDeps: { exclude: ['@sqlite.org/sqlite-wasm'] },
