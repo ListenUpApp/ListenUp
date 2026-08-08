@@ -1,0 +1,5 @@
+node_modules/
+dist/
+
+# Synced from KGP output by `pnpm sync` — never edited by hand.
+kotlin/
