@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 
@@ -13,7 +14,8 @@ import org.jetbrains.compose.web.renderComposable
  */
 fun main() {
     val mount = document.getElementById(MOUNT_ID) ?: return
-    renderComposable(root = mount) { WebAppRoot() }
+    val router = Router()
+    renderComposable(root = mount) { WebAppRoot(router) }
 }
 
 private const val MOUNT_ID = "app"

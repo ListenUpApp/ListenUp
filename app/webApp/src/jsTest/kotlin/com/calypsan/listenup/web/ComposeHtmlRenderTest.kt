@@ -1,6 +1,7 @@
 package com.calypsan.listenup.web
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -27,17 +28,21 @@ class ComposeHtmlRenderTest :
         }
 
         test("a composable emits real DOM elements") {
-            val host = mount { WebAppRoot() }
+            val router = Router()
+            val host = mount { WebAppRoot(router) }
+            router.dispose()
 
-            val heading = host.querySelector("h1")
-            heading.shouldNotBeNullAndContain("ListenUp")
+            val brand = host.querySelector(".sb-name")
+            brand.shouldNotBeNullAndContain("ListenUp")
         }
 
         test("the design system's class contract reaches the DOM") {
             // web.css keys everything off `.luw` plus a direction class; if those do not land on
             // the root element, every token lookup silently falls back and the page renders
             // unstyled rather than broken.
-            val host = mount { WebAppRoot() }
+            val router = Router()
+            val host = mount { WebAppRoot(router) }
+            router.dispose()
 
             val root = host.querySelector(".luw") as? HTMLElement
             (root != null) shouldBe true
