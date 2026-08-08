@@ -15,5 +15,4 @@ import org.w3c.dom.Worker
  * application-provided resource, which is why the store takes a `Worker` rather than
  * creating one.
  */
-fun createSqliteWorker(): Worker =
-    Worker(js("""new URL("sqlite-wasm-worker/worker.js", import.meta.url)"""))
+fun createSqliteWorker(): Worker = Worker(js("""new URL("sqlite-wasm-worker/worker.js", import.meta.url)"""))
