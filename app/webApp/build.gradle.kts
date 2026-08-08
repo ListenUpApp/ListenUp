@@ -66,3 +66,40 @@ kotlin {
         }
     }
 }
+
+// =============================================================================
+// THE VITE/PLAYWRIGHT BROWSER LANE
+// =============================================================================
+// Runs the compiled Kotest bundle in Chromium via `app/webApp/web`, where Vite and Playwright
+// own the browser instead of KGP's webpack + karma.
+//
+// It runs ALONGSIDE jsBrowserTest rather than replacing it: both lanes execute the same specs,
+// so while the migration is in flight a disagreement between them is a signal, not a puzzle.
+// jsBrowserTest goes when this lane has earned CI's trust.
+//
+// Not wired into `check` yet — it needs pnpm and a Playwright browser download, which is a
+// bigger ask of a contributor's machine than the rest of the build makes.
+val webRoot = layout.projectDirectory.dir("web")
+
+val pnpmInstall =
+    tasks.register<Exec>("webPnpmInstall") {
+        group = "verification"
+        description = "Installs the JS toolchain for the Vite browser lane."
+        workingDir = webRoot.asFile
+        commandLine("pnpm", "install", "--frozen-lockfile")
+        inputs.file(webRoot.file("package.json"))
+        inputs.file(webRoot.file("pnpm-lock.yaml"))
+        outputs.dir(webRoot.dir("node_modules"))
+    }
+
+tasks.register<Exec>("webKotest") {
+    group = "verification"
+    description = "Runs the Kotest specs in Chromium via Vite + Playwright (the post-karma lane)."
+    dependsOn(pnpmInstall, "jsTestTestDevelopmentExecutableCompileSync")
+    workingDir = webRoot.asFile
+    commandLine("pnpm", "test")
+    // The Kotlin output is an input in substance — `pnpm test` syncs it into web/kotlin — so
+    // declaring it keeps Gradle from calling this up to date after a Kotlin-only change.
+    inputs.dir(layout.buildDirectory.dir("compileSync/js/test/testDevelopmentExecutable/kotlin"))
+    outputs.upToDateWhen { false }
+}

@@ -102,6 +102,55 @@ jobs:
           fail-on-severity: high
 
   # ── Test ─────────────────────────────────────────────────────────────────────
+  test-web-browser:
+    name: Test (web browser)
+    runs-on: ubuntu-latest
+    # The post-karma browser lane: KGP compiles Kotlin to ES modules, then Vite + Playwright
+    # own the browser. Runs ALONGSIDE the karma lane inside Test (JVM) while the migration is
+    # in flight — two lanes over the same specs means a disagreement is a signal, not a puzzle.
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5.6.0
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: app/webApp/web/pnpm-lock.yaml
+
+      - name: Install JS toolchain
+        working-directory: app/webApp/web
+        run: pnpm install --frozen-lockfile
+
+      # Playwright brings its own Chromium rather than reusing a system browser: karma's
+      # equivalent step was a long-running source of CHROME_BIN drift, and a pinned download
+      # removes the variable entirely.
+      - name: Install Playwright Chromium
+        working-directory: app/webApp/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Kotest specs in Chromium
+        run: ./gradlew :app:webApp:webKotest --no-daemon
+
   test-jvm:
     name: Test (JVM)
     runs-on: ubuntu-latest
