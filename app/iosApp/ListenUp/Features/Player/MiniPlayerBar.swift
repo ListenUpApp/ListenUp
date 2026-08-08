@@ -125,12 +125,16 @@ struct MiniPlayerBar: View {
     /// Time-left reuses the reader strip's `formatTimeLeft` helper ("9h 51m left"); the
     /// single line truncates on narrow widths so the bar never crowds. Reads only scalar
     /// values off the observer (rule 8 — no bridged Kotlin objects in the view body).
+    ///
+    /// Chapter-scoped, like every other now-playing surface (full player scrubber, lock
+    /// screen, CarPlay): the time left is the CURRENT CHAPTER's, so it reads coherently next
+    /// to the chapter name. A chapterless book falls back to the whole-book window.
     private var subtitle: String {
-        let timeLeft = formatTimeLeft(remainingMs: observer.bookDurationMs - observer.displayBookPositionMs)
         if let chapter = observer.chapterTitle, !chapter.isEmpty {
-            return "\(chapter) · \(timeLeft)"
+            let remainingMs = max(0, observer.chapterDurationMs - observer.chapterPositionMs)
+            return "\(chapter) · \(formatTimeLeft(remainingMs: remainingMs))"
         }
-        return timeLeft
+        return formatTimeLeft(remainingMs: observer.bookDurationMs - observer.displayBookPositionMs)
     }
 
     private var cover: some View {
@@ -141,9 +145,10 @@ struct MiniPlayerBar: View {
             .accessibilityHidden(true)
     }
 
-    /// Overall-book progress as a slim hairline sitting *on* the bar's lower edge: a
+    /// Chapter progress as a slim hairline sitting *on* the bar's lower edge: a
     /// barely-there capsule track with a coral fill, inset from the rounded corners so it
     /// reads as the bar's own progress accent rather than a separate strip beneath it.
+    /// Chapter-scoped to match the subtitle's time-left (whole-book for chapterless books).
     private var progressLine: some View {
         GeometryReader { geometry in
             Capsule()
@@ -151,12 +156,19 @@ struct MiniPlayerBar: View {
                 .overlay(alignment: .leading) {
                     Capsule()
                         .fill(Color.listenUpOrange)
-                        .frame(width: geometry.size.width * CGFloat(observer.displayBookProgress))
+                        .frame(width: geometry.size.width * CGFloat(chapterProgress))
                 }
         }
         .frame(height: 2.5)
         .padding(.horizontal, 12)
         .padding(.bottom, 5)
+    }
+
+    /// Fraction of the current chapter completed, `displayBookProgress` when chapterless.
+    private var chapterProgress: Float {
+        let durationMs = observer.chapterDurationMs
+        guard durationMs > 0 else { return observer.displayBookProgress }
+        return min(1, Float(observer.chapterPositionMs) / Float(durationMs))
     }
 
     private var playPauseButton: some View {

@@ -693,12 +693,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
             // Only a loaded book has a place to report to (guards `.idle`/`.error` too).
             guard let loaded = phase.playingState else { break }
             // A positive-rate sample IS "audio is advancing" — promote a lingering `.buffering`
-            // even though `.ready` never arrived. The engine's `.ready` is a `timeControlStatus`
-            // KVO *transition*; on a first load the transition can land inside the
+            // even though `.ready` never arrived: that KVO transition can land inside the
             // `isEngineLoading` gate and nothing re-fires it, leaving the phase stuck buffering
-            // while samples flow — in-app glyphs read active (`isPlaybackActive`), but
-            // `updateNowPlaying` keeps pushing rate 0, so CarPlay and the lock screen show a
-            // paused book that is audibly playing.
+            // while samples flow — so `updateNowPlaying` keeps pushing rate 0 and CarPlay and
+            // the lock screen show a paused book that is audibly playing.
             if rate > 0, case .buffering = phase {
                 phase = .playing(loaded)
                 updateNowPlaying()
