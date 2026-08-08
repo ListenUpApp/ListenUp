@@ -40,9 +40,20 @@ plugins {
 // the reasoning that normalises supply-chain risk, and a pin costs nothing.
 //
 // Remove when mocha ships a release depending on >= 7.0.3 (mochajs/mocha#5781).
+//
+// ktor-client-core 3.5.2's js artifact declares an *exact* "ws": "8.20.1", which the Kotlin
+// Multiplatform Gradle plugin copies into every generated package.json. Everything below 8.21.0
+// carries GHSA-96hv-2xvq-fx4p / CVE-2026-48779 — a high-severity memory-exhaustion DoS where a
+// flood of tiny frames allocates far past the documented limit and kills the process. Our other
+// two ws consumers (engine.io, webpack-dev-server) already float to 8.21.3 and are unaffected;
+// only Ktor's exact pin holds the tree back, and 8.21.x is a patch-level move for it.
+//
+// Remove when Ktor bumps its declared ws floor to >= 8.21.0.
 plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
-    the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>()
-        .resolution("serialize-javascript", "7.0.3")
+    the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().apply {
+        resolution("serialize-javascript", "7.0.3")
+        resolution("ws", "8.21.3")
+    }
 }
 
 // =============================================================================
