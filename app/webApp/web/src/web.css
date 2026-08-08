@@ -422,6 +422,28 @@
 .pill.on { background:var(--coral-soft); border-color:transparent; color:var(--coral); }
 .pill .x { opacity:.6; }
 
+/* ============================================================
+   APP SHELL — Shell A: a labeled, collapsible sidebar beside a
+   content region that scrolls. The persistent player bar docks
+   below both once playback exists on this platform.
+   ============================================================ */
+.shell { display:flex; height:100dvh; background:var(--paper); }
+.sidebar { width:252px; flex-shrink:0; display:flex; flex-direction:column; background:var(--surface); border-right:1px solid var(--line); padding:18px 16px; transition:width .2s; overflow-y:auto; }
+.sidebar.clpsd { width:76px; padding:16px 14px; align-items:center; }
+.sb-brand { display:flex; align-items:center; justify-content:space-between; height:40px; margin-bottom:14px; }
+.sb-name { font-size:18px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
+.sb-toggle { color:var(--ink-3); }
+.sb-group { margin:16px 0 6px 14px; font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
+.sb-nav { display:flex; flex-direction:column; gap:3px; }
+.nav-i { display:flex; align-items:center; gap:13px; height:44px; padding:0 13px; border-radius:12px; cursor:pointer; font-size:14.5px; font-weight:600; letter-spacing:-.01em; color:var(--ink-2); transition:background .14s, color .14s; white-space:nowrap; }
+.nav-i:hover { background:var(--surface-2); color:var(--ink); }
+.nav-i.on { background:var(--coral-soft); color:var(--coral); font-weight:700; }
+.nav-i .lb { flex:1; overflow:hidden; text-overflow:ellipsis; }
+.clpsd .nav-i { width:44px; justify-content:center; padding:0; }
+.sb-spacer { flex:1; }
+.sb-expand { margin:0 auto 10px; }
+.shell-main { flex:1; min-width:0; overflow:auto; }
+
 /* ---- checkbox (table select) ---- */
 .cbx { width:17px; height:17px; border-radius:5px; border:1.5px solid var(--hairline); background:var(--surface); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
 .cbx.on { background:var(--coral); border-color:var(--coral); }

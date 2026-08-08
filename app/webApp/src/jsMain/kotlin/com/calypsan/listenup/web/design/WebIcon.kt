@@ -14,8 +14,9 @@ import org.w3c.dom.Element
  * Deliberately partial: these are the icons Book Detail actually asks for. The set grows as
  * screens demand entries, rather than porting all forty up front.
  *
- * Path data is copied verbatim from `webPatterns.jsx`'s `X_PATHS` — the design project owns the
- * geometry, this is a mirror.
+ * Path data is copied verbatim from the design project's icon tables (`webPatterns.jsx`'s
+ * `X_PATHS`, `webShell.jsx`'s `SHELL_PATHS`) — the design project owns the geometry, this is a
+ * mirror.
  */
 enum class WebIcon(
     internal val path: String,
@@ -23,12 +24,26 @@ enum class WebIcon(
 ) {
     ArrowDown("M12 4v15 M6 13l6 6 6-6"),
     ArrowUp("M12 20V5 M6 11l6-6 6 6"),
+    Book("M5 4a1 1 0 0 1 1-1h13v16H6a2 2 0 0 0-2 2V5 M9 3v15"),
+    Bookmark("M6 3h12v18l-6-4-6 4z"),
     Check("M4.5 12.5l5 5 10-10"),
+    ChevronRight("M9 5l7 7-7 7"),
+    Cog(
+        "M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0 M12 2.5v3 M12 18.5v3 M2.5 12h3 M18.5 12h3 " +
+            "M5.1 5.1l2.1 2.1 M16.8 16.8l2.1 2.1 M18.9 5.1l-2.1 2.1 M7.2 16.8l-2.1 2.1",
+    ),
+    Compass(
+        "M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0-18 0 M15.6 8.4l-2.2 5.2-5.2 2.2 2.2-5.2z",
+    ),
     Download("M12 3v11 M8 10.5l4 4 4-4 M4 20h16"),
     Hash("M5 9h14 M5 15h14 M10 4l-2 16 M16 4l-2 16"),
+    Home("M4 11.4L12 4l8 7.4 M5.6 10v9.6h12.8V10 M9.6 19.6v-5.2h4.8v5.2"),
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
+    PanelLeft("M4 5h16v14H4z M9.5 5v14"),
     Pencil("M4 20h4L20 8l-4-4L4 16z M14.5 5.5l4 4"),
     Play("M8 5l11 7-11 7z", solid = true),
+    Search("M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M20 20l-3.6-3.6"),
+    Shield("M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M9 12l2 2 4-4"),
     Scissors(
         "M6 6l12 12 M18 6L9.5 14.5 M5 17.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0 " +
             "M5 6.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0",

@@ -6,6 +6,9 @@ import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.renderComposable
+import com.calypsan.listenup.web.shell.NavEntry
+import com.calypsan.listenup.web.shell.NavSection
+import com.calypsan.listenup.web.shell.Shell
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.css.CSSStyleSheet
 
@@ -80,6 +83,22 @@ class ClassContractTest :
                         rowActions = listOf(WebIcon.Play, WebIcon.Pencil),
                     )
                     WebAppSurface {
+                        Shell(
+                            sections =
+                                listOf(
+                                    NavSection(listOf(NavEntry("home", "Home", WebIcon.Home))),
+                                    NavSection(listOf(NavEntry("shelves", "Shelves", WebIcon.Bookmark)), label = "Yours"),
+                                ),
+                            active = "home",
+                            footer = listOf(NavEntry("settings", "Settings", WebIcon.Cog)),
+                            onToggleCollapse = {},
+                        ) {}
+                        Shell(
+                            sections = listOf(NavSection(listOf(NavEntry("home", "Home", WebIcon.Home)))),
+                            active = "home",
+                            collapsed = true,
+                            onToggleCollapse = {},
+                        ) {}
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
                         }
