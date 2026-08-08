@@ -34,5 +34,6 @@ actual class DownloadFileManager {
 
     actual fun getAvailableSpace(): Long = TODO("web: offline download storage is undesigned")
 
-    actual fun sweepOrphanedTempFiles(activeAudioFileIds: Set<String>): Int = TODO("web: offline download storage is undesigned")
+    actual fun sweepOrphanedTempFiles(activeAudioFileIds: Set<String>): Int =
+        TODO("web: offline download storage is undesigned")
 }
