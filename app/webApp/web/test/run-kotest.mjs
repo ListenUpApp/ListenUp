@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 // discovered-test-count floors for this reason; so does this one.
 //
 // Raise it when specs are added. Lowering it needs a reason.
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 7)
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 9)
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main`
 // with an empty continuation, so there is no promise to await either. Completion is therefore

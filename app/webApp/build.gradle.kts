@@ -1,5 +1,10 @@
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
+    // Compose HTML — real DOM, not the canvas renderer. `:app:sharedUI` is Compose
+    // Multiplatform and does NOT transfer here: different toolkit, different primitives. The web
+    // body is built natively against the DOM, per the platform direction.
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
     // ksp is here only because the kotest plugin requires it — Kotest 6 replaced its
     // compiler plugin with a KSP processor for non-JVM spec discovery. Declared before
     // kotest, same order as :server.
@@ -48,6 +53,8 @@ kotlin {
 
     sourceSets {
         jsMain.dependencies {
+            implementation(compose.runtime)
+            implementation(compose.html.core)
             implementation(projects.app.sharedLogic)
             // The sqlite-web driver ships NO worker script — it only speaks a documented
             // message protocol (see WebWorkerSQLiteDriver's KDoc). The worker is a local npm
