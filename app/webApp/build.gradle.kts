@@ -45,6 +45,12 @@ kotlin {
     sourceSets {
         jsMain.dependencies {
             implementation(projects.app.sharedLogic)
+            // The sqlite-web driver ships NO worker script — it only speaks a documented
+            // message protocol (see WebWorkerSQLiteDriver's KDoc). The worker is a local npm
+            // module we supply (webApp/worker), wrapping @sqlite.org/sqlite-wasm; webpack
+            // resolves `new URL("sqlite-wasm-worker/worker.js", import.meta.url)` into a
+            // separate worker chunk. Pattern from danysantiago/room-web-demo.
+            implementation(npm("sqlite-wasm-worker", layout.projectDirectory.dir("worker").asFile))
         }
         jsTest.dependencies {
             implementation(libs.kotest.framework.engine)
