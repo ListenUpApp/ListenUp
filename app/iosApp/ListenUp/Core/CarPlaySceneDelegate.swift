@@ -17,6 +17,19 @@ import UIKit
 /// activity feed, which is the wrong thing to put in front of someone driving.
 @MainActor
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
+    /// The template handed to `setRootTemplate` on connect.
+    ///
+    /// `CPNowPlayingTemplate` must never appear in here: CarPlay's `validateTemplates:` rejects
+    /// it as a tab bar member with an `NSInvalidArgumentException` the moment the head unit
+    /// connects (allowed classes are the browse templates — list, grid, information,
+    /// point-of-interest). Now-playing is reached by *pushing* `CPNowPlayingTemplate.shared`,
+    /// as the row handler does, and the system adds its own Now Playing affordance while audio
+    /// plays. When Library and Search arrive, this becomes a `CPTabBarTemplate` of list
+    /// templates — the constraint stays.
+    static func rootTemplate(home: CPListTemplate) -> CPTemplate {
+        home
+    }
+
     /// Valid only between connect and disconnect, so it is held weakly and every use is optional.
     private weak var interfaceController: CPInterfaceController?
 
@@ -36,8 +49,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         self.home = home
         observeHome(home)
 
-        let tabBar = CPTabBarTemplate(templates: [homeTemplate, CPNowPlayingTemplate.shared])
-        interfaceController.setRootTemplate(tabBar, animated: false) { _, error in
+        interfaceController.setRootTemplate(Self.rootTemplate(home: homeTemplate), animated: false) { _, error in
             if let error {
                 Log.error("CarPlay root template failed", error: error)
             } else {
