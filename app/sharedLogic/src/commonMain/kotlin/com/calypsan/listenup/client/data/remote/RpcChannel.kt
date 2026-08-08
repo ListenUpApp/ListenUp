@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.withService
 import org.koin.core.module.Module
-import org.koin.core.qualifier.StringQualifier
+import org.koin.core.qualifier.Qualifier
 import org.koin.core.qualifier.named
 import org.koin.core.scope.Scope
 import org.koin.dsl.binds
@@ -197,15 +197,21 @@ internal class RpcChannel<S : Any> internal constructor(
 }
 
 /**
- * The one qualifier scheme for channel definitions: stable, collision-free (each service is a
- * distinct fully-qualified name), and human-readable in Koin's error messages.
+ * The one qualifier scheme for channel definitions: stable, collision-free (keyed on the service
+ * type itself), and human-readable in Koin's error messages.
  *
  * Koin keys generic singles on the ERASED [RpcChannel] class, so every channel MUST carry this
  * per-service qualifier — two unqualified `RpcChannel<*>` bindings would collide at graph
  * construction. Mirrors the established `consumerSyncHandlerSingle` pattern.
+ *
+ * Koin's own `TypeQualifier` rather than a hand-built string: it derives its value from Koin's
+ * `KClass.getFullName()`, an expect/actual the library implements per platform. Building the
+ * string here instead meant `KClass.qualifiedName`, which **Kotlin/JS does not support** — the
+ * web seam check (`compileKotlinJs`) fails on it, and the metadata compile cannot see it because
+ * it is a backend constraint, not a stdlib-intersection one. Delegating to Koin keeps the
+ * qualifier collision-free by type identity on every target, including js.
  */
-internal inline fun <reified S : Any> rpcChannelQualifier(): StringQualifier =
-    named("RpcChannel<${S::class.qualifiedName!!}>")
+internal inline fun <reified S : Any> rpcChannelQualifier(): Qualifier = named<S>()
 
 /**
  * Declare the [RpcChannel] for service [S] in this module — one line per service, no factory, no
