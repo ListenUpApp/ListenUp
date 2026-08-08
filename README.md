@@ -43,6 +43,7 @@
 ## Features
 
 - 🎧 **Audiobook playback** — chapter navigation, sleep timer, variable speed, resume anywhere
+- 🚗 **In the car** — Android Auto and Apple CarPlay: pick up where you left off, browse your library, and hop between chapters from the dash
 - 📥 **Offline First** — books and library content are downloaded for offline playback
 - 🔄 **Real-time sync** — progress syncs across your devices instantly via Server-Sent Events (SSE)
 - 📚 **Rich library** — browse by collection, contributor, series, or tag
@@ -61,6 +62,8 @@ Beta ships on the two platforms below; more are on the way.
 |----------|--------|-------------|
 | Android  | ✅ Beta | Media3 / ExoPlayer |
 | iOS      | ✅ Beta | AVFoundation |
+| Android Auto | ✅ Beta | Media3 / ExoPlayer (via the Android app) |
+| Apple CarPlay | ✅ Beta | AVFoundation (via the iOS app) |
 
 **In development (not currently shipping):** Desktop (JVM and native macOS) and Android TV both build from this codebase, but the shipping focus is iOS and Android — desktop will be shored up and rebuilt later. Other platforms to follow.
 

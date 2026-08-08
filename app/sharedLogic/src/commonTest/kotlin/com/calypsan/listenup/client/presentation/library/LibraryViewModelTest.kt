@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.library
 
+import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.core.BookId
@@ -38,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -1292,6 +1294,21 @@ class LibraryViewModelTest :
                 // Then — distinctUntilChanged on the sorted stage swallows the no-op
                 val after = viewModel.uiState.value as LibraryUiState.Loaded
                 after.books shouldBeSameInstanceAs before.books
+            }
+        }
+
+        context("lifecycle") {
+            // iOS has no ViewModelStore, so the CarPlay wrapper closes the VM from its
+            // `isolated deinit` (#1192) — the same contract every other iOS-consumed VM carries.
+            test("close cancels the viewModelScope and is idempotent") {
+                runTest(testDispatcher) {
+                    val viewModel = createFixture().build()
+
+                    viewModel.close()
+                    viewModel.close() // second call must be a no-op, not a crash
+
+                    viewModel.viewModelScope.isActive shouldBe false
+                }
             }
         }
     })

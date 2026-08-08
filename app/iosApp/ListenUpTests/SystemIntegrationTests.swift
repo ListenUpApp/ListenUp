@@ -1,7 +1,41 @@
+import AVFoundation
 import Foundation
 import MediaPlayer
 import Testing
 @testable import ListenUp
+
+/// When a `MPNowPlayingSession` is provided, every push must land in the SESSION's info center,
+/// not the process-global one: an active session is what makes the system derive play/pause and
+/// timeline state from the attached player, and publishing to `.default()` alongside it splits
+/// the now-playing state across two stores (CarPlay reads one, the lock screen the other).
+@MainActor
+@Suite("SystemIntegration session publishing")
+struct SystemIntegrationSessionTests {
+    @Test func updatePushesToTheSessionsInfoCenter() {
+        let session = MPNowPlayingSession(players: [AVPlayer()])
+        let system = SystemIntegration(session: session)
+        let info = NowPlayingInfo(
+            title: "The Way of Kings", artist: "Brandon Sanderson",
+            windowDurationMs: 1_000, windowElapsedMs: 0, rate: 1.0,
+            artworkPath: nil, chapterNumber: nil, chapterCount: nil
+        )
+
+        system.update(info)
+
+        let pushed = session.nowPlayingInfoCenter.nowPlayingInfo
+        #expect(pushed?[MPMediaItemPropertyTitle] as? String == "The Way of Kings")
+    }
+
+    @Test func clearEmptiesTheSessionsInfoCenter() {
+        let session = MPNowPlayingSession(players: [AVPlayer()])
+        let system = SystemIntegration(session: session)
+        session.nowPlayingInfoCenter.nowPlayingInfo = [MPMediaItemPropertyTitle: "stale"]
+
+        system.clear()
+
+        #expect(session.nowPlayingInfoCenter.nowPlayingInfo == nil)
+    }
+}
 
 @Suite("SystemIntegration.dictionary")
 struct SystemIntegrationTests {

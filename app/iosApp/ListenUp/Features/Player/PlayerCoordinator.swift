@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+@preconcurrency import MediaPlayer
 @preconcurrency import Shared
 
 /// Swift Export exposes the nested `PlaybackManager.ChapterInfo` type only through an
@@ -156,10 +157,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private let engine: PlaybackEngine
     private let positionTracker = PositionTracker()
-    /// Internal rather than private so the Now-Playing bridge can live in its own file
-    /// (`PlayerCoordinator+NowPlaying.swift`) — this coordinator is already at its file-length
-    /// budget, and the lock-screen concern earns a home of its own.
-    let system = SystemIntegration()
+    /// Internal, not private: the Now-Playing bridge lives in its own file
+    /// (`PlayerCoordinator+NowPlaying.swift`) — the lock-screen concern earns a home of its own.
+    let system: SystemIntegration
 
     // MARK: - Seam (native protocols — see PlaybackSeam.swift)
 
@@ -167,10 +167,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let progress: PlaybackProgressReporting
     private let sleep: SleepTiming
     private let documentProvider: BookDocumentProviding
-    /// Reactive source of the user's skip-interval settings. The coordinator observes
-    /// its streams so the transport, glyphs, and lock-screen control track the setting
-    /// live — a change on the Settings screen lands here mid-session. Optional so the
-    /// fake-injected unit tests don't need a settings source.
+    /// Reactive source of the user's skip-interval settings — observed so transport, glyphs and
+    /// lock-screen controls track a mid-session change. Optional so fake-injected tests skip it.
     private let skipIntervals: SkipIntervalProviding?
     /// Per-step delay of the sleep-timer fade-out. Injected so tests run the fade instantly
     /// (`.zero`) instead of depending on ~3 s of real wall-clock time, which flakes under CI load.
@@ -223,6 +221,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         progress: PlaybackProgressReporting,
         sleep: SleepTiming,
         engine: PlaybackEngine,
+        system: SystemIntegration = SystemIntegration(),
         documentProvider: BookDocumentProviding = NoDocumentProviding(),
         skipIntervals: SkipIntervalProviding? = nil,
         fadeStepDelay: Duration = .milliseconds(250),
@@ -233,6 +232,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         self.progress = progress
         self.sleep = sleep
         self.engine = engine
+        self.system = system
         self.documentProvider = documentProvider
         self.skipIntervals = skipIntervals
         self.fadeStepDelay = fadeStepDelay
@@ -250,13 +250,16 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // App-lifetime singleton, so this effectively never fires — uniform teardown shape.
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
-    /// Convenience initializer using `Dependencies` — wires the Kotlin adapters.
+    /// Wires the Kotlin adapters; the now-playing bridge publishes through the engine's
+    /// `MPNowPlayingSession` so the system reads state off the attached player.
     convenience init(deps: Dependencies) {
+        let engine = AudioEngine()
         self.init(
             preparer: KotlinPlaybackPreparing(preparer: deps.playbackPreparer),
             progress: KotlinProgressReporting(reporter: deps.playbackProgressReporter),
             sleep: KotlinSleepTiming(manager: deps.sleepTimerManager),
-            engine: AudioEngine(),
+            engine: engine,
+            system: SystemIntegration(session: engine.nowPlayingSession),
             documentProvider: KotlinBookDocumentProviding(repository: deps.documentRepository),
             skipIntervals: KotlinSkipIntervalProviding(preferences: deps.playbackPreferences),
             bandwidthCoordinator: deps.playbackBandwidthCoordinator
@@ -691,7 +694,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
         switch event {
         case .position(let ms, let rate):
             // Only a loaded book has a place to report to (guards `.idle`/`.error` too).
-            guard phase.playingState != nil else { break }
+            guard let loaded = phase.playingState else { break }
+            // A positive-rate sample IS "audio is advancing" — promote a lingering `.buffering`
+            // whose `.ready` KVO transition was swallowed by the `isEngineLoading` gate; stuck
+            // buffering keeps pushing rate 0, showing a paused book that is audibly playing.
+            if rate > 0, case .buffering = phase {
+                phase = .playing(loaded)
+                updateNowPlaying()
+            }
             positionTracker.update(positionMs: ms, rate: rate)
             reportPositionIfNeeded(ms)
             if chapterIndex != lastSyncedChapterIndex {

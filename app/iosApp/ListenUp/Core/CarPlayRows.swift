@@ -13,6 +13,10 @@ struct CarPlayRow: Equatable, Identifiable {
     /// The secondary line: author and remaining time, whichever of them exist.
     let detailText: String
     let isPlayable: Bool
+    /// Local cover-image file path, `nil` when no cover is cached — the row renders text-only.
+    /// A path, not a `UIImage`: image resolution is the delegate's concern, keeping this type a
+    /// pure value the mapping tests can assert on.
+    let coverPath: String?
 }
 
 /// Builds [CarPlayRow]s from the app's existing native view data.
@@ -35,7 +39,27 @@ enum CarPlayRows {
                     id: item.id,
                     title: item.title,
                     detailText: detailText(author: item.author, timeLeft: item.timeLeft),
-                    isPlayable: true
+                    isPlayable: true,
+                    coverPath: item.coverPath
+                )
+            }
+    }
+
+    /// Maps the full library to car rows, in the same order the phone's Library shows (the
+    /// user's sort setting, article-aware), capped at `limit`.
+    ///
+    /// The cap is the head unit's, not ours — `CPListTemplate.maximumItemCount` varies per car —
+    /// so it arrives as a parameter and the mapping stays a pure function of its inputs.
+    static func library(from books: [BookRow], limit: Int) -> [CarPlayRow] {
+        books
+            .prefix(limit)
+            .map { book in
+                CarPlayRow(
+                    id: book.id,
+                    title: book.title,
+                    detailText: book.authorNames,
+                    isPlayable: true,
+                    coverPath: book.coverPath
                 )
             }
     }
