@@ -41,7 +41,7 @@ class ComposeHtmlRenderTest :
 
             val root = host.querySelector(".luw") as? HTMLElement
             (root != null) shouldBe true
-            root!!.className shouldContain "dir-b"
+            root!!.className shouldContain "dir-a"
         }
     })
 
