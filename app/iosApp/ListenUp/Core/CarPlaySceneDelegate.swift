@@ -37,7 +37,15 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     /// Kotlin ViewModel, whose stream jobs would otherwise outlive the car session (#1192).
     private var home: HomeViewModelWrapper?
 
-    private let homeTemplate = CPListTemplate(title: "Home", sections: [])
+    private let homeTemplate = CPListTemplate(
+        title: String(localized: "home.continue_listening"),
+        sections: []
+    )
+
+    /// Downsampled row artwork, keyed by cover path. At most one entry per browse row, and the
+    /// whole cache lives only for the car session — released with the delegate's other per-session
+    /// state on disconnect.
+    private var rowArtwork: [String: UIImage] = [:]
 
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
@@ -64,6 +72,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     ) {
         self.interfaceController = nil
         home = nil
+        rowArtwork.removeAll()
         Log.info("CarPlay disconnected")
     }
 
@@ -102,7 +111,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
     }
 
     private func listItem(for row: CarPlayRow) -> CPListItem {
-        let item = CPListItem(text: row.title, detailText: row.detailText)
+        let item = CPListItem(text: row.title, detailText: row.detailText, image: rowImage(for: row))
         item.handler = { [weak self] _, completion in
             Dependencies.shared.playerCoordinator.play(bookId: row.id)
             // Push now-playing so the driver lands on transport controls rather than staying in
@@ -113,5 +122,24 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
             }
         }
         return item
+    }
+
+    /// Resolve (and memoize) a row's cover at CarPlay's list-image size.
+    ///
+    /// Synchronous on purpose: covers are small local files the phone has already cached, and the
+    /// shelf tops out at eight rows — a placeholder-then-swap pipeline would buy nothing but
+    /// flicker. Sized to `CPListItem.maximumImageSize` at the car screen's own scale, because the
+    /// head unit's display scale is independent of the phone's.
+    private func rowImage(for row: CarPlayRow) -> UIImage? {
+        guard let path = row.coverPath else { return nil }
+        if let cached = rowArtwork[path] { return cached }
+        let carScale = interfaceController?.carTraitCollection.displayScale ?? 2
+        let maxSize = CPListItem.maximumImageSize
+        let maxPixels = Int(max(maxSize.width, maxSize.height) * carScale)
+        guard let image = ImageDownsampler.downsampledImage(atPath: path, maxPixelSize: maxPixels) else {
+            return nil
+        }
+        rowArtwork[path] = image
+        return image
     }
 }

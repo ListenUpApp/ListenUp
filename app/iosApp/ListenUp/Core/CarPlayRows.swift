@@ -13,6 +13,10 @@ struct CarPlayRow: Equatable, Identifiable {
     /// The secondary line: author and remaining time, whichever of them exist.
     let detailText: String
     let isPlayable: Bool
+    /// Local cover-image file path, `nil` when no cover is cached — the row renders text-only.
+    /// A path, not a `UIImage`: image resolution is the delegate's concern, keeping this type a
+    /// pure value the mapping tests can assert on.
+    let coverPath: String?
 }
 
 /// Builds [CarPlayRow]s from the app's existing native view data.
@@ -35,7 +39,8 @@ enum CarPlayRows {
                     id: item.id,
                     title: item.title,
                     detailText: detailText(author: item.author, timeLeft: item.timeLeft),
-                    isPlayable: true
+                    isPlayable: true,
+                    coverPath: item.coverPath
                 )
             }
     }

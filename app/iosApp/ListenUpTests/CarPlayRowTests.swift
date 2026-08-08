@@ -18,6 +18,18 @@ struct CarPlayRowTests {
         #expect(rows[0].isPlayable)
     }
 
+    /// The cover path rides along so the car can show the same artwork the phone shelf shows;
+    /// a book with no cached cover maps to `nil` and the row simply renders text-only.
+    @Test func theCoverPathRidesAlongForArtwork() {
+        let rows = CarPlayRows.continueListening(from: [
+            item(id: "b1", coverPath: "/covers/b1.jpg"),
+            item(id: "b2")
+        ])
+
+        #expect(rows[0].coverPath == "/covers/b1.jpg")
+        #expect(rows[1].coverPath == nil)
+    }
+
     /// A book with no remaining-time string still names its author rather than trailing a
     /// separator into nothing.
     @Test func aMissingTimeLeftLeavesNoDanglingSeparator() {
@@ -77,13 +89,14 @@ struct CarPlayRowTests {
         id: String,
         title: String = "A Book",
         author: String = "Brandon Sanderson",
-        timeLeft: String = "12h 4m left"
+        timeLeft: String = "12h 4m left",
+        coverPath: String? = nil
     ) -> ContinueItem {
         ContinueItem(
             id: id,
             title: title,
             author: author,
-            coverPath: nil,
+            coverPath: coverPath,
             coverHash: nil,
             progress: 0.3,
             progressPercent: 30,
