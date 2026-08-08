@@ -9,10 +9,14 @@ plugins {
 
 kotlin {
     js {
+        // Emit ES modules rather than the webpack-oriented UMD/CommonJS bundle. This is the
+        // hinge of the toolchain decoupling: KGP stops owning the bundler and simply hands a
+        // standard ESM artifact to the Vite project in `web/`, which owns dev server, build
+        // and tests from there. Note useEsModules() and webpack do not coexist
+        // (JetBrains/compose-multiplatform#3724) — that is intended, webpack is what we are
+        // removing.
+        useEsModules()
         browser {
-            commonWebpackConfig {
-                outputFileName = "listenup.js"
-            }
             testTask {
                 // karma-chrome-launcher resolves the browser binary from CHROME_BIN, and its
                 // own auto-detect searches only for google-chrome/google-chrome-stable on

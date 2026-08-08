@@ -1,0 +1,6 @@
+# pnpm refuses to run dependency install scripts unless they are allowed here. That default-deny
+# is a supply-chain property yarn does not have, and keeping the allowlist explicit is the
+# point: esbuild (Vite's transform engine) links its platform binary in a postinstall, and
+# nothing else in this tree gets to execute code at install time.
+allowBuilds:
+  esbuild: true
