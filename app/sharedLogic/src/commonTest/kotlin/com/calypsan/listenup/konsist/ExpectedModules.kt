@@ -24,6 +24,7 @@ internal val EXPECTED_MODULE_DIRS: List<String> =
         "app/desktopApp",
         "app/sharedLogic",
         "app/sharedUI",
+        "app/webApp",
         "contract",
         "server",
         "tools/rpc-guard-ksp",
