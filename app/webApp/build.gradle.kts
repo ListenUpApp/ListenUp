@@ -14,10 +14,19 @@ kotlin {
                 outputFileName = "listenup.js"
             }
             testTask {
-                // karma-chrome-launcher resolves the browser binary from CHROME_BIN. Honour
-                // whatever the environment already provides (CI images set this themselves,
-                // e.g. browser-actions/setup-chrome) and fall back to the Chromium binary this
-                // dev machine actually has — there is no google-chrome here, only chromium.
+                // karma-chrome-launcher resolves the browser binary from CHROME_BIN, and its
+                // own auto-detect searches only for google-chrome/google-chrome-stable on
+                // Linux — never chromium. So honour whatever the environment already provides
+                // (CI images export it themselves, e.g. browser-actions/setup-chrome) and
+                // otherwise fall back to a Chromium binary, which is what many Linux dev boxes
+                // and slim CI images ship instead of Chrome.
+                //
+                // Deliberately NOT useChromiumHeadless(): that DSL reads CHROMIUM_BIN and never
+                // CHROME_BIN, so it would look simpler and silently break CI, where Chrome is
+                // installed and CHROME_BIN is the variable that gets set.
+                //
+                // If the lane fails locally with a browser-not-found error on a distro that
+                // packages chromium elsewhere (Flatpak, Nix, Snap), export CHROME_BIN yourself.
                 val chromeBin =
                     System.getenv("CHROME_BIN")
                         ?: listOf("/usr/bin/chromium", "/usr/bin/chromium-browser")
