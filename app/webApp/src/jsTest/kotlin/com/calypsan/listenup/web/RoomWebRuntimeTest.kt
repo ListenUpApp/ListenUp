@@ -1,6 +1,6 @@
 package com.calypsan.listenup.web
 
-import com.calypsan.listenup.client.data.local.db.probeBrowserStore
+import com.calypsan.listenup.client.diagnostics.probeBrowserStore
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlin.random.Random

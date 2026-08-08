@@ -1,7 +1,10 @@
-package com.calypsan.listenup.client.data.local.db
+package com.calypsan.listenup.client.diagnostics
 
 import androidx.room3.Room
 import androidx.sqlite.driver.web.WebWorkerSQLiteDriver
+import com.calypsan.listenup.client.data.local.db.BookEntity
+import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.buildConfigured
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId

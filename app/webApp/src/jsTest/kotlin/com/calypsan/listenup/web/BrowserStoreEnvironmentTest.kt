@@ -1,7 +1,7 @@
 package com.calypsan.listenup.web
 
-import com.calypsan.listenup.client.data.local.db.BrowserStoreEnvironment
-import com.calypsan.listenup.client.data.local.db.checkBrowserStoreEnvironment
+import com.calypsan.listenup.client.diagnostics.BrowserStoreEnvironment
+import com.calypsan.listenup.client.diagnostics.checkBrowserStoreEnvironment
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 

@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.data.local.db
+package com.calypsan.listenup.client.diagnostics
 
 /**
  * Whether this browser can host the local database, and if not, precisely why.
