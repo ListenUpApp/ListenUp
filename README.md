@@ -58,10 +58,12 @@
 <img src=".github/screenshots/listenup-book-detail.webp" alt="Book Detail">
 Beta ships on the two platforms below; more are on the way.
 
-| Platform | Status | Audio Engine | In the car |
-|----------|--------|-------------|------------|
-| Android  | ✅ Beta | Media3 / ExoPlayer | Android Auto |
-| iOS      | ✅ Beta | AVFoundation | Apple CarPlay |
+| Platform | Status | Audio Engine |
+|----------|--------|-------------|
+| Android  | ✅ Beta | Media3 / ExoPlayer |
+| iOS      | ✅ Beta | AVFoundation |
+| Android Auto | ✅ Beta | Media3 / ExoPlayer (via the Android app) |
+| Apple CarPlay | ✅ Beta | AVFoundation (via the iOS app) |
 
 **In development (not currently shipping):** Desktop (JVM and native macOS) and Android TV both build from this codebase, but the shipping focus is iOS and Android — desktop will be shored up and rebuilt later. Other platforms to follow.
 
