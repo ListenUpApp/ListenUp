@@ -87,6 +87,8 @@ class ClassContractTest :
                         Tabs(listOf(TabItem("a", "A", count = "3")), active = "a")
                         SegmentedControl(listOf(SegmentItem("s", "S")), active = "s")
                         Pill("Horror", selected = true, onRemove = {})
+                        Cover(title = "The Institute")
+                        ProgressLine(percent = 49, remaining = "9h 18m left")
                     }
                 }
 
