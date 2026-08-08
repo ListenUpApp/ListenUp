@@ -146,9 +146,9 @@ private fun <T> HeaderCell(
         style { property("text-align", column.align.css) }
         onSort?.let { sort -> onClick { sort(column.key) } }
     }) {
-        // Inline rather than a new class: web.css is a mirror of the design project, and
-        // inventing vocabulary it does not have is how the two drift. The comp styles this
-        // inline too.
+        // Inline rather than a new class, matching how the comp styles it. A class would be
+        // fine — the sheet is ours to extend — but one-off layout glue does not earn a name in
+        // a vocabulary every screen has to learn.
         Span(attrs = {
             style {
                 property("display", "inline-flex")

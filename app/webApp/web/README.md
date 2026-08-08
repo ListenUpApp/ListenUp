@@ -3,6 +3,13 @@
 KGP compiles Kotlin to ES modules and stops. Everything after that — dev server, bundling,
 browser tests — lives here, as an ordinary JS project with an ordinary package manager.
 
+## `src/web.css` is ours
+
+It started as the ListenUp design project's web sheet and is **adapted, not mirrored**. The comps
+are the brand reference and the starting point, not a spec to transcribe: prune what the app does
+not use, add what it needs, and keep the tokens honest to the brand. `ClassContractTest` keeps the
+Kotlin and the sheet agreeing with each other — it does not tie either to the design project.
+
 ## Why the dependencies are what they are
 
 Kotlin libraries declare npm dependencies of their own, and the emitted ESM imports them by bare

@@ -1,11 +1,15 @@
 /* ============================================================
-   ListenUp — WEB (HTMX · Alpine · Tailwind)
+   ListenUp — WEB
+   Adapted from the ListenUp design project's web sheet. Ours to change:
+   the comps are the starting point and the brand reference, not a spec to
+   transcribe. Prune what we do not use, add what the app needs, and keep
+   the tokens honest to the brand.
    A third platform, distinct from iOS (Liquid Glass) and Android (M3).
    Web-native signatures: real focus rings, max-width content, hover
    states, mono for server/technical bits, a self-hosted connection
    indicator, page footers. Coral stays the single action color.
-   Two directions share these tokens; each applies its own surface +
-   type voice (.dir-a "Paper", .dir-b "Console").
+   .dir-a "Paper" is the house voice; .dir-b "Console" is retained only
+   until we are sure nothing wants it, then it goes.
    ============================================================ */
 
 :root {
