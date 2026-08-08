@@ -56,6 +56,9 @@ kotlin {
             implementation(libs.kotest.framework.engine)
             implementation(libs.kotest.assertions.core)
             implementation(libs.kotlinx.coroutines.test)
+            // :app:sharedLogic depends on kotlinx-datetime as `implementation`, so it doesn't
+            // transit here — declared directly for TimeZoneOnJsTest.
+            implementation(libs.kotlinx.datetime)
         }
     }
 }
