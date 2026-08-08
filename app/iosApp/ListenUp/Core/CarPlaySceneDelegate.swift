@@ -76,6 +76,8 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         self.library = library
         observeLibrary(library)
 
+        configureNowPlaying()
+
         let root = Self.rootTemplate(home: homeTemplate, library: libraryTemplate)
         interfaceController.setRootTemplate(root, animated: false) { _, error in
             if let error {
@@ -94,6 +96,7 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         home = nil
         library = nil
         rowArtwork.removeAll()
+        resetNowPlaying()
         Log.info("CarPlay disconnected")
     }
 
@@ -163,6 +166,91 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         return item
     }
 
+    // MARK: - Now playing customization
+
+    /// Configure the shared now-playing template for this car session: chapter prev/next
+    /// buttons, and the Up Next button as a "Chapters" list.
+    ///
+    /// Custom buttons on purpose, not `nextTrackCommand`/`previousTrackCommand`: the remote
+    /// command center is global, so enabling track commands would also flip the phone's lock
+    /// screen from the 10/30 interval skips to track arrows and remap headphone controls.
+    /// These buttons live only on the car screen. Only the chapter buttons are custom — the
+    /// 10/30 interval skips already render in the system transport row (driven by the enabled
+    /// remote commands), and custom copies would show them twice.
+    private func configureNowPlaying() {
+        let nowPlaying = CPNowPlayingTemplate.shared
+
+        let previousChapter = CPNowPlayingImageButton(
+            image: buttonImage("backward.end")
+        ) { _ in
+            Task { @MainActor in
+                let c = Dependencies.shared.playerCoordinator
+                c.selectChapter(index: c.chapterIndex - 1)
+            }
+        }
+        let nextChapter = CPNowPlayingImageButton(
+            image: buttonImage("forward.end")
+        ) { _ in
+            Task { @MainActor in
+                let c = Dependencies.shared.playerCoordinator
+                c.selectChapter(index: c.chapterIndex + 1)
+            }
+        }
+
+        nowPlaying.updateNowPlayingButtons([previousChapter, nextChapter])
+        nowPlaying.isUpNextButtonEnabled = true
+        nowPlaying.upNextTitle = String(localized: "player.chapters")
+        nowPlaying.add(self)
+    }
+
+    /// Return the shared template to its defaults. It is a process-wide singleton, so leaving our
+    /// buttons and observer behind would leak them into whatever configures it next.
+    private func resetNowPlaying() {
+        let nowPlaying = CPNowPlayingTemplate.shared
+        nowPlaying.updateNowPlayingButtons([])
+        nowPlaying.isUpNextButtonEnabled = false
+        nowPlaying.remove(self)
+    }
+
+    /// A template-rendering button glyph; falls back to a filled circle so a bad symbol name can
+    /// never produce an invisible, untappable button.
+    private func buttonImage(_ symbolName: String) -> UIImage {
+        UIImage(systemName: symbolName) ?? UIImage(systemName: "circle.fill")!
+    }
+
+    /// Push the "Chapters" list for the current book — the Up Next button's destination.
+    ///
+    /// Built fresh per tap from the coordinator's scalar accessors (titles and index), so it
+    /// reflects the playing book at that moment without observing anything between taps.
+    private func pushChapterList() {
+        let coordinator = Dependencies.shared.playerCoordinator
+        let titles = (0..<coordinator.totalChapters).map { coordinator.chapterTitleForIndex($0) }
+        let rows = CarPlayChapterRows.chapters(titles: titles, currentIndex: coordinator.chapterIndex)
+        guard !rows.isEmpty else { return }
+
+        let items = rows.prefix(CPListTemplate.maximumItemCount).map { row in
+            let item = CPListItem(text: row.title, detailText: nil)
+            item.isPlaying = row.isCurrent
+            item.handler = { [weak self] _, completion in
+                Task { @MainActor in
+                    Dependencies.shared.playerCoordinator.selectChapter(index: row.index)
+                    self?.interfaceController?.popTemplate(animated: true) { _, error in
+                        if let error { Log.error("CarPlay chapter-list pop failed", error: error) }
+                        completion()
+                    }
+                }
+            }
+            return item
+        }
+        let list = CPListTemplate(
+            title: String(localized: "player.chapters"),
+            sections: [CPListSection(items: Array(items))]
+        )
+        interfaceController?.pushTemplate(list, animated: true) { _, error in
+            if let error { Log.error("CarPlay chapter-list push failed", error: error) }
+        }
+    }
+
     /// Resolve (and memoize) a row's cover at CarPlay's list-image size.
     ///
     /// Synchronous on purpose: covers are small local files the phone has already cached, and the
@@ -180,5 +268,11 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         }
         rowArtwork[path] = image
         return image
+    }
+}
+
+extension CarPlaySceneDelegate: CPNowPlayingTemplateObserver {
+    nonisolated func nowPlayingTemplateUpNextButtonTapped(_ nowPlayingTemplate: CPNowPlayingTemplate) {
+        Task { @MainActor in self.pushChapterList() }
     }
 }
