@@ -154,6 +154,16 @@ jobs:
       - name: Compile :app:desktopApp
         run: ./gradlew :app:desktopApp:compileKotlin --no-daemon
 
+      # The web seam check (canon chapters/05-build-order.md): Web is a primary-tier platform, so
+      # its seam is gated pre-merge even though no web client exists. The step above already
+      # type-checks commonMain against the all-targets-intersection stdlib; what this adds is proof
+      # the DEPENDENCY GRAPH publishes js variants, plus real klib codegen rather than a type-check.
+      # It has already earned its place twice: it caught KClass.qualifiedName (unsupported on
+      # Kotlin/JS) in the RPC channel qualifier, and androidx.sqlite's web/nonWeb suspend split,
+      # neither of which the metadata compile can see. Compile only — no jsTest lane is wired.
+      - name: Compile shared modules for JS
+        run: ./gradlew :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs --no-daemon
+
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
       # emulator) — included here so Compose-UI test rot can't land unnoticed.
