@@ -45,6 +45,25 @@ enum CarPlayRows {
             }
     }
 
+    /// Maps the full library to car rows, in the same order the phone's Library shows (the
+    /// user's sort setting, article-aware), capped at `limit`.
+    ///
+    /// The cap is the head unit's, not ours — `CPListTemplate.maximumItemCount` varies per car —
+    /// so it arrives as a parameter and the mapping stays a pure function of its inputs.
+    static func library(from books: [BookRow], limit: Int) -> [CarPlayRow] {
+        books
+            .prefix(limit)
+            .map { book in
+                CarPlayRow(
+                    id: book.id,
+                    title: book.title,
+                    detailText: book.authorNames,
+                    isPlayable: true,
+                    coverPath: book.coverPath
+                )
+            }
+    }
+
     /// Joins the parts of a row's secondary line, skipping whichever are absent so a missing
     /// author or an unknown remaining time never leaves a dangling separator.
     static func detailText(author: String, timeLeft: String) -> String {

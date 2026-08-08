@@ -12,16 +12,23 @@ import Testing
 @MainActor
 @Suite("CarPlay root template")
 struct CarPlayRootTemplateTests {
-    @Test func theRootIsTheHomeListUntilMoreTabsExist() {
+    @Test func theRootIsATabBarOfTheTwoBrowseLists() throws {
         let home = CPListTemplate(title: "Home", sections: [])
+        let library = CPListTemplate(title: "Library", sections: [])
 
-        #expect(CarPlaySceneDelegate.rootTemplate(home: home) === home)
+        let root = CarPlaySceneDelegate.rootTemplate(home: home, library: library)
+
+        let tabBar = try #require(root as? CPTabBarTemplate)
+        #expect(tabBar.templates.count == 2)
+        #expect(tabBar.templates.first === home)
+        #expect(tabBar.templates.last === library)
     }
 
     @Test func aTabBarRootNeverEmbedsTheSystemNowPlayingTemplate() {
         let home = CPListTemplate(title: "Home", sections: [])
+        let library = CPListTemplate(title: "Library", sections: [])
 
-        let root = CarPlaySceneDelegate.rootTemplate(home: home)
+        let root = CarPlaySceneDelegate.rootTemplate(home: home, library: library)
 
         if let tabBar = root as? CPTabBarTemplate {
             #expect(!tabBar.templates.contains { $0 is CPNowPlayingTemplate })

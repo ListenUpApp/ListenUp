@@ -83,6 +83,33 @@ struct CarPlayRowTests {
         #expect(CarPlayRows.continueListening(from: []).isEmpty)
     }
 
+    // ── library ───────────────────────────────────────────────────────────────
+
+    @Test func aLibraryBookBecomesAPlayableRowWithAuthorAndCover() {
+        let rows = CarPlayRows.library(
+            from: [bookRow(id: "b1", title: "Warbreaker", coverPath: "/covers/b1.jpg")],
+            limit: 10
+        )
+
+        #expect(rows.count == 1)
+        #expect(rows[0].id == "b1")
+        #expect(rows[0].title == "Warbreaker")
+        #expect(rows[0].detailText == "Brandon Sanderson")
+        #expect(rows[0].coverPath == "/covers/b1.jpg")
+        #expect(rows[0].isPlayable)
+    }
+
+    /// The head unit caps how many rows a list may hold; the mapping enforces the cap so the
+    /// delegate never hands CarPlay an over-long section.
+    @Test func theLibraryIsCappedAtTheHeadUnitsLimit() {
+        let many = (1...30).map { bookRow(id: "b\($0)") }
+
+        let rows = CarPlayRows.library(from: many, limit: 25)
+
+        #expect(rows.count == 25)
+        #expect(rows.first?.id == "b1")
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private func item(
@@ -103,6 +130,15 @@ struct CarPlayRowTests {
             timeLeft: timeLeft,
             isLoading: false
         )
+    }
+
+    private func bookRow(
+        id: String,
+        title: String = "A Book",
+        author: String = "Brandon Sanderson",
+        coverPath: String? = nil
+    ) -> BookRow {
+        BookRow(id: id, title: title, authorNames: author, hasDocuments: false, coverPath: coverPath)
     }
 
     private func loadingItem(id: String) -> ContinueItem {
