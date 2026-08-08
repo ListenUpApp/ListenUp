@@ -121,6 +121,11 @@ tasks.register("verifyLocal") {
         ":app:sharedUI:verifySwiftStringKeys",
         ":app:sharedLogic:compileCommonMainKotlinMetadata",
         ":app:desktopApp:compileKotlin",
+        // The web seam check — mirrors the "Compile shared modules for JS" step in ci.yml.
+        // NB: no parentheses in this comment — VerifyLocalParityTest parses the dependsOn list
+        // with a regex that stops at the first closing paren.
+        ":contract:compileKotlinJs",
+        ":app:sharedLogic:compileKotlinJs",
         ":contract:jvmTest",
         ":app:sharedLogic:jvmTest",
         ":app:sharedLogic:testAndroidHostTest",

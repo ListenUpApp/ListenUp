@@ -36,6 +36,11 @@ kotlin {
     // actuals as linuxX64, shared via the synthesized linuxMain source set below.
     linuxArm64()
 
+    // js — the web seam check (canon chapters/05-build-order.md). Web is a primary-tier
+    // platform, so its seam is checked pre-merge from the first core commit even though no
+    // web client exists. Compile-only: no jsTest lane is wired.
+    js { browser() }
+
     applyDefaultHierarchyTemplate()
 
     sourceSets {

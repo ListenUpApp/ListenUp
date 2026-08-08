@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.data.local.db
 
 import androidx.room3.RoomDatabase
 import androidx.sqlite.SQLiteConnection
-import androidx.sqlite.execSQL
 
 /**
  * Room callback that creates the FTS5 search tables on every platform.
@@ -59,7 +58,7 @@ internal class FtsTableCallback : RoomDatabase.Callback() {
     override suspend fun onOpen(connection: SQLiteConnection) {
         super.onOpen(connection)
 
-        connection.execSQL(
+        connection.executeDdl(
             """
             CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
                 bookId,
@@ -75,7 +74,7 @@ internal class FtsTableCallback : RoomDatabase.Callback() {
             """.trimIndent(),
         )
 
-        connection.execSQL(
+        connection.executeDdl(
             """
             CREATE VIRTUAL TABLE IF NOT EXISTS contributors_fts USING fts5(
                 contributorId,
@@ -88,7 +87,7 @@ internal class FtsTableCallback : RoomDatabase.Callback() {
             """.trimIndent(),
         )
 
-        connection.execSQL(
+        connection.executeDdl(
             """
             CREATE VIRTUAL TABLE IF NOT EXISTS series_fts USING fts5(
                 seriesId,

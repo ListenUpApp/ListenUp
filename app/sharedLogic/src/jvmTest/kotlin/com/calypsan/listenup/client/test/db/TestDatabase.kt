@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.test.db
 
 import androidx.room3.Room
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.buildConfigured
 import kotlin.coroutines.CoroutineContext
@@ -29,4 +30,4 @@ import kotlinx.coroutines.Dispatchers
 internal fun createInMemoryTestDatabase(queryContext: CoroutineContext = Dispatchers.IO): ListenUpDatabase =
     Room
         .inMemoryDatabaseBuilder<ListenUpDatabase>()
-        .buildConfigured(queryContext)
+        .buildConfigured(BundledSQLiteDriver(), queryContext)
