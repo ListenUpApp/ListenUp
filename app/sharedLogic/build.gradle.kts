@@ -14,6 +14,10 @@ kotlin {
     // JVM target for desktop (Windows/Linux)
     jvm()
 
+    // js — the web seam check (canon chapters/05-build-order.md). Compile-only: no jsTest
+    // lane is wired, and the browser-bodied actuals are deliberately TODO().
+    js { browser() }
+
     // Android target using new AGP 9.0-compatible plugin
     android {
         namespace = "com.calypsan.listenup.client.shared"
@@ -110,6 +114,11 @@ kotlin {
             // which is both a layering smell and the largest js-availability risk in this module.
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.room.runtime)
+            // The SQLite driver interfaces this module's db code speaks (SQLiteDriver,
+            // SQLiteConnection, execSQL). Declared explicitly because sqlite-bundled — which
+            // used to supply them transitively — is native-only and now lives in the platform
+            // source sets.
+            implementation(libs.androidx.sqlite)
         }
 
         androidMain.dependencies {
@@ -125,6 +134,14 @@ kotlin {
         appleMain.dependencies {
             implementation(libs.ktor.client.darwin)
             implementation(libs.androidx.sqlite.bundled)
+        }
+
+        jsMain.dependencies {
+            implementation(libs.ktor.client.js)
+            // sqlite-web is the browser counterpart to sqlite-bundled: the consumer supplies
+            // wasm SQLite in a Web Worker rather than receiving a compiled binary. Declared so
+            // the driver seam has something real to point at; no worker is wired in this task.
+            implementation(libs.androidx.sqlite.web)
         }
 
         jvmMain.dependencies {
@@ -349,6 +366,11 @@ dependencies {
 
     // JVM target (desktop)
     add("kspJvm", libs.androidx.room.compiler)
+
+    // JS target (web seam check) — Room generates the ListenUpDatabaseConstructor js actual.
+    // Required: KSP is registered per-target here, so without this the expect has no actual and
+    // no hand-written file can legally supply one.
+    add("kspJs", libs.androidx.room.compiler)
 }
 
 // ---- Swift Export worker classpath: IntellijCoroutines fix --------------------------------
