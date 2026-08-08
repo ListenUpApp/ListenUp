@@ -53,6 +53,70 @@ struct PausePersistenceTests {
     }
 }
 
+@Suite("Buffering promotion")
+@MainActor
+struct BufferingPromotionTests {
+    /// Audio actually advancing promotes a `.buffering` phase to `.playing`.
+    ///
+    /// The engine's `.ready` is a KVO *transition* of `timeControlStatus` — if that transition
+    /// lands inside the `isEngineLoading` gate (first load's muted preroll), it is dropped and
+    /// nothing re-emits it. The coordinator then sits in `.buffering` forever while samples flow:
+    /// the in-app glyphs look right (`isPlaybackActive` covers buffering), but `updateNowPlaying`
+    /// pushes rate 0, so CarPlay and the lock screen show a paused book that is audibly playing.
+    /// Position events carry the player's real rate every ~250 ms — a positive rate IS the
+    /// "audio is advancing" fact, so it must promote regardless of which race ate the status event.
+    @Test func advancingAudioPromotesBufferingToPlaying() async throws {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
+            engine: engine)
+        // Model the dropped `.ready`: the real transition happened inside the load gate and no
+        // KVO ever re-fires it.
+        await engine.setAutoReadyOnPlay(false)
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+        #expect(!coordinator.isPlaying, "fresh load with no engine events should still be buffering")
+
+        engine.emit(.position(ms: 250, rate: 1.0))
+
+        await awaitUntil { coordinator.isPlaying }
+        #expect(coordinator.isPlaying, "advancing audio (rate > 0) must promote buffering to playing")
+    }
+
+    /// A paused-rate position sample must NOT promote — rate 0 samples arrive while genuinely
+    /// buffering, and pause ownership stays with the coordinator.
+    @Test func stalledAudioDoesNotPromoteBuffering() async throws {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
+            engine: engine)
+        await engine.setAutoReadyOnPlay(false)
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        engine.emit(.position(ms: 250, rate: 0.0))
+        await awaitUntil { coordinator.bookPositionMs == 250 }
+
+        #expect(!coordinator.isPlaying, "a rate-0 sample is not evidence of playback")
+    }
+}
+
 @Suite("Prepare error states")
 @MainActor
 struct PrepareErrorStateTests {
