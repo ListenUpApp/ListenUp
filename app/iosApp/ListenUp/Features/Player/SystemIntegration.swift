@@ -62,6 +62,24 @@ final class SystemIntegration {
 
     private weak var handler: RemoteCommandHandler?
 
+    /// Where now-playing snapshots are published. The session's center when a
+    /// `MPNowPlayingSession` is in play, the process-global one otherwise.
+    private let infoCenter: MPNowPlayingInfoCenter
+    /// Where remote commands are registered — must pair with `infoCenter`: a session honors
+    /// only its own command center.
+    private let commandCenter: MPRemoteCommandCenter
+
+    /// Create the bridge, optionally scoped to a `MPNowPlayingSession`.
+    ///
+    /// With a session (production): the system derives play/pause and timeline state from the
+    /// `AVQueuePlayer` attached to it — the authoritative signal CarPlay and the lock screen
+    /// render, rather than inferring it from audio-session activity. Without one (unit tests,
+    /// previews): the legacy process-global centers.
+    init(session: MPNowPlayingSession? = nil) {
+        infoCenter = session?.nowPlayingInfoCenter ?? .default()
+        commandCenter = session?.remoteCommandCenter ?? .shared()
+    }
+
     /// Begin routing remote commands to `handler`. Call once, after construction.
     func attach(handler: RemoteCommandHandler) {
         self.handler = handler
@@ -70,21 +88,20 @@ final class SystemIntegration {
 
     /// Push a fresh lock-screen snapshot.
     func update(_ info: NowPlayingInfo) {
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = Self.dictionary(from: info)
+        infoCenter.nowPlayingInfo = Self.dictionary(from: info)
     }
 
     /// Set the lock-screen skip intervals the system shows on its skip controls.
     /// Re-pushed whenever the user's skip-interval setting changes so the
     /// lock-screen glyphs reflect the chosen values.
     func updateSkipIntervals(forwardSeconds: Int, backwardSeconds: Int) {
-        let center = MPRemoteCommandCenter.shared()
-        center.skipForwardCommand.preferredIntervals = [NSNumber(value: forwardSeconds)]
-        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: backwardSeconds)]
+        commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: forwardSeconds)]
+        commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: backwardSeconds)]
     }
 
     /// Clear the lock screen (playback stopped / no book).
     func clear() {
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        infoCenter.nowPlayingInfo = nil
     }
 
     /// Map a `NowPlayingInfo` to the `MPNowPlayingInfoCenter` dictionary. Pure,
@@ -124,7 +141,7 @@ final class SystemIntegration {
     }
 
     private func configureRemoteCommands() {
-        let center = MPRemoteCommandCenter.shared()
+        let center = commandCenter
 
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
             self?.handler?.remoteTogglePlayPause()

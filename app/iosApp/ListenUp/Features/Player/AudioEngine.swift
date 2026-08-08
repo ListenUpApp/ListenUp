@@ -1,4 +1,5 @@
 import AVFoundation
+@preconcurrency import MediaPlayer
 
 /// Pure position math for the engine — kept out of the actor so it is testable
 /// without a live `AVQueuePlayer`.
@@ -51,6 +52,14 @@ actor AudioEngine: PlaybackEngine {
     private var isReleased = false
 
     private let player = AVQueuePlayer()
+
+    /// Ties the queue player to media-remote. While this session is active, the system derives
+    /// the play/pause state and timeline CarPlay and the lock screen render from the player
+    /// itself — the authoritative signal — instead of inferring them from audio-session
+    /// activity, which is exactly the inference that reports a playing book as paused.
+    /// `SystemIntegration` publishes through this session's centers; automatic publishing stays
+    /// off because our pushes are chapter-scoped, which the automatic ones are not.
+    nonisolated let nowPlayingSession: MPNowPlayingSession
     private var segments: [AudioSegment] = []
     /// The live queue — each `AVPlayerItem` paired with the index of the
     /// `AudioSegment` it plays. Rebuilt with fresh items on every cross-segment
@@ -89,6 +98,14 @@ actor AudioEngine: PlaybackEngine {
     private var readyGeneration = 0
 
     init() {
+        nowPlayingSession = MPNowPlayingSession(players: [player])
+        // Manual publishing: the automatic publisher derives elapsed/duration from the player
+        // ITEM (the whole audio file) and clobbers the title — tested 2026-08-08, it replaced the
+        // chapter-scoped snapshot with a bare 17-hour file timeline. Our pushes stay authoritative.
+        // (Neither mode flips the SIMULATOR's play/pause state — its mediaremote ignores the
+        // player entirely; state renders correctly only on real hardware.)
+        nowPlayingSession.automaticallyPublishesNowPlayingInfo = false
+
         var capturedContinuation: AsyncStream<AudioEngineEvent>.Continuation!
         events = AsyncStream { capturedContinuation = $0 }
         continuation = capturedContinuation
@@ -230,6 +247,12 @@ actor AudioEngine: PlaybackEngine {
 
     /// Begin (or resume) playback at the current rate.
     func play() {
+        // Re-asserted on every play, not just the first: another audio app may have taken the
+        // active session in between, and an inactive session's player state is invisible to
+        // CarPlay and the lock screen.
+        nowPlayingSession.becomeActiveIfPossible { became in
+            if !became { Log.error("Now-playing session refused activation") }
+        }
         player.rate = rate
     }
 
