@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.AutoBrowseErrors
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
+import com.calypsan.listenup.client.automotive.CoverUri
 import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.automotive.browseNeedsSignIn
 import com.calypsan.listenup.client.automotive.isLastPage
@@ -129,7 +130,33 @@ internal class ListenUpSessionCallback(
 
         val trust = session.classifyController(controller)
         logger.debug { "onConnect from ${controller.packageName} classified as $trust" }
+        if (mayAccessCoverArt(trust)) {
+            grantCoverArtAccess(controller.packageName)
+        }
         return session.buildConnectionResultFor(controller, trust, customCommands, customLayout)
+    }
+
+    /**
+     * Grants [packageName] read access to every book cover.
+     *
+     * `CoverContentProvider` is not exported, so a controller can only reach it through an
+     * explicit grant. `FLAG_GRANT_PREFIX_URI_PERMISSION` covers the whole `/covers` path, so
+     * this is one grant per connection rather than one per book.
+     *
+     * Best-effort: a failure here costs cover art, never playback, so it must not break the
+     * connection.
+     */
+    private fun grantCoverArtAccess(packageName: String) {
+        try {
+            context.grantUriPermission(
+                packageName,
+                CoverUri.prefixUri(context.packageName),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
+            )
+            logger.debug { "Granted cover art access to $packageName" }
+        } catch (e: SecurityException) {
+            logger.warn(e) { "Could not grant cover art access to $packageName" }
+        }
     }
 
     // ========== Browse Operations ==========
