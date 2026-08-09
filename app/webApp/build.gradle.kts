@@ -115,3 +115,12 @@ tasks.register<Exec>("webKotest") {
     inputs.dir(layout.buildDirectory.dir("compileSync/js/test/testDevelopmentExecutable/kotlin"))
     outputs.upToDateWhen { false }
 }
+
+tasks.register<Exec>("webAuthKotest") {
+    group = "verification"
+    description = "Runs the browser specs against a REAL server (transport + auth proofs)."
+    dependsOn(pnpmInstall, "jsTestTestDevelopmentExecutableCompileSync")
+    workingDir = webRoot.asFile
+    commandLine("pnpm", "test:auth")
+    outputs.upToDateWhen { false }
+}
