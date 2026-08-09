@@ -1,38 +1,19 @@
 package com.calypsan.listenup.server.auth
 
-import dev.whyoleg.cryptography.CryptographyProvider
-import dev.whyoleg.cryptography.algorithms.HMAC
-import dev.whyoleg.cryptography.algorithms.SHA256
-
 /**
- * Deterministic HMAC-SHA-256 of refresh tokens, keyed with a server-side pepper.
- * Gives O(1) indexed lookup (deterministic output, UNIQUE INDEX usable) and defense in
- * depth: a DB-only leak doesn't let an attacker pre-compute hashes without the pepper.
- * Pepper rotation invalidates every stored hash; treat it as long-lived.
+ * [PepperedHasher] scoped to refresh tokens. A distinct type so Koin can bind the
+ * refresh-token pepper independently of any other peppered secret — the same reason
+ * `CoverImageStore` wraps `ImageStore` rather than subclassing it. Composition also
+ * keeps `PepperedHasher` non-`open`: in this codebase `open` means "test seam," and a
+ * subclassable hasher would tempt a future contributor to mark `hash()` or the pepper
+ * length check `open` "for testability," quietly undoing the guarantee that no code
+ * path can override them.
  */
 class RefreshTokenHasher(
     pepper: ByteArray,
 ) {
-    init {
-        require(pepper.size >= MIN_PEPPER_BYTES) {
-            "pepper must be at least $MIN_PEPPER_BYTES bytes"
-        }
-    }
-
-    private val key: HMAC.Key =
-        CryptographyProvider.Default
-            .get(HMAC)
-            .keyDecoder(SHA256)
-            .decodeFromByteArrayBlocking(HMAC.Key.Format.RAW, pepper.copyOf())
+    private val hasher = PepperedHasher(pepper)
 
     /** Returns lowercase hex of the HMAC-SHA-256 digest (64 chars). */
-    fun hash(token: String): String =
-        key
-            .signatureGenerator()
-            .generateSignatureBlocking(token.encodeToByteArray())
-            .toHexString()
-
-    companion object {
-        private const val MIN_PEPPER_BYTES = 32
-    }
+    fun hash(token: String): String = hasher.hash(token)
 }
