@@ -3,7 +3,8 @@
 -- per-user substrate variants filter every pull/digest by that user. One row per
 -- (user_id, book_id) pair; `last_played_at`-wins conflict resolution lives in the repo.
 -- `finished` is INTEGER 0/1 (mapped to Boolean at the repo boundary).
--- Column set matches V15__playback_positions.sql exactly.
+-- Column set matches V15__playback_positions.sql plus V56__volume_boost_and_normalization.sql
+-- (volume_boost_db, measured_gain_db).
 CREATE TABLE playback_positions (
     id                 TEXT    NOT NULL PRIMARY KEY,
     user_id            TEXT    NOT NULL,
@@ -12,6 +13,8 @@ CREATE TABLE playback_positions (
     last_played_at     INTEGER NOT NULL,
     finished           INTEGER NOT NULL DEFAULT 0,
     playback_speed     REAL    NOT NULL DEFAULT 1.0,
+    volume_boost_db    REAL    NOT NULL DEFAULT 0.0,
+    measured_gain_db   REAL,
     current_chapter_id TEXT,
     revision           INTEGER NOT NULL DEFAULT 0,
     created_at         INTEGER NOT NULL,
@@ -121,17 +124,20 @@ WHERE user_id = :userId AND deleted_at IS NULL;
 insert:
 INSERT INTO playback_positions (
     id, user_id, book_id, position_ms, last_played_at, finished, playback_speed,
-    current_chapter_id, revision, created_at, updated_at, deleted_at, client_op_id
+    volume_boost_db, measured_gain_db, current_chapter_id, revision, created_at,
+    updated_at, deleted_at, client_op_id
 )
 VALUES (
     :id, :user_id, :book_id, :position_ms, :last_played_at, :finished, :playback_speed,
-    :current_chapter_id, :revision, :created_at, :updated_at, :deleted_at, :client_op_id
+    :volume_boost_db, :measured_gain_db, :current_chapter_id, :revision, :created_at,
+    :updated_at, :deleted_at, :client_op_id
 );
 
 update:
 UPDATE playback_positions
 SET position_ms = :position_ms, last_played_at = :last_played_at, finished = :finished,
-    playback_speed = :playback_speed, current_chapter_id = :current_chapter_id,
+    playback_speed = :playback_speed, volume_boost_db = :volume_boost_db,
+    measured_gain_db = :measured_gain_db, current_chapter_id = :current_chapter_id,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;

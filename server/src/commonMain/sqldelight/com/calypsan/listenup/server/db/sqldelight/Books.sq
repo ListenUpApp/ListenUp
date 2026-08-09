@@ -5,6 +5,7 @@
 --   V20__library_substrate.sql           (folder_id)
 --   V43__books_chapter_source.sql        (chapter_source)
 --   V48__books_field_provenance.sql      (field_provenance — per-field authority map, JSON)
+--   V56__volume_boost_and_normalization.sql (normalization_gain_db)
 --
 -- revision / created_at / updated_at / scanned_at / total_duration are declared
 -- NOT NULL here so the generated column types are non-null `Long` — every row
@@ -36,6 +37,7 @@ CREATE TABLE books (
     subtitle         TEXT,
     description      TEXT,
     publish_year     INTEGER,
+    normalization_gain_db REAL,
     publisher        TEXT,
     language         TEXT,
     isbn             TEXT,
@@ -165,14 +167,14 @@ SELECT id FROM books WHERE id IN :ids AND deleted_at IS NULL;
 insert:
 INSERT INTO books (
     id, library_id, folder_id, title, sort_title, subtitle, description,
-    publish_year, publisher, language, isbn, asin, abridged, explicit,
-    has_scan_warning, total_duration, cover_source, cover_path, cover_hash,
+    publish_year, normalization_gain_db, publisher, language, isbn, asin, abridged,
+    explicit, has_scan_warning, total_duration, cover_source, cover_path, cover_hash,
     field_provenance, root_rel_path, inode, scanned_at, revision, created_at,
     updated_at, deleted_at, client_op_id
 ) VALUES (
     :id, :library_id, :folder_id, :title, :sort_title, :subtitle, :description,
-    :publish_year, :publisher, :language, :isbn, :asin, :abridged, :explicit,
-    :has_scan_warning, :total_duration, :cover_source, :cover_path, :cover_hash,
+    :publish_year, :normalization_gain_db, :publisher, :language, :isbn, :asin, :abridged,
+    :explicit, :has_scan_warning, :total_duration, :cover_source, :cover_path, :cover_hash,
     :field_provenance, :root_rel_path, :inode, :scanned_at, :revision, :created_at,
     :updated_at, :deleted_at, :client_op_id
 );
@@ -185,7 +187,8 @@ INSERT INTO books (
 updateContent:
 UPDATE books
 SET title = :title, sort_title = :sort_title, subtitle = :subtitle,
-    description = :description, publish_year = :publish_year, publisher = :publisher,
+    description = :description, publish_year = :publish_year,
+    normalization_gain_db = :normalization_gain_db, publisher = :publisher,
     language = :language, isbn = :isbn, asin = :asin, abridged = :abridged,
     explicit = :explicit, has_scan_warning = :has_scan_warning,
     total_duration = :total_duration, cover_source = :cover_source,
@@ -200,7 +203,8 @@ WHERE id = :id;
 updateContentPreserveCover:
 UPDATE books
 SET title = :title, sort_title = :sort_title, subtitle = :subtitle,
-    description = :description, publish_year = :publish_year, publisher = :publisher,
+    description = :description, publish_year = :publish_year,
+    normalization_gain_db = :normalization_gain_db, publisher = :publisher,
     language = :language, isbn = :isbn, asin = :asin, abridged = :abridged,
     explicit = :explicit, has_scan_warning = :has_scan_warning,
     total_duration = :total_duration, field_provenance = :field_provenance,

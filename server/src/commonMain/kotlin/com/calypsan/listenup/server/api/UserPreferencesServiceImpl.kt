@@ -99,6 +99,7 @@ internal class UserPreferencesServiceImpl(
         val now = clock.now().toString()
         sql.userSettingsQueries.update(
             default_playback_speed = prefs.defaultPlaybackSpeed.toDouble(),
+            default_volume_boost_db = 0.0,
             default_skip_forward_sec = prefs.defaultSkipForwardSec.toLong(),
             default_skip_backward_sec = prefs.defaultSkipBackwardSec.toLong(),
             default_sleep_timer_min = prefs.defaultSleepTimerMin?.toLong(),
@@ -110,6 +111,7 @@ internal class UserPreferencesServiceImpl(
             sql.userSettingsQueries.insert(
                 user_id = userId,
                 default_playback_speed = prefs.defaultPlaybackSpeed.toDouble(),
+                default_volume_boost_db = 0.0,
                 default_skip_forward_sec = prefs.defaultSkipForwardSec.toLong(),
                 default_skip_backward_sec = prefs.defaultSkipBackwardSec.toLong(),
                 default_sleep_timer_min = prefs.defaultSleepTimerMin?.toLong(),
