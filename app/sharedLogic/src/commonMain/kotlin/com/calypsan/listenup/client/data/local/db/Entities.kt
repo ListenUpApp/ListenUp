@@ -204,7 +204,8 @@ internal data class PlaybackPositionEntity(
     val volumeBoostDb: Float = 0f,
     // Whether user explicitly set a custom boost for this book (vs using universal default)
     val hasCustomBoost: Boolean = false,
-    // Server-measured loudness gain (dB) for normalization; null until measured
+    // Client-measured (EBU R128) integrated-loudness gain for this book in dB, synced
+    // across devices; null until a device has measured it
     val measuredGainDb: Float? = null,
     // Local timestamp when entity was modified (epoch ms)
     val updatedAt: Long,

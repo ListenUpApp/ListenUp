@@ -51,6 +51,11 @@ class Biquad(
         private const val HP_F0 = 38.13547087602444
         private const val HP_Q = 0.5003270373238773
 
+        // Fixed RLB high-pass numerator — a double zero at DC: b0 = 1, b1 = -2, b2 = 1.
+        private const val HP_B0 = 1.0
+        private const val HP_B1 = -2.0
+        private const val HP_B2 = 1.0
+
         /** Stage 1: the BS.1770-4 high-frequency shelving pre-filter. */
         fun kWeightingStage1(sampleRate: Int): Biquad {
             val k = tan(PI * SHELF_F0 / sampleRate)
@@ -71,7 +76,7 @@ class Biquad(
             val denom = 1.0 + k / HP_Q + k * k
             val a1 = 2.0 * (k * k - 1.0) / denom
             val a2 = (1.0 - k / HP_Q + k * k) / denom
-            return Biquad(1.0, -2.0, 1.0, a1, a2)
+            return Biquad(HP_B0, HP_B1, HP_B2, a1, a2)
         }
     }
 }

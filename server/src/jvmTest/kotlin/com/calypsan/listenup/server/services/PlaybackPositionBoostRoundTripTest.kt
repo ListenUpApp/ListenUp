@@ -38,6 +38,46 @@ class PlaybackPositionBoostRoundTripTest :
             }
         }
 
+        test("null measuredGainDb on an update preserves the stored measurement") {
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-1",
+                        positionMs = 42_000L,
+                        lastPlayedAt = 1_730_000_000_000L,
+                        finished = false,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                        volumeBoostDb = 6f,
+                        measuredGainDb = -2.5f,
+                    )
+
+                    // A device with offline-queued ops replays a payload frozen with
+                    // measuredGainDb = null — it must not erase another device's measurement.
+                    val result =
+                        repo.recordPosition(
+                            userId = "u1",
+                            bookId = "book-1",
+                            positionMs = 99_000L,
+                            lastPlayedAt = 1_730_000_999_000L,
+                            finished = false,
+                            playbackSpeed = 1.0f,
+                            currentChapterId = null,
+                            volumeBoostDb = 3f,
+                            measuredGainDb = null,
+                        )
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val stored = repo.getPosition("u1", "book-1").shouldNotBeNull()
+                    stored.positionMs shouldBe 99_000L
+                    stored.volumeBoostDb shouldBe 3f
+                    stored.measuredGainDb shouldBe -2.5f
+                }
+            }
+        }
+
         test("update path overwrites volumeBoostDb with the new value, not a placeholder") {
             withSqlDatabase {
                 val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())

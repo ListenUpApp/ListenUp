@@ -18,8 +18,11 @@ object VolumeGain {
     /** Manual boost ceiling. Clipping at the top is accepted by design. */
     const val MAX_BOOST_DB: Float = 12f
 
+    /** dB-to-amplitude decade divisor: 20 dB per factor-of-10 change in amplitude. */
+    private const val DB_PER_DECADE = 20f
+
     /** Convert a decibel gain to a linear amplitude multiplier. */
-    fun dbToLinear(db: Float): Float = 10f.pow(db / 20f)
+    fun dbToLinear(db: Float): Float = 10f.pow(db / DB_PER_DECADE)
 
     /**
      * Combine the measured/tagged normalization and the user's boost into one dB value.

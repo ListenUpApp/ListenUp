@@ -82,12 +82,17 @@ class LoudnessMeter(
     }
 
     private fun powerToLufs(power: Double): Double =
-        if (power <= 0.0) Double.NEGATIVE_INFINITY else -0.691 + 10.0 * log10(power)
+        if (power <= 0.0) Double.NEGATIVE_INFINITY else LUFS_OFFSET + DECIBEL_SCALE * log10(power)
 
     companion object {
         /** Standard spoken-word normalization target. */
         const val TARGET_LUFS: Double = -18.0
         private const val ABSOLUTE_GATE_LUFS = -70.0
         private const val RELATIVE_GATE_LU = 10.0
+
+        // BS.1770-4 loudness equation, L = -0.691 + 10 * log10(mean power): the K-weighting
+        // calibration offset and the power-to-decibel scale factor.
+        private const val LUFS_OFFSET = -0.691
+        private const val DECIBEL_SCALE = 10.0
     }
 }

@@ -133,11 +133,15 @@ VALUES (
     :updated_at, :deleted_at, :client_op_id
 );
 
+-- `measured_gain_db` COALESCEs: a null in the incoming write (e.g. an offline-queued
+-- payload frozen before any device measured) preserves the stored measurement instead
+-- of erasing it. All other columns take the incoming value verbatim.
 update:
 UPDATE playback_positions
 SET position_ms = :position_ms, last_played_at = :last_played_at, finished = :finished,
     playback_speed = :playback_speed, volume_boost_db = :volume_boost_db,
-    measured_gain_db = :measured_gain_db, current_chapter_id = :current_chapter_id,
+    measured_gain_db = COALESCE(:measured_gain_db, measured_gain_db),
+    current_chapter_id = :current_chapter_id,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;
