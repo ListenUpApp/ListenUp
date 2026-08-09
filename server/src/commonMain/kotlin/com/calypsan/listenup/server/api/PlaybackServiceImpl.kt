@@ -124,6 +124,8 @@ internal class PlaybackServiceImpl(
             finished = request.finished,
             playbackSpeed = request.playbackSpeed,
             currentChapterId = request.currentChapterId,
+            volumeBoostDb = request.volumeBoostDb,
+            measuredGainDb = request.measuredGainDb,
         )
     }
 
