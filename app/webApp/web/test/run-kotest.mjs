@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 // discovered-test-count floors for this reason; so does this one.
 //
 // Raise it when specs are added. Lowering it needs a reason.
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 95)
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 96)
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main`
 // with an empty continuation, so there is no promise to await either. Completion is therefore
@@ -75,6 +75,15 @@ page.on('pageerror', (e) => {
   pageErrors.push(String(e))
   lastMessageAt = Date.now()
 })
+
+// RpcTransportTest's guard, not the URL it dials: the spec builds its own RPC URL from the
+// page's own origin (production topology — see the spec's KDoc), but a run under plain `pnpm
+// test` (no server) must fail loudly as "no server was booted" rather than looking like a
+// broken socket. `pnpm test:auth` (scripts/with-server.mjs) is the only caller that sets
+// LU_SERVER_URL; a plain `pnpm test` leaves it unset and the guard trips on purpose.
+await page.addInitScript((url) => {
+  window.__LU_SERVER_URL = url
+}, process.env.LU_SERVER_URL ?? null)
 
 const startedAt = Date.now()
 await page.goto(`${BASE}/test/kotest.html`, { waitUntil: 'load' })
