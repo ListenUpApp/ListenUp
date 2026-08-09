@@ -16,7 +16,13 @@ import { fileURLToPath } from 'node:url'
 // discovered-test-count floors for this reason; so does this one.
 //
 // Raise it when specs are added. Lowering it needs a reason.
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 96)
+//
+// The default is the SERVER-FREE lane's count (`pnpm test` / :app:webApp:webKotest). The
+// server-backed lane (`pnpm test:auth`) compiles the same bundle but additionally enables the
+// specs that need a live server, so it overrides this to its own higher count. Two lanes, two
+// exact floors — that is what keeps "this lane skips some specs" from decaying into "this lane
+// silently stopped running them".
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 95)
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main`
 // with an empty continuation, so there is no promise to await either. Completion is therefore
