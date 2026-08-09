@@ -173,7 +173,7 @@ class PasswordResetServiceTest :
                             (outcome as AppResult.Success).data
                                 as PasswordResetDecisionOutcome.Approved
                         ).code
-                    val stored = sql.passwordResetRequestsQueries.selectById(ticket.ticketId).executeAsOne()
+                    val stored = sql.passwordResetRequestsQueries.selectById(svc.rowIdFor(ticket.ticketId)!!).executeAsOne()
 
                     stored.status shouldBe "APPROVED"
                     stored.decided_by shouldBe "admin-1"
@@ -219,7 +219,7 @@ class PasswordResetServiceTest :
                     val outcome = svc.decide(ticket.ticketId, approved = false, adminId = "admin-1")
 
                     (outcome as AppResult.Success).data shouldBe PasswordResetDecisionOutcome.Denied
-                    val stored = sql.passwordResetRequestsQueries.selectById(ticket.ticketId).executeAsOne()
+                    val stored = sql.passwordResetRequestsQueries.selectById(svc.rowIdFor(ticket.ticketId)!!).executeAsOne()
                     stored.status shouldBe "DENIED"
                     stored.code_hash shouldBe null
                 }
@@ -404,7 +404,7 @@ class PasswordResetServiceTest :
                     user.password_hash shouldNotBe "phc"
                     PasswordHasher().verify("a-strong-new-password", user.password_hash) shouldBe true
                     sql.passwordResetRequestsQueries
-                        .selectById(ticket.ticketId)
+                        .selectById(svc.rowIdFor(ticket.ticketId)!!)
                         .executeAsOne()
                         .status shouldBe "CONSUMED"
                 }
@@ -560,7 +560,7 @@ class PasswordResetServiceTest :
 
                     (result as AppResult.Failure).error.shouldBeInstanceOf<AuthError.WeakPassword>()
                     sql.passwordResetRequestsQueries
-                        .selectById(ticket.ticketId)
+                        .selectById(svc.rowIdFor(ticket.ticketId)!!)
                         .executeAsOne()
                         .attempts shouldBe 0L
                 }
@@ -665,7 +665,7 @@ class PasswordResetServiceTest :
 
                 results.none { it is AppResult.Success } shouldBe true
                 sql.passwordResetRequestsQueries
-                    .selectById(ticket.ticketId)
+                    .selectById(svc.rowIdFor(ticket.ticketId)!!)
                     .executeAsOne()
                     .attempts shouldBeLessThanOrEqual PasswordResetService.MAX_ATTEMPTS.toLong()
             }

@@ -81,7 +81,8 @@ class PasswordResetService(
     ): AppResult<PasswordResetTicket> {
         val now = clock.now().toEpochMilliseconds()
         val expiresAt = now + TTL.inWholeMilliseconds
-        val ticketId = Uuid.random().toString()
+        val rowUuid = Uuid.random().toString()
+        val ticketId = mintTicketId(rowUuid, now)
 
         val normalized = Email.normalize(email)
         val user = db.usersQueries.selectByEmailNormalized(normalized).executeAsOneOrNull()
@@ -89,7 +90,7 @@ class PasswordResetService(
             suspendTransaction(db) {
                 db.passwordResetRequestsQueries.expireLiveForUser(user.id)
                 db.passwordResetRequestsQueries.insert(
-                    id = ticketId,
+                    id = rowUuid,
                     user_id = user.id,
                     requested_at = now,
                     expires_at = expiresAt,
@@ -124,41 +125,48 @@ class PasswordResetService(
         // a code discarded because the guard fails is never persisted or returned, so the cost
         // of generating one we don't use is free.
         val code = if (approved) codes.generate() else null
+        // requestId is the same signed composite request() returns (listPending() reconstructs
+        // it identically from the persisted row) — parse it back to the row's real primary key.
+        // A parse failure is indistinguishable from "not found" below: decide() is admin-gated,
+        // so there is no oracle to protect here, just an ordinary bad-input case.
+        val rowUuid = parseTicketId(requestId)?.rowUuid
 
         val decided =
-            suspendTransaction(db) {
-                // Re-read INSIDE the transaction, not before it. suspendTransaction retries this
-                // whole closure on SQLITE_BUSY_SNAPSHOT, so a concurrent decide() that committed
-                // between an outside-the-transaction read and this write would otherwise let both
-                // callers see PENDING and both report Success — with one admin's code silently
-                // becoming unusable. Reading here means the retry re-observes the row post-commit
-                // and the second caller correctly falls through to "not found".
-                val row = db.passwordResetRequestsQueries.selectById(requestId).executeAsOneOrNull()
-                // Unknown, already-decided, and expired all collapse to the same shape. This reuses
-                // AuthError.ResetRequestNotFound rather than minting admin-only variants — a simplicity
-                // call, not a security one: decide() is admin-gated, so there is no attacker here to
-                // withhold detail from. An admin who taps Approve on a stale row sees "not found" and
-                // re-checks the queue.
-                if (row == null || row.status != "PENDING" || row.expires_at <= now) {
-                    false
-                } else {
-                    if (code != null) {
-                        db.passwordResetRequestsQueries.markApproved(
-                            code_hash = hasher.hash(CODE_DOMAIN + code),
-                            decided_by = adminId,
-                            decided_at = now,
-                            id = requestId,
-                        )
+            rowUuid?.let { id ->
+                suspendTransaction(db) {
+                    // Re-read INSIDE the transaction, not before it. suspendTransaction retries this
+                    // whole closure on SQLITE_BUSY_SNAPSHOT, so a concurrent decide() that committed
+                    // between an outside-the-transaction read and this write would otherwise let both
+                    // callers see PENDING and both report Success — with one admin's code silently
+                    // becoming unusable. Reading here means the retry re-observes the row post-commit
+                    // and the second caller correctly falls through to "not found".
+                    val row = db.passwordResetRequestsQueries.selectById(id).executeAsOneOrNull()
+                    // Unknown, already-decided, and expired all collapse to the same shape. This reuses
+                    // AuthError.ResetRequestNotFound rather than minting admin-only variants — a simplicity
+                    // call, not a security one: decide() is admin-gated, so there is no attacker here to
+                    // withhold detail from. An admin who taps Approve on a stale row sees "not found" and
+                    // re-checks the queue.
+                    if (row == null || row.status != "PENDING" || row.expires_at <= now) {
+                        false
                     } else {
-                        db.passwordResetRequestsQueries.markDenied(
-                            decided_by = adminId,
-                            decided_at = now,
-                            id = requestId,
-                        )
+                        if (code != null) {
+                            db.passwordResetRequestsQueries.markApproved(
+                                code_hash = hasher.hash(CODE_DOMAIN + code),
+                                decided_by = adminId,
+                                decided_at = now,
+                                id = id,
+                            )
+                        } else {
+                            db.passwordResetRequestsQueries.markDenied(
+                                decided_by = adminId,
+                                decided_at = now,
+                                id = id,
+                            )
+                        }
+                        true
                     }
-                    true
                 }
-            }
+            } ?: false
 
         if (!decided) return AppResult.Failure(AuthError.ResetRequestNotFound())
         return if (code != null) {
@@ -198,42 +206,50 @@ class PasswordResetService(
         // ProfileServiceImpl.changePassword's "hash outside the transaction" shape). Bounded by
         // Argon2Limiter, so a burst of guesses against one ticket cannot stampede memory/CPU.
         val newHash = passwords.hash(newPassword)
+        // Same signed composite [request] returns; recover the row's real primary key. A parse
+        // failure reads as NotFound below — identical to ResetRequestNotFound's existing
+        // contract for an unknown ticket, so this adds no new shape for an attacker to read.
+        val rowUuid = parseTicketId(ticketId)?.rowUuid
 
         val outcome: CompletionOutcome =
-            suspendTransaction(db) {
-                val row =
-                    db.passwordResetRequestsQueries.selectById(ticketId).executeAsOneOrNull()
-                        ?: return@suspendTransaction CompletionOutcome.NotFound
+            if (rowUuid == null) {
+                CompletionOutcome.NotFound
+            } else {
+                suspendTransaction(db) {
+                    val row =
+                        db.passwordResetRequestsQueries.selectById(rowUuid).executeAsOneOrNull()
+                            ?: return@suspendTransaction CompletionOutcome.NotFound
 
-                // Expiry checked here, not by a sweep — a missed purge must never resurrect a
-                // request. CONSUMED/EXPIRED collapse into the same "not found" shape as unknown
-                // (ResetRequestNotFound's contract); DENIED is deliberately NOT here — it must
-                // fall through to the status-check below so it reports ResetNotApproved, per
-                // that error's own contract ("still pending, or after it was denied — both
-                // collapse to one shape").
-                if (row.expires_at <= now || row.status in TERMINAL_STATES) {
-                    return@suspendTransaction CompletionOutcome.NotFound
-                }
-                if (row.attempts >= MAX_ATTEMPTS) {
-                    return@suspendTransaction CompletionOutcome.Exhausted
-                }
-                if (row.status != "APPROVED") {
-                    return@suspendTransaction CompletionOutcome.NotApproved
-                }
+                    // Expiry checked here, not by a sweep — a missed purge must never resurrect a
+                    // request. CONSUMED/EXPIRED collapse into the same "not found" shape as unknown
+                    // (ResetRequestNotFound's contract); DENIED is deliberately NOT here — it must
+                    // fall through to the status-check below so it reports ResetNotApproved, per
+                    // that error's own contract ("still pending, or after it was denied — both
+                    // collapse to one shape").
+                    if (row.expires_at <= now || row.status in TERMINAL_STATES) {
+                        return@suspendTransaction CompletionOutcome.NotFound
+                    }
+                    if (row.attempts >= MAX_ATTEMPTS) {
+                        return@suspendTransaction CompletionOutcome.Exhausted
+                    }
+                    if (row.status != "APPROVED") {
+                        return@suspendTransaction CompletionOutcome.NotApproved
+                    }
 
-                val claimOk = hasher.hash(CLAIM_DOMAIN + claimSecret) == row.device_claim_hash
-                val codeOk =
-                    hasher.hash(CODE_DOMAIN + ResetCodeGenerator.normalize(code)) == row.code_hash
+                    val claimOk = hasher.hash(CLAIM_DOMAIN + claimSecret) == row.device_claim_hash
+                    val codeOk =
+                        hasher.hash(CODE_DOMAIN + ResetCodeGenerator.normalize(code)) == row.code_hash
 
-                if (!claimOk || !codeOk) {
-                    db.passwordResetRequestsQueries.incrementAttempts(ticketId)
-                    val remaining = (MAX_ATTEMPTS - (row.attempts + 1).toInt()).coerceAtLeast(0)
-                    return@suspendTransaction CompletionOutcome.Wrong(remaining)
+                    if (!claimOk || !codeOk) {
+                        db.passwordResetRequestsQueries.incrementAttempts(rowUuid)
+                        val remaining = (MAX_ATTEMPTS - (row.attempts + 1).toInt()).coerceAtLeast(0)
+                        return@suspendTransaction CompletionOutcome.Wrong(remaining)
+                    }
+
+                    db.usersQueries.updatePasswordHashAt(password_hash = newHash, updated_at = now, id = row.user_id)
+                    db.passwordResetRequestsQueries.markConsumed(rowUuid)
+                    CompletionOutcome.Consumed(row.user_id)
                 }
-
-                db.usersQueries.updatePasswordHashAt(password_hash = newHash, updated_at = now, id = row.user_id)
-                db.passwordResetRequestsQueries.markConsumed(ticketId)
-                CompletionOutcome.Consumed(row.user_id)
             }
 
         return when (outcome) {
@@ -262,13 +278,20 @@ class PasswordResetService(
         }
     }
 
-    /** Pending requests for the admin queue, newest first. Carries no codes. */
+    /**
+     * Pending requests for the admin queue, newest first. Carries no codes.
+     *
+     * [PasswordResetRequest.id] is the same signed composite [request] returns to the ticket
+     * holder — reconstructed deterministically from the row's own `id`/`requested_at`, so it
+     * round-trips through [decide] to the same row. There is no separate "admin id" identifier
+     * space to keep track of.
+     */
     suspend fun listPending(): List<PasswordResetRequest> {
         val now = clock.now().toEpochMilliseconds()
         return db.passwordResetRequestsQueries.selectPending(now).executeAsList().map { row ->
             val user = db.usersQueries.selectById(row.user_id).executeAsOneOrNull()
             PasswordResetRequest(
-                id = row.id,
+                id = mintTicketId(row.id, row.requested_at),
                 userId = UserId(row.user_id),
                 displayName = user?.display_name.orEmpty(),
                 email = user?.email.orEmpty(),
@@ -287,14 +310,22 @@ class PasswordResetService(
      * ⛔ **A [ticketId] with no backing row does NOT error and does NOT read as terminal.** That
      * would make [request] an account-existence oracle one call later — see the KDoc on
      * [com.calypsan.listenup.api.AuthServicePublic.observePasswordResetStatus]. Instead it behaves
-     * exactly like a real request nobody has approved yet: a phantom expiry is minted at the
-     * *first* poll (not re-minted every poll — that would postpone `EXPIRED` forever), and the
+     * exactly like a real request nobody has approved yet: a phantom expiry is computed from the
+     * ticket's own **signed issue time** (see [mintTicketId]) — not re-minted at subscribe time,
+     * which would let a delayed subscribe reveal whether the address was real by comparing
+     * against the `expiresAt` the caller already holds from [request]'s response — and the
      * stream reports `PENDING` until that phantom expiry passes, then `EXPIRED`.
      */
     fun observeStatus(ticketId: String): Flow<PasswordResetStatusEvent> =
         flow {
-            val phantomExpiresAt = clock.now().toEpochMilliseconds() + TTL.inWholeMilliseconds
-            emitAll(statusPoll(ticketId, phantomExpiresAt))
+            // A ticket that fails to parse/verify is never distinguished from a legitimate
+            // phantom — see parseTicketId's KDoc. Its issue time is unknowable, so `now` is the
+            // only honest choice; no genuine client ever produces one, so this path is never hit
+            // by a real "does the address exist" probe.
+            val parsed = parseTicketId(ticketId)
+            val issuedAt = parsed?.issuedAt ?: clock.now().toEpochMilliseconds()
+            val phantomExpiresAt = issuedAt + TTL.inWholeMilliseconds
+            emitAll(statusPoll(parsed?.rowUuid, phantomExpiresAt))
         }.transformWhile { event ->
             emit(event)
             event.status == PasswordResetStatus.PENDING || event.status == PasswordResetStatus.APPROVED
@@ -302,29 +333,37 @@ class PasswordResetService(
 
     /** Re-reads [currentStatus] on a fixed cadence forever — the caller decides when to stop collecting. */
     private fun statusPoll(
-        ticketId: String,
+        rowUuid: String?,
         phantomExpiresAt: Long,
     ): Flow<PasswordResetStatusEvent> =
         flow {
             while (true) {
-                emit(currentStatus(ticketId, phantomExpiresAt))
+                emit(currentStatus(rowUuid, phantomExpiresAt))
                 delay(STATUS_POLL_INTERVAL)
             }
         }
 
     /**
-     * The request's effective status right now. Expiry is checked inline against [Clock], not a
-     * persisted sweep — matching [decide] and [complete]'s "a missed purge must never resurrect a
-     * request" rule, so a `PENDING`/`APPROVED` row past its `expires_at` reads as `EXPIRED` here
-     * even though no row was ever written with that status.
+     * The request's effective status right now. [rowUuid] is null for a phantom ticket (either a
+     * genuine unknown-address ticket, whose signature verifies but was never persisted, or a
+     * malformed/forged one) — in both cases there is deliberately no DB lookup at all, only the
+     * phantom shape, so a garbage ticket id can never coincide with — and thereby read out —
+     * some other real row.
+     *
+     * Expiry is checked inline against [Clock], not a persisted sweep — matching [decide] and
+     * [complete]'s "a missed purge must never resurrect a request" rule, so a `PENDING`/`APPROVED`
+     * row past its `expires_at` reads as `EXPIRED` here even though no row was ever written with
+     * that status.
      */
     private suspend fun currentStatus(
-        ticketId: String,
+        rowUuid: String?,
         phantomExpiresAt: Long,
     ): PasswordResetStatusEvent {
         val row =
-            suspendTransaction(db) {
-                db.passwordResetRequestsQueries.selectById(ticketId).executeAsOneOrNull()
+            rowUuid?.let { id ->
+                suspendTransaction(db) {
+                    db.passwordResetRequestsQueries.selectById(id).executeAsOneOrNull()
+                }
             }
         val now = clock.now().toEpochMilliseconds()
         if (row == null) {
@@ -334,6 +373,50 @@ class PasswordResetService(
         val liveButPastExpiry = row.status in LIVE_STATES && row.expires_at <= now
         val status = if (liveButPastExpiry) PasswordResetStatus.EXPIRED else PasswordResetStatus.valueOf(row.status)
         return PasswordResetStatusEvent(status = status, expiresAt = row.expires_at)
+    }
+
+    /**
+     * Signs [rowUuid] and [issuedAt] into the opaque, client-facing ticket id:
+     * `"<rowUuid>.<issuedAtMs>.<sig>"`. The row's own DB primary key stays a plain UUID — this
+     * composite exists only so the holder's ticket carries its own issue time, authenticated.
+     *
+     * That is the fix for the enumeration oracle a bare `rowUuid` would otherwise leave open: a
+     * phantom (unknown-address) ticket has no row to read an `expiresAt` from, so
+     * [observeStatus] used to mint a fresh phantom expiry at *subscribe* time — which, compared
+     * against the `expiresAt` the caller already holds from [request]'s response, reveals
+     * whether the address was real with a single delayed probe. Embedding the real issue time
+     * in the ticket itself means [observeStatus] recomputes the *same* phantom expiry no matter
+     * when it's asked, exactly mirroring a real row's fixed `expires_at`.
+     */
+    private fun mintTicketId(
+        rowUuid: String,
+        issuedAt: Long,
+    ): String {
+        val sig = hasher.hash(TICKET_DOMAIN + rowUuid + "." + issuedAt).take(TICKET_SIG_LENGTH)
+        return "$rowUuid.$issuedAt.$sig"
+    }
+
+    /**
+     * Recovers the DB row id a ticket id refers to, or `null` for a phantom/malformed one.
+     * Exposed only so tests can query the row directly by its real primary key — mirrors what
+     * [decide]/[complete]/[observeStatus] already do internally via [parseTicketId].
+     */
+    internal fun rowIdFor(ticketId: String): String? = parseTicketId(ticketId)?.rowUuid
+
+    /**
+     * Recovers the row id and issue time a well-formed, correctly-signed ticket id carries, or
+     * `null` for anything else (wrong shape, forged signature). `null` is not an error condition
+     * here — every caller of this treats it as "behave exactly like a legitimate phantom",
+     * never as a distinct failure, so there is nothing for a malformed id to leak.
+     */
+    private fun parseTicketId(ticketId: String): ParsedTicketId? {
+        val parts = ticketId.split(".")
+        if (parts.size != 3) return null
+        val (rowUuid, issuedAtRaw, sig) = parts
+        val issuedAt = issuedAtRaw.toLongOrNull() ?: return null
+        val expectedSig = hasher.hash(TICKET_DOMAIN + rowUuid + "." + issuedAt).take(TICKET_SIG_LENGTH)
+        if (sig != expectedSig) return null
+        return ParsedTicketId(rowUuid = rowUuid, issuedAt = issuedAt)
     }
 
     companion object {
@@ -367,8 +450,22 @@ class PasswordResetService(
         // test still passes.
         internal const val CODE_DOMAIN = "listenup:reset-code:"
         internal const val CLAIM_DOMAIN = "listenup:reset-claim:"
+
+        // Signs the client-facing ticket id so it can carry its own issue time — see the KDoc
+        // on [mintTicketId]/[parseTicketId] for why that's load-bearing.
+        internal const val TICKET_DOMAIN = "listenup:reset-ticket:"
+
+        // Tamper-evidence, not a secret — 64 bits is ample to make forging a signature
+        // infeasible while keeping the ticket id short.
+        private const val TICKET_SIG_LENGTH = 16
     }
 }
+
+/** The row id and issue time recovered from a parsed client-facing ticket id. */
+private data class ParsedTicketId(
+    val rowUuid: String,
+    val issuedAt: Long,
+)
 
 /**
  * Result of the [PasswordResetService.complete] transaction, folded to an [AppResult] once

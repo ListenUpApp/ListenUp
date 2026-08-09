@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.test.runTest
@@ -81,6 +82,37 @@ class PasswordResetStatusStreamTest :
                     // The whole point of this test: nothing distinguishes a real pending ticket
                     // from a fabricated one on the wire.
                     knownEvent shouldBe unknownEvent
+                }
+            }
+        }
+
+        test("a delayed subscribe does not reveal whether the account exists") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                runTest {
+                    val clock = MutableClock(now)
+                    val svc = service(sql, clock)
+                    val real = (svc.request("ada@example.com", "c") as AppResult.Success<PasswordResetTicket>).data
+                    val fake = (svc.request("nobody@example.com", "c") as AppResult.Success<PasswordResetTicket>).data
+
+                    clock.instant += 60.seconds // subscribe LATER than the request
+
+                    lateinit var realEvent: PasswordResetStatusEvent
+                    svc.observeStatus(real.ticketId).test {
+                        realEvent = awaitItem()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                    lateinit var fakeEvent: PasswordResetStatusEvent
+                    svc.observeStatus(fake.ticketId).test {
+                        fakeEvent = awaitItem()
+                        cancelAndIgnoreRemainingEvents()
+                    }
+
+                    // Each stream's expiry must agree with the ticket its holder was given —
+                    // otherwise comparing the two reveals which account exists.
+                    realEvent.expiresAt shouldBe real.expiresAt
+                    fakeEvent.expiresAt shouldBe fake.expiresAt
+                    realEvent.status shouldBe fakeEvent.status
                 }
             }
         }
