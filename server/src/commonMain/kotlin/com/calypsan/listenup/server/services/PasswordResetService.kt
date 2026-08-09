@@ -2,7 +2,11 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PasswordResetTicket
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.Email
 import com.calypsan.listenup.server.auth.PepperedHasher
@@ -68,6 +72,88 @@ class PasswordResetService(
         }
 
         return AppResult.Success(PasswordResetTicket(ticketId = ticketId, expiresAt = expiresAt))
+    }
+
+    /**
+     * Approve or deny a pending request.
+     *
+     * **On approval the plaintext code is returned here and nowhere else** — it is for the
+     * admin to convey to the requester through a channel they already trust, and that act of
+     * conveyance is the identity check this whole design rests on. It is never listed, never
+     * pushed, and never logged; only its hash is stored.
+     *
+     * The returned code is the grouped display form (`ABCD-2345`) because an admin reads it
+     * aloud; the hash is over the canonical form. [ResetCodeGenerator.normalize] bridges the
+     * two when the requester types it back.
+     */
+    suspend fun decide(
+        requestId: String,
+        approved: Boolean,
+        adminId: String,
+    ): AppResult<PasswordResetDecisionOutcome> {
+        val now = clock.now().toEpochMilliseconds()
+        // Minted unconditionally so the transaction body below stays a pure read-then-write —
+        // a code discarded because the guard fails is never persisted or returned, so the cost
+        // of generating one we don't use is free.
+        val code = if (approved) codes.generate() else null
+
+        val decided =
+            suspendTransaction(db) {
+                // Re-read INSIDE the transaction, not before it. suspendTransaction retries this
+                // whole closure on SQLITE_BUSY_SNAPSHOT, so a concurrent decide() that committed
+                // between an outside-the-transaction read and this write would otherwise let both
+                // callers see PENDING and both report Success — with one admin's code silently
+                // becoming unusable. Reading here means the retry re-observes the row post-commit
+                // and the second caller correctly falls through to "not found".
+                val row = db.passwordResetRequestsQueries.selectById(requestId).executeAsOneOrNull()
+                // Unknown, already-decided, and expired all collapse to the same shape. This reuses
+                // AuthError.ResetRequestNotFound rather than minting admin-only variants — a simplicity
+                // call, not a security one: decide() is admin-gated, so there is no attacker here to
+                // withhold detail from. An admin who taps Approve on a stale row sees "not found" and
+                // re-checks the queue.
+                if (row == null || row.status != "PENDING" || row.expires_at <= now) {
+                    false
+                } else {
+                    if (code != null) {
+                        db.passwordResetRequestsQueries.markApproved(
+                            code_hash = hasher.hash(CODE_DOMAIN + code),
+                            decided_by = adminId,
+                            decided_at = now,
+                            id = requestId,
+                        )
+                    } else {
+                        db.passwordResetRequestsQueries.markDenied(
+                            decided_by = adminId,
+                            decided_at = now,
+                            id = requestId,
+                        )
+                    }
+                    true
+                }
+            }
+
+        if (!decided) return AppResult.Failure(AuthError.ResetRequestNotFound())
+        return if (code != null) {
+            AppResult.Success(PasswordResetDecisionOutcome.Approved(ResetCodeGenerator.format(code)))
+        } else {
+            AppResult.Success(PasswordResetDecisionOutcome.Denied)
+        }
+    }
+
+    /** Pending requests for the admin queue, newest first. Carries no codes. */
+    suspend fun listPending(): List<PasswordResetRequest> {
+        val now = clock.now().toEpochMilliseconds()
+        return db.passwordResetRequestsQueries.selectPending(now).executeAsList().map { row ->
+            val user = db.usersQueries.selectById(row.user_id).executeAsOneOrNull()
+            PasswordResetRequest(
+                id = row.id,
+                userId = UserId(row.user_id),
+                displayName = user?.display_name.orEmpty(),
+                email = user?.email.orEmpty(),
+                requestedAt = row.requested_at,
+                expiresAt = row.expires_at,
+            )
+        }
     }
 
     companion object {
