@@ -25,6 +25,13 @@ const crossOriginIsolation = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
 }
 
+// The Ktor server in development. Production needs no proxy at all: Ktor serves the bundle, so
+// the page and the API share an origin by construction. This makes development match that.
+//
+// `ws: true` is load-bearing, not decoration — the entire application surface is kotlinx.rpc over
+// a WebSocket, so a proxy that only forwards HTTP would forward nothing that matters.
+const apiTarget = process.env.LU_SERVER_URL ?? 'http://localhost:8080'
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -46,6 +53,10 @@ export default defineConfig({
     // The Kotlin output and the SQLite worker both live outside this project root, so Vite's
     // file-serving allowlist is widened to the whole :app:webApp directory.
     fs: { allow: [resolve(__dirname, '..')] },
+    proxy: {
+      '/api': { target: apiTarget, ws: true, changeOrigin: true },
+      '/healthz': { target: apiTarget, changeOrigin: true },
+    },
   },
   preview: { headers: crossOriginIsolation },
   build: {
