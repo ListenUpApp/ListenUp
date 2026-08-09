@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 // discovered-test-count floors for this reason; so does this one.
 //
 // Raise it when specs are added. Lowering it needs a reason.
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 82)
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 89)
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main`
 // with an empty continuation, so there is no promise to await either. Completion is therefore
@@ -99,7 +99,15 @@ console.log(`started:  ${started.length}`)
 console.log(`finished: ${finished.length}`)
 console.log(`ignored:  ${ignored.length}`)
 console.log(`failed:   ${failed.length}`)
-for (const f of failed) console.log(`  FAILED  ${f.name}`)
+// TeamCity escapes: |n newline, |' quote, || pipe, |[ |] brackets.
+const unescape = (s) => s.replace(/\|n/g, '\n').replace(/\|(['|[\]])/g, '$1')
+for (const f of failed) {
+  console.log(`  FAILED  ${f.name}`)
+  for (const attr of ['message', 'details']) {
+    const value = new RegExp(`${attr}='((?:[^'|]|\\|.)*)'`).exec(f.detail)?.[1]
+    if (value) console.log(unescape(value).split('\n').map((l) => `          ${l}`).join('\n'))
+  }
+}
 if (pageErrors.length) {
   console.log('page errors:')
   for (const e of pageErrors) console.log(`  ${e}`)
