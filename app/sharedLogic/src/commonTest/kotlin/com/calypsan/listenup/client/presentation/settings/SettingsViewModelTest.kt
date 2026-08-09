@@ -67,6 +67,7 @@ class SettingsViewModelTest :
                 MutableStateFlow(
                     UserPreferences(
                         defaultPlaybackSpeed = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
+                        defaultVolumeBoostDb = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
                         defaultSkipForwardSec = 30,
                         defaultSkipBackwardSec = 10,
                         defaultSleepTimerMin = null,
@@ -108,6 +109,7 @@ class SettingsViewModelTest :
 
             // Default stubs for playback preferences - setters (called when syncing from server)
             everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(PlaybackPreferences.DEFAULT_PLAYBACK_SPEED) } returns Unit
+            everySuspend { fixture.playbackPreferences.setDefaultVolumeBoostDb(any()) } returns Unit
             everySuspend { fixture.playbackPreferences.setDefaultSkipForwardSec(any()) } returns Unit
             everySuspend { fixture.playbackPreferences.setDefaultSkipBackwardSec(any()) } returns Unit
 
@@ -119,6 +121,7 @@ class SettingsViewModelTest :
                 AppResult.Success(
                     UserPreferences(
                         defaultPlaybackSpeed = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
+                        defaultVolumeBoostDb = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
                         defaultSkipForwardSec = 30,
                         defaultSkipBackwardSec = 10,
                         defaultSleepTimerMin = null,
@@ -166,6 +169,7 @@ class SettingsViewModelTest :
                     AppResult.Success(
                         UserPreferences(
                             defaultPlaybackSpeed = 1.5f,
+                            defaultVolumeBoostDb = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
                             defaultSkipForwardSec = 30,
                             defaultSkipBackwardSec = 10,
                             defaultSleepTimerMin = null,
@@ -267,6 +271,43 @@ class SettingsViewModelTest :
 
                 // Then - UI still updated (optimistic), no error shown
                 viewModel.state.value.defaultPlaybackSpeed shouldBe 2.0f
+            }
+        }
+
+        // ========== Default Volume Boost Tests ==========
+
+        test("state reflects the synced default volume boost") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                fixture.syncedPreferencesFlow.value =
+                    fixture.syncedPreferencesFlow.value.copy(defaultVolumeBoostDb = 6f)
+
+                // When
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                // Then
+                viewModel.state.value.defaultVolumeBoostDb shouldBe 6f
+            }
+        }
+
+        test("setDefaultVolumeBoostDb updates local cache and syncs to server") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                everySuspend { fixture.playbackPreferences.setDefaultVolumeBoostDb(9f) } returns Unit
+                everySuspend { fixture.userPreferencesRepository.setDefaultVolumeBoostDb(9f) } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                // When
+                viewModel.setDefaultVolumeBoostDb(9f)
+                advanceUntilIdle()
+
+                // Then - both the reactive player store and the synced repository were written.
+                verifySuspend { fixture.playbackPreferences.setDefaultVolumeBoostDb(9f) }
+                verifySuspend { fixture.userPreferencesRepository.setDefaultVolumeBoostDb(9f) }
             }
         }
 

@@ -275,6 +275,11 @@ class UserPreferencesRepositoryImplTest :
         // through the outbox; the mocked service below is never invoked).
         listOf<Triple<String, suspend UserPreferencesRepositoryImpl.() -> AppResult<Unit>, UpdateUserPreferencesRequest>>(
             Triple("setDefaultPlaybackSpeed", { setDefaultPlaybackSpeed(2.0f) }, UpdateUserPreferencesRequest(defaultPlaybackSpeed = 2.0f)),
+            Triple(
+                "setDefaultVolumeBoostDb",
+                { setDefaultVolumeBoostDb(6.0f) },
+                UpdateUserPreferencesRequest(defaultVolumeBoostDb = 6.0f),
+            ),
             Triple("setDefaultSkipForwardSec", { setDefaultSkipForwardSec(45) }, UpdateUserPreferencesRequest(defaultSkipForwardSec = 45)),
             Triple("setDefaultSkipBackwardSec", { setDefaultSkipBackwardSec(15) }, UpdateUserPreferencesRequest(defaultSkipBackwardSec = 15)),
             Triple("setDefaultSleepTimerMin", { setDefaultSleepTimerMin(20) }, UpdateUserPreferencesRequest(defaultSleepTimerMin = 20)),

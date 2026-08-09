@@ -310,6 +310,76 @@ class SettingsRepositoryTest :
             }
         }
 
+        // ========== Default volume boost ==========
+
+        test("setDefaultVolumeBoostDb saves boost and emits preference change event") {
+            @OptIn(ExperimentalCoroutinesApi::class)
+            runTest(UnconfinedTestDispatcher()) {
+                val storage = createMockStorage()
+                everySuspend { storage.save("default_volume_boost_db", "9.0") } returns Unit
+                val repository = createRepository(storage = storage)
+
+                // Start collecting before emitting (async starts immediately under UnconfinedTestDispatcher)
+                val eventDeferred = async { repository.preferenceChanges.first() }
+
+                repository.setDefaultVolumeBoostDb(9.0f)
+
+                val receivedEvent = eventDeferred.await()
+                verifySuspend { storage.save("default_volume_boost_db", "9.0") }
+                val volumeBoostChangedEvent = receivedEvent.shouldBeInstanceOf<PreferenceChangeEvent.VolumeBoostChanged>()
+                volumeBoostChangedEvent.boostDb shouldBe 9.0f
+            }
+        }
+
+        test("getDefaultVolumeBoostDb returns default when not set") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_volume_boost_db") } returns null
+                val repository = createRepository(storage = storage)
+
+                repository.getDefaultVolumeBoostDb() shouldBe 0.0f
+            }
+        }
+
+        test("getDefaultVolumeBoostDb returns stored boost") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_volume_boost_db") } returns "6.0"
+                val repository = createRepository(storage = storage)
+
+                repository.getDefaultVolumeBoostDb() shouldBe 6.0f
+            }
+        }
+
+        test("observeDefaultVolumeBoostDb emits current value on first collect") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_volume_boost_db") } returns "3.0"
+                val repository = createRepository(storage = storage)
+
+                repository.observeDefaultVolumeBoostDb().test {
+                    awaitItem() shouldBe 3.0f
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("observeDefaultVolumeBoostDb re-emits when setDefaultVolumeBoostDb is called") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_volume_boost_db") } returns "0.0"
+                everySuspend { storage.save("default_volume_boost_db", "3.0") } returns Unit
+                val repository = createRepository(storage = storage)
+
+                repository.observeDefaultVolumeBoostDb().test {
+                    awaitItem() shouldBe 0.0f
+                    repository.setDefaultVolumeBoostDb(3.0f)
+                    awaitItem() shouldBe 3.0f
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         // ========== Default skip intervals ==========
 
         test("getDefaultSkipForwardSec / getDefaultSkipBackwardSec return defaults when unset") {
