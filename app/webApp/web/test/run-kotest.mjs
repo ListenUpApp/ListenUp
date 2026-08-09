@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 // specs that need a live server, so it overrides this to its own higher count. Two lanes, two
 // exact floors — that is what keeps "this lane skips some specs" from decaying into "this lane
 // silently stopped running them".
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 95)
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 98)
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main`
 // with an empty continuation, so there is no promise to await either. Completion is therefore
