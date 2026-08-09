@@ -8,7 +8,7 @@
     "build": "node scripts/sync-kotlin.mjs main && vite build",
     "preview": "vite preview",
     "test": "node scripts/sync-kotlin.mjs test && node test/run-kotest.mjs",
-    "test:auth": "node scripts/sync-kotlin.mjs test && node scripts/with-server.mjs node test/run-kotest.mjs"
+    "test:auth": "node scripts/sync-kotlin.mjs test && KOTEST_MIN_TESTS=96 node scripts/with-server.mjs node test/run-kotest.mjs"
   },
   "dependencies": {
     "@js-joda/core": "^5.6.5",

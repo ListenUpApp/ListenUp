@@ -26,22 +26,26 @@ import kotlin.random.Random
  */
 class RpcTransportTest :
     FunSpec({
-        test("the RPC socket opens from the browser and a typed AuthError survives the wire") {
-            // Guard, not the URL the probe dials: proves THIS run actually booted a server (via
-            // `pnpm test:auth`, which injects it — see test/run-kotest.mjs), so "nobody started a
-            // server" fails loudly here instead of masquerading as a broken socket below.
-            val bootedServerUrl = js("window.__LU_SERVER_URL").unsafeCast<String?>()
-            check(bootedServerUrl != null) {
-                "no server was booted for this run — run `pnpm test:auth`, not `pnpm test`"
+        // Both browser lanes compile ONE spec bundle, so this spec is also loaded by the
+        // server-free `webKotest` lane, where it cannot possibly pass. It is therefore enabled
+        // only when a server was actually booted.
+        //
+        // That would normally be a lane quietly running fewer tests — the exact failure this
+        // project keeps discovered-test-count floors to prevent. The floors are what make it
+        // safe: `webKotest` requires 95 and `pnpm test:auth` sets KOTEST_MIN_TESTS=96, so each
+        // lane pins its own count and neither can silently drop a spec. Skipping here is a
+        // declared configuration difference, not an escape hatch.
+        val serverBooted = js("window.__LU_SERVER_URL").unsafeCast<String?>() != null
+
+        test("the RPC socket opens from the browser and a typed AuthError survives the wire")
+            .config(enabled = serverBooted) {
+                val probe =
+                    probeRpcTransport(
+                        email = "rpc-transport-probe-${Random.nextInt(0, Int.MAX_VALUE)}@example.invalid",
+                        password = "does-not-exist-password",
+                    )
+
+                probe.socketOpened shouldBe true
+                probe.errorCode shouldBe "AUTH_INVALID_CREDENTIALS"
             }
-
-            val probe =
-                probeRpcTransport(
-                    email = "rpc-transport-probe-${Random.nextInt(0, Int.MAX_VALUE)}@example.invalid",
-                    password = "does-not-exist-password",
-                )
-
-            probe.socketOpened shouldBe true
-            probe.errorCode shouldBe "AUTH_INVALID_CREDENTIALS"
-        }
     })
