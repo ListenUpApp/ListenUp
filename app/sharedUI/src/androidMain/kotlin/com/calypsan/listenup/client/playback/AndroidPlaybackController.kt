@@ -5,6 +5,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.session.MediaController
+import com.calypsan.listenup.client.automotive.CoverUri
 import com.calypsan.listenup.client.automotive.CustomActions
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,7 @@ interface ControllerHolder {
  */
 class AndroidPlaybackController(
     private val holder: ControllerHolder,
+    private val packageName: String,
 ) : PlaybackController {
     private var cachedQueue: List<PlaybackMediaItem> = emptyList()
 
@@ -172,23 +174,38 @@ class AndroidPlaybackController(
     }
 
     override suspend fun startPlayback(prepareResult: PlaybackManager.PrepareResult) {
-        val items =
-            prepareResult.timeline.files.map { file ->
-                PlaybackMediaItem(
-                    mediaId = file.audioFileId,
-                    uri = file.playbackUri,
-                    localPath = file.localPath,
-                    durationMs = file.durationMs,
-                    offsetMs = file.startOffsetMs,
-                    title = prepareResult.bookTitle,
-                    artist = prepareResult.bookAuthor,
-                    albumTitle = prepareResult.seriesName,
-                    artworkUri = prepareResult.coverPath?.let { "file://$it" },
-                )
-            }
+        val items = buildMediaItems(prepareResult)
         setMediaQueue(items, prepareResult.resumePositionMs)
         setPlaybackSpeed(prepareResult.resumeSpeed)
         play()
+    }
+
+    /**
+     * Maps a [PlaybackManager.PrepareResult] onto the queue items Media3 consumes.
+     *
+     * `internal` and pure so it can be tested without a [MediaController], which is a final
+     * Android class that cannot be instantiated in host tests — the same reason
+     * [resolveQueuePosition] is exposed this way.
+     *
+     * Artwork is addressed by book ID through `CoverContentProvider`, never by local path.
+     * Android Auto rejects `file://` artwork URIs outright, so `prepareResult.coverPath` is
+     * deliberately not used here.
+     */
+    internal fun buildMediaItems(prepareResult: PlaybackManager.PrepareResult): List<PlaybackMediaItem> {
+        val artworkUri = CoverUri.forBook(packageName, prepareResult.timeline.bookId.value).toString()
+        return prepareResult.timeline.files.map { file ->
+            PlaybackMediaItem(
+                mediaId = file.audioFileId,
+                uri = file.playbackUri,
+                localPath = file.localPath,
+                durationMs = file.durationMs,
+                offsetMs = file.startOffsetMs,
+                title = prepareResult.bookTitle,
+                artist = prepareResult.bookAuthor,
+                albumTitle = prepareResult.seriesName,
+                artworkUri = artworkUri,
+            )
+        }
     }
 }
 

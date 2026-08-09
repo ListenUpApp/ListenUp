@@ -28,6 +28,11 @@ import com.calypsan.listenup.client.features.bookdetail.AndroidBookDetailPlatfor
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
+import com.calypsan.listenup.client.automotive.CoverFetcher
+import com.calypsan.listenup.client.automotive.CoverFileLocator
+import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.playback.AndroidAudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
@@ -42,6 +47,8 @@ import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
+import com.calypsan.listenup.client.playback.UriPermissionGranter
+import com.calypsan.listenup.client.playback.ContextUriPermissionGranter
 import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.client.playback.cast.initializeCast
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
@@ -62,6 +69,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
@@ -215,6 +223,16 @@ val playbackModule =
             SleepTimerManager(scope = get())
         }
 
+        // Cover art seams for CoverContentProvider. The provider is instantiated by Android
+        // before Koin starts, so it resolves these lazily on first use — never in onCreate.
+        single {
+            CoverFileLocator { bookId -> File(get<ImageStorage>().getCoverPath(BookId(bookId))) }
+        }
+        single {
+            CoverFetcher { bookId -> get<ImageRepository>().downloadBookCover(bookId) }
+        }
+        single<UriPermissionGranter> { ContextUriPermissionGranter(context = get()) }
+
         // Browse tree provider for Android Auto
         single {
             BrowseTreeProvider(
@@ -223,7 +241,7 @@ val playbackModule =
                 seriesRepository = get(),
                 contributorRepository = get(),
                 downloadRepository = get(),
-                imageStorage = get(),
+                packageName = get<Context>().packageName,
             )
         }
 
@@ -240,6 +258,7 @@ val playbackModule =
         single<PlaybackController> {
             AndroidPlaybackController(
                 holder = get<MediaControllerHolder>().asControllerHolder(),
+                packageName = get<Context>().packageName,
             )
         }
 

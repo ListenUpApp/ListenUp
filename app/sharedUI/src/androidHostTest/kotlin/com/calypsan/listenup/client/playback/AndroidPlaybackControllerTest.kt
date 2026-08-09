@@ -22,6 +22,11 @@ import kotlinx.coroutines.test.runTest
  *    "No androidHostTest for this class" KDoc).
  * 4. resolveQueuePosition index and offset arithmetic (now [AndroidPlaybackController.setMediaQueue]'s
  *    sole caller — see [AndroidPlaybackController.seekTo]'s KDoc for why seeks no longer use it)
+ *
+ * [AndroidPlaybackController.buildMediaItems] (artwork URI mapping) is covered separately in
+ * [AndroidPlaybackControllerArtworkTest] — it routes through `CoverUri.forBook`, which builds a
+ * real [android.net.Uri] and therefore needs a Robolectric runtime, which this Kotest spec
+ * deliberately does not carry.
  */
 class AndroidPlaybackControllerTest :
     FunSpec({
@@ -31,7 +36,7 @@ class AndroidPlaybackControllerTest :
 
         test("acquire delegates to holder") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.acquire()
             sut.acquire()
@@ -41,7 +46,7 @@ class AndroidPlaybackControllerTest :
 
         test("release delegates to holder") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.releasePlayer()
 
@@ -54,21 +59,21 @@ class AndroidPlaybackControllerTest :
 
         test("isReady reflects holder isConnected initial value true") {
             val holder = FakeControllerHolder(initialConnected = true)
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.isReady.value shouldBe true
         }
 
         test("isReady reflects holder isConnected initial value false") {
             val holder = FakeControllerHolder(initialConnected = false)
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.isReady.value shouldBe false
         }
 
         test("isReady updates when holder isConnected changes") {
             val holder = FakeControllerHolder(initialConnected = true)
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             holder.setConnected(false)
 
@@ -81,28 +86,28 @@ class AndroidPlaybackControllerTest :
 
         test("play does not throw when controller is null") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.play() // holder.controller == null — must not throw
         }
 
         test("pause does not throw when controller is null") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.pause()
         }
 
         test("seekTo does not throw when controller is null") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.seekTo(30_000L)
         }
 
         test("setPlaybackSpeed does not throw when controller is null") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.setPlaybackSpeed(1.5f)
         }
@@ -110,7 +115,7 @@ class AndroidPlaybackControllerTest :
         test("setMediaQueue does not throw when controller is null") {
             runTest {
                 val holder = FakeControllerHolder()
-                val sut = AndroidPlaybackController(holder)
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
                 sut.setMediaQueue(emptyList(), 0L)
             }
@@ -122,14 +127,14 @@ class AndroidPlaybackControllerTest :
 
         test("stop does not throw when controller is null") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.stop() // holder.controller == null — must not throw
         }
 
         test("setVolume does not throw when controller is null") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.setVolume(0.5f) // holder.controller == null — must not throw
         }
@@ -142,7 +147,7 @@ class AndroidPlaybackControllerTest :
 
         test("resolveQueuePosition returns 0 0 for empty item list") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             sut.resolveQueuePosition(emptyList(), 0L) shouldBe (0 to 0L)
             sut.resolveQueuePosition(emptyList(), 12_345L) shouldBe (0 to 0L)
@@ -150,7 +155,7 @@ class AndroidPlaybackControllerTest :
 
         test("resolveQueuePosition maps bookPosition to correct segment index and local offset") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             val items =
                 listOf(
@@ -170,7 +175,7 @@ class AndroidPlaybackControllerTest :
 
         test("resolveQueuePosition before first item snaps to 0 0") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             val items =
                 listOf(
@@ -183,7 +188,7 @@ class AndroidPlaybackControllerTest :
 
         test("resolveQueuePosition past last item snaps to lastIndex with last item duration (drift 26 fix)") {
             val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder)
+            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
 
             val items =
                 listOf(
@@ -198,10 +203,13 @@ class AndroidPlaybackControllerTest :
     })
 
 // ---------------------------------------------------------------------------
-// File-private fake — ControllerHolder implementation
+// Fake — ControllerHolder implementation
+//
+// `internal`, not `private`: also used by AndroidPlaybackControllerArtworkTest, the
+// Robolectric-backed sibling spec covering buildMediaItems' artwork URI mapping.
 // ---------------------------------------------------------------------------
 
-private class FakeControllerHolder(
+internal class FakeControllerHolder(
     initialConnected: Boolean = true,
 ) : ControllerHolder {
     var acquireCount = 0

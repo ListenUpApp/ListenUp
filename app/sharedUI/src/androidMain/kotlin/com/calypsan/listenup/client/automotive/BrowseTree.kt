@@ -7,11 +7,13 @@ package com.calypsan.listenup.client.automotive
  * are meant to stay in step. It previously also listed COLLECTIONS and BOOKMARKS nodes, which
  * no code ever built: bookmarks are not a feature ListenUp has, and collections are an
  * admin-side access-control mechanism rather than something to browse by in a car.
+ *
+ * ROOT children render as tabs on the head unit. CONTINUE_LISTENING is omitted entirely when
+ * nothing is in progress — an empty tab that opens onto "no content" is worse than no tab.
  * ```
  * ROOT
- * ├── RESUME (playable) - most recent in-progress book
+ * ├── CONTINUE_LISTENING (browsable) - in-progress books, omitted when empty
  * └── LIBRARY (browsable)
- *     ├── RECENT - recently played books
  *     ├── DOWNLOADED - offline-available books
  *     ├── SERIES - series list
  *     └── AUTHORS - author list
@@ -20,11 +22,10 @@ package com.calypsan.listenup.client.automotive
 object BrowseTree {
     // Root nodes
     const val ROOT = "/__root__"
-    const val RESUME = "/__resume__"
+    const val CONTINUE_LISTENING = "/__continue__"
     const val LIBRARY = "/__library__"
 
     // Library sub-nodes
-    const val LIBRARY_RECENT = "/__library__/recent"
     const val LIBRARY_DOWNLOADED = "/__library__/downloaded"
     const val LIBRARY_SERIES = "/__library__/series"
     const val LIBRARY_AUTHORS = "/__library__/authors"

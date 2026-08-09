@@ -13,7 +13,6 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playbackModule
 import io.kotest.core.spec.style.FunSpec
@@ -50,7 +49,6 @@ class PlaybackModuleVerifyTest :
                         PlaybackPositionRepository::class,
                         PlaybackPreferences::class,
                         DeviceContext::class,
-                        ImageStorage::class,
                         PlaybackManager::class,
                         PlaybackPrepareRepository::class,
                         ContributorRepository::class,

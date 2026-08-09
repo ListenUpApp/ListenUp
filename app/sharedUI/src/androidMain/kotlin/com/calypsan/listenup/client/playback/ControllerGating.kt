@@ -91,6 +91,35 @@ internal fun playerCommandsFor(trust: ControllerTrust): Player.Commands =
     }
 
 /**
+ * Whether a controller at [trust] may read book cover art from `CoverContentProvider`.
+ *
+ * The provider is not exported, so this drives an explicit URI-permission grant issued in
+ * [ListenUpSessionCallback.onConnect]. Granted to exactly the surfaces that render artwork:
+ * our own UI, Android Auto / Automotive, and our media notification. Withheld from everything
+ * else, so no other app on the device can enumerate the user's library art.
+ *
+ * [ControllerTrust.TRUSTED_SYSTEM] is denied a grant for a reason this enum can't see on its
+ * own: `AudiobookNotificationProvider` decodes cover art into a [android.graphics.Bitmap]
+ * in-process and calls `setLargeIcon` directly, so the notification — and the lock-screen
+ * surface the system promotes it to — never needs a URI grant to show artwork; the bytes are
+ * already baked into the notification.
+ *
+ * The `when` is exhaustive so adding a trust level forces this decision rather than defaulting
+ * into it.
+ */
+internal fun mayAccessCoverArt(trust: ControllerTrust): Boolean =
+    when (trust) {
+        ControllerTrust.OWN_APP,
+        ControllerTrust.AUTO_OR_AUTOMOTIVE,
+        ControllerTrust.MEDIA_NOTIFICATION,
+        -> true
+
+        ControllerTrust.TRUSTED_SYSTEM,
+        ControllerTrust.UNKNOWN,
+        -> false
+    }
+
+/**
  * Builds an [MediaSession.ConnectionResult] tailored to the controller's trust level.
  *
  * - Full-trust controllers ([ControllerTrust.OWN_APP] / [ControllerTrust.AUTO_OR_AUTOMOTIVE]):

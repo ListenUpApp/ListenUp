@@ -1,18 +1,15 @@
 package com.calypsan.listenup.client.automotive
 
-import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaConstants
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.first
@@ -32,8 +29,8 @@ private const val CONTINUE_LISTENING_LIMIT = 8
  * navigate their audiobook library from the car head unit.
  *
  * Browse tree structure:
- * - Resume: Single playable item for the most recent in-progress book
- * - Library: Browsable folder containing Recent, Downloaded, Series, Authors
+ * - Continue Listening: Browsable folder of in-progress books, omitted entirely when empty
+ * - Library: Browsable folder containing Downloaded, Series, Authors
  * - Collections: User's custom collections (if any)
  * - Bookmarks: Saved positions (if any)
  */
@@ -43,7 +40,7 @@ class BrowseTreeProvider(
     private val seriesRepository: SeriesRepository,
     private val contributorRepository: ContributorRepository,
     private val downloadRepository: DownloadRepository,
-    private val imageStorage: ImageStorage,
+    private val packageName: String,
 ) {
     /**
      * Get the root media item.
@@ -73,8 +70,8 @@ class BrowseTreeProvider(
 
         return when (parentId) {
             BrowseTree.ROOT -> getRootChildren()
+            BrowseTree.CONTINUE_LISTENING -> getContinueListeningBooks()
             BrowseTree.LIBRARY -> getLibraryChildren()
-            BrowseTree.LIBRARY_RECENT -> getRecentBooks()
             BrowseTree.LIBRARY_DOWNLOADED -> getDownloadedBooks()
             BrowseTree.LIBRARY_SERIES -> getSeriesList()
             BrowseTree.LIBRARY_AUTHORS -> getAuthorsList()
@@ -99,10 +96,6 @@ class BrowseTreeProvider(
                 getRoot()
             }
 
-            BrowseTree.RESUME -> {
-                getResumeItem()
-            }
-
             BrowseTree.LIBRARY -> {
                 createBrowsableItem(
                     BrowseTree.LIBRARY,
@@ -123,10 +116,19 @@ class BrowseTreeProvider(
     private suspend fun getRootChildren(): List<MediaItem> {
         val items = mutableListOf<MediaItem>()
 
-        // 1. Resume item (if there's an in-progress book)
-        getResumeItem()?.let { items.add(it) }
+        // Omitted entirely when nothing is in progress — Auto renders an empty tab as a
+        // dead end, which is worse than showing only Library.
+        if (hasBooksInProgress()) {
+            items.add(
+                createBrowsableItem(
+                    mediaId = BrowseTree.CONTINUE_LISTENING,
+                    title = "Continue Listening",
+                    mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                    childStyle = childStyleExtras(playableAsGrid = true),
+                ),
+            )
+        }
 
-        // 2. Library folder
         items.add(
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY,
@@ -141,26 +143,21 @@ class BrowseTreeProvider(
         return items
     }
 
-    private suspend fun getResumeItem(): MediaItem? {
+    /**
+     * Whether the Continue Listening node has anything to show. A failed read is treated as
+     * "nothing in progress" so the root still renders Library — the root is the one node that
+     * must never fail, or the head unit has no way into the library at all. The node's own
+     * branch still surfaces a read failure as an error.
+     */
+    private suspend fun hasBooksInProgress(): Boolean {
         val result = homeRepository.getContinueListening(1)
-        if (result !is AppResult.Success || result.data.isEmpty()) {
-            return null
-        }
-
-        val book = result.data.first()
-        return createPlayableBookItem(book)
+        return result is AppResult.Success && result.data.isNotEmpty()
     }
 
     // ========== Library Level ==========
 
     private fun getLibraryChildren(): List<MediaItem> =
         listOf(
-            createBrowsableItem(
-                mediaId = BrowseTree.LIBRARY_RECENT,
-                title = "Recently Played",
-                mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
-                childStyle = childStyleExtras(playableAsGrid = true),
-            ),
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY_DOWNLOADED,
                 title = "Downloaded",
@@ -179,7 +176,7 @@ class BrowseTreeProvider(
             ),
         )
 
-    private suspend fun getRecentBooks(): List<MediaItem> {
+    private suspend fun getContinueListeningBooks(): List<MediaItem> {
         val result = homeRepository.getContinueListening(CONTINUE_LISTENING_LIMIT)
         if (result !is AppResult.Success) {
             // Surface as a typed browse error (onGetChildren maps this to RESULT_ERROR_UNKNOWN)
@@ -315,10 +312,8 @@ class BrowseTreeProvider(
             )
         }
 
-    private fun createPlayableBookItem(book: ContinueListeningBook): MediaItem {
-        val artworkUri = book.coverPath?.let { Uri.parse("file://$it") }
-
-        return MediaItem
+    private fun createPlayableBookItem(book: ContinueListeningBook): MediaItem =
+        MediaItem
             .Builder()
             .setMediaId(BrowseTree.bookId(book.bookId))
             .setMediaMetadata(
@@ -327,28 +322,19 @@ class BrowseTreeProvider(
                     .setTitle(book.title)
                     .setSubtitle("${book.authorNames} - ${book.timeRemainingFormatted}")
                     .setArtist(book.authorNames)
-                    .setArtworkUri(artworkUri)
+                    .setArtworkUri(CoverUri.forBook(packageName, book.bookId))
                     .setIsPlayable(true)
                     .setIsBrowsable(false)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
                     .build(),
             ).build()
-    }
 
     private fun createBookMediaItem(
         bookId: String,
         title: String,
         subtitle: String?,
-    ): MediaItem {
-        val coverPath = imageStorage.getCoverPath(BookId(bookId))
-        val artworkUri =
-            if (imageStorage.exists(BookId(bookId))) {
-                Uri.parse("file://$coverPath")
-            } else {
-                null
-            }
-
-        return MediaItem
+    ): MediaItem =
+        MediaItem
             .Builder()
             .setMediaId(BrowseTree.bookId(bookId))
             .setMediaMetadata(
@@ -356,11 +342,13 @@ class BrowseTreeProvider(
                     .Builder()
                     .setTitle(title)
                     .setSubtitle(subtitle)
-                    .setArtworkUri(artworkUri)
+                    // Always emit a URI — CoverContentProvider fetches on a cache miss, so
+                    // gating on local existence here would blank out every book the user has
+                    // not yet scrolled past in the app.
+                    .setArtworkUri(CoverUri.forBook(packageName, bookId))
                     .setIsPlayable(true)
                     .setIsBrowsable(false)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
                     .build(),
             ).build()
-    }
 }

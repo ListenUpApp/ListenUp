@@ -41,4 +41,15 @@ class ControllerGatingTest :
                 ) shouldBe case.expected
             }
         }
+
+        test("browse-capable controllers may read cover art") {
+            mayAccessCoverArt(ControllerTrust.OWN_APP) shouldBe true
+            mayAccessCoverArt(ControllerTrust.AUTO_OR_AUTOMOTIVE) shouldBe true
+            mayAccessCoverArt(ControllerTrust.MEDIA_NOTIFICATION) shouldBe true
+        }
+
+        test("controllers without browse access may not read cover art") {
+            mayAccessCoverArt(ControllerTrust.TRUSTED_SYSTEM) shouldBe false
+            mayAccessCoverArt(ControllerTrust.UNKNOWN) shouldBe false
+        }
     })
