@@ -79,17 +79,30 @@ class ShellTest :
         }
 
         test("collapsing hides the labels but keeps the icons") {
+            // The labels stay in the DOM and CSS hides them: the manual `.clpsd` class and the
+            // narrow-viewport media query must share ONE rail mechanism, and a media query can
+            // only style what is rendered.
             val host =
                 mount {
                     Shell(sections = listOf(PRIMARY), active = "home", collapsed = true) {}
                 }
 
             host.querySelectorAll(".sidebar.clpsd").length shouldBe 1
-            host.querySelectorAll(".nav-i .lb").length shouldBe 0
+            val labels = host.querySelectorAll(".nav-i .lb")
+            labels.length shouldBe 3
+            (0 until labels.length).forEach { i ->
+                computedDisplay(labels.item(i) as HTMLElement) shouldBe "none"
+            }
             host.querySelectorAll(".nav-i svg").length shouldBe 3
         }
 
-        test("a group label renders expanded and disappears collapsed") {
+        test("labels are visible when expanded") {
+            val host = mount { Shell(sections = listOf(PRIMARY), active = "home") {} }
+
+            computedDisplay(host.querySelector(".nav-i .lb") as HTMLElement) shouldBe "block"
+        }
+
+        test("a group label shows expanded and hides collapsed") {
             val expanded =
                 mount { Shell(sections = listOf(PRIMARY, YOURS), active = "home") {} }
             val collapsed =
@@ -98,7 +111,8 @@ class ShellTest :
                 }
 
             expanded.querySelectorAll(".sb-group").length shouldBe 1
-            collapsed.querySelectorAll(".sb-group").length shouldBe 0
+            computedDisplay(expanded.querySelector(".sb-group") as HTMLElement) shouldBe "block"
+            computedDisplay(collapsed.querySelector(".sb-group") as HTMLElement) shouldBe "none"
         }
 
         test("the expanded sidebar offers collapse, the collapsed one offers expand") {
@@ -125,3 +139,9 @@ class ShellTest :
             toggles shouldBe 2
         }
     })
+
+/** Computed display of [element] with the design sheet applied — how the rail actually hides. */
+private fun computedDisplay(element: HTMLElement): String =
+    kotlinx.browser.window
+        .getComputedStyle(element)
+        .display

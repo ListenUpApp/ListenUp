@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.renderComposable
+import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
@@ -99,6 +100,8 @@ class ClassContractTest :
                             collapsed = true,
                             onToggleCollapse = {},
                         ) {}
+                        BookDetailPage(tab = "overview", onSelectTab = {}, onOpenLibrary = {})
+                        BookDetailPage(tab = "chapters", onSelectTab = {}, onOpenLibrary = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
                         }

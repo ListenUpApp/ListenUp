@@ -38,6 +38,10 @@ class NavSection(
  *
  * Collapse is a chrome preference, not page state, so it is hoisted rather than owned here — the
  * URL contract stays about what the page shows.
+ *
+ * The rail form has ONE mechanism: everything renders and CSS hides the labels, so the manual
+ * `.clpsd` class and the narrow-viewport media query (< 1280px forces the rail) can share it.
+ * Below 1280 the toggle affordances disappear too — the rail is not a preference there.
  */
 @Composable
 fun Shell(
@@ -54,9 +58,9 @@ fun Shell(
             classes("sidebar")
             if (collapsed) classes("clpsd")
         }) {
-            if (!collapsed) {
-                Div(attrs = { classes("sb-brand") }) {
-                    B(attrs = { classes("sb-name") }) { Text("ListenUp") }
+            Div(attrs = { classes("sb-brand") }) {
+                B(attrs = { classes("sb-name") }) { Text("ListenUp") }
+                if (!collapsed) {
                     onToggleCollapse?.let { toggle ->
                         Button(attrs = {
                             classes("iconbtn", "sb-toggle")
@@ -70,14 +74,12 @@ fun Shell(
             }
 
             sections.forEach { section ->
-                if (!collapsed) {
-                    section.label?.let { label ->
-                        Div(attrs = { classes("sb-group") }) { Text(label) }
-                    }
+                section.label?.let { label ->
+                    Div(attrs = { classes("sb-group") }) { Text(label) }
                 }
                 Nav(attrs = { classes("sb-nav") }) {
                     section.entries.forEach { entry ->
-                        NavItem(entry, active, collapsed, onNavigate)
+                        NavItem(entry, active, onNavigate)
                     }
                 }
             }
@@ -86,7 +88,7 @@ fun Shell(
 
             if (footer.isNotEmpty()) {
                 Nav(attrs = { classes("sb-nav") }) {
-                    footer.forEach { entry -> NavItem(entry, active, collapsed, onNavigate) }
+                    footer.forEach { entry -> NavItem(entry, active, onNavigate) }
                 }
             }
 
@@ -111,20 +113,17 @@ fun Shell(
 private fun NavItem(
     entry: NavEntry,
     active: String,
-    collapsed: Boolean,
     onNavigate: ((String) -> Unit)?,
 ) {
     Div(attrs = {
         classes("nav-i")
         if (entry.key == active) classes("on")
-        // Collapsed, the label survives as a tooltip rather than disappearing entirely.
-        if (collapsed) attr("title", entry.label)
+        // In the rail forms the label survives as a tooltip; harmless when it is visible.
+        attr("title", entry.label)
         onNavigate?.let { navigate -> onClick { navigate(entry.key) } }
     }) {
         Icon(entry.icon, size = NAV_ICON_SIZE)
-        if (!collapsed) {
-            Span(attrs = { classes("lb") }) { Text(entry.label) }
-        }
+        Span(attrs = { classes("lb") }) { Text(entry.label) }
     }
 }
 

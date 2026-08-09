@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.web.design.WebAppSurface
+import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -27,7 +28,10 @@ import org.jetbrains.compose.web.dom.Text
 @Composable
 fun WebAppRoot(router: Router) {
     var collapsed by remember { mutableStateOf(false) }
-    val active = router.current.segments.firstOrNull() ?: HOME_KEY
+    val route = router.current
+    val page = route.segments.firstOrNull() ?: HOME_KEY
+    // A book lives in the library, so the deep link keeps Library lit in the sidebar.
+    val active = if (page == BOOK_KEY) "library" else page
 
     WebAppSurface {
         Shell(
@@ -41,7 +45,19 @@ fun WebAppRoot(router: Router) {
                 router.navigate(Route(segments))
             },
         ) {
-            PagePlaceholder(active)
+            if (page == BOOK_KEY) {
+                BookDetailPage(
+                    tab = route.query["tab"] ?: "overview",
+                    // replace, not navigate: the pane is page state, and Back should leave the
+                    // page rather than unwind every pane the user looked at.
+                    onSelectTab = { tab ->
+                        router.replace(Route(route.segments, route.query + ("tab" to tab)))
+                    },
+                    onOpenLibrary = { router.navigate(Route(listOf("library"))) },
+                )
+            } else {
+                PagePlaceholder(active)
+            }
         }
     }
 }
@@ -60,6 +76,8 @@ private fun PagePlaceholder(key: String) {
 }
 
 private const val HOME_KEY = "home"
+
+private const val BOOK_KEY = "book"
 
 private val PRIMARY_NAV =
     NavSection(
