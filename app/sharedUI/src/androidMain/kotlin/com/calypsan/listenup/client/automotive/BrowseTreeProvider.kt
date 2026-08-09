@@ -1,18 +1,15 @@
 package com.calypsan.listenup.client.automotive
 
-import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaConstants
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.first
@@ -43,7 +40,7 @@ class BrowseTreeProvider(
     private val seriesRepository: SeriesRepository,
     private val contributorRepository: ContributorRepository,
     private val downloadRepository: DownloadRepository,
-    private val imageStorage: ImageStorage,
+    private val packageName: String,
 ) {
     /**
      * Get the root media item.
@@ -315,10 +312,8 @@ class BrowseTreeProvider(
             )
         }
 
-    private fun createPlayableBookItem(book: ContinueListeningBook): MediaItem {
-        val artworkUri = book.coverPath?.let { Uri.parse("file://$it") }
-
-        return MediaItem
+    private fun createPlayableBookItem(book: ContinueListeningBook): MediaItem =
+        MediaItem
             .Builder()
             .setMediaId(BrowseTree.bookId(book.bookId))
             .setMediaMetadata(
@@ -327,28 +322,19 @@ class BrowseTreeProvider(
                     .setTitle(book.title)
                     .setSubtitle("${book.authorNames} - ${book.timeRemainingFormatted}")
                     .setArtist(book.authorNames)
-                    .setArtworkUri(artworkUri)
+                    .setArtworkUri(CoverUri.forBook(packageName, book.bookId))
                     .setIsPlayable(true)
                     .setIsBrowsable(false)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
                     .build(),
             ).build()
-    }
 
     private fun createBookMediaItem(
         bookId: String,
         title: String,
         subtitle: String?,
-    ): MediaItem {
-        val coverPath = imageStorage.getCoverPath(BookId(bookId))
-        val artworkUri =
-            if (imageStorage.exists(BookId(bookId))) {
-                Uri.parse("file://$coverPath")
-            } else {
-                null
-            }
-
-        return MediaItem
+    ): MediaItem =
+        MediaItem
             .Builder()
             .setMediaId(BrowseTree.bookId(bookId))
             .setMediaMetadata(
@@ -356,11 +342,13 @@ class BrowseTreeProvider(
                     .Builder()
                     .setTitle(title)
                     .setSubtitle(subtitle)
-                    .setArtworkUri(artworkUri)
+                    // Always emit a URI — CoverContentProvider fetches on a cache miss, so
+                    // gating on local existence here would blank out every book the user has
+                    // not yet scrolled past in the app.
+                    .setArtworkUri(CoverUri.forBook(packageName, bookId))
                     .setIsPlayable(true)
                     .setIsBrowsable(false)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
                     .build(),
             ).build()
-    }
 }

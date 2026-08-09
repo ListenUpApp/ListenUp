@@ -22,7 +22,6 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -375,6 +374,63 @@ class BrowseTreeProviderTest {
         }
 
     // ──────────────────────────────────────────────────────────────────────────────
+    // Artwork URIs
+    // ──────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `book items carry a content uri for artwork`(): Unit =
+        runBlocking {
+            val seriesWithBooks =
+                SeriesWithBooks(
+                    series = makeSeries("series-sa", "The Stormlight Archive"),
+                    books = listOf(makeBookListItem("book-sw1", "The Way of Kings")),
+                    bookSequences = emptyMap(),
+                )
+            val provider = makeProvider(seriesWithBooksById = mapOf("series-sa" to seriesWithBooks))
+
+            val item = provider.getChildren(BrowseTree.seriesId("series-sa")).first()
+
+            item.mediaMetadata.artworkUri.toString() shouldBe
+                "content://com.calypsan.listenup.client.covers/covers/book-sw1"
+        }
+
+    @Test
+    fun `continue listening items carry a content uri for artwork`(): Unit =
+        runBlocking {
+            val provider =
+                makeProvider(continueListeningBooks = listOf(makeContinueListeningBook("book-cl1")))
+
+            val item = provider.getChildren(BrowseTree.LIBRARY_RECENT).first()
+
+            item.mediaMetadata.artworkUri.toString() shouldBe
+                "content://com.calypsan.listenup.client.covers/covers/book-cl1"
+        }
+
+    @Test
+    fun `no emitted book item ever carries a file uri`(): Unit =
+        runBlocking {
+            val seriesWithBooks =
+                SeriesWithBooks(
+                    series = makeSeries("series-sa", "The Stormlight Archive"),
+                    books = listOf(makeBookListItem("book-sw1", "The Way of Kings")),
+                    bookSequences = emptyMap(),
+                )
+            val provider =
+                makeProvider(
+                    continueListeningBooks = listOf(makeContinueListeningBook("book-cl1")),
+                    seriesWithBooksById = mapOf("series-sa" to seriesWithBooks),
+                )
+
+            val items =
+                provider.getChildren(BrowseTree.LIBRARY_RECENT) +
+                    provider.getChildren(BrowseTree.seriesId("series-sa"))
+
+            items.forEach { item ->
+                item.mediaMetadata.artworkUri?.scheme shouldBe "content"
+            }
+        }
+
+    // ──────────────────────────────────────────────────────────────────────────────
     // Builder helpers
     // ──────────────────────────────────────────────────────────────────────────────
 
@@ -422,7 +478,7 @@ class BrowseTreeProviderTest {
             seriesRepository = seriesRepository,
             contributorRepository = contributorRepository,
             downloadRepository = downloadRepository,
-            imageStorage = FakeImageStorage(),
+            packageName = PACKAGE_NAME,
         )
     }
 
@@ -488,6 +544,7 @@ class BrowseTreeProviderTest {
         private val EPOCH = Timestamp(0L)
         private val TEST_LIBRARY_ID = LibraryId("test-library")
         private val TEST_FOLDER_ID = FolderId("test-folder")
+        const val PACKAGE_NAME = "com.calypsan.listenup.client"
     }
 }
 
@@ -507,88 +564,4 @@ private class FakeHomeRepository(
         }
 
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(books.take(limit).map { book -> ContinueListeningItem.Ready(bookId = book.bookId, book = book) })
-}
-
-/** [ImageStorage] fake that reports no cover exists for any book. */
-private class FakeImageStorage : ImageStorage {
-    override fun exists(bookId: BookId): Boolean = false
-
-    override fun listCoverBookIds(): Set<BookId> = emptySet()
-
-    override fun getCoverPath(bookId: BookId): String = "/fake/covers/${bookId.value}.jpg"
-
-    override suspend fun saveCover(
-        bookId: BookId,
-        imageData: ByteArray,
-    ): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun deleteCover(bookId: BookId): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun saveCoverStaging(
-        bookId: BookId,
-        imageData: ByteArray,
-    ): AppResult<Unit> = AppResult.Success(Unit)
-
-    override fun getCoverStagingPath(bookId: BookId): String = "/fake/staging/${bookId.value}.jpg"
-
-    override suspend fun commitCoverStaging(bookId: BookId): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun deleteCoverStaging(bookId: BookId): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun clearAll(): AppResult<Int> = AppResult.Success(0)
-
-    override suspend fun saveContributorImage(
-        contributorId: String,
-        imageData: ByteArray,
-    ): AppResult<Unit> = AppResult.Success(Unit)
-
-    override fun getContributorImagePath(contributorId: String): String = "/fake/contributors/$contributorId.jpg"
-
-    override fun contributorImageExists(contributorId: String): Boolean = false
-
-    override suspend fun deleteContributorImage(contributorId: String): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun saveContributorImageStaging(
-        contributorId: String,
-        imageData: ByteArray,
-    ): AppResult<Unit> = AppResult.Success(Unit)
-
-    override fun getContributorImageStagingPath(contributorId: String): String = "/fake/staging/contributors/$contributorId.jpg"
-
-    override suspend fun commitContributorImageStaging(contributorId: String): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun deleteContributorImageStaging(contributorId: String): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun saveSeriesCover(
-        seriesId: String,
-        imageData: ByteArray,
-    ): AppResult<Unit> = AppResult.Success(Unit)
-
-    override fun getSeriesCoverPath(seriesId: String): String = "/fake/series/$seriesId.jpg"
-
-    override fun seriesCoverExists(seriesId: String): Boolean = false
-
-    override suspend fun deleteSeriesCover(seriesId: String): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun saveUserAvatar(
-        userId: String,
-        imageData: ByteArray,
-    ): AppResult<Unit> = AppResult.Success(Unit)
-
-    override fun getUserAvatarPath(userId: String): String = "/fake/avatars/$userId.jpg"
-
-    override fun userAvatarExists(userId: String): Boolean = false
-
-    override suspend fun deleteUserAvatar(userId: String): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun saveSeriesCoverStaging(
-        seriesId: String,
-        imageData: ByteArray,
-    ): AppResult<Unit> = AppResult.Success(Unit)
-
-    override fun getSeriesCoverStagingPath(seriesId: String): String = "/fake/staging/series/$seriesId.jpg"
-
-    override suspend fun commitSeriesCoverStaging(seriesId: String): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun deleteSeriesCoverStaging(seriesId: String): AppResult<Unit> = AppResult.Success(Unit)
 }

@@ -14,7 +14,6 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
-import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -365,7 +364,7 @@ class ListenUpSessionCallbackTest {
             seriesRepository = mock<SeriesRepository>(),
             contributorRepository = mock<ContributorRepository>(),
             downloadRepository = mock<DownloadRepository>(),
-            imageStorage = mock<ImageStorage>(),
+            packageName = "com.calypsan.listenup.client",
         )
 
     private fun unreachedVoiceIntentResolver(): VoiceIntentResolver =

@@ -238,7 +238,7 @@ val playbackModule =
                 seriesRepository = get(),
                 contributorRepository = get(),
                 downloadRepository = get(),
-                imageStorage = get(),
+                packageName = get<Context>().packageName,
             )
         }
 
