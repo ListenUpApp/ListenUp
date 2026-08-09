@@ -241,6 +241,19 @@ internal class KtorApiClientFactory(
             // base client). Without pings, a half-open / "black-hole" socket is never detected and
             // an in-flight RPC call awaits its response forever — the contributor-merge hang. A
             // periodic ping fails the dead session so the call surfaces an error instead of spinning.
+            //
+            // ⛔ NO-OP on Kotlin/JS (the web client). `ktor-client-js`'s session already implements
+            // `DefaultWebSocketSession` itself, so the WebSockets plugin's `convertSessionToDefault`
+            // returns it UNCHANGED instead of wrapping it with this configured interval — the wrapping
+            // step that would apply `pingIntervalMillis` never runs. Confirmed at runtime: setting
+            // `pingIntervalMillis` directly on a live JS session throws `WebSocketException("Websocket
+            // ping-pong is not supported in JS engine.")`, but neither this `install` block nor
+            // `installKrpc()`'s second `install(WebSockets)` ever reaches that call, so nothing throws
+            // and nothing pings — see `ProductionWebSocketConfigTest` (`:app:webApp`) and Round 5 of
+            // `docs/superpowers/findings/2026-08-08-web-toolchain-decoupling-spike.md`. On the web
+            // client, a mid-session black-hole is caught by nothing today — `HttpTimeout` below only
+            // bounds the initial WS-upgrade request, and kotlinx.rpc has no per-call reply timeout of
+            // its own. Android/iOS/Desktop are unaffected; this line still works there.
             install(WebSockets) {
                 pingIntervalMillis = WS_PING_INTERVAL_MS
             }
