@@ -60,40 +60,87 @@ class BrowseTreeProviderTest {
     // ──────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `getChildren ROOT returns Library folder when no resume book`(): Unit =
+    fun `getChildren ROOT returns Continue Listening then Library when books are in progress`(): Unit =
         runBlocking {
-            val provider = makeProvider(continueListeningBooks = emptyList())
+            val provider = makeProvider(continueListeningBooks = listOf(makeContinueListeningBook("b1")))
+
             val children = provider.getChildren(BrowseTree.ROOT)
-            // No resume item when there are no in-progress books
-            children shouldHaveSize 1
-            children[0].mediaId shouldBe BrowseTree.LIBRARY
+
+            children.map { it.mediaId } shouldBe
+                listOf(BrowseTree.CONTINUE_LISTENING, BrowseTree.LIBRARY)
         }
 
     @Test
-    fun `getChildren ROOT includes Resume item as first child when book is in progress`(): Unit =
+    fun `getChildren ROOT omits Continue Listening when nothing is in progress`(): Unit =
         runBlocking {
-            val book = makeContinueListeningBook(bookId = "book-resume")
-            val provider = makeProvider(continueListeningBooks = listOf(book))
+            val provider = makeProvider(continueListeningBooks = emptyList())
+
             val children = provider.getChildren(BrowseTree.ROOT)
-            // Resume item first, then Library
-            children shouldHaveSize 2
-            children[0].mediaId shouldBe BrowseTree.bookId("book-resume")
-            children[1].mediaId shouldBe BrowseTree.LIBRARY
+
+            children.map { it.mediaId } shouldBe listOf(BrowseTree.LIBRARY)
         }
+
+    @Test
+    fun `getChildren ROOT contains no playable items`(): Unit =
+        runBlocking {
+            val provider = makeProvider(continueListeningBooks = listOf(makeContinueListeningBook("b1")))
+
+            provider.getChildren(BrowseTree.ROOT).forEach { item ->
+                item.mediaMetadata.isPlayable shouldBe false
+                item.mediaMetadata.isBrowsable shouldBe true
+            }
+        }
+
+    // ──────────────────────────────────────────────────────────────────────────────
+    // CONTINUE_LISTENING branch
+    // ──────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `getChildren CONTINUE_LISTENING maps each book to a playable media item`(): Unit =
+        runBlocking {
+            val provider =
+                makeProvider(
+                    continueListeningBooks =
+                        listOf(makeContinueListeningBook("b1"), makeContinueListeningBook("b2")),
+                )
+
+            val children = provider.getChildren(BrowseTree.CONTINUE_LISTENING)
+
+            children shouldHaveSize 2
+            children.forEach { item ->
+                item.mediaMetadata.isPlayable shouldBe true
+                item.mediaMetadata.isBrowsable shouldBe false
+            }
+        }
+
+    @Test
+    fun `getChildren CONTINUE_LISTENING returns empty when no books are in progress`(): Unit =
+        runBlocking {
+            makeProvider(continueListeningBooks = emptyList())
+                .getChildren(BrowseTree.CONTINUE_LISTENING)
+                .shouldBeEmpty()
+        }
+
+    @Test
+    fun `getChildren CONTINUE_LISTENING throws when the continue-listening read fails`() {
+        val provider = makeProvider(continueListeningFails = true)
+
+        assertThrows(IllegalStateException::class.java) {
+            runBlocking { provider.getChildren(BrowseTree.CONTINUE_LISTENING) }
+        }
+    }
 
     // ──────────────────────────────────────────────────────────────────────────────
     // LIBRARY branch
     // ──────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `getChildren LIBRARY returns exactly four static sub-folders`(): Unit =
+    fun `getChildren LIBRARY no longer offers a Recently Played node`(): Unit =
         runBlocking {
-            val provider = makeProvider()
-            val children = provider.getChildren(BrowseTree.LIBRARY)
-            children shouldHaveSize 4
+            val children = makeProvider().getChildren(BrowseTree.LIBRARY)
+
             children.map { it.mediaId } shouldBe
                 listOf(
-                    BrowseTree.LIBRARY_RECENT,
                     BrowseTree.LIBRARY_DOWNLOADED,
                     BrowseTree.LIBRARY_SERIES,
                     BrowseTree.LIBRARY_AUTHORS,
@@ -114,61 +161,22 @@ class BrowseTreeProviderTest {
     @Test
     fun `book-level folders declare grid playable children`(): Unit =
         runBlocking {
-            val provider = makeProvider()
-            val children = provider.getChildren(BrowseTree.LIBRARY)
+            val provider = makeProvider(continueListeningBooks = listOf(makeContinueListeningBook("b1")))
 
-            val recent = children.first { it.mediaId == BrowseTree.LIBRARY_RECENT }
-            val styles = requireNotNull(recent.mediaMetadata.extras)
+            val continueListening = provider.getChildren(BrowseTree.ROOT).first { it.mediaId == BrowseTree.CONTINUE_LISTENING }
+            val styles = requireNotNull(continueListening.mediaMetadata.extras)
             assertEquals(
                 MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
                 styles.getInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE),
             )
 
-            val downloaded = children.first { it.mediaId == BrowseTree.LIBRARY_DOWNLOADED }
+            val downloaded = provider.getChildren(BrowseTree.LIBRARY).first { it.mediaId == BrowseTree.LIBRARY_DOWNLOADED }
             assertEquals(
                 MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
                 requireNotNull(downloaded.mediaMetadata.extras)
                     .getInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE),
             )
         }
-
-    // ──────────────────────────────────────────────────────────────────────────────
-    // LIBRARY_RECENT branch
-    // ──────────────────────────────────────────────────────────────────────────────
-
-    @Test
-    fun `getChildren LIBRARY_RECENT returns empty list when no books`(): Unit =
-        runBlocking {
-            val provider = makeProvider(continueListeningBooks = emptyList())
-            provider.getChildren(BrowseTree.LIBRARY_RECENT).shouldBeEmpty()
-        }
-
-    @Test
-    fun `getChildren LIBRARY_RECENT maps each book to a playable media item`(): Unit =
-        runBlocking {
-            val books =
-                listOf(
-                    makeContinueListeningBook("book-1", "Book One"),
-                    makeContinueListeningBook("book-2", "Book Two"),
-                )
-            val provider = makeProvider(continueListeningBooks = books)
-            val children = provider.getChildren(BrowseTree.LIBRARY_RECENT)
-            children shouldHaveSize 2
-            children[0].mediaId shouldBe BrowseTree.bookId("book-1")
-            children[0].mediaMetadata.title.toString() shouldBe "Book One"
-            children[0].mediaMetadata.isPlayable shouldBe true
-            children[1].mediaId shouldBe BrowseTree.bookId("book-2")
-        }
-
-    @Test
-    fun `getChildren LIBRARY_RECENT throws when the continue-listening read fails`() {
-        // A repository failure must surface, not silently render as an empty shelf (#1239) —
-        // onGetChildren maps the thrown exception to RESULT_ERROR_UNKNOWN.
-        val provider = makeProvider(continueListeningFails = true)
-        assertThrows(IllegalStateException::class.java) {
-            runBlocking { provider.getChildren(BrowseTree.LIBRARY_RECENT) }
-        }
-    }
 
     // ──────────────────────────────────────────────────────────────────────────────
     // LIBRARY_DOWNLOADED branch
@@ -354,11 +362,11 @@ class BrowseTreeProviderTest {
     // ──────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `getChildren LIBRARY_RECENT items are playable and not browsable`(): Unit =
+    fun `getChildren CONTINUE_LISTENING items are playable and not browsable`(): Unit =
         runBlocking {
             val book = makeContinueListeningBook("book-x", "Book X")
             val provider = makeProvider(continueListeningBooks = listOf(book))
-            val item = provider.getChildren(BrowseTree.LIBRARY_RECENT).first()
+            val item = provider.getChildren(BrowseTree.CONTINUE_LISTENING).first()
             item.mediaMetadata.isPlayable shouldBe true
             item.mediaMetadata.isBrowsable shouldBe false
             item.mediaMetadata.mediaType shouldBe MediaMetadata.MEDIA_TYPE_AUDIO_BOOK
@@ -400,7 +408,7 @@ class BrowseTreeProviderTest {
             val provider =
                 makeProvider(continueListeningBooks = listOf(makeContinueListeningBook("book-cl1")))
 
-            val item = provider.getChildren(BrowseTree.LIBRARY_RECENT).first()
+            val item = provider.getChildren(BrowseTree.CONTINUE_LISTENING).first()
 
             item.mediaMetadata.artworkUri.toString() shouldBe
                 "content://com.calypsan.listenup.client.covers/covers/book-cl1"
@@ -422,7 +430,7 @@ class BrowseTreeProviderTest {
                 )
 
             val items =
-                provider.getChildren(BrowseTree.LIBRARY_RECENT) +
+                provider.getChildren(BrowseTree.CONTINUE_LISTENING) +
                     provider.getChildren(BrowseTree.seriesId("series-sa"))
 
             items.forEach { item ->

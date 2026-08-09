@@ -29,8 +29,8 @@ private const val CONTINUE_LISTENING_LIMIT = 8
  * navigate their audiobook library from the car head unit.
  *
  * Browse tree structure:
- * - Resume: Single playable item for the most recent in-progress book
- * - Library: Browsable folder containing Recent, Downloaded, Series, Authors
+ * - Continue Listening: Browsable folder of in-progress books, omitted entirely when empty
+ * - Library: Browsable folder containing Downloaded, Series, Authors
  * - Collections: User's custom collections (if any)
  * - Bookmarks: Saved positions (if any)
  */
@@ -70,8 +70,8 @@ class BrowseTreeProvider(
 
         return when (parentId) {
             BrowseTree.ROOT -> getRootChildren()
+            BrowseTree.CONTINUE_LISTENING -> getContinueListeningBooks()
             BrowseTree.LIBRARY -> getLibraryChildren()
-            BrowseTree.LIBRARY_RECENT -> getRecentBooks()
             BrowseTree.LIBRARY_DOWNLOADED -> getDownloadedBooks()
             BrowseTree.LIBRARY_SERIES -> getSeriesList()
             BrowseTree.LIBRARY_AUTHORS -> getAuthorsList()
@@ -96,10 +96,6 @@ class BrowseTreeProvider(
                 getRoot()
             }
 
-            BrowseTree.RESUME -> {
-                getResumeItem()
-            }
-
             BrowseTree.LIBRARY -> {
                 createBrowsableItem(
                     BrowseTree.LIBRARY,
@@ -120,10 +116,19 @@ class BrowseTreeProvider(
     private suspend fun getRootChildren(): List<MediaItem> {
         val items = mutableListOf<MediaItem>()
 
-        // 1. Resume item (if there's an in-progress book)
-        getResumeItem()?.let { items.add(it) }
+        // Omitted entirely when nothing is in progress — Auto renders an empty tab as a
+        // dead end, which is worse than showing only Library.
+        if (hasBooksInProgress()) {
+            items.add(
+                createBrowsableItem(
+                    mediaId = BrowseTree.CONTINUE_LISTENING,
+                    title = "Continue Listening",
+                    mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
+                    childStyle = childStyleExtras(playableAsGrid = true),
+                ),
+            )
+        }
 
-        // 2. Library folder
         items.add(
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY,
@@ -138,26 +143,21 @@ class BrowseTreeProvider(
         return items
     }
 
-    private suspend fun getResumeItem(): MediaItem? {
+    /**
+     * Whether the Continue Listening node has anything to show. A failed read is treated as
+     * "nothing in progress" so the root still renders Library — the root is the one node that
+     * must never fail, or the head unit has no way into the library at all. The node's own
+     * branch still surfaces a read failure as an error.
+     */
+    private suspend fun hasBooksInProgress(): Boolean {
         val result = homeRepository.getContinueListening(1)
-        if (result !is AppResult.Success || result.data.isEmpty()) {
-            return null
-        }
-
-        val book = result.data.first()
-        return createPlayableBookItem(book)
+        return result is AppResult.Success && result.data.isNotEmpty()
     }
 
     // ========== Library Level ==========
 
     private fun getLibraryChildren(): List<MediaItem> =
         listOf(
-            createBrowsableItem(
-                mediaId = BrowseTree.LIBRARY_RECENT,
-                title = "Recently Played",
-                mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
-                childStyle = childStyleExtras(playableAsGrid = true),
-            ),
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY_DOWNLOADED,
                 title = "Downloaded",
@@ -176,7 +176,7 @@ class BrowseTreeProvider(
             ),
         )
 
-    private suspend fun getRecentBooks(): List<MediaItem> {
+    private suspend fun getContinueListeningBooks(): List<MediaItem> {
         val result = homeRepository.getContinueListening(CONTINUE_LISTENING_LIMIT)
         if (result !is AppResult.Success) {
             // Surface as a typed browse error (onGetChildren maps this to RESULT_ERROR_UNKNOWN)
