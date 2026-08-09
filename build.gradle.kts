@@ -53,6 +53,10 @@ plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
     the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().apply {
         resolution("serialize-javascript", "7.0.3")
         resolution("ws", "8.21.3")
+        // The default drops kotlin-js-store/ at the repo root, which the five-directory root
+        // layout has no slot for. It is build machinery (KGP's yarn lockfile for the karma
+        // lane), so it lives under tools/ — and goes away entirely when karma does.
+        lockFileDirectory = rootDir.resolve("tools/kotlin-js-store")
     }
 }
 
