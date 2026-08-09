@@ -250,10 +250,16 @@ internal class KtorApiClientFactory(
             // ping-pong is not supported in JS engine.")`, but neither this `install` block nor
             // `installKrpc()`'s second `install(WebSockets)` ever reaches that call, so nothing throws
             // and nothing pings — see `ProductionWebSocketConfigTest` (`:app:webApp`) and Round 5 of
-            // `docs/superpowers/findings/2026-08-08-web-toolchain-decoupling-spike.md`. On the web
-            // client, a mid-session black-hole is caught by nothing today — `HttpTimeout` below only
-            // bounds the initial WS-upgrade request, and kotlinx.rpc has no per-call reply timeout of
-            // its own. Android/iOS/Desktop are unaffected; this line still works there.
+            // `docs/superpowers/findings/2026-08-08-web-toolchain-decoupling-spike.md`.
+            //
+            // What web loses is DETECTION, not protection. Neither `HttpTimeout` (which bounds only
+            // the initial WS-upgrade request) nor kotlinx.rpc (which has no per-call reply timeout)
+            // covers a mid-session black hole — but `RpcProxyCache.call` wraps every RPC call in
+            // `withTimeout(DEFAULT_RPC_TIMEOUT)`, which is plain kotlinx.coroutines and therefore
+            // platform-independent. So a call over a silently-dead socket still fails at 15s on web,
+            // as `RpcOutcomeUnknownException`, and heals the connection for the next call. What the
+            // ping would add is noticing sooner and without waiting for a caller to ask.
+            // Android/iOS/Desktop are unaffected; this line still works there.
             install(WebSockets) {
                 pingIntervalMillis = WS_PING_INTERVAL_MS
             }
