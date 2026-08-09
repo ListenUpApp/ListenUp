@@ -35,7 +35,7 @@ import kotlinx.coroutines.sync.withLock
  * only the latest position is ever pushed — no flooding.
  *
  * The [savePlaybackState] entry point owns per-book Mutex serialization
- * plus per-call transactional dispatch over the 11-variant [PlaybackUpdate]
+ * plus per-call transactional dispatch over the 13-variant [PlaybackUpdate]
  * sealed hierarchy. Every variant handler runs inside [TransactionRunner.atomically]
  * so each fetch-then-save pair is rollback-safe. Concurrent writes for the same
  * book serialize on a per-book Mutex; different books proceed in parallel.
@@ -134,7 +134,7 @@ internal class PlaybackPositionRepositoryImpl(
         }
 
     /**
-     * Exhaustive dispatcher over the 10-variant [PlaybackUpdate] hierarchy.
+     * Exhaustive dispatcher over the 13-variant [PlaybackUpdate] hierarchy.
      *
      * Adding a new variant produces a `when` exhaustiveness compile error here —
      * the sealed-hierarchy contract every consumer must satisfy.
@@ -147,6 +147,9 @@ internal class PlaybackPositionRepositoryImpl(
             is PlaybackUpdate.Position -> handlePosition(bookId, update)
             is PlaybackUpdate.Speed -> handleSpeed(bookId, update)
             is PlaybackUpdate.SpeedReset -> handleSpeedReset(bookId, update)
+            is PlaybackUpdate.VolumeBoost -> handleVolumeBoost(bookId, update)
+            is PlaybackUpdate.BoostReset -> handleBoostReset(bookId, update)
+            is PlaybackUpdate.MeasuredGain -> handleMeasuredGain(bookId, update)
             is PlaybackUpdate.PlaybackStarted -> handlePlaybackStarted(bookId, update)
             is PlaybackUpdate.PlaybackPaused -> handlePlaybackPaused(bookId, update)
             is PlaybackUpdate.PeriodicUpdate -> handlePeriodicUpdate(bookId, update)
@@ -196,6 +199,8 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = entity?.measuredGainDb,
                     )
                 }
 
@@ -207,6 +212,8 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = entity?.measuredGainDb,
                     )
                 }
 
@@ -218,6 +225,47 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.defaultSpeed,
                         currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = entity?.measuredGainDb,
+                    )
+                }
+
+                is PlaybackUpdate.VolumeBoost -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = entity?.isFinished ?: false,
+                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
+                        currentChapterId = null,
+                        volumeBoostDb = update.boostDb,
+                        measuredGainDb = entity?.measuredGainDb,
+                    )
+                }
+
+                is PlaybackUpdate.BoostReset -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = entity?.isFinished ?: false,
+                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
+                        currentChapterId = null,
+                        volumeBoostDb = update.defaultBoostDb,
+                        measuredGainDb = entity?.measuredGainDb,
+                    )
+                }
+
+                is PlaybackUpdate.MeasuredGain -> {
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = update.positionMs,
+                        lastPlayedAt = now,
+                        finished = entity?.isFinished ?: false,
+                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
+                        currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = update.gainDb,
                     )
                 }
 
@@ -233,6 +281,8 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = entity?.measuredGainDb,
                     )
                 }
 
@@ -244,6 +294,8 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = entity?.measuredGainDb,
                     )
                 }
 
@@ -255,6 +307,8 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = entity?.measuredGainDb,
                     )
                 }
 
@@ -266,6 +320,8 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = true,
                         playbackSpeed = entity?.playbackSpeed ?: 1.0f,
                         currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = entity?.measuredGainDb,
                     )
                 }
 
@@ -277,6 +333,8 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = true,
                         playbackSpeed = entity?.playbackSpeed ?: 1.0f,
                         currentChapterId = null,
+                        volumeBoostDb = entity?.volumeBoostDb ?: 0f,
+                        measuredGainDb = entity?.measuredGainDb,
                     )
                 }
 
@@ -296,6 +354,8 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = false,
                         playbackSpeed = entity.playbackSpeed,
                         currentChapterId = null,
+                        volumeBoostDb = entity.volumeBoostDb,
+                        measuredGainDb = entity.measuredGainDb,
                     )
                 }
             }
@@ -368,6 +428,72 @@ internal class PlaybackPositionRepositoryImpl(
                 positionMs = u.positionMs,
                 playbackSpeed = u.defaultSpeed,
                 hasCustomSpeed = false,
+            )
+        dao.save(merged)
+    }
+
+    private suspend fun handleVolumeBoost(
+        bookId: BookId,
+        u: PlaybackUpdate.VolumeBoost,
+    ) {
+        val existing = dao.get(bookId)
+        val now = currentEpochMilliseconds()
+        val merged =
+            existing?.copy(
+                positionMs = u.positionMs,
+                volumeBoostDb = u.boostDb,
+                hasCustomBoost = u.custom,
+                updatedAt = now,
+                lastPlayedAt = now,
+                syncedAt = null,
+            ) ?: blank(bookId, now).copy(
+                positionMs = u.positionMs,
+                volumeBoostDb = u.boostDb,
+                hasCustomBoost = u.custom,
+            )
+        dao.save(merged)
+    }
+
+    private suspend fun handleBoostReset(
+        bookId: BookId,
+        u: PlaybackUpdate.BoostReset,
+    ) {
+        val existing = dao.get(bookId)
+        val now = currentEpochMilliseconds()
+        val merged =
+            existing?.copy(
+                positionMs = u.positionMs,
+                volumeBoostDb = u.defaultBoostDb,
+                hasCustomBoost = false,
+                updatedAt = now,
+                lastPlayedAt = now,
+                syncedAt = null,
+            ) ?: blank(bookId, now).copy(
+                positionMs = u.positionMs,
+                volumeBoostDb = u.defaultBoostDb,
+                hasCustomBoost = false,
+            )
+        dao.save(merged)
+    }
+
+    // Sets ONLY measuredGainDb among the boost columns — a measurement arriving is not a
+    // user choice, so hasCustomBoost and volumeBoostDb are untouched.
+    private suspend fun handleMeasuredGain(
+        bookId: BookId,
+        u: PlaybackUpdate.MeasuredGain,
+    ) {
+        val existing = dao.get(bookId)
+        val now = currentEpochMilliseconds()
+        val merged =
+            existing?.copy(
+                positionMs = u.positionMs,
+                measuredGainDb = u.gainDb,
+                updatedAt = now,
+                lastPlayedAt = now,
+                syncedAt = null,
+            ) ?: blank(bookId, now).copy(
+                positionMs = u.positionMs,
+                measuredGainDb = u.gainDb,
             )
         dao.save(merged)
     }
@@ -517,6 +643,9 @@ internal class PlaybackPositionRepositoryImpl(
             positionMs = 0L,
             playbackSpeed = 1.0f,
             hasCustomSpeed = false,
+            volumeBoostDb = 0f,
+            hasCustomBoost = false,
+            measuredGainDb = null,
             updatedAt = now,
             syncedAt = null,
             lastPlayedAt = now,
@@ -535,6 +664,9 @@ private fun PlaybackPositionEntity.toDomain(): PlaybackPosition =
         positionMs = positionMs,
         playbackSpeed = playbackSpeed,
         hasCustomSpeed = hasCustomSpeed,
+        volumeBoostDb = volumeBoostDb,
+        hasCustomBoost = hasCustomBoost,
+        measuredGainDb = measuredGainDb,
         updatedAtMs = updatedAt,
         syncedAtMs = syncedAt,
         lastPlayedAtMs = lastPlayedAt,

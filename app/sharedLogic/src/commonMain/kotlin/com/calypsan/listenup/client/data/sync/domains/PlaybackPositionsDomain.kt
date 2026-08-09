@@ -47,8 +47,8 @@ internal fun playbackPositionsDomain(database: ListenUpDatabase): MirroredDomain
 
 /**
  * Room mapping for position payloads. Local-only columns (`hasCustomSpeed`,
- * `syncedAt`, `finishedAt`, `startedAt`) are copied from the existing row so a sync
- * event never nulls client-only data.
+ * `hasCustomBoost`, `syncedAt`, `finishedAt`, `startedAt`) are copied from the
+ * existing row so a sync event never nulls client-only data.
  */
 internal class PlaybackPositionMirrorApply(
     private val database: ListenUpDatabase,
@@ -64,6 +64,9 @@ internal class PlaybackPositionMirrorApply(
                 positionMs = payload.positionMs,
                 playbackSpeed = payload.playbackSpeed,
                 hasCustomSpeed = existing?.hasCustomSpeed ?: false,
+                volumeBoostDb = payload.volumeBoostDb,
+                hasCustomBoost = existing?.hasCustomBoost ?: false,
+                measuredGainDb = payload.measuredGainDb,
                 updatedAt = payload.updatedAt,
                 syncedAt = existing?.syncedAt,
                 lastPlayedAt = payload.lastPlayedAt,
