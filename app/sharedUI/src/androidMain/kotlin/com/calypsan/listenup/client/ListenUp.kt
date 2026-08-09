@@ -28,6 +28,11 @@ import com.calypsan.listenup.client.features.bookdetail.AndroidBookDetailPlatfor
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
+import com.calypsan.listenup.client.automotive.CoverFetcher
+import com.calypsan.listenup.client.automotive.CoverFileLocator
+import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.shortcuts.ListenUpShortcutManager
 import com.calypsan.listenup.client.playback.AndroidAudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
@@ -62,6 +67,7 @@ import org.koin.core.context.startKoin
 import org.koin.core.logger.Level
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
@@ -213,6 +219,15 @@ val playbackModule =
         // Sleep timer manager - handles sleep timer state and countdown
         single {
             SleepTimerManager(scope = get())
+        }
+
+        // Cover art seams for CoverContentProvider. The provider is instantiated by Android
+        // before Koin starts, so it resolves these lazily on first use — never in onCreate.
+        single {
+            CoverFileLocator { bookId -> File(get<ImageStorage>().getCoverPath(BookId(bookId))) }
+        }
+        single {
+            CoverFetcher { bookId -> get<ImageRepository>().downloadBookCover(bookId) }
         }
 
         // Browse tree provider for Android Auto

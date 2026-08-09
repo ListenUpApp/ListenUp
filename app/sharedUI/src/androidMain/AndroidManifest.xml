@@ -86,6 +86,18 @@
             </intent-filter>
         </service>
 
+        <!--
+            Book cover art for Android Auto. Auto rejects file:// artwork URIs, so covers are
+            served as content://. NOT exported: reachable only via the URI-permission grant
+            ListenUpSessionCallback issues to trusted media controllers on connect, so no other
+            app can enumerate the user's library art.
+        -->
+        <provider
+            android:name="com.calypsan.listenup.client.automotive.CoverContentProvider"
+            android:authorities="${applicationId}.covers"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
         <!-- Android Auto support -->
         <meta-data
             android:name="com.google.android.gms.car.application"
