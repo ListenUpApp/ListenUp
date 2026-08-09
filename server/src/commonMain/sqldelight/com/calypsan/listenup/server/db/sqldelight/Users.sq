@@ -163,6 +163,12 @@ WHERE id = :id;
 updatePasswordHash:
 UPDATE users SET password_hash = :password_hash WHERE id = :id;
 
+-- Reset the password and stamp the change. Distinct from updateProfileFields (a reset has no
+-- other profile fields to write) and from the updatePasswordHash test fixture (a real password
+-- change must move updated_at). Used by PasswordResetService.complete.
+updatePasswordHashAt:
+UPDATE users SET password_hash = :password_hash, updated_at = :updated_at WHERE id = :id;
+
 -- ── admin user-lifecycle writes / reads (AdminUserServiceImpl) ────────────────
 
 -- Live (non-tombstoned) ACTIVE users, for the admin roster (listUsers / searchUsers).

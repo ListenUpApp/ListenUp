@@ -4,8 +4,11 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetTicket
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.Argon2Limiter
+import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PepperedHasher
 import com.calypsan.listenup.server.auth.ResetCodeGenerator
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -13,10 +16,12 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldMatch
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -32,12 +37,25 @@ class PasswordResetServiceTest :
         fun service(
             db: ListenUpDatabase,
             at: Instant = now,
+            sessions: SessionRevoker = RecordingRevoker(),
+            passwords: Argon2Limiter = Argon2Limiter(PasswordHasher()),
         ) = PasswordResetService(
             db = db,
             hasher = PepperedHasher(pepper),
             codes = ResetCodeGenerator(),
             clock = FixedClock(at),
+            sessions = sessions,
+            passwords = passwords,
         )
+
+        suspend fun approvedCode(
+            svc: PasswordResetService,
+            ticket: PasswordResetTicket,
+        ): String =
+            (
+                (svc.decide(ticket.ticketId, true, "admin-1") as AppResult.Success).data
+                    as PasswordResetDecisionOutcome.Approved
+            ).code
 
         test("a known address creates a PENDING request") {
             withSqlDatabase {
@@ -320,4 +338,346 @@ class PasswordResetServiceTest :
                 }
             }
         }
+
+        // ── complete() ──────────────────────────────────────────────────────────────
+
+        test("the right code with the wrong claim fails as ResetCodeIncorrect") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val svc = service(sql)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    val code = approvedCode(svc, ticket)
+
+                    val result =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "wrong-claim",
+                            code = code,
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    (result as AppResult.Failure).error.shouldBeInstanceOf<AuthError.ResetCodeIncorrect>()
+                }
+            }
+        }
+
+        test("the right claim with the wrong code fails as ResetCodeIncorrect") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val svc = service(sql)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    approvedCode(svc, ticket)
+
+                    val result =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = "ZZZZ-9999",
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    (result as AppResult.Failure).error.shouldBeInstanceOf<AuthError.ResetCodeIncorrect>()
+                }
+            }
+        }
+
+        test("both correct completes the reset, rewrites the password hash, and consumes the request") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val svc = service(sql)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    val code = approvedCode(svc, ticket)
+
+                    val result =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = code,
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    val user = sql.usersQueries.selectById("ada").executeAsOne()
+                    user.password_hash shouldNotBe "phc"
+                    PasswordHasher().verify("a-strong-new-password", user.password_hash) shouldBe true
+                    sql.passwordResetRequestsQueries
+                        .selectById(ticket.ticketId)
+                        .executeAsOne()
+                        .status shouldBe "CONSUMED"
+                }
+            }
+        }
+
+        test("completion before approval fails as ResetNotApproved") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val svc = service(sql)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+
+                    val result =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = "ABCD-2345",
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    (result as AppResult.Failure).error.shouldBeInstanceOf<AuthError.ResetNotApproved>()
+                }
+            }
+        }
+
+        test("a denied request fails as ResetNotApproved, not ResetRequestNotFound") {
+            // Locks in the existing AuthError.ResetNotApproved contract: "still pending, or after
+            // it was denied. Both collapse to one shape" — a denied ticket must not be
+            // indistinguishable from an unknown one.
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val svc = service(sql)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    svc.decide(ticket.ticketId, approved = false, adminId = "admin-1")
+
+                    val result =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = "ABCD-2345",
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    (result as AppResult.Failure).error.shouldBeInstanceOf<AuthError.ResetNotApproved>()
+                }
+            }
+        }
+
+        test("five wrong attempts exhaust the budget; a correct sixth try still fails") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val svc = service(sql)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    val code = approvedCode(svc, ticket)
+
+                    repeat(5) {
+                        val wrong =
+                            svc.complete(
+                                ticketId = ticket.ticketId,
+                                claimSecret = "claim-1",
+                                code = "ZZZZ-9999",
+                                newPassword = "a-strong-new-password",
+                            )
+                        (wrong as AppResult.Failure).error.shouldBeInstanceOf<AuthError.ResetCodeIncorrect>()
+                    }
+
+                    val sixth =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = code,
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    (sixth as AppResult.Failure).error.shouldBeInstanceOf<AuthError.ResetAttemptsExhausted>()
+                }
+            }
+        }
+
+        test("a consumed request cannot be replayed") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val svc = service(sql)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    val code = approvedCode(svc, ticket)
+                    svc.complete(
+                        ticketId = ticket.ticketId,
+                        claimSecret = "claim-1",
+                        code = code,
+                        newPassword = "a-strong-new-password",
+                    )
+
+                    val replay =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = code,
+                            newPassword = "another-new-password",
+                        )
+
+                    (replay as AppResult.Failure).error.shouldBeInstanceOf<AuthError.ResetRequestNotFound>()
+                }
+            }
+        }
+
+        test("an expired request fails on read, with no purge having run") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val requestingSvc = service(sql)
+                lateinit var ticket: PasswordResetTicket
+                lateinit var code: String
+                runTest {
+                    ticket = (requestingSvc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    code = approvedCode(requestingSvc, ticket)
+                }
+
+                // A service built with a clock past the TTL — no purge has run, the row is still
+                // physically present, but expiry must be enforced on read, not by a sweep.
+                val laterSvc = service(sql, at = now + PasswordResetService.TTL + 1.minutes)
+                runTest {
+                    val result =
+                        laterSvc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = code,
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    (result as AppResult.Failure).error.shouldBeInstanceOf<AuthError.ResetRequestNotFound>()
+                }
+            }
+        }
+
+        test("a weak new password fails without burning an attempt") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val svc = service(sql)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    approvedCode(svc, ticket)
+
+                    val result =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = "ZZZZ-9999",
+                            newPassword = "short",
+                        )
+
+                    (result as AppResult.Failure).error.shouldBeInstanceOf<AuthError.WeakPassword>()
+                    sql.passwordResetRequestsQueries
+                        .selectById(ticket.ticketId)
+                        .executeAsOne()
+                        .attempts shouldBe 0L
+                }
+            }
+        }
+
+        test("a successful completion records exactly one session revocation for the account") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val revoker = RecordingRevoker()
+                val svc = service(sql, sessions = revoker)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    val code = approvedCode(svc, ticket)
+
+                    val result =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = code,
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    revoker.revoked shouldBe listOf(UserId("ada"))
+                }
+            }
+        }
+
+        test("a failed completion records no session revocation") {
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val revoker = RecordingRevoker()
+                val svc = service(sql, sessions = revoker)
+                runTest {
+                    val ticket = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                    approvedCode(svc, ticket)
+
+                    val result =
+                        svc.complete(
+                            ticketId = ticket.ticketId,
+                            claimSecret = "claim-1",
+                            code = "ZZZZ-9999",
+                            newPassword = "a-strong-new-password",
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    revoker.revoked shouldBe emptyList()
+                }
+            }
+        }
+
+        test("concurrent wrong guesses against a 5-attempt budget never exceed it and never succeed") {
+            // Deliberately NOT runTest — see "of two concurrent decisions" above: TestDispatcher's
+            // virtual time would serialize these calls rather than let them race, and a race test
+            // that can't race is worse than no test. runBlocking + async(Dispatchers.Default) puts
+            // each complete() on a real OS thread so the ten calls genuinely interleave inside
+            // suspendTransaction — which is exactly what a non-atomic attempt counter would fail.
+            //
+            // Uses a FAKE Argon2Limiter (the same counting-stand-in technique Argon2LimiterTest
+            // uses), not the real production default. Empirically verified: with the REAL Argon2
+            // hasher, each ~100-300ms hash (gated to 4 concurrent by Argon2Limiter, run BEFORE the
+            // DB work — the same "hash outside the transaction" shape ProfileServiceImpl uses)
+            // staggers the ten calls' completion times widely enough that they rarely reach the DB
+            // read at the same instant on this machine, even with an artificial 50ms widening of
+            // the read-to-write window — so the race this test exists to exercise essentially never
+            // materializes. Swapping in a near-instant fake hash removes that confound and lets the
+            // ten calls hit `selectById` at effectively the same moment, which is what actually
+            // exercises suspendTransaction's SQLITE_BUSY_SNAPSHOT retry. Confirmed against a
+            // deliberately-reintroduced TOCTOU version (read outside the transaction, like the
+            // decide() bug this feature is modeled on): with the real hasher the buggy version
+            // never failed this assertion across ten repeated runs; with the fake hasher it failed
+            // immediately (attempts=10, budget bypassed) — proof this test's shape genuinely
+            // detects the bug it is designed to catch, given a fast-enough hash.
+            withSqlDatabase {
+                sql.seedTestUser("ada")
+                val fastPasswords = Argon2Limiter(permits = 10, hashFn = { "fake-hash" }, verifyFn = { _, _ -> true })
+                val svc = service(sql, passwords = fastPasswords)
+                val ticket =
+                    runBlocking {
+                        val t = (svc.request("ada@example.com", "claim-1") as AppResult.Success).data
+                        approvedCode(svc, t)
+                        t
+                    }
+
+                val results =
+                    runBlocking {
+                        coroutineScope {
+                            (1..10)
+                                .map {
+                                    async(Dispatchers.Default) {
+                                        svc.complete(
+                                            ticketId = ticket.ticketId,
+                                            claimSecret = "claim-1",
+                                            code = "ZZZZ-9999",
+                                            newPassword = "a-strong-new-password",
+                                        )
+                                    }
+                                }.map { it.await() }
+                        }
+                    }
+
+                results.none { it is AppResult.Success } shouldBe true
+                sql.passwordResetRequestsQueries
+                    .selectById(ticket.ticketId)
+                    .executeAsOne()
+                    .attempts shouldBeLessThanOrEqual PasswordResetService.MAX_ATTEMPTS.toLong()
+            }
+        }
     })
+
+// Records every revokeAll call — lets a test assert revocation happened without a real
+// SessionService stack.
+private class RecordingRevoker : SessionRevoker {
+    val revoked = mutableListOf<UserId>()
+
+    override suspend fun revokeAll(userId: UserId) {
+        revoked += userId
+    }
+}
