@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.data.repository.BrowserNetworkMonitor
 import com.calypsan.listenup.client.device.DeviceContextProvider
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.download.BrowserDownloadEnqueuer
+import com.calypsan.listenup.client.download.DownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.core.BrowserSecureStorage
 import com.calypsan.listenup.core.CachingSecureStorage
@@ -24,7 +26,7 @@ import org.koin.dsl.module
  */
 internal actual fun initializeKoin(additionalModules: List<Module>) {
     startKoin {
-        modules(sharedModules + additionalModules)
+        modules(jsSharedModules() + additionalModules)
     }
 }
 
@@ -34,7 +36,7 @@ internal actual fun initializeKoin(additionalModules: List<Module>) {
  * and `:app:webApp` appends its platform modules (the worker) to this list in its own
  * `startKoin { … }`.
  */
-fun jsSharedModules(): List<Module> = sharedModules
+fun jsSharedModules(): List<Module> = sharedModules + browserPlaybackModule
 
 /**
  * Browser discovery module: binds [NoDiscoveryService] — mDNS does not exist in a browser and
@@ -68,6 +70,11 @@ internal actual val platformStorageModule: Module =
         single<NetworkMonitor> { BrowserNetworkMonitor() }
 
         single { DownloadFileManager() }
+
+        // The other half of the download seam. Native clients register their enqueuer from the
+        // app module (androidDownloadModule / desktopDownloadModule); the browser has no such
+        // module, so its refusal is bound here beside the file manager it belongs with.
+        single<DownloadEnqueuer> { BrowserDownloadEnqueuer() }
     }
 
 /**

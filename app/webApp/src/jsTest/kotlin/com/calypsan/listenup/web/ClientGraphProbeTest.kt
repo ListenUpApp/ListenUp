@@ -1,5 +1,6 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.diagnostics.probeBookDetailPresentation
 import com.calypsan.listenup.client.diagnostics.probeClientGraph
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -22,5 +23,14 @@ class ClientGraphProbeTest :
 
             probe.repositoryResolved shouldBe true
             probe.ingestedTitle shouldBe "Foundation"
+        }
+
+        test("the real BookDetailViewModel reaches Ready in a browser") {
+            val dbName = "listenup-presentation-${Random.nextInt(0, Int.MAX_VALUE)}.db"
+
+            val probe = probeBookDetailPresentation(createSqliteWorker(), dbName)
+
+            probe.viewModelResolved shouldBe true
+            probe.readyTitle shouldBe "Foundation"
         }
     })
