@@ -18,6 +18,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -276,9 +277,13 @@ class PlaybackService :
             DefaultMediaSourceFactory(this, extractorsFactory)
                 .setDataSourceFactory(dataSourceFactory)
 
-        // Create renderers factory with AAC DRC for consistent loudness + decoder fallback
+        // Platform-default AAC decoding. We deliberately do NOT set the DRC target reference
+        // level: Android's default is -16 LKFS, matching every other audio app on the device.
+        // A previous custom RenderersFactory set -24 LKFS, which attenuated all AAC playback
+        // by 8 dB. Dynamic-range control on AAC-LC comes from KEY_AAC_DRC_HEAVY_COMPRESSION,
+        // which already defaults to heavy — we get it without configuring anything.
         val renderersFactory =
-            AacDrcRenderersFactory(this)
+            DefaultRenderersFactory(this)
                 .setEnableDecoderFallback(true)
 
         // Build ExoPlayer with audiobook-optimized settings
