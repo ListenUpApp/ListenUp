@@ -1,9 +1,17 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
+import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
+import kotlinx.browser.window
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.renderComposable
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
@@ -29,8 +37,34 @@ fun main() {
             modules(jsSharedModules() + module { single<Worker> { createSqliteWorker() } })
         }.koin
 
-    val router = Router()
-    renderComposable(root = mount) { WebAppRoot(router, openBookDetail = graphBookDetail(koin)) }
+    // The server URL must be seeded before the composition mounts, or a ViewModel's first RPC
+    // call can race the seed write and dial an unconfigured client. Sequencing render as this
+    // coroutine's continuation (rather than firing both concurrently) makes that race structurally
+    // impossible without blocking the JS thread — suspension yields, it doesn't freeze the tab.
+    CoroutineScope(Dispatchers.Default).launch {
+        seedServerUrlIfNeeded(koin.get())
+
+        val router = Router()
+        renderComposable(root = mount) { WebAppRoot(router, openBookDetail = graphBookDetail(koin)) }
+    }
+}
+
+/**
+ * Seeds [ServerConfig] from this page's origin the first time the browser boots with nothing
+ * stored. Never overwrites a URL a prior session (or a manual override) already set — see
+ * [seedServerUrlFromOrigin]. A seeding failure is logged and swallowed rather than propagated:
+ * failing to boot the whole app over a URL write is a worse outcome than leaving the user to
+ * configure it manually, and "Never Stranded" means the fallback has to actually be reachable.
+ */
+private suspend fun seedServerUrlIfNeeded(serverConfig: ServerConfig) {
+    if (serverConfig.hasServerConfigured()) return
+    try {
+        serverConfig.setServerUrl(ServerUrl(seedServerUrlFromOrigin(stored = null, origin = window.location.origin)))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        console.warn("Failed to seed server URL from page origin: ${e.message}")
+    }
 }
 
 private const val MOUNT_ID = "app"
