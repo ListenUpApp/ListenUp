@@ -200,6 +200,12 @@ internal data class PlaybackPositionEntity(
     val playbackSpeed: Float,
     // Whether user explicitly set a custom speed for this book (vs using universal default)
     val hasCustomSpeed: Boolean = false,
+    // Last used volume boost for this book, in decibels
+    val volumeBoostDb: Float = 0f,
+    // Whether user explicitly set a custom boost for this book (vs using universal default)
+    val hasCustomBoost: Boolean = false,
+    // Server-measured loudness gain (dB) for normalization; null until measured
+    val measuredGainDb: Float? = null,
     // Local timestamp when entity was modified (epoch ms)
     val updatedAt: Long,
     // Epoch-ms timestamp from the last server-applied write (null if the row has never
@@ -424,6 +430,8 @@ internal data class UserPreferencesEntity(
     /** Primary key — equals the user's ID. */
     @PrimaryKey val id: String,
     val defaultPlaybackSpeed: Float,
+    /** Universal default volume boost in decibels; 0 means no boost. */
+    val defaultVolumeBoostDb: Float = 0f,
     val defaultSkipForwardSec: Int,
     val defaultSkipBackwardSec: Int,
     /** Null disables the default sleep timer. */

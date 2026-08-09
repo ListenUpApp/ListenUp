@@ -58,4 +58,7 @@ internal fun RoomDatabase.Builder<ListenUpDatabase>.buildConfigured(
         // Kotlin/Native — see FtsTableCallback), so they are created here. This is the ONLY
         // registration site; missing it on one platform is the bug that motivated this seam.
         .addCallback(FtsTableCallback())
+        // Hand-written, non-destructive migrations — registered here so every platform inherits
+        // them from the single builder seam (see the migration policy above).
+        .addMigrations(MIGRATION_1_2)
         .build()

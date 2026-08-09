@@ -15,7 +15,8 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v1** — the Room 3 baseline. The pre-1.0 chain (old v1 → v2 → v3) was squashed to a
+ * Schema is at **v2** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns.
+ * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
  * added is folded into this baseline: the `syncId` columns on `collection_books`/`book_tags`/
@@ -35,7 +36,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * schema-version bump MUST ship a hand-written [androidx.room3.migration.Migration]** (register it on
  * all three builders) that preserves the outbox and other pending rows; the guard
  * `DatabaseMigrationPolicyTest` fails the build if the destructive fallback is ever re-added. The
- * `@Database.exportSchema` on-disk JSON (`schemas/…/1.json`) is the authoritative baseline.
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/2.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -76,7 +77,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @ColumnTypeConverters(

@@ -222,7 +222,14 @@ class UserPreferencesRepositoryImplTest :
                             AppResult.Success(UserPreferencesDto(1.5f, 45, 15, 20, true))
                     }
                 fixture(service, dao).getPreferences()
-                dao.get("u1") shouldBe UserPreferencesEntity("u1", 1.5f, 45, 15, 20)
+                dao.get("u1") shouldBe
+                    UserPreferencesEntity(
+                        id = "u1",
+                        defaultPlaybackSpeed = 1.5f,
+                        defaultSkipForwardSec = 45,
+                        defaultSkipBackwardSec = 15,
+                        defaultSleepTimerMin = 20,
+                    )
             }
         }
 
