@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.renderComposable
+import org.koin.core.Koin
 import org.koin.core.context.startKoin
 import org.koin.dsl.module
 import org.w3c.dom.Worker
@@ -42,7 +43,7 @@ fun main() {
     // coroutine's continuation (rather than firing both concurrently) makes that race structurally
     // impossible without blocking the JS thread — suspension yields, it doesn't freeze the tab.
     CoroutineScope(Dispatchers.Default).launch {
-        seedServerUrlIfNeeded(koin.get())
+        seedServerUrlIfNeeded(koin)
 
         val router = Router()
         renderComposable(root = mount) { WebAppRoot(router, openBookDetail = graphBookDetail(koin)) }
@@ -56,9 +57,14 @@ fun main() {
  * failing to boot the whole app over a URL write is a worse outcome than leaving the user to
  * configure it manually, and "Never Stranded" means the fallback has to actually be reachable.
  */
-private suspend fun seedServerUrlIfNeeded(serverConfig: ServerConfig) {
-    if (serverConfig.hasServerConfigured()) return
+private suspend fun seedServerUrlIfNeeded(koin: Koin) {
+    // Resolution is INSIDE the try, not at the call site. Rendering is this coroutine's
+    // continuation, so anything that escapes here takes the whole UI down with it — and a
+    // white page with an unhandled coroutine exception in the console is the worst way to
+    // report "the server URL could not be seeded", a condition the user can fix by hand.
     try {
+        val serverConfig = koin.get<ServerConfig>()
+        if (serverConfig.hasServerConfigured()) return
         serverConfig.setServerUrl(ServerUrl(seedServerUrlFromOrigin(stored = null, origin = window.location.origin)))
     } catch (e: CancellationException) {
         throw e
