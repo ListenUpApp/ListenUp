@@ -122,7 +122,11 @@ buildscript {
 spotless {
     kotlin {
         target("**/*.kt")
-        targetExclude("**/build/**", "**/.worktrees/**")
+        // "**/build" (the directory itself, not just its contents) is what makes Gradle PRUNE the
+        // walk instead of merely filtering matches: with only "**/build/**" the file tree still
+        // descends into build/ and races tests that create and delete transient files there
+        // (e.g. sharedLogic's e2e-retries.log) — "Could not read path" mid-snapshot.
+        targetExclude("**/build", "**/build/**", "**/.worktrees/**")
         ktlint(libs.versions.ktlint.get())
         // Suppress max-line-length for API files with complex Ktor builders
         suppressLintsFor {
@@ -132,7 +136,7 @@ spotless {
     }
     kotlinGradle {
         target("**/*.gradle.kts")
-        targetExclude("**/build/**", "**/.worktrees/**")
+        targetExclude("**/build", "**/build/**", "**/.worktrees/**")
         ktlint(libs.versions.ktlint.get())
         // Mirror the `kotlin` block: max-line-length is not enforced on build scripts. Beyond the
         // long dependency-coordinate / URL strings that motivate it for source, the embedded-Kotlin
