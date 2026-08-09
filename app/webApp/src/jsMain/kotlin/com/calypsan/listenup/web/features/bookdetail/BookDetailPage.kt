@@ -12,7 +12,6 @@ import com.calypsan.listenup.web.design.TabItem
 import com.calypsan.listenup.web.design.Tabs
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
@@ -28,6 +27,8 @@ fun BookDetailPage(
     tab: String,
     onSelectTab: (String) -> Unit,
     onOpenLibrary: () -> Unit,
+    selection: Set<Int> = emptySet(),
+    onSelectionChange: (Set<Int>) -> Unit = {},
 ) {
     Div(attrs = { classes("bd") }) {
         Breadcrumb(listOf("Library", SAMPLE_TITLE), onNavigate = { onOpenLibrary() })
@@ -51,7 +52,11 @@ fun BookDetailPage(
             onSelect = onSelectTab,
         )
 
-        if (tab == "chapters") ChaptersPane() else OverviewPane()
+        if (tab == "chapters") {
+            ChaptersPane(selection = selection, onSelectionChange = onSelectionChange)
+        } else {
+            OverviewPane()
+        }
     }
 }
 
@@ -86,15 +91,6 @@ private fun OverviewPane() {
                 MetaList(SAMPLE_DETAILS)
             }
         }
-    }
-}
-
-/** Stands in for the chapters workbench, which is the next step of the plan. */
-@Composable
-private fun ChaptersPane() {
-    Div(attrs = { classes("empty") }) {
-        H3 { Text("Chapters") }
-        P { Text("This pane is not built yet.") }
     }
 }
 

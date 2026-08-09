@@ -101,7 +101,13 @@ class ClassContractTest :
                             onToggleCollapse = {},
                         ) {}
                         BookDetailPage(tab = "overview", onSelectTab = {}, onOpenLibrary = {})
-                        BookDetailPage(tab = "chapters", onSelectTab = {}, onOpenLibrary = {})
+                        BookDetailPage(
+                            tab = "chapters",
+                            onSelectTab = {},
+                            onOpenLibrary = {},
+                            selection = setOf(1, 2),
+                        )
+                        BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
                         }

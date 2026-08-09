@@ -48,12 +48,22 @@ fun WebAppRoot(router: Router) {
             if (page == BOOK_KEY) {
                 BookDetailPage(
                     tab = route.query["tab"] ?: "overview",
-                    // replace, not navigate: the pane is page state, and Back should leave the
-                    // page rather than unwind every pane the user looked at.
+                    // replace, not navigate: panes and selection are page state, and Back should
+                    // leave the page rather than unwind every pane and toggle.
                     onSelectTab = { tab ->
                         router.replace(Route(route.segments, route.query + ("tab" to tab)))
                     },
                     onOpenLibrary = { router.navigate(Route(listOf("library"))) },
+                    selection = parseSelection(route.query["sel"]),
+                    onSelectionChange = { selection ->
+                        val query =
+                            if (selection.isEmpty()) {
+                                route.query - "sel"
+                            } else {
+                                route.query + ("sel" to selection.sorted().joinToString(","))
+                            }
+                        router.replace(Route(route.segments, query))
+                    },
                 )
             } else {
                 PagePlaceholder(active)
@@ -74,6 +84,14 @@ private fun PagePlaceholder(key: String) {
         P { Text("This page is not built yet.") }
     }
 }
+
+/** `sel=9,10` → the selected chapter numbers; junk entries are dropped rather than crashing. */
+private fun parseSelection(raw: String?): Set<Int> =
+    raw
+        .orEmpty()
+        .split(',')
+        .mapNotNull { it.trim().toIntOrNull() }
+        .toSet()
 
 private const val HOME_KEY = "home"
 

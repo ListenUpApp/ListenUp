@@ -391,6 +391,9 @@
 [data-theme="dark"] .bulk-b { border-color:var(--line); background:var(--surface-2); }
 .bulk-b:hover { background:rgba(255,255,255,.18); }
 [data-theme="dark"] .bulk-b:hover { background:var(--surface); }
+.bulk-x { width:36px; height:36px; border-radius:9px; border:none; background:transparent; color:inherit; opacity:.65; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.bulk-x:hover { opacity:1; background:rgba(255,255,255,.12); }
+[data-theme="dark"] .bulk-x:hover { background:var(--surface-2); }
 
 /* ---- setting rows ---- */
 .srow { display:flex; align-items:center; gap:18px; padding:15px 0; border-bottom:1px solid var(--line-2); }
@@ -467,6 +470,12 @@
 .bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
 .bd-cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:var(--colgap); align-items:start; }
 .bd-main, .bd-side { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
+/* the chapter map — the book as a strip; segment width is proportional to duration */
+.chmap { display:flex; gap:2px; height:34px; }
+.chmap i { flex:1 0 2px; min-width:2px; border-radius:3px; background:var(--surface-3); cursor:pointer; transition:background .12s; }
+.chmap i:hover { background:var(--hairline); }
+.chmap i.on { background:var(--coral); }
+
 /* 760–1023: the side rail folds under the main column. */
 @media (max-width: 1023px) { .bd-cols { grid-template-columns:minmax(0,1fr); } }
 /* < 760: the thin fallback — same structure, tighter everything. */
