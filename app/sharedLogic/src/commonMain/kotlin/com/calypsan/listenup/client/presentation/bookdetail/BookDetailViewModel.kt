@@ -337,6 +337,8 @@ class BookDetailViewModel(
                     duration = domainChapter.formatDuration(),
                     imageUrl = null, // Placeholder
                     isCurrent = index == currentIdx,
+                    startMs = domainChapter.startTime,
+                    durationMs = domainChapter.duration,
                 )
             }
 
@@ -796,6 +798,15 @@ data class ChapterUiModel(
     val duration: String,
     val imageUrl: String?,
     val isCurrent: Boolean = false,
+    /**
+     * Where the chapter starts, in milliseconds. Carried alongside the formatted [duration]
+     * because a list is not the only way to draw chapters: the web Book Detail lays them out
+     * proportionally along the book, which needs the offsets themselves rather than text. The
+     * mobile screens render [duration] and ignore these.
+     */
+    val startMs: Long = 0L,
+    /** How long the chapter runs, in milliseconds. See [startMs]. */
+    val durationMs: Long = 0L,
 )
 
 /**

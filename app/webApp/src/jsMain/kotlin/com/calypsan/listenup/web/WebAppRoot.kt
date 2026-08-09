@@ -1,12 +1,16 @@
 package com.calypsan.listenup.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
+import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -26,7 +30,10 @@ import org.jetbrains.compose.web.dom.Text
  * by construction.
  */
 @Composable
-fun WebAppRoot(router: Router) {
+fun WebAppRoot(
+    router: Router,
+    openBookDetail: OpenBookDetail,
+) {
     var collapsed by remember { mutableStateOf(false) }
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
@@ -45,8 +52,10 @@ fun WebAppRoot(router: Router) {
                 router.navigate(Route(segments))
             },
         ) {
-            if (page == BOOK_KEY) {
+            val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
+            if (bookId != null) {
                 BookDetailPage(
+                    state = bookDetailState(bookId, openBookDetail),
                     tab = route.query["tab"] ?: "overview",
                     // replace, not navigate: panes and selection are page state, and Back should
                     // leave the page rather than unwind every pane and toggle.
@@ -70,6 +79,21 @@ fun WebAppRoot(router: Router) {
             }
         }
     }
+}
+
+/**
+ * Opens a Book Detail session for [bookId] and collects it, closing the previous one whenever the
+ * book changes or the page goes away. Keyed on [bookId] so navigating between books tears the old
+ * ViewModel down instead of stacking another live one behind it.
+ */
+@Composable
+private fun bookDetailState(
+    bookId: String,
+    openBookDetail: OpenBookDetail,
+): BookDetailUiState {
+    val session = remember(bookId) { openBookDetail(bookId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session.state.collectAsState().value
 }
 
 /**

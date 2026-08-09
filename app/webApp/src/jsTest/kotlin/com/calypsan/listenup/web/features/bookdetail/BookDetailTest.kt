@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web.features.bookdetail
 
+import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
@@ -31,12 +33,15 @@ class BookDetailTest :
             window.history.replaceState(null, "", originalUrl)
         }
 
-        fun mountAt(path: String): Pair<HTMLElement, Router> {
+        fun mountAt(
+            path: String,
+            source: OpenBookDetail = fixedBookDetail(readyBook()),
+        ): Pair<HTMLElement, Router> {
             window.history.replaceState(null, "", path)
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { WebAppRoot(router) }
+            renderComposable(root = host) { WebAppRoot(router, source) }
             return host to router
         }
 
@@ -95,6 +100,81 @@ class BookDetailTest :
                 window.location.pathname shouldBe "/library"
                 awaitFrame()
                 (host.querySelector(".bd") == null) shouldBe true
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the page asks the store for the book named in the URL") {
+            var asked: String? = null
+            val (_, router) =
+                mountAt("/book/the-institute") { bookId ->
+                    asked = bookId
+                    fixedBookDetail(readyBook())(bookId)
+                }
+
+            try {
+                asked shouldBe "the-institute"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a book the store doesn't have says so, and still offers the way back") {
+            // The honest state for this client today: no sync exists yet, so a deep link into an
+            // empty browser store lands here. It must not look like a broken page.
+            val (host, router) =
+                mountAt("/book/42", fixedBookDetail(BookDetailUiState.Error(BookError.NotFound())))
+
+            try {
+                (host.querySelector(".bd .empty") as HTMLElement)
+                    .textContent
+                    .orEmpty() shouldContain "Not in this browser's library"
+                (host.querySelector(".bd .crumb a") != null) shouldBe true
+                (host.querySelector(".bd-t") == null) shouldBe true
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a book still loading says that instead of showing an empty shell") {
+            val (host, router) = mountAt("/book/42", fixedBookDetail(BookDetailUiState.Loading))
+
+            try {
+                (host.querySelector(".bd .empty") as HTMLElement)
+                    .textContent
+                    .orEmpty() shouldContain "Loading"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("the header renders the book the store returned") {
+            val (host, router) = mountAt("/book/42")
+
+            try {
+                (host.querySelector(".bd-t") as HTMLElement).textContent shouldBe "The Institute"
+                (host.querySelector(".bd-by") as HTMLElement)
+                    .textContent
+                    .orEmpty() shouldContain "Stephen King · read by Santino Fontana"
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a book with no chapter marks says so rather than drawing an empty table") {
+            val (host, router) =
+                mountAt(
+                    "/book/42?tab=chapters",
+                    fixedBookDetail(readyBook(chapters = emptyList())),
+                )
+
+            try {
+                (host.querySelector(".chmap") == null) shouldBe true
+                (host.querySelector(".bd .tblwrap") == null) shouldBe true
+                (host.querySelector(".bd section") as HTMLElement)
+                    .textContent
+                    .orEmpty() shouldContain "no chapter marks"
             } finally {
                 router.dispose()
             }

@@ -36,7 +36,7 @@ class ChaptersPaneTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { WebAppRoot(router) }
+            renderComposable(root = host) { WebAppRoot(router, fixedBookDetail(readyBook())) }
             return host to router
         }
 

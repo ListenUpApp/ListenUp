@@ -1,5 +1,8 @@
 package com.calypsan.listenup.web.design
 
+import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.web.features.bookdetail.readyBook
 import androidx.compose.runtime.Composable
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -100,12 +103,33 @@ class ClassContractTest :
                             collapsed = true,
                             onToggleCollapse = {},
                         ) {}
-                        BookDetailPage(tab = "overview", onSelectTab = {}, onOpenLibrary = {})
                         BookDetailPage(
+                            state = readyBook(),
+                            tab = "overview",
+                            onSelectTab = {},
+                            onOpenLibrary = {},
+                        )
+                        BookDetailPage(
+                            state = readyBook(),
                             tab = "chapters",
                             onSelectTab = {},
                             onOpenLibrary = {},
                             selection = setOf(1, 2),
+                        )
+                        // The states with no book draw classes of their own, so they belong in
+                        // the contract too — an invented class hides just as well in an empty
+                        // state as in a full one.
+                        BookDetailPage(
+                            state = BookDetailUiState.Error(BookError.NotFound()),
+                            tab = "overview",
+                            onSelectTab = {},
+                            onOpenLibrary = {},
+                        )
+                        BookDetailPage(
+                            state = BookDetailUiState.Loading,
+                            tab = "overview",
+                            onSelectTab = {},
+                            onOpenLibrary = {},
                         )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {

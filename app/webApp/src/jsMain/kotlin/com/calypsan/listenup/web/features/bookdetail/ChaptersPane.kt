@@ -25,10 +25,16 @@ import org.jetbrains.compose.web.dom.Text
  */
 @Composable
 internal fun ChaptersPane(
+    chapters: List<WebChapter>,
     selection: Set<Int>,
     onSelectionChange: (Set<Int>) -> Unit,
 ) {
-    val chapters = SAMPLE_CHAPTERS
+    if (chapters.isEmpty()) {
+        Panel(title = "Chapters") {
+            InspectorHint("This book has no chapter marks.")
+        }
+        return
+    }
 
     Div(attrs = { classes("bd-cols") }) {
         Div(attrs = { classes("bd-main") }) {
@@ -70,7 +76,7 @@ internal fun ChaptersPane(
 @Composable
 private fun Inspector(
     selection: Set<Int>,
-    chapters: List<SampleChapter>,
+    chapters: List<WebChapter>,
 ) {
     Panel(title = "Chapter") {
         val single = selection.singleOrNull()?.let { number -> chapters.firstOrNull { it.number == number } }
@@ -117,7 +123,7 @@ private fun InspectorHint(text: String) {
  */
 @Composable
 private fun ChapterMap(
-    chapters: List<SampleChapter>,
+    chapters: List<WebChapter>,
     selection: Set<Int>,
     onToggle: (Int) -> Unit,
 ) {
@@ -137,7 +143,7 @@ private fun Set<Int>.toggled(number: Int): Set<Int> = if (number in this) this -
 
 private val CHAPTER_COLUMNS =
     listOf(
-        TableColumn<SampleChapter>("n", "#", width = 46, mono = true) { Text(it.number.toString()) },
+        TableColumn<WebChapter>("n", "#", width = 46, mono = true) { Text(it.number.toString()) },
         TableColumn("title", "Title") { Text(it.title) },
         TableColumn("start", "Start", width = 96, align = ColumnAlign.End, mono = true) {
             Text(formatClock(it.startSec))

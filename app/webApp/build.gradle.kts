@@ -56,6 +56,11 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.html.core)
             implementation(projects.app.sharedLogic)
+            // The web application starts Koin and holds the Book Detail ViewModel's lifetime
+            // itself (a browser has no ViewModelStore), so it names both directly — :app:
+            // sharedLogic keeps them `implementation` and they don't arrive transitively.
+            implementation(libs.koin.core)
+            implementation(libs.androidx.lifecycle.viewmodel)
             // The sqlite-web driver ships NO worker script — it only speaks a documented
             // message protocol (see WebWorkerSQLiteDriver's KDoc). The worker is a local npm
             // module we supply (webApp/worker), wrapping @sqlite.org/sqlite-wasm; webpack

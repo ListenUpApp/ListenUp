@@ -1,6 +1,9 @@
 package com.calypsan.listenup.web.features.bookdetail
 
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.MetaEntry
@@ -12,18 +15,24 @@ import com.calypsan.listenup.web.design.TabItem
 import com.calypsan.listenup.web.design.Tabs
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
+import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
 
 /**
- * Book Detail — the Workbench layout in the Paper voice.
+ * Book Detail — the Workbench layout in the Paper voice, over the shared
+ * [com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel]'s state.
+ *
+ * Pure in [state]: everything rendered here comes from the ViewModel, and nothing is fetched from
+ * this layer. That keeps the URL and layout specs able to drive any state deterministically, and
+ * it is why the store wiring lives one level up in `WebAppRoot`.
  *
  * The pane is URL state (`?tab=…`), reported through [onSelectTab] so the caller can `replace`
- * the history entry: Back leaves the page, not the pane. Content is a static sample until the
- * store wires in — the browser Koin modules are deliberately empty at this stage.
+ * the history entry: Back leaves the page, not the pane.
  */
 @Composable
 fun BookDetailPage(
+    state: BookDetailUiState,
     tab: String,
     onSelectTab: (String) -> Unit,
     onOpenLibrary: () -> Unit,
@@ -31,91 +40,174 @@ fun BookDetailPage(
     onSelectionChange: (Set<Int>) -> Unit = {},
 ) {
     Div(attrs = { classes("bd") }) {
-        Breadcrumb(listOf("Library", SAMPLE_TITLE), onNavigate = { onOpenLibrary() })
+        // The breadcrumb renders in every state, including the ones with no book: a page that
+        // cannot show what you asked for must still show the way out of it.
+        Breadcrumb(listOf("Library", crumb(state)), onNavigate = { onOpenLibrary() })
 
-        Div(attrs = { classes("bd-head") }) {
-            Cover(title = SAMPLE_TITLE, size = COVER_SIZE, radius = COVER_RADIUS)
-            Div(attrs = { classes("bd-tblock") }) {
-                H1(attrs = { classes("bd-t") }) { Text(SAMPLE_TITLE) }
-                Div(attrs = { classes("bd-by") }) { Text("Stephen King · read by Santino Fontana") }
-                ProgressLine(percent = SAMPLE_PROGRESS_PERCENT, remaining = "4h 42m left")
+        when (state) {
+            is BookDetailUiState.Loading -> {
+                Notice("Loading", "Reading this book from your library.")
             }
-        }
 
-        Tabs(
-            items =
-                listOf(
-                    TabItem("overview", "Overview"),
-                    TabItem("chapters", "Chapters", count = SAMPLE_CHAPTER_COUNT),
-                ),
-            active = tab,
-            onSelect = onSelectTab,
-        )
+            is BookDetailUiState.Error -> {
+                val (heading, body) = explain(state.error)
+                Notice(heading, body)
+            }
 
-        if (tab == "chapters") {
-            ChaptersPane(selection = selection, onSelectionChange = onSelectionChange)
-        } else {
-            OverviewPane()
+            is BookDetailUiState.Ready -> {
+                BookHeader(state)
+
+                Tabs(
+                    items =
+                        listOf(
+                            TabItem("overview", "Overview"),
+                            TabItem("chapters", "Chapters", count = state.chapters.size.toString()),
+                        ),
+                    active = tab,
+                    onSelect = onSelectTab,
+                )
+
+                if (tab == "chapters") {
+                    ChaptersPane(
+                        chapters = state.chapters.toWebChapters(),
+                        selection = selection,
+                        onSelectionChange = onSelectionChange,
+                    )
+                } else {
+                    OverviewPane(state)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun OverviewPane() {
-    Div(attrs = { classes("bd-cols") }) {
-        Div(attrs = { classes("bd-main") }) {
-            Panel(title = "About") {
-                P(attrs = {
-                    style {
-                        property("margin", "0 0 14px")
-                        property("font-size", "14.5px")
-                        property("line-height", "1.6")
-                        property("color", "var(--ink-2)")
-                    }
-                }) {
-                    Text(SAMPLE_BLURB)
-                }
-                Div(attrs = {
-                    style {
-                        property("display", "flex")
-                        property("flex-wrap", "wrap")
-                        property("gap", "8px")
-                    }
-                }) {
-                    SAMPLE_GENRES.forEach { genre -> Pill(genre) }
-                }
-            }
-        }
-        Div(attrs = { classes("bd-side") }) {
-            Panel(title = "Details") {
-                MetaList(SAMPLE_DETAILS)
+private fun BookHeader(state: BookDetailUiState.Ready) {
+    Div(attrs = { classes("bd-head") }) {
+        Cover(title = state.book.title, size = COVER_SIZE, radius = COVER_RADIUS)
+        Div(attrs = { classes("bd-tblock") }) {
+            H1(attrs = { classes("bd-t") }) { Text(state.book.title) }
+            byline(state)?.let { line -> Div(attrs = { classes("bd-by") }) { Text(line) } }
+            // Only a book actually in progress gets a progress line — a 0% bar on an unstarted
+            // book is decoration that reads as data.
+            state.progress?.let { fraction ->
+                ProgressLine(
+                    percent = (fraction * PERCENT).toInt(),
+                    remaining = state.timeRemainingFormatted.orEmpty(),
+                )
             }
         }
     }
 }
 
-private const val SAMPLE_TITLE = "The Institute"
+@Composable
+private fun OverviewPane(state: BookDetailUiState.Ready) {
+    Div(attrs = { classes("bd-cols") }) {
+        Div(attrs = { classes("bd-main") }) {
+            Panel(title = "About") {
+                if (state.descriptionText.isNotBlank()) {
+                    P(attrs = {
+                        style {
+                            property("margin", "0 0 14px")
+                            property("font-size", "14.5px")
+                            property("line-height", "1.6")
+                            property("color", "var(--ink-2)")
+                        }
+                    }) {
+                        Text(state.descriptionText)
+                    }
+                }
+                if (state.genres.isNotEmpty()) {
+                    Div(attrs = {
+                        style {
+                            property("display", "flex")
+                            property("flex-wrap", "wrap")
+                            property("gap", "8px")
+                        }
+                    }) {
+                        state.genres.forEach { genre -> Pill(genre.name) }
+                    }
+                }
+                if (state.descriptionText.isBlank() && state.genres.isEmpty()) {
+                    Hint("No description has been written for this book.")
+                }
+            }
+        }
+        Div(attrs = { classes("bd-side") }) {
+            Panel(title = "Details") {
+                MetaList(details(state))
+            }
+        }
+    }
+}
 
-private const val SAMPLE_CHAPTER_COUNT = "33"
+/**
+ * The Details panel, built only from fields the book actually carries. A row that would read
+ * "Unknown" is a row that shouldn't be drawn.
+ */
+private fun details(state: BookDetailUiState.Ready): List<MetaEntry> =
+    buildList {
+        add(MetaEntry("Duration", state.book.formatDuration(), machine = true))
+        if (state.chapters.isNotEmpty()) add(MetaEntry("Chapters", state.chapters.size.toString()))
+        state.year?.let { add(MetaEntry("Published", it.toString(), machine = true)) }
+        state.book.publisher?.let { add(MetaEntry("Publisher", it)) }
+        state.book.language?.let { add(MetaEntry("Language", it)) }
+        if (state.book.narratorNames.isNotBlank()) add(MetaEntry("Narrator", state.book.narratorNames))
+    }
 
-private const val SAMPLE_PROGRESS_PERCENT = 49
+/** "Author · read by Narrator", dropping either half when the book doesn't name it. */
+private fun byline(state: BookDetailUiState.Ready): String? {
+    val authors = state.book.authorNames.takeIf { it.isNotBlank() }
+    val narrators = state.narrators.takeIf { it.isNotBlank() }?.let { "read by $it" }
+    return listOfNotNull(authors, narrators).joinToString(" · ").takeIf { it.isNotBlank() }
+}
 
-private const val SAMPLE_BLURB =
-    "In the middle of the night, in a house on a quiet street in suburban Minneapolis, intruders " +
-        "take twelve-year-old Luke Ellis. He wakes up at The Institute, in a room that looks " +
-        "just like his own — except there's no window."
+private fun crumb(state: BookDetailUiState): String = if (state is BookDetailUiState.Ready) state.book.title else "Book"
 
-private val SAMPLE_GENRES = listOf("Horror", "Thriller", "Supernatural")
+/**
+ * What to say about a failed load, chosen from the typed error rather than from its text.
+ *
+ * Every subtype but one renders its own `message`, which is the rule. `BookError.NotFound` is the
+ * exception, and deliberately: its message is "This book no longer exists.", which is true for a
+ * synced client and false for this one. A web client has no sync at all until the auth arc lands,
+ * so a book missing from the local store means an empty browser far more often than a deleted
+ * book — and telling a reader their book is gone when it is sitting on their server is the kind
+ * of confident lie this codebase exists to avoid. Revisit once web sync can tell the two apart.
+ */
+private fun explain(error: AppError): Pair<String, String> =
+    if (error is BookError.NotFound) {
+        "Not in this browser's library" to
+            "This browser hasn't synced a library yet, so there's nothing to show here."
+    } else {
+        "This book can't be shown" to error.message
+    }
 
-private val SAMPLE_DETAILS =
-    listOf(
-        MetaEntry("Duration", "9:14:06", machine = true),
-        MetaEntry("Chapters", "33"),
-        MetaEntry("Published", "2019"),
-        MetaEntry("Format", "M4B · 64 kb/s", machine = true),
-        MetaEntry("Size", "512 MB", machine = true),
-        MetaEntry("Added", "2026-06-02", machine = true),
-    )
+@Composable
+private fun Notice(
+    heading: String,
+    body: String,
+) {
+    Div(attrs = { classes("empty") }) {
+        H3 { Text(heading) }
+        P { Text(body) }
+    }
+}
+
+@Composable
+private fun Hint(text: String) {
+    P(attrs = {
+        style {
+            property("margin", "0")
+            property("font-size", "13.5px")
+            property("color", "var(--ink-3)")
+            property("font-weight", "500")
+        }
+    }) {
+        Text(text)
+    }
+}
+
+private const val PERCENT = 100
 
 private const val COVER_SIZE = 180
 
