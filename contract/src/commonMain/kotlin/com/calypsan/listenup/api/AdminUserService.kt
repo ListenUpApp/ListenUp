@@ -1,6 +1,8 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -71,4 +73,17 @@ interface AdminUserService {
 
     /** Replaces the instance-wide registration policy with [policy]. */
     suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit>
+
+    /** Reset requests awaiting a decision, newest first. Carries no codes. */
+    suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>>
+
+    /**
+     * Approve or deny a reset request. **Approval returns the code** for the admin to convey
+     * out of band — it is returned here and in no other response, and never in a push payload
+     * or a log.
+     */
+    suspend fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ): AppResult<PasswordResetDecisionOutcome>
 }

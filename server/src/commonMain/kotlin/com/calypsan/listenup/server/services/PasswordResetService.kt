@@ -4,6 +4,8 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
 import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
+import com.calypsan.listenup.api.dto.auth.PasswordResetStatus
+import com.calypsan.listenup.api.dto.auth.PasswordResetStatusEvent
 import com.calypsan.listenup.api.dto.auth.PasswordResetTicket
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
@@ -16,8 +18,14 @@ import com.calypsan.listenup.server.auth.PepperedHasher
 import com.calypsan.listenup.server.auth.ResetCodeGenerator
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.transformWhile
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 /**
@@ -270,6 +278,64 @@ class PasswordResetService(
         }
     }
 
+    /**
+     * Streams [ticketId]'s status: current state immediately, then live updates, completing the
+     * moment the state turns terminal (`DENIED`/`CONSUMED`/`EXPIRED` — `PENDING` and `APPROVED`
+     * are not). Backed by a poll rather than a push, mirroring
+     * [com.calypsan.listenup.server.auth.RegistrationStatusWatch]'s never-stranded shape.
+     *
+     * ⛔ **A [ticketId] with no backing row does NOT error and does NOT read as terminal.** That
+     * would make [request] an account-existence oracle one call later — see the KDoc on
+     * [com.calypsan.listenup.api.AuthServicePublic.observePasswordResetStatus]. Instead it behaves
+     * exactly like a real request nobody has approved yet: a phantom expiry is minted at the
+     * *first* poll (not re-minted every poll — that would postpone `EXPIRED` forever), and the
+     * stream reports `PENDING` until that phantom expiry passes, then `EXPIRED`.
+     */
+    fun observeStatus(ticketId: String): Flow<PasswordResetStatusEvent> =
+        flow {
+            val phantomExpiresAt = clock.now().toEpochMilliseconds() + TTL.inWholeMilliseconds
+            emitAll(statusPoll(ticketId, phantomExpiresAt))
+        }.transformWhile { event ->
+            emit(event)
+            event.status == PasswordResetStatus.PENDING || event.status == PasswordResetStatus.APPROVED
+        }
+
+    /** Re-reads [currentStatus] on a fixed cadence forever — the caller decides when to stop collecting. */
+    private fun statusPoll(
+        ticketId: String,
+        phantomExpiresAt: Long,
+    ): Flow<PasswordResetStatusEvent> =
+        flow {
+            while (true) {
+                emit(currentStatus(ticketId, phantomExpiresAt))
+                delay(STATUS_POLL_INTERVAL)
+            }
+        }
+
+    /**
+     * The request's effective status right now. Expiry is checked inline against [Clock], not a
+     * persisted sweep — matching [decide] and [complete]'s "a missed purge must never resurrect a
+     * request" rule, so a `PENDING`/`APPROVED` row past its `expires_at` reads as `EXPIRED` here
+     * even though no row was ever written with that status.
+     */
+    private suspend fun currentStatus(
+        ticketId: String,
+        phantomExpiresAt: Long,
+    ): PasswordResetStatusEvent {
+        val row =
+            suspendTransaction(db) {
+                db.passwordResetRequestsQueries.selectById(ticketId).executeAsOneOrNull()
+            }
+        val now = clock.now().toEpochMilliseconds()
+        if (row == null) {
+            val status = if (now >= phantomExpiresAt) PasswordResetStatus.EXPIRED else PasswordResetStatus.PENDING
+            return PasswordResetStatusEvent(status = status, expiresAt = phantomExpiresAt)
+        }
+        val liveButPastExpiry = row.status in LIVE_STATES && row.expires_at <= now
+        val status = if (liveButPastExpiry) PasswordResetStatus.EXPIRED else PasswordResetStatus.valueOf(row.status)
+        return PasswordResetStatusEvent(status = status, expiresAt = row.expires_at)
+    }
+
     companion object {
         /** How long a request stays live. Short enough to bound exposure, long enough to phone someone. */
         internal val TTL = 15.minutes
@@ -281,6 +347,15 @@ class PasswordResetService(
         // error's contract ("unknown, expired, or already consumed... collapse to one shape").
         // DENIED is deliberately excluded — see the comment at its call site in [complete].
         private val TERMINAL_STATES = setOf("CONSUMED", "EXPIRED")
+
+        // Statuses a row can still transition out of — the ones [currentStatus] must re-check
+        // against [Clock] on every poll, since a live row can silently pass its `expires_at`
+        // without ever being written as EXPIRED (matching decide()/complete()'s no-sweep rule).
+        private val LIVE_STATES = setOf("PENDING", "APPROVED")
+
+        // Re-check cadence for [observeStatus]'s poll — mirrors
+        // [com.calypsan.listenup.server.auth.RegistrationStatusWatch]'s STATUS_RECHECK_INTERVAL_MILLIS.
+        private val STATUS_POLL_INTERVAL = 3.seconds
 
         // Domain separation. The reset hasher is keyed with the SAME server pepper as the
         // refresh-token hasher — there is one pepper in resolveServerSecrets, and minting a

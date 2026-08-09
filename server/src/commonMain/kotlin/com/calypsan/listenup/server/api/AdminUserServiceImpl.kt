@@ -5,6 +5,8 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -20,6 +22,7 @@ import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
+import com.calypsan.listenup.server.services.PasswordResetService
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
@@ -79,6 +82,13 @@ class AdminUserServiceImpl(
      * published — the roster self-heals via [AdminUserRosterMaintainer.backfillAll] at startup.
      */
     private val adminUserRosterMaintainer: AdminUserRosterMaintainer? = null,
+    /**
+     * Nullable so the auth module assembles independently of the (not-yet-wired) password-reset
+     * DI slice — production DI does not bind this yet; wiring lands in a follow-up. A null value
+     * degrades [listPasswordResetRequests] to an empty queue and [decidePasswordReset] to
+     * [AuthError.ResetRequestNotFound] rather than throwing.
+     */
+    private val passwordResetService: PasswordResetService? = null,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
@@ -95,6 +105,7 @@ class AdminUserServiceImpl(
             activityRecorder,
             defaultGrantIssuer,
             adminUserRosterMaintainer,
+            passwordResetService,
         )
 
     override suspend fun listUsers(): AppResult<List<User>> {
@@ -318,6 +329,31 @@ class AdminUserServiceImpl(
         // reconnecting subscriber re-reads the same durable value.
         registrationPolicyBroadcaster.notify(policy)
         return AppResult.Success(Unit)
+    }
+
+    /**
+     * Delegates to [PasswordResetService.listPending]. When unwired ([passwordResetService] is
+     * null — DI wiring is a follow-up), reports an empty queue rather than throwing.
+     */
+    override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> {
+        requireAdmin()?.let { return it }
+        return AppResult.Success(passwordResetService?.listPending().orEmpty())
+    }
+
+    /**
+     * Delegates to [PasswordResetService.decide], passing the caller's id as the deciding admin
+     * — mirrors [decidePendingRegistration]'s shape. When unwired, reports
+     * [AuthError.ResetRequestNotFound] — the same shape a genuinely unknown request produces,
+     * since nothing is tracked to decide on.
+     */
+    override suspend fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ): AppResult<PasswordResetDecisionOutcome> {
+        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
+        if (!caller.role.isAdmin()) return AppResult.Failure(AuthError.PermissionDenied())
+        val service = passwordResetService ?: return AppResult.Failure(AuthError.ResetRequestNotFound())
+        return service.decide(requestId, approved, caller.userId.value)
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────

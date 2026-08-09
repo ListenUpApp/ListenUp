@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -114,6 +116,16 @@ private class FakeAdminUserService : AdminUserService {
         lastSetPolicy = policy
         return AppResult.Success(Unit)
     }
+
+    override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> = AppResult.Success(emptyList())
+
+    override suspend fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ): AppResult<PasswordResetDecisionOutcome> =
+        AppResult.Success(
+            if (approved) PasswordResetDecisionOutcome.Approved("ABCD-2345") else PasswordResetDecisionOutcome.Denied,
+        )
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

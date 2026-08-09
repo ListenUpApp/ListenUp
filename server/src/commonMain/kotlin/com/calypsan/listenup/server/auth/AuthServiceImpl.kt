@@ -10,6 +10,9 @@ import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.PasswordResetStatus
+import com.calypsan.listenup.api.dto.auth.PasswordResetStatusEvent
+import com.calypsan.listenup.api.dto.auth.PasswordResetTicket
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
@@ -30,11 +33,13 @@ import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
+import com.calypsan.listenup.server.services.PasswordResetService
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
@@ -118,6 +123,13 @@ class AuthServiceImpl(
      * policy change.
      */
     internal val registrationPolicyBroadcaster: RegistrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
+    /**
+     * Nullable so the auth module assembles independently of the (not-yet-wired) password-reset
+     * DI slice — production DI does not bind this yet; wiring lands in a follow-up. A null value
+     * degrades [requestPasswordReset]/[observePasswordResetStatus]/[completePasswordReset] to
+     * their safe unwired fallbacks (see each method's body) rather than throwing.
+     */
+    internal val passwordResetService: PasswordResetService? = null,
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -394,6 +406,62 @@ class AuthServiceImpl(
             )
         }
 
+    /**
+     * Delegates to [PasswordResetService.request]. When unwired ([passwordResetService] is
+     * null — DI wiring is a follow-up), still honours the "always succeeds, identical shape"
+     * contract by minting the same discarded-ticket shape [PasswordResetService] would produce
+     * for an unknown address — never an error, never a real persisted request.
+     */
+    override suspend fun requestPasswordReset(
+        email: String,
+        deviceClaim: String,
+    ): AppResult<PasswordResetTicket> {
+        val service =
+            passwordResetService ?: return AppResult.Success(
+                PasswordResetTicket(
+                    ticketId = Uuid.random().toString(),
+                    expiresAt = (clock.now() + PasswordResetService.TTL).toEpochMilliseconds(),
+                ),
+            )
+        return service.request(email, deviceClaim)
+    }
+
+    /**
+     * Delegates to [PasswordResetService.observeStatus]. When unwired, degrades to a single
+     * `PENDING` frame that never completes — never an error (per the KDoc on
+     * [AuthServicePublic.observePasswordResetStatus]) and never a false `EXPIRED`/terminal read.
+     */
+    override fun observePasswordResetStatus(ticketId: String): Flow<RpcEvent<PasswordResetStatusEvent>> {
+        val service =
+            passwordResetService ?: return flow {
+                emit(
+                    RpcEvent.Data(
+                        PasswordResetStatusEvent(
+                            status = PasswordResetStatus.PENDING,
+                            expiresAt = (clock.now() + PasswordResetService.TTL).toEpochMilliseconds(),
+                        ),
+                    ),
+                )
+                awaitCancellation()
+            }
+        return service.observeStatus(ticketId).map { RpcEvent.Data(it) }
+    }
+
+    /**
+     * Delegates to [PasswordResetService.complete]. When unwired, reports
+     * [AuthError.ResetRequestNotFound] — the same shape a genuinely unknown ticket produces,
+     * since nothing is tracked to complete against.
+     */
+    override suspend fun completePasswordReset(
+        ticketId: String,
+        claimSecret: String,
+        code: String,
+        newPassword: String,
+    ): AppResult<Unit> {
+        val service = passwordResetService ?: return AppResult.Failure(AuthError.ResetRequestNotFound())
+        return service.complete(ticketId, claimSecret, code, newPassword)
+    }
+
     override suspend fun logout(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revoke(p.sessionId, p.userId)
@@ -438,6 +506,7 @@ class AuthServiceImpl(
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
+            passwordResetService = passwordResetService,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -461,6 +530,7 @@ class AuthServiceImpl(
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
+            passwordResetService = passwordResetService,
         )
 
     /**
@@ -487,6 +557,7 @@ class AuthServiceImpl(
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
+            passwordResetService = passwordResetService,
         )
 
     /**

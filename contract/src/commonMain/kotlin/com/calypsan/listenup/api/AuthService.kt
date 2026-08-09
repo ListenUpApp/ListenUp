@@ -2,6 +2,8 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.PasswordResetStatusEvent
+import com.calypsan.listenup.api.dto.auth.PasswordResetTicket
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
@@ -65,6 +67,50 @@ interface AuthServicePublic {
      * surface, and resubscribes on drop.
      */
     fun observeRegistrationPolicy(): Flow<RpcEvent<RegistrationPolicy>>
+
+    /**
+     * Opens a password-reset request for the account registered to [email].
+     *
+     * **Always succeeds**, whether or not an account exists — the returned ticket is
+     * indistinguishable in shape for a known and an unknown address. This endpoint must never
+     * become an account-existence oracle.
+     *
+     * [deviceClaim] is a high-entropy secret the caller mints and retains; the server persists
+     * only a keyed hash of it, and the same value must be presented again at completion. It
+     * binds the reset to the install that asked for it.
+     */
+    suspend fun requestPasswordReset(
+        email: String,
+        deviceClaim: String,
+    ): AppResult<PasswordResetTicket>
+
+    /**
+     * Streams the state of the reset request identified by [ticketId]. Emits current state
+     * immediately, then live updates, and COMPLETES when the state turns terminal — the
+     * completion IS the signal.
+     *
+     * ⛔ **An unrecognised ticket must NOT error.** [requestPasswordReset] deliberately returns
+     * a minted-but-unpersisted ticket for an address with no account; if this stream answered
+     * "no such ticket", that guarantee would be undone one call later. An unknown ticket
+     * therefore behaves like a real request nobody has approved: emits `PENDING`, then
+     * completes as `EXPIRED` once the TTL elapses.
+     * [com.calypsan.listenup.api.error.AuthError.ResetRequestNotFound] belongs to
+     * [completePasswordReset] and must never appear here.
+     */
+    fun observePasswordResetStatus(ticketId: String): Flow<RpcEvent<PasswordResetStatusEvent>>
+
+    /**
+     * Completes an approved reset. Requires BOTH the [claimSecret] minted by the requesting
+     * device and the [code] the admin conveyed out of band. On success every session for the
+     * account is revoked — if the reset followed a compromise, leaving the intruder signed in
+     * would defeat it. Consumes an attempt on failure; five failures kill the request.
+     */
+    suspend fun completePasswordReset(
+        ticketId: String,
+        claimSecret: String,
+        code: String,
+        newPassword: String,
+    ): AppResult<Unit>
 }
 
 /**
