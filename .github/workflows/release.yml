@@ -54,9 +54,16 @@ jobs:
           if [ -n "$INPUT" ]; then
             CLEAN="${INPUT#v}"
             echo "$CLEAN" > VERSION
+            # Keep the README status badge in step with VERSION. It is carried in the same
+            # commit deliberately: hand-updating it drifted six releases (0.6.0 while shipping
+            # 0.8.6), because nothing failed when it was forgotten.
+            sed -i -E \
+              -e "s|status-beta%20v[0-9]+\.[0-9]+\.[0-9]+-orange|status-beta%20v$CLEAN-orange|" \
+              -e "s|alt=\"Beta v[0-9]+\.[0-9]+\.[0-9]+\"|alt=\"Beta v$CLEAN\"|" \
+              README.md
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add VERSION
+            git add VERSION README.md
             git commit -m "🔖 chore: release v$CLEAN"
             git tag "v$CLEAN"
             git push origin HEAD:main

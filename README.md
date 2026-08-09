@@ -15,7 +15,8 @@
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white" alt="Android" /></a>
   <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white" alt="iOS" /></a>
   <a href="https://www.jetbrains.com/compose-multiplatform/"><img src="https://img.shields.io/badge/Compose-Multiplatform-4285F4?logo=jetpackcompose&logoColor=white" alt="Compose Multiplatform" /></a>
-  <img src="https://img.shields.io/badge/status-beta%20v0.6.0-orange" alt="Beta v0.6.0" />
+  <!-- Rewritten automatically by the Release workflow's version-bump step. Do not hand-edit. -->
+  <img src="https://img.shields.io/badge/status-beta%20v0.8.6-orange" alt="Beta v0.8.6" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="License" />
 </p>
 
