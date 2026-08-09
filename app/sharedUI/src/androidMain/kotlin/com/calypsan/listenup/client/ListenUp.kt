@@ -255,6 +255,7 @@ val playbackModule =
         single<PlaybackController> {
             AndroidPlaybackController(
                 holder = get<MediaControllerHolder>().asControllerHolder(),
+                packageName = get<Context>().packageName,
             )
         }
 
