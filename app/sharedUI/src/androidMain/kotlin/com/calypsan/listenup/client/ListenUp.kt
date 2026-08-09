@@ -47,6 +47,8 @@ import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
+import com.calypsan.listenup.client.playback.UriPermissionGranter
+import com.calypsan.listenup.client.playback.ContextUriPermissionGranter
 import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.client.playback.cast.initializeCast
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
@@ -229,6 +231,7 @@ val playbackModule =
         single {
             CoverFetcher { bookId -> get<ImageRepository>().downloadBookCover(bookId) }
         }
+        single<UriPermissionGranter> { ContextUriPermissionGranter(context = get()) }
 
         // Browse tree provider for Android Auto
         single {

@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.playback
 
 import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.Toast
@@ -96,6 +95,7 @@ internal class ListenUpSessionCallback(
     private val positionRepository: PlaybackPositionRepository,
     private val serviceScope: CoroutineScope,
     private val transport: PlaybackTransport,
+    private val uriPermissionGranter: UriPermissionGranter,
 ) : MediaLibrarySession.Callback {
     override fun onConnect(
         session: MediaSession,
@@ -140,19 +140,20 @@ internal class ListenUpSessionCallback(
      * Grants [packageName] read access to every book cover.
      *
      * `CoverContentProvider` is not exported, so a controller can only reach it through an
-     * explicit grant. `FLAG_GRANT_PREFIX_URI_PERMISSION` covers the whole `/covers` path, so
-     * this is one grant per connection rather than one per book.
+     * explicit grant. The prefix URI (via [uriPermissionGranter]) covers the whole `/covers`
+     * path, so this is one grant per connection rather than one per book.
      *
      * Best-effort: a failure here costs cover art, never playback, so it must not break the
      * connection.
+     *
+     * `internal`, not `private`: this is the branch's highest-risk line — swapping the grantee
+     * package and the URI produces no crash and no compile error, just silently blank covers in
+     * a car — so [ListenUpSessionCallbackTest] calls it directly rather than only through the
+     * pure [mayAccessCoverArt] policy check.
      */
-    private fun grantCoverArtAccess(packageName: String) {
+    internal fun grantCoverArtAccess(packageName: String) {
         try {
-            context.grantUriPermission(
-                packageName,
-                CoverUri.prefixUri(context.packageName),
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION,
-            )
+            uriPermissionGranter.grantRead(packageName, CoverUri.prefixUri(context.packageName))
             logger.debug { "Granted cover art access to $packageName" }
         } catch (e: SecurityException) {
             logger.warn(e) { "Could not grant cover art access to $packageName" }

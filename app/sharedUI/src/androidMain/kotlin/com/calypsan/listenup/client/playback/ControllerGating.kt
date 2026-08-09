@@ -98,6 +98,12 @@ internal fun playerCommandsFor(trust: ControllerTrust): Player.Commands =
  * our own UI, Android Auto / Automotive, and our media notification. Withheld from everything
  * else, so no other app on the device can enumerate the user's library art.
  *
+ * [ControllerTrust.TRUSTED_SYSTEM] is denied a grant for a reason this enum can't see on its
+ * own: `AudiobookNotificationProvider` decodes cover art into a [android.graphics.Bitmap]
+ * in-process and calls `setLargeIcon` directly, so the notification — and the lock-screen
+ * surface the system promotes it to — never needs a URI grant to show artwork; the bytes are
+ * already baked into the notification.
+ *
  * The `when` is exhaustive so adding a trust level forces this decision rather than defaulting
  * into it.
  */

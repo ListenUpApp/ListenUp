@@ -158,6 +158,7 @@ class PlaybackService :
     private val voiceIntentResolver: VoiceIntentResolver by inject()
     private val homeRepository: HomeRepository by inject()
     private val castPreparer: CastPreparer by inject()
+    private val uriPermissionGranter: UriPermissionGranter by inject()
 
     // Current book ID is read from PlaybackManager (single source of truth)
     private val currentBookId: BookId?
@@ -382,6 +383,7 @@ class PlaybackService :
                     positionRepository = positionRepository,
                     serviceScope = serviceScope,
                     transport = this,
+                    uriPermissionGranter = uriPermissionGranter,
                 ),
             )
         if (sessionIntent != null) {

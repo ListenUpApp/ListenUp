@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.Player
 import androidx.media3.session.MediaSession
@@ -7,6 +8,7 @@ import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import androidx.test.core.app.ApplicationProvider
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
+import com.calypsan.listenup.client.automotive.CoverUri
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -237,6 +239,31 @@ class ListenUpSessionCallbackTest {
         player.fileRelativeSeekCalls.shouldBeEmpty()
     }
 
+    // ── Cover art URI grant ───────────────────────────────────────────────────
+    //
+    // `grantCoverArtAccess` is the branch's highest-risk line: swapping the grantee package
+    // and the URI compiles cleanly, crashes nothing, and produces no test failure on its
+    // own — just silently blank cover art in a car. `MediaSession.ControllerInfo` is a final
+    // Media3 class the test suite cannot construct, so this calls `grantCoverArtAccess`
+    // directly (it is `internal` for exactly this) rather than driving it through `onConnect`.
+
+    @Test
+    fun `grantCoverArtAccess grants the connecting controller our own cover prefix URI`() {
+        val granter = FakeUriPermissionGranter()
+        val callback =
+            callbackWith(player = null, bookPositionMs = 0L, timeline = null, uriPermissionGranter = granter)
+        val controllerPackage = "com.google.android.projection.gearhead"
+
+        callback.grantCoverArtAccess(controllerPackage)
+
+        // Both halves matter: the grantee must be the *controller's* package (not ours), and
+        // the URI must be built from *our* package (not the controller's) — a swap of the two
+        // arguments would satisfy neither half correctly while still "granting something".
+        val (grantedPackage, grantedUri) = granter.grants.single()
+        grantedPackage shouldBe controllerPackage
+        grantedUri shouldBe CoverUri.prefixUri(context.packageName)
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /**
@@ -330,6 +357,7 @@ class ListenUpSessionCallbackTest {
         timeline: PlaybackTimeline?,
         chapters: List<Chapter> = emptyList(),
         publishedPositions: MutableList<Pair<Int, Long>> = mutableListOf(),
+        uriPermissionGranter: UriPermissionGranter = FakeUriPermissionGranter(),
     ): ListenUpSessionCallback {
         val playbackManager = mock<PlaybackManager>()
         every { playbackManager.chapters } returns MutableStateFlow(chapters)
@@ -347,6 +375,7 @@ class ListenUpSessionCallbackTest {
             positionRepository = mock<PlaybackPositionRepository>(),
             serviceScope = CoroutineScope(Dispatchers.Unconfined),
             transport = FakePlaybackTransport(player, bookPositionMs),
+            uriPermissionGranter = uriPermissionGranter,
         )
     }
 
@@ -374,6 +403,18 @@ class ListenUpSessionCallbackTest {
             seriesRepository = mock<SeriesRepository>(),
             bookRepository = mock<BookRepository>(),
         )
+}
+
+/** Records every grant so a test can assert exactly which package was granted which URI. */
+private class FakeUriPermissionGranter : UriPermissionGranter {
+    val grants = mutableListOf<Pair<String, Uri>>()
+
+    override fun grantRead(
+        toPackage: String,
+        uri: Uri,
+    ) {
+        grants += toPackage to uri
+    }
 }
 
 /** Records nothing: these tests assert on the player the transport hands out, not on the seam itself. */
