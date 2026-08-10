@@ -583,6 +583,25 @@ class AuthServiceImplTest :
                     .shouldBeInstanceOf<AuthError.RateLimited>()
             }
         }
+
+        test("resetRootPassword throttles after the RESET_ROOT_PASSWORD ceiling from one host") {
+            runTest {
+                val svc = newSvcWithRateLimiter("10.0.0.11")
+
+                // The hatch is disarmed (no rootPasswordResetService override) — every one of
+                // these fails as RootResetUnavailable, not RateLimited, so the throttle itself
+                // (not the token check) is what's under test here.
+                repeat(AuthRateBucket.RESET_ROOT_PASSWORD.perMinuteLimit) {
+                    svc.resetRootPassword("wrong-token", "a-strong-new-password")
+                }
+
+                svc
+                    .resetRootPassword("wrong-token", "a-strong-new-password")
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.RateLimited>()
+            }
+        }
     })
 
 private fun callerOf(

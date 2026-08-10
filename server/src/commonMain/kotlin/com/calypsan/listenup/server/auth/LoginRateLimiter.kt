@@ -53,6 +53,14 @@ enum class AuthRateBucket(
      * tickets — and caps the Argon2 CPU/memory amplification behind each call.
      */
     COMPLETE_PASSWORD_RESET(5),
+
+    /**
+     * `resetRootPassword`. The 128-bit token makes guessing impractical and a wrong guess costs
+     * only an in-memory comparison — but this is an unauthenticated method on the public mount,
+     * and every sibling here is bucketed. Consistency is the point: an un-bucketed auth method is
+     * an exception a reader has to go and verify, so it should not exist without a reason.
+     */
+    RESET_ROOT_PASSWORD(5),
 }
 
 /** Outcome of a rate-limit probe: proceed, or reject with a client-surfaced `Retry-After`. */

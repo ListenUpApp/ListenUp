@@ -6,12 +6,16 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.Argon2Limiter
+import com.calypsan.listenup.server.auth.ConsumeOutcome
 import com.calypsan.listenup.server.auth.PasswordPolicy
 import com.calypsan.listenup.server.auth.RootResetToken
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
+
+private val logger = loggerFor<RootPasswordResetService>()
 
 /**
  * Root's escape hatch: resets root's password against the one-time token
@@ -48,13 +52,27 @@ class RootPasswordResetService(
      *
      * On success every session for root is revoked — the same never-leave-an-intruder-signed-in
      * guarantee [PasswordResetService.complete] makes for a member reset.
+     *
+     * A rejected attempt is logged server-side with WHY (unarmed / expired / already-consumed /
+     * wrong-token) — this is the break-glass path for when things have already gone wrong, and an
+     * operator locked out mid-incident deserves a diagnostic. The reason never leaves this
+     * function: the returned [AppError.RootResetUnavailable] is identical regardless, and the log
+     * line never includes the token value itself (the startup banner is the one sanctioned place
+     * for that).
      */
     suspend fun resetRoot(
         token: String,
         newPassword: String,
     ): AppResult<Unit> {
-        if (!rootResetToken.consume(token, clock.now())) {
-            return AppResult.Failure(AuthError.RootResetUnavailable())
+        when (val outcome = rootResetToken.consume(token, clock.now())) {
+            is ConsumeOutcome.Consumed -> {
+                Unit
+            }
+
+            is ConsumeOutcome.Rejected -> {
+                logger.info { "root password reset rejected: ${outcome.reason}" }
+                return AppResult.Failure(AuthError.RootResetUnavailable())
+            }
         }
         PasswordPolicy.validate(newPassword).let { if (it is AppResult.Failure) return it }
 

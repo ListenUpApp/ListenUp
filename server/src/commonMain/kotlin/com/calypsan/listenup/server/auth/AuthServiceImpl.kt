@@ -453,7 +453,10 @@ class AuthServiceImpl(
     override suspend fun resetRootPassword(
         token: String,
         newPassword: String,
-    ): AppResult<Unit> = rootPasswordResetService.resetRoot(token, newPassword)
+    ): AppResult<Unit> {
+        enforceRate(AuthRateBucket.RESET_ROOT_PASSWORD)?.let { return AppResult.Failure(it) }
+        return rootPasswordResetService.resetRoot(token, newPassword)
+    }
 
     override suspend fun logout(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
