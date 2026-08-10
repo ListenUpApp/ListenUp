@@ -56,6 +56,17 @@ interface PasswordResetRepository {
     suspend fun resumableTicketId(): String?
 
     /**
+     * Abandons a request that reached a terminal state without the requester ever completing
+     * it — denied by an admin, or expired while waiting. Clears the retained device claim and
+     * ticket id, mirroring [completeReset]'s own success-path clear.
+     *
+     * Without this, [resumableTicketId] would keep resuming a dead ticket into a "waiting for
+     * approval" state on every cold start until the caller's own round trip discovers it is
+     * actually dead — a stranding this call exists to prevent.
+     */
+    suspend fun abandonPendingRequest()
+
+    /**
      * Completes an approved reset using the retained device claim and the admin-supplied [code].
      * On success, both the claim and the ticket id are cleared from local storage. On failure —
      * including a simply-wrong [code] — both are retained, so a retry with the correct code can

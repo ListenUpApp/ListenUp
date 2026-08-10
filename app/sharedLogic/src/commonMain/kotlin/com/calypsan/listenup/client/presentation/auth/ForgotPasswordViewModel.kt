@@ -116,9 +116,9 @@ class ForgotPasswordViewModel(
         code: String,
         newPassword: String,
     ) {
-        val current = state.value as? ForgotPasswordUiState.EnterCode ?: return
+        val ticketId = (state.value as? ForgotPasswordUiState.EnterCode)?.ticketId ?: return
         viewModelScope.launch {
-            when (val result = repository.completeReset(current.ticketId, code, newPassword)) {
+            when (val result = repository.completeReset(ticketId, code, newPassword)) {
                 is AppResult.Success -> {
                     stopWatching()
                     state.value = ForgotPasswordUiState.Complete
@@ -126,13 +126,38 @@ class ForgotPasswordViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    val attemptsRemaining = (result.error as? AuthError.ResetCodeIncorrect)?.attemptsRemaining
-                    state.value =
-                        current.copy(
-                            attemptsRemaining = attemptsRemaining,
-                            error = result.error.message,
-                        )
+                    // Re-read state.value here rather than writing back the snapshot captured
+                    // above: the background watch runs concurrently with this network call and
+                    // may have discovered a genuine terminal status (EXPIRED/DENIED) while it was
+                    // in flight. Only decorate with the wrong-code feedback if the screen is
+                    // STILL EnterCode for the SAME ticket — otherwise this would clobber the real
+                    // terminal state with stale feedback for a request that's already dead.
+                    val latest = state.value as? ForgotPasswordUiState.EnterCode
+                    if (latest != null && latest.ticketId == ticketId) {
+                        val attemptsRemaining = (result.error as? AuthError.ResetCodeIncorrect)?.attemptsRemaining
+                        state.value =
+                            latest.copy(
+                                attemptsRemaining = attemptsRemaining,
+                                error = result.error.message,
+                            )
+                    }
                 }
+            }
+        }
+    }
+
+    /**
+     * Manually re-checks status: the reliable one-shot pull first (works even where the stream
+     * doesn't), then re-opens the stream for instant future pushes if still awaiting approval.
+     * The "never stranded" manual fallback for a "Check Status" affordance; safe to tap
+     * repeatedly. A no-op unless the screen is currently watching a ticket.
+     */
+    fun checkStatus() {
+        val ticketId = state.value.ticketIdOrNull() ?: return
+        viewModelScope.launch {
+            checkOnce(ticketId)
+            if (state.value is ForgotPasswordUiState.AwaitingApproval) {
+                connectToStream(ticketId)
             }
         }
     }
@@ -209,38 +234,82 @@ class ForgotPasswordViewModel(
             }
     }
 
-    private fun handleStatusUpdate(event: PasswordResetStatusEvent) {
-        state.value =
-            when (event.status) {
-                PasswordResetStatus.PENDING -> {
-                    val ticketId = currentTicketId() ?: return
-                    ForgotPasswordUiState.AwaitingApproval(ticketId)
-                }
-
-                PasswordResetStatus.APPROVED -> {
-                    val ticketId = currentTicketId() ?: return
-                    ForgotPasswordUiState.EnterCode(ticketId)
-                }
-
-                PasswordResetStatus.DENIED -> {
-                    ForgotPasswordUiState.Denied
-                }
-
-                PasswordResetStatus.CONSUMED -> {
-                    ForgotPasswordUiState.Complete
-                }
-
-                PasswordResetStatus.EXPIRED -> {
-                    ForgotPasswordUiState.Error("Your reset request expired. Please start again.")
-                }
-            }
+    /**
+     * Folds [event] into [state]. **Not** distinct-until-changed on the wire — the server's watch
+     * is a fixed-interval poll that re-emits the current status every tick for as long as it
+     * stays `PENDING` or `APPROVED`, so this runs repeatedly for the *same* status while the user
+     * sits on one screen. [nextState] is written to tolerate that: a repeated tick must compute
+     * "no change" rather than a fresh instance of the same state, or it would silently erase
+     * whatever the user has done on that screen since (see [nextState]'s own KDoc).
+     *
+     * Also abandons the persisted claim/ticket on a terminal status the requester didn't
+     * themselves complete — `DENIED` or `EXPIRED` — mirroring [PasswordResetRepository
+     * .completeReset]'s own successful-completion clear, so a later cold start never resumes a
+     * dead ticket into [ForgotPasswordUiState.AwaitingApproval]. `CONSUMED` needs no equivalent
+     * call here: it only ever follows this device's own successful [completeReset], which already
+     * clears both keys as part of that same success path.
+     */
+    private suspend fun handleStatusUpdate(event: PasswordResetStatusEvent) {
+        val next = nextState(state.value, event) ?: return
+        state.value = next
+        when (event.status) {
+            PasswordResetStatus.DENIED, PasswordResetStatus.EXPIRED -> repository.abandonPendingRequest()
+            PasswordResetStatus.PENDING, PasswordResetStatus.APPROVED, PasswordResetStatus.CONSUMED -> Unit
+        }
     }
 
-    /** The ticket id carried by the current state, if any — [AwaitingApproval] or [EnterCode]. */
-    private fun currentTicketId(): String? =
-        when (val current = state.value) {
-            is ForgotPasswordUiState.AwaitingApproval -> current.ticketId
-            is ForgotPasswordUiState.EnterCode -> current.ticketId
+    /**
+     * Computes what [state] should become for [event] given [current] — or `null` when there is
+     * nothing to do.
+     *
+     * The `PENDING` and `APPROVED` branches guard against re-synthesizing a state the screen is
+     * already downstream of. Concretely: a repeated `APPROVED` tick while the user is already on
+     * [ForgotPasswordUiState.EnterCode] must **not** overwrite their retained
+     * `attemptsRemaining`/`error` wrong-code feedback with a blank `EnterCode(ticketId)` — that is
+     * the whole bug this function exists to prevent. `PENDING` carries the identical guard even
+     * though [ForgotPasswordUiState.AwaitingApproval] has no other field today: it would inherit
+     * this exact bug shape the moment that state grows one, so the guard is written proactively
+     * rather than left as a known gap.
+     */
+    private fun nextState(
+        current: ForgotPasswordUiState,
+        event: PasswordResetStatusEvent,
+    ): ForgotPasswordUiState? =
+        when (event.status) {
+            PasswordResetStatus.PENDING -> {
+                if (current is ForgotPasswordUiState.AwaitingApproval) {
+                    null
+                } else {
+                    current.ticketIdOrNull()?.let { ForgotPasswordUiState.AwaitingApproval(it) }
+                }
+            }
+
+            PasswordResetStatus.APPROVED -> {
+                if (current is ForgotPasswordUiState.EnterCode) {
+                    null
+                } else {
+                    current.ticketIdOrNull()?.let { ForgotPasswordUiState.EnterCode(it) }
+                }
+            }
+
+            PasswordResetStatus.DENIED -> {
+                ForgotPasswordUiState.Denied
+            }
+
+            PasswordResetStatus.CONSUMED -> {
+                ForgotPasswordUiState.Complete
+            }
+
+            PasswordResetStatus.EXPIRED -> {
+                ForgotPasswordUiState.Error("Your reset request expired. Please start again.")
+            }
+        }
+
+    /** The ticket id carried by this state, if any — [AwaitingApproval] or [EnterCode]. */
+    private fun ForgotPasswordUiState.ticketIdOrNull(): String? =
+        when (this) {
+            is ForgotPasswordUiState.AwaitingApproval -> ticketId
+            is ForgotPasswordUiState.EnterCode -> ticketId
             else -> null
         }
 }

@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.core.SecureStorage
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.sync.Mutex
@@ -77,26 +78,38 @@ internal class PasswordResetRepositoryImpl(
      * as `EXPIRED`, deliberately indistinguishable from a real unapproved request, so this stream
      * never becomes an account-existence oracle. The only realistic [RpcEvent.Error] source is a
      * transport/stream fault.
+     *
+     * The server's underlying watch is a fixed-interval poll, not distinct-until-changed — it
+     * re-emits the current status every tick for as long as it stays `PENDING` or `APPROVED`, so
+     * a subscriber otherwise sees the same status repeatedly. [distinctUntilChangedBy] collapses
+     * those repeats by [PasswordResetStatusEvent.status] only (not the whole event — `expiresAt`
+     * is a fixed value from the ticket's issue time and never actually varies here, but comparing
+     * the whole event would be fragile if that ever changed). This is defence in depth, not the
+     * fix for a downstream consumer re-synthesizing state on every tick: dedup is scoped to a
+     * single subscription, so the first event after a stream retry/reconnect is not deduped
+     * against anything the previous subscription saw.
      */
     override fun observeStatus(ticketId: String): Flow<PasswordResetStatusEvent> =
-        channel.stream { it.observePasswordResetStatus(ticketId) }.transformWhile { event ->
-            when (event) {
-                is RpcEvent.Data -> {
-                    emit(event.value)
-                    true
-                }
+        channel
+            .stream { it.observePasswordResetStatus(ticketId) }
+            .transformWhile { event ->
+                when (event) {
+                    is RpcEvent.Data -> {
+                        emit(event.value)
+                        true
+                    }
 
-                is RpcEvent.Error -> {
-                    throw PasswordResetStatusStreamFailure(event.error)
-                }
+                    is RpcEvent.Error -> {
+                        throw PasswordResetStatusStreamFailure(event.error)
+                    }
 
-                // Explicit terminal marker: honestly complete the stream. Per RpcEvent's KDoc this
-                // is an "optional explicit terminal marker" — collection completion is the signal.
-                is RpcEvent.Complete -> {
-                    false
+                    // Explicit terminal marker: honestly complete the stream. Per RpcEvent's KDoc this
+                    // is an "optional explicit terminal marker" — collection completion is the signal.
+                    is RpcEvent.Complete -> {
+                        false
+                    }
                 }
-            }
-        }
+            }.distinctUntilChangedBy { it.status }
 
     /** Mirrors [RegistrationStatusStreamImpl.fetchStatus]: the first emission of [observeStatus]'s watch, never throwing. */
     override suspend fun fetchStatus(ticketId: String): PasswordResetStatusEvent? =
@@ -106,6 +119,12 @@ internal class PasswordResetRepositoryImpl(
         }
 
     override suspend fun resumableTicketId(): String? = secureStorage.read(TICKET_KEY)
+
+    override suspend fun abandonPendingRequest() =
+        requestMutex.withLock {
+            secureStorage.delete(CLAIM_KEY)
+            secureStorage.delete(TICKET_KEY)
+        }
 
     override suspend fun completeReset(
         ticketId: String,

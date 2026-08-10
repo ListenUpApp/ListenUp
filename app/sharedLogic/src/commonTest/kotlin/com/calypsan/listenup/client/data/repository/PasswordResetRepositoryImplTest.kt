@@ -272,6 +272,47 @@ class PasswordResetRepositoryImplTest :
             }
         }
 
+        test("observeStatus collapses repeated identical statuses within one subscription") {
+            runTest {
+                val service = mock<AuthServicePublic>()
+                every { service.observePasswordResetStatus(any()) } returns
+                    flowOf(
+                        RpcEvent.Data(PasswordResetStatusEvent(PasswordResetStatus.PENDING, expiresAt = 100L)),
+                        // A repeated PENDING tick with a DIFFERENT expiresAt must still collapse —
+                        // dedup is by status, not by the whole event.
+                        RpcEvent.Data(PasswordResetStatusEvent(PasswordResetStatus.PENDING, expiresAt = 200L)),
+                        RpcEvent.Data(PasswordResetStatusEvent(PasswordResetStatus.APPROVED, expiresAt = 200L)),
+                        RpcEvent.Data(PasswordResetStatusEvent(PasswordResetStatus.APPROVED, expiresAt = 200L)),
+                        RpcEvent.Complete,
+                    )
+                val repo = repository(service, InMemoryPasswordResetSecureStorage())
+
+                val events = repo.observeStatus("ticket-1").toList()
+
+                events shouldBe
+                    listOf(
+                        PasswordResetStatusEvent(PasswordResetStatus.PENDING, expiresAt = 100L),
+                        PasswordResetStatusEvent(PasswordResetStatus.APPROVED, expiresAt = 200L),
+                    )
+            }
+        }
+
+        test("abandonPendingRequest clears both stored values") {
+            runTest {
+                val storage = InMemoryPasswordResetSecureStorage()
+                val repo = repository(serviceReturning(AppResult.Success(ticket("ticket-9"))), storage)
+                repo.requestReset("ada@example.com")
+                storage.read(PasswordResetRepositoryImpl.CLAIM_KEY).shouldNotBeNull()
+                storage.read(PasswordResetRepositoryImpl.TICKET_KEY).shouldNotBeNull()
+
+                repo.abandonPendingRequest()
+
+                storage.read(PasswordResetRepositoryImpl.CLAIM_KEY) shouldBe null
+                storage.read(PasswordResetRepositoryImpl.TICKET_KEY) shouldBe null
+                repo.resumableTicketId() shouldBe null
+            }
+        }
+
         test("resetRootPassword delegates directly to the service — no claim involved") {
             runTest {
                 val service = mock<AuthServicePublic>()
