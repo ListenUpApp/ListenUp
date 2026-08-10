@@ -293,6 +293,8 @@ actor AudioEngine: PlaybackEngine {
         player.volume = max(0, min(1, volume))
     }
 
+    func setGainDb(_ db: Float) { /* gain stage lands in the next commit */ }
+
     /// Deactivate the shared audio session, notifying other apps they may resume.
     /// Best-effort — a deactivation failure can't strand the user — but logged so it
     /// isn't silently swallowed.

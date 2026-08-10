@@ -14,6 +14,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     private(set) var lastSeekMs: Int64?
     private(set) var lastRate: Float?
     private(set) var lastVolume: Float?
+    private(set) var lastGainDb: Float?
     private(set) var didRelease = false
     /// When true, `load` reports failure (returns `false`) so tests can exercise the
     /// coordinator's load-failure → `.error` path without a live `AVPlayer`.
@@ -77,6 +78,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     func seek(toMs positionMs: Int64) async { lastSeekMs = positionMs; gate.fire("seek") }
     func setRate(_ newRate: Float) async { lastRate = newRate; gate.fire("setRate") }
     func setVolume(_ volume: Float) async { lastVolume = volume; gate.fire("setVolume") }
+    func setGainDb(_ db: Float) async { lastGainDb = db; gate.fire("setGainDb") }
     func deactivateSession() async {
         didDeactivateSession = true; teardownOrder.append("deactivate"); gate.fire("deactivate")
     }
@@ -105,6 +107,9 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     private(set) var positionUpdates: [(String, Int64, Float)] = []
     private(set) var seeks: [(String, Int64, Int64, Float)] = []
     private(set) var speedChanges: [(String, Int64, Float)] = []
+    private(set) var boostChanges: [(String, Int64, Float)] = []
+    private(set) var boostResets: [(String, Int64, Float)] = []
+    private(set) var measuredGains: [(String, Int64, Float)] = []
     private(set) var finished: [(String, Int64)] = []
     private(set) var savedNow: [(String, Int64)] = []
 
@@ -129,6 +134,15 @@ final class FakeProgressReporting: PlaybackProgressReporting {
     }
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
         speedChanges.append((bookId, positionMs, newSpeed)); gate.signal()
+    }
+    func onVolumeBoostChanged(bookId: String, positionMs: Int64, newBoostDb: Float) {
+        boostChanges.append((bookId, positionMs, newBoostDb)); gate.signal()
+    }
+    func onBoostReset(bookId: String, positionMs: Int64, defaultBoostDb: Float) {
+        boostResets.append((bookId, positionMs, defaultBoostDb)); gate.signal()
+    }
+    func onMeasuredGain(bookId: String, positionMs: Int64, gainDb: Float) {
+        measuredGains.append((bookId, positionMs, gainDb)); gate.signal()
     }
     func onBookFinished(bookId: String, finalPositionMs: Int64) {
         finished.append((bookId, finalPositionMs)); gate.signal()

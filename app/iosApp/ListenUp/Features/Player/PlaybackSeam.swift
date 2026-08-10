@@ -17,6 +17,9 @@ protocol PlaybackEngine: Sendable {
     func setRate(_ newRate: Float) async
     /// Linear output gain 0.0...1.0. Used for the sleep-timer fade-out.
     func setVolume(_ volume: Float) async
+    /// Above-unity gain stage (dB) for the volume-boost feature. A separate stage from
+    /// `setVolume`'s 0...1 sleep-timer fade — the two compose rather than replace each other.
+    func setGainDb(_ db: Float) async
     /// Deactivate the shared audio session so other apps' audio can resume.
     func deactivateSession() async
     /// Re-assert the shared audio session as active. Called before resuming
@@ -47,6 +50,14 @@ struct PreparedPlayback: Sendable {
     let bookNarrator: String
     let coverPath: String?
     let resumeSpeed: Float
+    /// Boost to start playback with: the book's custom boost, else the global default.
+    /// Composes with `resumeSpeed` in the coordinator's gain math — a separate stage from
+    /// `PlaybackEngine.setVolume`'s 0...1 sleep-timer fade.
+    let resumeBoostDb: Float
+    /// Client-measured R128 gain for this book (synced across devices), `nil` until measured.
+    let measuredGainDb: Float?
+    /// Server tag-read normalization gain (ReplayGain/iTunNORM), `nil` when the file carries no tag.
+    let normalizationGainDb: Float?
     let resumePositionMs: Int64
     let chapters: [Chapter]
     let timeline: PreparedTimeline
@@ -97,6 +108,12 @@ protocol PlaybackProgressReporting {
     /// A seek splits the listening span so the jumped-over range isn't counted as listened.
     func onSeek(bookId: String, beforeMs: Int64, afterMs: Int64, speed: Float)
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float)
+    /// User picked a per-book volume boost.
+    func onVolumeBoostChanged(bookId: String, positionMs: Int64, newBoostDb: Float)
+    /// User reset this book's boost to the global default.
+    func onBoostReset(bookId: String, positionMs: Int64, defaultBoostDb: Float)
+    /// A refined R128 loudness measurement became available for this book.
+    func onMeasuredGain(bookId: String, positionMs: Int64, gainDb: Float)
     func onBookFinished(bookId: String, finalPositionMs: Int64)
     /// Blocking critical save — used on pause, seek, and app backgrounding.
     func savePositionNow(bookId: String, positionMs: Int64) async

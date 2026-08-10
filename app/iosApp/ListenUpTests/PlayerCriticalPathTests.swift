@@ -22,6 +22,7 @@ struct PausePersistenceTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -71,6 +72,7 @@ struct BufferingPromotionTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -99,6 +101,7 @@ struct BufferingPromotionTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -148,6 +151,7 @@ struct PrepareErrorStateTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: nil, streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
