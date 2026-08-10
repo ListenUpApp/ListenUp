@@ -1,7 +1,9 @@
 package com.calypsan.listenup.web.design
 
 import androidx.compose.runtime.Composable
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
@@ -62,5 +64,32 @@ class IconTest :
             val path = host.querySelector("path")!!
             path.getAttribute("fill") shouldBe "none"
             path.getAttribute("stroke") shouldBe "currentColor"
+        }
+
+        test("every auth icon renders at least one path") {
+            // The auth screens are the first consumer of these entries. An enum entry with an
+            // empty or malformed path compiles and renders an invisible icon — the exact failure
+            // the enum exists to prevent — so assert geometry, not just presence.
+            val authIcons =
+                listOf(
+                    WebIcon.Mail,
+                    WebIcon.Lock,
+                    WebIcon.Eye,
+                    WebIcon.EyeOff,
+                    WebIcon.LogIn,
+                    WebIcon.LogOut,
+                    WebIcon.UserPlus,
+                    WebIcon.Clock,
+                )
+
+            authIcons.forEach { icon ->
+                val host = document.createElement("div") as HTMLElement
+                document.body!!.appendChild(host)
+                renderComposable(root = host) { Icon(icon) }
+
+                withClue(icon.name) {
+                    host.querySelectorAll("svg path").length shouldBeGreaterThan 0
+                }
+            }
         }
     })
