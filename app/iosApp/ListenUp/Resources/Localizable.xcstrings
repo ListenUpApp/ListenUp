@@ -9841,6 +9841,46 @@
         }
       }
     },
+    "player.boost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boost"
+          }
+        }
+      }
+    },
+    "player.boost_db": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%1$d dB"
+          }
+        }
+      }
+    },
+    "player.boost_off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        }
+      }
+    },
+    "player.boost_use_default": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use default (%1$@)"
+          }
+        }
+      }
+    },
     "player.cancel_timer": {
       "localizations": {
         "en": {

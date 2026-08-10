@@ -985,6 +985,10 @@ One beautiful library.</string>
     <string name="metadata_your_book_already_has_all">Your book already has all the available metadata from Audible. No changes to apply.</string>
     <string name="player_add_more_time">Add more time</string>
     <string name="player_airplay">AirPlay</string>
+    <string name="player_boost">Boost</string>
+    <string name="player_boost_db">+%1$d dB</string>
+    <string name="player_boost_off">Off</string>
+    <string name="player_boost_use_default">Use default (%1$s)</string>
     <string name="player_cancel_timer">Cancel timer</string>
     <string name="player_chapter_of">Chapter %1$s of %2$s</string>
     <string name="player_chapters">Chapters</string>

@@ -1159,7 +1159,11 @@
     "go_to_author": "Go to Author",
     "go_to_author_multiple": "Go to Author…",
     "go_to_narrator": "Go to Narrator",
-    "go_to_narrator_multiple": "Go to Narrator…"
+    "go_to_narrator_multiple": "Go to Narrator…",
+    "boost": "Boost",
+    "boost_off": "Off",
+    "boost_db": "+%1$d dB",
+    "boost_use_default": "Use default (%1$s)"
   },
   "library_setup": {
     "choose_audiobook_folders": "Choose your audiobook folders",

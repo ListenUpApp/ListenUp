@@ -1,5 +1,5 @@
 import SwiftUI
-import Shared
+@preconcurrency import Shared
 
 /// A pending multi-contributor picker: the choices and the dialog title.
 private struct ContributorPickerRequest: Identifiable {
@@ -43,12 +43,18 @@ struct FullScreenPlayerView: View {
     @State private var showSpeedPicker: Bool = false
     @State private var showChapterList: Bool = false
     @State private var showSleepTimer: Bool = false
+    @State private var showBoostPicker: Bool = false
     /// Non-nil while the multi-contributor picker is shown; carries the choices + the title.
     @State private var contributorPicker: ContributorPickerRequest?
     @State private var tint: Color = .listenUpOrange
+    /// The global default boost, read once when the player appears — the boost sheet needs it
+    /// passed in for its "Use default" row (`PlayerCoordinator` doesn't retain a reference to
+    /// `PlaybackPreferences` past init, so the view reads it directly).
+    @State private var defaultBoostDb: Float = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
+    @Environment(\.dependencies) private var deps
 
     var body: some View {
         layout
@@ -59,6 +65,7 @@ struct FullScreenPlayerView: View {
         .overlay { if observer.isErrored { errorOverlay } }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: tint)
         .task(id: observer.currentBookId) { resolveTint() }
+        .task { defaultBoostDb = (try? await deps.playbackPreferences.getDefaultVolumeBoostDb()) ?? 0 }
         .statusBarHidden(false)
         .sheet(isPresented: $showSpeedPicker) {
             SpeedPickerSheet(
@@ -66,6 +73,22 @@ struct FullScreenPlayerView: View {
                 onSpeedSelected: { speed in
                     observer.setSpeed(speed)
                     showSpeedPicker = false
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showBoostPicker) {
+            BoostPickerSheet(
+                currentBoostDb: observer.volumeBoostDb,
+                defaultBoostDb: defaultBoostDb,
+                onBoostSelected: { db in
+                    observer.setBoost(db)
+                    showBoostPicker = false
+                },
+                onUseDefault: {
+                    observer.resetBoost(defaultDb: defaultBoostDb)
+                    showBoostPicker = false
                 }
             )
             .presentationDetents([.medium])
@@ -510,6 +533,18 @@ struct FullScreenPlayerView: View {
             controlItem(label: String(localized: "player.airplay"), combineForVoiceOver: false) {
                 RoutePickerView(tint: Color(.label), activeTint: tint)
                     .frame(width: 28, height: 28)
+            }
+
+            // Boost
+            controlItem(label: String(localized: "player.boost")) {
+                Button(action: { showBoostPicker = true }) {
+                    Text(BoostPickerSheet.formatBoost(observer.volumeBoostDb))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 28)
+                        .background(Color(.tertiarySystemFill), in: Capsule())
+                }
             }
         }
     }
