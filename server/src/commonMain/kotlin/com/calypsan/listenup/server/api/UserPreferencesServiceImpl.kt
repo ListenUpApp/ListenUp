@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.preferences.UserPreferencesDto
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.domain.VolumeBoostLimits
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.User_settings
@@ -19,7 +20,6 @@ private const val DEFAULT_SKIP_FORWARD = 30
 private const val DEFAULT_SKIP_BACKWARD = 10
 private const val DEFAULT_VOLUME_BOOST = 0f
 private val SPEED_RANGE = 0.5f..4.0f
-private val BOOST_RANGE = 0f..12f
 private val SKIP_RANGE = 5..300
 private val SLEEP_RANGE = 1..480
 
@@ -63,7 +63,8 @@ internal class UserPreferencesServiceImpl(
                             (request.defaultSleepTimerMin ?: current.defaultSleepTimerMin)?.coerceIn(SLEEP_RANGE),
                         shakeToResetSleepTimer = request.shakeToResetSleepTimer ?: current.shakeToResetSleepTimer,
                         defaultVolumeBoostDb =
-                            (request.defaultVolumeBoostDb ?: current.defaultVolumeBoostDb).coerceIn(BOOST_RANGE),
+                            (request.defaultVolumeBoostDb ?: current.defaultVolumeBoostDb)
+                                .coerceIn(VolumeBoostLimits.RANGE),
                     )
                 upsert(userId, next)
                 next

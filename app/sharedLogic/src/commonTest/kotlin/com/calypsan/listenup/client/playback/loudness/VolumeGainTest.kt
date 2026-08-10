@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback.loudness
 
+import com.calypsan.listenup.domain.VolumeBoostLimits
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe
@@ -29,7 +30,7 @@ class VolumeGainTest :
         }
 
         test("boost range constants") {
-            VolumeGain.MIN_BOOST_DB shouldBe 0f
-            VolumeGain.MAX_BOOST_DB shouldBe 12f
+            VolumeBoostLimits.MIN_DB shouldBe 0f
+            VolumeBoostLimits.MAX_DB shouldBe 12f
         }
     })

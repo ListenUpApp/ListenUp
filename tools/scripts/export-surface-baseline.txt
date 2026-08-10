@@ -491,5 +491,6 @@ UserStatus
 VerifiedServer
 VoiceHints
 VoiceIntentResolver
+VolumeBoostLimits
 VolumeGain
 WeeklyStats
