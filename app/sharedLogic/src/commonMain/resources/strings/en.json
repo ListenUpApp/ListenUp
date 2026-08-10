@@ -1022,7 +1022,16 @@
     "inbox_released_count": "Released %1$d book",
     "inbox_released_count_plural": "Released %1$d books",
     "expand_all": "Expand All",
-    "collapse_all": "Collapse All"
+    "collapse_all": "Collapse All",
+    "password_resets": "Password resets",
+    "no_pending_password_resets": "No pending password reset requests.",
+    "approve_reset": "Approve reset",
+    "deny_reset": "Deny reset",
+    "reset_code_title": "Give this code to %1$s",
+    "reset_code_instruction": "Give this code to %1$s yourself — by phone, in person, or a chat you already use. Do not send it back through the app.",
+    "reset_code_copied": "Code copied",
+    "reset_code_done": "Done",
+    "reset_code_recipient_fallback": "this user"
   },
   "import": {
     "title": "Import from Audiobookshelf",

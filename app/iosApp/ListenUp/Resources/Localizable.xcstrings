@@ -121,6 +121,16 @@
         }
       }
     },
+    "admin.approve_reset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve reset"
+          }
+        }
+      }
+    },
     "admin.backup": {
       "localizations": {
         "en": {
@@ -561,6 +571,16 @@
         }
       }
     },
+    "admin.deny_reset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deny reset"
+          }
+        }
+      }
+    },
     "admin.download_backup": {
       "localizations": {
         "en": {
@@ -961,6 +981,16 @@
         }
       }
     },
+    "admin.no_pending_password_resets": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No pending password reset requests."
+          }
+        }
+      }
+    },
     "admin.no_pending_registrations": {
       "localizations": {
         "en": {
@@ -987,6 +1017,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Organize books into collections for access control"
+          }
+        }
+      }
+    },
+    "admin.password_resets": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Password resets"
           }
         }
       }
@@ -1197,6 +1237,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rescan Library"
+          }
+        }
+      }
+    },
+    "admin.reset_code_copied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code copied"
+          }
+        }
+      }
+    },
+    "admin.reset_code_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "admin.reset_code_instruction": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Give this code to %1$@ yourself — by phone, in person, or a chat you already use. Do not send it back through the app."
+          }
+        }
+      }
+    },
+    "admin.reset_code_recipient_fallback": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "this user"
+          }
+        }
+      }
+    },
+    "admin.reset_code_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Give this code to %1$@"
           }
         }
       }

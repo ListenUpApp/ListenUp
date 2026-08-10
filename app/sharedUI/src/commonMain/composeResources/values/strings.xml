@@ -12,6 +12,7 @@
     <string name="admin_administrator">Administrator</string>
     <string name="admin_all_users_are_already_members">All users are already members of this collection</string>
     <string name="admin_allow_sharing_collections_with_other">Allow sharing collections with other users</string>
+    <string name="admin_approve_reset">Approve reset</string>
     <string name="admin_backup">Backup</string>
     <string name="admin_backup_created_at">Created: %1$s at %2$s</string>
     <string name="admin_backup_download_failed">Couldn't save the backup to your device.</string>
@@ -56,6 +57,7 @@
     <string name="admin_creating_backup">Creating Backup...</string>
     <string name="admin_delete_backup">Delete Backup</string>
     <string name="admin_deny_registration">Deny Registration</string>
+    <string name="admin_deny_reset">Deny reset</string>
     <string name="admin_download_backup">Download</string>
     <string name="admin_email_already_in_use">A user with this email already exists.</string>
     <string name="admin_enter_a_name_for_the">Enter a name for the collection</string>
@@ -96,9 +98,11 @@
     <string name="admin_no_books_in_this_collection">No books in this collection</string>
     <string name="admin_no_merge_target_available">No other genres available as a merge target.</string>
     <string name="admin_no_move_target_top_level_only">No other genres available — only 'Top level' is possible.</string>
+    <string name="admin_no_pending_password_resets">No pending password reset requests.</string>
     <string name="admin_no_pending_registrations">No pending registrations</string>
     <string name="admin_no_users_available">No users available</string>
     <string name="admin_organize_books_into_collections_for">Organize books into collections for access control</string>
+    <string name="admin_password_resets">Password resets</string>
     <string name="admin_pending_invites">Pending Invites</string>
     <string name="admin_pending_registrations">Pending Registrations</string>
     <string name="admin_protected_user">Protected User</string>
@@ -120,6 +124,11 @@
     <string name="admin_remove_scan_path">Remove Scan Path</string>
     <string name="admin_rename_genre">Rename Genre</string>
     <string name="admin_rescan_library">Rescan Library</string>
+    <string name="admin_reset_code_copied">Code copied</string>
+    <string name="admin_reset_code_done">Done</string>
+    <string name="admin_reset_code_instruction">Give this code to %1$s yourself — by phone, in person, or a chat you already use. Do not send it back through the app.</string>
+    <string name="admin_reset_code_recipient_fallback">this user</string>
+    <string name="admin_reset_code_title">Give this code to %1$s</string>
     <string name="admin_restore">Restore</string>
     <string name="admin_restore_backup">Restore Backup</string>
     <string name="admin_restore_complete">Restore complete</string>

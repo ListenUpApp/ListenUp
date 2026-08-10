@@ -302,6 +302,33 @@ class AdminRepositoryImplUserTest :
             service.lastSetPolicy shouldBe RegistrationPolicy.CLOSED
         }
 
+        test("listPasswordResetRequests forwards the service's pending queue") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+
+            val result = repo.listPasswordResetRequests()
+
+            result shouldBe AppResult.Success(emptyList())
+        }
+
+        test("decidePasswordReset(approved=true) forwards the approval and surfaces the minted code") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+
+            val result = repo.decidePasswordReset("reset-1", approved = true)
+
+            result shouldBe AppResult.Success(PasswordResetDecisionOutcome.Approved("ABCD-2345"))
+        }
+
+        test("decidePasswordReset(approved=false) forwards the denial") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+
+            val result = repo.decidePasswordReset("reset-1", approved = false)
+
+            result shouldBe AppResult.Success(PasswordResetDecisionOutcome.Denied)
+        }
+
         test("setRegistrationPolicy returns a typed Failure (never throws) when the RPC transport throws") {
             val throwing =
                 object : AdminUserService by mock<AdminUserService>() {

@@ -17,10 +17,12 @@ import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.DecidePasswordResetUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.LoadPasswordResetRequestsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
@@ -132,6 +134,16 @@ internal val adminModule: Module =
         }
         factory {
             UpdateServerSettingsUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            LoadPasswordResetRequestsUseCase(
+                adminRepository = get(),
+            )
+        }
+        factory {
+            DecidePasswordResetUseCase(
                 adminRepository = get(),
             )
         }

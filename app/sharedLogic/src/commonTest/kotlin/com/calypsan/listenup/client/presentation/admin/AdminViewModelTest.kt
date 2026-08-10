@@ -1,16 +1,21 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.DecidePasswordResetUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.LoadPasswordResetRequestsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import dev.mokkery.answering.calls
@@ -79,6 +84,27 @@ class AdminViewModelTest :
             createdAt = "2024-01-01T00:00:00Z",
         )
 
+        fun createMockLoadPasswordResetRequestsUseCase(
+            requests: List<PasswordResetRequest> = emptyList(),
+        ): LoadPasswordResetRequestsUseCase {
+            val useCase: LoadPasswordResetRequestsUseCase = mock()
+            everySuspend { useCase() } returns AppResult.Success(requests)
+            return useCase
+        }
+
+        fun createResetRequest(
+            id: String = "reset-1",
+            displayName: String = "Ada Lovelace",
+            email: String = "ada@example.com",
+        ) = PasswordResetRequest(
+            id = id,
+            userId = UserId("user-1"),
+            displayName = displayName,
+            email = email,
+            requestedAt = 1_700_000_000_000,
+            expiresAt = 1_700_000_900_000,
+        )
+
         fun createInvite(
             id: String = "invite-1",
             claimedAt: String? = null,
@@ -123,6 +149,8 @@ class AdminViewModelTest :
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(),
                     )
 
@@ -148,6 +176,8 @@ class AdminViewModelTest :
                         approveUserUseCase = mock(),
                         denyUserUseCase = mock(),
                         setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
@@ -180,6 +210,8 @@ class AdminViewModelTest :
                         approveUserUseCase = mock(),
                         denyUserUseCase = mock(),
                         setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
@@ -205,6 +237,8 @@ class AdminViewModelTest :
                         approveUserUseCase = mock(),
                         denyUserUseCase = mock(),
                         setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
@@ -243,6 +277,8 @@ class AdminViewModelTest :
                         approveUserUseCase = mock(),
                         denyUserUseCase = mock(),
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -281,6 +317,8 @@ class AdminViewModelTest :
                         approveUserUseCase = mock(),
                         denyUserUseCase = mock(),
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -324,6 +362,8 @@ class AdminViewModelTest :
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -356,6 +396,8 @@ class AdminViewModelTest :
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -400,6 +442,8 @@ class AdminViewModelTest :
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
@@ -438,6 +482,8 @@ class AdminViewModelTest :
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -473,6 +519,8 @@ class AdminViewModelTest :
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
@@ -515,6 +563,8 @@ class AdminViewModelTest :
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(),
+                        decidePasswordResetUseCase = mock(),
                         adminRepository = createMockAdminRepository(),
                     )
 
@@ -525,6 +575,112 @@ class AdminViewModelTest :
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
                 ready.pendingInvites.size shouldBe 1
+            }
+        }
+
+        test("approving a reset surfaces the code for the admin to convey") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                val request = createResetRequest(id = "reset-1", displayName = "Ada Lovelace")
+                val decidePasswordResetUseCase: DecidePasswordResetUseCase = mock()
+                everySuspend { decidePasswordResetUseCase("reset-1", true) } returns
+                    AppResult.Success(PasswordResetDecisionOutcome.Approved("ABCD-2345"))
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(listOf(request)),
+                        decidePasswordResetUseCase = decidePasswordResetUseCase,
+                        adminRepository = createMockAdminRepository(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.decidePasswordReset("reset-1", approved = true)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                ready.resetCodeToConvey shouldBe "ABCD-2345"
+                ready.resetCodeRecipientName shouldBe "Ada Lovelace"
+                ready.pendingPasswordResets.shouldBeEmpty()
+                ready.decidingPasswordResetId shouldBe null
+            }
+        }
+
+        test("the code is cleared once the admin dismisses it") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                val request = createResetRequest(id = "reset-1")
+                val decidePasswordResetUseCase: DecidePasswordResetUseCase = mock()
+                everySuspend { decidePasswordResetUseCase("reset-1", true) } returns
+                    AppResult.Success(PasswordResetDecisionOutcome.Approved("ABCD-2345"))
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(listOf(request)),
+                        decidePasswordResetUseCase = decidePasswordResetUseCase,
+                        adminRepository = createMockAdminRepository(),
+                    )
+                advanceUntilIdle()
+                viewModel.decidePasswordReset("reset-1", approved = true)
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .resetCodeToConvey shouldBe "ABCD-2345"
+
+                viewModel.dismissResetCode()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                ready.resetCodeToConvey shouldBe null
+                ready.resetCodeRecipientName shouldBe null
+            }
+        }
+
+        test("denying a reset removes it from the pending list and surfaces no code") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                val request = createResetRequest(id = "reset-1")
+                val decidePasswordResetUseCase: DecidePasswordResetUseCase = mock()
+                everySuspend { decidePasswordResetUseCase("reset-1", false) } returns
+                    AppResult.Success(PasswordResetDecisionOutcome.Denied)
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        loadPasswordResetRequestsUseCase = createMockLoadPasswordResetRequestsUseCase(listOf(request)),
+                        decidePasswordResetUseCase = decidePasswordResetUseCase,
+                        adminRepository = createMockAdminRepository(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.decidePasswordReset("reset-1", approved = false)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                ready.pendingPasswordResets.shouldBeEmpty()
+                ready.resetCodeToConvey shouldBe null
+                ready.decidingPasswordResetId shouldBe null
             }
         }
     })

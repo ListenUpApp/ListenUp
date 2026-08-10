@@ -2,6 +2,8 @@
 
 package com.calypsan.listenup.client.domain.repository
 
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -100,6 +102,40 @@ interface AdminRepository {
         role: String? = null,
         canShare: Boolean? = null,
     ): AppResult<AdminUserInfo>
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PASSWORD RESETS
+    //
+    // Minimal and deliberately temporary — a follow-up plan relocates this into a
+    // rewritten people-management surface. There is no live/observed variant: the
+    // backing table is server-owned, non-syncable, and short-lived (requests expire in
+    // minutes), so there is no sync domain to observe, unlike observeRoster().
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Reset requests awaiting a decision, newest first. Carries no codes — the code is
+     * returned only from [decidePasswordReset], and only on approval.
+     *
+     * @return [AppResult] carrying the pending reset requests, or a failure.
+     */
+    suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>>
+
+    /**
+     * Approve or deny a pending password-reset request.
+     *
+     * **Approval returns the plaintext code** for the admin to convey to the requester
+     * out of band — it is returned here and nowhere else: never listed, never pushed,
+     * never logged. That out-of-band conveyance is the identity check the whole design
+     * rests on.
+     *
+     * @param requestId The reset request ID to decide.
+     * @param approved Whether to approve (mint a code) or deny the request.
+     * @return [AppResult] carrying the decision outcome, or a failure.
+     */
+    suspend fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ): AppResult<PasswordResetDecisionOutcome>
 
     // ═══════════════════════════════════════════════════════════════════════
     // INVITE MANAGEMENT

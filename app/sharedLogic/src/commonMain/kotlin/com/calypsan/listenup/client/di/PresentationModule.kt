@@ -137,6 +137,8 @@ internal val adminPresentationModule =
                 approveUserUseCase = get(),
                 denyUserUseCase = get(),
                 setRegistrationPolicyUseCase = get(),
+                loadPasswordResetRequestsUseCase = get(),
+                decidePasswordResetUseCase = get(),
                 adminRepository = get(),
             )
         }
