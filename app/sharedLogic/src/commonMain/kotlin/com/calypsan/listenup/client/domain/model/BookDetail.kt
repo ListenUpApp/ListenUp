@@ -47,6 +47,11 @@ data class BookDetail(
     val moods: List<Mood> = emptyList(),
     /** Audio files for this book; hydrated only for the detail view. Used for the format summary. */
     val audioFiles: List<AudioFile> = emptyList(),
+    /**
+     * Server tag-read normalization gain (ReplayGain/iTunNORM) in dB; null when the file carries
+     * no tag. The playback engine's fallback input when no client-measured gain exists yet.
+     */
+    val normalizationGainDb: Float? = null,
 ) : BookSummaryFields {
     /** The book id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
     val idString: String get() = id.value

@@ -60,5 +60,5 @@ internal fun RoomDatabase.Builder<ListenUpDatabase>.buildConfigured(
         .addCallback(FtsTableCallback())
         // Hand-written, non-destructive migrations — registered here so every platform inherits
         // them from the single builder seam (see the migration policy above).
-        .addMigrations(MIGRATION_1_2)
+        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
         .build()

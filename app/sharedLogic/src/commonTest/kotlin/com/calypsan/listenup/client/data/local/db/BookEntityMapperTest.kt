@@ -202,6 +202,16 @@ class BookEntityMapperTest :
                 .hasScanWarning shouldBe false
         }
 
+        test("toBookEntity carries normalizationGainDb from payload — set and null") {
+            mapper
+                .toBookEntity(bookPayload().copy(normalizationGainDb = -4.2f), existing = null)
+                .normalizationGainDb shouldBe -4.2f
+            mapper
+                .toBookEntity(bookPayload().copy(normalizationGainDb = null), existing = null)
+                .normalizationGainDb
+                .shouldBeNull()
+        }
+
         // --- toDetail mapping ---
 
         fun bookWithContributors(
@@ -233,6 +243,22 @@ class BookEntityMapperTest :
             bookWithContributors(hasScanWarning = false)
                 .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
                 .hasScanWarning shouldBe false
+        }
+
+        test("toDetail carries normalizationGainDb from the book entity") {
+            val imageStorage = mock<ImageStorage> { every { getCoverPath(any()) } returns "/covers/book-1.jpg" }
+            val withGain =
+                BookWithContributors(
+                    book = bookEntity().copy(normalizationGainDb = -3.1f),
+                    contributors = emptyList(),
+                    contributorRoles = emptyList(),
+                    series = emptyList(),
+                    seriesSequences = emptyList(),
+                )
+
+            withGain
+                .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
+                .normalizationGainDb shouldBe -3.1f
         }
 
         test("toListItem derives coverPath from coverDownloadedAt — pure string construction, no stat") {
