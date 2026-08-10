@@ -26,9 +26,17 @@ const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 98)
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main`
 // with an empty continuation, so there is no promise to await either. Completion is therefore
-// inferred from quiescence: the stream has stopped for IDLE_MS. That is strictly better than a
-// fixed wait, which silently truncates a suite that outgrows it and reports the partial run as
-// a pass. CEILING_MS only bounds a hang, and hitting it is a failure, not a result.
+// inferred from quiescence: the stream has stopped for IDLE_MS **and no test is still in
+// flight**. That is strictly better than a fixed wait, which silently truncates a suite that
+// outgrows it and reports the partial run as a pass. CEILING_MS only bounds a hang, and hitting
+// it is a failure, not a result.
+//
+// The in-flight clause is not decoration. Quiescence alone means "nothing has been *reported*
+// lately", which a single slow test satisfies trivially — it emits `testStarted`, then spends
+// twenty seconds booting a Koin graph and doing RPC round trips in silence. `AuthArcTest` does
+// exactly that, and without this clause the harness called the whole suite finished 3s into it,
+// reporting 4 discovered tests out of 147. The count floor caught that; it should never have had
+// to. A test that has started but not finished is running, not idle.
 const IDLE_MS = 3_000
 const CEILING_MS = 180_000
 
@@ -94,11 +102,14 @@ await page.addInitScript((url) => {
 const startedAt = Date.now()
 await page.goto(`${BASE}/test/kotest.html`, { waitUntil: 'load' })
 
+/** Tests that reported `testStarted` and have not yet reported a result — i.e. still running. */
+const inFlight = () => started.length - finished.length - ignored.length
+
 let timedOut = false
 for (;;) {
   await page.waitForTimeout(250)
   const now = Date.now()
-  if (started.length > 0 && now - lastMessageAt > IDLE_MS) break
+  if (started.length > 0 && inFlight() === 0 && now - lastMessageAt > IDLE_MS) break
   if (now - startedAt > CEILING_MS) {
     timedOut = true
     break
@@ -108,7 +119,7 @@ for (;;) {
 await browser.close()
 await server?.close()
 
-const dangling = started.length - finished.length - ignored.length
+const dangling = inFlight()
 
 console.log(`started:  ${started.length}`)
 console.log(`finished: ${finished.length}`)
