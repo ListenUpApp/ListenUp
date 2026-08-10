@@ -99,6 +99,8 @@
   border-color: var(--coral);
   box-shadow: 0 0 0 4px var(--coral-ring);
 }
+.f-box.err { border-color: var(--coral); }
+.f-box.err:focus-within { box-shadow: 0 0 0 4px var(--coral-ring); }
 .f-box .f-ico { color: var(--ink-3); flex-shrink: 0; transition: color .15s; }
 .f-box:focus-within .f-ico { color: var(--coral); }
 .f-input {
