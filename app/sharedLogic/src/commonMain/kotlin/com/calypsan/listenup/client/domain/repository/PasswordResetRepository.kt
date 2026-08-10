@@ -30,11 +30,22 @@ interface PasswordResetRepository {
      * and completes honestly once the status turns terminal — completion is the signal, not a
      * dropped connection to reconnect.
      *
-     * @throws Exception if the underlying watch surfaces a typed business failure (e.g. an
-     *   unrecognised ticket) or the stream transport fails, so a real failure is never mistaken
-     *   for "still pending".
+     * @throws Exception if the underlying stream transport genuinely fails. An unrecognised
+     *   [ticketId] is deliberately **not** a business failure here — the server emits `PENDING`
+     *   then completes as `EXPIRED`, indistinguishable from a real request nobody has approved
+     *   yet, so this call can never become an account-existence oracle.
      */
     fun observeStatus(ticketId: String): Flow<PasswordResetStatusEvent>
+
+    /**
+     * One-shot pull of the request's current status — the first emission of the same RPC watch
+     * [observeStatus] rides.
+     *
+     * The "never stranded" fallback for a "Check Status" action or an on-entry check: never
+     * throws — any transport/parse failure resolves to null, leaving the caller free to retry or
+     * fall back to [observeStatus] rather than crash.
+     */
+    suspend fun fetchStatus(ticketId: String): PasswordResetStatusEvent?
 
     /**
      * The ticket id of a request this install left in flight, or null.
@@ -46,7 +57,9 @@ interface PasswordResetRepository {
 
     /**
      * Completes an approved reset using the retained device claim and the admin-supplied [code].
-     * On success, both the claim and the ticket id are cleared from local storage.
+     * On success, both the claim and the ticket id are cleared from local storage. On failure —
+     * including a simply-wrong [code] — both are retained, so a retry with the correct code can
+     * still complete.
      */
     suspend fun completeReset(
         ticketId: String,

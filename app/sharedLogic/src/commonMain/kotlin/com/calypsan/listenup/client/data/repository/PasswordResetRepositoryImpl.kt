@@ -11,40 +11,72 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.core.SecureStorage
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.transformWhile
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.uuid.Uuid
 
 /**
  * RPC implementation of [PasswordResetRepository], riding the public-channel
  * `AuthServicePublic` reset surface.
  *
- * The device claim is two concatenated [Uuid.random] values — 256 bits from the stdlib's secure
- * RNG, the same idiom already used for client-minted sync ids. Adding a cryptography dependency
- * to the client for this one secret is not worth the dependency edge.
+ * The device claim is two concatenated [Uuid.random] values. Each v4 UUID has 6 structurally
+ * fixed bits (4 version + 2 variant), leaving 122 bits of randomness per value — **244 bits
+ * total, not 256**. [Uuid.random]'s own KDoc explicitly disclaims cryptographic use ("not
+ * recommended for use for cryptographic purposes... partially predictable bit pattern... at most
+ * 122 bits of entropy"); that disclaimer is about the fixed version/variant bits, not the
+ * underlying generator, which is a real CSPRNG on every target this app ships — JVM
+ * `SecureRandom`, JS/Wasm `crypto.getRandomValues`, Kotlin/Native `getrandom`/`arc4random_buf`.
+ * Adding a dedicated cryptography dependency for this one secret is not worth the dependency
+ * edge, but this reasoning is specific to a device claim: it does not generalize, and a future
+ * reader reaching for [Uuid.random] as a bearer secret elsewhere should re-derive it rather than
+ * cite this comment as precedent.
  *
  * It is persisted through [secureStorage] so the flow survives the app being killed while waiting
  * for the admin — the "never stranded" path where the user closes the app, gets the code by phone
  * an hour later, and comes back to a cold start.
+ *
+ * [requestMutex] serializes [requestReset] and [completeReset]: both are read-then-write-two-keys
+ * sequences against [secureStorage], and an overlapping pair (e.g. a double-tapped submit) could
+ * otherwise interleave those writes into the same desync a failed request already had to guard
+ * against. See [AuthSessionStore]'s `credentialMutex` for the precedent this follows.
  */
 internal class PasswordResetRepositoryImpl(
     private val channel: RpcChannel<AuthServicePublic>,
     private val secureStorage: SecureStorage,
 ) : PasswordResetRepository {
-    override suspend fun requestReset(email: String): AppResult<PasswordResetTicket> {
-        val claim = "${Uuid.random()}${Uuid.random()}"
-        secureStorage.save(CLAIM_KEY, claim)
-        return channel.call { it.requestPasswordReset(email, claim) }.also { result ->
-            // The ticket id is persisted alongside the claim, not just held in memory: the
-            // never-stranded path is a user who closes the app while waiting, gets the code by
-            // phone an hour later, and comes back. Without the id there is nothing to come back to.
-            if (result is AppResult.Success) secureStorage.save(TICKET_KEY, result.data.ticketId)
+    private val requestMutex = Mutex()
+
+    override suspend fun requestReset(email: String): AppResult<PasswordResetTicket> =
+        requestMutex.withLock {
+            val claim = "${Uuid.random()}${Uuid.random()}"
+            secureStorage.save(CLAIM_KEY, claim)
+            // A new claim invalidates any ticket retained from a prior attempt: that ticket's
+            // server record is paired with the OLD claim, which is now gone, so resuming it would
+            // send a claim the server never saw and could never succeed. Dropping it here — before
+            // we know whether this attempt even succeeds — leaves resumableTicketId() honestly
+            // null ("start again") rather than stranding a ticket that can never complete. A
+            // success below immediately re-establishes it against the fresh claim.
+            secureStorage.delete(TICKET_KEY)
+            channel.call { it.requestPasswordReset(email, claim) }.also { result ->
+                // The ticket id is persisted alongside the claim, not just held in memory: the
+                // never-stranded path is a user who closes the app while waiting, gets the code by
+                // phone an hour later, and comes back. Without the id there is nothing to come
+                // back to.
+                if (result is AppResult.Success) secureStorage.save(TICKET_KEY, result.data.ticketId)
+            }
         }
-    }
 
     /**
      * Mirrors [RegistrationStatusStreamImpl.streamStatus] exactly: [RpcEvent.Error] is thrown
-     * (rather than silently dropped) as [PasswordResetStatusStreamFailure], so a real business
-     * failure (e.g. an unrecognised ticket) can never be mistaken for "still pending".
+     * (rather than silently dropped) as [PasswordResetStatusStreamFailure], so a genuine
+     * transport/stream fault is never mistaken for "still pending". Unlike the registration watch
+     * this mirrors, an unrecognised ticket is **not** a business failure here — per
+     * `AuthServicePublic.observePasswordResetStatus`'s contract it emits `PENDING` then completes
+     * as `EXPIRED`, deliberately indistinguishable from a real unapproved request, so this stream
+     * never becomes an account-existence oracle. The only realistic [RpcEvent.Error] source is a
+     * transport/stream fault.
      */
     override fun observeStatus(ticketId: String): Flow<PasswordResetStatusEvent> =
         channel.stream { it.observePasswordResetStatus(ticketId) }.transformWhile { event ->
@@ -66,23 +98,35 @@ internal class PasswordResetRepositoryImpl(
             }
         }
 
+    /** Mirrors [RegistrationStatusStreamImpl.fetchStatus]: the first emission of [observeStatus]'s watch, never throwing. */
+    override suspend fun fetchStatus(ticketId: String): PasswordResetStatusEvent? =
+        when (val first = channel.stream { it.observePasswordResetStatus(ticketId) }.firstOrNull()) {
+            is RpcEvent.Data -> first.value
+            else -> null
+        }
+
     override suspend fun resumableTicketId(): String? = secureStorage.read(TICKET_KEY)
 
     override suspend fun completeReset(
         ticketId: String,
         code: String,
         newPassword: String,
-    ): AppResult<Unit> {
-        val claim =
-            secureStorage.read(CLAIM_KEY)
-                ?: return AppResult.Failure(AuthError.ResetRequestNotFound())
-        return channel.call { it.completePasswordReset(ticketId, claim, code, newPassword) }.also { result ->
-            if (result is AppResult.Success) {
-                secureStorage.delete(CLAIM_KEY)
-                secureStorage.delete(TICKET_KEY)
+    ): AppResult<Unit> =
+        requestMutex.withLock {
+            val claim =
+                secureStorage.read(CLAIM_KEY)
+                    ?: return AppResult.Failure(AuthError.ResetRequestNotFound())
+            channel.call { it.completePasswordReset(ticketId, claim, code, newPassword) }.also { result ->
+                // Only a SUCCESS clears the retained state. On failure — including a simply-wrong
+                // code — both keys are deliberately left in place so a retry with the correct code
+                // can still complete; clearing unconditionally here would strand the user exactly
+                // like the bug this file's requestReset fix addresses.
+                if (result is AppResult.Success) {
+                    secureStorage.delete(CLAIM_KEY)
+                    secureStorage.delete(TICKET_KEY)
+                }
             }
         }
-    }
 
     override suspend fun resetRootPassword(
         token: String,

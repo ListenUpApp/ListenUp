@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.core.SecureStorage
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -130,6 +131,75 @@ class PasswordResetRepositoryImplTest :
             }
         }
 
+        test("a failed re-request must not strand a stale ticket paired with a stale claim") {
+            runTest {
+                val storage = InMemoryPasswordResetSecureStorage()
+                val service = mock<AuthServicePublic>()
+                everySuspend { service.requestPasswordReset(any(), any()) } sequentiallyReturns
+                    listOf(
+                        AppResult.Success(ticket("ticket-1")),
+                        AppResult.Failure(TransportError.NetworkUnavailable()),
+                    )
+                val repo = repository(service, storage)
+
+                repo.requestReset("ada@example.com") // succeeds: CLAIM_KEY=claim-A, TICKET_KEY=ticket-1
+                repo.requestReset("ada@example.com") // overwrites CLAIM_KEY with claim-B, then fails
+
+                // ticket-1's server record is paired with claim-A, which is gone. Resuming ticket-1
+                // would send claim-B and can never succeed — the honest state is "no resumable request".
+                repo.resumableTicketId() shouldBe null
+            }
+        }
+
+        test("requestReset failure leaves the claim persisted but the ticket cleared") {
+            runTest {
+                val storage = InMemoryPasswordResetSecureStorage()
+                val service = mock<AuthServicePublic>()
+                everySuspend { service.requestPasswordReset(any(), any()) } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                val repo = repository(service, storage)
+
+                repo.requestReset("ada@example.com")
+
+                storage.read(PasswordResetRepositoryImpl.CLAIM_KEY).shouldNotBeNull()
+                storage.read(PasswordResetRepositoryImpl.TICKET_KEY) shouldBe null
+            }
+        }
+
+        test("a subsequent successful request after a failure is not corrupted by the failed attempt") {
+            runTest {
+                val storage = InMemoryPasswordResetSecureStorage()
+                val service = mock<AuthServicePublic>()
+                everySuspend { service.requestPasswordReset(any(), any()) } sequentiallyReturns
+                    listOf(
+                        AppResult.Failure(TransportError.NetworkUnavailable()),
+                        AppResult.Success(ticket("ticket-2")),
+                    )
+                val repo = repository(service, storage)
+
+                repo.requestReset("ada@example.com") // fails
+                repo.requestReset("ada@example.com") // succeeds
+
+                storage.read(PasswordResetRepositoryImpl.TICKET_KEY) shouldBe "ticket-2"
+            }
+        }
+
+        test("completeReset failure retains both keys so a retry with the correct code still works") {
+            runTest {
+                val storage = InMemoryPasswordResetSecureStorage()
+                val service = serviceReturning(AppResult.Success(ticket("ticket-9")))
+                everySuspend { service.completePasswordReset(any(), any(), any(), any()) } returns
+                    AppResult.Failure(AuthError.ResetCodeIncorrect(attemptsRemaining = 4))
+                val repo = repository(service, storage)
+                val success = repo.requestReset("ada@example.com").shouldBeInstanceOf<AppResult.Success<PasswordResetTicket>>()
+
+                repo.completeReset(success.data.ticketId, "WRONG-CODE", "correct horse battery")
+
+                storage.read(PasswordResetRepositoryImpl.CLAIM_KEY).shouldNotBeNull()
+                storage.read(PasswordResetRepositoryImpl.TICKET_KEY) shouldBe success.data.ticketId
+            }
+        }
+
         test("two requests mint different claims") {
             runTest {
                 val storage = InMemoryPasswordResetSecureStorage()
@@ -174,6 +244,31 @@ class PasswordResetRepositoryImplTest :
                 shouldThrow<PasswordResetStatusStreamFailure> {
                     repo.observeStatus("ticket-1").toList()
                 }
+            }
+        }
+
+        test("fetchStatus returns the first status emission of the same watch") {
+            runTest {
+                val service = mock<AuthServicePublic>()
+                every { service.observePasswordResetStatus(any()) } returns
+                    flowOf(
+                        RpcEvent.Data(PasswordResetStatusEvent(PasswordResetStatus.PENDING, expiresAt = 100L)),
+                        RpcEvent.Data(PasswordResetStatusEvent(PasswordResetStatus.APPROVED, expiresAt = 100L)),
+                    )
+                val repo = repository(service, InMemoryPasswordResetSecureStorage())
+
+                repo.fetchStatus("ticket-1") shouldBe PasswordResetStatusEvent(PasswordResetStatus.PENDING, expiresAt = 100L)
+            }
+        }
+
+        test("fetchStatus never throws — a transport fault resolves to null") {
+            runTest {
+                val service = mock<AuthServicePublic>()
+                every { service.observePasswordResetStatus(any()) } returns
+                    flowOf(RpcEvent.Error(TransportError.NetworkUnavailable()))
+                val repo = repository(service, InMemoryPasswordResetSecureStorage())
+
+                repo.fetchStatus("ticket-1") shouldBe null
             }
         }
 
