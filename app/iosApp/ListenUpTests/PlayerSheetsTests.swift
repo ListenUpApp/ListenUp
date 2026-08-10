@@ -75,4 +75,10 @@ struct PlayerSheetsTests {
     @Test func formatsMaximumBoost() {
         #expect(BoostPickerSheet.formatBoost(12) == "+12 dB")
     }
+
+    @Test func pillFormatDropsTheUnitSoTheControlNeverTruncates() {
+        #expect(BoostPickerSheet.formatBoostPill(0) == "Off")
+        #expect(BoostPickerSheet.formatBoostPill(6) == "+6")
+        #expect(BoostPickerSheet.formatBoostPill(12) == "+12")
+    }
 }

@@ -544,7 +544,7 @@ struct FullScreenPlayerView: View {
             // Boost
             controlItem(label: String(localized: "player.boost")) {
                 Button(action: { showBoostPicker = true }) {
-                    Text(BoostPickerSheet.formatBoost(observer.volumeBoostDb))
+                    Text(BoostPickerSheet.formatBoostPill(observer.volumeBoostDb))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                         .padding(.horizontal, 12)
