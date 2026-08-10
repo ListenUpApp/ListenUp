@@ -520,14 +520,6 @@ body { margin: 0; }
   font-size: 46px; font-weight: 800; letter-spacing: -1.6px; line-height: 1.02;
 }
 .auth-sub { margin: 18px 0 0; max-width: 360px; opacity: 0.82; font-size: 16px; line-height: 1.5; }
-.auth-tiles { display: flex; gap: 18px; margin-top: 44px; padding-left: 10px; }
-.auth-tile {
-  width: 132px; height: 132px; border-radius: 18px;
-  box-shadow: 0 18px 40px rgba(20,8,4,0.4);
-}
-.auth-tile.t1 { background: linear-gradient(165deg,#5a1620,#240a0e); transform: rotate(-8deg); }
-.auth-tile.t2 { background: linear-gradient(165deg,#3E2B12,#170F06); transform: rotate(3deg); margin-top: 24px; }
-.auth-tile.t3 { background: linear-gradient(165deg,#13414e,#08222b); transform: rotate(-3deg); margin-top: 8px; }
 
 .auth-form {
   flex: 1; min-width: 0;
