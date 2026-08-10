@@ -172,10 +172,13 @@ fun probeDeviceInfo(
  * The shared Koin graph as a browser boots it, in an isolated application so probes cannot
  * collide with each other or with a running page.
  *
+ * Every probe in this package boots through here — one boot path, so a change to how a browser
+ * assembles the graph lands in one place rather than in each probe's own copy.
+ *
  * [dbName] overrides the production database name so OPFS state from other runs cannot leak in;
  * OPFS outlives the page and the test harness reuses the browser profile.
  */
-private fun browserGraph(
+internal fun browserGraph(
     worker: Worker,
     dbName: String,
 ) = koinApplication {
