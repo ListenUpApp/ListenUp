@@ -40,6 +40,14 @@ final class SampleRing: Sendable {
         var sampleRate: Double?
         var channelCount = 0
         var formatMismatch = false
+
+        /// Latch the mismatch and empty the buffer, so every subsequent `write` is a no-op.
+        mutating func markMismatched() {
+            formatMismatch = true
+            buffer = []
+            writeIndex = 0
+            filled = 0
+        }
     }
 
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -54,10 +62,7 @@ final class SampleRing: Sendable {
         state.withLock { state in
             if let existing = state.sampleRate {
                 if existing == sampleRate && state.channelCount == channelCount { return true }
-                state.formatMismatch = true
-                state.buffer = []
-                state.writeIndex = 0
-                state.filled = 0
+                state.markMismatched()
                 return false
             }
             state.sampleRate = sampleRate
@@ -79,6 +84,20 @@ final class SampleRing: Sendable {
     /// `true` once a tap prepared with a format different from the fixed one. Terminal.
     var hasFormatMismatch: Bool {
         state.withLock { $0.formatMismatch }
+    }
+
+    /// Latch a mismatch for a format the ring cannot hold *at all* — non-interleaved audio, which
+    /// `setFormat` never sees because the meter only reads interleaved samples. Same terminal
+    /// effect as a changed format: the buffer empties and metering stops.
+    ///
+    /// Returns `true` only when this call is the one that latched. A ring with no format yet has
+    /// nothing to protect — metering never started — so it stays clean and this is a no-op.
+    func latchMismatch() -> Bool {
+        state.withLock { state in
+            guard state.sampleRate != nil, !state.formatMismatch else { return false }
+            state.markMismatched()
+            return true
+        }
     }
 
     /// Audio-thread side. Copies `count` samples in, overwriting the oldest on overflow.
@@ -183,6 +202,44 @@ enum GainTap {
         mix.inputParameters = [parameters]
         return mix
     }
+
+    /// Apply a tap's processing format to its context: reject anything that isn't float PCM, and
+    /// keep the meter's ring honest about a format that changes mid-book.
+    ///
+    /// Split out of the `prepare` callback because a `@convention(c)` callback is only reachable
+    /// through a live tap — this is where the decision lives, and where the tests aim.
+    static func adopt(processingFormat format: AudioStreamBasicDescription, context: GainTapContext) {
+        let isFloatPCM = format.mFormatID == kAudioFormatLinearPCM
+            && format.mFormatFlags & kAudioFormatFlagIsFloat != 0
+        guard isFloatPCM else {
+            context.disableGain()
+            Log.error("Gain tap: processing format is not 32-bit float PCM; gain and metering disabled")
+            return
+        }
+        // Non-interleaved audio arrives as one buffer per channel. Re-interleaving it for the meter
+        // would mean per-sample work on the audio thread, so those books stay unmetered — gain, which
+        // needs no interleaving, still applies.
+        guard format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0 else {
+            // Reaching here *after* a format was fixed is a mid-book format change like any other,
+            // and it must latch: a non-interleaved mono segment presents the single buffer the
+            // process callback happily writes into the ring, which the meter would then read under
+            // the old format. Wrong gain measured, persisted, and synced — worse than no gain.
+            if context.ring.latchMismatch() {
+                Log.info("Gain tap: audio turned non-interleaved mid-book; loudness metering stopped")
+            } else {
+                Log.info("Gain tap: non-interleaved audio; loudness metering off for this book")
+            }
+            return
+        }
+        let alreadyMismatched = context.ring.hasFormatMismatch
+        let accepted = context.ring.setFormat(
+            sampleRate: format.mSampleRate,
+            channelCount: Int(format.mChannelsPerFrame)
+        )
+        if !accepted && !alreadyMismatched {
+            Log.info("Gain tap: audio format changed mid-book; loudness metering stopped")
+        }
+    }
 }
 
 // MARK: - Tap callbacks
@@ -211,29 +268,7 @@ private func gainTapPrepare(
     let context = Unmanaged<GainTapContext>
         .fromOpaque(MTAudioProcessingTapGetStorage(tap))
         .takeUnretainedValue()
-    let format = processingFormat.pointee
-    let isFloatPCM = format.mFormatID == kAudioFormatLinearPCM
-        && format.mFormatFlags & kAudioFormatFlagIsFloat != 0
-    guard isFloatPCM else {
-        context.disableGain()
-        Log.error("Gain tap: processing format is not 32-bit float PCM; gain and metering disabled")
-        return
-    }
-    // Non-interleaved audio arrives as one buffer per channel. Re-interleaving it for the meter
-    // would mean per-sample work on the audio thread, so those books stay unmetered — gain, which
-    // needs no interleaving, still applies.
-    guard format.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0 else {
-        Log.info("Gain tap: non-interleaved audio; loudness metering off for this book")
-        return
-    }
-    let alreadyMismatched = context.ring.hasFormatMismatch
-    let accepted = context.ring.setFormat(
-        sampleRate: format.mSampleRate,
-        channelCount: Int(format.mChannelsPerFrame)
-    )
-    if !accepted && !alreadyMismatched {
-        Log.info("Gain tap: audio format changed mid-book; loudness metering stopped")
-    }
+    GainTap.adopt(processingFormat: processingFormat.pointee, context: context)
 }
 
 // Six parameters because `MTAudioProcessingTapProcessCallback` declares six — the signature is

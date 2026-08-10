@@ -47,10 +47,11 @@ struct FullScreenPlayerView: View {
     /// Non-nil while the multi-contributor picker is shown; carries the choices + the title.
     @State private var contributorPicker: ContributorPickerRequest?
     @State private var tint: Color = .listenUpOrange
-    /// The global default boost, read once when the player appears — the boost sheet needs it
-    /// passed in for its "Use default" row (`PlayerCoordinator` doesn't retain a reference to
-    /// `PlaybackPreferences` past init, so the view reads it directly).
-    @State private var defaultBoostDb: Float = 0
+    /// The global default boost — the boost sheet needs it passed in for its "Use default" row
+    /// (`PlayerCoordinator` doesn't retain a reference to `PlaybackPreferences` past init, so the
+    /// view reads it directly). `nil` means "not known yet", which is NOT the same as 0 dB: the
+    /// sheet hides the row rather than offering to reset a book to a default it hasn't read.
+    @State private var defaultBoostDb: Float?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
@@ -65,7 +66,12 @@ struct FullScreenPlayerView: View {
         .overlay { if observer.isErrored { errorOverlay } }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: tint)
         .task(id: observer.currentBookId) { resolveTint() }
-        .task { defaultBoostDb = (try? await deps.playbackPreferences.getDefaultVolumeBoostDb()) ?? 0 }
+        // Keyed on the sheet so the default is re-read every time the boost picker opens: a
+        // one-shot read races the first open (the row would offer 0 dB) and goes stale the moment
+        // Settings changes the default while the player is up.
+        .task(id: showBoostPicker) {
+            defaultBoostDb = try? await deps.playbackPreferences.getDefaultVolumeBoostDb()
+        }
         .statusBarHidden(false)
         .sheet(isPresented: $showSpeedPicker) {
             SpeedPickerSheet(
@@ -87,7 +93,7 @@ struct FullScreenPlayerView: View {
                     showBoostPicker = false
                 },
                 onUseDefault: {
-                    observer.resetBoost(defaultDb: defaultBoostDb)
+                    if let defaultBoostDb { observer.resetBoost(defaultDb: defaultBoostDb) }
                     showBoostPicker = false
                 }
             )

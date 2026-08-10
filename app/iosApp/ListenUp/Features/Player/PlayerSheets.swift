@@ -113,7 +113,8 @@ struct SpeedPickerSheet: View {
 /// continuous drag would only invite off-catalogue values with no real benefit.
 struct BoostPickerSheet: View {
     let currentBoostDb: Float
-    let defaultBoostDb: Float
+    /// The global default, or `nil` while it is still unknown — see `useDefaultRow`.
+    let defaultBoostDb: Float?
     let onBoostSelected: (Float) -> Void
     let onUseDefault: () -> Void
 
@@ -134,7 +135,6 @@ struct BoostPickerSheet: View {
                     .padding(.top, 24)
 
                 useDefaultRow
-                    .padding(.top, 20)
 
                 Spacer(minLength: 0)
             }
@@ -159,15 +159,21 @@ struct BoostPickerSheet: View {
         }
     }
 
-    /// Always shown — harmless when the book is already at the default, and it avoids
-    /// needing to plumb a separate "has a custom boost" flag through the coordinator.
+    /// Shown whenever the default is known — harmless when the book is already at it, and it
+    /// avoids plumbing a separate "has a custom boost" flag through the coordinator. Hidden while
+    /// it is `nil`, because a row that reads "Use default (Off)" on an unresolved read would
+    /// silently apply 0 dB over a real +6 default.
+    @ViewBuilder
     private var useDefaultRow: some View {
-        Button(action: onUseDefault) {
-            Text(String(format: String(localized: "player.boost_use_default"), Self.formatBoost(defaultBoostDb)))
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(Color.luLabel2)
+        if let defaultBoostDb {
+            Button(action: onUseDefault) {
+                Text(String(format: String(localized: "player.boost_use_default"), Self.formatBoost(defaultBoostDb)))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.luLabel2)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 20)
         }
-        .buttonStyle(.plain)
     }
 
     /// "Off" for no boost, else "+N dB" — the readout and chip label shared shape.

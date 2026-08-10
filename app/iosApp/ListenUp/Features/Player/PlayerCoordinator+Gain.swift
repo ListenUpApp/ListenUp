@@ -85,6 +85,10 @@ extension PlayerCoordinator {
         let positionMs = bookPositionMs
         Task {
             guard let measured = await engine.currentMeasuredGainDb() else { return }
+            // Re-check the book on the way back in: a switch during that read cleared `gain` for
+            // the incoming book, and writing the outgoing book's reading into it would suppress
+            // the new book's own first save.
+            guard phase.playingState?.bookId == loaded.bookId else { return }
             // 0.1 dB is well below audibility — smaller movement is meter jitter, not a
             // refinement, and re-saving it would churn the sync queue for nothing.
             if let last = gain.lastSavedMeasuredGainDb, abs(measured - last) <= 0.1 { return }

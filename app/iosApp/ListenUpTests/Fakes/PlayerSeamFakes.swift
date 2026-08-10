@@ -80,10 +80,25 @@ actor FakePlaybackEngine: PlaybackEngine {
     func setRate(_ newRate: Float) async { lastRate = newRate; gate.fire("setRate") }
     func setVolume(_ volume: Float) async { lastVolume = volume; gate.fire("setVolume") }
     func setGainDb(_ db: Float) async { lastGainDb = db; gate.fire("setGainDb") }
-    func currentMeasuredGainDb() async -> Float? { measuredGainDb }
+    func currentMeasuredGainDb() async -> Float? {
+        gate.fire("measuredGain")
+        if shouldBlockMeasuredGain { await withCheckedContinuation { measuredGainBlocker = $0 } }
+        return measuredGainDb
+    }
     /// Stand-in for the R128 meter's reading, so a test can drive the measured-gain path
     /// without a live audio tap.
     func setMeasuredGainDb(_ db: Float?) { measuredGainDb = db }
+
+    /// When true, `currentMeasuredGainDb` signals entry then suspends until
+    /// `releaseMeasuredGain()` — lets a test hold the measurement read open and switch books
+    /// underneath the coordinator's in-flight save.
+    private var shouldBlockMeasuredGain = false
+    private var measuredGainBlocker: CheckedContinuation<Void, Never>?
+    func setBlockMeasuredGain(_ block: Bool) { shouldBlockMeasuredGain = block }
+    func releaseMeasuredGain() { measuredGainBlocker?.resume(); measuredGainBlocker = nil }
+
+    /// Suspend until the coordinator has entered the measured-gain read.
+    func waitForMeasuredGainRead() async { await gate.wait(forKey: "measuredGain") }
     func deactivateSession() async {
         didDeactivateSession = true; teardownOrder.append("deactivate"); gate.fire("deactivate")
     }

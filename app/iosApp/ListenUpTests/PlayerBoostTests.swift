@@ -139,6 +139,32 @@ struct PlayerBoostTests {
         #expect(progress.measuredGains.isEmpty)
     }
 
+    /// A save that is mid-flight when the user switches books must be abandoned, not landed: the
+    /// engine read suspends, `resetMetadataForSwitch` clears the gain state for the incoming book,
+    /// and writing the outgoing book's reading in afterwards would suppress the new book's own
+    /// first save (anything within 0.1 dB of it is treated as jitter).
+    @Test func switchDuringMeasurementSaveAbandonsTheStaleReading() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+        await engine.setMeasuredGainDb(-2.4)
+        await engine.setBlockMeasuredGain(true)
+
+        coordinator.togglePlayback()              // pause → the save starts…
+        await engine.waitForMeasuredGainRead()    // …and suspends inside the engine read
+
+        // Hold book2's load so its own prepare can't land a fresh `GainState` over the assertion —
+        // the state under test is exactly what the switch left behind.
+        await engine.setBlockLoad(true)
+        coordinator.play(bookId: "book2")
+        await engine.releaseMeasuredGain()        // now the stale save resumes
+
+        await awaitUntil(timeout: .milliseconds(300)) { !progress.measuredGains.isEmpty }
+        #expect(progress.measuredGains.isEmpty)
+        #expect(coordinator.gain.lastSavedMeasuredGainDb == nil)   // book2's state stayed clean
+        await engine.releaseLoad()
+    }
+
     /// A book switch keeps the user's boost (like `playbackSpeed`) so the player never flashes
     /// back to 0 dB mid-switch. The per-book measurement inputs are dropped in the same breath —
     /// they belong to the outgoing book and applying them to the incoming one would be wrong.

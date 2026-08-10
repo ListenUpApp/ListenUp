@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Shared
 import Testing
@@ -54,5 +55,105 @@ struct GainTapTests {
         #expect(ring.format()?.sampleRate == 48_000)
         #expect(ring.format()?.channelCount == 2)
         #expect(ring.hasFormatMismatch)
+    }
+
+    /// The latch is terminal in both directions: writes stop landing, and a second latch is a
+    /// no-op — metering is off for the rest of the book, not merely paused.
+    @Test func sampleRingLatchStopsFurtherWrites() {
+        let ring = SampleRing()
+        #expect(ring.setFormat(sampleRate: 1, channelCount: 1))
+
+        #expect(ring.latchMismatch())
+
+        let written: [Float] = [1, 2, 3]
+        written.withUnsafeBufferPointer { ring.write($0.baseAddress!, count: $0.count) }
+        #expect(ring.drain().isEmpty)
+        #expect(ring.latchMismatch() == false)
+    }
+
+    /// Nothing to protect before a format is fixed — metering simply never started.
+    @Test func sampleRingWithoutFormatCannotLatch() {
+        let ring = SampleRing()
+
+        #expect(ring.latchMismatch() == false)
+        #expect(ring.hasFormatMismatch == false)
+    }
+
+    // MARK: - prepare
+
+    @Test func prepareFixesRingFormatForInterleavedFloatPcm() {
+        let context = GainTapContext(gain: GainCell(), ring: SampleRing())
+
+        GainTap.adopt(processingFormat: floatPcmFormat(sampleRate: 48_000, channels: 2), context: context)
+
+        #expect(context.ring.format()?.sampleRate == 48_000)
+        #expect(context.ring.format()?.channelCount == 2)
+        #expect(context.isGainSupported)
+    }
+
+    /// The regression: an interleaved segment fixes the format, then a NON-interleaved mono segment
+    /// arrives mid-book. Its single buffer passes the process callback's buffer-count guard, so
+    /// without a latch the meter would keep reading foreign samples under the old format and persist
+    /// a wrong gain. Metering must stop instead — a wrong gain is worse than no gain.
+    @Test func prepareLatchesMismatchWhenAudioTurnsNonInterleavedMidBook() {
+        let context = GainTapContext(gain: GainCell(), ring: SampleRing())
+        GainTap.adopt(processingFormat: floatPcmFormat(sampleRate: 48_000, channels: 2), context: context)
+
+        GainTap.adopt(
+            processingFormat: floatPcmFormat(sampleRate: 48_000, channels: 1, nonInterleaved: true),
+            context: context
+        )
+
+        #expect(context.ring.hasFormatMismatch)                 // what LoudnessMeterFeed stops on
+        #expect(context.ring.format()?.sampleRate == 48_000)    // the fixed format is not replaced
+        #expect(context.ring.format()?.channelCount == 2)
+        #expect(context.isGainSupported)                        // gain still applies; only metering stops
+    }
+
+    /// A book that is non-interleaved from its first segment never started metering, so there is
+    /// nothing to latch — the ring stays clean and simply unmeasured.
+    @Test func prepareLeavesRingCleanWhenNonInterleavedFromTheStart() {
+        let context = GainTapContext(gain: GainCell(), ring: SampleRing())
+
+        GainTap.adopt(
+            processingFormat: floatPcmFormat(sampleRate: 48_000, channels: 2, nonInterleaved: true),
+            context: context
+        )
+
+        #expect(context.ring.hasFormatMismatch == false)
+        #expect(context.ring.format() == nil)
+    }
+
+    /// Anything but float PCM would be shredded by the gain multiply, so the whole tap goes inert.
+    @Test func prepareDisablesGainForNonFloatAudio() {
+        let context = GainTapContext(gain: GainCell(), ring: SampleRing())
+        var format = floatPcmFormat(sampleRate: 48_000, channels: 2)
+        format.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked
+
+        GainTap.adopt(processingFormat: format, context: context)
+
+        #expect(context.isGainSupported == false)
+        #expect(context.ring.format() == nil)
+    }
+
+    /// The processing format a tap's `prepare` hands over, as AVFoundation shapes it.
+    private func floatPcmFormat(
+        sampleRate: Double,
+        channels: UInt32,
+        nonInterleaved: Bool = false
+    ) -> AudioStreamBasicDescription {
+        let bytesPerFrame = nonInterleaved ? 4 : 4 * channels
+        return AudioStreamBasicDescription(
+            mSampleRate: sampleRate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
+                | (nonInterleaved ? kAudioFormatFlagIsNonInterleaved : 0),
+            mBytesPerPacket: bytesPerFrame,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: bytesPerFrame,
+            mChannelsPerFrame: channels,
+            mBitsPerChannel: 32,
+            mReserved: 0
+        )
     }
 }
