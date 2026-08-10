@@ -98,10 +98,19 @@ fun SetupForm(
 
 private fun SetupErrorType.userMessage(): String =
     when (this) {
-        is SetupErrorType.NetworkError -> "Could not reach the server. Check your connection."
-        is SetupErrorType.ServerError -> "The server had a problem. Try again shortly."
-        is SetupErrorType.AlreadyConfigured -> "This server is already set up. Sign in instead."
-        is SetupErrorType.ValidationError ->
+        is SetupErrorType.NetworkError -> {
+            "Could not reach the server. Check your connection."
+        }
+
+        is SetupErrorType.ServerError -> {
+            "The server had a problem. Try again shortly."
+        }
+
+        is SetupErrorType.AlreadyConfigured -> {
+            "This server is already set up. Sign in instead."
+        }
+
+        is SetupErrorType.ValidationError -> {
             when (field) {
                 SetupField.FIRST_NAME -> "Enter a first name."
                 SetupField.LAST_NAME -> "Enter a last name."
@@ -109,6 +118,7 @@ private fun SetupErrorType.userMessage(): String =
                 SetupField.PASSWORD -> "Choose a password."
                 SetupField.PASSWORD_CONFIRM -> "The two passwords do not match."
             }
+        }
     }
 
 internal const val FIRST_NAME_ID = "auth-first"

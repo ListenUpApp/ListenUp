@@ -92,14 +92,24 @@ fun LoginForm(
  */
 private fun LoginErrorType.userMessage(): String =
     when (this) {
-        is LoginErrorType.InvalidCredentials -> "Email or password is incorrect."
-        is LoginErrorType.NetworkError -> detail ?: "Could not reach the server. Check your connection."
-        is LoginErrorType.ServerError -> detail ?: "The server had a problem. Try again shortly."
-        is LoginErrorType.ValidationError ->
+        is LoginErrorType.InvalidCredentials -> {
+            "Email or password is incorrect."
+        }
+
+        is LoginErrorType.NetworkError -> {
+            detail ?: "Could not reach the server. Check your connection."
+        }
+
+        is LoginErrorType.ServerError -> {
+            detail ?: "The server had a problem. Try again shortly."
+        }
+
+        is LoginErrorType.ValidationError -> {
             when (field) {
                 LoginField.EMAIL -> "Enter a valid email address."
                 LoginField.PASSWORD -> "Enter your password."
             }
+        }
     }
 
 internal const val EMAIL_ID = "auth-email"
