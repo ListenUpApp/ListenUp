@@ -1,7 +1,17 @@
 package com.calypsan.listenup.web.design
 
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.client.presentation.auth.LoginErrorType
+import com.calypsan.listenup.client.presentation.auth.LoginUiState
+import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
+import com.calypsan.listenup.client.presentation.auth.RegisterUiState
+import com.calypsan.listenup.client.presentation.auth.SetupUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.web.features.auth.AuthLayout
+import com.calypsan.listenup.web.features.auth.LoginForm
+import com.calypsan.listenup.web.features.auth.PendingApprovalPanel
+import com.calypsan.listenup.web.features.auth.RegisterForm
+import com.calypsan.listenup.web.features.auth.SetupForm
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import androidx.compose.runtime.Composable
 import io.kotest.core.spec.style.FunSpec
@@ -10,6 +20,7 @@ import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.renderComposable
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
+import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
@@ -141,6 +152,57 @@ class ClassContractTest :
                         Pill("Horror", selected = true, onRemove = {})
                         Cover(title = "The Institute")
                         ProgressLine(percent = 49, remaining = "9h 18m left")
+                        Field(label = "Email", value = "", leading = WebIcon.Mail, onInput = {})
+                        Field(label = "Email", value = "", error = true, onInput = {})
+                        PasswordField(label = "Password", value = "", onInput = {})
+                        AuthLayout(title = "Sign in", subtitle = "Sub", badge = "Server administrator") {
+                            LoginForm(
+                                state = LoginUiState.Error(LoginErrorType.InvalidCredentials),
+                                openRegistration = true,
+                                onSubmit = { _, _ -> },
+                                onRegister = {},
+                            )
+                        }
+                        AuthLayout(title = "Create admin account") {
+                            SetupForm(state = SetupUiState.Idle, onSubmit = { _, _, _, _, _ -> })
+                        }
+                        AuthLayout(title = "Create account") {
+                            RegisterForm(
+                                state = RegisterUiState.Error("nope"),
+                                onSubmit = { _, _, _, _ -> },
+                                onBack = {},
+                            )
+                        }
+                        // Each pending state draws different classes, so each belongs in the
+                        // contract — an invented class hides just as well in a denied state.
+                        AuthLayout(title = "Waiting for approval") {
+                            PendingApprovalPanel(
+                                state = PendingApprovalUiState.Waiting,
+                                email = "ada@example.com",
+                                onCheckStatus = {},
+                                onCancel = {},
+                                onAcknowledge = {},
+                            )
+                        }
+                        AuthLayout(title = "Waiting for approval") {
+                            PendingApprovalPanel(
+                                state = PendingApprovalUiState.Approved,
+                                email = "ada@example.com",
+                                onCheckStatus = {},
+                                onCancel = {},
+                                onAcknowledge = {},
+                            )
+                        }
+                        AuthLayout(title = "Waiting for approval") {
+                            PendingApprovalPanel(
+                                state = PendingApprovalUiState.Denied("no"),
+                                email = "ada@example.com",
+                                onCheckStatus = {},
+                                onCancel = {},
+                                onAcknowledge = {},
+                            )
+                        }
+                        AccountMenu(onSignOut = {})
                     }
                 }
 
