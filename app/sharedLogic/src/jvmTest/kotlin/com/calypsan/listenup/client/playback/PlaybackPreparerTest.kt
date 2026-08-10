@@ -76,7 +76,7 @@ class PlaybackPreparerTest :
 
         // ── seed helpers ───────────────────────────────────────────────────────────────
 
-        suspend fun seedBookAndAudioFiles() {
+        suspend fun seedBookAndAudioFiles(normalizationGainDb: Float? = null) {
             db.bookDao().upsert(
                 BookEntity(
                     id = bookId,
@@ -94,6 +94,7 @@ class PlaybackPreparerTest :
                     isbn = null,
                     asin = null,
                     abridged = false,
+                    normalizationGainDb = normalizationGainDb,
                     createdAt = Timestamp(1L),
                     updatedAt = Timestamp(1L),
                 ),
@@ -142,6 +143,7 @@ class PlaybackPreparerTest :
             progressTracker: ProgressTracker = buildProgressTracker(),
             autoRewindEnabled: Boolean = false,
             nowMillis: () -> Long = { 1_000_000_000_000L },
+            defaultBoostDb: Float = 0f,
         ): PlaybackPreparer {
             val localPreferences: LocalPreferences = mock()
             every { localPreferences.autoRewindEnabled } returns MutableStateFlow(autoRewindEnabled)
@@ -157,6 +159,7 @@ class PlaybackPreparerTest :
 
             val playbackPreferences: PlaybackPreferences = mock()
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
+            everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns defaultBoostDb
 
             return PlaybackPreparer(
                 serverConfig = serverConfig,
@@ -250,15 +253,18 @@ class PlaybackPreparerTest :
             positionMs: Long,
             lastPlayedAtMs: Long,
             isFinished: Boolean = false,
+            volumeBoostDb: Float = 0f,
+            hasCustomBoost: Boolean = false,
+            measuredGainDb: Float? = null,
         ): PlaybackPosition =
             PlaybackPosition(
                 bookId = bookId.value,
                 positionMs = positionMs,
                 playbackSpeed = 1.0f,
                 hasCustomSpeed = false,
-                volumeBoostDb = 0f,
-                hasCustomBoost = false,
-                measuredGainDb = null,
+                volumeBoostDb = volumeBoostDb,
+                hasCustomBoost = hasCustomBoost,
+                measuredGainDb = measuredGainDb,
                 updatedAtMs = lastPlayedAtMs,
                 syncedAtMs = null,
                 lastPlayedAtMs = lastPlayedAtMs,
@@ -516,6 +522,84 @@ class PlaybackPreparerTest :
                 svc.prepareCallCount shouldBe 0
                 // getPosition failed (offline) → never-stranded: resume resolves from Room, unchanged.
                 result.resumePositionMs shouldBe pos430
+            }
+        }
+
+        // ── volume-boost resolution (mirrors resumeSpeed's per-book vs. global shape) ───
+
+        test("prepare resolves custom boost when hasCustomBoost is set") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker =
+                            trackerWithLocalPosition(
+                                localPosition(pos600, baseTime, volumeBoostDb = 6f, hasCustomBoost = true),
+                            ),
+                        defaultBoostDb = 3f,
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumeBoostDb shouldBe 6f
+            }
+        }
+
+        test("prepare falls back to the default boost when no custom boost") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker =
+                            trackerWithLocalPosition(
+                                localPosition(pos600, baseTime, volumeBoostDb = 6f, hasCustomBoost = false),
+                            ),
+                        defaultBoostDb = 3f,
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.resumeBoostDb shouldBe 3f
+            }
+        }
+
+        test("prepare carries measured and tag gain for the effective-gain fallback chain") {
+            runTest {
+                seedBookAndAudioFiles(normalizationGainDb = -2.5f)
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker =
+                            trackerWithLocalPosition(localPosition(pos600, baseTime, measuredGainDb = -1.5f)),
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.measuredGainDb shouldBe -1.5f
+                result.normalizationGainDb shouldBe -2.5f
+            }
+        }
+
+        test("prepare carries null measured and tag gain when neither is set") {
+            runTest {
+                val preparer =
+                    buildPreparer(
+                        downloadService = streamingDownloadService(),
+                        prepareRepository = preparedWith(resumePosition = null),
+                        progressTracker = trackerWithLocalPosition(localPosition(pos600, baseTime)),
+                    )
+
+                val result = preparer.prepare(bookId)
+
+                result.shouldNotBeNull()
+                result.measuredGainDb.shouldBeNull()
+                result.normalizationGainDb.shouldBeNull()
             }
         }
 
