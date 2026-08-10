@@ -13,6 +13,22 @@ struct AudioSegment: Equatable, Sendable {
 
     /// The whole-book position (ms) at which this segment ends.
     var endOffsetMs: Int64 { offsetMs + durationMs }
+
+    /// Resolve a prepared timeline's files into playable segments — the local file when
+    /// downloaded, else the streaming URL; files with neither are dropped.
+    static func resolve(_ files: [PreparedFile]) -> [AudioSegment] {
+        files.compactMap { file -> AudioSegment? in
+            let url: URL
+            if let localPath = file.localPath {
+                url = URL(fileURLWithPath: localPath)
+            } else if let remote = URL(string: file.streamingUrl) {
+                url = remote
+            } else {
+                return nil
+            }
+            return AudioSegment(url: url, durationMs: file.durationMs, offsetMs: file.startOffsetMs)
+        }
+    }
 }
 
 /// An event emitted by `AudioEngine` on its single output stream. One stream,
