@@ -158,6 +158,9 @@ class NowPlayingViewModelTest :
                 totalChapters = 1,
                 resumePositionMs = 0L,
                 resumeSpeed = 1.0f,
+                resumeBoostDb = 0f,
+                measuredGainDb = null,
+                normalizationGainDb = null,
             )
 
         fun stubTimeline(): PlaybackTimeline =

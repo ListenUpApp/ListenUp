@@ -52,6 +52,9 @@ class FakePlaybackManager : PlaybackManager {
     val playbackSpeedFlow = MutableStateFlow(1.0f)
     override val playbackSpeed: StateFlow<Float> = playbackSpeedFlow.asStateFlow()
 
+    val volumeBoostDbFlow = MutableStateFlow(0f)
+    override val volumeBoostDb: StateFlow<Float> = volumeBoostDbFlow.asStateFlow()
+
     val isPlayingFlow = MutableStateFlow(false)
     override val isPlaying: StateFlow<Boolean> = isPlayingFlow.asStateFlow()
 
@@ -88,6 +91,8 @@ class FakePlaybackManager : PlaybackManager {
     val updatedSpeeds: MutableList<Float> = mutableListOf()
     val speedChanges: MutableList<Float> = mutableListOf()
     val speedResets: MutableList<Float> = mutableListOf()
+    val boostChanges: MutableList<Float> = mutableListOf()
+    val boostResets: MutableList<Float> = mutableListOf()
 
     data class StartPlaybackCall(
         val player: AudioPlayer,
@@ -123,6 +128,16 @@ class FakePlaybackManager : PlaybackManager {
     override fun onSpeedReset(defaultSpeed: Float) {
         speedResets += defaultSpeed
         playbackSpeedFlow.value = defaultSpeed
+    }
+
+    override fun onVolumeBoostChanged(boostDb: Float) {
+        boostChanges += boostDb
+        volumeBoostDbFlow.value = boostDb
+    }
+
+    override fun onBoostReset(defaultBoostDb: Float) {
+        boostResets += defaultBoostDb
+        volumeBoostDbFlow.value = defaultBoostDb
     }
 
     // === PlaybackStateProvider overrides ===
