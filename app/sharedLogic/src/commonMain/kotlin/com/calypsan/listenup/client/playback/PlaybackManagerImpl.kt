@@ -153,6 +153,11 @@ internal class PlaybackManagerImpl(
     override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?>
         field = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
 
+    // Populated by the boost state work (PR3 T3) — parked at unity so the gain stage is
+    // installed and wired before it has anything to say.
+    override val effectiveGainDb: StateFlow<Float>
+        field = MutableStateFlow(0f)
+
     // Tracks the coroutine that observes AudioPlayer state/position on Desktop/Apple.
     // Cancelled by clearPlayback so observations don't outlive a playback session.
     private var playerObservationJob: Job? = null

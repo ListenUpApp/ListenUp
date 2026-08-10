@@ -64,6 +64,15 @@ interface PlaybackManager :
     val currentChapter: StateFlow<ChapterInfo?>
 
     /**
+     * Combined loudness-normalization and user-boost gain for the current book, in dB.
+     *
+     * 0 dB is unity — the file plays at the level it was authored at. Platform gain stages
+     * (Android's Media3 `GainAudioProcessor`, iOS's audio engine) apply this; it is never folded
+     * into the persisted position or speed.
+     */
+    val effectiveGainDb: StateFlow<Float>
+
+    /**
      * Callback invoked whenever the active chapter changes — used by the Android
      * playback service to update the media notification. Set to `null` when the
      * service detaches.

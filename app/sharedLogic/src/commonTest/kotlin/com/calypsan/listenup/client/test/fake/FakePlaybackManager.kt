@@ -64,6 +64,9 @@ class FakePlaybackManager : PlaybackManager {
     val playbackErrorFlow = MutableStateFlow<PlaybackErrorUiState?>(null)
     override val playbackError: StateFlow<PlaybackErrorUiState?> = playbackErrorFlow.asStateFlow()
 
+    val effectiveGainDbFlow = MutableStateFlow(0f)
+    override val effectiveGainDb: StateFlow<Float> = effectiveGainDbFlow.asStateFlow()
+
     // === Notification callback hook ===
 
     override var onChapterChanged: ((ChapterInfo) -> Unit)? = null
