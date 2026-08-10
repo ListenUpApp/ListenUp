@@ -139,6 +139,19 @@ struct SettingsView: View {
             }
             .haptic(.selectionTick, trigger: observer.defaultPlaybackSpeed)
 
+            Picker(selection: boostBinding(observer)) {
+                ForEach(Self.boostOptions, id: \.self) { boost in
+                    Text(BoostPickerSheet.formatBoost(boost)).tag(boost)
+                }
+            } label: {
+                SettingsLabel(
+                    title: String(localized: "settings.default_boost"),
+                    systemImage: "speaker.wave.2.fill",
+                    tint: .luTint
+                )
+            }
+            .haptic(.selectionTick, trigger: observer.defaultVolumeBoostDb)
+
             Picker(selection: skipForwardBinding(observer)) {
                 ForEach(Self.skipOptions, id: \.self) { sec in
                     Text(SettingsFormat.skipLabel(seconds: sec)).tag(sec)
@@ -323,6 +336,8 @@ struct SettingsView: View {
     // MARK: - Picker / toggle option sets
 
     private static let speedOptions: [Float] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
+    // Mirrors VolumeBoostLimits in :contract (not exported to Swift).
+    private static let boostOptions: [Float] = [0, 3, 6, 9, 12]
     private static let skipOptions: [Int] = [5, 10, 15, 30, 45, 60]
     private static let sleepTimerOptions: [Int] = [5, 10, 15, 30, 45, 60]
 
@@ -334,6 +349,10 @@ struct SettingsView: View {
 
     private func speedBinding(_ observer: SettingsObserver) -> Binding<Float> {
         Binding(get: { observer.defaultPlaybackSpeed }, set: { observer.setDefaultPlaybackSpeed($0) })
+    }
+
+    private func boostBinding(_ observer: SettingsObserver) -> Binding<Float> {
+        Binding(get: { observer.defaultVolumeBoostDb }, set: { observer.setDefaultVolumeBoostDb($0) })
     }
 
     private func skipForwardBinding(_ observer: SettingsObserver) -> Binding<Int> {

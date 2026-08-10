@@ -780,6 +780,7 @@
     "choose_light_dark_or_follow": "Choose light, dark, or follow system",
     "clear_all": "Clear All",
     "clear_all_downloads": "Clear All Downloads?",
+    "default_boost": "Default volume boost",
     "default_speed": "Default speed",
     "default_timer": "Default timer",
     "delete_blocked_message": "Stop playback of “%1$s” before deleting its download.",

@@ -16,6 +16,7 @@ final class SettingsObserver {
     // MARK: - Flattened state (synced — server storage)
 
     private(set) var defaultPlaybackSpeed: Float = 1.0
+    private(set) var defaultVolumeBoostDb: Float = 0
     private(set) var defaultSkipForwardSec: Int = 30
     private(set) var defaultSkipBackwardSec: Int = 10
     private(set) var defaultSleepTimerMin: Int?
@@ -57,6 +58,7 @@ final class SettingsObserver {
 
     private func apply(_ state: SettingsUiState) {
         defaultPlaybackSpeed = state.defaultPlaybackSpeed
+        defaultVolumeBoostDb = state.defaultVolumeBoostDb
         defaultSkipForwardSec = Int(state.defaultSkipForwardSec)
         defaultSkipBackwardSec = Int(state.defaultSkipBackwardSec)
         defaultSleepTimerMin = state.defaultSleepTimerMin.map { Int($0) }
@@ -74,6 +76,7 @@ final class SettingsObserver {
 
     func setThemeMode(_ mode: ThemeMode) { viewModel.setThemeMode(mode: mode) }
     func setDefaultPlaybackSpeed(_ speed: Float) { viewModel.setDefaultPlaybackSpeed(speed: speed) }
+    func setDefaultVolumeBoostDb(_ db: Float) { viewModel.setDefaultVolumeBoostDb(boostDb: db) }
     func setDefaultSkipForwardSec(_ seconds: Int) { viewModel.setDefaultSkipForwardSec(seconds: Int32(seconds)) }
     func setDefaultSkipBackwardSec(_ seconds: Int) { viewModel.setDefaultSkipBackwardSec(seconds: Int32(seconds)) }
     func setAutoRewindEnabled(_ enabled: Bool) { viewModel.setAutoRewindEnabled(enabled: enabled) }

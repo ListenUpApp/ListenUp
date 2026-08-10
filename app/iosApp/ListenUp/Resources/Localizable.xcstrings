@@ -11251,6 +11251,16 @@
         }
       }
     },
+    "settings.default_boost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default volume boost"
+          }
+        }
+      }
+    },
     "settings.default_speed": {
       "localizations": {
         "en": {
