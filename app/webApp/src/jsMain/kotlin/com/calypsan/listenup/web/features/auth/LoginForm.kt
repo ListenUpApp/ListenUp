@@ -1,0 +1,109 @@
+package com.calypsan.listenup.web.features.auth
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.calypsan.listenup.client.presentation.auth.LoginErrorType
+import com.calypsan.listenup.client.presentation.auth.LoginField
+import com.calypsan.listenup.client.presentation.auth.LoginUiState
+import com.calypsan.listenup.web.design.Field
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.PasswordField
+import com.calypsan.listenup.web.design.WebIcon
+import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.attributes.disabled
+import org.jetbrains.compose.web.dom.Button
+import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Span
+import org.jetbrains.compose.web.dom.Text
+
+/**
+ * The sign-in form. Pure in [state] — it owns the two field values and nothing else, so a spec can
+ * drive every branch without a ViewModel or a server.
+ *
+ * Errors are read off the typed [LoginErrorType], never off a message string: the body-level
+ * `message` on an `AppError` is a per-subtype constant, so substring-matching it is either
+ * redundant or wrong.
+ */
+@Composable
+fun LoginForm(
+    state: LoginUiState,
+    openRegistration: Boolean,
+    onSubmit: (email: String, password: String) -> Unit,
+    onRegister: () -> Unit,
+) {
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    val error = (state as? LoginUiState.Error)?.type
+    val badField = (error as? LoginErrorType.ValidationError)?.field
+
+    Div(attrs = { classes("auth-fields") }) {
+        Field(
+            label = "Email",
+            value = email,
+            onInput = { email = it },
+            leading = WebIcon.Mail,
+            placeholder = "you@example.com",
+            type = InputType.Email,
+            error = badField == LoginField.EMAIL,
+            id = EMAIL_ID,
+        )
+        PasswordField(
+            label = "Password",
+            value = password,
+            onInput = { password = it },
+            error = badField == LoginField.PASSWORD,
+            id = PASSWORD_ID,
+        )
+
+        error?.let { Div(attrs = { classes("auth-err") }) { Text(it.userMessage()) } }
+
+        Button(attrs = {
+            classes("btn")
+            attr("type", "button")
+            if (state is LoginUiState.Loading) disabled()
+            onClick { onSubmit(email, password) }
+        }) {
+            Icon(WebIcon.LogIn, size = BUTTON_ICON_SIZE)
+            Text(if (state is LoginUiState.Loading) "Signing in…" else "Sign in")
+        }
+
+        if (openRegistration) {
+            Div(attrs = { classes("auth-alt") }) {
+                Span { Text("New to ListenUp?") }
+                Span(attrs = {
+                    classes("lnk")
+                    onClick { onRegister() }
+                }) { Text("Create account") }
+            }
+        }
+    }
+}
+
+/**
+ * User-facing copy for a login failure.
+ *
+ * `InvalidCredentials` deliberately does not say which half was wrong — the shared ViewModel
+ * already folds `AccountDenied` and `PendingApproval` into it, and distinguishing them here would
+ * leak account existence to anyone guessing.
+ */
+private fun LoginErrorType.userMessage(): String =
+    when (this) {
+        is LoginErrorType.InvalidCredentials -> "Email or password is incorrect."
+        is LoginErrorType.NetworkError -> detail ?: "Could not reach the server. Check your connection."
+        is LoginErrorType.ServerError -> detail ?: "The server had a problem. Try again shortly."
+        is LoginErrorType.ValidationError ->
+            when (field) {
+                LoginField.EMAIL -> "Enter a valid email address."
+                LoginField.PASSWORD -> "Enter your password."
+            }
+    }
+
+internal const val EMAIL_ID = "auth-email"
+
+internal const val PASSWORD_ID = "auth-password"
+
+private const val BUTTON_ICON_SIZE = 19
