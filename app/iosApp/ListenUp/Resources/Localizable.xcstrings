@@ -9871,6 +9871,16 @@
         }
       }
     },
+    "player.boost_pill_db": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%1$d"
+          }
+        }
+      }
+    },
     "player.boost_use_default": {
       "localizations": {
         "en": {
@@ -10307,6 +10317,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "View all %1$d chapters"
+          }
+        }
+      }
+    },
+    "player.volume_boost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume Boost"
           }
         }
       }

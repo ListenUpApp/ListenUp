@@ -140,7 +140,7 @@ struct BoostPickerSheet: View {
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
-            .navigationTitle(String(localized: "player.boost"))
+            .navigationTitle(String(localized: "player.volume_boost"))
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -181,6 +181,13 @@ struct BoostPickerSheet: View {
         let rounded = Int(db.rounded())
         if rounded == 0 { return String(localized: "player.boost_off") }
         return String(format: String(localized: "player.boost_db"), rounded)
+    }
+
+    /// The pill variant: "Off" or "+N" with no unit, so the control never truncates.
+    nonisolated static func formatBoostPill(_ db: Float) -> String {
+        let rounded = Int(db.rounded())
+        if rounded == 0 { return String(localized: "player.boost_off") }
+        return String(format: String(localized: "player.boost_pill_db"), rounded)
     }
 }
 

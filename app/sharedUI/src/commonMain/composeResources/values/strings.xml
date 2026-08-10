@@ -988,6 +988,7 @@ One beautiful library.</string>
     <string name="player_boost">Boost</string>
     <string name="player_boost_db">+%1$d dB</string>
     <string name="player_boost_off">Off</string>
+    <string name="player_boost_pill_db">+%1$d</string>
     <string name="player_boost_use_default">Use default (%1$s)</string>
     <string name="player_cancel_timer">Cancel timer</string>
     <string name="player_chapter_of">Chapter %1$s of %2$s</string>
@@ -1032,6 +1033,7 @@ One beautiful library.</string>
     <string name="player_until_end_of_chapter_detail">Playback will pause when this chapter ends</string>
     <string name="player_up_next">Up next</string>
     <string name="player_view_all_chapters">View all %1$d chapters</string>
+    <string name="player_volume_boost">Volume Boost</string>
     <string name="profile_avatar">Avatar</string>
     <string name="profile_avatar_description">Shown across your profile and reviews.</string>
     <string name="profile_change_password">Change Password</string>
