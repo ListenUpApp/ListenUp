@@ -1,11 +1,15 @@
 package com.calypsan.listenup.client.diagnostics
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.presentation.auth.SetupUiState
 import com.calypsan.listenup.client.presentation.auth.SetupViewModel
+import com.calypsan.listenup.core.ServerUrl
+import kotlinx.browser.window
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -66,6 +70,21 @@ suspend fun probeAuthArc(
     val app = browserGraph(worker, dbName)
 
     return try {
+        // Seed the server URL from the page origin before anything touches the network — the same
+        // thing `Main.kt` does before it mounts the composition, and for the same reason.
+        //
+        // This probe boots an ISOLATED Koin graph, so it inherits nothing from the running app. An
+        // unseeded `ServerConfig` makes every call raise `ServerUrlNotConfiguredException`, which
+        // `ErrorMapper` folds into `TransportError.NetworkUnavailable` — so the arc fails reporting
+        // "no network" on a machine whose network is fine. The three sibling probes never needed
+        // this because none of them leave the browser; this is the first that does.
+        val serverConfig = app.koin.get<ServerConfig>()
+        if (!serverConfig.hasServerConfigured()) {
+            serverConfig.setServerUrl(
+                ServerUrl(seedServerUrlFromOrigin(stored = null, origin = window.location.origin)),
+            )
+        }
+
         val authSession = app.koin.get<AuthSession>()
         authSession.initializeAuthState()
 
