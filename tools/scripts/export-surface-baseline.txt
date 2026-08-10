@@ -286,6 +286,7 @@ LoginField
 LoginRequest
 LoginUiState
 LoginViewModel
+LoudnessMeter
 MatchProvenance
 MatchTier
 MediaFocus
@@ -490,4 +491,5 @@ UserStatus
 VerifiedServer
 VoiceHints
 VoiceIntentResolver
+VolumeGain
 WeeklyStats

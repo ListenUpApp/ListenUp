@@ -12,8 +12,10 @@ import kotlin.math.tan
  * generalizes cleanly to any sample rate.
  *
  * Stateful and NOT thread-safe: one filter per channel, driven from the audio thread.
+ *
+ * Internal: an implementation detail of [LoudnessMeter] — never part of the client export surface.
  */
-class Biquad(
+internal class Biquad(
     val b0: Double,
     val b1: Double,
     val b2: Double,
