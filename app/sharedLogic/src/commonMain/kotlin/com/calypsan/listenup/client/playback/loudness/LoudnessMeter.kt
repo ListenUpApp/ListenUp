@@ -28,7 +28,17 @@ class LoudnessMeter(
     private var totalFramesInRing = 0
     private var ringSum = 0.0
 
-    private val blockPowers = ArrayList<Double>()
+    // Fixed-size gating histogram (libebur128 shape): bins of 0.1 LU spanning
+    // [ABSOLUTE_GATE_LUFS, HISTOGRAM_CEILING_LUFS). Each bin keeps the block count and the
+    // sum of mean-square powers, so gated averages stay exact up to boundary quantization.
+    private val binCounts = LongArray(HISTOGRAM_BINS)
+    private val binPowerSums = DoubleArray(HISTOGRAM_BINS)
+
+    private fun binIndex(lufs: Double): Int? {
+        if (lufs < ABSOLUTE_GATE_LUFS) return null // absolute gate: below -70 LUFS is never stored
+        val idx = ((lufs - ABSOLUTE_GATE_LUFS) / BIN_WIDTH_LU).toInt()
+        return idx.coerceAtMost(HISTOGRAM_BINS - 1)
+    }
 
     /** Feed [frameCount] interleaved frames of [channelCount] channels each. */
     fun addFrames(
@@ -50,20 +60,34 @@ class LoudnessMeter(
             filledInHop++
             if (totalFramesInRing >= blockFrames && filledInHop >= hopFrames) {
                 filledInHop = 0
-                blockPowers.add(ringSum / blockFrames)
+                val power = ringSum / blockFrames
+                binIndex(powerToLufs(power))?.let { bin ->
+                    binCounts[bin]++
+                    binPowerSums[bin] += power
+                }
             }
         }
     }
 
     /** Integrated loudness in LUFS, or null if no block clears the absolute gate. */
     fun integratedLufs(): Double? {
-        if (blockPowers.isEmpty()) return null
-        val absKept = blockPowers.filter { powerToLufs(it) >= ABSOLUTE_GATE_LUFS }
-        if (absKept.isEmpty()) return null
-        val relThreshold = powerToLufs(absKept.average()) - RELATIVE_GATE_LU
-        val relKept = absKept.filter { powerToLufs(it) >= relThreshold }
-        if (relKept.isEmpty()) return null
-        return powerToLufs(relKept.average())
+        var count = 0L
+        var powerSum = 0.0
+        for (bin in 0 until HISTOGRAM_BINS) {
+            count += binCounts[bin]
+            powerSum += binPowerSums[bin]
+        }
+        if (count == 0L) return null
+        val relThreshold = powerToLufs(powerSum / count) - RELATIVE_GATE_LU
+        var keptCount = 0L
+        var keptPowerSum = 0.0
+        val firstKeptBin = binIndex(relThreshold) ?: 0
+        for (bin in firstKeptBin until HISTOGRAM_BINS) {
+            keptCount += binCounts[bin]
+            keptPowerSum += binPowerSums[bin]
+        }
+        if (keptCount == 0L) return null
+        return powerToLufs(keptPowerSum / keptCount)
     }
 
     /** `TARGET_LUFS - integrated`, or null if unmeasurable. Positive = boost, negative = attenuate. */
@@ -78,7 +102,8 @@ class LoudnessMeter(
         filledInHop = 0
         totalFramesInRing = 0
         ringSum = 0.0
-        blockPowers.clear()
+        binCounts.fill(0)
+        binPowerSums.fill(0.0)
     }
 
     private fun powerToLufs(power: Double): Double =
@@ -94,5 +119,10 @@ class LoudnessMeter(
         // calibration offset and the power-to-decibel scale factor.
         private const val LUFS_OFFSET = -0.691
         private const val DECIBEL_SCALE = 10.0
+
+        private const val BIN_WIDTH_LU = 0.1
+        private const val HISTOGRAM_CEILING_LUFS = 10.0
+        private const val HISTOGRAM_BINS =
+            ((HISTOGRAM_CEILING_LUFS - ABSOLUTE_GATE_LUFS) / BIN_WIDTH_LU).toInt() // 800
     }
 }
