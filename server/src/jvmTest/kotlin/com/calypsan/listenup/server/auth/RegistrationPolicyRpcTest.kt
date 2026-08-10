@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.migratedTestDatabase
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -63,6 +64,7 @@ class RegistrationPolicyRpcTest :
                     remoteHost = remoteHost,
                     loginRateLimiter = remoteHost?.let { LoginRateLimiter(clock) },
                     registrationPolicyBroadcaster = broadcaster,
+                    passwordResetService = testPasswordResetService(db, clock),
                 )
             return Fixture(svc, broadcaster, settings)
         }

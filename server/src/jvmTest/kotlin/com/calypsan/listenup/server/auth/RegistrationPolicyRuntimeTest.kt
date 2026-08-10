@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -59,5 +60,6 @@ private fun makeAuthService(
         sessionIssuer = SessionIssuer(sessions, jwt, clock),
         clock = clock,
         settings = settings,
+        passwordResetService = testPasswordResetService(db, clock),
     )
 }

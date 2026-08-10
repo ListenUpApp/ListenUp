@@ -30,6 +30,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
@@ -100,6 +101,7 @@ class DefaultGrantTest :
                     clock = fixedClock,
                     settings = settings,
                     defaultGrantIssuer = grantIssuer,
+                    passwordResetService = testPasswordResetService(db.sql, fixedClock),
                 )
 
             val inviteSvc =
@@ -123,6 +125,7 @@ class DefaultGrantTest :
                     bus = bus,
                     clock = fixedClock,
                     defaultGrantIssuer = grantIssuer,
+                    passwordResetService = testPasswordResetService(db.sql, fixedClock),
                 )
 
             return Deps(authSvc, inviteSvc, adminSvc, libraryRegistry, collectionRepository)

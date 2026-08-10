@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.migratedTestDatabase
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -51,6 +52,7 @@ class StarterShelfTest :
                     clock = clock,
                     settings = settings,
                     shelfRepository = shelfRepo,
+                    passwordResetService = testPasswordResetService(db, clock),
                 )
             return Pair(authSvc, shelfRepo)
         }
@@ -108,6 +110,7 @@ class StarterShelfTest :
                     clock = clock,
                     settings = settings,
                     shelfRepository = shelfRepo,
+                    passwordResetService = testPasswordResetService(db, clock),
                 )
             runTest {
                 authSvc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldBeInstanceOf<AppResult.Success<*>>()
@@ -138,6 +141,7 @@ class StarterShelfTest :
                     clock = clock,
                     settings = settings,
                     shelfRepository = null, // no shelf repo — must not fail registration
+                    passwordResetService = testPasswordResetService(db, clock),
                 )
             runTest {
                 authSvcNoShelf

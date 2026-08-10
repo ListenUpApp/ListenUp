@@ -83,12 +83,15 @@ class AdminUserServiceImpl(
      */
     private val adminUserRosterMaintainer: AdminUserRosterMaintainer? = null,
     /**
-     * Nullable so the auth module assembles independently of the (not-yet-wired) password-reset
-     * DI slice — production DI does not bind this yet; wiring lands in a follow-up. A null value
-     * degrades [listPasswordResetRequests] to an empty queue and [decidePasswordReset] to
-     * [AuthError.ResetRequestNotFound] rather than throwing.
+     * Non-null with no default: a construction site that forgets to wire this is a compile
+     * error, not a silent skip. The alternative — a nullable fallback — used to make
+     * [listPasswordResetRequests] silently report an empty queue and [decidePasswordReset]
+     * report [AuthError.ResetRequestNotFound] as if the request never existed; if DI wiring
+     * were ever wrong, an admin would see no work to do and no test would fail. Mirrors
+     * [PasswordResetService]'s own `sessions` parameter, which applies the same reasoning to
+     * session revocation.
      */
-    private val passwordResetService: PasswordResetService? = null,
+    private val passwordResetService: PasswordResetService,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
@@ -234,6 +237,7 @@ class AdminUserServiceImpl(
                     return@suspendTransaction AppResult.Failure(AdminError.CannotDeleteLastAdmin())
                 }
                 sql.usersQueries.markDeletedAt(deleted_at = clock.now().toEpochMilliseconds(), id = id.value)
+                sql.passwordResetRequestsQueries.deleteForUser(id.value)
                 AppResult.Success(Unit)
             }
 
@@ -331,20 +335,15 @@ class AdminUserServiceImpl(
         return AppResult.Success(Unit)
     }
 
-    /**
-     * Delegates to [PasswordResetService.listPending]. When unwired ([passwordResetService] is
-     * null — DI wiring is a follow-up), reports an empty queue rather than throwing.
-     */
+    /** Delegates to [PasswordResetService.listPending]. */
     override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> {
         requireAdmin()?.let { return it }
-        return AppResult.Success(passwordResetService?.listPending().orEmpty())
+        return AppResult.Success(passwordResetService.listPending())
     }
 
     /**
      * Delegates to [PasswordResetService.decide], passing the caller's id as the deciding admin
-     * — mirrors [decidePendingRegistration]'s shape. When unwired, reports
-     * [AuthError.ResetRequestNotFound] — the same shape a genuinely unknown request produces,
-     * since nothing is tracked to decide on.
+     * — mirrors [decidePendingRegistration]'s shape.
      */
     override suspend fun decidePasswordReset(
         requestId: String,
@@ -352,8 +351,7 @@ class AdminUserServiceImpl(
     ): AppResult<PasswordResetDecisionOutcome> {
         val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         if (!caller.role.isAdmin()) return AppResult.Failure(AuthError.PermissionDenied())
-        val service = passwordResetService ?: return AppResult.Failure(AuthError.ResetRequestNotFound())
-        return service.decide(requestId, approved, caller.userId.value)
+        return passwordResetService.decide(requestId, approved, caller.userId.value)
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────

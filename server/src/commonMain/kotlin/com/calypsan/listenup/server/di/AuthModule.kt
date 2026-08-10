@@ -60,6 +60,11 @@ import kotlin.time.ExperimentalTime
 fun authModule(config: ApplicationConfig): Module {
     val secrets = resolveServerSecrets(config)
     return module {
+        // AuthServiceImpl/AdminUserServiceImpl require a PasswordResetService — includes() makes
+        // it structurally impossible to load authModule without the reset bindings, rather than
+        // relying on ApplicationPlugins to remember a second `modules +=` line.
+        includes(passwordResetModule(config))
+
         single<Clock> { Clock.System }
 
         single<DatabaseHandle> {
@@ -150,6 +155,7 @@ fun authModule(config: ApplicationConfig): Module {
                 // Same sharing requirement for the policy fan-out: AdminUserServiceImpl notifies
                 // this singleton on a policy write; observeRegistrationPolicy watches it.
                 registrationPolicyBroadcaster = get(),
+                passwordResetService = get(),
             )
         }
 
@@ -167,6 +173,7 @@ fun authModule(config: ApplicationConfig): Module {
                 defaultGrantIssuer = getOrNull(),
                 // Nullable — the admin-roster module may not be loaded in minimal test containers.
                 adminUserRosterMaintainer = getOrNull(),
+                passwordResetService = get(),
             )
         }
 

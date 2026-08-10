@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.sync.AdminUserRosterRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -107,6 +108,7 @@ private fun authService(
         clock = clock,
         settings = settings,
         adminUserRosterMaintainer = adminUserRosterMaintainer,
+        passwordResetService = testPasswordResetService(db, clock),
     )
 }
 

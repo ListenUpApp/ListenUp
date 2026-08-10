@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -88,6 +89,7 @@ class DefaultGrantSelfHealTest :
                     clock = fixedClock,
                     settings = settings,
                     defaultGrantIssuer = grantIssuer,
+                    passwordResetService = testPasswordResetService(db.sql, fixedClock),
                 )
 
             return Deps(authSvc, grantRepository, collectionRepository, libraryRegistry, grantIssuer)

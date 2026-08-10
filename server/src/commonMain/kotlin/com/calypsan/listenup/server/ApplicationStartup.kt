@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.mdns.launchMdnsRefreshOnServerInfoChange
 import com.calypsan.listenup.server.scanner.RescanScheduler
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
+import com.calypsan.listenup.server.scheduler.ExpiredPasswordResetCleanupTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
@@ -48,6 +49,8 @@ internal fun Application.startBackgroundTasks(
 ) {
     // Session cleanup runs unconditionally — sessions exist regardless of library config.
     inject<ExpiredSessionCleanupTask>().value.start(scope)
+    // Password-reset row cleanup runs unconditionally too — same reasoning as session cleanup.
+    inject<ExpiredPasswordResetCleanupTask>().value.start(scope)
 
     val orchestrator by inject<ScanOrchestrator>()
     val bookPersister by inject<BookPersister>()
