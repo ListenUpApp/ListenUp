@@ -144,3 +144,30 @@ fun SpeedPill(
         }
     }
 }
+
+/** Pill-shaped boost label button with [surfaceContainerHigh] background, 40dp tall. */
+@Composable
+fun BoostPill(
+    label: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .height(40.dp)
+                    .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}

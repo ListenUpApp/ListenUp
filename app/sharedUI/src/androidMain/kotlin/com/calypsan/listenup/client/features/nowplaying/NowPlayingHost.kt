@@ -128,6 +128,7 @@ fun NowPlayingHost(
                     onPreviousChapter = viewModel::previousChapter,
                     onNextChapter = viewModel::nextChapter,
                     onSpeedClick = viewModel::showSpeedPicker,
+                    onBoostClick = viewModel::showBoostPicker,
                     onChaptersClick = viewModel::showChapterPicker,
                     onSleepTimerClick = viewModel::showSleepTimer,
                     onGoToBook = {
@@ -290,9 +291,16 @@ private fun OverlayDispatch(
             }
         }
 
-        // TODO: boost picker sheet composable — state/commands are wired on the VM
-        // (showBoostPicker/hideBoostPicker/setBoost/resetBoostToDefault); the sheet UI
-        // ships in a follow-up slice.
-        NowPlayingOverlay.BoostPicker -> { /* no-op until the boost sheet composable lands */ }
+        NowPlayingOverlay.BoostPicker -> {
+            if (activeState != null) {
+                VolumeBoostSheet(
+                    currentBoostDb = activeState.volumeBoostDb,
+                    defaultBoostDb = activeState.defaultVolumeBoostDb,
+                    onBoostChange = viewModel::setBoost,
+                    onResetToDefault = viewModel::resetBoostToDefault,
+                    onDismiss = viewModel::hideBoostPicker,
+                )
+            }
+        }
     }
 }
