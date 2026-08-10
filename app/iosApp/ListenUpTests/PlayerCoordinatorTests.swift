@@ -105,7 +105,7 @@ struct PlayerCoordinatorWiringTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
-            resumeSpeed: 1.5, resumePositionMs: 2000,
+            resumeSpeed: 1.5, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 2000,
             chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)
@@ -123,7 +123,7 @@ struct PlayerCoordinatorWiringTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A1, A2", bookNarrator: "N1", coverPath: nil,
-            resumeSpeed: 1.0, resumePositionMs: 0,
+            resumeSpeed: 1.0, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 0,
             chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)
@@ -168,6 +168,7 @@ struct SleepTimerFiringTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -198,6 +199,7 @@ struct SaveCurrentPositionTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 4321, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -249,6 +251,7 @@ struct RouteChangeTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -290,6 +293,7 @@ struct AudioSessionInterruptionTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -440,6 +444,7 @@ struct EndOfChapterTests {
         ]
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: chapters,
             timeline: PreparedTimeline(totalDurationMs: 2000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 2000, startOffsetMs: 0)])
@@ -469,6 +474,7 @@ struct SkipIntervalTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 600_000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 600_000, startOffsetMs: 0)])
@@ -568,6 +574,7 @@ struct SeekPersistenceTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -592,7 +599,7 @@ struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {
         let prepared = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
-            resumeSpeed: 1.0, resumePositionMs: 0,
+            resumeSpeed: 1.0, resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil, resumePositionMs: 0,
             chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 1000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 1000, startOffsetMs: 0)
@@ -637,6 +644,7 @@ struct DocumentProviderTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -691,6 +699,7 @@ struct PlaybackLifecycleTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])

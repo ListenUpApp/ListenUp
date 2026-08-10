@@ -99,6 +99,7 @@ class PlaybackManagerPrepareTest :
 
             val playbackPreferences: PlaybackPreferences = mock()
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
+            everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0.0f
 
             // ProgressTracker is a final class — use the shared helper from PlaybackManagerTestSupport.
             // prepareForPlayback reads positionRepository; defaultPositionRepository() stubs it to

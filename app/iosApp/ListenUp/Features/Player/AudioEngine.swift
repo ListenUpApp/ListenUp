@@ -1,21 +1,6 @@
 import AVFoundation
 @preconcurrency import MediaPlayer
 
-/// Pure position math for the engine — kept out of the actor so it is testable
-/// without a live `AVQueuePlayer`.
-enum EngineClock {
-    /// The whole-book position given the current segment and the elapsed time
-    /// *within* that segment.
-    static func wholeBookPositionMs(
-        currentSegmentIndex: Int,
-        segments: [AudioSegment],
-        segmentElapsedMs: Int64
-    ) -> Int64 {
-        guard segments.indices.contains(currentSegmentIndex) else { return segmentElapsedMs }
-        return segments[currentSegmentIndex].offsetMs + segmentElapsedMs
-    }
-}
-
 /// A raw framework callback (KVO / periodic time observer / `NotificationCenter`), funneled
 /// through the engine's single ordered inbox so they are drained in FIFO order on the actor.
 /// Carries only `Sendable` values so it can cross from the callback thread to the actor safely.
@@ -97,6 +82,13 @@ actor AudioEngine: PlaybackEngine {
     /// and is ignored unless it still matches — belt-and-braces alongside task cancellation.
     private var readyGeneration = 0
 
+    /// The volume-boost gain stage. `gainCell` is engine-lifetime — the user's boost survives
+    /// book switches and queue rebuilds; the ring and meter feed are per-book. Lifecycle lives
+    /// in `AudioEngine+Gain.swift`.
+    let gainCell = GainCell()
+    var sampleRing: SampleRing?
+    var meterFeed: LoudnessMeterFeed?
+
     init() {
         nowPlayingSession = MPNowPlayingSession(players: [player])
         // Manual publishing: the automatic publisher derives elapsed/duration from the player
@@ -162,6 +154,7 @@ actor AudioEngine: PlaybackEngine {
             return false
         }
         self.segments = segments
+        await startGainStage()
         guard configureAudioSession() else { return false }
         let startIndex = SegmentMath.segmentIndex(forPositionMs: startPositionMs, in: segments) ?? 0
         let withinSegmentMs = max(0, startPositionMs - segments[startIndex].offsetMs)
@@ -293,6 +286,10 @@ actor AudioEngine: PlaybackEngine {
         player.volume = max(0, min(1, volume))
     }
 
+    /// Set the volume-boost gain. Sits downstream of `setVolume`'s sleep-timer fade in the tap,
+    /// so the two compose rather than replace each other.
+    func setGainDb(_ db: Float) { gainCell.setGain(db: db) }
+
     /// Deactivate the shared audio session, notifying other apps they may resume.
     /// Best-effort — a deactivation failure can't strand the user — but logged so it
     /// isn't silently swallowed.
@@ -318,7 +315,7 @@ actor AudioEngine: PlaybackEngine {
     }
 
     /// Tear down: stop playback, remove every observer, finish the event stream.
-    func release() {
+    func release() async {
         if let timeObserver {
             player.removeTimeObserver(timeObserver)
             self.timeObserver = nil
@@ -334,6 +331,7 @@ actor AudioEngine: PlaybackEngine {
         currentItemObservation = nil
         statusObservation = nil
         timeControlObservation = nil
+        await stopGainStage()
         // Unblock any load still awaiting readiness so it doesn't leak a suspended task.
         resumeReadyIfWaiting(false)
         player.removeAllItems()
@@ -376,7 +374,11 @@ actor AudioEngine: PlaybackEngine {
     private func rebuildQueue(fromSegment startIndex: Int) -> Bool {
         player.removeAllItems()
         queue = (startIndex..<segments.count).map { index in
-            (item: AVPlayerItem(url: segments[index].url), segmentIndex: index)
+            let item = AVPlayerItem(url: segments[index].url)
+            // Attached HERE because this is the only place items are created — every
+            // cross-segment seek rebuilds them, so a tap attached elsewhere is lost on seek.
+            item.audioMix = makeGainMix()
+            return (item: item, segmentIndex: index)
         }
         for entry in queue {
             guard player.canInsert(entry.item, after: nil) else {

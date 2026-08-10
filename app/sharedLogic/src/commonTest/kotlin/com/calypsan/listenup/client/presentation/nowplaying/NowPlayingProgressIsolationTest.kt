@@ -64,6 +64,8 @@ class NowPlayingProgressIsolationTest :
             every { networkMonitor.isOnline() } returns true
             every { playbackPreferences.observeDefaultPlaybackSpeed() } returns flowOf(1.0f)
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
+            every { playbackPreferences.observeDefaultVolumeBoostDb() } returns flowOf(0f)
+            everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0f
             everySuspend { bookRepository.getBookListItem(any()) } returns sampleBook()
             every { bookRepository.observeIsBookLive(any()) } returns flowOf(true)
             every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())

@@ -67,6 +67,7 @@ class PlaybackManagerSpeedTest :
             val prefs: PlaybackPreferences = mock()
             everySuspend { prefs.getDefaultPlaybackSpeed() } returns 1.0f
             everySuspend { prefs.setDefaultPlaybackSpeed(any()) } returns Unit
+            everySuspend { prefs.getDefaultVolumeBoostDb() } returns 0.0f
             return prefs
         }
 
@@ -236,6 +237,7 @@ class PlaybackManagerSpeedTest :
 
                     val playbackPreferences: PlaybackPreferences = mock()
                     everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
+                    everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0.0f
 
                     val manager =
                         createPlaybackManager(
@@ -281,6 +283,7 @@ class PlaybackManagerSpeedTest :
                     val playbackPreferences: PlaybackPreferences = mock()
                     everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
                     everySuspend { playbackPreferences.setDefaultPlaybackSpeed(any()) } returns Unit
+                    everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0.0f
 
                     val positionRepository = defaultPositionRepository()
 

@@ -222,7 +222,14 @@ class UserPreferencesRepositoryImplTest :
                             AppResult.Success(UserPreferencesDto(1.5f, 45, 15, 20, true))
                     }
                 fixture(service, dao).getPreferences()
-                dao.get("u1") shouldBe UserPreferencesEntity("u1", 1.5f, 45, 15, 20)
+                dao.get("u1") shouldBe
+                    UserPreferencesEntity(
+                        id = "u1",
+                        defaultPlaybackSpeed = 1.5f,
+                        defaultSkipForwardSec = 45,
+                        defaultSkipBackwardSec = 15,
+                        defaultSleepTimerMin = 20,
+                    )
             }
         }
 
@@ -268,6 +275,11 @@ class UserPreferencesRepositoryImplTest :
         // through the outbox; the mocked service below is never invoked).
         listOf<Triple<String, suspend UserPreferencesRepositoryImpl.() -> AppResult<Unit>, UpdateUserPreferencesRequest>>(
             Triple("setDefaultPlaybackSpeed", { setDefaultPlaybackSpeed(2.0f) }, UpdateUserPreferencesRequest(defaultPlaybackSpeed = 2.0f)),
+            Triple(
+                "setDefaultVolumeBoostDb",
+                { setDefaultVolumeBoostDb(6.0f) },
+                UpdateUserPreferencesRequest(defaultVolumeBoostDb = 6.0f),
+            ),
             Triple("setDefaultSkipForwardSec", { setDefaultSkipForwardSec(45) }, UpdateUserPreferencesRequest(defaultSkipForwardSec = 45)),
             Triple("setDefaultSkipBackwardSec", { setDefaultSkipBackwardSec(15) }, UpdateUserPreferencesRequest(defaultSkipBackwardSec = 15)),
             Triple("setDefaultSleepTimerMin", { setDefaultSleepTimerMin(20) }, UpdateUserPreferencesRequest(defaultSleepTimerMin = 20)),

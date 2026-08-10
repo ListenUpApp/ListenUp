@@ -23,6 +23,9 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
                 bookNarrator: prepared.bookNarrator,
                 coverPath: prepared.coverPath,
                 resumeSpeed: prepared.resumeSpeed,
+                resumeBoostDb: prepared.resumeBoostDb,
+                measuredGainDb: prepared.measuredGainDb,
+                normalizationGainDb: prepared.normalizationGainDb,
                 resumePositionMs: prepared.resumePositionMs,
                 chapters: Array(prepared.chapters),
                 timeline: PreparedTimeline(
@@ -71,6 +74,15 @@ struct KotlinProgressReporting: PlaybackProgressReporting {
     }
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
         reporter.onSpeedChanged(bookId: BookId(value: bookId), positionMs: positionMs, newSpeed: newSpeed)
+    }
+    func onVolumeBoostChanged(bookId: String, positionMs: Int64, newBoostDb: Float) {
+        reporter.onVolumeBoostChanged(bookId: BookId(value: bookId), positionMs: positionMs, newBoostDb: newBoostDb)
+    }
+    func onBoostReset(bookId: String, positionMs: Int64, defaultBoostDb: Float) {
+        reporter.onBoostReset(bookId: BookId(value: bookId), positionMs: positionMs, defaultBoostDb: defaultBoostDb)
+    }
+    func onMeasuredGain(bookId: String, positionMs: Int64, gainDb: Float) {
+        reporter.onMeasuredGain(bookId: BookId(value: bookId), positionMs: positionMs, gainDb: gainDb)
     }
     func onBookFinished(bookId: String, finalPositionMs: Int64) {
         reporter.onBookFinished(bookId: BookId(value: bookId), finalPositionMs: finalPositionMs)

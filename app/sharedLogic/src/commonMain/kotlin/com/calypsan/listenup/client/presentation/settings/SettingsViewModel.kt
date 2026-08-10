@@ -49,6 +49,7 @@ data class SettingsUiState(
     val syncError: String? = null,
     // Synced settings (server storage)
     val defaultPlaybackSpeed: Float = PlaybackPreferences.DEFAULT_PLAYBACK_SPEED,
+    val defaultVolumeBoostDb: Float = PlaybackPreferences.DEFAULT_VOLUME_BOOST_DB,
     val defaultSkipForwardSec: Int = 30,
     val defaultSkipBackwardSec: Int = 10,
     val defaultSleepTimerMin: Int? = null,
@@ -114,6 +115,7 @@ class SettingsViewModel(
         ) { internal, localDisplay, haptics, synced ->
             internal.copy(
                 defaultPlaybackSpeed = synced.defaultPlaybackSpeed,
+                defaultVolumeBoostDb = synced.defaultVolumeBoostDb,
                 defaultSkipForwardSec = synced.defaultSkipForwardSec,
                 defaultSkipBackwardSec = synced.defaultSkipBackwardSec,
                 defaultSleepTimerMin = synced.defaultSleepTimerMin,
@@ -196,6 +198,7 @@ class SettingsViewModel(
                 // change reaches the player (which observes PlaybackPreferences, not the Settings VM).
                 val prefs = result.data
                 playbackPreferences.setDefaultPlaybackSpeed(prefs.defaultPlaybackSpeed)
+                playbackPreferences.setDefaultVolumeBoostDb(prefs.defaultVolumeBoostDb)
                 playbackPreferences.setDefaultSkipForwardSec(prefs.defaultSkipForwardSec)
                 playbackPreferences.setDefaultSkipBackwardSec(prefs.defaultSkipBackwardSec)
                 internalState.update { it.copy(isLoading = false, isSyncing = false) }
@@ -223,6 +226,16 @@ class SettingsViewModel(
             userPreferencesRepository
                 .setDefaultPlaybackSpeed(speed)
                 .onFailure { logger.warn { "Failed to sync default playback speed to server: ${it.message}" } }
+        }
+    }
+
+    /** Set the default volume boost for books without a custom boost. */
+    fun setDefaultVolumeBoostDb(boostDb: Float) {
+        viewModelScope.launch {
+            playbackPreferences.setDefaultVolumeBoostDb(boostDb)
+            userPreferencesRepository
+                .setDefaultVolumeBoostDb(boostDb)
+                .onFailure { logger.warn { "Failed to sync default volume boost to server: ${it.message}" } }
         }
     }
 

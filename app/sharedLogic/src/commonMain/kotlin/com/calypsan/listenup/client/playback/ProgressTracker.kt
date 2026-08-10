@@ -254,6 +254,96 @@ open class ProgressTracker(
     }
 
     /**
+     * Called when user explicitly changes this book's volume boost.
+     * Marks this book as having a custom boost (not using universal default).
+     */
+    fun onVolumeBoostChanged(
+        bookId: BookId,
+        positionMs: Long,
+        newBoostDb: Float,
+    ) {
+        scope.launch {
+            when (
+                val r =
+                    positionRepository.savePlaybackState(
+                        bookId = bookId,
+                        update =
+                            PlaybackUpdate.VolumeBoost(
+                                boostDb = newBoostDb,
+                                custom = true,
+                                positionMs = positionMs,
+                            ),
+                    )
+            ) {
+                is AppResult.Success -> {
+                    logger.debug {
+                        "Volume boost changed: book=${bookId.value}, boostDb=$newBoostDb"
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn {
+                        "Failed to change volume boost for ${bookId.value}: ${r.error.message}"
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Reset a book's volume boost to use the universal default.
+     * Called when user explicitly resets to default.
+     */
+    fun onBoostReset(
+        bookId: BookId,
+        positionMs: Long,
+        defaultBoostDb: Float,
+    ) {
+        scope.launch {
+            when (
+                val r =
+                    positionRepository.savePlaybackState(
+                        bookId = bookId,
+                        update = PlaybackUpdate.BoostReset(defaultBoostDb = defaultBoostDb, positionMs = positionMs),
+                    )
+            ) {
+                is AppResult.Success -> logger.debug { "Boost reset: book=${bookId.value}, boostDb=$defaultBoostDb" }
+                is AppResult.Failure -> logger.warn { "Failed to reset boost for ${bookId.value}: ${r.error.message}" }
+            }
+        }
+    }
+
+    /**
+     * Called when a refined loudness measurement arrives for this book.
+     * Records the measurement only — never touches the custom-boost flag.
+     */
+    fun onMeasuredGain(
+        bookId: BookId,
+        positionMs: Long,
+        gainDb: Float,
+    ) {
+        scope.launch {
+            when (
+                val r =
+                    positionRepository.savePlaybackState(
+                        bookId = bookId,
+                        update = PlaybackUpdate.MeasuredGain(gainDb = gainDb, positionMs = positionMs),
+                    )
+            ) {
+                is AppResult.Success -> {
+                    logger.debug { "Measured gain recorded: book=${bookId.value}, gainDb=$gainDb" }
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn {
+                        "Failed to record measured gain for ${bookId.value}: ${r.error.message}"
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Save position immediately (blocking for critical saves).
      * Used before error handling to ensure position is never lost.
      */

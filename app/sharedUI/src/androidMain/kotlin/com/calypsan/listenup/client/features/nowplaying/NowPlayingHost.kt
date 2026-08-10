@@ -128,6 +128,7 @@ fun NowPlayingHost(
                     onPreviousChapter = viewModel::previousChapter,
                     onNextChapter = viewModel::nextChapter,
                     onSpeedClick = viewModel::showSpeedPicker,
+                    onBoostClick = viewModel::showBoostPicker,
                     onChaptersClick = viewModel::showChapterPicker,
                     onSleepTimerClick = viewModel::showSleepTimer,
                     onGoToBook = {
@@ -286,6 +287,18 @@ private fun OverlayDispatch(
                     onSpeedChange = viewModel::setSpeed,
                     onResetToDefault = viewModel::resetSpeedToDefault,
                     onDismiss = viewModel::hideSpeedPicker,
+                )
+            }
+        }
+
+        NowPlayingOverlay.BoostPicker -> {
+            if (activeState != null) {
+                VolumeBoostSheet(
+                    currentBoostDb = activeState.volumeBoostDb,
+                    defaultBoostDb = activeState.defaultVolumeBoostDb,
+                    onBoostChange = viewModel::setBoost,
+                    onResetToDefault = viewModel::resetBoostToDefault,
+                    onDismiss = viewModel::hideBoostPicker,
                 )
             }
         }

@@ -69,6 +69,9 @@ class NowPlayingTeardownTest :
                 positionMs = 42_000L,
                 playbackSpeed = 1.0f,
                 hasCustomSpeed = false,
+                volumeBoostDb = 0f,
+                hasCustomBoost = false,
+                measuredGainDb = null,
                 updatedAtMs = 10L,
                 syncedAtMs = null,
                 lastPlayedAtMs = 10L,
@@ -88,6 +91,8 @@ class NowPlayingTeardownTest :
             every { playbackController.stop() } returns Unit
             every { playbackPreferences.observeDefaultPlaybackSpeed() } returns flowOf(1.0f)
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
+            every { playbackPreferences.observeDefaultVolumeBoostDb() } returns flowOf(0f)
+            everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0f
             every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
             return NowPlayingViewModel(
                 playbackManager = fakePm,

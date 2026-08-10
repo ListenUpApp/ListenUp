@@ -61,4 +61,24 @@ struct PlayerSheetsTests {
     @Test func formatsMultipleHours() {
         #expect(SleepTimerSheet.formatDuration(120) == "2 hours")
     }
+
+    // MARK: - Boost formatting
+
+    @Test func formatsZeroBoostAsOff() {
+        #expect(BoostPickerSheet.formatBoost(0) == "Off")
+    }
+
+    @Test func formatsPositiveBoostWithDbSuffix() {
+        #expect(BoostPickerSheet.formatBoost(6) == "+6 dB")
+    }
+
+    @Test func formatsMaximumBoost() {
+        #expect(BoostPickerSheet.formatBoost(12) == "+12 dB")
+    }
+
+    @Test func pillFormatDropsTheUnitSoTheControlNeverTruncates() {
+        #expect(BoostPickerSheet.formatBoostPill(0) == "Off")
+        #expect(BoostPickerSheet.formatBoostPill(6) == "+6")
+        #expect(BoostPickerSheet.formatBoostPill(12) == "+12")
+    }
 }

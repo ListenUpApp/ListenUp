@@ -35,7 +35,7 @@ import kotlinx.coroutines.sync.withLock
  * only the latest position is ever pushed — no flooding.
  *
  * The [savePlaybackState] entry point owns per-book Mutex serialization
- * plus per-call transactional dispatch over the 11-variant [PlaybackUpdate]
+ * plus per-call transactional dispatch over the 13-variant [PlaybackUpdate]
  * sealed hierarchy. Every variant handler runs inside [TransactionRunner.atomically]
  * so each fetch-then-save pair is rollback-safe. Concurrent writes for the same
  * book serialize on a per-book Mutex; different books proceed in parallel.
@@ -134,7 +134,7 @@ internal class PlaybackPositionRepositoryImpl(
         }
 
     /**
-     * Exhaustive dispatcher over the 10-variant [PlaybackUpdate] hierarchy.
+     * Exhaustive dispatcher over the 13-variant [PlaybackUpdate] hierarchy.
      *
      * Adding a new variant produces a `when` exhaustiveness compile error here —
      * the sealed-hierarchy contract every consumer must satisfy.
@@ -147,6 +147,9 @@ internal class PlaybackPositionRepositoryImpl(
             is PlaybackUpdate.Position -> handlePosition(bookId, update)
             is PlaybackUpdate.Speed -> handleSpeed(bookId, update)
             is PlaybackUpdate.SpeedReset -> handleSpeedReset(bookId, update)
+            is PlaybackUpdate.VolumeBoost -> handleVolumeBoost(bookId, update)
+            is PlaybackUpdate.BoostReset -> handleBoostReset(bookId, update)
+            is PlaybackUpdate.MeasuredGain -> handleMeasuredGain(bookId, update)
             is PlaybackUpdate.PlaybackStarted -> handlePlaybackStarted(bookId, update)
             is PlaybackUpdate.PlaybackPaused -> handlePlaybackPaused(bookId, update)
             is PlaybackUpdate.PeriodicUpdate -> handlePeriodicUpdate(bookId, update)
@@ -180,125 +183,11 @@ internal class PlaybackPositionRepositoryImpl(
         update: PlaybackUpdate,
     ): Boolean {
         val userId = authSession.getUserId() ?: return false
-        val now = currentEpochMilliseconds()
-        // Post-transaction snapshot of the row handle() just wrote. Non-terminal variants
-        // carry its isFinished onto the wire — a periodic/seek write must never un-finish a
-        // finished book on the server. Unfinishing is explicit: only DiscardProgress/Restart
-        // send finished=false by design.
+        // Post-transaction snapshot of the row handle() just wrote — requestFor reads the
+        // wire fields the variant doesn't override (isFinished, speed, boost, measured gain)
+        // from it.
         val entity = dao.get(bookId)
-        val request: RecordPositionRequest =
-            when (update) {
-                is PlaybackUpdate.Position -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.Speed -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.SpeedReset -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.defaultSpeed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.PlaybackStarted -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        // The row's own value, which handlePlaybackStarted deliberately left at the
-                        // last REAL listening (see there). Sending `now` would push a stale position
-                        // as globally-newest and discard another device's newer progress. `?: now`
-                        // only covers the never-played row, where blank() has already stamped now.
-                        lastPlayedAt = entity?.lastPlayedAt ?: now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.PlaybackPaused -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.PeriodicUpdate -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.BookFinished -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.finalPositionMs,
-                        lastPlayedAt = now,
-                        finished = true,
-                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.MarkComplete -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = entity?.positionMs ?: 0L,
-                        lastPlayedAt = now,
-                        finished = true,
-                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
-                        currentChapterId = null,
-                    )
-                }
-
-                // User-command resets: enqueue the post-reset row so the discard/restart
-                // reaches the server immediately (NewerWins on lastPlayedAt lets it beat
-                // stale positions from other devices). coalesce=true supersedes any queued
-                // periodic write for this book. The startedAt reset stays local-only:
-                // RecordPositionRequest carries no startedAt and this arc makes no wire changes.
-                PlaybackUpdate.DiscardProgress,
-                PlaybackUpdate.Restart,
-                -> {
-                    if (entity == null) return false
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = entity.positionMs,
-                        lastPlayedAt = entity.lastPlayedAt ?: now,
-                        finished = false,
-                        playbackSpeed = entity.playbackSpeed,
-                        currentChapterId = null,
-                    )
-                }
-            }
+        val request = requestFor(bookId, update, entity, now = currentEpochMilliseconds()) ?: return false
 
         // signal = false: the row write stays in the transaction, but the drain signal must fire
         // only AFTER commit (savePlaybackState calls signalEnqueued). No swallow: a failed enqueue
@@ -314,6 +203,123 @@ internal class PlaybackPositionRepositoryImpl(
         )
         return true
     }
+
+    /**
+     * Builds the [RecordPositionRequest] for [update], or `null` for the variants that
+     * have nothing to push (a reset on a book with no row).
+     *
+     * Non-terminal variants carry the row's `isFinished` onto the wire — a periodic/seek
+     * write must never un-finish a finished book on the server. Unfinishing is explicit:
+     * only [PlaybackUpdate.DiscardProgress]/[PlaybackUpdate.Restart] send finished=false
+     * by design.
+     */
+    private fun requestFor(
+        bookId: BookId,
+        update: PlaybackUpdate,
+        entity: PlaybackPositionEntity?,
+        now: Long,
+    ): RecordPositionRequest? =
+        when (update) {
+            is PlaybackUpdate.Position -> {
+                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+            }
+
+            is PlaybackUpdate.Speed -> {
+                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+            }
+
+            is PlaybackUpdate.SpeedReset -> {
+                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.defaultSpeed)
+            }
+
+            is PlaybackUpdate.VolumeBoost -> {
+                snapshotRequest(bookId, entity, update.positionMs, now, volumeBoostDb = update.boostDb)
+            }
+
+            is PlaybackUpdate.BoostReset -> {
+                snapshotRequest(bookId, entity, update.positionMs, now, volumeBoostDb = update.defaultBoostDb)
+            }
+
+            is PlaybackUpdate.MeasuredGain -> {
+                snapshotRequest(bookId, entity, update.positionMs, now, measuredGainDb = update.gainDb)
+            }
+
+            is PlaybackUpdate.PlaybackStarted -> {
+                snapshotRequest(
+                    bookId,
+                    entity,
+                    update.positionMs,
+                    // The row's own value, which handlePlaybackStarted deliberately left at the
+                    // last REAL listening (see there). Sending `now` would push a stale position
+                    // as globally-newest and discard another device's newer progress. `?: now`
+                    // only covers the never-played row, where blank() has already stamped now.
+                    lastPlayedAt = entity?.lastPlayedAt ?: now,
+                    playbackSpeed = update.speed,
+                )
+            }
+
+            is PlaybackUpdate.PlaybackPaused -> {
+                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+            }
+
+            is PlaybackUpdate.PeriodicUpdate -> {
+                snapshotRequest(bookId, entity, update.positionMs, now, playbackSpeed = update.speed)
+            }
+
+            is PlaybackUpdate.BookFinished -> {
+                snapshotRequest(bookId, entity, update.finalPositionMs, now, finished = true)
+            }
+
+            is PlaybackUpdate.MarkComplete -> {
+                snapshotRequest(bookId, entity, entity?.positionMs ?: 0L, now, finished = true)
+            }
+
+            // User-command resets: enqueue the post-reset row so the discard/restart
+            // reaches the server immediately (NewerWins on lastPlayedAt lets it beat
+            // stale positions from other devices). coalesce=true supersedes any queued
+            // periodic write for this book. The startedAt reset stays local-only:
+            // RecordPositionRequest carries no startedAt and this arc makes no wire changes.
+            // No row means nothing to push (null).
+            PlaybackUpdate.DiscardProgress,
+            PlaybackUpdate.Restart,
+            -> {
+                entity?.let {
+                    snapshotRequest(
+                        bookId,
+                        it,
+                        it.positionMs,
+                        lastPlayedAt = it.lastPlayedAt ?: now,
+                        finished = false,
+                    )
+                }
+            }
+        }
+
+    /**
+     * The common "request from current entity snapshot + position" construction: every wire
+     * field a variant doesn't override defaults to the row's current value (or the blank-row
+     * fallback when no row exists yet).
+     */
+    private fun snapshotRequest(
+        bookId: BookId,
+        entity: PlaybackPositionEntity?,
+        positionMs: Long,
+        lastPlayedAt: Long,
+        finished: Boolean = entity?.isFinished ?: false,
+        playbackSpeed: Float = entity?.playbackSpeed ?: 1.0f,
+        volumeBoostDb: Float = entity?.volumeBoostDb ?: 0f,
+        measuredGainDb: Float? = entity?.measuredGainDb,
+    ): RecordPositionRequest =
+        RecordPositionRequest(
+            bookId = bookId.value,
+            positionMs = positionMs,
+            lastPlayedAt = lastPlayedAt,
+            finished = finished,
+            playbackSpeed = playbackSpeed,
+            currentChapterId = null,
+            volumeBoostDb = volumeBoostDb,
+            measuredGainDb = measuredGainDb,
+        )
 
     // ----- Per-variant handlers -------------------------------------------------------------
 
@@ -368,6 +374,72 @@ internal class PlaybackPositionRepositoryImpl(
                 positionMs = u.positionMs,
                 playbackSpeed = u.defaultSpeed,
                 hasCustomSpeed = false,
+            )
+        dao.save(merged)
+    }
+
+    private suspend fun handleVolumeBoost(
+        bookId: BookId,
+        u: PlaybackUpdate.VolumeBoost,
+    ) {
+        val existing = dao.get(bookId)
+        val now = currentEpochMilliseconds()
+        val merged =
+            existing?.copy(
+                positionMs = u.positionMs,
+                volumeBoostDb = u.boostDb,
+                hasCustomBoost = u.custom,
+                updatedAt = now,
+                lastPlayedAt = now,
+                syncedAt = null,
+            ) ?: blank(bookId, now).copy(
+                positionMs = u.positionMs,
+                volumeBoostDb = u.boostDb,
+                hasCustomBoost = u.custom,
+            )
+        dao.save(merged)
+    }
+
+    private suspend fun handleBoostReset(
+        bookId: BookId,
+        u: PlaybackUpdate.BoostReset,
+    ) {
+        val existing = dao.get(bookId)
+        val now = currentEpochMilliseconds()
+        val merged =
+            existing?.copy(
+                positionMs = u.positionMs,
+                volumeBoostDb = u.defaultBoostDb,
+                hasCustomBoost = false,
+                updatedAt = now,
+                lastPlayedAt = now,
+                syncedAt = null,
+            ) ?: blank(bookId, now).copy(
+                positionMs = u.positionMs,
+                volumeBoostDb = u.defaultBoostDb,
+                hasCustomBoost = false,
+            )
+        dao.save(merged)
+    }
+
+    // Sets ONLY measuredGainDb among the boost columns — a measurement arriving is not a
+    // user choice, so hasCustomBoost and volumeBoostDb are untouched.
+    private suspend fun handleMeasuredGain(
+        bookId: BookId,
+        u: PlaybackUpdate.MeasuredGain,
+    ) {
+        val existing = dao.get(bookId)
+        val now = currentEpochMilliseconds()
+        val merged =
+            existing?.copy(
+                positionMs = u.positionMs,
+                measuredGainDb = u.gainDb,
+                updatedAt = now,
+                lastPlayedAt = now,
+                syncedAt = null,
+            ) ?: blank(bookId, now).copy(
+                positionMs = u.positionMs,
+                measuredGainDb = u.gainDb,
             )
         dao.save(merged)
     }
@@ -517,6 +589,9 @@ internal class PlaybackPositionRepositoryImpl(
             positionMs = 0L,
             playbackSpeed = 1.0f,
             hasCustomSpeed = false,
+            volumeBoostDb = 0f,
+            hasCustomBoost = false,
+            measuredGainDb = null,
             updatedAt = now,
             syncedAt = null,
             lastPlayedAt = now,
@@ -535,6 +610,9 @@ private fun PlaybackPositionEntity.toDomain(): PlaybackPosition =
         positionMs = positionMs,
         playbackSpeed = playbackSpeed,
         hasCustomSpeed = hasCustomSpeed,
+        volumeBoostDb = volumeBoostDb,
+        hasCustomBoost = hasCustomBoost,
+        measuredGainDb = measuredGainDb,
         updatedAtMs = updatedAt,
         syncedAtMs = syncedAt,
         lastPlayedAtMs = lastPlayedAt,

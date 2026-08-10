@@ -13,14 +13,13 @@ import java.nio.file.Paths
 import kotlinx.coroutines.runBlocking
 
 /**
- * Drift guard for the committed Room schema baseline (currently **v1** — the Room 3 baseline, which
- * folds in every pre-1.0 migration: the junction-table `syncId` columns and the contributor FTS
- * `sortName`/`aliases` columns).
+ * Drift guard for the committed Room schema baseline (currently **v3** — the Room 3 baseline plus
+ * the v1 → v2 volume-boost migration and the v2 → v3 `books.normalizationGainDb` migration).
  *
- * The current authoritative baseline is `schemas/…/ListenUpDatabase/1.json`. Nothing else asserts
+ * The current authoritative baseline is `schemas/…/ListenUpDatabase/3.json`. Nothing else asserts
  * that this JSON still matches the compiled `@Entity` set: Room's Gradle plugin *re-exports* the
  * JSON on build instead of failing, so an entity edit that forgets to commit the regenerated
- * `2.json` — or a JSON edit that doesn't match the entities — is invisible to CI.
+ * `3.json` — or a JSON edit that doesn't match the entities — is invisible to CI.
  *
  * This test closes that gap. It creates a database whose schema (and stored identity hash)
  * comes from the committed baseline JSON, then reopens the same file with the real compiled
@@ -63,7 +62,7 @@ class SchemaBaselineDriftTest :
             try {
                 // Create the schema in `databasePath` FROM the committed 3.json (this also
                 // writes the JSON's identity hash into room_master_table), then release it.
-                helper.createDatabase(version = 1).close()
+                helper.createDatabase(version = 3).close()
 
                 // Reopen the SAME file with the real compiled database — deliberately WITHOUT
                 // fallbackToDestructiveMigration, so Room's identity-hash validation runs

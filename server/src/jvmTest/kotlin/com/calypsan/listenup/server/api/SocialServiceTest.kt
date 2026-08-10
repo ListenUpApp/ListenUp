@@ -124,6 +124,8 @@ class SocialServiceTest :
                 last_played_at = 1L,
                 finished = 0L,
                 playback_speed = 1.0,
+                volume_boost_db = 0.0,
+                measured_gain_db = null,
                 current_chapter_id = null,
                 revision = 0L,
                 created_at = 1L,

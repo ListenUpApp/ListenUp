@@ -105,6 +105,92 @@ struct SpeedPickerSheet: View {
     }
 }
 
+// MARK: - Boost Picker Sheet
+
+/// Volume-boost picker: a large coral readout of the current boost, a wrapped row of
+/// dB chips, and a "Use default" row that resets the book back to the global default.
+/// No slider — unlike speed, boost is a small discrete catalogue (design-locked), so a
+/// continuous drag would only invite off-catalogue values with no real benefit.
+struct BoostPickerSheet: View {
+    let currentBoostDb: Float
+    /// The global default, or `nil` while it is still unknown — see `useDefaultRow`.
+    let defaultBoostDb: Float?
+    let onBoostSelected: (Float) -> Void
+    let onUseDefault: () -> Void
+
+    // Mirrors VolumeBoostLimits.MIN_DB...MAX_DB in :contract (not exported to Swift).
+    private let steps: [Float] = [0, 3, 6, 9, 12]
+    @ScaledMetric(relativeTo: .largeTitle) private var boostReadoutSize: CGFloat = 56
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Text(Self.formatBoost(currentBoostDb))
+                    .font(.system(size: boostReadoutSize, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.luTint)
+                    .padding(.top, 8)
+
+                boostChips
+                    .padding(.top, 24)
+
+                useDefaultRow
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .navigationTitle(String(localized: "player.volume_boost"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+
+    /// Wrapped catalogue of boost steps; the active step fills coral, the rest are neutral.
+    private var boostChips: some View {
+        FlowLayout(spacing: 9) {
+            ForEach(steps, id: \.self) { step in
+                PillButton(
+                    title: Self.formatBoost(step),
+                    isSelected: abs(step - currentBoostDb) < 0.001
+                ) {
+                    onBoostSelected(step)
+                }
+            }
+        }
+    }
+
+    /// Shown whenever the default is known — harmless when the book is already at it, and it
+    /// avoids plumbing a separate "has a custom boost" flag through the coordinator. Hidden while
+    /// it is `nil`, because a row that reads "Use default (Off)" on an unresolved read would
+    /// silently apply 0 dB over a real +6 default.
+    @ViewBuilder
+    private var useDefaultRow: some View {
+        if let defaultBoostDb {
+            Button(action: onUseDefault) {
+                Text(String(format: String(localized: "player.boost_use_default"), Self.formatBoost(defaultBoostDb)))
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.luLabel2)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 20)
+        }
+    }
+
+    /// "Off" for no boost, else "+N dB" — the readout and chip label shared shape.
+    nonisolated static func formatBoost(_ db: Float) -> String {
+        let rounded = Int(db.rounded())
+        if rounded == 0 { return String(localized: "player.boost_off") }
+        return String(format: String(localized: "player.boost_db"), rounded)
+    }
+
+    /// The pill variant: "Off" or "+N" with no unit, so the control never truncates.
+    nonisolated static func formatBoostPill(_ db: Float) -> String {
+        let rounded = Int(db.rounded())
+        if rounded == 0 { return String(localized: "player.boost_off") }
+        return String(format: String(localized: "player.boost_pill_db"), rounded)
+    }
+}
+
 // MARK: - Chapter Row
 
 /// One chapter line — number · title · duration, with a now-playing equalizer on the

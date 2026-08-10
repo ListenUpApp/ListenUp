@@ -73,6 +73,8 @@ internal class BookEntityMapper {
             revision = payload.revision,
             deletedAt = payload.deletedAt,
             hasScanWarning = payload.hasScanWarning,
+            // Wire-authoritative: the server's tag-read gain fallback for playback normalization.
+            normalizationGainDb = payload.normalizationGainDb,
             // Timestamps: payload carries epoch-ms Longs; BookEntity uses the Timestamp value class.
             createdAt = Timestamp(payload.createdAt),
             updatedAt = Timestamp(payload.updatedAt),
@@ -267,5 +269,6 @@ internal fun BookWithContributors.toDetail(
         hasScanWarning = book.hasScanWarning,
         moods = moods,
         audioFiles = audioFiles,
+        normalizationGainDb = book.normalizationGainDb,
     )
 }

@@ -44,6 +44,8 @@ data class RecordPositionRequest(
     val finished: Boolean,
     val playbackSpeed: Float,
     val currentChapterId: String?,
+    @SerialName("volumeBoostDb") val volumeBoostDb: Float = 0f,
+    @SerialName("measuredGainDb") val measuredGainDb: Float? = null,
 )
 
 /**

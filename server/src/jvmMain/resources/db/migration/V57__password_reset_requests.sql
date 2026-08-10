@@ -1,4 +1,4 @@
--- V56: password reset requests. Server-owned, non-syncable, short-lived.
+-- V57: password reset requests. Server-owned, non-syncable, short-lived.
 --
 -- Deliberately NOT a status flip on the users row: a requester is ACTIVE and must stay
 -- ACTIVE throughout, because they may be signed in on another device mid-book. A pending

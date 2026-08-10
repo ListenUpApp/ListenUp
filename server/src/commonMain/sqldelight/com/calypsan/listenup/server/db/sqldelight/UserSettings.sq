@@ -2,8 +2,10 @@
 -- one row per user, created on first write, cascade-deleted with the user. The RPC DTO
 -- does not surface updated_at (kept for parity/debugging).
 --
--- Effective schema is V38__user_settings.sql verbatim. SQLDelight maps:
+-- Effective schema is V38__user_settings.sql plus V56__volume_boost_and_normalization.sql
+-- (default_volume_boost_db). SQLDelight maps:
 --   * default_playback_speed     REAL     → Double  (DTO is Float; converted at the boundary)
+--   * default_volume_boost_db    REAL     → Double  (DTO is Float; converted at the boundary)
 --   * default_skip_forward_sec   INTEGER  → Long    (DTO is Int)
 --   * default_skip_backward_sec  INTEGER  → Long    (DTO is Int)
 --   * default_sleep_timer_min    INTEGER? → Long?   (DTO is Int?)
@@ -16,6 +18,7 @@
 CREATE TABLE user_settings (
     user_id                     TEXT NOT NULL PRIMARY KEY,
     default_playback_speed      REAL NOT NULL DEFAULT 1.0,
+    default_volume_boost_db     REAL NOT NULL DEFAULT 0.0,
     default_skip_forward_sec    INTEGER NOT NULL DEFAULT 30,
     default_skip_backward_sec   INTEGER NOT NULL DEFAULT 10,
     default_sleep_timer_min     INTEGER,
@@ -33,6 +36,7 @@ SELECT * FROM user_settings WHERE user_id = :user_id;
 update:
 UPDATE user_settings
 SET default_playback_speed = :default_playback_speed,
+    default_volume_boost_db = :default_volume_boost_db,
     default_skip_forward_sec = :default_skip_forward_sec,
     default_skip_backward_sec = :default_skip_backward_sec,
     default_sleep_timer_min = :default_sleep_timer_min,
@@ -44,12 +48,12 @@ WHERE user_id = :user_id;
 -- affected no rows).
 insert:
 INSERT INTO user_settings (
-    user_id, default_playback_speed, default_skip_forward_sec, default_skip_backward_sec,
-    default_sleep_timer_min, shake_to_reset_sleep_timer, updated_at
+    user_id, default_playback_speed, default_volume_boost_db, default_skip_forward_sec,
+    default_skip_backward_sec, default_sleep_timer_min, shake_to_reset_sleep_timer, updated_at
 )
 VALUES (
-    :user_id, :default_playback_speed, :default_skip_forward_sec, :default_skip_backward_sec,
-    :default_sleep_timer_min, :shake_to_reset_sleep_timer, :updated_at
+    :user_id, :default_playback_speed, :default_volume_boost_db, :default_skip_forward_sec,
+    :default_skip_backward_sec, :default_sleep_timer_min, :shake_to_reset_sleep_timer, :updated_at
 );
 
 -- Rows affected by the most recent statement on this connection — lets the upsert

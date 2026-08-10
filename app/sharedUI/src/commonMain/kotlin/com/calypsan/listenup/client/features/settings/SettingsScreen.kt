@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Devices
@@ -66,8 +67,10 @@ import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.ValuePill
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.ThemeMode
+import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
+import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
 import listenup.composeapp.generated.resources.common_account
@@ -81,12 +84,16 @@ import listenup.composeapp.generated.resources.common_sign_out
 import listenup.composeapp.generated.resources.common_storage
 import listenup.composeapp.generated.resources.common_theme
 import listenup.composeapp.generated.resources.devices_manage_active_sessions
+import listenup.composeapp.generated.resources.player_boost_db
+import listenup.composeapp.generated.resources.player_boost_off
 import listenup.composeapp.generated.resources.settings_app_version
 import listenup.composeapp.generated.resources.settings_appearance
 import listenup.composeapp.generated.resources.settings_are_you_sure_you_want
 import listenup.composeapp.generated.resources.settings_autorewind_on_resume
 import listenup.composeapp.generated.resources.settings_autostart_sleep_timer_when_playing
+import listenup.composeapp.generated.resources.settings_boost_used_for_new_books
 import listenup.composeapp.generated.resources.settings_choose_light_dark_or_follow
+import listenup.composeapp.generated.resources.settings_default_boost
 import listenup.composeapp.generated.resources.settings_default_speed
 import listenup.composeapp.generated.resources.settings_default_timer
 import listenup.composeapp.generated.resources.settings_desktop
@@ -368,6 +375,37 @@ private fun PlaybackSection(
             onValueSelected = viewModel::setDefaultPlaybackSpeed,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,
+        )
+        val boostOffLabel = stringResource(Res.string.player_boost_off)
+        val boostLabels =
+            VolumeBoostPresets.presets.associateWith { db ->
+                VolumeBoostPresets.format(
+                    db = db,
+                    offLabel = boostOffLabel,
+                    dbLabel = stringResource(Res.string.player_boost_db, db.roundToInt()),
+                )
+            }
+        // The saved default is clamped to the boost range but never snapped to a preset, so a
+        // value synced from another client can fall between the steps the map covers. Formatting
+        // it up front keeps the lookup below total.
+        val currentBoostLabel =
+            VolumeBoostPresets.format(
+                db = state.defaultVolumeBoostDb,
+                offLabel = boostOffLabel,
+                dbLabel = stringResource(Res.string.player_boost_db, state.defaultVolumeBoostDb.roundToInt()),
+            )
+        SelectorRow(
+            icon = Icons.AutoMirrored.Filled.VolumeUp,
+            accent = accent,
+            title = stringResource(Res.string.settings_default_boost),
+            subtitle = stringResource(Res.string.settings_boost_used_for_new_books),
+            selectedValue = state.defaultVolumeBoostDb,
+            options = VolumeBoostPresets.presets,
+            formatValue = { boostLabels[it] ?: currentBoostLabel },
+            onValueSelected = viewModel::setDefaultVolumeBoostDb,
+            pillContainerColor = pillContainer,
+            pillContentColor = pillContent,
+            showDivider = true,
         )
         SelectorRow(
             icon = Icons.Default.Forward30,

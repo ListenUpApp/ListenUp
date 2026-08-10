@@ -786,11 +786,13 @@
     "are_you_sure_you_want": "Are you sure you want to sign out? You'll need to sign in again to access your library.",
     "autorewind_on_resume": "Auto-rewind on resume",
     "autostart_sleep_timer_when_playing": "Auto-start sleep timer when playing",
+    "boost_used_for_new_books": "Volume boost used for new books",
     "cant_delete_playing_message": "“%1$s” is playing right now. Stop playback before deleting its download.",
     "cant_delete_playing_title": "Stop playback first",
     "choose_light_dark_or_follow": "Choose light, dark, or follow system",
     "clear_all": "Clear All",
     "clear_all_downloads": "Clear All Downloads?",
+    "default_boost": "Default volume boost",
     "default_speed": "Default speed",
     "default_timer": "Default timer",
     "delete_blocked_message": "Stop playback of “%1$s” before deleting its download.",
@@ -1179,7 +1181,13 @@
     "go_to_author": "Go to Author",
     "go_to_author_multiple": "Go to Author…",
     "go_to_narrator": "Go to Narrator",
-    "go_to_narrator_multiple": "Go to Narrator…"
+    "go_to_narrator_multiple": "Go to Narrator…",
+    "boost": "Boost",
+    "boost_off": "Off",
+    "boost_db": "+%1$d dB",
+    "boost_pill_db": "+%1$d",
+    "boost_use_default": "Use default (%1$s)",
+    "volume_boost": "Volume Boost"
   },
   "library_setup": {
     "choose_audiobook_folders": "Choose your audiobook folders",

@@ -129,6 +129,27 @@ class PlaybackProgressReporter(
         defaultSpeed: Float,
     ) = progressTracker.onSpeedReset(bookId, positionMs, defaultSpeed)
 
+    /** User picked a per-book boost. Fire-and-forget; the AppResult folds inside the tracker. */
+    fun onVolumeBoostChanged(
+        bookId: BookId,
+        positionMs: Long,
+        newBoostDb: Float,
+    ) = progressTracker.onVolumeBoostChanged(bookId, positionMs, newBoostDb)
+
+    /** User reset this book to the global default boost. */
+    fun onBoostReset(
+        bookId: BookId,
+        positionMs: Long,
+        defaultBoostDb: Float,
+    ) = progressTracker.onBoostReset(bookId, positionMs, defaultBoostDb)
+
+    /** A refined loudness measurement for this book. Never touches hasCustomBoost. */
+    fun onMeasuredGain(
+        bookId: BookId,
+        positionMs: Long,
+        gainDb: Float,
+    ) = progressTracker.onMeasuredGain(bookId, positionMs, gainDb)
+
     /**
      * Playback reached the end of the book: mark it complete and finalize the open span at
      * [finalPositionMs]. The recorder's [ListeningEventRecorder.onPause] is the "finalize the

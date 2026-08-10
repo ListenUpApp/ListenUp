@@ -17,23 +17,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
 import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
+import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.player_boost_off
+import listenup.composeapp.generated.resources.player_boost_pill_db
 import listenup.composeapp.generated.resources.player_chapters
 import listenup.composeapp.generated.resources.player_sleep_timer
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Secondary action row with speed pill, sleep pill, and chapters pill.
+ * Secondary action row with speed pill, boost pill, sleep pill, and chapters pill.
  *
- * All three controls use a pill shape ([CircleShape]) with [surfaceContainerHigh] background,
- * matching the M3 Expressive design reference. The speed pill shows a text label;
+ * All four controls use a pill shape ([CircleShape]) with [surfaceContainerHigh] background,
+ * matching the M3 Expressive design reference. The speed and boost pills show a text label;
  * the sleep and chapters controls are icon-only pills.
  *
  * Bookmark and equalizer controls are intentionally omitted per design decision.
  *
  * @param playbackSpeed Current playback speed, formatted as a label (e.g. "1.0×").
  * @param onSpeedClick Called when the speed pill is tapped.
+ * @param volumeBoostDb Current per-book volume boost, in dB.
+ * @param onBoostClick Called when the boost pill is tapped.
  * @param onSleepClick Called when the sleep/bedtime pill is tapped.
  * @param onChaptersClick Called when the chapters list pill is tapped.
  */
@@ -41,6 +47,8 @@ import org.jetbrains.compose.resources.stringResource
 fun PlayerSecondaryActions(
     playbackSpeed: Float,
     onSpeedClick: () -> Unit,
+    volumeBoostDb: Float,
+    onBoostClick: () -> Unit,
     onSleepClick: () -> Unit,
     onChaptersClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -50,9 +58,19 @@ fun PlayerSecondaryActions(
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SpeedPill(
+        LabelPill(
             label = PlaybackSpeedPresets.format(playbackSpeed),
             onClick = onSpeedClick,
+        )
+
+        LabelPill(
+            label =
+                VolumeBoostPresets.format(
+                    db = volumeBoostDb,
+                    offLabel = stringResource(Res.string.player_boost_off),
+                    dbLabel = stringResource(Res.string.player_boost_pill_db, volumeBoostDb.roundToInt()),
+                ),
+            onClick = onBoostClick,
         )
 
         PillIcon(

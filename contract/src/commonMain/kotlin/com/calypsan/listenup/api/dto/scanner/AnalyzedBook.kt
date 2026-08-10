@@ -57,6 +57,11 @@ data class AnalyzedBook(
     val embedded: EmbeddedAudioMetadata? = null,
     val embeddedStatus: MetadataStatus? = null,
     /**
+     * Pre-computed loudness gain from the primary file's ReplayGain/iTunNORM tag, in dB;
+     * null when the file carries neither. Purely scanned (like duration) — no provenance entry.
+     */
+    val normalizationGainDb: Float? = null,
+    /**
      * Per-field scan provenance: for each resolved [BookField] the scanner derived a value for, the
      * winning scan-tier source (all entries are tier 0 — [com.calypsan.listenup.api.metadata.FieldSourceKind.isScan]).
      * Ties are already broken by the library's `MetadataPrecedence` order at resolution time. Rides to

@@ -140,23 +140,31 @@ class NowPlayingViewModel internal constructor(
             playbackManager.isPlaying,
             playbackManager.isBuffering,
             playbackManager.playbackSpeed,
-        ) { isPlaying, isBuffering, speed ->
-            PlaybackDynamics(isPlaying = isPlaying, isBuffering = isBuffering, playbackSpeed = speed)
+            playbackManager.volumeBoostDb,
+        ) { isPlaying, isBuffering, speed, boostDb ->
+            PlaybackDynamics(
+                isPlaying = isPlaying,
+                isBuffering = isBuffering,
+                playbackSpeed = speed,
+                volumeBoostDb = boostDb,
+            )
         }
 
-    /** Aggregated surface metadata (chapter info + chapter list + error + default speed). */
+    /** Aggregated surface metadata (chapter info + chapter list + error + defaults for speed/boost). */
     private val surfaceMetadataFlow: Flow<SurfaceMetadata> =
         combine(
             playbackManager.currentChapter,
             playbackManager.chapters,
             playbackManager.playbackError,
             playbackPreferences.observeDefaultPlaybackSpeed(),
-        ) { chapter, chapters, error, defaultSpeed ->
+            playbackPreferences.observeDefaultVolumeBoostDb(),
+        ) { chapter, chapters, error, defaultSpeed, defaultBoostDb ->
             SurfaceMetadata(
                 currentChapter = chapter,
                 chapters = chapters,
                 error = error,
                 defaultPlaybackSpeed = defaultSpeed,
+                defaultVolumeBoostDb = defaultBoostDb,
             )
         }
 
@@ -364,6 +372,14 @@ class NowPlayingViewModel internal constructor(
     }
 
     fun hideSpeedPicker() {
+        overlayFlow.value = NowPlayingOverlay.None
+    }
+
+    fun showBoostPicker() {
+        overlayFlow.value = NowPlayingOverlay.BoostPicker
+    }
+
+    fun hideBoostPicker() {
         overlayFlow.value = NowPlayingOverlay.None
     }
 
@@ -575,6 +591,29 @@ class NowPlayingViewModel internal constructor(
             playbackController.setPlaybackSpeed(defaultSpeed)
             // Notify PlaybackManager that user reset to default
             playbackManager.onSpeedReset(defaultSpeed)
+        }
+    }
+
+    /**
+     * Set volume boost for the current book.
+     * Marks the book as having a custom boost (hasCustomBoost=true).
+     *
+     * Unlike [setSpeed], there is no separate controller apply here: boost flows through
+     * [PlaybackManager.effectiveGainDb] into the platform gain stage (e.g. Android's Media3
+     * `GainAudioProcessor`), so notifying [PlaybackManager] is the whole operation.
+     */
+    fun setBoost(boostDb: Float) {
+        playbackManager.onVolumeBoostChanged(boostDb)
+    }
+
+    /**
+     * Reset volume boost to universal default.
+     * Marks the book as using the universal default (hasCustomBoost=false).
+     */
+    fun resetBoostToDefault() {
+        viewModelScope.launch {
+            val defaultBoostDb = playbackPreferences.getDefaultVolumeBoostDb()
+            playbackManager.onBoostReset(defaultBoostDb)
         }
     }
 

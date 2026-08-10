@@ -21,7 +21,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Runtime phase
 
     private(set) var phase: PlayerPhase = .idle {
-        didSet { updateBandwidthSignal() }
+        didSet { updateBandwidthSignal(); saveRefinedMeasurement() }
     }
 
     // MARK: - Preserved UI surface — visibility & playback flags (derived from phase)
@@ -76,6 +76,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// refreshes after a re-scrape instead of serving the stale id-stable local `coverPath` file.
     private(set) var coverHash: String?
     private(set) var playbackSpeed: Float = 1.0
+    /// Volume-boost gain inputs for the loaded book. The boost API, the gain math and the
+    /// measurement persistence live in `PlayerCoordinator+Gain.swift`; only the stored state
+    /// stays here, because Swift extensions cannot declare stored properties.
+    var gain = GainState()
     private(set) var chapters: [Chapter] = []
 
     // MARK: - Preserved UI surface — skip intervals (observed from Settings)
@@ -155,7 +159,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Components
 
-    private let engine: PlaybackEngine
+    /// Internal, not private: the gain stage lives in its own file (`PlayerCoordinator+Gain.swift`),
+    /// as does the now-playing bridge below.
+    let engine: PlaybackEngine
     private let positionTracker = PositionTracker()
     /// Internal, not private: the Now-Playing bridge lives in its own file
     /// (`PlayerCoordinator+NowPlaying.swift`) — the lock-screen concern earns a home of its own.
@@ -164,7 +170,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Seam (native protocols — see PlaybackSeam.swift)
 
     private let preparer: PlaybackPreparing
-    private let progress: PlaybackProgressReporting
+    /// Internal, not private — see `engine` above.
+    let progress: PlaybackProgressReporting
     private let sleep: SleepTiming
     private let documentProvider: BookDocumentProviding
     /// Reactive source of the user's skip-interval settings — observed so transport, glyphs and
@@ -408,7 +415,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     }
 
     /// Reset the observable metadata surface and position state for a fresh load. Keeps
-    /// `playbackSpeed` (re-derived from the prepared book) to avoid a flash back to 1.0×.
+    /// `playbackSpeed` and the volume boost — both re-derived from the prepared book — to avoid a
+    /// flash back to defaults. The gain measurements are cleared rather than left stale, so a boost
+    /// moved mid-switch can't be combined with the outgoing book's loudness.
     private func resetMetadataForSwitch() {
         bookTitle = ""
         authorName = ""
@@ -419,6 +428,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         coverPath = nil
         coverHash = nil
         chapters = []
+        gain.clearMeasurements()
         firstPdfDocId = nil
         documentToOpen = nil
         positionTracker.reset()
@@ -606,7 +616,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         positionTracker.update(positionMs: prepared.resumePositionMs, rate: 0)
         lastReportedPositionMs = prepared.resumePositionMs
 
-        let segments = Self.resolveSegments(prepared.timeline.files)
+        let segments = AudioSegment.resolve(prepared.timeline.files)
         guard !segments.isEmpty else {
             guard !isSuperseded(generation) else { return }
             isEngineLoading = false
@@ -648,6 +658,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             return
         }
 
+        await applyGain(from: prepared)
         await engine.setRate(prepared.resumeSpeed)
         guard !isSuperseded(generation) else { return }
         await engine.play()
@@ -662,22 +673,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Whether a newer `play(bookId:)` has superseded the load that captured `generation`.
     private func isSuperseded(_ generation: Int) -> Bool {
         LoadGeneration.isSuperseded(taskGeneration: generation, current: loadGeneration)
-    }
-
-    /// Resolve the prepared timeline's files into playable `AudioSegment`s — the local file when
-    /// downloaded, else the streaming URL; files with neither are dropped.
-    private static func resolveSegments(_ files: [PreparedFile]) -> [AudioSegment] {
-        files.compactMap { file -> AudioSegment? in
-            let url: URL
-            if let localPath = file.localPath {
-                url = URL(fileURLWithPath: localPath)
-            } else if let remote = URL(string: file.streamingUrl) {
-                url = remote
-            } else {
-                return nil
-            }
-            return AudioSegment(url: url, durationMs: file.durationMs, offsetMs: file.startOffsetMs)
-        }
     }
 
     // MARK: - Engine events

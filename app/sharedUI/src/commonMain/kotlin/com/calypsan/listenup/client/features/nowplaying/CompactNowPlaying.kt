@@ -74,6 +74,7 @@ private val COMPACT_FIT_MIN_HEIGHT = 640.dp
  * @param onPreviousChapter Called when skip-previous is tapped.
  * @param onNextChapter Called when skip-next is tapped.
  * @param onSpeedClick Called when the speed pill is tapped.
+ * @param onBoostClick Called when the boost pill is tapped.
  * @param onSleepClick Called when the sleep pill is tapped.
  * @param onChaptersClick Called when the chapters pill is tapped.
  * @param onGoToBook Called when "Go to Book" is selected from the overflow menu.
@@ -97,6 +98,7 @@ fun CompactNowPlaying(
     onPreviousChapter: () -> Unit,
     onNextChapter: () -> Unit,
     onSpeedClick: () -> Unit,
+    onBoostClick: () -> Unit,
     onSleepClick: () -> Unit,
     onChaptersClick: () -> Unit,
     onGoToBook: () -> Unit,
@@ -252,10 +254,12 @@ fun CompactNowPlaying(
 
             Spacer(Modifier.height(20.dp))
 
-            // Secondary actions: speed pill, sleep pill, chapters pill.
+            // Secondary actions: speed pill, boost pill, sleep pill, chapters pill.
             PlayerSecondaryActions(
                 playbackSpeed = state.playbackSpeed,
                 onSpeedClick = onSpeedClick,
+                volumeBoostDb = state.volumeBoostDb,
+                onBoostClick = onBoostClick,
                 onSleepClick = onSleepClick,
                 onChaptersClick = onChaptersClick,
                 modifier = Modifier.fillMaxWidth(),

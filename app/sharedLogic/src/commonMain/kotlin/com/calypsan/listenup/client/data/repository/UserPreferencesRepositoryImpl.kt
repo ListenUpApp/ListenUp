@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.map
 private val DEFAULTS =
     UserPreferences(
         defaultPlaybackSpeed = 1.0f,
+        defaultVolumeBoostDb = 0.0f,
         defaultSkipForwardSec = 30,
         defaultSkipBackwardSec = 10,
         defaultSleepTimerMin = null,
@@ -73,6 +74,11 @@ internal class UserPreferencesRepositoryImpl(
         optimisticUpdate(
             patch = UpdateUserPreferencesRequest(defaultPlaybackSpeed = speed),
         ) { it.copy(defaultPlaybackSpeed = speed) }
+
+    override suspend fun setDefaultVolumeBoostDb(boostDb: Float): AppResult<Unit> =
+        optimisticUpdate(
+            patch = UpdateUserPreferencesRequest(defaultVolumeBoostDb = boostDb),
+        ) { it.copy(defaultVolumeBoostDb = boostDb) }
 
     override suspend fun setDefaultSkipForwardSec(seconds: Int): AppResult<Unit> =
         optimisticUpdate(
@@ -125,6 +131,7 @@ internal class UserPreferencesRepositoryImpl(
     private fun UserPreferencesDto.toDomain(): UserPreferences =
         UserPreferences(
             defaultPlaybackSpeed = defaultPlaybackSpeed,
+            defaultVolumeBoostDb = defaultVolumeBoostDb,
             defaultSkipForwardSec = defaultSkipForwardSec,
             defaultSkipBackwardSec = defaultSkipBackwardSec,
             defaultSleepTimerMin = defaultSleepTimerMin,
@@ -133,6 +140,7 @@ internal class UserPreferencesRepositoryImpl(
     private fun UserPreferencesEntity.toDomain(): UserPreferences =
         UserPreferences(
             defaultPlaybackSpeed = defaultPlaybackSpeed,
+            defaultVolumeBoostDb = defaultVolumeBoostDb,
             defaultSkipForwardSec = defaultSkipForwardSec,
             defaultSkipBackwardSec = defaultSkipBackwardSec,
             defaultSleepTimerMin = defaultSleepTimerMin,
@@ -142,6 +150,7 @@ internal class UserPreferencesRepositoryImpl(
         UserPreferencesEntity(
             id = userId,
             defaultPlaybackSpeed = defaultPlaybackSpeed,
+            defaultVolumeBoostDb = defaultVolumeBoostDb,
             defaultSkipForwardSec = defaultSkipForwardSec,
             defaultSkipBackwardSec = defaultSkipBackwardSec,
             defaultSleepTimerMin = defaultSleepTimerMin,

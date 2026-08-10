@@ -26,6 +26,7 @@ internal class AudioTagsBuilder {
     var discNumber: Int? = null
     var titleSort: String? = null
     var authorsSort: String? = null
+    var normalizationGainDb: Float? = null
     val custom: MutableMap<String, String> = linkedMapOf()
 
     fun build(): AudioTags {
@@ -52,6 +53,7 @@ internal class AudioTagsBuilder {
             discNumber = discNumber,
             titleSort = titleSort,
             authorsSort = authorsSort,
+            normalizationGainDb = normalizationGainDb,
             custom = custom.toMap(),
         )
     }
@@ -75,5 +77,6 @@ internal fun emptyAudioTags(): AudioTags =
         discNumber = null,
         titleSort = null,
         authorsSort = null,
+        normalizationGainDb = null,
         custom = emptyMap(),
     )

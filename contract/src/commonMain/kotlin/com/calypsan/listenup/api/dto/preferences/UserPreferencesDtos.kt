@@ -16,6 +16,7 @@ data class UserPreferencesDto(
     val defaultSkipBackwardSec: Int,
     val defaultSleepTimerMin: Int? = null,
     val shakeToResetSleepTimer: Boolean,
+    @SerialName("defaultVolumeBoostDb") val defaultVolumeBoostDb: Float = 0f,
 )
 
 /**
@@ -30,4 +31,5 @@ data class UpdateUserPreferencesRequest(
     val defaultSkipBackwardSec: Int? = null,
     val defaultSleepTimerMin: Int? = null,
     val shakeToResetSleepTimer: Boolean? = null,
+    @SerialName("defaultVolumeBoostDb") val defaultVolumeBoostDb: Float? = null,
 )

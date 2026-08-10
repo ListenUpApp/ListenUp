@@ -51,6 +51,9 @@ interface PlaybackManager :
     /** Current playback speed (1.0 = normal). */
     val playbackSpeed: StateFlow<Float>
 
+    /** Current user-set volume boost for the active book, in dB (0 = no boost). */
+    val volumeBoostDb: StateFlow<Float>
+
     /** Aggregate playback state (Idle/Buffering/Playing/Paused/Ended/Error). */
     val playbackState: StateFlow<PlaybackState>
 
@@ -62,6 +65,15 @@ interface PlaybackManager :
 
     /** Currently active chapter (derived from [currentPositionMs] + [chapters]). */
     val currentChapter: StateFlow<ChapterInfo?>
+
+    /**
+     * Combined loudness-normalization and user-boost gain for the current book, in dB.
+     *
+     * 0 dB is unity — the file plays at the level it was authored at. Platform gain stages
+     * (Android's Media3 `GainAudioProcessor`, iOS's audio engine) apply this; it is never folded
+     * into the persisted position or speed.
+     */
+    val effectiveGainDb: StateFlow<Float>
 
     /**
      * Callback invoked whenever the active chapter changes — used by the Android
@@ -110,6 +122,19 @@ interface PlaybackManager :
     fun onSpeedReset(defaultSpeed: Float)
 
     /**
+     * Called when the user explicitly changes volume boost for the current
+     * book. Sets per-book boost via [ProgressTracker]; does NOT mutate the
+     * global default. Recomputes [effectiveGainDb] immediately.
+     */
+    fun onVolumeBoostChanged(boostDb: Float)
+
+    /**
+     * Reset the current book's volume boost to the universal default (passed
+     * in as [defaultBoostDb]). Recomputes [effectiveGainDb] immediately.
+     */
+    fun onBoostReset(defaultBoostDb: Float)
+
+    /**
      * Clear a latched [playbackError] immediately.
      *
      * Called by the VM when the user re-initiates play/resume, so the mini player reappears
@@ -138,6 +163,12 @@ interface PlaybackManager :
         val totalChapters: Int,
         val resumePositionMs: Long,
         val resumeSpeed: Float,
+        /** Boost to start playback with: the book's custom boost, else the global default. */
+        val resumeBoostDb: Float,
+        /** Client-measured R128 gain for this book (synced), null until measured. */
+        val measuredGainDb: Float?,
+        /** Server tag-read normalization gain (ReplayGain/iTunNORM), null when the file has no tag. */
+        val normalizationGainDb: Float?,
     )
 
     /** Playback error for display to the user. */

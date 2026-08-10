@@ -250,9 +250,11 @@ private class StubPlaybackManager : PlaybackManager {
     override val currentPositionMs: StateFlow<Long> = MutableStateFlow(0L)
     override val totalDurationMs: StateFlow<Long> = MutableStateFlow(0L)
     override val playbackSpeed: StateFlow<Float> = MutableStateFlow(1.0f)
+    override val volumeBoostDb: StateFlow<Float> = MutableStateFlow(0f)
     override val playbackState: StateFlow<PlaybackState> = MutableStateFlow(PlaybackState.Idle)
     override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?> = MutableStateFlow(null)
     override val chapters: StateFlow<List<Chapter>> = MutableStateFlow(emptyList())
+    override val effectiveGainDb: StateFlow<Float> = MutableStateFlow(0f)
 
     override fun activateBook(bookId: BookId) = Unit
 
@@ -267,6 +269,10 @@ private class StubPlaybackManager : PlaybackManager {
     override fun onSpeedChanged(speed: Float) = Unit
 
     override fun onSpeedReset(defaultSpeed: Float) = Unit
+
+    override fun onVolumeBoostChanged(boostDb: Float) = Unit
+
+    override fun onBoostReset(defaultBoostDb: Float) = Unit
 
     override fun clearPlayback() = Unit
 

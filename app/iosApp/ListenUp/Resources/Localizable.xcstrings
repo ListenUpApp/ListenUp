@@ -10041,6 +10041,56 @@
         }
       }
     },
+    "player.boost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boost"
+          }
+        }
+      }
+    },
+    "player.boost_db": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%1$d dB"
+          }
+        }
+      }
+    },
+    "player.boost_off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        }
+      }
+    },
+    "player.boost_pill_db": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%1$d"
+          }
+        }
+      }
+    },
+    "player.boost_use_default": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use default (%1$@)"
+          }
+        }
+      }
+    },
     "player.cancel_timer": {
       "localizations": {
         "en": {
@@ -10467,6 +10517,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "View all %1$d chapters"
+          }
+        }
+      }
+    },
+    "player.volume_boost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume Boost"
           }
         }
       }
@@ -11361,6 +11421,16 @@
         }
       }
     },
+    "settings.boost_used_for_new_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume boost used for new books"
+          }
+        }
+      }
+    },
     "settings.cant_delete_playing_message": {
       "localizations": {
         "en": {
@@ -11407,6 +11477,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear All Downloads?"
+          }
+        }
+      }
+    },
+    "settings.default_boost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default volume boost"
           }
         }
       }
