@@ -58,12 +58,12 @@ fun PlayerSecondaryActions(
         horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SpeedPill(
+        LabelPill(
             label = PlaybackSpeedPresets.format(playbackSpeed),
             onClick = onSpeedClick,
         )
 
-        BoostPill(
+        LabelPill(
             label =
                 VolumeBoostPresets.format(
                     db = volumeBoostDb,

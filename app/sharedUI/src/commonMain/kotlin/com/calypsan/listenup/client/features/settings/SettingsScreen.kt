@@ -385,6 +385,15 @@ private fun PlaybackSection(
                     dbLabel = stringResource(Res.string.player_boost_db, db.roundToInt()),
                 )
             }
+        // The saved default is clamped to the boost range but never snapped to a preset, so a
+        // value synced from another client can fall between the steps the map covers. Formatting
+        // it up front keeps the lookup below total.
+        val currentBoostLabel =
+            VolumeBoostPresets.format(
+                db = state.defaultVolumeBoostDb,
+                offLabel = boostOffLabel,
+                dbLabel = stringResource(Res.string.player_boost_db, state.defaultVolumeBoostDb.roundToInt()),
+            )
         SelectorRow(
             icon = Icons.AutoMirrored.Filled.VolumeUp,
             accent = accent,
@@ -392,7 +401,7 @@ private fun PlaybackSection(
             subtitle = stringResource(Res.string.settings_boost_used_for_new_books),
             selectedValue = state.defaultVolumeBoostDb,
             options = VolumeBoostPresets.presets,
-            formatValue = { boostLabels.getValue(it) },
+            formatValue = { boostLabels[it] ?: currentBoostLabel },
             onValueSelected = viewModel::setDefaultVolumeBoostDb,
             pillContainerColor = pillContainer,
             pillContentColor = pillContent,

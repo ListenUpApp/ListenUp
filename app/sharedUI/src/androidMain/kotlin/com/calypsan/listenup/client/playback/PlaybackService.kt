@@ -142,6 +142,12 @@ class PlaybackService :
      */
     private var lastSavedMeasuredGainDb: Float? = null
 
+    /**
+     * The book [gainProcessor]'s meter is currently measuring — set at the same instant the meter
+     * is reset, so it is the one thing that knows what a reading actually describes.
+     */
+    private var meterBookId: BookId? = null
+
     /** Offers a way back in when the platform refuses a background start. */
     private val refusalNotifier by lazy { PlaybackRefusalNotifier(this) }
 
@@ -421,7 +427,11 @@ class PlaybackService :
      *
      * Both ride [PlaybackManager] rather than the media-item plumbing because `currentBookId` is
      * already this service's notion of which book is loaded — the same source the pause funnel
-     * saves against, so a reset and a save can never disagree about which book they mean.
+     * saves against.
+     *
+     * The reset is asynchronous, though, so it lands some time after the flow has already flipped
+     * to the new book. [meterBookId] is stamped inside that resumption, which is what lets
+     * [saveRefinedMeasurement] tell a reading of the new book from a leftover reading of the old.
      */
     private fun observeGain() {
         serviceScope.launch {
@@ -430,8 +440,9 @@ class PlaybackService :
         serviceScope.launch {
             // A StateFlow conflates and drops duplicates, so this fires once per real book change.
             // Loudness integrates over one book, never across two.
-            playbackManager.currentBookId.collect {
+            playbackManager.currentBookId.collect { bookId ->
                 gainProcessor.beginBook()
+                meterBookId = bookId
                 lastSavedMeasuredGainDb = null
             }
         }
@@ -679,11 +690,19 @@ class PlaybackService :
         positionMs: Long,
     ) {
         val measured = gainProcessor.measuredGainDb() ?: return
-        if (!shouldSaveMeasurement(measured, lastSavedMeasuredGainDb)) return
-        // Cheap insurance, mirroring iOS: a book switch racing this pause has already cleared
-        // lastSavedMeasuredGainDb for the incoming book, and writing the outgoing book's reading
-        // into it would suppress the new book's own first save.
-        if (currentBookId != bookId) return
+        // [meterBookId], not currentBookId: the latter is the very source [bookId] was read from a
+        // moment ago on this same thread, so comparing them can never fire. What can go wrong is a
+        // pause landing after the flow has flipped to the next book but before the reset in
+        // [observeGain] has run — the meter is still integrating the outgoing book, and this would
+        // file its loudness under the incoming book's id.
+        val worthSaving =
+            shouldSaveMeasurement(
+                measured = measured,
+                lastSaved = lastSavedMeasuredGainDb,
+                meterBookId = meterBookId,
+                bookId = bookId,
+            )
+        if (!worthSaving) return
         progressTracker.onMeasuredGain(bookId = bookId, positionMs = positionMs, gainDb = measured)
         lastSavedMeasuredGainDb = measured
     }

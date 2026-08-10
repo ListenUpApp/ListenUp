@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
  *
  * ## Threading
  *
- * [queueInput] and [onConfigure] both run on the playback thread, which is why [meterBatch] and the
+ * [queueInput] and [onFlush] both run on the playback thread, which is why [meterBatch] and the
  * `inputAudioFormat` reads need no synchronization — exactly the confinement
  * [BaseAudioProcessor]'s own `inputAudioFormat` field relies on. The two members that *are*
  * reachable from elsewhere are guarded: [linearGain] is `@Volatile` because [setGainDb] is called
@@ -33,7 +33,7 @@ import java.nio.ByteBuffer
  * ## The rebuilt-meter tradeoff
  *
  * K-weighting coefficients are derived from the sample rate, so a meter cannot outlive a format
- * change; [onConfigure] builds a fresh one. A mid-book format change therefore restarts the
+ * change; [onFlush] builds a fresh one. A mid-book format change therefore restarts the
  * measurement, losing whatever coverage the book had accumulated. That is rare (it takes a
  * sample-rate switch between files of one book) and self-correcting on the next listen, which is a
  * better trade than reporting a loudness computed with the wrong filter.
@@ -45,12 +45,12 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
 
     private val meterLock = Any()
 
-    /** Guarded by [meterLock]; null until the first [onConfigure]. */
+    /** Guarded by [meterLock]; null until the first [onFlush]. */
     private var meter: LoudnessMeter? = null
 
     /**
-     * Reused pre-gain scratch, sized in whole frames at configure time so the per-sample path
-     * never allocates and a flush always lands on a frame boundary. Playback-thread confined.
+     * Reused pre-gain scratch, sized in whole frames of the active format so the per-sample path
+     * never allocates and a batch always lands on a frame boundary. Playback-thread confined.
      */
     private var meterBatch: FloatArray = FloatArray(0)
 
@@ -75,12 +75,26 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
                 inputAudioFormat,
             )
         }
+        return inputAudioFormat
+    }
+
+    /**
+     * Build the meter and its scratch against the format that is now *active*.
+     *
+     * `configure` only stages a format — [BaseAudioProcessor] promotes it into `inputAudioFormat`
+     * here, at flush. Anything built at configure time would therefore be sized for the incoming
+     * format while [queueInput] is still doing frame math with the outgoing one, on whatever the
+     * sink drains in between. Mono → stereo makes that a read past the end of the batch.
+     */
+    override fun onFlush(streamMetadata: AudioProcessor.StreamMetadata) {
+        // An unconfigured processor still gets flushed, and `AudioFormat.NOT_SET` carries a
+        // channel count of -1 — which a meter cannot be built from.
         val channelCount = inputAudioFormat.channelCount
+        if (channelCount <= 0) return
         meterBatch = FloatArray((METER_BATCH_SAMPLES / channelCount).coerceAtLeast(1) * channelCount)
         synchronized(meterLock) {
             meter = LoudnessMeter(inputAudioFormat.sampleRate, channelCount)
         }
-        return inputAudioFormat
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {

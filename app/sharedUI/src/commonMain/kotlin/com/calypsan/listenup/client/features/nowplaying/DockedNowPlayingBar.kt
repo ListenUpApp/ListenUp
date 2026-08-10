@@ -36,8 +36,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
+import com.calypsan.listenup.client.features.nowplaying.components.LabelPill
 import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
-import com.calypsan.listenup.client.features.nowplaying.components.SpeedPill
 import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
@@ -221,7 +221,7 @@ private fun ActiveDockedContent(
         )
 
         // Speed + expand.
-        SpeedPill(
+        LabelPill(
             label = PlaybackSpeedPresets.format(state.playbackSpeed),
             onClick = onSpeedClick,
         )

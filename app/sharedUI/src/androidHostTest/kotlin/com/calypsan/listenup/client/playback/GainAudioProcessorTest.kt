@@ -82,6 +82,21 @@ class GainAudioProcessorTest :
                     GainAudioProcessor().configure(AudioFormat(SAMPLE_RATE, 2, C.ENCODING_PCM_24BIT))
                 }
             }
+
+            test("a staged reconfigure leaves the still-active format's frame math intact") {
+                val processor = GainAudioProcessor()
+                processor.configureAndFlush(AudioFormat(SAMPLE_RATE, 1, C.ENCODING_PCM_16BIT))
+
+                // configure() only stages: the sink drains what is already in flight before
+                // flushing the new format in. Anything rebuilt at configure time would be sized
+                // for stereo while the frames still arriving are mono.
+                processor.configure(AudioFormat(SAMPLE_RATE, 2, C.ENCODING_PCM_16BIT))
+
+                val tone = sine16(frames = SAMPLE_RATE, sampleRate = SAMPLE_RATE)
+                val output = processor.process(pcm16BufferOf(tone)).readShorts()
+
+                output.toList() shouldBe tone.toList()
+            }
         }
 
         context("gain application") {
