@@ -15,9 +15,10 @@ import org.jetbrains.compose.web.dom.Text
  * rule the shell's rail follows, and for the same reason: a Kotlin-side width check needs a resize
  * listener and will disagree with the sheet at the boundary.
  *
- * The panel's cover tiles are CSS gradients, not images. The comps' own tiles are mostly gradients
- * too, and a decorative asset that has to load before the login screen looks finished is a worse
- * trade than a gradient that never can.
+ * The comps put tilted cover tiles under the headline. They are deliberately absent here: the
+ * comp's tiles carry real titles in bright accent colours, and reduced to bare gradients they
+ * read as artwork that failed to load — which is a worse first impression than empty space. Words
+ * the panel can actually stand behind beat a gesture at covers this server may not even have yet.
  */
 @Composable
 fun AuthLayout(
@@ -30,11 +31,6 @@ fun AuthLayout(
         Div(attrs = { classes("auth-brand") }) {
             H2(attrs = { classes("auth-hd") }) { Text(BRAND_HEADLINE) }
             P(attrs = { classes("auth-sub") }) { Text(BRAND_SUBTITLE) }
-            Div(attrs = { classes("auth-tiles") }) {
-                Div(attrs = { classes("auth-tile", "t1") }) {}
-                Div(attrs = { classes("auth-tile", "t2") }) {}
-                Div(attrs = { classes("auth-tile", "t3") }) {}
-            }
         }
 
         Div(attrs = { classes("auth-form") }) {
