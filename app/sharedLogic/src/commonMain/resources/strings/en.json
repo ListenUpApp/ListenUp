@@ -775,6 +775,7 @@
     "are_you_sure_you_want": "Are you sure you want to sign out? You'll need to sign in again to access your library.",
     "autorewind_on_resume": "Auto-rewind on resume",
     "autostart_sleep_timer_when_playing": "Auto-start sleep timer when playing",
+    "boost_used_for_new_books": "Volume boost used for new books",
     "cant_delete_playing_message": "“%1$s” is playing right now. Stop playback before deleting its download.",
     "cant_delete_playing_title": "Stop playback first",
     "choose_light_dark_or_follow": "Choose light, dark, or follow system",
