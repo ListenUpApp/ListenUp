@@ -1123,6 +1123,7 @@ One beautiful library.</string>
     <string name="settings_autostart_sleep_timer_when_playing">Auto-start sleep timer when playing</string>
     <string name="settings_book_downloaded_count">%1$d book downloaded</string>
     <string name="settings_books_downloaded_count">%1$d books downloaded</string>
+    <string name="settings_boost_used_for_new_books">Volume boost used for new books</string>
     <string name="settings_cant_delete_playing_message">“%1$s” is playing right now. Stop playback before deleting its download.</string>
     <string name="settings_cant_delete_playing_title">Stop playback first</string>
     <string name="settings_choose_light_dark_or_follow">Choose light, dark, or follow system</string>

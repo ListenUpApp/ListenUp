@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.download.DownloadService
+import com.calypsan.listenup.client.playback.loudness.VolumeGain
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -135,6 +136,9 @@ internal class PlaybackManagerImpl(
     override val playbackSpeed: StateFlow<Float>
         field = MutableStateFlow(1.0f)
 
+    override val volumeBoostDb: StateFlow<Float>
+        field = MutableStateFlow(0f)
+
     // Error state for displaying playback errors to the user
     // Null means no error, non-null means error to display
     override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?>
@@ -152,6 +156,16 @@ internal class PlaybackManagerImpl(
 
     override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?>
         field = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
+
+    override val effectiveGainDb: StateFlow<Float>
+        field = MutableStateFlow(0f)
+
+    // The per-book normalization inputs behind [effectiveGainDb], set on prepare and read (never
+    // mutated) by [onVolumeBoostChanged]/[onBoostReset] to recompute the combined gain. A new
+    // measurement arriving mid-book never touches these — the manager doesn't observe measurements
+    // at all, so effectiveGainDb only ever moves on prepare or an explicit user boost change.
+    private var measuredGainDb: Float? = null
+    private var normalizationGainDb: Float? = null
 
     // Tracks the coroutine that observes AudioPlayer state/position on Desktop/Apple.
     // Cancelled by clearPlayback so observations don't outlive a playback session.
@@ -190,6 +204,14 @@ internal class PlaybackManagerImpl(
         totalDurationMs.value = prepared.timeline.totalDurationMs
         chapters.value = prepared.chapters
 
+        // Seed the gain inputs and recompute effectiveGainDb once, here, at prepare time — never
+        // live off a mid-book measurement (the manager doesn't observe those; see the field KDoc).
+        measuredGainDb = prepared.measuredGainDb
+        normalizationGainDb = prepared.normalizationGainDb
+        volumeBoostDb.value = prepared.resumeBoostDb
+        effectiveGainDb.value =
+            VolumeGain.effectiveGainDb(prepared.measuredGainDb, prepared.normalizationGainDb, prepared.resumeBoostDb)
+
         return PlaybackManager.PrepareResult(
             timeline = prepared.timeline,
             bookTitle = prepared.bookTitle,
@@ -199,6 +221,9 @@ internal class PlaybackManagerImpl(
             totalChapters = prepared.chapters.size,
             resumePositionMs = prepared.resumePositionMs,
             resumeSpeed = prepared.resumeSpeed,
+            resumeBoostDb = prepared.resumeBoostDb,
+            measuredGainDb = prepared.measuredGainDb,
+            normalizationGainDb = prepared.normalizationGainDb,
         )
     }
 
@@ -493,6 +518,37 @@ internal class PlaybackManagerImpl(
     }
 
     /**
+     * Called when user explicitly changes volume boost for the current book.
+     *
+     * Writes per-book only via [reporter] → [progressTracker.onVolumeBoostChanged], which sets
+     * `hasCustomBoost = true`. The global default is changed only via Settings → Default Boost;
+     * per-book changes do NOT mutate the global default. Recomputes [effectiveGainDb] immediately
+     * from the new boost plus this book's [measuredGainDb]/[normalizationGainDb] — never waits for
+     * a fresh measurement, which the manager never observes mid-book anyway.
+     */
+    override fun onVolumeBoostChanged(boostDb: Float) {
+        val bookId = currentBookId.value ?: return
+        val positionMs = currentPositionMs.value
+        volumeBoostDb.value = boostDb
+        effectiveGainDb.value = VolumeGain.effectiveGainDb(measuredGainDb, normalizationGainDb, boostDb)
+        reporter.onVolumeBoostChanged(bookId, positionMs, boostDb)
+    }
+
+    /**
+     * Reset book's volume boost to universal default.
+     * Called when user explicitly resets to default boost.
+     *
+     * @param defaultBoostDb The universal default boost from settings
+     */
+    override fun onBoostReset(defaultBoostDb: Float) {
+        val bookId = currentBookId.value ?: return
+        val positionMs = currentPositionMs.value
+        volumeBoostDb.value = defaultBoostDb
+        effectiveGainDb.value = VolumeGain.effectiveGainDb(measuredGainDb, normalizationGainDb, defaultBoostDb)
+        reporter.onBoostReset(bookId, positionMs, defaultBoostDb)
+    }
+
+    /**
      * Clear current playback state.
      * Called when playback stops or when access is revoked.
      */
@@ -508,6 +564,10 @@ internal class PlaybackManagerImpl(
         currentPositionMs.value = 0L
         totalDurationMs.value = 0L
         playbackSpeed.value = 1.0f
+        volumeBoostDb.value = 0f
+        effectiveGainDb.value = 0f
+        measuredGainDb = null
+        normalizationGainDb = null
         playbackError.value = null
         isBuffering.value = false
         // Release the download-yield signal on teardown too — this path clears `isBuffering`

@@ -118,9 +118,12 @@ fun Ctrl(
     }
 }
 
-/** Pill-shaped speed label button with [surfaceContainerHigh] background, 40dp tall. */
+/**
+ * Pill-shaped text button with [surfaceContainerHigh] background, 40dp tall — the player's
+ * canonical "current value, tap to change" affordance (speed, boost).
+ */
 @Composable
-fun SpeedPill(
+fun LabelPill(
     label: String,
     onClick: () -> Unit,
 ) {

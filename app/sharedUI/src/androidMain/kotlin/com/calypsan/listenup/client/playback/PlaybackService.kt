@@ -13,12 +13,10 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
-import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.extractor.DefaultExtractorsFactory
@@ -131,6 +129,25 @@ class PlaybackService :
      */
     private var wasPlaying = false
 
+    /**
+     * The volume-boost gain stage, installed into the audio sink by [GainRenderersFactory] and
+     * outliving individual books — it is a member of the player, not of a playback session.
+     * [GainAudioProcessor.beginBook] is what scopes its loudness measurement to one book.
+     */
+    private val gainProcessor = GainAudioProcessor()
+
+    /**
+     * The measurement last handed to [ProgressTracker], so an unmoved reading is not re-saved.
+     * Cleared on every book change alongside [GainAudioProcessor.beginBook].
+     */
+    private var lastSavedMeasuredGainDb: Float? = null
+
+    /**
+     * The book [gainProcessor]'s meter is currently measuring — set at the same instant the meter
+     * is reset, so it is the one thing that knows what a reading actually describes.
+     */
+    private var meterBookId: BookId? = null
+
     /** Offers a way back in when the platform refuses a background start. */
     private val refusalNotifier by lazy { PlaybackRefusalNotifier(this) }
 
@@ -227,6 +244,7 @@ class PlaybackService :
         initializeMediaSession()
         initializeCast()
         initializeNotificationProvider()
+        observeGain()
 
         // Register callback for chapter changes to update notification
         playbackManager.onChapterChanged = { chapterInfo ->
@@ -283,8 +301,12 @@ class PlaybackService :
         // A previous custom RenderersFactory set -24 LKFS, which attenuated all AAC playback
         // by 8 dB. Dynamic-range control on AAC-LC comes from KEY_AAC_DRC_HEAVY_COMPRESSION,
         // which already defaults to heavy — we get it without configuring anything.
+        //
+        // GainRenderersFactory is the stock factory with one addition: the volume-boost gain
+        // stage in the audio sink's processor chain. Everything else about the sink, including
+        // the decode path above, is unchanged.
         val renderersFactory =
-            DefaultRenderersFactory(this)
+            GainRenderersFactory(this, gainProcessor)
                 .setEnableDecoderFallback(true)
 
         // Build ExoPlayer with audiobook-optimized settings
@@ -316,24 +338,14 @@ class PlaybackService :
                 .apply {
                     addListener(PlayerListener())
 
-                    // Enable audio offload for battery savings during long listening sessions
-                    // DSP-based decoding while CPU sleeps
-                    val audioOffloadPreferences =
-                        TrackSelectionParameters.AudioOffloadPreferences
-                            .Builder()
-                            .setAudioOffloadMode(
-                                TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED,
-                            ).setIsGaplessSupportRequired(true)
-                            .build()
-
-                    trackSelectionParameters =
-                        trackSelectionParameters
-                            .buildUpon()
-                            .setAudioOffloadPreferences(audioOffloadPreferences)
-                            .build()
+                    // No audio offload. Offload hands compressed frames straight to the DSP, which
+                    // saves battery but bypasses the AudioProcessor chain entirely — so both the
+                    // volume-boost gain stage and the R128 loudness measurement need the standard
+                    // decode path to exist at all. Re-enabling offload must be gated on the
+                    // effective gain being exactly 0 dB, and even then costs the measurement.
                 }
 
-        logger.info { "ExoPlayer initialized with audio offload enabled" }
+        logger.info { "ExoPlayer initialized with the volume-boost gain stage" }
     }
 
     private fun initializeMediaSession() {
@@ -407,6 +419,33 @@ class PlaybackService :
         val provider = notificationProvider ?: return
         setMediaNotificationProvider(provider)
         logger.info { "Notification provider initialized" }
+    }
+
+    /**
+     * Wire the gain stage to the two signals that drive it: the gain to apply, and the book
+     * boundary that scopes a loudness measurement.
+     *
+     * Both ride [PlaybackManager] rather than the media-item plumbing because `currentBookId` is
+     * already this service's notion of which book is loaded — the same source the pause funnel
+     * saves against.
+     *
+     * The reset is asynchronous, though, so it lands some time after the flow has already flipped
+     * to the new book. [meterBookId] is stamped inside that resumption, which is what lets
+     * [saveRefinedMeasurement] tell a reading of the new book from a leftover reading of the old.
+     */
+    private fun observeGain() {
+        serviceScope.launch {
+            playbackManager.effectiveGainDb.collect { gainProcessor.setGainDb(it) }
+        }
+        serviceScope.launch {
+            // A StateFlow conflates and drops duplicates, so this fires once per real book change.
+            // Loudness integrates over one book, never across two.
+            playbackManager.currentBookId.collect { bookId ->
+                gainProcessor.beginBook()
+                meterBookId = bookId
+                lastSavedMeasuredGainDb = null
+            }
+        }
     }
 
     /**
@@ -639,6 +678,36 @@ class PlaybackService :
     }
 
     /**
+     * Persist a refined R128 measurement at a pause, if it has actually moved.
+     *
+     * Hung off the pause funnel so no pause path can forget it. Deliberately does NOT re-apply the
+     * gain: the measurement refines continuously while a book plays, and reacting to it live would
+     * be an audible level jump mid-sentence. A new value takes effect at the next load, or the next
+     * time the user moves the boost.
+     */
+    private fun saveRefinedMeasurement(
+        bookId: BookId,
+        positionMs: Long,
+    ) {
+        val measured = gainProcessor.measuredGainDb() ?: return
+        // [meterBookId], not currentBookId: the latter is the very source [bookId] was read from a
+        // moment ago on this same thread, so comparing them can never fire. What can go wrong is a
+        // pause landing after the flow has flipped to the next book but before the reset in
+        // [observeGain] has run — the meter is still integrating the outgoing book, and this would
+        // file its loudness under the incoming book's id.
+        val worthSaving =
+            shouldSaveMeasurement(
+                measured = measured,
+                lastSaved = lastSavedMeasuredGainDb,
+                meterBookId = meterBookId,
+                bookId = bookId,
+            )
+        if (!worthSaving) return
+        progressTracker.onMeasuredGain(bookId = bookId, positionMs = positionMs, gainDb = measured)
+        lastSavedMeasuredGainDb = measured
+    }
+
+    /**
      * Durable position save for Android lifecycle teardown callbacks.
      *
      * [onDestroy] and [onTaskRemoved] are synchronous Android callbacks that cannot
@@ -817,6 +886,7 @@ class PlaybackService :
                 serviceScope.launch {
                     listeningEventRecorder.onPause(positionMs = positionMs)
                 }
+                saveRefinedMeasurement(bookId = bookId, positionMs = positionMs)
             }
 
             // Context-aware idle timer based on why playback stopped

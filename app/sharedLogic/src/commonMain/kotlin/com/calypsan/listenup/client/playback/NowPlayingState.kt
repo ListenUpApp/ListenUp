@@ -47,6 +47,8 @@ sealed interface NowPlayingState {
         val isBuffering: Boolean,
         val playbackSpeed: Float,
         val defaultPlaybackSpeed: Float,
+        val volumeBoostDb: Float,
+        val defaultVolumeBoostDb: Float,
     ) : NowPlayingState {
         val chapterLabel: String get() =
             if (totalChapters > 0) "Chapter ${chapterIndex + 1} of $totalChapters" else ""

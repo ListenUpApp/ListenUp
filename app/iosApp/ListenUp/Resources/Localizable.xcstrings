@@ -11221,6 +11221,16 @@
         }
       }
     },
+    "settings.boost_used_for_new_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume boost used for new books"
+          }
+        }
+      }
+    },
     "settings.cant_delete_playing_message": {
       "localizations": {
         "en": {

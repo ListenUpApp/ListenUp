@@ -15,6 +15,9 @@ sealed interface NowPlayingOverlay {
 
     data object SpeedPicker : NowPlayingOverlay
 
+    /** Picker for volume boost — user-set gain layered on top of loudness normalization. */
+    data object BoostPicker : NowPlayingOverlay
+
     data object SleepTimer : NowPlayingOverlay
 
     /** Picker for the book's contributors, scoped to a single role via [type] (authors, narrators, etc.). */

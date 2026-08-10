@@ -86,6 +86,10 @@ class NowPlayingViewModelTest :
                 // Required by NowPlayingViewModel's surfaceMetadataFlow combine pipeline.
                 every { playbackPreferences.observeDefaultPlaybackSpeed() } returns flowOf(1.0f)
                 everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
+                // Default: PlaybackPreferences.observeDefaultVolumeBoostDb() returns Flow of 0f.
+                // Required by NowPlayingViewModel's surfaceMetadataFlow combine pipeline.
+                every { playbackPreferences.observeDefaultVolumeBoostDb() } returns flowOf(0f)
+                everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0f
                 // Default: bookRepository.getBookListItem returns null (no metadata).
                 // bookFlow tolerates null; pure mapToNowPlayingState handles it.
                 everySuspend { bookRepository.getBookListItem(any()) } returns null
@@ -158,6 +162,9 @@ class NowPlayingViewModelTest :
                 totalChapters = 1,
                 resumePositionMs = 0L,
                 resumeSpeed = 1.0f,
+                resumeBoostDb = 0f,
+                measuredGainDb = null,
+                normalizationGainDb = null,
             )
 
         fun stubTimeline(): PlaybackTimeline =
@@ -548,6 +555,73 @@ class NowPlayingViewModelTest :
             }
         }
 
+        // ========== Boost ==========
+
+        test("setBoost notifies PlaybackManager and marks book as having custom boost") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+
+                val vm = fixture.newVm()
+                vm.setBoost(9f)
+                advanceUntilIdle()
+
+                fixture.fakePm.boostChanges shouldBe listOf(9f)
+            }
+        }
+
+        test("resetBoostToDefault uses preference value and marks book as default") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                everySuspend { fixture.playbackPreferences.getDefaultVolumeBoostDb() } returns 3f
+
+                val vm = fixture.newVm()
+                vm.resetBoostToDefault()
+                advanceUntilIdle()
+
+                fixture.fakePm.boostResets shouldBe listOf(3f)
+            }
+        }
+
+        test("Active.volumeBoostDb reflects PlaybackManager.volumeBoostDb") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                everySuspend { fixture.bookRepository.getBookListItem(any()) } returns sampleBook(bookId)
+                fixture.fakePm.activateBook(bookId)
+
+                val vm = fixture.newVm()
+                backgroundScope.launch { vm.screenState.collect {} }
+                advanceUntilIdle()
+
+                fixture.fakePm.volumeBoostDbFlow.value = 6f
+                advanceUntilIdle()
+
+                val state = vm.screenState.value.state
+                withClue("expected Active with volumeBoostDb=6f; got: $state") {
+                    (state is NowPlayingState.Active && state.volumeBoostDb == 6f) shouldBe true
+                }
+            }
+        }
+
+        test("Active.defaultVolumeBoostDb reflects PlaybackPreferences.observeDefaultVolumeBoostDb") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                everySuspend { fixture.bookRepository.getBookListItem(any()) } returns sampleBook(bookId)
+                every { fixture.playbackPreferences.observeDefaultVolumeBoostDb() } returns flowOf(3f)
+                fixture.fakePm.activateBook(bookId)
+
+                val vm = fixture.newVm()
+                backgroundScope.launch { vm.screenState.collect {} }
+                advanceUntilIdle()
+
+                val state = vm.screenState.value.state
+                withClue("expected Active with defaultVolumeBoostDb=3f; got: $state") {
+                    (state is NowPlayingState.Active && state.defaultVolumeBoostDb == 3f) shouldBe true
+                }
+            }
+        }
+
         // ========== Sleep timer ==========
 
         test("setSleepTimer arms timer and cancelSleepTimer disarms it") {
@@ -642,6 +716,30 @@ class NowPlayingViewModelTest :
                 }
 
                 vm.hideChapterPicker()
+                advanceUntilIdle()
+                withClue("expected None overlay; got: ${vm.screenState.value.overlay}") {
+                    (vm.screenState.value.overlay is NowPlayingOverlay.None) shouldBe true
+                }
+            }
+        }
+
+        test("showBoostPicker updates screenState overlay - hideBoostPicker restores None") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+
+                val vm = fixture.newVm()
+                // screenState uses WhileSubscribed — keep an active collector so the
+                // upstream pipeline runs and .value reflects mutations.
+                backgroundScope.launch { vm.screenState.collect {} }
+                advanceUntilIdle()
+
+                vm.showBoostPicker()
+                advanceUntilIdle()
+                withClue("expected BoostPicker overlay; got: ${vm.screenState.value.overlay}") {
+                    (vm.screenState.value.overlay is NowPlayingOverlay.BoostPicker) shouldBe true
+                }
+
+                vm.hideBoostPicker()
                 advanceUntilIdle()
                 withClue("expected None overlay; got: ${vm.screenState.value.overlay}") {
                     (vm.screenState.value.overlay is NowPlayingOverlay.None) shouldBe true
