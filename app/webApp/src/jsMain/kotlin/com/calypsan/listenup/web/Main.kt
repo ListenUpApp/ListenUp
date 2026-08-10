@@ -4,6 +4,8 @@ import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.web.features.auth.AuthGate
+import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
@@ -46,7 +48,13 @@ fun main() {
         seedServerUrlIfNeeded(koin)
 
         val router = Router()
-        renderComposable(root = mount) { WebAppRoot(router, openBookDetail = graphBookDetail(koin)) }
+        renderComposable(root = mount) {
+            AuthGate(
+                authGraph = graphAuth(koin),
+                router = router,
+                openBookDetail = graphBookDetail(koin),
+            )
+        }
     }
 }
 
