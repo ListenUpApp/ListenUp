@@ -19,7 +19,7 @@ class RouteSerializationTest :
         }
 
         test("every AuthRoute subtype encodes and decodes to an equal value") {
-            val samples: List<AuthRoute> = listOf(ServerSelect, ServerSetup, Setup, Login, Register)
+            val samples: List<AuthRoute> = listOf(ServerSelect, ServerSetup, Setup, Login, Register, ForgotPassword)
             for (sample in samples) {
                 val encoded = json.encodeToString(AuthRoute.serializer(), sample)
                 val decoded = json.decodeFromString(AuthRoute.serializer(), encoded)

@@ -26,12 +26,14 @@ import kotlinx.serialization.modules.subclass
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.features.auth.ForgotPasswordScreen
 import com.calypsan.listenup.client.features.auth.LoginScreen
 import com.calypsan.listenup.client.features.auth.PendingApprovalScreen
 import com.calypsan.listenup.client.features.auth.RegisterScreen
 import com.calypsan.listenup.client.features.auth.SetupScreen
 import com.calypsan.listenup.client.features.connect.ServerSelectScreen
 import com.calypsan.listenup.client.features.connect.ServerSetupScreen
+import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -59,6 +61,7 @@ private val authNavSavedStateConfiguration =
                     subclass(Setup::class)
                     subclass(Login::class)
                     subclass(Register::class)
+                    subclass(ForgotPassword::class)
                 }
             }
     }
@@ -281,11 +284,26 @@ private fun LoginNavigation(
                         onRegister = {
                             backStack.add(Register)
                         },
+                        onForgotPassword = {
+                            backStack.add(ForgotPassword)
+                        },
                     )
                 }
                 entry<Register> {
                     RegisterScreen(
                         onBackClick = {
+                            backStack.removeAt(backStack.lastIndex)
+                        },
+                    )
+                }
+                entry<ForgotPassword> {
+                    val viewModel: ForgotPasswordViewModel = koinViewModel()
+                    // ForgotPasswordUiState.Complete and .Denied both render a "Back to Sign In"
+                    // button through the shared MessageContent — this is what makes it actually
+                    // take the user back to Login rather than dead-ending on a success message.
+                    ForgotPasswordScreen(
+                        viewModel = viewModel,
+                        onBack = {
                             backStack.removeAt(backStack.lastIndex)
                         },
                     )
