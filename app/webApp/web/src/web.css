@@ -65,6 +65,11 @@
 }
 
 /* ---- base ---- */
+/* The kit assumes it owns the viewport: `.shell` and `.auth` are both full-height, and the
+   browser's default 8px body margin would show as a gutter around them plus a spurious
+   scrollbar. Scoped to the document rather than `.luw` because a margin on `body` cannot be
+   undone from inside it. */
+body { margin: 0; }
 .luw, .luw * { box-sizing: border-box; }
 .luw {
   color: var(--ink);
@@ -499,7 +504,7 @@
    sheet hides it below the breakpoint, the same single mechanism
    the sidebar rail uses.
    ============================================================ */
-.auth { display: flex; min-height: 100vh; background: var(--paper); }
+.auth { display: flex; min-height: 100dvh; background: var(--paper); }
 
 .auth-brand { display: none; }
 @media (min-width: 1100px) {
@@ -544,5 +549,5 @@
 .auth-err { color: var(--coral); font-size: 14px; font-weight: 600; }
 .auth-boot {
   display: flex; align-items: center; justify-content: center;
-  min-height: 100vh; background: var(--paper); color: var(--ink-2);
+  min-height: 100dvh; background: var(--paper); color: var(--ink-2);
 }
