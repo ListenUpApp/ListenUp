@@ -49,7 +49,7 @@ enum class WebIcon(
     Home("M4 11.4L12 4l8 7.4 M5.6 10v9.6h12.8V10 M9.6 19.6v-5.2h4.8v5.2"),
     Lock("M6 10.5h12v9.5H6z M8.75 10.5V7.5a3.25 3.25 0 0 1 6.5 0v3"),
     LogIn("M14 3h5v18h-5 M4 12h11 M11 8l4 4-4 4"),
-    LogOut("M10 3H5v18h5 M20 12H9 M13 8l-4 4 4 4"),
+    LogOut("M10 3H5v18h5 M9 12h11 M16 8l4 4-4 4"),
     Mail("M3 6h18v12H3z M3 6.5l9 6.5 9-6.5"),
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
     PanelLeft("M4 5h16v14H4z M9.5 5v14"),
