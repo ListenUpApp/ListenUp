@@ -140,4 +140,9 @@ private class BrokenAuthService : AuthServicePublic {
         code: String,
         newPassword: String,
     ): AppResult<Unit> = error("not used in this test")
+
+    override suspend fun resetRootPassword(
+        token: String,
+        newPassword: String,
+    ): AppResult<Unit> = error("not used in this test")
 }

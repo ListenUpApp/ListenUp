@@ -156,6 +156,7 @@ fun authModule(config: ApplicationConfig): Module {
                 // this singleton on a policy write; observeRegistrationPolicy watches it.
                 registrationPolicyBroadcaster = get(),
                 passwordResetService = get(),
+                rootPasswordResetService = get(),
             )
         }
 

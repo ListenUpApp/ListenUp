@@ -111,6 +111,22 @@ interface AuthServicePublic {
         code: String,
         newPassword: String,
     ): AppResult<Unit>
+
+    /**
+     * Resets root's password against the one-time token a server operator arms by setting
+     * `LISTENUP_ROOT_RESET` at boot — see the KDoc on
+     * [com.calypsan.listenup.api.error.AuthError.RootResetUnavailable]. Root has no admin above
+     * them, so [requestPasswordReset]/[completePasswordReset]'s approval flow cannot rescue them;
+     * this is a separate, host-access-authorised path.
+     *
+     * Unarmed, expired, already-consumed, and simply-wrong [token]s all fail identically with
+     * [com.calypsan.listenup.api.error.AuthError.RootResetUnavailable] — the caller must not be
+     * able to tell them apart.
+     */
+    suspend fun resetRootPassword(
+        token: String,
+        newPassword: String,
+    ): AppResult<Unit>
 }
 
 /**

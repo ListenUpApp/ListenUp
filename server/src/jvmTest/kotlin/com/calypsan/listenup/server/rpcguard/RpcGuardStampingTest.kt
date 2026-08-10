@@ -90,6 +90,11 @@ private class SessionExpiredAuthService : AuthServicePublic {
         code: String,
         newPassword: String,
     ): AppResult<Unit> = error("not used in this test")
+
+    override suspend fun resetRootPassword(
+        token: String,
+        newPassword: String,
+    ): AppResult<Unit> = error("not used in this test")
 }
 
 /** `observeProgress()` throws synchronously while building the flow (a precondition/DI-style fault). */

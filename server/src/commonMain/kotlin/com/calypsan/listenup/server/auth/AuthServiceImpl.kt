@@ -34,6 +34,8 @@ import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PasswordResetService
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.services.RootPasswordResetService
+import com.calypsan.listenup.server.services.SessionRevoker
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.logging.loggerFor
@@ -131,6 +133,22 @@ class AuthServiceImpl(
      * parameter, which applies the same reasoning to session revocation.
      */
     internal val passwordResetService: PasswordResetService,
+    /**
+     * Defaulted (unlike [passwordResetService]) because forgetting to wire this is safe: the
+     * default is a disarmed [RootResetToken], the exact same "hatch unavailable" state a real
+     * boot has whenever `LISTENUP_ROOT_RESET` isn't set — which is nearly always. Production DI
+     * ([com.calypsan.listenup.server.di.authModule]) still wires the real Koin singleton so an
+     * armed instance is honoured; the many direct-construction unit tests that don't exercise the
+     * root-reset path are unaffected.
+     */
+    internal val rootPasswordResetService: RootPasswordResetService =
+        RootPasswordResetService(
+            db = db,
+            passwords = hasher,
+            sessions = SessionRevoker { sessions.revokeAll(it) },
+            clock = clock,
+            rootResetToken = RootResetToken.disarmed(),
+        ),
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -431,6 +449,12 @@ class AuthServiceImpl(
         return passwordResetService.complete(ticketId, claimSecret, code, newPassword)
     }
 
+    /** Delegates to [RootPasswordResetService.resetRoot]. */
+    override suspend fun resetRootPassword(
+        token: String,
+        newPassword: String,
+    ): AppResult<Unit> = rootPasswordResetService.resetRoot(token, newPassword)
+
     override suspend fun logout(): AppResult<Unit> {
         val p = principalProvider.current() ?: return AppResult.Failure(AuthError.SessionExpired())
         sessions.revoke(p.sessionId, p.userId)
@@ -476,6 +500,7 @@ class AuthServiceImpl(
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
             passwordResetService = passwordResetService,
+            rootPasswordResetService = rootPasswordResetService,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -500,6 +525,7 @@ class AuthServiceImpl(
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
             passwordResetService = passwordResetService,
+            rootPasswordResetService = rootPasswordResetService,
         )
 
     /**
@@ -527,6 +553,7 @@ class AuthServiceImpl(
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
             passwordResetService = passwordResetService,
+            rootPasswordResetService = rootPasswordResetService,
         )
 
     /**
