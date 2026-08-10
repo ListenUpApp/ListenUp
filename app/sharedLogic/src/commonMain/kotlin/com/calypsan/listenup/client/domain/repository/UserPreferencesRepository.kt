@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
  */
 data class UserPreferences(
     val defaultPlaybackSpeed: Float,
+    val defaultVolumeBoostDb: Float,
     val defaultSkipForwardSec: Int,
     val defaultSkipBackwardSec: Int,
     val defaultSleepTimerMin: Int?,
@@ -55,6 +56,14 @@ interface UserPreferencesRepository {
      * @return Result indicating success or failure
      */
     suspend fun setDefaultPlaybackSpeed(speed: Float): AppResult<Unit>
+
+    /**
+     * Update default volume boost.
+     *
+     * @param boostDb Volume boost in decibels (0 means no boost)
+     * @return Result indicating success or failure
+     */
+    suspend fun setDefaultVolumeBoostDb(boostDb: Float): AppResult<Unit>
 
     /**
      * Update default skip forward duration.

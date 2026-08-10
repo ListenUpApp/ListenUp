@@ -10,6 +10,9 @@ package com.calypsan.listenup.client.domain.model
  * @property positionMs Current position in the book (milliseconds)
  * @property playbackSpeed Last used playback speed for this book
  * @property hasCustomSpeed Whether user explicitly set a custom speed
+ * @property volumeBoostDb Last used volume boost for this book, in decibels
+ * @property hasCustomBoost Whether user explicitly set a custom boost
+ * @property measuredGainDb Client-measured (EBU R128) integrated-loudness gain for this book in dB, synced across devices; null until a device has measured it
  * @property updatedAtMs When position was last modified locally
  * @property syncedAtMs When position was last synced to server
  * @property lastPlayedAtMs When user actually last played this book
@@ -22,6 +25,9 @@ data class PlaybackPosition(
     val positionMs: Long,
     val playbackSpeed: Float,
     val hasCustomSpeed: Boolean,
+    val volumeBoostDb: Float,
+    val hasCustomBoost: Boolean,
+    val measuredGainDb: Float?,
     val updatedAtMs: Long,
     val syncedAtMs: Long?,
     val lastPlayedAtMs: Long?,

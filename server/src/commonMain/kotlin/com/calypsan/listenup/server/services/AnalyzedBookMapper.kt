@@ -110,6 +110,7 @@ class AnalyzedBookMapper(
             // Carry the scanner's per-field scan-tier provenance onto the wire payload; the merge in
             // BookRepository folds it into the persisted max-tier union.
             fieldProvenance = analyzed.fieldProvenance,
+            normalizationGainDb = analyzed.normalizationGainDb,
             revision = 0L,
             updatedAt = 0L,
             createdAt = 0L,

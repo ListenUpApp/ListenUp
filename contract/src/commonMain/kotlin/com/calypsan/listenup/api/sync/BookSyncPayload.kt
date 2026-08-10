@@ -64,6 +64,8 @@ data class BookSyncPayload(
      * ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not keyed here.
      */
     val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
+    /** Server-scanned loudness-tag gain in dB; null when the file carries no gain tag. */
+    @SerialName("normalizationGainDb") val normalizationGainDb: Float? = null,
     override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,

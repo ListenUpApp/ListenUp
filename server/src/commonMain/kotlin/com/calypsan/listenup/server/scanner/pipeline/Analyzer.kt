@@ -453,6 +453,7 @@ internal class Analyzer(
             chaptersSource = chaptersSource,
             embedded = embedded,
             embeddedStatus = embeddedStatus,
+            normalizationGainDb = embedded?.tags?.normalizationGainDb,
             fieldProvenance = fieldProvenance,
             // A ParseError / UnsupportedFormat status means a file the scanner could
             // not fully read. MetadataStatus.Available and a null status (no audio

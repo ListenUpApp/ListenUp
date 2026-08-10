@@ -22,6 +22,13 @@ sealed interface PreferenceChangeEvent {
     ) : PreferenceChangeEvent
 
     /**
+     * Default volume boost was changed.
+     */
+    data class VolumeBoostChanged(
+        val boostDb: Float,
+    ) : PreferenceChangeEvent
+
+    /**
      * Default skip-forward interval was changed.
      */
     data class SkipForwardChanged(
@@ -280,6 +287,9 @@ interface PlaybackPreferences {
         /** Default playback speed for new books (1.0x = normal speed). */
         const val DEFAULT_PLAYBACK_SPEED = 1.0f
 
+        /** Default volume boost for books without a custom boost, in decibels (0 means no boost). */
+        const val DEFAULT_VOLUME_BOOST_DB = 0.0f
+
         /** Default skip-forward interval in seconds. */
         const val DEFAULT_SKIP_FORWARD_SEC = 30
 
@@ -314,6 +324,31 @@ interface PlaybackPreferences {
      * This is a synced setting - will be pushed to server.
      */
     suspend fun setDefaultPlaybackSpeed(speed: Float)
+
+    /**
+     * Reactively observe the default volume boost.
+     *
+     * Emits the current value on first collect, then re-emits whenever
+     * [setDefaultVolumeBoostDb] is called from any caller. Use this in
+     * ViewModels' combine chains so a Settings change propagates to the
+     * now-playing surface without manual coordination.
+     *
+     * EM-R1: rethrows [CancellationException]; non-cancellation failures
+     * during the initial read fall back to [DEFAULT_VOLUME_BOOST_DB].
+     */
+    fun observeDefaultVolumeBoostDb(): Flow<Float>
+
+    /**
+     * Get the default volume boost for books without a custom boost.
+     * @return Volume boost in decibels (0 means no boost). Default is 0.
+     */
+    suspend fun getDefaultVolumeBoostDb(): Float
+
+    /**
+     * Set the default volume boost for books without a custom boost.
+     * This is a synced setting - will be pushed to server.
+     */
+    suspend fun setDefaultVolumeBoostDb(boostDb: Float)
 
     /**
      * Reactively observe the default skip-forward interval (seconds).

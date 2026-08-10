@@ -61,9 +61,11 @@ internal interface PlaybackPositionDao {
     /**
      * Update only the playback position and timestamps for an existing record.
      *
-     * IMPORTANT: This intentionally does NOT touch [PlaybackPositionEntity.hasCustomSpeed]
-     * or [PlaybackPositionEntity.playbackSpeed]. This prevents a read-modify-write race
-     * between periodic saves (savePosition) and explicit speed changes (onSpeedChanged).
+     * IMPORTANT: This intentionally does NOT touch [PlaybackPositionEntity.hasCustomSpeed],
+     * [PlaybackPositionEntity.playbackSpeed], [PlaybackPositionEntity.volumeBoostDb],
+     * [PlaybackPositionEntity.hasCustomBoost], or [PlaybackPositionEntity.measuredGainDb].
+     * This prevents a read-modify-write race between periodic saves (savePosition) and
+     * explicit speed/boost changes (onSpeedChanged, boost writes, gain measurements).
      * Both run on Dispatchers.IO concurrently and would otherwise clobber each other.
      *
      * @return The number of rows updated (0 if no record exists for this book)

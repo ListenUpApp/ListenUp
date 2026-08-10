@@ -88,6 +88,7 @@ internal fun assembleBookPayload(
         subtitle = bookRow.subtitle,
         description = bookRow.description,
         publishYear = bookRow.publish_year?.toInt(),
+        normalizationGainDb = bookRow.normalization_gain_db?.toFloat(),
         publisher = bookRow.publisher,
         language = bookRow.language,
         isbn = bookRow.isbn,

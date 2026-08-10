@@ -17,7 +17,9 @@ import kotlin.time.Clock
 private const val DEFAULT_SPEED = 1.0f
 private const val DEFAULT_SKIP_FORWARD = 30
 private const val DEFAULT_SKIP_BACKWARD = 10
+private const val DEFAULT_VOLUME_BOOST = 0f
 private val SPEED_RANGE = 0.5f..4.0f
+private val BOOST_RANGE = 0f..12f
 private val SKIP_RANGE = 5..300
 private val SLEEP_RANGE = 1..480
 
@@ -60,6 +62,8 @@ internal class UserPreferencesServiceImpl(
                         defaultSleepTimerMin =
                             (request.defaultSleepTimerMin ?: current.defaultSleepTimerMin)?.coerceIn(SLEEP_RANGE),
                         shakeToResetSleepTimer = request.shakeToResetSleepTimer ?: current.shakeToResetSleepTimer,
+                        defaultVolumeBoostDb =
+                            (request.defaultVolumeBoostDb ?: current.defaultVolumeBoostDb).coerceIn(BOOST_RANGE),
                     )
                 upsert(userId, next)
                 next
@@ -99,6 +103,7 @@ internal class UserPreferencesServiceImpl(
         val now = clock.now().toString()
         sql.userSettingsQueries.update(
             default_playback_speed = prefs.defaultPlaybackSpeed.toDouble(),
+            default_volume_boost_db = prefs.defaultVolumeBoostDb.toDouble(),
             default_skip_forward_sec = prefs.defaultSkipForwardSec.toLong(),
             default_skip_backward_sec = prefs.defaultSkipBackwardSec.toLong(),
             default_sleep_timer_min = prefs.defaultSleepTimerMin?.toLong(),
@@ -110,6 +115,7 @@ internal class UserPreferencesServiceImpl(
             sql.userSettingsQueries.insert(
                 user_id = userId,
                 default_playback_speed = prefs.defaultPlaybackSpeed.toDouble(),
+                default_volume_boost_db = prefs.defaultVolumeBoostDb.toDouble(),
                 default_skip_forward_sec = prefs.defaultSkipForwardSec.toLong(),
                 default_skip_backward_sec = prefs.defaultSkipBackwardSec.toLong(),
                 default_sleep_timer_min = prefs.defaultSleepTimerMin?.toLong(),
@@ -126,10 +132,18 @@ internal class UserPreferencesServiceImpl(
             defaultSkipBackwardSec = default_skip_backward_sec.toInt(),
             defaultSleepTimerMin = default_sleep_timer_min?.toInt(),
             shakeToResetSleepTimer = shake_to_reset_sleep_timer != 0L,
+            defaultVolumeBoostDb = default_volume_boost_db.toFloat(),
         )
 
     private fun defaults(): UserPreferencesDto =
-        UserPreferencesDto(DEFAULT_SPEED, DEFAULT_SKIP_FORWARD, DEFAULT_SKIP_BACKWARD, null, false)
+        UserPreferencesDto(
+            DEFAULT_SPEED,
+            DEFAULT_SKIP_FORWARD,
+            DEFAULT_SKIP_BACKWARD,
+            null,
+            false,
+            DEFAULT_VOLUME_BOOST,
+        )
 
     private fun currentUserId(): String? = principal.current()?.userId?.value
 

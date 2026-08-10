@@ -7,6 +7,7 @@ import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import com.calypsan.listenup.server.embeddedmeta.AudioTagsBuilder
 import com.calypsan.listenup.server.embeddedmeta.GenreSplitter
 import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
+import com.calypsan.listenup.server.embeddedmeta.parseReplayGainDb
 
 /**
  * Reads ID3v2.3 / ID3v2.4 tags out of an in-memory MP3 byte slice.
@@ -264,6 +265,10 @@ internal object Id3v2Reader {
 
             "description" -> {
                 builder.description = builder.description ?: value
+            }
+
+            "replaygain_track_gain" -> {
+                builder.normalizationGainDb = parseReplayGainDb(value)
             }
 
             else -> {

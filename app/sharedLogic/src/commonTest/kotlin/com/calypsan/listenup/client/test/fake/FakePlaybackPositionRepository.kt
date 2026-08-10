@@ -70,6 +70,9 @@ class FakePlaybackPositionRepository(
                 positionMs = 0L,
                 playbackSpeed = 1.0f,
                 hasCustomSpeed = false,
+                volumeBoostDb = 0f,
+                hasCustomBoost = false,
+                measuredGainDb = null,
                 updatedAtMs = now,
                 syncedAtMs = null,
                 lastPlayedAtMs = now,
@@ -146,6 +149,38 @@ class FakePlaybackPositionRepository(
                         positionMs = update.positionMs,
                         playbackSpeed = update.defaultSpeed,
                         hasCustomSpeed = false,
+                        updatedAtMs = now,
+                        lastPlayedAtMs = now,
+                        syncedAtMs = null,
+                    )
+                }
+
+                is PlaybackUpdate.VolumeBoost -> {
+                    (existing ?: blankPosition(key, now)).copy(
+                        positionMs = update.positionMs,
+                        volumeBoostDb = update.boostDb,
+                        hasCustomBoost = update.custom,
+                        updatedAtMs = now,
+                        lastPlayedAtMs = now,
+                        syncedAtMs = null,
+                    )
+                }
+
+                is PlaybackUpdate.BoostReset -> {
+                    (existing ?: blankPosition(key, now)).copy(
+                        positionMs = update.positionMs,
+                        volumeBoostDb = update.defaultBoostDb,
+                        hasCustomBoost = false,
+                        updatedAtMs = now,
+                        lastPlayedAtMs = now,
+                        syncedAtMs = null,
+                    )
+                }
+
+                is PlaybackUpdate.MeasuredGain -> {
+                    (existing ?: blankPosition(key, now)).copy(
+                        positionMs = update.positionMs,
+                        measuredGainDb = update.gainDb,
                         updatedAtMs = now,
                         lastPlayedAtMs = now,
                         syncedAtMs = null,
@@ -241,6 +276,9 @@ class FakePlaybackPositionRepository(
             positionMs = 0L,
             playbackSpeed = 1.0f,
             hasCustomSpeed = false,
+            volumeBoostDb = 0f,
+            hasCustomBoost = false,
+            measuredGainDb = null,
             updatedAtMs = now,
             syncedAtMs = null,
             lastPlayedAtMs = now,

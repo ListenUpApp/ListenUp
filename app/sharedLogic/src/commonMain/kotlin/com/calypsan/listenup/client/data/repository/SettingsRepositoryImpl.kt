@@ -107,6 +107,7 @@ internal class SettingsRepositoryImpl(
 
         // Playback preferences (synced)
         private const val KEY_DEFAULT_PLAYBACK_SPEED = "default_playback_speed"
+        private const val KEY_DEFAULT_VOLUME_BOOST_DB = "default_volume_boost_db"
         private const val KEY_DEFAULT_SKIP_FORWARD_SEC = "default_skip_forward_sec"
         private const val KEY_DEFAULT_SKIP_BACKWARD_SEC = "default_skip_backward_sec"
 
@@ -124,6 +125,7 @@ internal class SettingsRepositoryImpl(
 
         // Default values
         const val DEFAULT_PLAYBACK_SPEED = 1.0f
+        const val DEFAULT_VOLUME_BOOST_DB = 0.0f
         const val DEFAULT_SKIP_FORWARD_SEC = 30
         const val DEFAULT_SKIP_BACKWARD_SEC = 10
     }
@@ -330,6 +332,37 @@ internal class SettingsRepositoryImpl(
     override suspend fun setDefaultPlaybackSpeed(speed: Float) {
         secureStorage.save(KEY_DEFAULT_PLAYBACK_SPEED, speed.toString())
         preferenceChanges.emit(DomainPreferenceChangeEvent.PlaybackSpeedChanged(speed))
+    }
+
+    // Universal volume boost (synced across devices)
+
+    override fun observeDefaultVolumeBoostDb(): Flow<Float> =
+        flow {
+            // Initial emit — best-effort read; fall back to the constant on non-cancellation error.
+            val initial =
+                try {
+                    getDefaultVolumeBoostDb()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Initial getDefaultVolumeBoostDb failed; falling back to default." }
+                    DomainPlaybackPreferences.DEFAULT_VOLUME_BOOST_DB
+                }
+            emit(initial)
+
+            // Re-emits driven by setDefaultVolumeBoostDb → preferenceChanges.VolumeBoostChanged.
+            preferenceChanges
+                .filterIsInstance<DomainPreferenceChangeEvent.VolumeBoostChanged>()
+                .map { it.boostDb }
+                .collect { emit(it) }
+        }
+
+    override suspend fun getDefaultVolumeBoostDb(): Float =
+        secureStorage.read(KEY_DEFAULT_VOLUME_BOOST_DB)?.toFloatOrNull() ?: DEFAULT_VOLUME_BOOST_DB
+
+    override suspend fun setDefaultVolumeBoostDb(boostDb: Float) {
+        secureStorage.save(KEY_DEFAULT_VOLUME_BOOST_DB, boostDb.toString())
+        preferenceChanges.emit(DomainPreferenceChangeEvent.VolumeBoostChanged(boostDb))
     }
 
     // Skip intervals (synced across devices; persisted locally for reactive reads)

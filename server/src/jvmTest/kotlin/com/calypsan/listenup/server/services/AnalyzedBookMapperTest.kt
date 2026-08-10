@@ -87,6 +87,32 @@ class AnalyzedBookMapperTest :
             payload.deletedAt shouldBe null
         }
 
+        test("should carry normalizationGainDb from AnalyzedBook onto the payload") {
+            val analyzed =
+                AnalyzedBook(
+                    candidate =
+                        CandidateBook(
+                            rootRelPath = "books/gain",
+                            isFile = false,
+                            files = emptyList(),
+                        ),
+                    title = "Gain Book",
+                    normalizationGainDb = -6.48f,
+                )
+
+            val payload =
+                mapper.toBookSyncPayload(
+                    bookId = BookId("b-gain"),
+                    libraryId = LibraryId("lib-1"),
+                    folderId = FolderId("folder-1"),
+                    analyzed = analyzed,
+                    resolvedContributors = emptyList(),
+                    resolvedSeries = emptyList(),
+                )
+
+            payload.normalizationGainDb shouldBe -6.48f
+        }
+
         test("should reflect the resolved contributor list when AnalyzedBook has one contributor") {
             val analyzed =
                 AnalyzedBook(

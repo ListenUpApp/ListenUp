@@ -36,6 +36,8 @@ data class AudioTags(
     val titleSort: String? = null,
     /** Embedded sort form of the artist/author field (ID3 `TSOP`, MP4 `soar`); drives contributor identity. */
     val authorsSort: String? = null,
+    /** Pre-computed loudness gain from a ReplayGain (`REPLAYGAIN_TRACK_GAIN`) or iTunes Sound Check (`iTunNORM`) tag, in dB; null when absent. */
+    val normalizationGainDb: Float? = null,
 ) {
     companion object {
         /** The [custom] map key under which every format reader stores the file's

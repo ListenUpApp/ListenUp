@@ -6,7 +6,7 @@ package com.calypsan.listenup.client.domain.repository
  * cross-device firehose merges — through a single repository entry point
  * ([PlaybackPositionRepository.savePlaybackState]).
  *
- * The eight player-event variants describe distinct semantic
+ * The player-event variants describe distinct semantic
  * intents even when their persistence shapes overlap (e.g., Position /
  * PlaybackPaused / PeriodicUpdate all save position+speed but represent
  * different events). Three additional variants (MarkComplete / DiscardProgress /
@@ -35,6 +35,25 @@ sealed interface PlaybackUpdate {
     data class SpeedReset(
         val positionMs: Long,
         val defaultSpeed: Float,
+    ) : PlaybackUpdate
+
+    /** Explicit user-driven volume-boost change. Sets hasCustomBoost = [custom]. */
+    data class VolumeBoost(
+        val boostDb: Float,
+        val custom: Boolean,
+        val positionMs: Long,
+    ) : PlaybackUpdate
+
+    /** User reset to global default volume boost. Sets hasCustomBoost = false. */
+    data class BoostReset(
+        val defaultBoostDb: Float,
+        val positionMs: Long,
+    ) : PlaybackUpdate
+
+    /** Loudness measurement arrived for this book. Sets ONLY measuredGainDb — never hasCustomBoost. */
+    data class MeasuredGain(
+        val gainDb: Float,
+        val positionMs: Long,
     ) : PlaybackUpdate
 
     /** Player started playback. Records startedAt if currently null. */

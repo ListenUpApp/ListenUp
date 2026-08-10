@@ -207,6 +207,7 @@ class BookRepositoryUpsertTest :
                             subtitle = null,
                             description = null,
                             publish_year = null,
+                            normalization_gain_db = null,
                             publisher = null,
                             language = null,
                             isbn = null,

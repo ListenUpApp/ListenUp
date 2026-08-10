@@ -162,6 +162,9 @@ class BookDetailViewModelTest :
                 positionMs = positionMs,
                 playbackSpeed = playbackSpeed,
                 hasCustomSpeed = false,
+                volumeBoostDb = 0f,
+                hasCustomBoost = false,
+                measuredGainDb = null,
                 updatedAtMs = 1704067200000L, // Fixed test timestamp
                 syncedAtMs = null,
                 lastPlayedAtMs = 1704067200000L, // Fixed test timestamp
