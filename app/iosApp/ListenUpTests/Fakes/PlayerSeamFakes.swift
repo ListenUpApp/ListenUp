@@ -15,6 +15,7 @@ actor FakePlaybackEngine: PlaybackEngine {
     private(set) var lastRate: Float?
     private(set) var lastVolume: Float?
     private(set) var lastGainDb: Float?
+    private var measuredGainDb: Float?
     private(set) var didRelease = false
     /// When true, `load` reports failure (returns `false`) so tests can exercise the
     /// coordinator's load-failure → `.error` path without a live `AVPlayer`.
@@ -79,6 +80,10 @@ actor FakePlaybackEngine: PlaybackEngine {
     func setRate(_ newRate: Float) async { lastRate = newRate; gate.fire("setRate") }
     func setVolume(_ volume: Float) async { lastVolume = volume; gate.fire("setVolume") }
     func setGainDb(_ db: Float) async { lastGainDb = db; gate.fire("setGainDb") }
+    func currentMeasuredGainDb() async -> Float? { measuredGainDb }
+    /// Stand-in for the R128 meter's reading, so a test can drive the measured-gain path
+    /// without a live audio tap.
+    func setMeasuredGainDb(_ db: Float?) { measuredGainDb = db }
     func deactivateSession() async {
         didDeactivateSession = true; teardownOrder.append("deactivate"); gate.fire("deactivate")
     }

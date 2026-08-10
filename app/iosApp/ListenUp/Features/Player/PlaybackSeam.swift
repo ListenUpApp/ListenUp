@@ -20,6 +20,9 @@ protocol PlaybackEngine: Sendable {
     /// Above-unity gain stage (dB) for the volume-boost feature. A separate stage from
     /// `setVolume`'s 0...1 sleep-timer fade — the two compose rather than replace each other.
     func setGainDb(_ db: Float) async
+    /// The R128 loudness gain the engine has measured for the current book so far, or `nil`
+    /// while there isn't enough audio to measure. Refines as playback covers more of the book.
+    func currentMeasuredGainDb() async -> Float?
     /// Deactivate the shared audio session so other apps' audio can resume.
     func deactivateSession() async
     /// Re-assert the shared audio session as active. Called before resuming
