@@ -61,6 +61,10 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 // shape as the ABS*/AdminBackup admin VMs above. No upstream flow to project, so
                 // stateIn(WhileSubscribed) doesn't apply — MutableStateFlow is the right pattern.
                 "ImportFlowViewModel",
+                // By-design: mirrors PendingApprovalViewModel's stream-plus-poll shape exactly —
+                // state is driven by RPC push events, a poll fallback, and user actions
+                // (requestReset/completeReset), not projected from a single upstream flow.
+                "ForgotPasswordViewModel",
             )
 
         test("every UiState-exposing ViewModel uses stateIn(WhileSubscribed) (excluding legacy backlog)") {

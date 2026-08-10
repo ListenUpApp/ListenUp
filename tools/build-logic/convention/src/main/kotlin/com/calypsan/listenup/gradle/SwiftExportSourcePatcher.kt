@@ -375,6 +375,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.UserDetailUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState" to 7,
+            "com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState" to 7,
             "com.calypsan.listenup.client.presentation.auth.LoginErrorType" to 4,
             "com.calypsan.listenup.client.presentation.auth.LoginUiState" to 4,
             "com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState" to 3,
