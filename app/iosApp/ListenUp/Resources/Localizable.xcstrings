@@ -1861,6 +1861,86 @@
         }
       }
     },
+    "auth.forgot_password": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forgot password?"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_attempts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d attempts left"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_awaiting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for your admin to approve this. You can close the app — come back with your code when you have it."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your password has been reset. Sign in with your new password."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_denied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your admin declined this request."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_enter_code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the code your admin gave you"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_explainer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your server admin will need to approve this and give you a code."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset your password"
+          }
+        }
+      }
+    },
     "auth.hero_tagline": {
       "localizations": {
         "en": {
@@ -2027,6 +2107,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Request Account"
+          }
+        }
+      }
+    },
+    "auth.reset_root": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset root password"
+          }
+        }
+      }
+    },
+    "auth.reset_root_explainer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start the server with LISTENUP_ROOT_RESET set, then enter the token from the server log."
+          }
+        }
+      }
+    },
+    "auth.reset_root_token_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Token"
           }
         }
       }

@@ -186,6 +186,14 @@
     <string name="auth_enter_password">Please enter your password</string>
     <string name="auth_first_name">First Name</string>
     <string name="auth_first_name_placeholder">First</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_forgot_password_attempts">%1$d attempts left</string>
+    <string name="auth_forgot_password_awaiting">Waiting for your admin to approve this. You can close the app — come back with your code when you have it.</string>
+    <string name="auth_forgot_password_complete">Your password has been reset. Sign in with your new password.</string>
+    <string name="auth_forgot_password_denied">Your admin declined this request.</string>
+    <string name="auth_forgot_password_enter_code">Enter the code your admin gave you</string>
+    <string name="auth_forgot_password_explainer">Your server admin will need to approve this and give you a code.</string>
+    <string name="auth_forgot_password_title">Reset your password</string>
     <string name="auth_hero_tagline">Thousands of audiobooks.
 One beautiful library.</string>
     <string name="auth_invalid_credentials">Invalid email or password</string>
@@ -204,6 +212,9 @@ One beautiful library.</string>
     <string name="auth_reg_step_start_listening">Start listening</string>
     <string name="auth_reg_step_start_listening_sub">Your library unlocks the moment you're approved.</string>
     <string name="auth_request_account">Request Account</string>
+    <string name="auth_reset_root">Reset root password</string>
+    <string name="auth_reset_root_explainer">Start the server with LISTENUP_ROOT_RESET set, then enter the token from the server log.</string>
+    <string name="auth_reset_root_token_label">Token</string>
     <string name="auth_server_administrator">Server administrator</string>
     <string name="auth_server_error">Server error. Please try again.</string>
     <string name="auth_set_up_your_listenup_server">Set up your ListenUp server by creating the first admin account.</string>
