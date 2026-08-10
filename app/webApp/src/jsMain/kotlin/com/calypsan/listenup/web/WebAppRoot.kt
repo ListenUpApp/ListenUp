@@ -13,6 +13,7 @@ import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
+import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
@@ -55,6 +56,7 @@ fun WebAppRoot(
             router.navigate(Route(segments))
         },
     ) {
+        AccountMenu(onSignOut = onSignOut)
         val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
         if (bookId != null) {
             BookDetailPage(
