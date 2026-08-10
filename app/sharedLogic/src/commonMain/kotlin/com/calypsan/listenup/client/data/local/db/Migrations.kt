@@ -28,3 +28,17 @@ internal val MIGRATION_1_2 =
             )
         }
     }
+
+/**
+ * v2 → v3: `books.normalizationGainDb` — the server's tag-read (ReplayGain/iTunNORM) loudness
+ * gain, synced down via `BookSyncPayload.normalizationGainDb`. Non-destructive: pure `ADD COLUMN`,
+ * per the migration policy in [ListenUpDatabase]. It is the [VolumeGain][com.calypsan.listenup.client.playback.loudness.VolumeGain]
+ * fallback input behind the client-measured gain on `playback_positions.measuredGainDb` — until a
+ * client measures the book itself, the file's own loudness tag drives normalization instead of 0 dB.
+ */
+internal val MIGRATION_2_3 =
+    object : Migration(2, 3) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl("ALTER TABLE books ADD COLUMN normalizationGainDb REAL")
+        }
+    }

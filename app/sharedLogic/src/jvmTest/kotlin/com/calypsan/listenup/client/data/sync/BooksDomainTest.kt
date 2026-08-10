@@ -132,6 +132,17 @@ class BooksDomainTest :
             }
         }
 
+        test("Created event persists normalizationGainDb from the payload") {
+            withTestHandler { handler, db ->
+                val payload = bookPayload(id = "b1").copy(normalizationGainDb = -2.5f)
+                handler
+                    .onEvent(created(payload))
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.bookDao().getById(BookId("b1"))?.normalizationGainDb shouldBe -2.5f
+            }
+        }
+
         test("Updated event replaces book document rows wholesale, ordered by index") {
             withTestHandler { handler, db ->
                 val initial = bookPayload(id = "b1", documents = (1..4).map { document(it) })

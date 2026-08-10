@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.floats.plusOrMinus as floatPlusOrMinus
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlin.math.PI
 import kotlin.math.sin
@@ -17,6 +18,11 @@ private fun sineMono(
     val n = (sampleRate * seconds).toInt()
     return FloatArray(n) { i -> (amplitude * sin(2.0 * PI * freq * i / sampleRate)).toFloat() }
 }
+
+// Reference value from the list-gating implementation (5s @ 0.5 amplitude then 5s @ 0.005
+// amplitude, 48kHz mono sine): captured before the histogram swap so histogram gating can be
+// checked against it.
+private const val REFERENCE_BIMODAL_LUFS = -9.156456477778937
 
 class LoudnessMeterTest :
     FunSpec({
@@ -56,5 +62,16 @@ class LoudnessMeterTest :
             m.addFrames(s, s.size)
             val measured = m.integratedLufs()!!
             m.normalizationGainDb()!! shouldBe ((LoudnessMeter.TARGET_LUFS - measured).toFloat() floatPlusOrMinus 0.01f)
+        }
+
+        test("histogram gating matches list gating within a tenth of an LU on a bimodal signal") {
+            val m = LoudnessMeter(sampleRate = fs, channelCount = 1)
+            val loud = sineMono(fs, 5.0, 1000.0, 0.5)
+            val quiet = sineMono(fs, 5.0, 1000.0, 0.005)
+            m.addFrames(loud, loud.size)
+            m.addFrames(quiet, quiet.size)
+            val lufs = m.integratedLufs()
+            lufs.shouldNotBeNull()
+            lufs shouldBe (REFERENCE_BIMODAL_LUFS plusOrMinus 0.1)
         }
     })

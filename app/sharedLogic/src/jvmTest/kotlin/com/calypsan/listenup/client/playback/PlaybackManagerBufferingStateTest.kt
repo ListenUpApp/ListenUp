@@ -74,6 +74,7 @@ class PlaybackManagerBufferingStateTest :
 
             val playbackPreferences: PlaybackPreferences = mock()
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
+            everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0.0f
 
             val localPreferences: LocalPreferences = mock()
             every { localPreferences.autoRewindEnabled } returns MutableStateFlow(false)

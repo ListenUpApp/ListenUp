@@ -66,6 +66,12 @@ data class PreparedPlayback(
     val coverPath: String?,
     val resumePositionMs: Long,
     val resumeSpeed: Float,
+    /** Boost to start playback with: the book's custom boost, else the global default. */
+    val resumeBoostDb: Float,
+    /** Client-measured R128 gain for this book (synced), null until measured. */
+    val measuredGainDb: Float?,
+    /** Server tag-read normalization gain (ReplayGain/iTunNORM), null when the file has no tag. */
+    val normalizationGainDb: Float?,
     // Navigation targets for the player's overflow menu ("Go to Series / Author / Narrator"). New
     // fields default so existing constructors (playback-prep + test fixtures) stay source-compatible.
     val seriesId: String? = null,
@@ -245,6 +251,13 @@ class PlaybackPreparer internal constructor(
                 playbackPreferences.getDefaultPlaybackSpeed()
             }
 
+        val resumeBoostDb =
+            if (savedPosition != null && savedPosition.hasCustomBoost) {
+                savedPosition.volumeBoostDb
+            } else {
+                playbackPreferences.getDefaultVolumeBoostDb()
+            }
+
         logger.debug {
             "Resume position: ${resumePositionMs}ms, speed: ${resumeSpeed}x (hasCustomSpeed=${savedPosition?.hasCustomSpeed})"
         }
@@ -297,6 +310,9 @@ class PlaybackPreparer internal constructor(
             coverHash = book.coverHash,
             resumePositionMs = resumePositionMs,
             resumeSpeed = resumeSpeed,
+            resumeBoostDb = resumeBoostDb,
+            measuredGainDb = savedPosition?.measuredGainDb,
+            normalizationGainDb = book.normalizationGainDb,
         )
     }
 

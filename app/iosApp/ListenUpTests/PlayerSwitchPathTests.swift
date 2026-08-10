@@ -17,6 +17,7 @@ struct PlayerSwitchPathTests {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: coverPath, resumeSpeed: 1.0,
+            resumeBoostDb: 0, measuredGainDb: nil, normalizationGainDb: nil,
             resumePositionMs: 0,
             chapters: [Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0)],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [

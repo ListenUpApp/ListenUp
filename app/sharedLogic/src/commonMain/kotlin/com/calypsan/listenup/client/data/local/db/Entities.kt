@@ -104,6 +104,10 @@ internal data class BookEntity(
     // FieldProvenanceConverter.
     @ColumnInfo(defaultValue = "'{}'")
     val fieldProvenance: Map<BookField, FieldProvenance> = emptyMap(),
+    // Server-scanned loudness-tag gain (ReplayGain/iTunNORM) in dB, from BookSyncPayload.normalizationGainDb;
+    // null when the file carries no tag. The tag-fallback input to VolumeGain.effectiveGainDb, behind the
+    // client-measured LoudnessMeter reading on PlaybackPositionEntity.measuredGainDb.
+    val normalizationGainDb: Float? = null,
     // Timestamps from the server
     val createdAt: Timestamp,
     val updatedAt: Timestamp,
