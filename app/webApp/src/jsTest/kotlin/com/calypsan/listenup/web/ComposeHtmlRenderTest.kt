@@ -3,6 +3,7 @@ package com.calypsan.listenup.web
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import androidx.compose.runtime.Composable
+import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -25,7 +26,9 @@ class ComposeHtmlRenderTest :
         fun mount(content: @Composable () -> Unit): HTMLElement {
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { content() }
+            // AuthGate applies WebAppSurface in production, so the spec supplies it here the way
+            // ShellTest does — WebAppRoot itself no longer carries the `.luw` scope.
+            renderComposable(root = host) { WebAppSurface { content() } }
             return host
         }
 

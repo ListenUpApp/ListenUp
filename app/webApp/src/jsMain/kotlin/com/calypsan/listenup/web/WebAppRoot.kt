@@ -8,7 +8,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
-import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.design.WebIcon
@@ -28,11 +27,16 @@ import org.jetbrains.compose.web.dom.Text
  * The sidebar drives the URL and the URL drives the sidebar — the active item is *derived* from
  * [Router.current] rather than stored, so a deep link, a Back press and a sidebar click all agree
  * by construction.
+ *
+ * [com.calypsan.listenup.web.design.WebAppSurface] is applied by
+ * [com.calypsan.listenup.web.features.auth.AuthGate], not here — every auth branch needs it too,
+ * and applying it in both places would nest `.luw` inside `.luw`.
  */
 @Composable
 fun WebAppRoot(
     router: Router,
     openBookDetail: OpenBookDetail,
+    onSignOut: () -> Unit = {},
 ) {
     var collapsed by remember { mutableStateOf(false) }
     val route = router.current
@@ -40,43 +44,41 @@ fun WebAppRoot(
     // A book lives in the library, so the deep link keeps Library lit in the sidebar.
     val active = if (page == BOOK_KEY) "library" else page
 
-    WebAppSurface {
-        Shell(
-            sections = listOf(PRIMARY_NAV),
-            active = active,
-            collapsed = collapsed,
-            footer = FOOTER_NAV,
-            onToggleCollapse = { collapsed = !collapsed },
-            onNavigate = { key ->
-                val segments = if (key == HOME_KEY) emptyList() else listOf(key)
-                router.navigate(Route(segments))
-            },
-        ) {
-            val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
-            if (bookId != null) {
-                BookDetailPage(
-                    state = bookDetailState(bookId, openBookDetail),
-                    tab = route.query["tab"] ?: "overview",
-                    // replace, not navigate: panes and selection are page state, and Back should
-                    // leave the page rather than unwind every pane and toggle.
-                    onSelectTab = { tab ->
-                        router.replace(Route(route.segments, route.query + ("tab" to tab)))
-                    },
-                    onOpenLibrary = { router.navigate(Route(listOf("library"))) },
-                    selection = parseSelection(route.query["sel"]),
-                    onSelectionChange = { selection ->
-                        val query =
-                            if (selection.isEmpty()) {
-                                route.query - "sel"
-                            } else {
-                                route.query + ("sel" to selection.sorted().joinToString(","))
-                            }
-                        router.replace(Route(route.segments, query))
-                    },
-                )
-            } else {
-                PagePlaceholder(active)
-            }
+    Shell(
+        sections = listOf(PRIMARY_NAV),
+        active = active,
+        collapsed = collapsed,
+        footer = FOOTER_NAV,
+        onToggleCollapse = { collapsed = !collapsed },
+        onNavigate = { key ->
+            val segments = if (key == HOME_KEY) emptyList() else listOf(key)
+            router.navigate(Route(segments))
+        },
+    ) {
+        val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
+        if (bookId != null) {
+            BookDetailPage(
+                state = bookDetailState(bookId, openBookDetail),
+                tab = route.query["tab"] ?: "overview",
+                // replace, not navigate: panes and selection are page state, and Back should
+                // leave the page rather than unwind every pane and toggle.
+                onSelectTab = { tab ->
+                    router.replace(Route(route.segments, route.query + ("tab" to tab)))
+                },
+                onOpenLibrary = { router.navigate(Route(listOf("library"))) },
+                selection = parseSelection(route.query["sel"]),
+                onSelectionChange = { selection ->
+                    val query =
+                        if (selection.isEmpty()) {
+                            route.query - "sel"
+                        } else {
+                            route.query + ("sel" to selection.sorted().joinToString(","))
+                        }
+                    router.replace(Route(route.segments, query))
+                },
+            )
+        } else {
+            PagePlaceholder(active)
         }
     }
 }
