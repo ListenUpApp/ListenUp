@@ -19,6 +19,7 @@ class NowPlayingStateMapperTest :
                 isPlaying = false,
                 isBuffering = false,
                 playbackSpeed = 1.0f,
+                volumeBoostDb = 0f,
             )
 
         val emptyMetadata =
@@ -26,6 +27,7 @@ class NowPlayingStateMapperTest :
                 currentChapter = null,
                 error = null,
                 defaultPlaybackSpeed = 1.0f,
+                defaultVolumeBoostDb = 0f,
             )
 
         fun sampleBook(

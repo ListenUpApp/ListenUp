@@ -100,6 +100,8 @@ private val mockActiveState =
         isBuffering = false,
         playbackSpeed = 1.25f,
         defaultPlaybackSpeed = 1.0f,
+        volumeBoostDb = 0f,
+        defaultVolumeBoostDb = 0f,
     )
 
 // Fast-changing progress fixture matching the primary state's chapter 2 position.

@@ -67,6 +67,8 @@ fun mapToNowPlayingState(
         isBuffering = dynamics.isBuffering,
         playbackSpeed = dynamics.playbackSpeed,
         defaultPlaybackSpeed = metadata.defaultPlaybackSpeed,
+        volumeBoostDb = dynamics.volumeBoostDb,
+        defaultVolumeBoostDb = metadata.defaultVolumeBoostDb,
     )
 }
 
@@ -77,6 +79,7 @@ data class PlaybackDynamics(
     val isPlaying: Boolean,
     val isBuffering: Boolean,
     val playbackSpeed: Float,
+    val volumeBoostDb: Float,
 )
 
 /**
@@ -87,6 +90,7 @@ data class SurfaceMetadata(
     val chapters: List<Chapter> = emptyList(),
     val error: PlaybackManager.PlaybackErrorUiState?,
     val defaultPlaybackSpeed: Float,
+    val defaultVolumeBoostDb: Float,
 )
 
 /**

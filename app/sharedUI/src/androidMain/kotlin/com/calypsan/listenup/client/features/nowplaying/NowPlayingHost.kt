@@ -289,5 +289,10 @@ private fun OverlayDispatch(
                 )
             }
         }
+
+        // TODO: boost picker sheet composable — state/commands are wired on the VM
+        // (showBoostPicker/hideBoostPicker/setBoost/resetBoostToDefault); the sheet UI
+        // ships in a follow-up slice.
+        NowPlayingOverlay.BoostPicker -> { /* no-op until the boost sheet composable lands */ }
     }
 }

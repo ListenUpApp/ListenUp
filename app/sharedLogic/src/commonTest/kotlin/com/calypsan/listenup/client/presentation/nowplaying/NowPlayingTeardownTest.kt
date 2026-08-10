@@ -91,6 +91,8 @@ class NowPlayingTeardownTest :
             every { playbackController.stop() } returns Unit
             every { playbackPreferences.observeDefaultPlaybackSpeed() } returns flowOf(1.0f)
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
+            every { playbackPreferences.observeDefaultVolumeBoostDb() } returns flowOf(0f)
+            everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0f
             every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
             return NowPlayingViewModel(
                 playbackManager = fakePm,
