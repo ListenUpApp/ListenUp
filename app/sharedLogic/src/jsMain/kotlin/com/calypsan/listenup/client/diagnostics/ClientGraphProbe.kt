@@ -2,11 +2,13 @@ package com.calypsan.listenup.client.diagnostics
 
 import androidx.room3.Room
 import androidx.sqlite.driver.web.WebWorkerSQLiteDriver
+import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.buildConfigured
 import com.calypsan.listenup.client.data.repository.BookIngestPort
+import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
@@ -107,6 +109,59 @@ suspend fun probeBookDetailPresentation(
         BookDetailPresentationProbe(
             viewModelResolved = true,
             readyTitle = ready?.book?.title,
+        )
+    } finally {
+        app.close()
+    }
+}
+
+/**
+ * What a device-identity self-check observed. Same reasoning as [ClientGraphProbe]: the Koin
+ * graph stays `internal` to this module, and a browser test reads plain values out of it.
+ */
+data class DeviceInfoProbe(
+    /** The real [DeviceInfoProvider] resolved through the browser graph. */
+    val providerResolved: Boolean,
+    /** [DeviceInfo.deviceType] from the resolved provider. */
+    val deviceType: String?,
+    /** [DeviceInfo.platform] from the resolved provider. */
+    val platform: String?,
+    /** [DeviceInfo.platformVersion] from the resolved provider. */
+    val platformVersion: String?,
+    /** [DeviceInfo.clientName] from the resolved provider. */
+    val clientName: String?,
+    /** [DeviceInfo.clientVersion] from the resolved provider. */
+    val clientVersion: String?,
+    /** [DeviceInfo.deviceName] from the resolved provider — the truncated user agent. */
+    val deviceName: String?,
+)
+
+/**
+ * Boots the real shared Koin graph and resolves [DeviceInfoProvider] through it — the binding
+ * `LoginUseCase`, `SetupUseCase`, `RegisterUseCase`, `InviteRepositoryImpl`, and
+ * `ListeningEventRecorder` all depend on, and which the browser graph once had no binding for at
+ * all (a `NoDefinitionFoundException` that white-screened sign-in, setup, and registration alike).
+ *
+ * Calling `.current()` proves two things at once: the binding resolves, and the [DeviceInfo] it
+ * builds respects [DeviceInfo]'s own length invariant — construction throws otherwise, so a
+ * regression here fails loudly rather than shipping a device row the server rejects.
+ */
+fun probeDeviceInfo(
+    worker: Worker,
+    dbName: String,
+): DeviceInfoProbe {
+    val app = browserGraph(worker, dbName)
+
+    return try {
+        val info = app.koin.get<DeviceInfoProvider>().current()
+        DeviceInfoProbe(
+            providerResolved = true,
+            deviceType = info.deviceType,
+            platform = info.platform,
+            platformVersion = info.platformVersion,
+            clientName = info.clientName,
+            clientVersion = info.clientVersion,
+            deviceName = info.deviceName,
         )
     } finally {
         app.close()
