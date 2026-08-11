@@ -13,6 +13,8 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.localization.SystemStrings
+import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import kotlin.time.Duration.Companion.milliseconds
 import com.google.common.collect.ImmutableList
@@ -36,6 +38,7 @@ class AudiobookNotificationProvider(
     private val context: Context,
     private val playbackManager: PlaybackManager,
     private val bookTitle: () -> CharSequence? = { null },
+    private val strings: SystemStringsHolder = SystemStringsHolder(),
 ) : MediaNotification.Provider {
     companion object {
         const val NOTIFICATION_ID = 1
@@ -65,6 +68,9 @@ class AudiobookNotificationProvider(
                 SessionCommand(COMMAND_NEXT_CHAPTER, Bundle.EMPTY),
             )
     }
+
+    /** Catalog snapshot for this render. Read per call, so a locale change lands on the next tick. */
+    private val copy: SystemStrings get() = strings.current
 
     init {
         loadResourceIds()
@@ -156,7 +162,7 @@ class AudiobookNotificationProvider(
                 mediaSession,
                 CommandButton
                     .Builder(CommandButton.ICON_PREVIOUS)
-                    .setDisplayName("Previous chapter")
+                    .setDisplayName(copy.playerPreviousChapter)
                     .setSessionCommand(SessionCommand(COMMAND_PREV_CHAPTER, Bundle.EMPTY))
                     .build(),
             ),
@@ -168,7 +174,7 @@ class AudiobookNotificationProvider(
                 mediaSession,
                 CommandButton
                     .Builder(CommandButton.ICON_REWIND)
-                    .setDisplayName("Skip back 30 seconds")
+                    .setDisplayName(copy.playerSkipBackward)
                     .setSessionCommand(SessionCommand(COMMAND_SKIP_BACK_30, Bundle.EMPTY))
                     .build(),
             ),
@@ -185,7 +191,7 @@ class AudiobookNotificationProvider(
             actionFactory.createMediaAction(
                 mediaSession,
                 IconCompat.createWithResource(context, playPauseIcon),
-                if (player.isPlaying) "Pause" else "Play",
+                if (player.isPlaying) copy.playerPause else copy.playerPlay,
                 Player.COMMAND_PLAY_PAUSE,
             )
         actions.add(playPauseAction)
@@ -196,7 +202,7 @@ class AudiobookNotificationProvider(
                 mediaSession,
                 CommandButton
                     .Builder(CommandButton.ICON_FAST_FORWARD)
-                    .setDisplayName("Skip forward 30 seconds")
+                    .setDisplayName(copy.playerSkipForward)
                     .setSessionCommand(SessionCommand(COMMAND_SKIP_FORWARD_30, Bundle.EMPTY))
                     .build(),
             ),
@@ -208,7 +214,7 @@ class AudiobookNotificationProvider(
                 mediaSession,
                 CommandButton
                     .Builder(CommandButton.ICON_NEXT)
-                    .setDisplayName("Next chapter")
+                    .setDisplayName(copy.playerNextChapter)
                     .setSessionCommand(SessionCommand(COMMAND_NEXT_CHAPTER, Bundle.EMPTY))
                     .build(),
             ),
@@ -259,7 +265,7 @@ class AudiobookNotificationProvider(
     ): String =
         bookTitle?.toString()?.takeIf { it.isNotBlank() }
             ?: sessionTitle?.toString()?.takeIf { it.isNotBlank() }
-            ?: "Unknown Book"
+            ?: copy.playerUnknownBook
 
     /**
      * Build chapter subtitle with time remaining.
@@ -272,17 +278,17 @@ class AudiobookNotificationProvider(
      * Visible for testing.
      */
     internal fun buildChapterSubtitle(chapterInfo: PlaybackManager.ChapterInfo?): String {
-        if (chapterInfo == null) return "Playing..."
+        if (chapterInfo == null) return copy.playerPlaying
 
         val chapterText =
             if (chapterInfo.isGenericTitle) {
-                "Chapter ${chapterInfo.index + 1} of ${chapterInfo.totalChapters}"
+                copy.playerChapterOf.format(chapterInfo.index + 1, chapterInfo.totalChapters)
             } else {
                 chapterInfo.title
             }
 
         val timeRemaining = formatDuration(chapterInfo.remainingMs)
-        return "$chapterText • $timeRemaining left"
+        return copy.playerChapterRemaining.format(chapterText, timeRemaining)
     }
 
     /**

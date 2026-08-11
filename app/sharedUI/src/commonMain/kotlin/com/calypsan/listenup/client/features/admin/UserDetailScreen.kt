@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Share
@@ -36,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -47,6 +49,8 @@ import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_allow_sharing_collections_with_other
+import listenup.composeapp.generated.resources.admin_allow_editing_content_metadata
+import listenup.composeapp.generated.resources.admin_can_edit
 import listenup.composeapp.generated.resources.admin_can_share
 import listenup.composeapp.generated.resources.admin_protected_user
 import listenup.composeapp.generated.resources.admin_this_users_permissions_cannot_be
@@ -62,7 +66,7 @@ import org.jetbrains.compose.resources.stringResource
  *
  * Features:
  * - View user information (name, email, role)
- * - Toggle canShare permission
+ * - Toggle the canEdit and canShare permissions
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,6 +109,7 @@ fun UserDetailScreen(
         UserDetailBody(
             state = state,
             innerPadding = innerPadding,
+            onToggleCanEdit = viewModel::toggleCanEdit,
             onToggleCanShare = viewModel::toggleCanShare,
         )
     }
@@ -114,6 +119,7 @@ fun UserDetailScreen(
 private fun UserDetailBody(
     state: UserDetailUiState,
     innerPadding: PaddingValues,
+    onToggleCanEdit: () -> Unit,
     onToggleCanShare: () -> Unit,
 ) {
     when (state) {
@@ -140,6 +146,7 @@ private fun UserDetailBody(
         is UserDetailUiState.Ready -> {
             UserDetailContent(
                 state = state,
+                onToggleCanEdit = onToggleCanEdit,
                 onToggleCanShare = onToggleCanShare,
                 modifier = Modifier.padding(innerPadding),
             )
@@ -150,6 +157,7 @@ private fun UserDetailBody(
 @Composable
 private fun UserDetailContent(
     state: UserDetailUiState.Ready,
+    onToggleCanEdit: () -> Unit,
     onToggleCanShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -186,9 +194,11 @@ private fun UserDetailContent(
 
         item {
             PermissionsCard(
+                canEdit = state.canEdit,
                 canShare = state.canShare,
                 isProtected = state.isProtected,
                 isSaving = state.isSaving,
+                onToggleCanEdit = onToggleCanEdit,
                 onToggleCanShare = onToggleCanShare,
             )
         }
@@ -325,9 +335,11 @@ private fun UserInfoCard(
 
 @Composable
 private fun PermissionsCard(
+    canEdit: Boolean,
     canShare: Boolean,
     isProtected: Boolean,
     isSaving: Boolean,
+    onToggleCanEdit: () -> Unit,
     onToggleCanShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -340,42 +352,78 @@ private fun PermissionsCard(
             ),
     ) {
         Column {
-            // Can Share toggle
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Share,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.admin_can_share),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(Res.string.admin_allow_sharing_collections_with_other),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                if (isSaving) {
-                    ListenUpLoadingIndicatorSmall()
-                } else {
-                    Switch(
-                        checked = canShare,
-                        onCheckedChange = { onToggleCanShare() },
-                        enabled = !isProtected,
-                    )
-                }
-            }
+            // Can Edit — the permission UserPermissionPolicy gates every metadata mutation on.
+            // It had no UI at all until #1270, so a member could never be granted edit rights.
+            PermissionRow(
+                icon = Icons.Outlined.Edit,
+                title = stringResource(Res.string.admin_can_edit),
+                subtitle = stringResource(Res.string.admin_allow_editing_content_metadata),
+                checked = canEdit,
+                isProtected = isProtected,
+                isSaving = isSaving,
+                onToggle = onToggleCanEdit,
+            )
+            HorizontalDivider()
+            PermissionRow(
+                icon = Icons.Outlined.Share,
+                title = stringResource(Res.string.admin_can_share),
+                subtitle = stringResource(Res.string.admin_allow_sharing_collections_with_other),
+                checked = canShare,
+                isProtected = isProtected,
+                isSaving = isSaving,
+                onToggle = onToggleCanShare,
+            )
+        }
+    }
+}
+
+/**
+ * One permission switch. Both flags present identically, and #1270 added the second — a copied row
+ * would be a second place for the protected-user guard and the saving overlay to drift.
+ */
+@Composable
+private fun PermissionRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    isProtected: Boolean,
+    isSaving: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (isSaving) {
+            ListenUpLoadingIndicatorSmall()
+        } else {
+            Switch(
+                checked = checked,
+                onCheckedChange = { onToggle() },
+                enabled = !isProtected,
+            )
         }
     }
 }

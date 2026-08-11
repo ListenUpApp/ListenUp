@@ -47,6 +47,8 @@ import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import com.calypsan.listenup.client.localization.SystemStrings
+import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.voice.MediaFocus
 import com.calypsan.listenup.client.voice.PlaybackIntent
@@ -96,7 +98,11 @@ internal class ListenUpSessionCallback(
     private val serviceScope: CoroutineScope,
     private val transport: PlaybackTransport,
     private val uriPermissionGranter: UriPermissionGranter,
+    private val strings: SystemStringsHolder,
 ) : MediaLibrarySession.Callback {
+    /** Catalog snapshot for this call. Read per use, so a locale change lands on the next one. */
+    private val copy: SystemStrings get() = strings.current
+
     override fun onConnect(
         session: MediaSession,
         controller: MediaSession.ControllerInfo,
@@ -110,19 +116,19 @@ internal class ListenUpSessionCallback(
             listOf(
                 CommandButton
                     .Builder(CommandButton.ICON_SKIP_BACK_30)
-                    .setDisplayName("Back 30s")
+                    .setDisplayName(copy.carBack30)
                     .setSessionCommand(
                         SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30, Bundle.EMPTY),
                     ).build(),
                 CommandButton
                     .Builder(CommandButton.ICON_UNDEFINED)
-                    .setDisplayName("Speed")
+                    .setDisplayName(copy.playerSpeed)
                     .setCustomIconResId(R.drawable.ic_speed)
                     .setSessionCommand(CustomActions.cycleSpeedCommand())
                     .build(),
                 CommandButton
                     .Builder(CommandButton.ICON_SKIP_FORWARD_30)
-                    .setDisplayName("Forward 30s")
+                    .setDisplayName(copy.carForward30)
                     .setSessionCommand(
                         SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD_30, Bundle.EMPTY),
                     ).build(),
@@ -174,7 +180,7 @@ internal class ListenUpSessionCallback(
         if (browseNeedsSignIn(authSession.authState.value)) {
             logger.debug { "onGetLibraryRoot: signed out — returning auth error" }
             return Futures.immediateFuture(
-                LibraryResult.ofError(AutoBrowseErrors.signedOutError(context)),
+                LibraryResult.ofError(AutoBrowseErrors.signedOutError(context, copy)),
             )
         }
         logger.debug { "onGetLibraryRoot" }
@@ -194,7 +200,7 @@ internal class ListenUpSessionCallback(
 
         if (browseNeedsSignIn(authSession.authState.value)) {
             return Futures.immediateFuture(
-                LibraryResult.ofError(AutoBrowseErrors.signedOutError(context)),
+                LibraryResult.ofError(AutoBrowseErrors.signedOutError(context, copy)),
             )
         }
 
@@ -221,6 +227,17 @@ internal class ListenUpSessionCallback(
         mediaId: String,
     ): ListenableFuture<LibraryResult<MediaItem>> {
         logger.debug { "onGetItem: mediaId=$mediaId" }
+
+        // Gated on the same predicate as the browse tree (#1245): resolving a single item is
+        // another way into the library, and one that a head unit can reach from a cached mediaId
+        // without walking the tree at all. Room is usually empty when genuinely signed out, so
+        // this used to fail soft as "no such item" — an honest wall beats a silent dead end.
+        if (browseNeedsSignIn(authSession.authState.value)) {
+            logger.debug { "onGetItem: signed out — returning auth error" }
+            return Futures.immediateFuture(
+                LibraryResult.ofError(AutoBrowseErrors.signedOutError(context, copy)),
+            )
+        }
 
         return CallbackToFutureAdapter.getFuture { completer ->
             serviceScope.launch {
@@ -281,6 +298,16 @@ internal class ListenUpSessionCallback(
         params: MediaLibraryService.LibraryParams?,
     ): ListenableFuture<LibraryResult<Void>> {
         logger.info { "onSearch: query='$query'" }
+
+        // Voice search is a third door into the library, so it carries the same gate (#1245).
+        // Returning the typed error rather than zero results is what makes the refusal legible:
+        // "no results for The Hobbit" reads as a missing book, not as a missing session.
+        if (browseNeedsSignIn(authSession.authState.value)) {
+            logger.debug { "onSearch: signed out — returning auth error" }
+            return Futures.immediateFuture(
+                LibraryResult.ofError(AutoBrowseErrors.signedOutError(context, copy)),
+            )
+        }
 
         // Perform search asynchronously
         serviceScope.launch {
@@ -374,6 +401,16 @@ internal class ListenUpSessionCallback(
         params: MediaLibraryService.LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
         logger.debug { "onGetSearchResult: query='$query', page=$page, pageSize=$pageSize" }
+
+        // Gated alongside onSearch (#1245): the session can lapse between accepting a query and
+        // the head unit collecting its results, and a stale cache entry must not outlive the
+        // session that produced it.
+        if (browseNeedsSignIn(authSession.authState.value)) {
+            logger.debug { "onGetSearchResult: signed out — returning auth error" }
+            return Futures.immediateFuture(
+                LibraryResult.ofError(AutoBrowseErrors.signedOutError(context, copy)),
+            )
+        }
 
         val items = searchResultsCache[query] ?: emptyList()
         val pageItems = paginate(items, page, pageSize)

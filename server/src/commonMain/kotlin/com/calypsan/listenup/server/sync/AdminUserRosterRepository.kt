@@ -16,7 +16,7 @@ import kotlin.time.Clock
  * Single-table; the maintainer assembles the full payload, so [writePayload] is a straight
  * INSERT/UPDATE of all columns — the [PublicProfileRepository] pattern.
  *
- * `can_share` is `INTEGER` (0/1) in SQLite, which SQLDelight surfaces as `Long`
+ * `can_share`/`can_edit` are `INTEGER` (0/1) in SQLite, which SQLDelight surfaces as `Long`
  * (see [Admin_user_roster.can_share]); [writePayload] / [toSyncPayload] convert at the boundary.
  *
  * `id` is a plain `String` (`id == userId`), so the default `idAsString` is correct.
@@ -96,6 +96,7 @@ class AdminUserRosterRepository(
             role = "",
             status = "",
             canShare = false,
+            canEdit = false,
             accountCreatedAt = 0L,
         )
 
@@ -114,6 +115,7 @@ class AdminUserRosterRepository(
                 role = value.role,
                 status = value.status,
                 can_share = value.canShare.toDbLong(),
+                can_edit = value.canEdit.toDbLong(),
                 account_created_at = value.accountCreatedAt,
                 revision = rev,
                 updated_at = now,
@@ -129,6 +131,7 @@ class AdminUserRosterRepository(
                 role = value.role,
                 status = value.status,
                 can_share = value.canShare.toDbLong(),
+                can_edit = value.canEdit.toDbLong(),
                 account_created_at = value.accountCreatedAt,
                 created_at = now,
                 updated_at = now,
@@ -148,6 +151,7 @@ class AdminUserRosterRepository(
             role = role,
             status = status,
             canShare = can_share == 1L,
+            canEdit = can_edit == 1L,
             accountCreatedAt = account_created_at,
             revision = revision,
             updatedAt = updated_at,

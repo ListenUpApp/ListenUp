@@ -1,0 +1,12 @@
+-- admin_user_roster gains can_edit, so the admin Users screen can grant and revoke the
+-- metadata-edit permission the server has gated on since V26 (#1270).
+--
+-- The projection previously carried only can_share, which is why no client UI could ever reach
+-- canEdit: the flag existed on `users`, UserPermissionPolicy enforced it on every metadata
+-- mutation, and nothing between the two ever showed it to an admin.
+--
+-- DEFAULT 1 matches the `users` default and UserPermissions' own default — every existing row is
+-- backfilled as "may edit", so this migration changes no one's effective permissions. The real
+-- values land on the next AdminUserRosterMaintainer.refresh, which startup's backfillAll runs for
+-- every live user anyway.
+ALTER TABLE admin_user_roster ADD COLUMN can_edit INTEGER NOT NULL DEFAULT 1;

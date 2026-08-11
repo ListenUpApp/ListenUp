@@ -51,7 +51,51 @@ class AdminUserRosterMaintainerTest :
                     saved.role shouldBe "MEMBER"
                     saved.status shouldBe "ACTIVE"
                     saved.canShare shouldBe true
+                    saved.canEdit shouldBe true
                     saved.accountCreatedAt shouldBe 1L
+                }
+            }
+        }
+
+        test("refresh projects both permission flags independently") {
+            // The projection carried only can_share until #1270, which is why no admin UI could
+            // ever reach canEdit — UserPermissionPolicy gated every metadata mutation on a flag
+            // that existed on `users` and stopped there. Asserting a user who may share but may
+            // NOT edit is the case a projection that hardcoded either flag would fail.
+            withSqlDatabase {
+                sql.transaction {
+                    sql.usersQueries.insert(
+                        id = "user-2",
+                        email = "grace@example.com",
+                        email_normalized = "grace@example.com",
+                        password_hash = "phc",
+                        role = "MEMBER",
+                        display_name = "Grace",
+                        status = "ACTIVE",
+                        created_at = 2L,
+                        updated_at = 2L,
+                        last_login_at = null,
+                        can_edit = 0L,
+                        can_share = 1L,
+                        approved_by = null,
+                        approved_at = null,
+                        deleted_at = null,
+                        invited_by = null,
+                        tagline = null,
+                        avatar_type = "auto",
+                        timezone = "UTC",
+                    )
+                }
+
+                val repo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
+                val maintainer = AdminUserRosterMaintainer(sql, repo)
+
+                runTest {
+                    maintainer.refresh("user-2")
+
+                    val saved = repo.pullSince(userId = null, cursor = 0, limit = 100).items.single()
+                    saved.canEdit shouldBe false
+                    saved.canShare shouldBe true
                 }
             }
         }

@@ -17,6 +17,7 @@ data class AdminUserRosterSyncPayload(
     val role: String,
     val status: String,
     val canShare: Boolean,
+    val canEdit: Boolean = true,
     val accountCreatedAt: Long,
     override val revision: Long,
     val updatedAt: Long,

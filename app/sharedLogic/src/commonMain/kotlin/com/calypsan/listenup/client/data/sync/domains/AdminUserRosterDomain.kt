@@ -7,7 +7,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 
 /**
  * The admin-only `admin_user_roster` domain: a server-maintained materialized view
- * of each user's admin-visible identity (email, role, status, share permission) —
+ * of each user's admin-visible identity (email, role, status, edit/share permissions) —
  * server-wins replace, soft-delete tombstones, full digest, [WriteTier.ServerOwned].
  *
  * Delivery is gated to admins **server-side** (firehose and pull filtering);
@@ -39,6 +39,7 @@ internal class AdminUserRosterMirrorApply(
                 role = payload.role,
                 status = payload.status,
                 canShare = payload.canShare,
+                canEdit = payload.canEdit,
                 accountCreatedAt = payload.accountCreatedAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,

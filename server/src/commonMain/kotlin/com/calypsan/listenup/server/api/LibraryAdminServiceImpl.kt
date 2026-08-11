@@ -22,13 +22,37 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
+import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlin.uuid.Uuid
 
 private val logger = loggerFor<LibraryAdminServiceImpl>()
+
+/**
+ * Wall-clock budget for one [LibraryAdminServiceImpl.browseFilesystem] walk.
+ *
+ * Deliberately well under the client's 15s RPC deadline: a filesystem slow enough to blow this
+ * should reach the operator as a typed [LibraryError.BrowseTimedOut] the picker can render, not as
+ * a lapsed deadline with "outcome unknown" and no server log line to diagnose from (#1262).
+ */
+private val DEFAULT_BROWSE_BUDGET = 10.seconds
+
+/**
+ * How many entries a single child directory is stat'd for while deciding [DirectoryEntry.hasChildren].
+ *
+ * A directory of a thousand audio files would otherwise cost a thousand stats to answer one boolean,
+ * and it is the per-grandchild stat — not the readdir — that multiplies the walk. Past the limit the
+ * answer is `true`, which is the safe direction: the picker descends on a row with a chevron and
+ * toggles selection on one without, so a missing chevron makes a real sub-folder unreachable, while
+ * a spurious one opens onto a level the operator can back out of — and the row's own checkbox still
+ * selects the folder either way.
+ */
+internal const val HAS_CHILDREN_PROBE_LIMIT = 256
 
 /**
  * Server-side implementation of [LibraryAdminService].
@@ -58,6 +82,7 @@ internal class LibraryAdminServiceImpl(
     private val libraryRegistry: LibraryRegistry,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    private val browseBudget: Duration = DEFAULT_BROWSE_BUDGET,
 ) : LibraryAdminService {
     // ── Observation ──────────────────────────────────────────────────────────
 
@@ -83,42 +108,87 @@ internal class LibraryAdminServiceImpl(
         )
     }
 
+    /**
+     * Lists the sub-directories of [path] for the admin folder picker.
+     *
+     * The walk is bounded by [browseBudget] and re-checked before every child, because the cost is
+     * multiplicative — one readdir per child for [DirectoryEntry.itemCount], plus a stat probe for
+     * [DirectoryEntry.hasChildren] — and on a bare-metal host any one of those syscalls can stall
+     * on a consent-gated location, a network mount or a firmlink. Blowing the budget returns
+     * [LibraryError.BrowseTimedOut] rather than a truncated list: a picker silently missing the
+     * folder the operator came for is worse than one that says it gave up.
+     *
+     * Every per-entry syscall degrades in isolation ([isDirectory], [describeDirectory]), so one
+     * unreadable child costs its own row's detail and nothing more. Entry and exit log at debug
+     * with the path — this handler used to be invisible in the server log, which is most of why
+     * #1262 was expensive to diagnose.
+     */
     override suspend fun browseFilesystem(path: String): AppResult<List<DirectoryEntry>> {
         // Admin-only: walking the server filesystem must never be exposed to members.
         requireAdmin()?.let { return AppResult.Failure(it) }
+        logger.debug { "browseFilesystem: listing $path" }
+        val startedAt = clock.now()
         val dir = Path(path)
         return try {
             if (!SystemFileSystem.exists(dir)) {
+                logger.debug { "browseFilesystem: $path does not exist" }
                 return AppResult.Failure(LibraryError.InvalidPath(debugInfo = "Path does not exist: $path"))
             }
-            val metadata = SystemFileSystem.metadataOrNull(dir)
+            val metadata = runCatchingCancellable { SystemFileSystem.metadataOrNull(dir) }.getOrNull()
             if (metadata == null || !metadata.isDirectory) {
+                logger.debug { "browseFilesystem: $path is not a readable directory" }
                 return AppResult.Failure(LibraryError.InvalidPath(debugInfo = "Not a directory: $path"))
             }
-            val children =
-                SystemFileSystem
-                    .list(dir)
-                    .filter { child ->
-                        val childMeta = SystemFileSystem.metadataOrNull(child)
-                        childMeta != null && childMeta.isDirectory
-                    }.map { child ->
-                        val childPath = child.toString()
-                        val name = child.name
-                        val grandchildren =
-                            runCatching { SystemFileSystem.list(child) }.getOrDefault(emptyList())
-                        val itemCount = grandchildren.size
-                        val hasChildren =
-                            grandchildren.any { grandchild ->
-                                SystemFileSystem.metadataOrNull(grandchild)?.isDirectory == true
-                            }
-                        DirectoryEntry(name = name, path = childPath, hasChildren = hasChildren, itemCount = itemCount)
-                    }.sortedBy { it.name }
-            AppResult.Success(children)
+            val entries = mutableListOf<DirectoryEntry>()
+            for (child in SystemFileSystem.list(dir)) {
+                val elapsed = clock.now() - startedAt
+                if (elapsed >= browseBudget) {
+                    logger.warn {
+                        "browseFilesystem: $path exceeded $browseBudget after ${entries.size} entries — abandoning"
+                    }
+                    return AppResult.Failure(
+                        LibraryError.BrowseTimedOut(
+                            debugInfo = "Listing $path exceeded $browseBudget after ${entries.size} entries",
+                        ),
+                    )
+                }
+                if (isDirectory(child)) entries += describeDirectory(child)
+            }
+            entries.sortBy { it.name }
+            logger.debug { "browseFilesystem: $path -> ${entries.size} directories in ${clock.now() - startedAt}" }
+            AppResult.Success(entries)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
+            logger.warn(e) { "browseFilesystem: failed to read $path" }
             AppResult.Failure(LibraryError.InvalidPath(debugInfo = "Error reading path $path: ${e.message}"))
         }
+    }
+
+    /**
+     * Whether [entry] is a directory. A stat this process cannot complete answers `false` — the
+     * entry drops out of the listing instead of sinking every sibling with it.
+     */
+    private suspend fun isDirectory(entry: Path): Boolean =
+        runCatchingCancellable { SystemFileSystem.metadataOrNull(entry)?.isDirectory == true }
+            .getOrDefault(false)
+
+    /**
+     * Builds the picker row for a child directory: one readdir for [DirectoryEntry.itemCount], plus
+     * a stat probe bounded by [HAS_CHILDREN_PROBE_LIMIT] for [DirectoryEntry.hasChildren]. An
+     * unreadable child reports zero items and no children rather than failing the whole walk.
+     */
+    private suspend fun describeDirectory(child: Path): DirectoryEntry {
+        val grandchildren = runCatchingCancellable { SystemFileSystem.list(child) }.getOrDefault(emptyList())
+        val hasChildren =
+            grandchildren.size > HAS_CHILDREN_PROBE_LIMIT ||
+                grandchildren.any { isDirectory(it) }
+        return DirectoryEntry(
+            name = child.name,
+            path = child.toString(),
+            hasChildren = hasChildren,
+            itemCount = grandchildren.size,
+        )
     }
 
     // ── Folder lifecycle ─────────────────────────────────────────────────────
@@ -250,6 +320,7 @@ internal class LibraryAdminServiceImpl(
             libraryRegistry = libraryRegistry,
             clock = clock,
             principal = principal,
+            browseBudget = browseBudget,
         )
 
     // ── Internal helpers ─────────────────────────────────────────────────────

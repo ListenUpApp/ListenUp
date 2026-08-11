@@ -30,6 +30,7 @@ class UserDetailViewModelTest :
         fun createUser(
             id: String = "user-1",
             email: String = "test@example.com",
+            canEdit: Boolean = true,
             canShare: Boolean = true,
         ) = AdminUserInfo(
             id = id,
@@ -40,7 +41,7 @@ class UserDetailViewModelTest :
             isRoot = false,
             role = "member",
             status = "active",
-            permissions = UserPermissions(canShare = canShare),
+            permissions = UserPermissions(canEdit = canEdit, canShare = canShare),
             createdAt = "2024-01-01T00:00:00Z",
         )
 
@@ -139,6 +140,99 @@ class UserDetailViewModelTest :
                 verifySuspend(VerifyMode.atLeast(1)) {
                     adminRepository.updateUser(userId = "user-1", canShare = false)
                 }
+            }
+        }
+
+        test("toggleCanEdit updates state and saves") {
+            // The permission that had no UI at all until #1270: UserPermissionPolicy has gated
+            // every metadata mutation on canEdit since V26, but ContractUserMapper dropped the flag
+            // and the admin screen only ever offered canShare — so no member could be granted it.
+            runTest {
+                val adminRepository: AdminRepository = mock()
+                val user = createUser(canEdit = false)
+                val updatedUser = user.copy(permissions = UserPermissions(canEdit = true, canShare = true))
+                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
+                everySuspend {
+                    adminRepository.updateUser(userId = "user-1", canEdit = true)
+                } returns AppResult.Success(updatedUser)
+
+                val viewModel =
+                    UserDetailViewModel(
+                        userId = "user-1",
+                        adminRepository = adminRepository,
+                        errorBus = ErrorBus(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<UserDetailUiState.Ready>()
+                    .canEdit shouldBe false
+
+                viewModel.toggleCanEdit()
+                advanceUntilIdle()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<UserDetailUiState.Ready>()
+                    .canEdit shouldBe true
+                verifySuspend(VerifyMode.atLeast(1)) {
+                    adminRepository.updateUser(userId = "user-1", canEdit = true)
+                }
+            }
+        }
+
+        test("a failed toggleCanEdit reverts rather than leaving a grant the server never made") {
+            // The sharpest edge on an optimistic permission toggle: if the revert is missed, the
+            // admin is looking at "Can Edit: on" for a member the server still refuses to let edit.
+            runTest {
+                val adminRepository: AdminRepository = mock()
+                everySuspend { adminRepository.getUser("user-1") } returns
+                    AppResult.Success(createUser(canEdit = false))
+                everySuspend { adminRepository.updateUser(userId = "user-1", canEdit = true) } returns
+                    networkFailure()
+
+                val viewModel =
+                    UserDetailViewModel(
+                        userId = "user-1",
+                        adminRepository = adminRepository,
+                        errorBus = ErrorBus(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.toggleCanEdit()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
+                ready.canEdit shouldBe false
+                ready.isSaving shouldBe false
+                (ready.error != null) shouldBe true
+            }
+        }
+
+        test("toggling one permission leaves the other untouched") {
+            // The server applies AdminUserPatch.permissions wholesale, so the repository reads the
+            // user back to carry the flag that is not moving. This pins the ViewModel half of that
+            // contract: a canShare toggle must not disturb the canEdit the screen is showing.
+            runTest {
+                val adminRepository: AdminRepository = mock()
+                val user = createUser(canEdit = false, canShare = true)
+                everySuspend { adminRepository.getUser("user-1") } returns AppResult.Success(user)
+                everySuspend { adminRepository.updateUser(userId = "user-1", canShare = false) } returns
+                    AppResult.Success(user.copy(permissions = UserPermissions(canEdit = false, canShare = false)))
+
+                val viewModel =
+                    UserDetailViewModel(
+                        userId = "user-1",
+                        adminRepository = adminRepository,
+                        errorBus = ErrorBus(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.toggleCanShare()
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<UserDetailUiState.Ready>()
+                ready.canShare shouldBe false
+                ready.canEdit shouldBe false
             }
         }
 

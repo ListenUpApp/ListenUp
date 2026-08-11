@@ -11,6 +11,8 @@ import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.localization.SystemStrings
+import com.calypsan.listenup.client.localization.SystemStringsHolder
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.first
 
@@ -41,9 +43,16 @@ class BrowseTreeProvider(
     private val contributorRepository: ContributorRepository,
     private val downloadRepository: DownloadRepository,
     private val packageName: String,
+    private val strings: SystemStringsHolder,
 ) {
+    /** The catalog snapshot for this build of the tree — read once so one level cannot mix locales. */
+    private val copy: SystemStrings get() = strings.current
+
     /**
      * Get the root media item.
+     *
+     * The title stays a literal: it is the product name, which does not translate. Every other
+     * string on this surface comes from the catalog via [copy] (#1246).
      */
     fun getRoot(): MediaItem =
         MediaItem
@@ -99,7 +108,7 @@ class BrowseTreeProvider(
             BrowseTree.LIBRARY -> {
                 createBrowsableItem(
                     BrowseTree.LIBRARY,
-                    "Library",
+                    copy.carLibrary,
                     MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
                     childStyleExtras(playableAsGrid = true),
                 )
@@ -122,7 +131,7 @@ class BrowseTreeProvider(
             items.add(
                 createBrowsableItem(
                     mediaId = BrowseTree.CONTINUE_LISTENING,
-                    title = "Continue Listening",
+                    title = copy.carContinueListening,
                     mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
                     childStyle = childStyleExtras(playableAsGrid = true),
                 ),
@@ -132,7 +141,7 @@ class BrowseTreeProvider(
         items.add(
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY,
-                title = "Library",
+                title = copy.carLibrary,
                 mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
                 childStyle = childStyleExtras(playableAsGrid = true),
             ),
@@ -160,18 +169,18 @@ class BrowseTreeProvider(
         listOf(
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY_DOWNLOADED,
-                title = "Downloaded",
+                title = copy.carDownloaded,
                 mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
                 childStyle = childStyleExtras(playableAsGrid = true),
             ),
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY_SERIES,
-                title = "By Series",
+                title = copy.carBySeries,
                 mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_AUDIO_BOOKS,
             ),
             createBrowsableItem(
                 mediaId = BrowseTree.LIBRARY_AUTHORS,
-                title = "By Author",
+                title = copy.carByAuthor,
                 mediaType = MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS,
             ),
         )
@@ -320,7 +329,7 @@ class BrowseTreeProvider(
                 MediaMetadata
                     .Builder()
                     .setTitle(book.title)
-                    .setSubtitle("${book.authorNames} - ${book.timeRemainingFormatted}")
+                    .setSubtitle(copy.carBookSubtitle.format(book.authorNames, book.timeRemainingFormatted))
                     .setArtist(book.authorNames)
                     .setArtworkUri(CoverUri.forBook(packageName, book.bookId))
                     .setIsPlayable(true)

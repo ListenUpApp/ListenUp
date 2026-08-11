@@ -36,6 +36,17 @@ object BrowseTree {
     const val PREFIX_BOOK = "/__book__/"
 
     /**
+     * Every statically-known browsable node — the set a browse-tree refresh notifies (#1245).
+     *
+     * Notifying only [ROOT] would refresh the tabs while leaving a head unit parked on, say,
+     * By Series still showing the sign-in error it cached. Dynamic series/author nodes are
+     * deliberately absent: they are unbounded, and reaching one means passing through a static
+     * parent that this list already refreshes.
+     */
+    val BROWSABLE_NODES =
+        listOf(ROOT, CONTINUE_LISTENING, LIBRARY, LIBRARY_DOWNLOADED, LIBRARY_SERIES, LIBRARY_AUTHORS)
+
+    /**
      * Extract book ID from a media ID.
      * @return Book ID or null if not a book media ID
      */

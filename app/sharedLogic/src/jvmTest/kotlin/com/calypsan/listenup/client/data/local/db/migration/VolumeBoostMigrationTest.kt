@@ -1,11 +1,10 @@
 package com.calypsan.listenup.client.data.local.db.migration
 
-import androidx.sqlite.SQLiteConnection
-import androidx.sqlite.SQLiteStatement
 import androidx.sqlite.execSQL
 import com.calypsan.listenup.client.data.local.db.MIGRATION_1_2
 import com.calypsan.listenup.client.data.local.db.MIGRATION_2_3
 import com.calypsan.listenup.client.test.db.createMigrationTestHelper
+import com.calypsan.listenup.client.test.db.withStatement
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -111,16 +110,3 @@ class VolumeBoostMigrationTest :
             }
         }
     })
-
-/** Prepares [sql], runs [block] against the statement, and always closes it. */
-private inline fun <T> SQLiteConnection.withStatement(
-    sql: String,
-    block: (SQLiteStatement) -> T,
-): T {
-    val statement = prepare(sql)
-    return try {
-        block(statement)
-    } finally {
-        statement.close()
-    }
-}

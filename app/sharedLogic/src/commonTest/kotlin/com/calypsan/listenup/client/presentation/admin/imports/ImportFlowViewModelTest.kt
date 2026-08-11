@@ -1119,6 +1119,7 @@ private class FakeAdminRepository(
         firstName: String?,
         lastName: String?,
         role: String?,
+        canEdit: Boolean?,
         canShare: Boolean?,
     ): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 

@@ -291,6 +291,7 @@ private fun LibraryError.toHttpStatus(): HttpStatusCode =
         is LibraryError.InvalidPath -> HttpStatusCode.BadRequest
         is LibraryError.DuplicateFolder -> HttpStatusCode.Conflict
         is LibraryError.FolderNotFound -> HttpStatusCode.NotFound
+        is LibraryError.BrowseTimedOut -> HttpStatusCode.GatewayTimeout
     }
 
 /**

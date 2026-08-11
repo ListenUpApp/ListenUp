@@ -28,6 +28,7 @@ import com.calypsan.listenup.client.features.bookdetail.AndroidBookDetailPlatfor
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
+import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.automotive.CoverFetcher
 import com.calypsan.listenup.client.automotive.CoverFileLocator
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -258,6 +259,10 @@ val playbackModule =
         }
         single<UriPermissionGranter> { ContextUriPermissionGranter(context = get()) }
 
+        // The system-surface string snapshot (#1246). One instance, so `PlaybackService`'s
+        // single refresh reaches the Koin-built browse tree and its own collaborators alike.
+        single { SystemStringsHolder() }
+
         // Browse tree provider for Android Auto
         single {
             BrowseTreeProvider(
@@ -267,6 +272,7 @@ val playbackModule =
                 contributorRepository = get(),
                 downloadRepository = get(),
                 packageName = get<Context>().packageName,
+                strings = get(),
             )
         }
 

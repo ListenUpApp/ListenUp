@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.localization.SystemStringsHolder
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -487,6 +488,7 @@ class BrowseTreeProviderTest {
             contributorRepository = contributorRepository,
             downloadRepository = downloadRepository,
             packageName = PACKAGE_NAME,
+            strings = SystemStringsHolder(),
         )
     }
 

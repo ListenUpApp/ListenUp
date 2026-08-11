@@ -50,6 +50,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.io.files.Path
 import kotlin.time.Instant
 
@@ -189,6 +191,78 @@ class LibraryAdminServiceImplTest :
                     val empty = entries.first { it.name == "empty" }
                     empty.itemCount shouldBe 0
                     empty.hasChildren shouldBe false
+                }
+            }
+        }
+
+        test("browseFilesystem abandons a walk that blows its budget with a typed failure") {
+            // The bug this pins (#1262): the handler had no bound of its own, so a filesystem slow
+            // enough to run past the client's 15s RPC deadline surfaced as "outcome unknown" with
+            // nothing in the server log. A zero budget is the deterministic stand-in for that host.
+            withSqlDatabase {
+                val (service) = makeService(db = this, browseBudget = Duration.ZERO)
+                runTest {
+                    val parent = createTempDir()
+                    parent.resolve("alpha").apply { mkdir() }
+
+                    val result = service.browseFilesystem(parent.absolutePath)
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    (result as AppResult.Failure).error.shouldBeInstanceOf<LibraryError.BrowseTimedOut>()
+                }
+            }
+        }
+
+        test("browseFilesystem keeps a child whose own listing cannot be read") {
+            // Per-entry degradation: one unreadable child reports zero items rather than sinking
+            // the whole listing and stranding the operator on an empty picker (#1262).
+            withSqlDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val parent = createTempDir()
+                    val readable = parent.resolve("readable").apply { mkdir() }
+                    readable.resolve("book.m4b").apply { createNewFile() }
+                    val locked = parent.resolve("locked").apply { mkdir() }
+                    locked.resolve("hidden.m4b").apply { createNewFile() }
+                    locked.setReadable(false, false)
+                    // root bypasses the permission bits entirely, so in a root container there is no
+                    // unreadable directory to build the case on. Nothing to assert rather than a
+                    // false green: the budget and probe tests still cover the rest of the hardening.
+                    val droppedPermission = locked.listFiles() == null
+                    if (!droppedPermission) return@runTest
+
+                    try {
+                        val result = service.browseFilesystem(parent.absolutePath)
+                        result.shouldBeInstanceOf<AppResult.Success<*>>()
+                        val entries = (result as AppResult.Success).data
+                        entries.map { it.name }.toSet() shouldBe setOf("readable", "locked")
+                        entries.first { it.name == "readable" }.itemCount shouldBe 1
+                        entries.first { it.name == "locked" }.itemCount shouldBe 0
+                    } finally {
+                        locked.setReadable(true, false)
+                    }
+                }
+            }
+        }
+
+        test("browseFilesystem reports hasChildren without stat-ing past the probe limit") {
+            // The per-grandchild stat is what multiplies the walk, so it is bounded. Past the
+            // bound the answer is `true` — the safe direction, since the picker descends on a
+            // chevron and a missing one would make a real sub-folder unreachable.
+            withSqlDatabase {
+                val (service) = makeService(db = this)
+                runTest {
+                    val parent = createTempDir()
+                    val flat = parent.resolve("flat").apply { mkdir() }
+                    repeat(HAS_CHILDREN_PROBE_LIMIT + 1) { index ->
+                        flat.resolve("track-$index.m4b").apply { createNewFile() }
+                    }
+
+                    val result = service.browseFilesystem(parent.absolutePath)
+                    result.shouldBeInstanceOf<AppResult.Success<*>>()
+                    val entry = (result as AppResult.Success).data.first { it.name == "flat" }
+                    // itemCount stays exact — it costs one readdir, not one stat per entry.
+                    entry.itemCount shouldBe HAS_CHILDREN_PROBE_LIMIT + 1
+                    entry.hasChildren shouldBe true
                 }
             }
         }
@@ -478,6 +552,7 @@ private fun makeService(
     orchestrator: ScanOrchestrator = noOpOrchestrator(),
     role: UserRole = UserRole.ADMIN,
     clock: Clock = Clock.System,
+    browseBudget: Duration = 10.seconds,
 ): ServiceFixture {
     val sql = db.sql
     val driver = db.driver
@@ -527,6 +602,7 @@ private fun makeService(
             scanOrchestrator = orchestrator,
             libraryRegistry = libraryRegistry,
             clock = clock,
+            browseBudget = browseBudget,
         ).copyWith(
             PrincipalProvider { UserPrincipal(UserId("caller"), SessionId("s-caller"), role) },
         )
