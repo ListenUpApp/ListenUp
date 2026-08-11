@@ -177,3 +177,26 @@ internal fun ApplicationConfig.periodicRescanInterval(): Duration =
         ?.takeIf { it.isNotBlank() }
         ?.let { runCatching { Duration.parse(it) }.getOrNull() }
         ?: Duration.ZERO
+
+/**
+ * Reads `web.root` from configuration — the directory holding the bundled web client
+ * (`app/webApp/web`'s `vite build` output). Returns null when unset, blank, or not a directory,
+ * in which case no web-app route is mounted at all.
+ *
+ * Absent rather than empty is the honest default: a server image built without the web bundle
+ * should 404 at `/`, not serve a shell that loads nothing.
+ */
+internal fun Application.resolveWebRoot(): Path? {
+    val raw =
+        environment.config
+            .propertyOrNull("web.root")
+            ?.getString()
+            ?.trim()
+            .orEmpty()
+    if (raw.isBlank()) return null
+    val candidate = Path(raw)
+    if (SystemFileSystem.metadataOrNull(candidate)?.isDirectory != true) {
+        return null
+    }
+    return candidate
+}

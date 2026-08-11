@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ListenUp</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- The house web voice: Hanken Grotesk for everything, JetBrains Mono for machine-produced
+         text (durations, sizes, paths, status codes). Matches Web/Foundations.html exactly — it
+         does not load the Console face either. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Our web sheet, adapted from the design project's. Edit it here; the comps are the
+         reference, not a contract to transcribe. -->
+    <link rel="stylesheet" href="/src/web.css" />
+  </head>
+  <body>
+    <!-- Compose HTML mounts here. Main.kt looks this id up and no-ops when it is absent, which
+         is what lets the test bundle import the same module without a mount point. -->
+    <div id="app"></div>
+    <script type="module" src="/kotlin/listenup-app-webApp.mjs"></script>
+  </body>
+</html>

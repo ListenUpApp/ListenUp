@@ -64,7 +64,6 @@
     <ID>MagicNumber:ZipFormat.kt:48</ID>
     <ID>MagicNumber:ZipFormat.kt:56</ID>
     <ID>MagicNumber:ZipFormat.kt:8</ID>
-    <ID>MaxLineLength:AdminCategoriesScreen.kt:contentDescription = stringResource(if (allExpanded) Res.string.admin_collapse_all else Res.string.admin_expand_all)</ID>
     <ID>MaxLineLength:AppleDownloadService.kt:DownloadSessionDelegate$"Download $pct%: $filename (${totalBytesWritten / BYTES_PER_MEGABYTE}/${totalBytesExpectedToWrite / BYTES_PER_MEGABYTE}MB)"</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt:FakeDownloadEnqueuer$override suspend fun enqueue: AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt:JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
@@ -72,7 +71,6 @@
     <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt:private fun fakeJpeg: ByteArray</ID>
-    <ID>MaxLineLength:StorageScreen.kt:if (bookCount == 1) Res.string.settings_book_downloaded_count else Res.string.settings_books_downloaded_count</ID>
     <ID>NestedBlockDepth:BackupArchive.kt:BackupArchive$private fun extractEntries: ImageDigests</ID>
     <ID>NestedBlockDepth:Lz77.kt:internal fun lz77: IntArray</ID>
     <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:"Pause"</ID>
@@ -106,6 +104,8 @@
     <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject { parametersOf(destination.userId) }</ID>
     <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject()</ID>
     <ID>NoKoinInjectViewModel:ListenUpWindow.kt:koinInject()</ID>
+    <ID>NotImplementedDeclaration:DeviceContextProvider.js.kt:DeviceContextProvider$TODO("web: classify by viewport and pointer capability")</ID>
+    <ID>NotImplementedDeclaration:DownloadFileManager.js.kt:DownloadFileManager$TODO("web: offline download storage is undesigned")</ID>
     <ID>RedundantVisibilityModifier:Deflate.kt:DeflateRawSink : RawSink</ID>
     <ID>RedundantVisibilityModifier:Inflate.kt:InflateRawSource : RawSource</ID>
     <ID>RedundantVisibilityModifier:MalformedZipException.kt:MalformedZipException : Exception</ID>
@@ -118,7 +118,7 @@
     <ID>RedundantVisibilityModifier:ZipWriter.kt:ZipWriter : AutoCloseable</ID>
     <ID>RedundantVisibilityModifier:ZipWriter.kt:ZipWriter$public fun finish</ID>
     <ID>RedundantVisibilityModifier:ZipWriter.kt:ZipWriter$public fun putEntry: RawSink</ID>
-    <ID>StringLiteralDuplication:InotifyDirectoryWatcherNativeTest.kt:InotifyDirectoryWatcherNativeTest$"book.mp3"</ID>
+    <ID>StringLiteralDuplication:DownloadFileManager.js.kt:DownloadFileManager$"web: offline download storage is undesigned"</ID>
     <ID>StringLiteralDuplication:Mp4Parser.kt:Mp4Parser$"&lt;source&gt;"</ID>
     <ID>StringLiteralDuplication:PlatformModule.kt:"playbackScope"</ID>
     <ID>StringLiteralDuplication:PlaybackServiceImpl.kt:PlaybackServiceImpl$"principal"</ID>
@@ -180,7 +180,6 @@
     <ID>UnnecessaryParentheses:ZipReader.kt:ZipReader$(flags and ENCRYPTION_FLAG)</ID>
     <ID>UnusedParameter:ListenUpTray.kt:onExitApplication: () -&gt; Unit</ID>
     <ID>UnusedParameter:ListenUpTray.kt:onOpenWindow: () -&gt; Unit</ID>
-    <ID>UseIfInsteadOfWhen:DesktopNowPlayingBar.kt:when (state) { is NowPlayingState.Active -&gt; state.bookProgress.coerceIn(0f, 1f) else -&gt; 0f }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val appData = System.getenv("APPDATA") ?: "${System.getProperty("user.home")}/AppData/Roaming" File(appData, "ListenUp") } else -&gt; { // Linux and others: XDG Base Directory Specification val xdgData = System.getenv("XDG_DATA_HOME") ?: "${System.getProperty("user.home")}/.local/share" File(xdgData, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val localAppData = System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}/AppData/Local" File(localAppData, "ListenUp/cache") } else -&gt; { val xdgCache = System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache" File(xdgCache, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:StatsRepositoryImpl.kt:StatsRepositoryImpl$when (state) { is AuthState.Authenticated -&gt; state.userId.value else -&gt; null }</ID>
