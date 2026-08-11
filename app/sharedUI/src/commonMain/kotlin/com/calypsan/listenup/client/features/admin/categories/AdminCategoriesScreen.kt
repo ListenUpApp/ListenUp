@@ -436,6 +436,9 @@ private fun MergeGenreDialogHost(
         val source = ready?.genres?.firstOrNull { it.id == mergeSourceId }
         MergeGenreDialog(
             sourceName = mergeSourceName,
+            // source is only null if the genre vanished from the live list mid-dialog (this
+            // dialog is opened from a row in that same list) — the merge would fail
+            // server-side anyway, so 0 is a safe placeholder rather than a real count.
             sourceBookCount = source?.bookCount ?: 0,
             candidates = ready?.genres.orEmpty().filter { it.id != mergeSourceId },
             onConfirm = { targetId ->

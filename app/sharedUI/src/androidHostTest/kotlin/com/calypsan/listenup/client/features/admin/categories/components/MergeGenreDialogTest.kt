@@ -32,7 +32,7 @@ class MergeGenreDialogTest {
             MaterialTheme {
                 MergeGenreDialog(
                     sourceName = SOURCE_NAME,
-                    sourceBookCount = 3,
+                    sourceBookCount = PLURAL_BOOK_COUNT,
                     candidates = listOf(TARGET),
                     onConfirm = { merged = it },
                     onDismiss = {},
@@ -51,7 +51,7 @@ class MergeGenreDialogTest {
             MaterialTheme {
                 MergeGenreDialog(
                     sourceName = SOURCE_NAME,
-                    sourceBookCount = 3,
+                    sourceBookCount = PLURAL_BOOK_COUNT,
                     candidates = listOf(TARGET),
                     onConfirm = {},
                     onDismiss = {},
@@ -62,7 +62,7 @@ class MergeGenreDialogTest {
         composeRule.onNodeWithText(TARGET_NAME).performClick()
 
         composeRule
-            .onNodeWithText("Moving “$SOURCE_NAME” into “$TARGET_NAME”. 3 books will move.")
+            .onNodeWithText("Moving “$SOURCE_NAME” into “$TARGET_NAME”. $PLURAL_BOOK_COUNT books will move.")
             .assertIsDisplayed()
         composeRule.onNodeWithText("This action cannot be undone.").assertIsDisplayed()
     }
@@ -74,7 +74,7 @@ class MergeGenreDialogTest {
             MaterialTheme {
                 MergeGenreDialog(
                     sourceName = SOURCE_NAME,
-                    sourceBookCount = 1,
+                    sourceBookCount = SINGULAR_BOOK_COUNT,
                     candidates = listOf(TARGET),
                     onConfirm = { merged = it },
                     onDismiss = {},
@@ -83,6 +83,11 @@ class MergeGenreDialogTest {
         }
 
         composeRule.onNodeWithText(TARGET_NAME).performClick()
+
+        composeRule
+            .onNodeWithText("Moving “$SOURCE_NAME” into “$TARGET_NAME”. $SINGULAR_BOOK_COUNT book will move.")
+            .assertIsDisplayed()
+
         composeRule.onNodeWithText(MERGE_BUTTON).performClick()
 
         merged shouldBe TARGET_ID
@@ -95,7 +100,7 @@ class MergeGenreDialogTest {
             MaterialTheme {
                 MergeGenreDialog(
                     sourceName = SOURCE_NAME,
-                    sourceBookCount = 3,
+                    sourceBookCount = PLURAL_BOOK_COUNT,
                     candidates = listOf(TARGET),
                     onConfirm = { merged = it },
                     onDismiss = {},
@@ -117,6 +122,8 @@ class MergeGenreDialogTest {
         const val TARGET_PATH = "/fiction/fantasy"
         const val MERGE_BUTTON = "Merge"
         const val BACK_BUTTON = "Back"
+        const val SINGULAR_BOOK_COUNT = 1
+        const val PLURAL_BOOK_COUNT = 3
 
         val TARGET =
             Genre(
