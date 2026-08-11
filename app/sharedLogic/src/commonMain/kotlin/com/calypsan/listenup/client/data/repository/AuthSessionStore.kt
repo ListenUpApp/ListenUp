@@ -117,6 +117,14 @@ internal class AuthSessionStore(
                 }
                 return
             }
+            // Holding a session is proof the server has an admin, so the cached setupRequired is
+            // false whatever it last said — and this is the one funnel login, register AND setup
+            // all pass through. Without it the "true" cached on a first boot against an empty
+            // server outlives the setup that answered it, and the next cold start with no session
+            // offers to create an admin on a server that already has one. Written BEFORE the access
+            // token so the C9 order below still holds.
+            secureStorage.save(KEY_SETUP_REQUIRED, false.toString())
+
             // Write order (C9): refresh → session → user → access. The access token is the readiness
             // signal a concurrent reader keys on, so it lands LAST — never a new access token paired
             // with a stale refresh token.
@@ -232,8 +240,13 @@ internal class AuthSessionStore(
         }
 
         // Honour the last-known setupRequired so a relaunch on a server that still has no admin routes
-        // to setup, not to login — offline, from the value cached by [checkServerStatus]. A stale "true"
-        // self-corrects: SetupViewModel re-runs checkServerStatus on entry.
+        // to setup, not to login — offline, from the value cached by [checkServerStatus] and cleared
+        // by [saveAuthTokens] the moment any session is established.
+        //
+        // That clearing is what keeps this honest, and it is NOT belt-and-braces: `SetupViewModel`
+        // has no init that re-checks, only a `handleFailure` branch for `SetupAlreadyComplete`, so a
+        // stale "true" surviving to here strands the reader on the first-run form until they fill it
+        // in and submit it to be told the server already has an admin.
         return if (getCachedSetupRequired()) {
             DomainAuthState.NeedsSetup
         } else {

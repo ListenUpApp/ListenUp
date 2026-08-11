@@ -177,6 +177,51 @@ class AuthSessionStoreTest :
             }
         }
 
+        test("a completed setup clears the cached setupRequired, so a later cold start lands on sign-in") {
+            runTest {
+                val storage = RecordingStorage()
+                val store = createStore(storage = storage)
+
+                // First boot against a server with no admin caches "setup required" — the only
+                // place this key is ever written is checkServerStatus().
+                storage.data["setup_required"] = "true"
+
+                // Completing setup funnels through saveAuthTokens exactly as login and register do.
+                store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "s", "u")
+
+                // Holding a session is proof the server has an admin, whatever the cache last said.
+                storage.data["setup_required"] shouldBe "false"
+
+                // Sign out, then relaunch: a new store over the same storage IS a cold start.
+                store.clearAuthTokens()
+                val serverConfig = createMockServerConfig()
+                everySuspend { serverConfig.getServerUrl() } returns ServerUrl("https://api.example.com")
+                val relaunched = createStore(storage = storage, serverConfig = serverConfig)
+                relaunched.initializeAuthState()
+
+                // Before the fix this was NeedsSetup — the first-run screen, on a configured server,
+                // recoverable only by filling in the whole form and being told it already exists.
+                relaunched.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+            }
+        }
+
+        test("a stale-epoch saveAuthTokens does not touch the cached setupRequired") {
+            runTest {
+                val storage = RecordingStorage()
+                val store = createStore(storage = storage)
+                store.saveAuthTokens(AccessToken("a0"), RefreshToken("r0"), "s0", "u0")
+                val epoch = store.currentAuthEpoch()
+                store.clearAuthTokens()
+                storage.data["setup_required"] = "true"
+
+                // A refresh that lost the race to a logout establishes no session, so it has
+                // learned nothing about the server and must not overwrite what is cached.
+                store.saveAuthTokens(AccessToken("a1"), RefreshToken("r1"), "s1", "u1", ifEpoch = epoch)
+
+                storage.data["setup_required"] shouldBe "true"
+            }
+        }
+
         test("getAccessToken returns stored token") {
             runTest {
                 val storage = createMockStorage()
