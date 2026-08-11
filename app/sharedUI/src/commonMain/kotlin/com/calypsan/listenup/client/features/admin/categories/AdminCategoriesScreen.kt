@@ -433,8 +433,10 @@ private fun MergeGenreDialogHost(
 
     if (showMergeDialog) {
         val ready = state as? AdminCategoriesUiState.Ready
+        val source = ready?.genres?.firstOrNull { it.id == mergeSourceId }
         MergeGenreDialog(
             sourceName = mergeSourceName,
+            sourceBookCount = source?.bookCount ?: 0,
             candidates = ready?.genres.orEmpty().filter { it.id != mergeSourceId },
             onConfirm = { targetId ->
                 viewModel.mergeGenres(mergeSourceId, targetId)
