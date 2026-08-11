@@ -37,7 +37,7 @@ class RpcGuardNativeTest :
         test("guard sanitizes thrown exception on native") {
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client")
             val server =
-                foundationServer(port = 0, deps = FoundationDeps(jwt) { true }) {
+                foundationServer(port = 0, deps = FoundationDeps(jwt, sessionLiveness = { true })) {
                     routing {
                         rpc("/api/rpc/public") {
                             rpcConfig { serialization { json(contractJson) } }
