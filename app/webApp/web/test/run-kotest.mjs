@@ -26,7 +26,7 @@ import { isSettled, problemsFor } from './settle.mjs'
 //
 // Counted against `testStarted`, so a spec that quietly becomes server-gated trips the floor the
 // same as one that stops compiling: 147 specs, 144 run here, all 147 run under `test:auth`.
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 98)
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 144)
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main` with
 // an empty continuation, so there is no promise to await either. Completion is therefore inferred
