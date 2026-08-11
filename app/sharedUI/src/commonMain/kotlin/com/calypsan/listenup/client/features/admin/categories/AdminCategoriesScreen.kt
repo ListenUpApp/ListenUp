@@ -72,6 +72,7 @@ import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpFab
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.domain.model.Genre
+import com.calypsan.listenup.client.features.admin.categories.components.MergeGenreDialog
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesViewModel
 import com.calypsan.listenup.client.presentation.admin.GenreTreeNode
@@ -88,10 +89,8 @@ import listenup.composeapp.generated.resources.admin_confirm_delete_item
 import listenup.composeapp.generated.resources.admin_expand_all
 import listenup.composeapp.generated.resources.admin_genre_name
 import listenup.composeapp.generated.resources.admin_merge_into
-import listenup.composeapp.generated.resources.admin_merge_into_named
 import listenup.composeapp.generated.resources.admin_move_to
 import listenup.composeapp.generated.resources.admin_move_to_named
-import listenup.composeapp.generated.resources.admin_no_merge_target_available
 import listenup.composeapp.generated.resources.admin_no_move_target_top_level_only
 import listenup.composeapp.generated.resources.admin_rename_genre
 import listenup.composeapp.generated.resources.admin_tap_to_create_your_first
@@ -434,8 +433,13 @@ private fun MergeGenreDialogHost(
 
     if (showMergeDialog) {
         val ready = state as? AdminCategoriesUiState.Ready
+        val source = ready?.genres?.firstOrNull { it.id == mergeSourceId }
         MergeGenreDialog(
             sourceName = mergeSourceName,
+            // source is only null if the genre vanished from the live list mid-dialog (this
+            // dialog is opened from a row in that same list) — the merge would fail
+            // server-side anyway, so 0 is a safe placeholder rather than a real count.
+            sourceBookCount = source?.bookCount ?: 0,
             candidates = ready?.genres.orEmpty().filter { it.id != mergeSourceId },
             onConfirm = { targetId ->
                 viewModel.mergeGenres(mergeSourceId, targetId)
@@ -1001,53 +1005,6 @@ private fun EmptyCategoriesMessage(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-/**
- * Merge picker — choose which live genre to merge the source into. Source is
- * filtered out of the candidate list. Confirms with the chosen target id.
- */
-@Composable
-private fun MergeGenreDialog(
-    sourceName: String,
-    candidates: List<Genre>,
-    onConfirm: (targetId: String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(Res.string.admin_merge_into_named, sourceName)) },
-        text = {
-            if (candidates.isEmpty()) {
-                Text(stringResource(Res.string.admin_no_merge_target_available))
-            } else {
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(candidates, key = { it.id }) { candidate ->
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onConfirm(candidate.id) }
-                                    .padding(vertical = 12.dp),
-                        ) {
-                            Column {
-                                Text(text = candidate.name, style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    text = candidate.path,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
-        },
-    )
 }
 
 /**

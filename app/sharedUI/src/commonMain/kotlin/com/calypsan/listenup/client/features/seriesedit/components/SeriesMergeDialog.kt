@@ -29,8 +29,11 @@ import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.core.SeriesId
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
+import listenup.composeapp.generated.resources.common_cannot_be_undone
 import listenup.composeapp.generated.resources.common_search
 import listenup.composeapp.generated.resources.series_merge_body
+import listenup.composeapp.generated.resources.series_merge_book_count
+import listenup.composeapp.generated.resources.series_merge_book_count_plural
 import listenup.composeapp.generated.resources.series_merge_confirm
 import listenup.composeapp.generated.resources.series_merge_search_placeholder
 import listenup.composeapp.generated.resources.series_merge_title
@@ -51,6 +54,7 @@ private const val SELECTED_BG_ALPHA = 0.4f
  *
  * @param candidates Live merge-target candidates (already filtered by [query] on the VM).
  * @param query Current search-query value; bound to the text field.
+ * @param bookCount Books in the source series — the number that will move.
  * @param onQueryChange Called as the user types.
  * @param onConfirm Called with the highlighted candidate's id when the user taps Merge.
  * @param onDismiss Called when the user taps Cancel or dismisses the dialog.
@@ -59,6 +63,7 @@ private const val SELECTED_BG_ALPHA = 0.4f
 fun SeriesMergeDialog(
     candidates: List<SeriesCandidate>,
     query: String,
+    bookCount: Int,
     onQueryChange: (String) -> Unit,
     onConfirm: (SeriesId) -> Unit,
     onDismiss: () -> Unit,
@@ -75,6 +80,21 @@ fun SeriesMergeDialog(
                 Text(
                     text = stringResource(Res.string.series_merge_body),
                     style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text =
+                        if (bookCount == 1) {
+                            stringResource(Res.string.series_merge_book_count, bookCount)
+                        } else {
+                            stringResource(Res.string.series_merge_book_count_plural, bookCount)
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text = stringResource(Res.string.common_cannot_be_undone),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
@@ -107,7 +127,10 @@ fun SeriesMergeDialog(
                 onClick = { selected?.let(onConfirm) },
                 enabled = selected != null,
             ) {
-                Text(stringResource(Res.string.series_merge_confirm))
+                Text(
+                    text = stringResource(Res.string.series_merge_confirm),
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         },
         dismissButton = {

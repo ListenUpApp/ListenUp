@@ -201,6 +201,7 @@ fun SeriesEditScreen(
         SeriesMergeDialog(
             candidates = mergeCandidates,
             query = state.mergeQuery,
+            bookCount = state.bookCount,
             onQueryChange = viewModel::onMergeQueryChange,
             onConfirm = { targetId ->
                 showMergeDialog = false
