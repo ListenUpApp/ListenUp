@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
  * Both the claim and the ticket id survive the app being killed, so a user who closes the app
  * while waiting and returns later with the code (by phone, an hour on) can still finish.
  */
-internal interface PasswordResetRepository {
+interface PasswordResetRepository {
     /**
      * Opens a reset request for [email]. Mints and retains a device claim locally — the same
      * value is required again by [completeReset], which is what binds the reset to this install.

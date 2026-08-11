@@ -318,7 +318,10 @@ NowPlayingScreenState
 NowPlayingState
 NowPlayingViewModel
 PasswordChange
+PasswordResetRepository
 PasswordResetRequest
+PasswordResetStatus
+PasswordResetStatusEvent
 PendingApprovalUiState
 PendingApprovalViewModel
 PendingCover
