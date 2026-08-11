@@ -84,6 +84,7 @@ internal val authPresentationModule =
                 registrationStatusStream = get(),
                 userId = params.get<String>(0),
                 email = params.get<String>(1),
+                pushRegistrar = get(),
             )
         }
         factory {

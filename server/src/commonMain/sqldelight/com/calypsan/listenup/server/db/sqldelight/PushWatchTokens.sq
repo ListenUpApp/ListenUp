@@ -1,0 +1,56 @@
+-- push_watch_tokens: pre-auth "watch token" rows (#1068). PLAIN (non-syncable) server-owned
+-- table, deliberately SEPARATE from push_tokens: session tokens live and die with their
+-- session (the selectLiveForUser JOIN), watch tokens live and die with the decision they
+-- watch — merging the two lifecycles into one table would poison both query sets.
+--
+-- A row binds a device push token to one awaited decision: watch_kind names the flow
+-- ('registration' today; 'password_reset' next), watch_key its unguessable handle (the
+-- pending user id / reset ticket id). Rows are evicted right after the decision push
+-- (deleteForKey) and swept by TTL (deleteExpired) as the never-stranded backstop.
+CREATE TABLE push_watch_tokens (
+    token      TEXT    NOT NULL PRIMARY KEY,
+    platform   TEXT    NOT NULL,
+    watch_kind TEXT    NOT NULL,
+    watch_key  TEXT    NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_push_watch_tokens_key ON push_watch_tokens(watch_kind, watch_key);
+
+-- Register or refresh a watch. token is the primary key, so INSERT OR REPLACE atomically
+-- re-binds a token that re-registers (same device, new pending flow) — the repo's
+-- established upsert idiom (see PushTokens.sq).
+upsert:
+INSERT OR REPLACE INTO push_watch_tokens (token, platform, watch_kind, watch_key, created_at, expires_at)
+VALUES (:token, :platform, :watch_kind, :watch_key, :now, :expires_at);
+
+-- Unexpired tokens watching one decision — the fan-out set for a decision push.
+selectLiveForKey:
+SELECT token, platform FROM push_watch_tokens
+WHERE watch_kind = :watch_kind AND watch_key = :watch_key AND expires_at > :now;
+
+-- Cap enforcement: evict the oldest rows beyond the newest :keep for one watch key, so a
+-- token-churning client (or an abuser holding the handle) can't grow unbounded fan-out.
+deleteBeyondNewestForKey:
+DELETE FROM push_watch_tokens WHERE token IN (
+    SELECT token FROM push_watch_tokens
+    WHERE watch_kind = :watch_kind AND watch_key = :watch_key
+    ORDER BY created_at DESC
+    LIMIT -1 OFFSET :keep
+);
+
+-- Evict every watcher of a decided flow — a decided watch has nothing left to say.
+deleteForKey:
+DELETE FROM push_watch_tokens WHERE watch_kind = :watch_kind AND watch_key = :watch_key;
+
+-- Provider said the token is dead (relay verdict `invalid`).
+deleteByToken:
+DELETE FROM push_watch_tokens WHERE token = :token;
+
+-- TTL sweep, run with the session-expiry cleanup.
+deleteExpired:
+DELETE FROM push_watch_tokens WHERE expires_at <= :now;
+
+countAll:
+SELECT COUNT(*) FROM push_watch_tokens;

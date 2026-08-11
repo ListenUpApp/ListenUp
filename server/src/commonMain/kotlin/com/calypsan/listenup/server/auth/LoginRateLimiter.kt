@@ -23,6 +23,13 @@ enum class AuthRateBucket(
     REFRESH(30),
 
     /**
+     * `registerRegistrationWatchToken` — the pre-auth watch-token upsert (#1068). Idempotent
+     * and cheap, but public: a modest ceiling above LOGIN's covers the pending screen's
+     * register-on-open plus poll-tick refreshes without opening a write amplifier.
+     */
+    REGISTER_WATCH_TOKEN(20),
+
+    /**
      * `observeRegistrationStatus` subscriptions. Each open subscription runs a poll loop for as
      * long as the registration stays pending, so an unbounded stream of subscribe attempts is a
      * resource-exhaustion vector distinct from the request-per-call auth buckets above — hence a

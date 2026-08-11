@@ -38,4 +38,14 @@ internal interface PushRepository {
      * Rate-limited server-side.
      */
     suspend fun sendTestNotification(): AppResult<Unit>
+
+    /**
+     * Registers this device's push token as a pre-auth **registration watch** for the pending
+     * registration [userId] (#1068), over the public RPC — the waiter has no session yet.
+     * Deliberately oracle-free server-side: always succeeds whether or not anything was stored.
+     */
+    suspend fun registerRegistrationWatchToken(
+        userId: String,
+        token: String,
+    ): AppResult<Unit>
 }

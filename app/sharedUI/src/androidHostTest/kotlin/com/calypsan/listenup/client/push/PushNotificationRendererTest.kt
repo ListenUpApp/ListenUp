@@ -52,6 +52,33 @@ class PushNotificationRendererTest {
     }
 
     @Test
+    fun `approved registration decision renders the sign-in copy`() =
+        runTest {
+            NotificationChannels.registerAll(context)
+
+            renderer().render(PushPayload.RegistrationDecision(userId = "u1", approved = true))
+
+            val posted = onlyPosted()
+            posted.extras.getString(Notification.EXTRA_TITLE) shouldBe "You're in!"
+            posted.extras.getString(Notification.EXTRA_TEXT) shouldBe
+                "Your registration was approved — sign in to start listening."
+            posted.channelId shouldBe NotificationChannels.SOCIAL
+        }
+
+    @Test
+    fun `denied registration decision renders the declined copy`() =
+        runTest {
+            NotificationChannels.registerAll(context)
+
+            renderer().render(PushPayload.RegistrationDecision(userId = "u1", approved = false))
+
+            val posted = onlyPosted()
+            posted.extras.getString(Notification.EXTRA_TITLE) shouldBe "Registration update"
+            posted.extras.getString(Notification.EXTRA_TEXT) shouldBe "Your registration was declined."
+            posted.channelId shouldBe NotificationChannels.SOCIAL
+        }
+
+    @Test
     fun `test payload renders title+body on social channel`() =
         runTest {
             NotificationChannels.registerAll(context)

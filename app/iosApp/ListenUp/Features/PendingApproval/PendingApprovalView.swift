@@ -34,6 +34,11 @@ struct PendingApprovalView: View {
         } footer: {
             phaseFooter
         }
+        // Pre-auth is the other legitimate moment for the notification prompt (#1068): a
+        // pending registrant wants to hear the decision. activate() is once-per-process, so a
+        // later post-auth call from RootView is a no-op. The APNs token this produces flows to
+        // the shared PendingApprovalViewModel's watch registration, retried on Check Status.
+        .onAppear { PushCoordinator.shared.activate() }
     }
 
     // MARK: - Phase content
@@ -61,6 +66,13 @@ struct PendingApprovalView: View {
             PendingReviewChip()
             RegistrationTimeline(email: wrapper.email)
             AutoCheckRow()
+            if wrapper.notifyPromise {
+                // Only shown once a registration watch is actually held — an honest promise.
+                Text(String(localized: "auth.pending_notify_line"))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
         }
     }
 

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.api.result.AppResult
@@ -20,6 +21,7 @@ import com.calypsan.listenup.client.domain.repository.PushRepository
  */
 internal class PushRepositoryImpl(
     private val channel: RpcChannel<PushService>,
+    private val publicAuthChannel: RpcChannel<AuthServicePublic>,
     private val platform: PushPlatform,
 ) : PushRepository {
     override suspend fun registerToken(token: String): AppResult<Unit> =
@@ -28,4 +30,9 @@ internal class PushRepositoryImpl(
     override suspend fun unregisterToken(token: String): AppResult<Unit> = channel.call { it.unregisterToken(token) }
 
     override suspend fun sendTestNotification(): AppResult<Unit> = channel.call { it.sendTestNotification() }
+
+    override suspend fun registerRegistrationWatchToken(
+        userId: String,
+        token: String,
+    ): AppResult<Unit> = publicAuthChannel.call { it.registerRegistrationWatchToken(userId, token, platform) }
 }

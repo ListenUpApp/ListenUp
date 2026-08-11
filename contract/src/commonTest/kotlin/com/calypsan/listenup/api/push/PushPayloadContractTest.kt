@@ -26,6 +26,12 @@ class PushPayloadContractTest :
             contractJson.decodeFromString(PushPayload.serializer(), json) shouldBe original
         }
 
+        test("RegistrationDecision round-trips") {
+            val original: PushPayload = PushPayload.RegistrationDecision(userId = "user-9", approved = true)
+            val json = contractJson.encodeToString(PushPayload.serializer(), original)
+            contractJson.decodeFromString(PushPayload.serializer(), json) shouldBe original
+        }
+
         test("discriminators are wire-stable") {
             contractJson.encodeToString(
                 PushPayload.serializer(),
@@ -35,6 +41,10 @@ class PushPayloadContractTest :
                 PushPayload.serializer(),
                 PushPayload.CampfireInvite("c", "b", "u"),
             ) shouldContain "\"campfire_invite\""
+            contractJson.encodeToString(
+                PushPayload.serializer(),
+                PushPayload.RegistrationDecision("u", approved = false),
+            ) shouldContain "\"registration_decision\""
         }
 
         test("unknown discriminator fails decode (pins the client generic-branch contract)") {

@@ -16,6 +16,9 @@ final class PendingApprovalViewModelWrapper {
     }
 
     private(set) var phase: Phase = .waiting
+    /// `true` once this device holds a registration watch (#1068) — the screen may then
+    /// honestly promise "we'll notify you when you're approved".
+    private(set) var notifyPromise = false
     let email: String
 
     // MARK: - Dependencies
@@ -29,6 +32,9 @@ final class PendingApprovalViewModelWrapper {
         self.viewModel = viewModel
         self.email = viewModel.email
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+        bridge.bind(viewModel.notifyPromise) { [weak self] promised in
+            self?.notifyPromise = promised
+        }
     }
 
     // Isolated deinit (SE-0371, Swift 6.2): runs hopped onto the main actor, so the

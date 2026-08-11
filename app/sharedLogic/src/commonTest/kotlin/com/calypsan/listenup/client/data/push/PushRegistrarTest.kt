@@ -13,6 +13,7 @@ import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode.Companion.exactly
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /** Fake [PushTokenProvider] returning a fixed [token] (or `null` to simulate "no token yet"). */
@@ -35,6 +36,51 @@ private fun serverInfo(pushEnabled: Boolean): ServerInfo =
 
 class PushRegistrarTest :
     FunSpec({
+
+        test("registerRegistrationWatch earns the promise only on a successful registration") {
+            runTest {
+                val instanceRepository =
+                    mock<InstanceRepository> {
+                        everySuspend { getServerInfoOrNull() } returns serverInfo(pushEnabled = true)
+                    }
+                val pushRepository =
+                    mock<PushRepository> {
+                        everySuspend { registerRegistrationWatchToken(any(), any()) } returns AppResult.Success(Unit)
+                    }
+                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"))
+
+                registrar.registerRegistrationWatch("user-1") shouldBe true
+                verifySuspend { pushRepository.registerRegistrationWatchToken("user-1", "token-1") }
+            }
+        }
+
+        test("registerRegistrationWatch is false — no promise — without a provider, token, enabled push, or on failure") {
+            runTest {
+                val enabled =
+                    mock<InstanceRepository> {
+                        everySuspend { getServerInfoOrNull() } returns serverInfo(pushEnabled = true)
+                    }
+                val disabled =
+                    mock<InstanceRepository> {
+                        everySuspend { getServerInfoOrNull() } returns serverInfo(pushEnabled = false)
+                    }
+                val failing =
+                    mock<PushRepository> {
+                        everySuspend { registerRegistrationWatchToken(any(), any()) } returns
+                            AppResult.Failure(PushError.PushDisabled())
+                    }
+                val unusedRepo = mock<PushRepository>()
+
+                PushRegistrar(enabled, unusedRepo, tokenProvider = null)
+                    .registerRegistrationWatch("u") shouldBe false
+                PushRegistrar(enabled, unusedRepo, FakePushTokenProvider(null))
+                    .registerRegistrationWatch("u") shouldBe false
+                PushRegistrar(disabled, unusedRepo, FakePushTokenProvider("t"))
+                    .registerRegistrationWatch("u") shouldBe false
+                PushRegistrar(enabled, failing, FakePushTokenProvider("t"))
+                    .registerRegistrationWatch("u") shouldBe false
+            }
+        }
 
         test("registers the current token when pushEnabled") {
             runTest {

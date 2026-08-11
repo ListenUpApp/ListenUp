@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.sync.reconnectDelayMillis
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
@@ -45,9 +46,21 @@ class PendingApprovalViewModel(
     private val registrationStatusStream: RegistrationStatusStream,
     val userId: String,
     val email: String,
+    /** Nullable so minimal test graphs assemble; null means no watch, no promise line. */
+    private val pushRegistrar: PushRegistrar? = null,
 ) : ViewModel() {
     val state: StateFlow<PendingApprovalUiState>
         field = MutableStateFlow<PendingApprovalUiState>(PendingApprovalUiState.Waiting)
+
+    /**
+     * `true` once this device holds a live registration watch (#1068) — the screen may then
+     * honestly promise "we'll notify you when you're approved". Deliberately a secondary flow,
+     * not a field on [PendingApprovalUiState.Waiting]: the repeated-status ticks re-synthesize
+     * Waiting freely, and a flag folded in there would be erased by every tick (the exact bug
+     * class ForgotPasswordViewModel's nextState guard documents).
+     */
+    val notifyPromise: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
     private var streamJob: Job? = null
     private var pollJob: Job? = null
@@ -56,6 +69,21 @@ class PendingApprovalViewModel(
     init {
         connectToStream()
         startStatusPolling()
+        registerWatch()
+    }
+
+    /**
+     * Best-effort pre-auth watch registration. Re-attempted from [checkStatus] while the
+     * promise is unearned — the iOS token often arrives moments after this screen does (the
+     * authorization prompt races the first attempt), and re-registration is a server upsert.
+     */
+    private fun registerWatch() {
+        val registrar = pushRegistrar ?: return
+        viewModelScope.launch {
+            if (!notifyPromise.value) {
+                notifyPromise.value = registrar.registerRegistrationWatch(userId)
+            }
+        }
     }
 
     override fun onCleared() {
@@ -184,6 +212,7 @@ class PendingApprovalViewModel(
                 connectToStream()
             }
         }
+        registerWatch()
     }
 
     /** Cancel the pending registration and return to login. */

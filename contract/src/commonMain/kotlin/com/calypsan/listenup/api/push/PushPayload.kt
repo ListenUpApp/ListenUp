@@ -45,6 +45,26 @@ sealed interface PushPayload {
         val inviterUserId: String,
     ) : PushPayload
 
-    // Reserved future discriminator (documented, NOT implemented):
+    /**
+     * An admin decided this device's pending registration (#1068). Delivered to the
+     * registration watch tokens registered pre-auth while the pending screen was open —
+     * possession of the unguessable [userId] handle is the credential, exactly as it is for
+     * `AuthServicePublic.observeRegistrationStatus`. Tap-through opens the app: approved lands
+     * on login, denied shows the denial via the existing status stream.
+     */
+    @Serializable
+    @SerialName("registration_decision")
+    data class RegistrationDecision(
+        /** The pending registration's user id (the watch key). */
+        @SerialName("userId")
+        val userId: String,
+        /** `true` = approved (sign in now); `false` = denied. */
+        @SerialName("approved")
+        val approved: Boolean,
+    ) : PushPayload
+
+    // Reserved future discriminators (documented, NOT implemented):
     // "registration_approval" — admin approval request with Approve/Deny background actions.
+    // "password_reset_request" / "password_reset_decision" — spec 2026-08-11 §3, land with the
+    // password-reset notification step once the watch mechanism (this file's sibling) is in.
 }

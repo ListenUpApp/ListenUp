@@ -51,6 +51,32 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
 /**
+ * The [AdminUserServiceImpl] singleton, extracted from [authModule] purely to keep that
+ * function under the LongMethod threshold. `getOrNull()` collaborators are modules that may
+ * not be loaded in minimal test containers (roster, profiles, push).
+ */
+private fun org.koin.core.module.Module.adminUserServiceSingle() {
+    single {
+        AdminUserServiceImpl(
+            sql = get<ListenUpDatabase>(),
+            sessions = get(),
+            settings = get(),
+            registrationBroadcaster = get(),
+            registrationPolicyBroadcaster = get(),
+            bus = get(),
+            clock = get(),
+            publicProfileMaintainer = getOrNull(),
+            activityRecorder = getOrNull(),
+            defaultGrantIssuer = getOrNull(),
+            adminUserRosterMaintainer = getOrNull(),
+            pushNotifier = getOrNull(),
+            pushWatchTokens = getOrNull(),
+            passwordResetService = get(),
+        )
+    }
+}
+
+/**
  * Koin server module wiring the auth slice end-to-end. [config] is the Ktor
  * application config — read once at startup, never re-read.
  *
@@ -156,6 +182,8 @@ fun authModule(
                 defaultGrantIssuer = getOrNull(),
                 // Nullable — the admin-roster module may not be loaded in minimal test containers.
                 adminUserRosterMaintainer = getOrNull(),
+                // Nullable — the push module may not be loaded in minimal test containers.
+                pushWatchTokens = getOrNull(),
                 // The same singleton AdminUserServiceImpl notifies on a decision — must be shared,
                 // not the constructor's default fresh instance, or observeRegistrationStatus would
                 // never see a live approve/deny push.
@@ -168,23 +196,7 @@ fun authModule(
             )
         }
 
-        single {
-            AdminUserServiceImpl(
-                sql = get<ListenUpDatabase>(),
-                sessions = get(),
-                settings = get(),
-                registrationBroadcaster = get(),
-                registrationPolicyBroadcaster = get(),
-                bus = get(),
-                clock = get(),
-                publicProfileMaintainer = getOrNull(),
-                activityRecorder = getOrNull(),
-                defaultGrantIssuer = getOrNull(),
-                // Nullable — the admin-roster module may not be loaded in minimal test containers.
-                adminUserRosterMaintainer = getOrNull(),
-                passwordResetService = get(),
-            )
-        }
+        adminUserServiceSingle()
 
         single {
             AdminSettingsServiceImpl(
@@ -232,7 +244,7 @@ fun authModule(
             )
         }
 
-        single { ExpiredSessionCleanupTask(sessionService = get(), clock = get()) }
+        single { ExpiredSessionCleanupTask(sessionService = get(), clock = get(), pushWatchTokens = getOrNull()) }
 
         single { RegistrationBroadcaster() }
 

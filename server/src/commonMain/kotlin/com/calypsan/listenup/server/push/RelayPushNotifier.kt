@@ -40,9 +40,43 @@ class RelayPushNotifier(
             suspendTransaction(db) {
                 db.pushTokensQueries.selectLiveForUser(userId, clock.now().toEpochMilliseconds()).executeAsList()
             }
-        if (rows.isEmpty()) return
         // Rows store the PushPlatform enum name ("ANDROID"); the relay protocol speaks lowercase.
-        val tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) }
+        fanOut(
+            tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) },
+            payload = payload,
+        ) { dead -> suspendTransaction(db) { dead.forEach { db.pushTokensQueries.deleteByToken(it) } } }
+    }
+
+    override suspend fun notifyWatch(
+        kind: PushWatchKind,
+        key: String,
+        payload: PushPayload,
+    ) {
+        if (!settings.pushNotificationsEnabled()) return
+        val rows =
+            suspendTransaction(db) {
+                db.pushWatchTokensQueries
+                    .selectLiveForKey(kind.wire, key, clock.now().toEpochMilliseconds())
+                    .executeAsList()
+            }
+        fanOut(
+            tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) },
+            payload = payload,
+        ) { dead -> suspendTransaction(db) { dead.forEach { db.pushWatchTokensQueries.deleteByToken(it) } } }
+    }
+
+    /**
+     * The shared relay fan-out: encode once, send, retry the whole batch once on transport
+     * failure, delete provider-reported dead tokens via [deleteDead], retry `retryable`
+     * verdicts once. Token-set resolution and eviction differ per audience; everything after
+     * is identical.
+     */
+    private suspend fun fanOut(
+        tokens: List<PushRelayClient.RelayToken>,
+        payload: PushPayload,
+        deleteDead: suspend (List<String>) -> Unit,
+    ) {
+        if (tokens.isEmpty()) return
         val payloadJson = contractJson.encodeToJsonElement(PushPayload.serializer(), payload)
         val collapseKey = collapseKeyFor(payload)
 
@@ -58,7 +92,7 @@ class RelayPushNotifier(
                 }
         val invalid = response.results.filter { it.status == "invalid" }.map { it.token }
         if (invalid.isNotEmpty()) {
-            suspendTransaction(db) { invalid.forEach { db.pushTokensQueries.deleteByToken(it) } }
+            deleteDead(invalid)
         }
         val retryable =
             response.results
@@ -88,7 +122,11 @@ class RelayPushNotifier(
     private fun collapseKeyFor(payload: PushPayload): String? =
         when (payload) {
             is PushPayload.CampfireInvite -> "campfire_invite:${payload.campfireId}"
+
             is PushPayload.TestNotification -> null
+
+            // One notification per decided registration: a re-decide replaces, never stacks.
+            is PushPayload.RegistrationDecision -> "registration_decision:${payload.userId}"
         }
 
     private companion object {
