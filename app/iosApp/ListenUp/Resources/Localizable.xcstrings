@@ -851,6 +851,46 @@
         }
       }
     },
+    "admin.merge_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge"
+          }
+        }
+      }
+    },
+    "admin.merge_genre_confirm_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moving “%1$@” into “%2$@”. %3$d book will move."
+          }
+        }
+      }
+    },
+    "admin.merge_genre_confirm_body_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moving “%1$@” into “%2$@”. %3$d books will move."
+          }
+        }
+      }
+    },
+    "admin.merge_genre_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge into “%1$@”?"
+          }
+        }
+      }
+    },
     "admin.merge_into": {
       "localizations": {
         "en": {
@@ -4107,6 +4147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancel"
+          }
+        }
+      }
+    },
+    "common.cannot_be_undone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This action cannot be undone."
           }
         }
       }
@@ -10997,6 +11047,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "All of this series's books will be re-pointed at the target. This series will be deleted; the target's description, cover, and other details win."
+          }
+        }
+      }
+    },
+    "series.merge_book_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d book will move."
+          }
+        }
+      }
+    },
+    "series.merge_book_count_plural": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books will move."
           }
         }
       }

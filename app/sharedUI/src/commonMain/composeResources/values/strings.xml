@@ -85,6 +85,10 @@
     <string name="admin_library_settings_subtitle">Manage scan folders and rescan your library</string>
     <string name="admin_link_copied">Link copied!</string>
     <string name="admin_management">Management</string>
+    <string name="admin_merge_confirm">Merge</string>
+    <string name="admin_merge_genre_confirm_body">Moving “%1$s” into “%2$s”. %3$d book will move.</string>
+    <string name="admin_merge_genre_confirm_body_plural">Moving “%1$s” into “%2$s”. %3$d books will move.</string>
+    <string name="admin_merge_genre_confirm_title">Merge into “%1$s”?</string>
     <string name="admin_merge_into">Merge into…</string>
     <string name="admin_merge_into_named">Merge “%1$s” into…</string>
     <string name="admin_migrate_listening_history">Migrate listening history from ABS backup</string>
@@ -412,6 +416,7 @@ One beautiful library.</string>
     <string name="common_books">books</string>
     <string name="common_books_count">%1$d books</string>
     <string name="common_cancel">Cancel</string>
+    <string name="common_cannot_be_undone">This action cannot be undone.</string>
     <string name="common_categories">Categories</string>
     <string name="common_checking_server">Checking server...</string>
     <string name="common_clear_date">Clear date</string>
@@ -1101,6 +1106,8 @@ One beautiful library.</string>
     <string name="series_label">SERIES</string>
     <string name="series_listen_again">Listen Again</string>
     <string name="series_merge_body">All of this series's books will be re-pointed at the target. This series will be deleted; the target's description, cover, and other details win.</string>
+    <string name="series_merge_book_count">%1$d book will move.</string>
+    <string name="series_merge_book_count_plural">%1$d books will move.</string>
     <string name="series_merge_confirm">Merge</string>
     <string name="series_merge_into">Merge into…</string>
     <string name="series_merge_search_placeholder">Search series…</string>
