@@ -59,6 +59,11 @@ struct ForgotPasswordView: View {
                         textContentType: .emailAddress
                     )
                 }
+                ForgotPasswordHowItWorks(steps: [
+                    String(localized: "auth.forgot_password_step_request"),
+                    String(localized: "auth.forgot_password_step_code"),
+                    String(localized: "auth.forgot_password_step_finish"),
+                ])
             }
         case .submitting:
             VStack(spacing: 20) {
@@ -67,19 +72,8 @@ struct ForgotPasswordView: View {
                     .controlSize(.large)
                     .frame(maxWidth: .infinity)
             }
-        case .awaitingApproval:
-            VStack(alignment: .leading, spacing: 20) {
-                AuthLargeHeader(
-                    title: String(localized: "auth.forgot_password_title"),
-                    subtitle: String(localized: "auth.forgot_password_awaiting")
-                ) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 44))
-                        .foregroundStyle(Color.listenUpOrange)
-                        .accessibilityHidden(true)
-                }
-                autoCheckRow
-            }
+        case .awaitingApproval(let ticketId):
+            awaitingContent(ticketId: ticketId)
         case .enterCode(let attemptsRemaining, let error):
             enterCodeContent(attemptsRemaining: attemptsRemaining, error: error)
         case .denied:
@@ -100,19 +94,20 @@ struct ForgotPasswordView: View {
     }
 
     private func enterCodeContent(attemptsRemaining: Int?, error: String?) -> some View {
-        VStack(alignment: .leading, spacing: 20) {
+        let displayedError = codeErrorDismissed ? nil : error
+        return VStack(alignment: .leading, spacing: 20) {
             AuthLargeHeader(
                 title: String(localized: "auth.forgot_password_title"),
                 subtitle: String(localized: "auth.forgot_password_enter_code")
             )
+            ForgotPasswordCodeField(code: codeBinding, isError: displayedError != nil)
+            if let displayedError {
+                Text(displayedError)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity)
+            }
             AuthFieldGroup {
-                AppTextField(
-                    placeholder: String(localized: "invite.enter_code"),
-                    text: codeBinding,
-                    icon: "key",
-                    error: codeErrorDismissed ? nil : error,
-                    isLast: false
-                )
                 AppTextField(
                     placeholder: String(localized: "auth.password_label"),
                     text: $newPassword,
@@ -120,11 +115,11 @@ struct ForgotPasswordView: View {
                     textContentType: .newPassword
                 )
             }
-            if let attemptsRemaining {
-                Text(String(format: String(localized: "auth.forgot_password_attempts"), attemptsRemaining))
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.red)
-            }
+            Text(String(localized: "auth.forgot_password_reveal_hint"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ForgotPasswordAttempts(remaining: attemptsRemaining)
         }
     }
 
@@ -133,10 +128,43 @@ struct ForgotPasswordView: View {
             title: String(localized: "auth.forgot_password_title"),
             subtitle: subtitle
         ) {
-            Image(systemName: success ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(success ? Color.listenUpOrange : .red)
-                .accessibilityHidden(true)
+            ForgotPasswordMark(symbol: success ? "checkmark" : "xmark", tone: success ? .good : .bad)
+        }
+    }
+
+    /// Waiting for a person. No admin is named — several may hold the role, and this is the one
+    /// state a request for an unrecognised address also reaches, so a name here would tell a
+    /// stranger whether an account exists.
+    private func awaitingContent(ticketId: String) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
+            AuthLargeHeader(
+                title: String(localized: "auth.forgot_password_title"),
+                subtitle: String(localized: "auth.forgot_password_awaiting")
+            ) {
+                ForgotPasswordMark(symbol: "clock")
+            }
+            Text(String(format: String(localized: "auth.forgot_password_ticket"), ticketId))
+                .font(.caption)
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 6)
+                .background(.background.secondary, in: .capsule)
+                .frame(maxWidth: .infinity)
+
+            ForgotPasswordTimeline(activeStep: 1)
+
+            HStack(alignment: .firstTextBaseline, spacing: 9) {
+                Image(systemName: "info.circle")
+                    .font(.footnote)
+                Text(String(localized: "auth.forgot_password_survives"))
+                    .font(.footnote)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(.secondary)
+
+            autoCheckRow
         }
     }
 
@@ -158,7 +186,7 @@ struct ForgotPasswordView: View {
     private var phaseFooter: some View {
         switch observer.phase {
         case .enterEmail:
-            AuthPrimaryButton(title: String(localized: "common.continue")) {
+            AuthPrimaryButton(title: String(localized: "auth.forgot_password_send_request")) {
                 observer.requestReset(email: email.trimmingCharacters(in: .whitespaces))
             }
             .disabled(email.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -173,7 +201,15 @@ struct ForgotPasswordView: View {
                 observer.completeReset(code: code, newPassword: newPassword)
             }
             .disabled(code.isEmpty || newPassword.isEmpty)
-        case .denied, .complete:
+        case .denied:
+            VStack(spacing: 12) {
+                AuthPrimaryButton(title: String(localized: "auth.forgot_password_retry")) {
+                    observer.retryRequest()
+                }
+                Button(String(localized: "setup.back_to_sign_in")) { navigateBack() }
+                    .font(.subheadline)
+            }
+        case .complete:
             AuthPrimaryButton(title: String(localized: "setup.back_to_sign_in")) {
                 navigateBack()
             }
