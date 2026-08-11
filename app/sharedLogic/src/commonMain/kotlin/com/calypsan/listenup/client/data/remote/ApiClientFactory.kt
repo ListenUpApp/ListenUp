@@ -105,6 +105,18 @@ internal interface ApiClientFactory : RemoteCache {
     suspend fun getClient(): HttpClient
 
     /**
+     * The access token this factory's clients present as their bearer credential, or null when
+     * there is no session.
+     *
+     * Exposed because one transport cannot use the header the bearer plugin writes: a browser's
+     * WebSocket upgrade carries no headers at all, so the RPC channel trades this token for a
+     * single-use socket ticket instead ([mintSocketTicket]). Reading it here — rather than from a
+     * second injection of [AuthSession] — keeps ONE answer to "what credential does this client
+     * present".
+     */
+    suspend fun currentAccessToken(): String?
+
+    /**
      * Invalidate the cached request/RPC client so the next call rebinds fresh.
      *
      * Historically this was narrower than [invalidate] (which also closed the SSE-era
@@ -211,6 +223,9 @@ internal class KtorApiClientFactory(
     override suspend fun warmUp() {
         getClient()
     }
+
+    // The same read the bearer plugin's `loadTokens` performs — one credential, two carriers.
+    override suspend fun currentAccessToken(): String? = authSession.getAccessToken()?.value
 
     @Suppress("ThrowsCount", "CognitiveComplexMethod")
     private suspend fun createClient(): HttpClient {

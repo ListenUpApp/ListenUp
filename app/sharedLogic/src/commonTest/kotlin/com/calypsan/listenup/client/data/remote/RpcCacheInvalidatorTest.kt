@@ -25,6 +25,8 @@ class RpcCacheInvalidatorTest :
 
             override suspend fun getClient(): HttpClient = error("not used")
 
+            override suspend fun currentAccessToken(): String? = null
+
             override suspend fun warmUp() = Unit
 
             override suspend fun invalidate() {
