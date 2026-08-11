@@ -11,6 +11,7 @@
     <string name="admin_add_subgenre">Add Sub-genre</string>
     <string name="admin_administrator">Administrator</string>
     <string name="admin_all_users_are_already_members">All users are already members of this collection</string>
+    <string name="admin_allow_editing_content_metadata">Allow editing tags, moods, genres, series and contributors</string>
     <string name="admin_allow_sharing_collections_with_other">Allow sharing collections with other users</string>
     <string name="admin_approve_reset">Approve reset</string>
     <string name="admin_backup">Backup</string>
@@ -27,6 +28,7 @@
     <string name="admin_books_can_be_added_from">Books can be added from the server</string>
     <string name="admin_books_in_collection">Books in Collection</string>
     <string name="admin_can_access_the_library">Can access the library</string>
+    <string name="admin_can_edit">Can Edit Metadata</string>
     <string name="admin_can_manage_users_and_invites">Can manage users and invites</string>
     <string name="admin_can_share">Can Share</string>
     <string name="admin_categories_books_count">%1$d categories • %2$d books</string>
@@ -425,6 +427,16 @@ One beautiful library.</string>
     <string name="browse_facet_total_label">Total</string>
     <string name="browse_facet_unavailable_mood">Mood unavailable</string>
     <string name="browse_facet_unavailable_tag">Tag unavailable</string>
+    <string name="car_back_30">Back 30s</string>
+    <string name="car_book_subtitle">%1$s - %2$s</string>
+    <string name="car_by_author">By Author</string>
+    <string name="car_by_series">By Series</string>
+    <string name="car_continue_listening">Continue Listening</string>
+    <string name="car_downloaded">Downloaded</string>
+    <string name="car_forward_30">Forward 30s</string>
+    <string name="car_library">Library</string>
+    <string name="car_sign_in_action">Sign in to ListenUp</string>
+    <string name="car_sign_in_message">Sign in to ListenUp on your phone.</string>
     <string name="common_about">About</string>
     <string name="common_accessibility_loading">Loading</string>
     <string name="common_account">Account</string>
@@ -1019,7 +1031,10 @@ One beautiful library.</string>
     <string name="player_boost_pill_db">+%1$d</string>
     <string name="player_boost_use_default">Use default (%1$s)</string>
     <string name="player_cancel_timer">Cancel timer</string>
+    <string name="player_cast_start_failed">Couldn't start casting.</string>
+    <string name="player_cast_unsupported_format">This book's format can't be cast.</string>
     <string name="player_chapter_of">Chapter %1$s of %2$s</string>
+    <string name="player_chapter_remaining">%1$s • %2$s left</string>
     <string name="player_chapters">Chapters</string>
     <string name="player_chapters_count_summary">%1$d chapters · %2$s</string>
     <string name="player_close">Close</string>
@@ -1046,7 +1061,9 @@ One beautiful library.</string>
     <string name="player_pause">Pause</string>
     <string name="player_play">Play</string>
     <string name="player_playback_speed">Playback speed</string>
+    <string name="player_playing">Playing...</string>
     <string name="player_previous_chapter">Previous chapter</string>
+    <string name="player_refusal_title">Couldn't start playback</string>
     <string name="player_reset_to_default">Reset to default (%1$s)</string>
     <string name="player_skip_back_10s">Skip back 10 seconds</string>
     <string name="player_skip_backward">Skip backward %1$s seconds</string>
@@ -1057,6 +1074,7 @@ One beautiful library.</string>
     <string name="player_speed">Speed</string>
     <string name="player_speed_value">%1$sx</string>
     <string name="player_timer_active">Timer Active</string>
+    <string name="player_unknown_book">Unknown Book</string>
     <string name="player_until_end_of_chapter">Until end of chapter</string>
     <string name="player_until_end_of_chapter_detail">Playback will pause when this chapter ends</string>
     <string name="player_up_next">Up next</string>

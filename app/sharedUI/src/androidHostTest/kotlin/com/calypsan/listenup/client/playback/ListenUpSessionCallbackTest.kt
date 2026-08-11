@@ -3,12 +3,19 @@ package com.calypsan.listenup.client.playback
 import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.Player
+import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionError
 import androidx.media3.session.SessionResult
 import androidx.test.core.app.ApplicationProvider
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CoverUri
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -19,8 +26,10 @@ import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
+import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.voice.VoiceIntentResolver
 import com.calypsan.listenup.core.BookId
+import com.google.common.util.concurrent.ListenableFuture
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -264,7 +273,143 @@ class ListenUpSessionCallbackTest {
         grantedUri shouldBe CoverUri.prefixUri(context.packageName)
     }
 
+    // ── Signed-out browse gating ──────────────────────────────────────────────
+    //
+    // #1239 walled off `onGetLibraryRoot`/`onGetChildren`; #1245 closes the three doors it left
+    // open. Each is a genuine way into the library that does not pass through the browse tree —
+    // a cached mediaId, a voice query, the results of one — so a signed-out session could still
+    // resolve a book or run a search around the wall. It failed *soft* rather than loudly, because
+    // Room is typically empty when genuinely signed out, which is precisely what made it easy to
+    // miss: "no results" reads as a missing book, not as a missing session.
+
+    @Test
+    fun `onGetItem returns the signed-out error instead of resolving a book`() {
+        val callback = browseCallback(authState = AuthState.NeedsLogin(openRegistration = false))
+
+        val result =
+            callback.onLibrarySession { session, browser ->
+                callback.onGetItem(session, browser, BrowseTree.bookId("book1"))
+            }
+
+        result.resultCode shouldBe SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED
+    }
+
+    @Test
+    fun `onGetItem resolves normally once authenticated`() {
+        // The counter-case that stops the gate from being trivially satisfiable: ROOT resolves
+        // straight from the static tree, so a pass here is the gate standing down, not a stub.
+        val callback = browseCallback(authState = AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+
+        val result =
+            callback.onLibrarySession { session, browser ->
+                callback.onGetItem(session, browser, BrowseTree.ROOT)
+            }
+
+        result.resultCode shouldBe LibraryResult.RESULT_SUCCESS
+    }
+
+    @Test
+    fun `onSearch returns the signed-out error instead of accepting the query`() {
+        val callback = browseCallback(authState = AuthState.NeedsLogin(openRegistration = false))
+
+        val result =
+            callback.onLibrarySession { session, browser ->
+                callback.onSearch(session, browser, "the hobbit", null)
+            }
+
+        result.resultCode shouldBe SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED
+    }
+
+    @Test
+    fun `onGetSearchResult returns the signed-out error instead of cached results`() {
+        val callback = browseCallback(authState = AuthState.PendingApproval(UserId("u1"), "u@example.com"))
+
+        val result =
+            callback.onLibrarySession { session, browser ->
+                callback.onGetSearchResult(session, browser, "the hobbit", 0, 20, null)
+            }
+
+        result.resultCode shouldBe SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED
+    }
+
+    @Test
+    fun `onGetSearchResult answers an empty page once authenticated`() {
+        val callback = browseCallback(authState = AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+
+        val result =
+            callback.onLibrarySession { session, browser ->
+                callback.onGetSearchResult(session, browser, "nothing cached", 0, 20, null)
+            }
+
+        result.resultCode shouldBe LibraryResult.RESULT_SUCCESS
+        result.value.shouldBeEmpty()
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /**
+     * Builds the callback with [authState] as the only live dependency — every browse gate reads
+     * `authSession.authState` and nothing else before deciding.
+     *
+     * [BrowseTreeProvider] is real (over unstubbed repository mocks) so the authenticated
+     * counter-cases can resolve the *static* tree without a single repository call; anything that
+     * reached past it would fail loudly rather than answer a default.
+     */
+    private fun browseCallback(authState: AuthState): ListenUpSessionCallback {
+        val authSession = mock<AuthSession>()
+        every { authSession.authState } returns MutableStateFlow(authState)
+
+        return ListenUpSessionCallback(
+            context = context,
+            playbackManager = mock<PlaybackManager>(),
+            browseTreeProvider = unreachedBrowseTreeProvider(),
+            voiceIntentResolver = unreachedVoiceIntentResolver(),
+            homeRepository = mock<HomeRepository>(),
+            authSession = authSession,
+            positionRepository = mock<PlaybackPositionRepository>(),
+            serviceScope = CoroutineScope(Dispatchers.Unconfined),
+            transport = FakePlaybackTransport(null, 0L),
+            uriPermissionGranter = FakeUriPermissionGranter(),
+            strings = SystemStringsHolder(),
+        )
+    }
+
+    /**
+     * Runs [block] against a real [MediaLibrarySession] and blocks on its future.
+     *
+     * The browse callbacks read neither the session nor the controller on the gated path, but
+     * Kotlin's non-null intrinsics demand real instances of both. Media3's `@UnstableApi`
+     * `Builder(Context, …)` exists for exactly this, and `createTestOnlyControllerInfo` supplies
+     * the browser; the session is released before returning.
+     */
+    private fun <T> ListenUpSessionCallback.onLibrarySession(
+        block: (MediaLibrarySession, MediaSession.ControllerInfo) -> ListenableFuture<LibraryResult<T>>,
+    ): LibraryResult<T> {
+        val session = MediaLibrarySession.Builder(context, sessionPlayer, this).build()
+        try {
+            return block(session, testControllerInfo()).get()
+        } finally {
+            session.release()
+        }
+    }
+
+    private fun testControllerInfo(): MediaSession.ControllerInfo =
+        MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+            "com.calypsan.listenup.test",
+            // pid =
+            0,
+            // uid =
+            0,
+            // libraryVersion =
+            0,
+            // interfaceVersion =
+            0,
+            // trusted =
+            true,
+            Bundle.EMPTY,
+            // isPackageNameVerified =
+            true,
+        )
 
     /**
      * Blocking, because `onCustomCommand` returns an already-completed immediate future.
@@ -376,6 +521,7 @@ class ListenUpSessionCallbackTest {
             serviceScope = CoroutineScope(Dispatchers.Unconfined),
             transport = FakePlaybackTransport(player, bookPositionMs),
             uriPermissionGranter = uriPermissionGranter,
+            strings = SystemStringsHolder(),
         )
     }
 
@@ -394,6 +540,7 @@ class ListenUpSessionCallbackTest {
             contributorRepository = mock<ContributorRepository>(),
             downloadRepository = mock<DownloadRepository>(),
             packageName = "com.calypsan.listenup.client",
+            strings = SystemStringsHolder(),
         )
 
     private fun unreachedVoiceIntentResolver(): VoiceIntentResolver =

@@ -890,6 +890,8 @@
     "can_access_the_library": "Can access the library",
     "can_manage_users_and_invites": "Can manage users and invites",
     "can_share": "Can Share",
+    "can_edit": "Can Edit Metadata",
+    "allow_editing_content_metadata": "Allow editing tags, moods, genres, series and contributors",
     "categories_books_count": "%1$d categories • %2$d books",
     "collection_details": "Collection Details",
     "collection_name": "Collection Name",
@@ -1197,7 +1199,25 @@
     "boost_db": "+%1$d dB",
     "boost_pill_db": "+%1$d",
     "boost_use_default": "Use default (%1$s)",
-    "volume_boost": "Volume Boost"
+    "volume_boost": "Volume Boost",
+    "unknown_book": "Unknown Book",
+    "playing": "Playing...",
+    "chapter_remaining": "%1$s • %2$s left",
+    "refusal_title": "Couldn't start playback",
+    "cast_start_failed": "Couldn't start casting.",
+    "cast_unsupported_format": "This book's format can't be cast."
+  },
+  "car": {
+    "continue_listening": "Continue Listening",
+    "library": "Library",
+    "downloaded": "Downloaded",
+    "by_series": "By Series",
+    "by_author": "By Author",
+    "book_subtitle": "%1$s - %2$s",
+    "sign_in_action": "Sign in to ListenUp",
+    "sign_in_message": "Sign in to ListenUp on your phone.",
+    "back_30": "Back 30s",
+    "forward_30": "Forward 30s"
   },
   "library_setup": {
     "choose_audiobook_folders": "Choose your audiobook folders",

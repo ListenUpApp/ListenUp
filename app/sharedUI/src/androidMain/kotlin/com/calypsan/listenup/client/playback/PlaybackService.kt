@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.playback
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.Toast
@@ -34,6 +35,7 @@ import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
 import com.calypsan.listenup.client.automotive.browseNeedsSignIn
+import com.calypsan.listenup.client.automotive.browseSignInEdges
 import com.calypsan.listenup.client.automotive.isLastPage
 import com.calypsan.listenup.client.automotive.paginate
 import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
@@ -47,6 +49,8 @@ import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.localization.SystemStrings
+import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.voice.MediaFocus
 import com.calypsan.listenup.client.voice.PlaybackIntent
 import com.calypsan.listenup.client.voice.VoiceHints
@@ -149,7 +153,7 @@ class PlaybackService :
     private var meterBookId: BookId? = null
 
     /** Offers a way back in when the platform refuses a background start. */
-    private val refusalNotifier by lazy { PlaybackRefusalNotifier(this) }
+    private val refusalNotifier by lazy { PlaybackRefusalNotifier(this, systemStrings) }
 
     /** Attached to the cast player for the length of a cast session; see [handoffToCast]. */
     private val castPlaybackListener by lazy { CastPlaybackListener() }
@@ -176,6 +180,7 @@ class PlaybackService :
     private val homeRepository: HomeRepository by inject()
     private val castPreparer: CastPreparer by inject()
     private val uriPermissionGranter: UriPermissionGranter by inject()
+    private val systemStrings: SystemStringsHolder by inject()
 
     // Current book ID is read from PlaybackManager (single source of truth)
     private val currentBookId: BookId?
@@ -240,11 +245,13 @@ class PlaybackService :
         super.onCreate()
         logger.info { "PlaybackService created" }
 
+        refreshSystemStrings()
         initializePlayer()
         initializeMediaSession()
         initializeCast()
         initializeNotificationProvider()
         observeGain()
+        observeSignInForBrowseRefresh()
 
         // Register callback for chapter changes to update notification
         playbackManager.onChapterChanged = { chapterInfo ->
@@ -396,6 +403,7 @@ class PlaybackService :
                     serviceScope = serviceScope,
                     transport = this,
                     uriPermissionGranter = uriPermissionGranter,
+                    strings = systemStrings,
                 ),
             )
         if (sessionIntent != null) {
@@ -415,6 +423,7 @@ class PlaybackService :
                 // Read off the transport player, never the session player: the session is
                 // presented by ChapterWindowPlayer, whose title is the current chapter.
                 bookTitle = { activeTransportPlayer()?.mediaMetadata?.title },
+                strings = systemStrings,
             )
         val provider = notificationProvider ?: return
         setMediaNotificationProvider(provider)
@@ -449,6 +458,54 @@ class PlaybackService :
     }
 
     /**
+     * Resolve the platform-surface strings from the shared catalog (#1246).
+     *
+     * Media3 asks for these from synchronous callbacks, so they are resolved once here into the
+     * snapshot those callbacks read as a field. Until it lands — a window of milliseconds, but a
+     * real one, because a car can connect the instant this service starts — every surface serves
+     * [SystemStrings.ENGLISH_FALLBACK] rather than a blank label.
+     */
+    private fun refreshSystemStrings() {
+        serviceScope.launch { systemStrings.refresh() }
+    }
+
+    /**
+     * A locale change reaches a running service as a configuration change, not a restart, so the
+     * snapshot is re-resolved here — otherwise the browse tree and the notification would keep
+     * serving the locale that was current when playback started.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        refreshSystemStrings()
+    }
+
+    /**
+     * Re-query the Auto browse tree when the listener signs back in (#1245).
+     *
+     * A head unit that was handed the signed-out browse error caches it and has no reason of its
+     * own to ask again — so signing in on the phone left the car showing a sign-in wall over a
+     * library that was, by then, perfectly readable. `notifyChildrenChanged` is the signal that
+     * closes that loop, and every statically-known node gets it: refreshing only the root would
+     * leave a unit parked on By Series still staring at the stale error.
+     *
+     * The edge itself comes from [browseSignInEdges], which derives it from the same predicate the
+     * browse callbacks gate on, so the refresh cannot disagree with the wall it is clearing.
+     */
+    private fun observeSignInForBrowseRefresh() {
+        serviceScope.launch {
+            authSession.authState.browseSignInEdges().collect {
+                val session = mediaLibrarySession ?: return@collect
+                logger.info { "Signed back in — refreshing the Auto browse tree" }
+                BrowseTree.BROWSABLE_NODES.forEach { node ->
+                    // Int.MAX_VALUE is Media3's documented "child count unknown" — the head unit
+                    // re-queries onGetChildren for the real list, which is the whole point.
+                    session.notifyChildrenChanged(node, Int.MAX_VALUE, null)
+                }
+            }
+        }
+    }
+
+    /**
      * Initialize Cast if Google Play Services is present. On a de-Googled device
      * this is a no-op — no cast button, local playback unaffected (never stranded).
      */
@@ -473,7 +530,7 @@ class PlaybackService :
         if (prepared == null) {
             logger.warn { "Cast prepare failed — staying local" }
             // Honest-over-silent: the user tapped cast and nothing audible happened.
-            Toast.makeText(this, "Couldn't start casting.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, systemStrings.current.playerCastStartFailed, Toast.LENGTH_LONG).show()
             return
         }
         // Connect→disconnect race: the session can drop while prepareForCast suspends. Re-check
@@ -505,7 +562,7 @@ class PlaybackService :
             // Honest-over-silent: tell the user why casting didn't start. Staying local is the
             // never-stranded fallback. (A typed AppError + snackbar is a tracked follow-up; a
             // Toast is the v1 honest-over-silent signal.)
-            Toast.makeText(this, "This book's format can't be cast.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, systemStrings.current.playerCastUnsupportedFormat, Toast.LENGTH_LONG).show()
             return
         }
         val mediaItems = built.tracks.map { factory.toMediaItem(it) }

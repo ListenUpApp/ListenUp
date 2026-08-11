@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.localization.SystemStrings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -23,7 +24,11 @@ import org.robolectric.RobolectricTestRunner
 class AutoBrowseErrorsTest {
     @Test
     fun `signedOutError carries auth code and resolution intent extras`() {
-        val error = AutoBrowseErrors.signedOutError(ApplicationProvider.getApplicationContext())
+        val error =
+            AutoBrowseErrors.signedOutError(
+                ApplicationProvider.getApplicationContext(),
+                SystemStrings.ENGLISH_FALLBACK,
+            )
 
         assertEquals(SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED, error.code)
         assertNotNull(error.extras.getString(MediaConstants.EXTRAS_KEY_ERROR_RESOLUTION_ACTION_LABEL_COMPAT))

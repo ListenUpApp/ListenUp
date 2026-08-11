@@ -111,6 +111,16 @@
         }
       }
     },
+    "admin.allow_editing_content_metadata": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow editing tags, moods, genres, series and contributors"
+          }
+        }
+      }
+    },
     "admin.allow_sharing_collections_with_other": {
       "localizations": {
         "en": {
@@ -267,6 +277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Can access the library"
+          }
+        }
+      }
+    },
+    "admin.can_edit": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Can Edit Metadata"
           }
         }
       }
@@ -4237,6 +4257,106 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tag unavailable"
+          }
+        }
+      }
+    },
+    "car.back_30": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back 30s"
+          }
+        }
+      }
+    },
+    "car.book_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ - %2$@"
+          }
+        }
+      }
+    },
+    "car.by_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By Author"
+          }
+        }
+      }
+    },
+    "car.by_series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By Series"
+          }
+        }
+      }
+    },
+    "car.continue_listening": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue Listening"
+          }
+        }
+      }
+    },
+    "car.downloaded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloaded"
+          }
+        }
+      }
+    },
+    "car.forward_30": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Forward 30s"
+          }
+        }
+      }
+    },
+    "car.library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library"
+          }
+        }
+      }
+    },
+    "car.sign_in_action": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to ListenUp"
+          }
+        }
+      }
+    },
+    "car.sign_in_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to ListenUp on your phone."
           }
         }
       }
@@ -10181,12 +10301,42 @@
         }
       }
     },
+    "player.cast_start_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't start casting."
+          }
+        }
+      }
+    },
+    "player.cast_unsupported_format": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book's format can't be cast."
+          }
+        }
+      }
+    },
     "player.chapter_of": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Chapter %1$@ of %2$@"
+          }
+        }
+      }
+    },
+    "player.chapter_remaining": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ • %2$@ left"
           }
         }
       }
@@ -10451,12 +10601,32 @@
         }
       }
     },
+    "player.playing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playing..."
+          }
+        }
+      }
+    },
     "player.previous_chapter": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Previous chapter"
+          }
+        }
+      }
+    },
+    "player.refusal_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't start playback"
           }
         }
       }
@@ -10557,6 +10727,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Timer Active"
+          }
+        }
+      }
+    },
+    "player.unknown_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown Book"
           }
         }
       }

@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import com.calypsan.listenup.api.error.PlaybackError
+import com.calypsan.listenup.client.localization.SystemStringsHolder
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -34,6 +35,7 @@ internal const val REFUSAL_NOTIFICATION_ID = 2
  */
 internal class PlaybackRefusalNotifier(
     private val context: Context,
+    private val strings: SystemStringsHolder,
 ) {
     private val notificationManager: NotificationManager?
         get() = context.getSystemService(NotificationManager::class.java)
@@ -71,7 +73,7 @@ internal class PlaybackRefusalNotifier(
             NotificationCompat
                 .Builder(context, NotificationChannels.PLAYBACK)
                 .setSmallIcon(icon)
-                .setContentTitle("Couldn't start playback")
+                .setContentTitle(strings.current.playerRefusalTitle)
                 .setContentText(error.message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(error.message))
                 .setContentIntent(contentIntent)
