@@ -180,7 +180,8 @@
     "your_email": "Your email: %1$s",
     "reset_root": "Reset root password",
     "reset_root_explainer": "Start the server with LISTENUP_ROOT_RESET set, then enter the token from the server log.",
-    "reset_root_token_label": "Token"
+    "reset_root_token_label": "Token",
+    "pending_notify_line": "We'll notify you when you're approved."
   },
   "connect": {
     "continue": "Continue",
@@ -1335,6 +1336,10 @@
     "campfire_invite_title_unknown": "You have an invite to listen together",
     "campfire_invite_body": "%1$s",
     "generic_title": "ListenUp",
-    "generic_body": "Something happened on your server."
+    "generic_body": "Something happened on your server.",
+    "registration_approved_title": "You're in!",
+    "registration_approved_body": "Your registration was approved — sign in to start listening.",
+    "registration_denied_title": "Registration update",
+    "registration_denied_body": "Your registration was declined."
   }
 }

@@ -123,6 +123,10 @@ class AuthServiceImpl(
      * policy change.
      */
     internal val registrationPolicyBroadcaster: RegistrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
+    // Nullable so the auth module assembles independently of the push module (test
+    // environments, forks without a relay). Null means watch registrations are accepted and
+    // dropped — the status stream and poll still carry the decision (never stranded).
+    internal val pushWatchTokens: com.calypsan.listenup.server.push.PushWatchTokenStore? = null,
     /**
      * Non-null with no default: a construction site that forgets to wire this is a compile
      * error, not a silent skip. The alternative — a nullable fallback — used to make
@@ -425,6 +429,35 @@ class AuthServiceImpl(
             )
         }
 
+    /**
+     * Pre-auth watch-token registration (#1068). Deliberately oracle-free: push disabled, an
+     * unknown [userId], or a registration that is no longer pending all return the same
+     * [AppResult.Success] as the stored case — the reply reveals nothing about account
+     * existence or state. The trust model matches [observeRegistrationStatus]: possession of
+     * the unguessable [userId] handle.
+     */
+    override suspend fun registerRegistrationWatchToken(
+        userId: String,
+        token: String,
+        platform: com.calypsan.listenup.api.push.PushPlatform,
+    ): AppResult<Unit> {
+        enforceRate(AuthRateBucket.REGISTER_WATCH_TOKEN)?.let { return AppResult.Failure(it) }
+        val store = pushWatchTokens ?: return AppResult.Success(Unit)
+        if (!settings.pushNotificationsEnabled()) return AppResult.Success(Unit)
+        val pending =
+            suspendTransaction(db) {
+                db.usersQueries.selectById(userId).executeAsOneOrNull()
+            }?.takeIf { it.status == "PENDING_APPROVAL" && it.deleted_at == null }
+        if (pending == null) return AppResult.Success(Unit)
+        store.register(
+            kind = com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
+            key = userId,
+            token = token,
+            platform = platform,
+        )
+        return AppResult.Success(Unit)
+    }
+
     /** Delegates to [PasswordResetService.request]. */
     override suspend fun requestPasswordReset(
         email: String,
@@ -502,6 +535,7 @@ class AuthServiceImpl(
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
+            pushWatchTokens = pushWatchTokens,
             passwordResetService = passwordResetService,
             rootPasswordResetService = rootPasswordResetService,
         )
@@ -527,6 +561,7 @@ class AuthServiceImpl(
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
+            pushWatchTokens = pushWatchTokens,
             passwordResetService = passwordResetService,
             rootPasswordResetService = rootPasswordResetService,
         )
@@ -555,6 +590,7 @@ class AuthServiceImpl(
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             registrationBroadcaster = registrationBroadcaster,
             registrationPolicyBroadcaster = registrationPolicyBroadcaster,
+            pushWatchTokens = pushWatchTokens,
             passwordResetService = passwordResetService,
             rootPasswordResetService = rootPasswordResetService,
         )

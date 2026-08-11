@@ -35,6 +35,8 @@ internal class ExpiredSessionCleanupTask(
     private val sessionService: SessionService,
     private val clock: Clock = Clock.System,
     private val interval: Duration = 1.hours,
+    /** Nullable — the push module may not be loaded; null skips the watch-token sweep. */
+    private val pushWatchTokens: com.calypsan.listenup.server.push.PushWatchTokenStore? = null,
 ) {
     /**
      * Start the sweep loop on [scope]. Returns the [Job] — cancel it to stop.
@@ -56,6 +58,8 @@ internal class ExpiredSessionCleanupTask(
     suspend fun runOnce(): Int {
         val removed = sessionService.deleteExpired(clock.now().toEpochMilliseconds())
         if (removed > 0) log.info { "ExpiredSessionCleanupTask pruned $removed expired session rows" }
+        // Same cadence, same spirit: expired pre-auth watch tokens (#1068) age out here too.
+        pushWatchTokens?.sweepExpired()
         return removed
     }
 }

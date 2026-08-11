@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +51,7 @@ import listenup.composeapp.generated.resources.auth_approved
 import listenup.composeapp.generated.resources.auth_cancel_registration
 import listenup.composeapp.generated.resources.auth_check_status
 import listenup.composeapp.generated.resources.auth_checking_automatically
+import listenup.composeapp.generated.resources.auth_pending_notify_line
 import listenup.composeapp.generated.resources.auth_pending_review
 import listenup.composeapp.generated.resources.auth_reg_step_account_created
 import listenup.composeapp.generated.resources.auth_reg_step_admin_approval
@@ -77,6 +79,7 @@ fun PendingApprovalScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val notifyPromise by viewModel.notifyPromise.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state) {
@@ -94,6 +97,7 @@ fun PendingApprovalScreen(
         PendingApprovalContent(
             state = state,
             email = viewModel.email,
+            notifyPromise = notifyPromise,
             onCheckStatus = viewModel::checkStatus,
             onSignIn = {
                 viewModel.acknowledgeApproval()
@@ -124,6 +128,7 @@ internal fun PendingApprovalContent(
     state: PendingApprovalUiState,
     email: String,
     onCheckStatus: () -> Unit,
+    notifyPromise: Boolean = false,
     onSignIn: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -153,6 +158,18 @@ internal fun PendingApprovalContent(
         } else {
             RegistrationTimeline(email)
             AutoCheckRow()
+            // Shown only once this device actually holds a registration watch (#1068) — the
+            // line was removed historically because no notification existed; it returns only
+            // when it is true (see PendingApprovalViewModel.notifyPromise).
+            if (notifyPromise) {
+                Text(
+                    text = stringResource(Res.string.auth_pending_notify_line),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            }
             Spacer(Modifier.height(4.dp))
             ListenUpButton(
                 text = stringResource(Res.string.auth_check_status),

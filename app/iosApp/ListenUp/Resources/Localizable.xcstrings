@@ -2181,6 +2181,16 @@
         }
       }
     },
+    "auth.pending_notify_line": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "We'll notify you when you're approved."
+          }
+        }
+      }
+    },
     "auth.pending_review": {
       "localizations": {
         "en": {
@@ -10887,6 +10897,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "ListenUp"
+          }
+        }
+      }
+    },
+    "push.registration_approved_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your registration was approved — sign in to start listening."
+          }
+        }
+      }
+    },
+    "push.registration_approved_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're in!"
+          }
+        }
+      }
+    },
+    "push.registration_denied_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your registration was declined."
+          }
+        }
+      }
+    },
+    "push.registration_denied_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration update"
           }
         }
       }

@@ -37,6 +37,9 @@ internal val pushClientModule: Module =
         single<PushRepository> {
             PushRepositoryImpl(
                 channel = rpcChannel(),
+                // Owned by clientAuthModule — the same public channel the pre-auth status
+                // streams ride; watch registration is a pre-auth call by definition (#1068).
+                publicAuthChannel = rpcChannel(),
                 platform = get(),
             )
         }

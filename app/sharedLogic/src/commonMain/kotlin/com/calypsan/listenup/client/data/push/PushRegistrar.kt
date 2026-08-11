@@ -41,6 +41,31 @@ class PushRegistrar internal constructor(
     }
 
     /**
+     * Registers this device as a pre-auth **registration watch** for the pending registration
+     * [userId] (#1068), so an admin decision reaches the device while the app is backgrounded.
+     * Returns `true` when a watch was actually registered — the caller may then honestly
+     * promise "we'll notify you"; `false` (no provider, push disabled, no token yet, transport
+     * failure) means the status stream/poll is the only channel, and no promise is shown.
+     * Safe to call repeatedly — the server upserts.
+     */
+    suspend fun registerRegistrationWatch(userId: String): Boolean {
+        val provider = tokenProvider ?: return false
+        val info = instanceRepository.getServerInfoOrNull() ?: return false
+        if (!info.pushEnabled) return false
+        val token = provider.currentToken() ?: return false
+        return when (val result = pushRepository.registerRegistrationWatchToken(userId, token)) {
+            is com.calypsan.listenup.api.result.AppResult.Success -> {
+                true
+            }
+
+            is com.calypsan.listenup.api.result.AppResult.Failure -> {
+                logger.warn { "registration watch-token registration failed: ${result.error.code}" }
+                false
+            }
+        }
+    }
+
+    /**
      * Re-registers [newToken] after the platform SDK rotates it (e.g. FCM's
      * `onNewToken`). No-ops if the server has push disabled.
      */

@@ -13,6 +13,10 @@ import listenup.composeapp.generated.resources.push_campfire_invite_body
 import listenup.composeapp.generated.resources.push_campfire_invite_title
 import listenup.composeapp.generated.resources.push_campfire_invite_title_unknown
 import listenup.composeapp.generated.resources.push_generic_body
+import listenup.composeapp.generated.resources.push_registration_approved_body
+import listenup.composeapp.generated.resources.push_registration_approved_title
+import listenup.composeapp.generated.resources.push_registration_denied_body
+import listenup.composeapp.generated.resources.push_registration_denied_title
 import listenup.composeapp.generated.resources.push_generic_title
 import listenup.composeapp.generated.resources.push_test_body
 import listenup.composeapp.generated.resources.push_test_title
@@ -69,6 +73,22 @@ class PushNotificationRenderer(
                                 ?: getString(Res.string.push_campfire_invite_title_unknown),
                         body = book?.let { getString(Res.string.push_campfire_invite_body, it) } ?: "",
                     )
+                }
+
+                is PushPayload.RegistrationDecision -> {
+                    // Static per-outcome copy — no enrichment: the recipient is the pre-auth
+                    // registrant themselves; there is nothing local to look up (#1068).
+                    if (payload.approved) {
+                        NotificationContent(
+                            title = getString(Res.string.push_registration_approved_title),
+                            body = getString(Res.string.push_registration_approved_body),
+                        )
+                    } else {
+                        NotificationContent(
+                            title = getString(Res.string.push_registration_denied_title),
+                            body = getString(Res.string.push_registration_denied_body),
+                        )
+                    }
                 }
 
                 null -> {

@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.push.NoOpPushNotifier
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.push.PushNotifier
+import com.calypsan.listenup.server.push.PushWatchTokenStore
 import com.calypsan.listenup.server.push.PushRelayClient
 import com.calypsan.listenup.server.push.RelayPushNotifier
 import io.ktor.client.HttpClient
@@ -31,6 +32,11 @@ private const val PUSH_CONNECT_TIMEOUT_MS = 5_000L
  */
 fun pushModule(): Module =
     module {
+        // Pre-auth watch-token persistence (#1068) — always bound (unlike the notifier's
+        // relay-gated selection): registration/eviction is pure DB lifecycle, meaningful even
+        // when delivery is a no-op.
+        single { PushWatchTokenStore(db = get(), clock = get()) }
+
         single<PushNotifier> {
             val config = get<PushConfig>()
             if (config.configured) {

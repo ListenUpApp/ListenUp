@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.error.PushError
 import com.calypsan.listenup.api.push.PushPlatform
@@ -28,12 +29,37 @@ class PushRepositoryImplTest :
                     mock<PushService> {
                         everySuspend { registerToken("t", PushPlatform.ANDROID) } returns AppResult.Success(Unit)
                     }
-                val repo = PushRepositoryImpl(RpcChannel.forTest(service), PushPlatform.ANDROID)
+                val repo =
+                    PushRepositoryImpl(
+                        RpcChannel.forTest(service),
+                        RpcChannel.forTest(mock<AuthServicePublic>()),
+                        PushPlatform.ANDROID,
+                    )
 
                 val result = repo.registerToken("t")
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend { service.registerToken("t", PushPlatform.ANDROID) }
+            }
+        }
+
+        test("registerRegistrationWatchToken rides the public channel with this build's platform") {
+            runTest {
+                val publicService =
+                    mock<AuthServicePublic> {
+                        everySuspend {
+                            registerRegistrationWatchToken("u1", "t", PushPlatform.ANDROID)
+                        } returns AppResult.Success(Unit)
+                    }
+                val repo =
+                    PushRepositoryImpl(
+                        RpcChannel.forTest(mock<PushService>()),
+                        RpcChannel.forTest(publicService),
+                        PushPlatform.ANDROID,
+                    )
+
+                repo.registerRegistrationWatchToken("u1", "t").shouldBeInstanceOf<AppResult.Success<Unit>>()
+                verifySuspend { publicService.registerRegistrationWatchToken("u1", "t", PushPlatform.ANDROID) }
             }
         }
 
@@ -44,7 +70,12 @@ class PushRepositoryImplTest :
                     mock<PushService> {
                         everySuspend { sendTestNotification() } returns failure
                     }
-                val repo = PushRepositoryImpl(RpcChannel.forTest(service), PushPlatform.ANDROID)
+                val repo =
+                    PushRepositoryImpl(
+                        RpcChannel.forTest(service),
+                        RpcChannel.forTest(mock<AuthServicePublic>()),
+                        PushPlatform.ANDROID,
+                    )
 
                 val result = repo.sendTestNotification()
 

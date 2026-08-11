@@ -77,6 +77,12 @@ private class SessionExpiredAuthService : AuthServicePublic {
 
     override fun observeRegistrationPolicy(): Flow<RpcEvent<RegistrationPolicy>> = error("not used in this test")
 
+    override suspend fun registerRegistrationWatchToken(
+        userId: String,
+        token: String,
+        platform: com.calypsan.listenup.api.push.PushPlatform,
+    ): AppResult<Unit> = error("not used in this test")
+
     override suspend fun requestPasswordReset(
         email: String,
         deviceClaim: String,

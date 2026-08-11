@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
+import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import kotlinx.coroutines.flow.Flow
@@ -58,6 +59,25 @@ interface AuthServicePublic {
      * and completes — it never hangs.
      */
     fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>>
+
+    /**
+     * Registers [token] as a pre-auth **registration watch token**: while the registration for
+     * [userId] stays pending, an admin decision is pushed to this device
+     * (`PushPayload.RegistrationDecision`) so a backgrounded/closed app still learns the outcome
+     * — the background counterpart to [observeRegistrationStatus]'s foreground stream (#1068).
+     *
+     * Trust model: possession of the unguessable [userId] handle IS the credential, exactly as
+     * it is for the observe stream. Rate-limited per IP alongside the other public auth
+     * endpoints. Always succeeds without revealing anything: when push is disabled, or [userId]
+     * matches no pending registration, nothing is stored and the reply is indistinguishable
+     * from the stored case. Watch rows are re-upserted on every call (safe to repeat), carry a
+     * server-side TTL, and are evicted the moment the registration is decided.
+     */
+    suspend fun registerRegistrationWatchToken(
+        userId: String,
+        token: String,
+        platform: PushPlatform,
+    ): AppResult<Unit>
 
     /**
      * Live registration policy for the pre-auth surface (the login screen's Sign Up affordance).

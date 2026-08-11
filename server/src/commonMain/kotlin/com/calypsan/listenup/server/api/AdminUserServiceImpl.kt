@@ -77,6 +77,14 @@ class AdminUserServiceImpl(
      */
     private val defaultGrantIssuer: DefaultAllBooksGrantIssuer? = null,
     /**
+     * Nullable so the auth module assembles independently of the push module. Null means a
+     * decided registration sends no push — the waiting device still learns via the status
+     * stream / poll (never stranded).
+     */
+    private val pushNotifier: com.calypsan.listenup.server.push.PushNotifier? = null,
+    /** Nullable with [pushNotifier]; evicts the decided registration's watch tokens. */
+    private val pushWatchTokens: com.calypsan.listenup.server.push.PushWatchTokenStore? = null,
+    /**
      * Nullable so the auth module assembles independently of the admin-roster module (test
      * environments, phased startup). A null value means admin-roster changes here are not
      * published — the roster self-heals via [AdminUserRosterMaintainer.backfillAll] at startup.
@@ -96,19 +104,21 @@ class AdminUserServiceImpl(
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
         AdminUserServiceImpl(
-            sql,
-            sessions,
-            settings,
-            registrationBroadcaster,
-            registrationPolicyBroadcaster,
-            bus,
-            clock,
-            provider,
-            publicProfileMaintainer,
-            activityRecorder,
-            defaultGrantIssuer,
-            adminUserRosterMaintainer,
-            passwordResetService,
+            sql = sql,
+            sessions = sessions,
+            settings = settings,
+            registrationBroadcaster = registrationBroadcaster,
+            registrationPolicyBroadcaster = registrationPolicyBroadcaster,
+            bus = bus,
+            clock = clock,
+            principal = provider,
+            publicProfileMaintainer = publicProfileMaintainer,
+            activityRecorder = activityRecorder,
+            defaultGrantIssuer = defaultGrantIssuer,
+            pushNotifier = pushNotifier,
+            pushWatchTokens = pushWatchTokens,
+            adminUserRosterMaintainer = adminUserRosterMaintainer,
+            passwordResetService = passwordResetService,
         )
 
     override suspend fun listUsers(): AppResult<List<User>> {
@@ -303,6 +313,20 @@ class AdminUserServiceImpl(
             registrationBroadcaster.notify(
                 request.userId.value,
                 if (request.approved) RegistrationDecision.Approved else RegistrationDecision.Denied(null),
+            )
+            // Background counterpart of the broadcaster (#1068): wake the devices that
+            // registered a pre-auth watch, then evict their rows — eviction is unconditional
+            // (a decided watch has nothing left to say), delivery is best-effort.
+            pushNotifier?.notifyWatch(
+                com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
+                request.userId.value,
+                com.calypsan.listenup.api.push
+                    .PushPayload
+                    .RegistrationDecision(userId = request.userId.value, approved = request.approved),
+            )
+            pushWatchTokens?.evict(
+                com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
+                request.userId.value,
             )
             // Refresh the public-profile projection only on approval; denied users are never
             // active and should not appear in the public roster.

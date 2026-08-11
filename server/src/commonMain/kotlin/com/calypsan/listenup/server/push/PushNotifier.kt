@@ -16,12 +16,31 @@ interface PushNotifier {
         userId: String,
         payload: PushPayload,
     )
+
+    /**
+     * Fire-and-forget to the pre-auth watchers of ([kind], [key]) — devices that registered a
+     * watch token while waiting on an admin decision (#1068). Same best-effort contract as
+     * [notify]; eviction of the watch rows after a decision is the caller's separate,
+     * unconditional step ([PushWatchTokenStore.evict]) — it must happen even when push is
+     * disabled or delivery fails.
+     */
+    suspend fun notifyWatch(
+        kind: PushWatchKind,
+        key: String,
+        payload: PushPayload,
+    )
 }
 
 /** Bound when no relay URL is configured at all (forks without a relay). */
 class NoOpPushNotifier : PushNotifier {
     override suspend fun notify(
         userId: String,
+        payload: PushPayload,
+    ) = Unit
+
+    override suspend fun notifyWatch(
+        kind: PushWatchKind,
+        key: String,
         payload: PushPayload,
     ) = Unit
 }

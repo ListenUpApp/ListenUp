@@ -219,6 +219,7 @@ One beautiful library.</string>
     <string name="auth_password_label">Password</string>
     <string name="auth_passwords_dont_match">Passwords don't match</string>
     <string name="auth_pending_approval_message">Your account is pending administrator approval.</string>
+    <string name="auth_pending_notify_line">We'll notify you when you're approved.</string>
     <string name="auth_pending_review">Pending review</string>
     <string name="auth_reg_step_account_created">Account created</string>
     <string name="auth_reg_step_admin_approval">Admin approval</string>
@@ -1090,6 +1091,10 @@ One beautiful library.</string>
     <string name="push_campfire_invite_title_unknown">You have an invite to listen together</string>
     <string name="push_generic_body">Something happened on your server.</string>
     <string name="push_generic_title">ListenUp</string>
+    <string name="push_registration_approved_body">Your registration was approved — sign in to start listening.</string>
+    <string name="push_registration_approved_title">You're in!</string>
+    <string name="push_registration_denied_body">Your registration was declined.</string>
+    <string name="push_registration_denied_title">Registration update</string>
     <string name="push_test_body">Push notifications are working.</string>
     <string name="push_test_title">Test notification</string>
     <string name="scan_building_subtitle">Building your library.</string>
