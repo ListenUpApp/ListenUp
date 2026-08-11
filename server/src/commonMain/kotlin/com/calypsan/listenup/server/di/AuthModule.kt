@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
+import com.calypsan.listenup.server.auth.SocketTicketStore
 import com.calypsan.listenup.server.auth.resolveServerSecrets
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -158,6 +159,10 @@ fun authModule(
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 
+        // One store per process, shared by the minting service and the bearer provider that
+        // redeems — two halves of the same handshake, so they must be the same instance.
+        single { SocketTicketStore(clock = get()) }
+
         single { buildDefaultAllBooksGrantIssuer() }
 
         single {
@@ -172,6 +177,8 @@ fun authModule(
                 // Per-IP RPC throttle (C3). The per-call remote host is bound at the mount via
                 // withRemoteHost; the singleton carries the limiter but no host (throttle inert).
                 loginRateLimiter = get(),
+                // Mints the browser's WebSocket tickets; the same singleton installJwtAuth redeems from.
+                socketTicketStore = get(),
                 // Nullable — shelf module may not be loaded (e.g. during authModule-only verify tests).
                 // When shelfModule is assembled, ShelfRepository is resolved and starter shelves are created.
                 shelfRepository = getOrNull<ShelfRepository>(),

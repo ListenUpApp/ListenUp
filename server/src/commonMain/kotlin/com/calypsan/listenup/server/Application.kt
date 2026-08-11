@@ -3,6 +3,7 @@ package com.calypsan.listenup.server
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.backup.MaintenanceState
+import com.calypsan.listenup.server.auth.SocketTicketStore
 import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installMaintenanceGate
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -50,7 +51,8 @@ fun Application.module() {
 
     val jwt by inject<JwtConfiguration>()
     val sessions by inject<SessionService>()
-    installJwtAuth(jwt, sessions::isLive)
+    val socketTickets by inject<SocketTicketStore>()
+    installJwtAuth(jwt, sessions::isLive, socketTickets)
 
     installAppRoutes(homeDir)
 

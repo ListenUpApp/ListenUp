@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.foundation
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionLiveness
+import com.calypsan.listenup.server.auth.SocketTicketStore
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallId
 import com.calypsan.listenup.server.plugins.installJwtAuth
@@ -19,6 +20,12 @@ import kotlinx.rpc.krpc.ktor.server.Krpc
 class FoundationDeps(
     val jwt: JwtConfiguration,
     val sessionLiveness: SessionLiveness,
+    /**
+     * Mints the single-use tickets a browser presents on its RPC WebSocket upgrade. Optional
+     * because this skeleton exists to prove the native substrate serves at all — a smoke server
+     * with no browser client has nothing to issue tickets for.
+     */
+    val socketTickets: SocketTicketStore? = null,
 )
 
 /**
@@ -49,7 +56,7 @@ fun Application.installFoundation(deps: FoundationDeps) {
     installCallId()
     installRateLimiting()
     installAppErrorStatusPages()
-    installJwtAuth(deps.jwt, deps.sessionLiveness)
+    installJwtAuth(deps.jwt, deps.sessionLiveness, deps.socketTickets)
 
     mountSmokeRoutes()
 }
