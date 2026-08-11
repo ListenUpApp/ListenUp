@@ -22,7 +22,9 @@ import org.jetbrains.compose.web.dom.Text
 fun AccountMenu(onSignOut: () -> Unit) {
     var open by remember { mutableStateOf(false) }
 
-    Div(attrs = { classes("f-wrap") }) {
+    // .menu-anchor, not .f-wrap: the latter is the form-field wrapper and is width:100%, which
+    // stretched this menu across the whole content area.
+    Div(attrs = { classes("menu-anchor") }) {
         Button(attrs = {
             classes("iconbtn")
             attr("type", "button")

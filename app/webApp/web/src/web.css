@@ -311,7 +311,16 @@ body { margin: 0; }
 .iconbtn:hover { background:var(--surface-3); color:var(--ink); }
 
 /* ---- menu / popover ---- */
-.menu { min-width:216px; padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
+/* What a popover hangs from. `inline-flex` keeps it the width of its trigger: the account menu
+   was briefly anchored to .f-wrap, which is the FORM FIELD wrapper at width:100%, and an
+   unpositioned .menu inside it flowed as a block child — rendering the dropdown as a full-width
+   bar across the top of the content area. */
+.menu-anchor { position:relative; display:inline-flex; }
+/* Absolute by definition — this is a popover, so it must not take space in the flow. `left:0`
+   hangs it off the trigger's left edge (the account button sits at the content area's left);
+   `max-content` lets it size to its items while min-width keeps a small menu from looking mean.
+   Below .scrim's z-index:40 so a modal still covers it. */
+.menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:216px; padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
 .menu-i { display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink); cursor:pointer; white-space:nowrap; }
 .menu-i:hover { background:var(--surface-2); }
 .menu-i.hi { background:var(--surface-2); }
