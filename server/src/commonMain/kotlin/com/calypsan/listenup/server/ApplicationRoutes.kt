@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
@@ -162,4 +163,5 @@ private fun Application.rpcServiceBundle(): RpcServices =
         backupService = koinGet<BackupService>(),
         importService = koinGet<ImportService>(),
         syncStreamService = koinGet<SyncStreamService>(),
+        pushService = koinGet<PushService>(),
     )

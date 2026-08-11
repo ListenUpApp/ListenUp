@@ -153,7 +153,8 @@ class ClientKoinGraphE2ETest :
             // rides the RPC socket via RpcSyncStreamClient — so 25 → 26.
             // The search drain removed rpcChannel<SearchService>() — the server has no search index and
             // the channel had zero consumers; search is local-only — so 26 → 25.
-            defaultInvalidator.caches shouldHaveSize 25
+            // The push bedrock port added rpcChannel<PushService>() (device token registry) — so 25 → 26.
+            defaultInvalidator.caches shouldHaveSize 26
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

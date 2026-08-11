@@ -56,6 +56,7 @@ internal val sharedModules =
         clientSyncModule,
         clientAuthModule,
         voiceModule,
+        pushClientModule,
         // Platform modules load LAST so a platform can override a shared default binding —
         // Koin's later-definition-wins. The concrete case: mediaModule binds the filesystem
         // DocumentStorage, and the browser (which has no filesystem) replaces it. Modules with

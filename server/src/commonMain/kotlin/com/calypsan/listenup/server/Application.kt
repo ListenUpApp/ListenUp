@@ -29,6 +29,7 @@ fun Application.module() {
     acquireDataDirLockIfEnabled(homeDir)
     val metadataPrecedence = resolveMetadataPrecedence()
     val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
+    val pushRelayUrl = resolvePushRelayUrl()
 
     installDependencies(
         seedProfile,
@@ -37,6 +38,7 @@ fun Application.module() {
         metadataPrecedence,
         embeddedCoverCacheSize,
         environment.config.watchEnabled(),
+        pushRelayUrl,
     )
 
     backfillPublicProfiles()

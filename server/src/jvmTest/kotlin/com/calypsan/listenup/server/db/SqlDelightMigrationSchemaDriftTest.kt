@@ -121,6 +121,7 @@ private val SQ_TABLES =
         "sessions",
         "active_sessions",
         "invites",
+        "push_tokens",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */
