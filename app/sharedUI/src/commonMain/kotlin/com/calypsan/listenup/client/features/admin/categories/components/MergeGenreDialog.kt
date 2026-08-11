@@ -66,13 +66,11 @@ internal fun MergeGenreDialog(
     onDismiss: () -> Unit,
 ) {
     var selectedId by remember { mutableStateOf<String?>(null) }
+    // Derived, not stored: if the selected candidate is renamed or removed out from under an
+    // open dialog, `target` goes null on the next recomposition and every slot below falls
+    // back to the candidate step — this dialog's whole job is to state true facts before an
+    // irreversible action, so it must never render a confirm screen from a stale snapshot.
     val target = candidates.firstOrNull { it.id == selectedId }
-    if (selectedId != null && target == null) {
-        // The selected candidate vanished from the live list (renamed/deleted mid-dialog) —
-        // fall back to the candidate step rather than render a confirm screen for a genre
-        // that no longer exists.
-        selectedId = null
-    }
 
     AlertDialog(
         onDismissRequest = {

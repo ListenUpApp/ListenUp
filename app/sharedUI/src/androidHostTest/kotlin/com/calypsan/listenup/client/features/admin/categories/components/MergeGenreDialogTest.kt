@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.features.admin.categories.components
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -112,6 +115,36 @@ class MergeGenreDialogTest {
         composeRule.onNodeWithText(BACK_BUTTON).performClick()
 
         composeRule.onNodeWithText(TARGET_PATH).assertIsDisplayed()
+        merged shouldBe null
+    }
+
+    @Test
+    fun `a candidate that vanishes mid-dialog falls back to the list without merging`() {
+        var merged: String? = null
+        var candidates by mutableStateOf(listOf(TARGET))
+        composeRule.setContent {
+            MaterialTheme {
+                MergeGenreDialog(
+                    sourceName = SOURCE_NAME,
+                    sourceBookCount = PLURAL_BOOK_COUNT,
+                    candidates = candidates,
+                    onConfirm = { merged = it },
+                    onDismiss = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText(TARGET_NAME).performClick()
+        composeRule
+            .onNodeWithText("Moving “$SOURCE_NAME” into “$TARGET_NAME”. $PLURAL_BOOK_COUNT books will move.")
+            .assertIsDisplayed()
+
+        candidates = emptyList()
+        composeRule.waitForIdle()
+
+        composeRule
+            .onNodeWithText("Moving “$SOURCE_NAME” into “$TARGET_NAME”. $PLURAL_BOOK_COUNT books will move.")
+            .assertDoesNotExist()
         merged shouldBe null
     }
 
