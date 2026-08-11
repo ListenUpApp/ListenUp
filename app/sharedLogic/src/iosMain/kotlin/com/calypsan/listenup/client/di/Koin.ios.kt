@@ -47,6 +47,7 @@ import com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel
+import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import com.calypsan.listenup.client.presentation.auth.LoginViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import com.calypsan.listenup.client.presentation.auth.RegisterViewModel
@@ -170,6 +171,8 @@ object KoinHelper {
     fun getSetupViewModel(): SetupViewModel = resolve(SetupViewModel::class)
 
     fun getClaimInviteViewModel(): ClaimInviteViewModel = resolve(ClaimInviteViewModel::class)
+
+    fun getForgotPasswordViewModel(): ForgotPasswordViewModel = resolve(ForgotPasswordViewModel::class)
 
     fun getPendingApprovalViewModel(
         userId: String,

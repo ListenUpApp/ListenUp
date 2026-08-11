@@ -26,6 +26,7 @@ struct AdminView: View {
     @State private var pendingDelete: AdminUserRowModel?
     @State private var pendingRevoke: AdminInviteRowModel?
     @State private var pendingDeny: AdminUserRowModel?
+    @State private var pendingResetDeny: AdminResetRequestRowModel?
     @State private var copiedToast = false
 
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
@@ -60,6 +61,19 @@ struct AdminView: View {
             confirmationButtons
         } message: {
             confirmationMessage
+        }
+        .sheet(isPresented: resetCodePresented) {
+            if let admin, case .ready(let ready) = admin.phase, let code = ready.resetCodeToConvey {
+                ResetCodeSheet(
+                    code: code,
+                    recipientName: ready.resetCodeRecipientName,
+                    onCopy: { copyToClipboard(code) },
+                    onDone: { admin.dismissResetCode() }
+                )
+                // Only the explicit Done button clears the code — it is shown exactly once and
+                // is never retrievable again (AdminViewModel.dismissResetCode contract).
+                .interactiveDismissDisabled()
+            }
         }
         .overlay(alignment: .bottom) {
             if copiedToast {
@@ -185,6 +199,7 @@ struct AdminView: View {
             if ready.registrationPolicy == .approvalQueue {
                 pendingRegistrationsSection(admin: admin, ready: ready)
             }
+            passwordResetsSection(admin: admin, ready: ready)
             if !ready.pendingInvites.isEmpty {
                 pendingInvitesSection(admin: admin, ready: ready)
             }
@@ -235,6 +250,36 @@ struct AdminView: View {
                             isBusy: ready.approvingUserId == user.id || ready.denyingUserId == user.id,
                             onApprove: { admin.approveUser(id: user.id) },
                             onDeny: { pendingDeny = user }
+                        )
+                    }
+                }
+                .fieldCard()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func passwordResetsSection(admin: AdminObserver, ready: AdminReadyModel) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            AdminSectionHeader(String(localized: "admin.password_resets"))
+            if ready.pendingPasswordResets.isEmpty {
+                emptyRow(String(localized: "admin.no_pending_password_resets"))
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(ready.pendingPasswordResets.enumerated()), id: \.element.id) { index, request in
+                        if index > 0 { rowSeparator }
+                        AdminPendingUserRow(
+                            user: AdminUserRowModel(
+                                id: request.id,
+                                name: request.name,
+                                email: request.email,
+                                roleLabel: "",
+                                isRootBadge: false,
+                                isProtected: false
+                            ),
+                            isBusy: ready.decidingPasswordResetId == request.id,
+                            onApprove: { admin.decidePasswordReset(id: request.id, approved: true) },
+                            onDeny: { pendingResetDeny = request }
                         )
                     }
                 }
@@ -388,7 +433,6 @@ struct AdminView: View {
         Binding(get: { model?.remoteUrl ?? "" }, set: { settings.setRemoteUrl($0) })
     }
 
-
     private func settingsModel(_ settings: AdminSettingsObserver) -> AdminSettingsReadyModel? {
         if case .ready(let model) = settings.phase { return model }
         return nil
@@ -424,16 +468,30 @@ struct AdminView: View {
         )
     }
 
+    /// Presents the one-time reset-code sheet whenever the VM surfaces a code. Setting `false`
+    /// is ignored — dismissal happens only through `dismissResetCode()` (the Done button), so a
+    /// swipe or stray dismissal can never lose an unread code.
+    private var resetCodePresented: Binding<Bool> {
+        Binding(
+            get: {
+                guard case .ready(let ready)? = admin?.phase else { return false }
+                return ready.resetCodeToConvey != nil
+            },
+            set: { _ in }
+        )
+    }
+
     // MARK: - Destructive confirmation
 
     private var confirmationPresented: Binding<Bool> {
         Binding(
-            get: { pendingDelete != nil || pendingRevoke != nil || pendingDeny != nil },
+            get: { pendingDelete != nil || pendingRevoke != nil || pendingDeny != nil || pendingResetDeny != nil },
             set: { presenting in
                 if !presenting {
                     pendingDelete = nil
                     pendingRevoke = nil
                     pendingDeny = nil
+                    pendingResetDeny = nil
                 }
             }
         )
@@ -443,6 +501,7 @@ struct AdminView: View {
         if pendingDelete != nil { return String(localized: "common.delete") }
         if pendingRevoke != nil { return String(localized: "admin.revoke_invite") }
         if pendingDeny != nil { return String(localized: "admin.deny_registration") }
+        if pendingResetDeny != nil { return String(localized: "admin.deny_reset") }
         return ""
     }
 
@@ -466,6 +525,12 @@ struct AdminView: View {
                 pendingDeny = nil
             }
         }
+        if let request = pendingResetDeny {
+            Button(String(localized: "common.deny"), role: .destructive) {
+                admin?.decidePasswordReset(id: request.id, approved: false)
+                pendingResetDeny = nil
+            }
+        }
         Button(String(localized: "common.cancel"), role: .cancel) {}
     }
 
@@ -477,6 +542,8 @@ struct AdminView: View {
             Text(String(localized: "admin.they_wont_be_able_to"))
         } else if let user = pendingDeny {
             Text(String(localized: "admin.confirm_deny_registration") + user.name + "?")
+        } else if let request = pendingResetDeny {
+            Text(request.name)
         }
     }
 

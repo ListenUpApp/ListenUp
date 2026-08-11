@@ -44,7 +44,7 @@ private const val MAX_STREAM_RETRY_ATTEMPTS = 5
  * Construction resumes an in-flight request left over from a prior run — the "never stranded"
  * path for a user who closed the app while waiting and returns later, by phone, with the code.
  */
-class ForgotPasswordViewModel(
+class ForgotPasswordViewModel internal constructor(
     private val repository: PasswordResetRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {

@@ -32,6 +32,7 @@ final class Dependencies {
     // signals factory semantics (mirrors `makePendingApprovalViewModel`).
     func makeServerConnectViewModel() -> ServerConnectViewModel { KoinHelper.shared.getServerConnectViewModel() }
     func makeLoginViewModel() -> LoginViewModel { KoinHelper.shared.getLoginViewModel() }
+    func makeForgotPasswordViewModel() -> ForgotPasswordViewModel { KoinHelper.shared.getForgotPasswordViewModel() }
     func makeRegisterViewModel() -> RegisterViewModel { KoinHelper.shared.getRegisterViewModel() }
     func makeSetupViewModel() -> SetupViewModel { KoinHelper.shared.getSetupViewModel() }
     func makeClaimInviteViewModel() -> ClaimInviteViewModel { KoinHelper.shared.getClaimInviteViewModel() }

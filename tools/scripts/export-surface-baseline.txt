@@ -208,6 +208,8 @@ FacetKind
 FacetStats
 FileSource
 FolderId
+ForgotPasswordUiState
+ForgotPasswordViewModel
 Genre
 GenreCrumb
 GenreDestinationUiState
@@ -316,6 +318,7 @@ NowPlayingScreenState
 NowPlayingState
 NowPlayingViewModel
 PasswordChange
+PasswordResetRequest
 PendingApprovalUiState
 PendingApprovalViewModel
 PendingCover
