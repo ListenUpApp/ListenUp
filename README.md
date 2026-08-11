@@ -70,10 +70,8 @@ Beta ships on the two platforms below; more are on the way.
 
 ## Getting the Beta
 
-> Public beta links are being set up — check the [Releases](https://github.com/ListenUpApp/ListenUp/releases) page for the latest.
-
-- **iOS** — via TestFlight _(invite coming soon)_
-- **Android** — via the Google Play internal track _(invite coming soon)_
+- **iOS** — [Join the TestFlight beta](https://testflight.apple.com/join/5DJ6GZdt)
+- **Android** — via the Google Play internal track _(invite coming soon — check [Releases](https://github.com/ListenUpApp/ListenUp/releases) in the meantime)_
 
 ### Connecting to a Server
 
