@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
+import com.calypsan.listenup.server.auth.SocketTicketStore
 import com.calypsan.listenup.server.auth.resolveServerSecrets
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -158,43 +159,13 @@ fun authModule(
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 
+        // One store per process, shared by the minting service and the bearer provider that
+        // redeems — two halves of the same handshake, so they must be the same instance.
+        single { SocketTicketStore(clock = get()) }
+
         single { buildDefaultAllBooksGrantIssuer() }
 
-        single {
-            AuthServiceImpl(
-                db = get<ListenUpDatabase>(),
-                sessions = get(),
-                hasher = get(),
-                jwt = get(),
-                sessionIssuer = get(),
-                clock = get(),
-                settings = get(),
-                // Per-IP RPC throttle (C3). The per-call remote host is bound at the mount via
-                // withRemoteHost; the singleton carries the limiter but no host (throttle inert).
-                loginRateLimiter = get(),
-                // Nullable — shelf module may not be loaded (e.g. during authModule-only verify tests).
-                // When shelfModule is assembled, ShelfRepository is resolved and starter shelves are created.
-                shelfRepository = getOrNull<ShelfRepository>(),
-                // Nullable — publicProfileModule may not be loaded in minimal test containers.
-                publicProfileMaintainer = getOrNull(),
-                // Nullable — playbackModule (which binds ActivityRecorder) may not be loaded.
-                activityRecorder = getOrNull(),
-                defaultGrantIssuer = getOrNull(),
-                // Nullable — the admin-roster module may not be loaded in minimal test containers.
-                adminUserRosterMaintainer = getOrNull(),
-                // Nullable — the push module may not be loaded in minimal test containers.
-                pushWatchTokens = getOrNull(),
-                // The same singleton AdminUserServiceImpl notifies on a decision — must be shared,
-                // not the constructor's default fresh instance, or observeRegistrationStatus would
-                // never see a live approve/deny push.
-                registrationBroadcaster = get(),
-                // Same sharing requirement for the policy fan-out: AdminUserServiceImpl notifies
-                // this singleton on a policy write; observeRegistrationPolicy watches it.
-                registrationPolicyBroadcaster = get(),
-                passwordResetService = get(),
-                rootPasswordResetService = get(),
-            )
-        }
+        single { buildAuthService() }
 
         adminUserServiceSingle()
 
@@ -260,6 +231,48 @@ private const val DEFAULT_REUSE_GRACE_SECONDS = 60L
 /** Concurrent-Argon2 ceiling (C3): `auth.argon2Parallelism` if set, else [DEFAULT_ARGON2_PARALLELISM]. */
 private fun ApplicationConfig.argon2Parallelism(): Int =
     propertyOrNull("auth.argon2Parallelism")?.getString()?.toIntOrNull() ?: DEFAULT_ARGON2_PARALLELISM
+
+/**
+ * The top-level auth service, composed from the primitives bound above. Extracted from [authModule]
+ * for the same reason as [buildDefaultAllBooksGrantIssuer] — to keep the module factory under the
+ * length budget — not because the wiring is reusable.
+ */
+private fun Scope.buildAuthService(): AuthServiceImpl =
+    AuthServiceImpl(
+        db = get<ListenUpDatabase>(),
+        sessions = get(),
+        hasher = get(),
+        jwt = get(),
+        sessionIssuer = get(),
+        clock = get(),
+        settings = get(),
+        // Per-IP RPC throttle (C3). The per-call remote host is bound at the mount via
+        // withRemoteHost; the singleton carries the limiter but no host (throttle inert).
+        loginRateLimiter = get(),
+        // Mints the browser's WebSocket tickets; the same singleton installJwtAuth redeems from.
+        socketTicketStore = get(),
+        // Nullable — shelf module may not be loaded (e.g. during authModule-only verify tests).
+        // When shelfModule is assembled, ShelfRepository is resolved and starter shelves are created.
+        shelfRepository = getOrNull<ShelfRepository>(),
+        // Nullable — publicProfileModule may not be loaded in minimal test containers.
+        publicProfileMaintainer = getOrNull(),
+        // Nullable — playbackModule (which binds ActivityRecorder) may not be loaded.
+        activityRecorder = getOrNull(),
+        defaultGrantIssuer = getOrNull(),
+        // Nullable — the admin-roster module may not be loaded in minimal test containers.
+        adminUserRosterMaintainer = getOrNull(),
+        // Nullable — the push module may not be loaded in minimal test containers.
+        pushWatchTokens = getOrNull(),
+        // The same singleton AdminUserServiceImpl notifies on a decision — must be shared,
+        // not the constructor's default fresh instance, or observeRegistrationStatus would
+        // never see a live approve/deny push.
+        registrationBroadcaster = get(),
+        // Same sharing requirement for the policy fan-out: AdminUserServiceImpl notifies
+        // this singleton on a policy write; observeRegistrationPolicy watches it.
+        registrationPolicyBroadcaster = get(),
+        passwordResetService = get(),
+        rootPasswordResetService = get(),
+    )
 
 /**
  * The default ALL_BOOKS grant issuer, or null when its deps are absent. Nullable because booksModule

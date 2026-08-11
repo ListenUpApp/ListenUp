@@ -105,6 +105,18 @@ internal interface ApiClientFactory : RemoteCache {
     suspend fun getClient(): HttpClient
 
     /**
+     * The access token this factory's clients present as their bearer credential, or null when
+     * there is no session.
+     *
+     * Exposed because one transport cannot use the header the bearer plugin writes: a browser's
+     * WebSocket upgrade carries no headers at all, so the RPC channel trades this token for a
+     * single-use socket ticket instead ([mintSocketTicket]). Reading it here — rather than from a
+     * second injection of [AuthSession] — keeps ONE answer to "what credential does this client
+     * present".
+     */
+    suspend fun currentAccessToken(): String?
+
+    /**
      * Invalidate the cached request/RPC client so the next call rebinds fresh.
      *
      * Historically this was narrower than [invalidate] (which also closed the SSE-era
@@ -212,6 +224,9 @@ internal class KtorApiClientFactory(
         getClient()
     }
 
+    // The same read the bearer plugin's `loadTokens` performs — one credential, two carriers.
+    override suspend fun currentAccessToken(): String? = authSession.getAccessToken()?.value
+
     @Suppress("ThrowsCount", "CognitiveComplexMethod")
     private suspend fun createClient(): HttpClient {
         val initialUrl =
@@ -241,6 +256,25 @@ internal class KtorApiClientFactory(
             // base client). Without pings, a half-open / "black-hole" socket is never detected and
             // an in-flight RPC call awaits its response forever — the contributor-merge hang. A
             // periodic ping fails the dead session so the call surfaces an error instead of spinning.
+            //
+            // ⛔ NO-OP on Kotlin/JS (the web client). `ktor-client-js`'s session already implements
+            // `DefaultWebSocketSession` itself, so the WebSockets plugin's `convertSessionToDefault`
+            // returns it UNCHANGED instead of wrapping it with this configured interval — the wrapping
+            // step that would apply `pingIntervalMillis` never runs. Confirmed at runtime: setting
+            // `pingIntervalMillis` directly on a live JS session throws `WebSocketException("Websocket
+            // ping-pong is not supported in JS engine.")`, but neither this `install` block nor
+            // `installKrpc()`'s second `install(WebSockets)` ever reaches that call, so nothing throws
+            // and nothing pings — see `ProductionWebSocketConfigTest` (`:app:webApp`) and Round 5 of
+            // `docs/superpowers/findings/2026-08-08-web-toolchain-decoupling-spike.md`.
+            //
+            // What web loses is DETECTION, not protection. Neither `HttpTimeout` (which bounds only
+            // the initial WS-upgrade request) nor kotlinx.rpc (which has no per-call reply timeout)
+            // covers a mid-session black hole — but `RpcProxyCache.call` wraps every RPC call in
+            // `withTimeout(DEFAULT_RPC_TIMEOUT)`, which is plain kotlinx.coroutines and therefore
+            // platform-independent. So a call over a silently-dead socket still fails at 15s on web,
+            // as `RpcOutcomeUnknownException`, and heals the connection for the next call. What the
+            // ping would add is noticing sooner and without waiting for a caller to ask.
+            // Android/iOS/Desktop are unaffected; this line still works there.
             install(WebSockets) {
                 pingIntervalMillis = WS_PING_INTERVAL_MS
             }

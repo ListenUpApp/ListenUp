@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
@@ -231,17 +232,34 @@ internal inline fun <reified S : Any> rpcChannelQualifier(): Qualifier = named<S
  */
 internal inline fun <reified S : Any> Module.rpcChannel(policy: RpcPolicy = RpcPolicy.Authed) {
     single(rpcChannelQualifier<S>()) {
+        val apiClientFactory = get<ApiClientFactory>()
         RpcChannel(
             dispatch =
                 RpcProxyCache(
-                    apiClientFactory = get(),
+                    apiClientFactory = apiClientFactory,
                     serverConfig = get<ServerConfig>(),
                     authRecovery =
                         when (policy.recovery) {
                             RecoveryMode.Authed -> get<RpcAuthRecovery>()
                             RecoveryMode.Public -> RpcAuthRecovery.None
                         },
-                ) { client, baseUrl -> client.rpc("$baseUrl${policy.mount}").withService<S>() },
+                ) { client, baseUrl ->
+                    // A browser cannot put a header on the upgrade, so the authed mount takes a
+                    // single-use ticket in the URL instead. The token that buys it comes from the
+                    // same place the bearer header does, so there is still ONE credential.
+                    //
+                    // The auth channel is resolved HERE rather than captured above: this lambda runs
+                    // per connection, long after the graph is built, which is what keeps the public
+                    // channel's own definition from having to resolve itself.
+                    val url =
+                        rpcMountUrl(baseUrl, policy) {
+                            mintSocketTicket(
+                                accessToken = { apiClientFactory.currentAccessToken() },
+                                authChannel = { get(rpcChannelQualifier<AuthServicePublic>()) },
+                            )
+                        }
+                    client.rpc(url).withService<S>()
+                },
             policy = policy,
             evidence = get(),
             // getOrNull: the applier is registered by the sync module, which the real app loads

@@ -30,7 +30,7 @@ import kotlinx.rpc.withService
 // verifies against the same secret. Liveness is always-true: a validly-signed token is accepted.
 private val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client")
 
-private fun deps(): FoundationDeps = FoundationDeps(jwt) { true }
+private fun deps(): FoundationDeps = FoundationDeps(jwt, sessionLiveness = { true })
 
 /** Test-scope ping impl — unguarded by design (the rpc-guard decorator is jvmMain-only). */
 private class TestPing : PingService {

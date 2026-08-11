@@ -9,6 +9,7 @@ import { chromium } from 'playwright'
 import { createServer, preview } from 'vite'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isSettled, problemsFor } from './settle.mjs'
 
 // The number of tests the suite is known to contain. A run that finds fewer has not "passed" —
 // it has failed to discover something, which is the exact way this class of lane lies: the
@@ -16,13 +17,21 @@ import { fileURLToPath } from 'node:url'
 // discovered-test-count floors for this reason; so does this one.
 //
 // Raise it when specs are added. Lowering it needs a reason.
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 95)
+//
+// The default is the SERVER-FREE lane's count (`pnpm test` / :app:webApp:webKotest). The
+// server-backed lane (`pnpm test:auth`) compiles the same bundle but additionally enables the
+// three specs that need a live server, so it overrides this to its own higher count. Two lanes,
+// two exact floors — that is what keeps "this lane skips some specs" from decaying into "this
+// lane silently stopped running them".
+//
+// Counted against `testStarted`, so a spec that quietly becomes server-gated trips the floor the
+// same as one that stops compiling: 147 specs, 144 run here, all 147 run under `test:auth`.
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 144)
 
-// Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main`
-// with an empty continuation, so there is no promise to await either. Completion is therefore
-// inferred from quiescence: the stream has stopped for IDLE_MS. That is strictly better than a
-// fixed wait, which silently truncates a suite that outgrows it and reports the partial run as
-// a pass. CEILING_MS only bounds a hang, and hitting it is a failure, not a result.
+// Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main` with
+// an empty continuation, so there is no promise to await either. Completion is therefore inferred
+// from quiescence plus nothing in flight; `settle.mjs` holds that rule and the tests for it.
+// CEILING_MS only bounds a hang, and hitting it is a failure, not a result.
 const IDLE_MS = 3_000
 const CEILING_MS = 180_000
 
@@ -76,14 +85,31 @@ page.on('pageerror', (e) => {
   lastMessageAt = Date.now()
 })
 
+// RpcTransportTest's guard, not the URL it dials: the spec builds its own RPC URL from the
+// page's own origin (production topology — see the spec's KDoc), but a run under plain `pnpm
+// test` (no server) must fail loudly as "no server was booted" rather than looking like a
+// broken socket. `pnpm test:auth` (scripts/with-server.mjs) is the only caller that sets
+// LU_SERVER_URL; a plain `pnpm test` leaves it unset and the guard trips on purpose.
+await page.addInitScript((url) => {
+  window.__LU_SERVER_URL = url
+}, process.env.LU_SERVER_URL ?? null)
+
 const startedAt = Date.now()
 await page.goto(`${BASE}/test/kotest.html`, { waitUntil: 'load' })
+
+/** The four tallies the verdict is derived from, as of right now. */
+const counts = () => ({
+  started: started.length,
+  finished: finished.length,
+  ignored: ignored.length,
+  failed: failed.length,
+})
 
 let timedOut = false
 for (;;) {
   await page.waitForTimeout(250)
   const now = Date.now()
-  if (started.length > 0 && now - lastMessageAt > IDLE_MS) break
+  if (isSettled(counts(), { now, lastMessageAt, idleMs: IDLE_MS })) break
   if (now - startedAt > CEILING_MS) {
     timedOut = true
     break
@@ -92,8 +118,6 @@ for (;;) {
 
 await browser.close()
 await server?.close()
-
-const dangling = started.length - finished.length - ignored.length
 
 console.log(`started:  ${started.length}`)
 console.log(`finished: ${finished.length}`)
@@ -113,13 +137,12 @@ if (pageErrors.length) {
   for (const e of pageErrors) console.log(`  ${e}`)
 }
 
-const problems = []
-if (timedOut) problems.push(`the run did not settle within ${CEILING_MS / 1000}s`)
-if (started.length < MIN_TESTS) {
-  problems.push(`discovered ${started.length} tests, expected at least ${MIN_TESTS}`)
-}
-if (dangling > 0) problems.push(`${dangling} test(s) started but never reported a result`)
-if (failed.length > 0) problems.push(`${failed.length} test(s) failed`)
+const problems = problemsFor({
+  counts: counts(),
+  timedOut,
+  minTests: MIN_TESTS,
+  ceilingMs: CEILING_MS,
+})
 
 for (const p of problems) console.log(`PROBLEM: ${p}`)
 console.log(problems.length === 0 ? 'RESULT: PASS' : 'RESULT: FAIL')

@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
+import com.calypsan.listenup.api.dto.auth.SocketTicket
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.api.result.AppResult
@@ -48,6 +49,21 @@ interface AuthServicePublic {
      * in the same family triggers a family-wide revoke.
      */
     suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession>
+
+    /**
+     * Trade a valid access token for a single-use [SocketTicket] that authenticates ONE WebSocket
+     * upgrade.
+     *
+     * For browsers only, and not by preference: the DOM `WebSocket` constructor takes
+     * `(url, protocols)` and no headers, so a browser cannot present a bearer token on the upgrade
+     * the way every native client does. The URL is the only carrier left, and a reverse proxy logs
+     * URLs — so what goes there is a ticket, never the JWT.
+     *
+     * On the PUBLIC mount because it is what a client calls when it cannot yet open the authed one.
+     * That is not a hole: the access token is the argument, it is verified here exactly as the
+     * bearer provider verifies it, and it travels inside the WebSocket payload rather than a URL.
+     */
+    suspend fun issueSocketTicket(accessToken: String): AppResult<SocketTicket>
 
     /**
      * Streams the approval status of a pending registration. Emits the current status

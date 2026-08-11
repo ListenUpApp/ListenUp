@@ -397,7 +397,15 @@ tasks.named<Test>("jvmTest") {
     // Gradle's 512 MB worker default is borderline for a 25-class batch of `testApplication`
     // specs — a worker can die with OutOfMemoryError (surfacing as JPLISAgent assertions +
     // "Test process encountered an unexpected problem") with zero failing tests.
-    maxHeapSize = "1g"
+    //
+    // Raised 1g → 2g on 2026-08-11: the symptom above returned twice in one session on a lane
+    // that now runs ~2,900 specs. The tell is unmistakable and worth recognising — the build
+    // fails while every test result file reports 0 failures and 0 errors, because nothing failed
+    // a test, the worker process died. Grows with the suite; if it recurs, this is the number.
+    //
+    // Peak footprint stays modest: forkEvery(25) with Gradle's default single fork means one test
+    // JVM at a time, so a CI runner holds the build JVM plus one 2g worker.
+    maxHeapSize = "2g"
     // Redirect the working directory so any Ktor testApplication classpath-extraction
     // artefacts (META-INF/, io/) land under build/ rather than the project root.
     workingDir =

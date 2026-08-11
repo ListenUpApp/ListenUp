@@ -95,6 +95,8 @@ class BackupRepositoryImplTest :
                     install(ContentNegotiation) { json(contractJson) }
                 }
 
+            override suspend fun currentAccessToken(): String? = null
+
             override suspend fun warmUp() = Unit
 
             override suspend fun invalidate() = Unit
@@ -117,6 +119,8 @@ class BackupRepositoryImplTest :
                     install(ContentNegotiation) { json(contractJson) }
                     install(HttpTimeout)
                 }
+
+            override suspend fun currentAccessToken(): String? = null
 
             override suspend fun warmUp() = Unit
 

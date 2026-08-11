@@ -55,6 +55,15 @@ class SidecarParsersAreReadOnly :
                 Konsist
                     .scopeFromProduction()
                     .classes()
+                    // Narrow BEFORE resolving parents. `parents()` is the expensive call — it walks
+                    // the supertype graph per class — and running it over every class in scope made
+                    // this spec exceed Kotest's 120s timeout on any checkout carrying sibling git
+                    // worktrees, whose sources Konsist also scans. Restricting to this module's
+                    // production sources first leaves a handful of classes to resolve. The
+                    // implementation-count assertion below is what keeps this narrowing honest: if
+                    // the filter is ever too tight, the rule fails loudly rather than passing on
+                    // nothing.
+                    .filter { it.path.contains("/server/src/") }
                     .filter { cls ->
                         cls.parents().any { it.name == "SidecarParser" }
                     }

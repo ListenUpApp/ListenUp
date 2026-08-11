@@ -119,7 +119,7 @@ class CollectionCreateNativeRpcTest :
                 )
 
             val server =
-                foundationServer(port = 0, deps = FoundationDeps(jwt) { true }) {
+                foundationServer(port = 0, deps = FoundationDeps(jwt, sessionLiveness = { true })) {
                     routing {
                         rpc("/api/rpc/public") {
                             rpcConfig { serialization { json(contractJson) } }

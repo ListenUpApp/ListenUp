@@ -65,6 +65,11 @@
 }
 
 /* ---- base ---- */
+/* The kit assumes it owns the viewport: `.shell` and `.auth` are both full-height, and the
+   browser's default 8px body margin would show as a gutter around them plus a spurious
+   scrollbar. Scoped to the document rather than `.luw` because a margin on `body` cannot be
+   undone from inside it. */
+body { margin: 0; }
 .luw, .luw * { box-sizing: border-box; }
 .luw {
   color: var(--ink);
@@ -99,6 +104,8 @@
   border-color: var(--coral);
   box-shadow: 0 0 0 4px var(--coral-ring);
 }
+.f-box.err { border-color: var(--coral); }
+.f-box.err:focus-within { box-shadow: 0 0 0 4px var(--coral-ring); }
 .f-box .f-ico { color: var(--ink-3); flex-shrink: 0; transition: color .15s; }
 .f-box:focus-within .f-ico { color: var(--coral); }
 .f-input {
@@ -304,7 +311,16 @@
 .iconbtn:hover { background:var(--surface-3); color:var(--ink); }
 
 /* ---- menu / popover ---- */
-.menu { min-width:216px; padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
+/* What a popover hangs from. `inline-flex` keeps it the width of its trigger: the account menu
+   was briefly anchored to .f-wrap, which is the FORM FIELD wrapper at width:100%, and an
+   unpositioned .menu inside it flowed as a block child — rendering the dropdown as a full-width
+   bar across the top of the content area. */
+.menu-anchor { position:relative; display:inline-flex; }
+/* Absolute by definition — this is a popover, so it must not take space in the flow. `left:0`
+   hangs it off the trigger's left edge (the account button sits at the content area's left);
+   `max-content` lets it size to its items while min-width keeps a small menu from looking mean.
+   Below .scrim's z-index:40 so a modal still covers it. */
+.menu { position:absolute; top:calc(100% + 6px); left:0; z-index:30; width:max-content; min-width:216px; padding:6px; background:var(--surface); border:1px solid var(--line); border-radius:13px; box-shadow:var(--shadow-pop); }
 .menu-i { display:flex; align-items:center; gap:10px; height:34px; padding:0 9px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink); cursor:pointer; white-space:nowrap; }
 .menu-i:hover { background:var(--surface-2); }
 .menu-i.hi { background:var(--surface-2); }
@@ -490,3 +506,55 @@
 .cbx.on { background:var(--coral); border-color:var(--coral); }
 .cbx.ind { background:var(--coral); border-color:var(--coral); }
 .cbx.ind::after { content:""; width:9px; height:2px; border-radius:2px; background:#fff; }
+
+/* ============================================================
+   AUTH — the signed-out surface.
+   One DOM, two layouts: the brand panel always renders and this
+   sheet hides it below the breakpoint, the same single mechanism
+   the sidebar rail uses.
+   ============================================================ */
+.auth { display: flex; min-height: 100dvh; background: var(--paper); }
+
+.auth-brand { display: none; }
+@media (min-width: 1100px) {
+  .auth-brand {
+    display: flex; flex-direction: column; justify-content: center;
+    width: 520px; flex-shrink: 0; padding: 52px 56px;
+    background: linear-gradient(160deg, var(--coral-deep), #2A0F08);
+    color: #FFF; position: relative; overflow: hidden;
+  }
+}
+.auth-hd {
+  margin: 0; max-width: 380px;
+  font-size: 46px; font-weight: 800; letter-spacing: -1.6px; line-height: 1.02;
+}
+.auth-sub { margin: 18px 0 0; max-width: 360px; opacity: 0.82; font-size: 16px; line-height: 1.5; }
+
+.auth-form {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 48px 24px;
+}
+.auth-col { width: 100%; max-width: 460px; display: flex; flex-direction: column; }
+.auth-t {
+  margin: 0; color: var(--ink);
+  font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.0;
+}
+.auth-st { margin: 12px 0 0; color: var(--ink-2); font-size: 16px; line-height: 1.5; }
+.auth-fields { display: flex; flex-direction: column; gap: 20px; margin-top: 30px; }
+.auth-row { display: flex; gap: 12px; }
+/* Each half takes an equal share of the row and nothing more. `min-width: 0` is the load-bearing
+   part: a flex item's automatic minimum size is its MIN-CONTENT, so without this the halves refuse
+   to shrink and the row overflows .auth-col — visibly, since the single-column fields above and
+   below it stop at 460px. The password row overhangs worst because its min-content carries the
+   lock icon plus the non-shrinking eye button, so it is the row that makes the bug obvious. */
+.auth-row > * { flex: 1 1 0; min-width: 0; }
+.auth-alt {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: 6px; font-size: 14.5px; color: var(--ink-2);
+}
+.auth-err { color: var(--coral); font-size: 14px; font-weight: 600; }
+.auth-boot {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100dvh; background: var(--paper); color: var(--ink-2);
+}

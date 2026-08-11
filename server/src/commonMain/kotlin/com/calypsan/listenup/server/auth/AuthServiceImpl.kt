@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.SocketTicket
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -89,6 +90,12 @@ class AuthServiceImpl(
      * REST path, where the throttle is a no-op (the Ktor `RateLimit` plugin covers REST).
      */
     internal val loginRateLimiter: LoginRateLimiter? = null,
+    /**
+     * Mints the single-use tickets a browser needs to authenticate its RPC WebSocket. Nullable on
+     * the same terms as [loginRateLimiter]: non-null in production, absent in unit tests that never
+     * reach the socket surface.
+     */
+    internal val socketTicketStore: SocketTicketStore? = null,
     /**
      * Nullable so the auth module can be assembled independently of the shelf
      * module (test environments, phased startup). A null value means starter
@@ -338,6 +345,30 @@ class AuthServiceImpl(
         )
     }
 
+    /**
+     * Mints a [SocketTicket] for a caller that already holds a valid access token.
+     *
+     * Only the signature and expiry are checked here — deliberately not session liveness. The
+     * ticket redeems back to this very token, which the bearer provider then puts through its full
+     * check (including liveness) when the upgrade arrives, so re-checking now would duplicate the
+     * gate a second or two early and let it drift out of step with the one that actually decides.
+     *
+     * Unthrottled: it costs a signature verification, it requires a valid token to yield anything,
+     * and a client legitimately mints one per reconnect — a bucket here would throttle recovery
+     * from exactly the network conditions that cause reconnects.
+     */
+    override suspend fun issueSocketTicket(accessToken: String): AppResult<SocketTicket> {
+        val store =
+            socketTicketStore
+                ?: return AppResult.Failure(AuthError.SessionExpired(debugInfo = "socket tickets are not configured"))
+        try {
+            jwt.verify(accessToken)
+        } catch (_: JwtVerificationException) {
+            return AppResult.Failure(AuthError.SessionExpired(debugInfo = "access token failed verification"))
+        }
+        return AppResult.Success(SocketTicket(store.issue(accessToken)))
+    }
+
     override suspend fun refreshSession(request: RefreshRequest): AppResult<AuthSession> {
         enforceRate(AuthRateBucket.REFRESH)?.let { return AppResult.Failure(it) }
         val rotated =
@@ -528,6 +559,7 @@ class AuthServiceImpl(
             requestUserAgent = requestUserAgent,
             remoteHost = remoteHost,
             loginRateLimiter = loginRateLimiter,
+            socketTicketStore = socketTicketStore,
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
@@ -554,6 +586,7 @@ class AuthServiceImpl(
             requestUserAgent = userAgent,
             remoteHost = remoteHost,
             loginRateLimiter = loginRateLimiter,
+            socketTicketStore = socketTicketStore,
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
@@ -583,6 +616,7 @@ class AuthServiceImpl(
             requestUserAgent = requestUserAgent,
             remoteHost = remoteHost,
             loginRateLimiter = loginRateLimiter,
+            socketTicketStore = socketTicketStore,
             shelfRepository = shelfRepository,
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
