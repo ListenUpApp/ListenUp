@@ -19,6 +19,7 @@ struct AdminSettingsObserverTests {
         )
         let model = AdminSettingsReadyModel.from(ready)
         #expect(model.inboxEnabled == true)
+        #expect(model.pushNotificationsEnabled == true)
         #expect(model.serverName == "My Server")
         #expect(model.remoteUrl == "https://example.com")
         #expect(model.error == nil)
@@ -36,6 +37,7 @@ struct AdminSettingsObserverTests {
         )
         let model = AdminSettingsReadyModel.from(ready)
         #expect(model.inboxEnabled == false)
+        #expect(model.pushNotificationsEnabled == false)
         #expect(model.serverName == "Inbox Off")
         #expect(model.isDirty == true)
     }
