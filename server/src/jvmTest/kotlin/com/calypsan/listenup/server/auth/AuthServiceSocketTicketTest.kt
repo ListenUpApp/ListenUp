@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.migratedTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -42,6 +43,7 @@ class AuthServiceSocketTicketTest :
                 sessionIssuer = SessionIssuer(sessions, jwt, clock),
                 clock = clock,
                 settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN),
+                passwordResetService = testPasswordResetService(db, clock),
                 socketTicketStore = store,
             )
         }
