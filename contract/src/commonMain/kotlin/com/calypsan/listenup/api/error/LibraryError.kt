@@ -21,6 +21,7 @@ import kotlinx.serialization.Serializable
  * - [InvalidPath] → 400
  * - [DuplicateFolder] → 409
  * - [FolderNotFound] → 404
+ * - [BrowseTimedOut] → 504
  */
 @Serializable
 sealed interface LibraryError : AppError {
@@ -73,6 +74,30 @@ sealed interface LibraryError : AppError {
     ) : LibraryError {
         override val message: String = "That folder is already registered under another library."
         override val code: String = "LIBRARY_DUPLICATE_FOLDER"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * Listing a directory ran past the server's own walk budget and was abandoned.
+     *
+     * Returned by [com.calypsan.listenup.api.LibraryAdminService.browseFilesystem] when the walk
+     * exceeds its budget — deliberately well under the client's RPC deadline, so a slow filesystem
+     * surfaces as this typed failure instead of the deadline lapsing with "outcome unknown" and
+     * nothing in the server log. Bare-metal hosts hit it where containers do not: consent-gated
+     * locations, network mounts and firmlinks can each stall a single `readdir` for seconds.
+     *
+     * Not retryable — the same path will be just as slow on the next call, and re-firing a request
+     * that already burned the budget is the opposite of what the operator needs. The way out is a
+     * more specific path, which is user action.
+     */
+    @Serializable
+    @SerialName("LibraryError.BrowseTimedOut")
+    data class BrowseTimedOut(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : LibraryError {
+        override val message: String = "That folder took too long to read. Try browsing to a more specific path."
+        override val code: String = "LIBRARY_BROWSE_TIMED_OUT"
         override val isRetryable: Boolean = false
     }
 

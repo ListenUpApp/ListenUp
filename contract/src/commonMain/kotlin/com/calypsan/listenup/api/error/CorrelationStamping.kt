@@ -210,6 +210,7 @@ private fun LibraryError.withCorrelationId(id: String?): LibraryError =
         is LibraryError.InvalidPath -> copy(correlationId = id)
         is LibraryError.DuplicateFolder -> copy(correlationId = id)
         is LibraryError.FolderNotFound -> copy(correlationId = id)
+        is LibraryError.BrowseTimedOut -> copy(correlationId = id)
     }
 
 private fun TagError.withCorrelationId(id: String?): TagError =
