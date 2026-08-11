@@ -16,5 +16,11 @@
 	     that reads like an unrelated codesign error. -->
 	<key>com.apple.developer.carplay-audio</key>
 	<true/>
+	<!-- Push notifications (#1085). Like the CarPlay grant above, adding this capability
+	     requires regenerating the provisioning profile before a signed build succeeds.
+	     "development" is the source-level value; distribution signing rewrites it to
+	     "production" from the provisioning profile. -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

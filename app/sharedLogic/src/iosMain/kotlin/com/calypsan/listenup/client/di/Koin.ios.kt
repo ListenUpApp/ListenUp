@@ -1,8 +1,12 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.core.configureLogging
+import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
+import com.calypsan.listenup.client.data.push.ApnsTokenStore
+import com.calypsan.listenup.client.data.push.PushRegistrar
+import com.calypsan.listenup.client.data.push.PushTokenProvider
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksViewModel
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
@@ -97,9 +101,20 @@ internal actual fun initializeKoin(additionalModules: List<Module>) {
 
     startKoin {
         // Include shared modules, iOS playback module, and any app-specific modules
-        modules(sharedModules + iosPlaybackModule + additionalModules)
+        modules(sharedModules + iosPlaybackModule + iosPushModule + additionalModules)
     }
 }
+
+/**
+ * iOS push bindings — the mirror of the Android platform module's pair: this build IS the iOS
+ * platform, and its token provider is the APNs token store the AppDelegate callback fills
+ * through [KoinHelper.onPushTokenReceived].
+ */
+internal val iosPushModule: Module =
+    module {
+        single<PushPlatform> { PushPlatform.IOS }
+        single { ApnsTokenStore() } bind PushTokenProvider::class
+    }
 
 /**
  * iOS-specific discovery module.
@@ -189,6 +204,25 @@ object KoinHelper {
     fun getServerConfig(): ServerConfig = resolve(ServerConfig::class)
 
     fun getDeepLinkManager(): DeepLinkManager = resolve(DeepLinkManager::class)
+
+    /**
+     * Receives the APNs device token from the AppDelegate callback (already hex-encoded by
+     * Swift). Stores it for [PushRegistrar]'s post-auth registration and immediately re-registers
+     * with the server when it advertises push — APNs may rotate the token at any launch, so every
+     * callback is treated as a rotation. Best-effort: a pre-auth or offline call simply logs and
+     * defers to the next [syncPushRegistration] trigger.
+     */
+    suspend fun onPushTokenReceived(token: String) {
+        resolve(ApnsTokenStore::class).store(token)
+        resolve(PushRegistrar::class).onTokenRotated(token)
+    }
+
+    /**
+     * Registers this device's push token with the server if push is enabled there — the iOS
+     * mirror of the Android post-auth startup trigger. Safe to call repeatedly; a no-op until
+     * the AppDelegate has delivered a token.
+     */
+    suspend fun syncPushRegistration() = resolve(PushRegistrar::class).syncRegistration()
 
     /** The current access token as a plain String for Swift (SKIE unboxes the value class). */
     suspend fun accessToken(): String? = getAuthSession().getAccessToken()?.value
