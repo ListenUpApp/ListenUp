@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.kotlinJvm) apply false
     alias(libs.plugins.androidx.baselineprofile) apply false
     alias(libs.plugins.aboutlibraries) apply false
+    alias(libs.plugins.googleServices) apply false
 
     // Quality Tools
     alias(libs.plugins.detekt)
@@ -53,6 +54,10 @@ plugins.withType<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnPlugin> {
     the<org.jetbrains.kotlin.gradle.targets.js.yarn.YarnRootExtension>().apply {
         resolution("serialize-javascript", "7.0.3")
         resolution("ws", "8.21.3")
+        // The default drops kotlin-js-store/ at the repo root, which the five-directory root
+        // layout has no slot for. It is build machinery (KGP's yarn lockfile for the karma
+        // lane), so it lives under tools/ — and goes away entirely when karma does.
+        lockFileDirectory = rootDir.resolve("tools/kotlin-js-store")
     }
 }
 
@@ -91,6 +96,14 @@ detekt {
         "$rootDir/server/src/linuxX64Test/kotlin",
         "$rootDir/tools/rpc-guard-ksp/src/main/kotlin",
         "$rootDir/tools/rpc-guard-ksp/src/test/kotlin",
+        // The js source sets. Absent until now, which meant every Kotlin file behind the web
+        // client — the browser store actuals, and now the Compose HTML body — was silently
+        // unlinted. A static-analysis gate that runs over less code than you think is worse
+        // than one that fails, because it reports green either way.
+        "$rootDir/contract/src/jsMain/kotlin",
+        "$rootDir/app/sharedLogic/src/jsMain/kotlin",
+        "$rootDir/app/webApp/src/jsMain/kotlin",
+        "$rootDir/app/webApp/src/jsTest/kotlin",
     )
 }
 
@@ -114,7 +127,11 @@ buildscript {
 spotless {
     kotlin {
         target("**/*.kt")
-        targetExclude("**/build/**", "**/.worktrees/**")
+        // "**/build" (the directory itself, not just its contents) is what makes Gradle PRUNE the
+        // walk instead of merely filtering matches: with only "**/build/**" the file tree still
+        // descends into build/ and races tests that create and delete transient files there
+        // (e.g. sharedLogic's e2e-retries.log) — "Could not read path" mid-snapshot.
+        targetExclude("**/build", "**/build/**", "**/.worktrees/**")
         ktlint(libs.versions.ktlint.get())
         // Suppress max-line-length for API files with complex Ktor builders
         suppressLintsFor {
@@ -124,7 +141,7 @@ spotless {
     }
     kotlinGradle {
         target("**/*.gradle.kts")
-        targetExclude("**/build/**", "**/.worktrees/**")
+        targetExclude("**/build", "**/build/**", "**/.worktrees/**")
         ktlint(libs.versions.ktlint.get())
         // Mirror the `kotlin` block: max-line-length is not enforced on build scripts. Beyond the
         // long dependency-coordinate / URL strings that motivate it for source, the embedded-Kotlin

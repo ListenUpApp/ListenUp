@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
@@ -43,6 +44,7 @@ import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.coverCastRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
+import com.calypsan.listenup.server.routes.webAppRoutes
 import com.calypsan.listenup.server.routes.importRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
@@ -122,6 +124,9 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
+        // Mounted last: its catch-all falls back to the web shell, so it must not shadow the
+        // RPC mounts or the blob endpoints above.
+        webAppRoutes(resolveWebRoot())
     }
 }
 
@@ -158,4 +163,5 @@ private fun Application.rpcServiceBundle(): RpcServices =
         backupService = koinGet<BackupService>(),
         importService = koinGet<ImportService>(),
         syncStreamService = koinGet<SyncStreamService>(),
+        pushService = koinGet<PushService>(),
     )

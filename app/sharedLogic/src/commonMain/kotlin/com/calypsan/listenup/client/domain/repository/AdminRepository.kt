@@ -202,6 +202,7 @@ interface AdminRepository {
         serverName: String? = null,
         remoteUrl: String? = null,
         inboxEnabled: Boolean? = null,
+        pushNotificationsEnabled: Boolean? = null,
     ): AppResult<ServerSettings>
 
     // ═══════════════════════════════════════════════════════════════════════

@@ -19,6 +19,7 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ProfileError
+import com.calypsan.listenup.api.error.PushError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
@@ -158,6 +159,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is ProfileError -> toHttpStatus()
 
         is BackupError -> toHttpStatus()
+
+        is PushError -> toHttpStatus()
 
         is ValidationError -> HttpStatusCode.BadRequest
 
@@ -424,4 +427,9 @@ private fun BackupError.toHttpStatus(): HttpStatusCode =
         is BackupError.BackupNotFound -> HttpStatusCode.NotFound
         is BackupError.RestoreInProgress -> HttpStatusCode.ServiceUnavailable
         is BackupError.RestoreFailed -> HttpStatusCode.InternalServerError
+    }
+
+private fun PushError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is PushError.PushDisabled -> HttpStatusCode.ServiceUnavailable
     }

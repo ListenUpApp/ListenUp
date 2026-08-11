@@ -36,10 +36,6 @@ internal expect val platformDeviceModule: Module
  */
 internal val sharedModules =
     listOf(
-        platformStorageModule,
-        platformDatabaseModule,
-        platformDiscoveryModule,
-        platformDeviceModule,
         appCoreModule,
         settingsModule,
         networkModule,
@@ -60,6 +56,16 @@ internal val sharedModules =
         clientSyncModule,
         clientAuthModule,
         voiceModule,
+        pushClientModule,
+        // Platform modules load LAST so a platform can override a shared default binding —
+        // Koin's later-definition-wins. The concrete case: mediaModule binds the filesystem
+        // DocumentStorage, and the browser (which has no filesystem) replaces it. Modules with
+        // no overlapping definitions are order-independent, so this reorder changes nothing
+        // else.
+        platformStorageModule,
+        platformDatabaseModule,
+        platformDiscoveryModule,
+        platformDeviceModule,
     ) + allPresentationModules
 
 /**

@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Shield
@@ -127,6 +128,8 @@ import listenup.composeapp.generated.resources.admin_registration_policy_open
 import listenup.composeapp.generated.resources.admin_organize_books_into_collections_for
 import listenup.composeapp.generated.resources.admin_pending_invites
 import listenup.composeapp.generated.resources.admin_pending_registrations
+import listenup.composeapp.generated.resources.admin_push_setting_subtitle
+import listenup.composeapp.generated.resources.admin_push_setting_title
 import listenup.composeapp.generated.resources.admin_remote_url
 import listenup.composeapp.generated.resources.admin_remote_url_placeholder
 import listenup.composeapp.generated.resources.admin_reset_code_copied
@@ -182,6 +185,8 @@ fun AdminScreen(
     onRemoteUrlChange: (String) -> Unit = {},
     inboxEnabled: Boolean = false,
     onInboxEnabledChange: (Boolean) -> Unit = {},
+    pushNotificationsEnabled: Boolean = true,
+    onPushNotificationsEnabledChange: (Boolean) -> Unit = {},
     isDirty: Boolean = false,
     onSave: () -> Unit = {},
     settingsError: String? = null,
@@ -271,6 +276,8 @@ fun AdminScreen(
                     onRemoteUrlChange = onRemoteUrlChange,
                     inboxEnabled = inboxEnabled,
                     onInboxEnabledChange = onInboxEnabledChange,
+                    pushNotificationsEnabled = pushNotificationsEnabled,
+                    onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     modifier = Modifier.padding(innerPadding),
                 )
             }
@@ -410,6 +417,8 @@ private fun AdminContent(
     onRemoteUrlChange: (String) -> Unit,
     inboxEnabled: Boolean,
     onInboxEnabledChange: (Boolean) -> Unit,
+    pushNotificationsEnabled: Boolean,
+    onPushNotificationsEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isExpanded =
@@ -442,6 +451,8 @@ private fun AdminContent(
             onRemoteUrlChange = onRemoteUrlChange,
             inboxEnabled = inboxEnabled,
             onInboxEnabledChange = onInboxEnabledChange,
+            pushNotificationsEnabled = pushNotificationsEnabled,
+            onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
             modifier = modifier,
         )
     } else {
@@ -462,6 +473,8 @@ private fun AdminContent(
                     onRemoteUrlChange = onRemoteUrlChange,
                     inboxEnabled = inboxEnabled,
                     onInboxEnabledChange = onInboxEnabledChange,
+                    pushNotificationsEnabled = pushNotificationsEnabled,
+                    onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     onRegistrationPolicyChange = onRegistrationPolicyChange,
                 )
             }
@@ -522,6 +535,8 @@ private fun AdminTwoPaneContent(
     onRemoteUrlChange: (String) -> Unit,
     inboxEnabled: Boolean,
     onInboxEnabledChange: (Boolean) -> Unit,
+    pushNotificationsEnabled: Boolean,
+    onPushNotificationsEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -542,6 +557,8 @@ private fun AdminTwoPaneContent(
                     onRemoteUrlChange = onRemoteUrlChange,
                     inboxEnabled = inboxEnabled,
                     onInboxEnabledChange = onInboxEnabledChange,
+                    pushNotificationsEnabled = pushNotificationsEnabled,
+                    onPushNotificationsEnabledChange = onPushNotificationsEnabledChange,
                     onRegistrationPolicyChange = onRegistrationPolicyChange,
                 )
             }
@@ -594,6 +611,8 @@ private fun ServerSettingsSection(
     onRemoteUrlChange: (String) -> Unit,
     inboxEnabled: Boolean,
     onInboxEnabledChange: (Boolean) -> Unit,
+    pushNotificationsEnabled: Boolean,
+    onPushNotificationsEnabledChange: (Boolean) -> Unit,
     onRegistrationPolicyChange: (RegistrationPolicy) -> Unit,
 ) {
     SectionGroup(
@@ -634,6 +653,17 @@ private fun ServerSettingsSection(
             Switch(
                 checked = inboxEnabled,
                 onCheckedChange = onInboxEnabledChange,
+            )
+        }
+        SettingRow(
+            icon = Icons.Outlined.Notifications,
+            title = stringResource(Res.string.admin_push_setting_title),
+            subtitle = stringResource(Res.string.admin_push_setting_subtitle),
+            showDivider = true,
+        ) {
+            Switch(
+                checked = pushNotificationsEnabled,
+                onCheckedChange = onPushNotificationsEnabledChange,
             )
         }
     }

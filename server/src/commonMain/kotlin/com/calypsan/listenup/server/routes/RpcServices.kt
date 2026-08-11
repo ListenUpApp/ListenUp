@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.ShelfService
@@ -58,4 +59,5 @@ data class RpcServices(
     val importService: ImportService,
     /** The RPC firehose — streams the [com.calypsan.listenup.server.sync.ChangeBus] tail as [SyncStreamService] frames. */
     val syncStreamService: SyncStreamService,
+    val pushService: PushService,
 )

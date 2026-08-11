@@ -1,0 +1,23 @@
+{
+  "name": "listenup-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node scripts/sync-kotlin.mjs",
+    "dev": "node scripts/sync-kotlin.mjs main && vite",
+    "build": "node scripts/sync-kotlin.mjs main && vite build",
+    "preview": "vite preview",
+    "test": "node scripts/sync-kotlin.mjs test && node test/run-kotest.mjs"
+  },
+  "dependencies": {
+    "@js-joda/core": "^5.6.5",
+    "@sqlite.org/sqlite-wasm": "3.50.1-build1",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.7"
+  },
+  "packageManager": "pnpm@11.13.1"
+}

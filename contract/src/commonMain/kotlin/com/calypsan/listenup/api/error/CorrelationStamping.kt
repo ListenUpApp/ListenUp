@@ -63,6 +63,8 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is BackupError -> withCorrelationId(id)
 
+        is PushError -> withCorrelationId(id)
+
         is ValidationError, is InternalError, is TransportError, is PlaybackError, is UnknownError,
         -> leafWithCorrelationId(id)
     }
@@ -320,4 +322,9 @@ private fun BackupError.withCorrelationId(id: String?): BackupError =
         is BackupError.BackupNotFound -> copy(correlationId = id)
         is BackupError.RestoreInProgress -> copy(correlationId = id)
         is BackupError.RestoreFailed -> copy(correlationId = id)
+    }
+
+private fun PushError.withCorrelationId(id: String?): PushError =
+    when (this) {
+        is PushError.PushDisabled -> copy(correlationId = id)
     }

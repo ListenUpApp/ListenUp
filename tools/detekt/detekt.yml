@@ -601,3 +601,12 @@ listenup-custom:
     active: true
   NoHardcodedUiString:
     active: true
+    # :app:webApp is Compose HTML, whose Text() is a different function that happens to share a
+    # name — the rule matches on the callee name and has no type resolution, so it cannot tell
+    # the two apart. More to the point, the fix it prescribes does not exist here: the
+    # en.json -> generateStrings pipeline emits Android strings.xml, iOS xcstrings and Compose
+    # Resources, and nothing for web.
+    #
+    # So this is a genuine gap, not a false alarm to be silenced: WEB LOCALIZATION IS UNSOLVED.
+    # Remove this exclusion the moment web gets a string pipeline, and expect it to light up.
+    excludes: ['**/app/webApp/**']

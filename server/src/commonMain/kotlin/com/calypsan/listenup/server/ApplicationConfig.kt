@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.db.DataDirLock
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
+import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
@@ -164,6 +165,17 @@ internal fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path?
     return candidate
 }
 
+/**
+ * Push relay URL: `push.relayUrl` config key, else LISTENUP_PUSH_RELAY_URL env,
+ * else the ListenUp project relay. The admin setting pushNotificationsEnabled
+ * (default ON) is the on/off switch; this only picks WHICH relay.
+ */
+internal fun Application.resolvePushRelayUrl(): String {
+    val fromConfig = environment.config.propertyOrNull("push.relayUrl")?.getString()
+    val fromEnv = readEnv("LISTENUP_PUSH_RELAY_URL")
+    return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() } ?: PushConfig.DEFAULT_RELAY_URL
+}
+
 internal fun ApplicationConfig.rescanOnStartup(): Boolean =
     propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
 
@@ -221,3 +233,26 @@ internal fun resolveRootResetToken(clock: Clock): RootResetToken {
 
 /** Width of the `=`-rule framing the root-reset startup warning — purely cosmetic. */
 private const val ROOT_RESET_BANNER_WIDTH = 72
+
+/**
+ * Reads `web.root` from configuration — the directory holding the bundled web client
+ * (`app/webApp/web`'s `vite build` output). Returns null when unset, blank, or not a directory,
+ * in which case no web-app route is mounted at all.
+ *
+ * Absent rather than empty is the honest default: a server image built without the web bundle
+ * should 404 at `/`, not serve a shell that loads nothing.
+ */
+internal fun Application.resolveWebRoot(): Path? {
+    val raw =
+        environment.config
+            .propertyOrNull("web.root")
+            ?.getString()
+            ?.trim()
+            .orEmpty()
+    if (raw.isBlank()) return null
+    val candidate = Path(raw)
+    if (SystemFileSystem.metadataOrNull(candidate)?.isDirectory != true) {
+        return null
+    }
+    return candidate
+}

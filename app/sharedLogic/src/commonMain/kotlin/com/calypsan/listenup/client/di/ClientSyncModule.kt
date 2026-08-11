@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.PlaybackPrepareRepositoryImpl
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
@@ -443,7 +444,14 @@ internal val clientSyncModule =
                 // write-through side effects. These are the sole home of this wiring now — the
                 // dispatcher routes refresh controls via RefreshedDomainRouter.
                 pingPresence = { get<PresenceRefreshSignal>().ping() },
-                refetchServerInfo = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
+                refetchServerInfo = {
+                    val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true)
+                    // The admin push toggle rides this same refetch: toggle flips → ServerInfoChanged →
+                    // this forced refetch → PushRegistrar re-evaluates pushEnabled and (re)registers. We
+                    // never unregister on disable — the server stops sending, and the token dies with the
+                    // session (logout/session eviction is the existing cleanup path).
+                    get<PushRegistrar>().syncRegistration()
+                },
                 refetchPreferences = { val _ = get<UserPreferencesRepository>().getPreferences() },
                 documentStorage = get(),
             )

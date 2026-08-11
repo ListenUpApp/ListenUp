@@ -22,9 +22,14 @@ class TimeZoneOnJsTest :
             // zone, while the year and month are stable everywhere.
             val local =
                 Instant
-                    .fromEpochMilliseconds(1_753_000_000_000)
+                    .fromEpochMilliseconds(MID_JULY_2025_UTC_MILLIS)
                     .toLocalDateTime(TimeZone.currentSystemDefault())
 
-            local.year shouldBe 2025
+            local.year shouldBe EXPECTED_YEAR
         }
     })
+
+/** 2025-07-20T08:26:40Z — mid-month, so no real zone offset can push it into another month. */
+private const val MID_JULY_2025_UTC_MILLIS = 1_753_000_000_000
+
+private const val EXPECTED_YEAR = 2025
