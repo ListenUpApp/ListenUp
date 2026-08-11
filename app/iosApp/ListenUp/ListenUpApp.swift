@@ -89,6 +89,9 @@ private struct RootView: View {
                 // Dismiss the re-auth sheet the moment the user is authenticated again; the engine
                 // auth gate (shared) owns resuming the firehose + forced reconcile.
                 if newState == .authenticated { showReauthSheet = false }
+                // Post-auth is the one moment a notification prompt makes sense (Android parity:
+                // AppShell's once-per-session request). No-op on every later transition.
+                if newState == .authenticated { PushCoordinator.shared.activate() }
                 activateSyncIfAuthenticated()
             }
             .onChange(of: scenePhase) { _, newPhase in

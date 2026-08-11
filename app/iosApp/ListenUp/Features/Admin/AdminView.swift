@@ -162,6 +162,15 @@ struct AdminView: View {
                 isOn: inboxEnabledBinding(settings: settings, model: settingsModel(settings))
             )
             .fieldCard()
+            Spacer().frame(height: 10)
+            ToggleRow(
+                systemImage: "bell.badge",
+                tint: .luTint,
+                title: String(localized: "admin.push_setting_title"),
+                subtitle: String(localized: "admin.push_setting_subtitle"),
+                isOn: pushNotificationsEnabledBinding(settings: settings, model: settingsModel(settings))
+            )
+            .fieldCard()
         }
     }
 
@@ -443,6 +452,13 @@ struct AdminView: View {
         model: AdminSettingsReadyModel?
     ) -> Binding<Bool> {
         Binding(get: { model?.inboxEnabled ?? false }, set: { settings.setInboxEnabled($0) })
+    }
+
+    private func pushNotificationsEnabledBinding(
+        settings: AdminSettingsObserver,
+        model: AdminSettingsReadyModel?
+    ) -> Binding<Bool> {
+        Binding(get: { model?.pushNotificationsEnabled ?? false }, set: { settings.setPushNotificationsEnabled($0) })
     }
 
     // MARK: - Transient mutation error alert

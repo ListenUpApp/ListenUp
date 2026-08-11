@@ -37,6 +37,8 @@ final class AdminSettingsObserver {
     func setServerName(_ name: String) { viewModel.setServerName(name: name) }
     func setRemoteUrl(_ url: String) { viewModel.setRemoteUrl(url: url) }
     func setInboxEnabled(_ enabled: Bool) { viewModel.setInboxEnabled(enabled: enabled) }
+
+    func setPushNotificationsEnabled(_ enabled: Bool) { viewModel.setPushNotificationsEnabled(enabled: enabled) }
     func save() { viewModel.saveAll() }
     func clearError() { viewModel.clearError() }
 
@@ -71,6 +73,7 @@ struct AdminSettingsReadyModel: Equatable {
     let serverName: String
     let remoteUrl: String
     let inboxEnabled: Bool
+    let pushNotificationsEnabled: Bool
     let isDirty: Bool
     let isSaving: Bool
     /// Transient save/load failure message (nil when none), surfaced as an inline banner.
@@ -83,6 +86,7 @@ struct AdminSettingsReadyModel: Equatable {
             serverName: ready.serverName,
             remoteUrl: ready.remoteUrl,
             inboxEnabled: ready.inboxEnabled,
+            pushNotificationsEnabled: ready.pushNotificationsEnabled,
             isDirty: ready.isDirty,
             isSaving: ready.isSaving,
             error: ready.error?.message
