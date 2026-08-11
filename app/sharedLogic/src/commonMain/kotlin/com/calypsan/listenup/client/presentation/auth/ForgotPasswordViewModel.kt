@@ -55,6 +55,9 @@ class ForgotPasswordViewModel internal constructor(
     private var pollJob: Job? = null
     private var closed = false
 
+    /** The address most recently requested, so a declined request can be re-opened in one tap. */
+    private var lastRequestedEmail: String? = null
+
     init {
         viewModelScope.launch {
             val ticketId = repository.resumableTicketId()
@@ -85,8 +88,29 @@ class ForgotPasswordViewModel internal constructor(
         stopWatching()
     }
 
+    /**
+     * Re-opens a declined request, putting it back in front of an admin.
+     *
+     * A decline is usually a misunderstanding rather than a verdict, so the requester should not
+     * have to walk back through sign-in to ask a second time. This re-sends the address they
+     * already gave; [PasswordResetRepository.requestReset] mints a fresh claim and the server
+     * supersedes any earlier live ticket, so no stale request is left behind.
+     *
+     * Falls back to the email step if the address is gone — the ViewModel is scoped to the screen,
+     * so a process death takes the address with it, and asking again beats failing silently.
+     */
+    fun retryRequest() {
+        val email = lastRequestedEmail
+        if (email == null) {
+            state.value = ForgotPasswordUiState.EnterEmail
+            return
+        }
+        requestReset(email)
+    }
+
     /** Opens a reset request for [email]. Always moves through [ForgotPasswordUiState.Submitting]. */
     fun requestReset(email: String) {
+        lastRequestedEmail = email
         viewModelScope.launch {
             state.value = ForgotPasswordUiState.Submitting
             when (val result = repository.requestReset(email)) {
