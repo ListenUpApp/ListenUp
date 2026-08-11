@@ -1006,6 +1006,8 @@
     "inbox_subtitle": "Review and release new books waiting for approval.",
     "inbox_setting_title": "Hold new books for review",
     "inbox_setting_subtitle": "New books wait in the inbox until an admin releases them.",
+    "push_setting_title": "Push notifications",
+    "push_setting_subtitle": "Deliver invites to devices via the ListenUp relay.",
     "inbox_select_all": "Select all",
     "inbox_deselect_all": "Deselect all",
     "inbox_review_edit": "Review & edit",
@@ -1298,5 +1300,14 @@
     "version_prefix": "v%1$s",
     "not_found": "Library not found.",
     "view_project": "View project"
+  },
+  "push": {
+    "test_title": "Test notification",
+    "test_body": "Push notifications are working.",
+    "campfire_invite_title": "%1$s invited you to listen together",
+    "campfire_invite_title_unknown": "You have an invite to listen together",
+    "campfire_invite_body": "%1$s",
+    "generic_title": "ListenUp",
+    "generic_body": "Something happened on your server."
   }
 }

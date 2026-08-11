@@ -47,11 +47,13 @@ class AdminSettingsViewModelTest :
             serverName: String = "My Server",
             remoteUrl: String? = null,
             inboxEnabled: Boolean = false,
+            pushNotificationsEnabled: Boolean = true,
         ): ServerSettings =
             ServerSettings(
                 serverName = serverName,
                 remoteUrl = remoteUrl,
                 inboxEnabled = inboxEnabled,
+                pushNotificationsEnabled = pushNotificationsEnabled,
             )
 
         class TestFixture {
@@ -93,7 +95,12 @@ class AdminSettingsViewModelTest :
             runTest {
                 val fixture =
                     createFixture(
-                        settings = createServerSettings(serverName = "ListenUp Prod", remoteUrl = "https://audio.example.com"),
+                        settings =
+                            createServerSettings(
+                                serverName = "ListenUp Prod",
+                                remoteUrl = "https://audio.example.com",
+                                pushNotificationsEnabled = false,
+                            ),
                     )
 
                 val viewModel = fixture.build()
@@ -102,6 +109,7 @@ class AdminSettingsViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 ready.serverName shouldBe "ListenUp Prod"
                 ready.remoteUrl shouldBe "https://audio.example.com"
+                ready.pushNotificationsEnabled shouldBe false
                 ready.isDirty shouldBe false
                 ready.isSaving shouldBe false
                 ready.error shouldBe null
@@ -181,6 +189,48 @@ class AdminSettingsViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
                 // The optimistic flip reverts to the server-confirmed value on failure.
                 ready.inboxEnabled shouldBe false
+                (ready.error?.message?.contains("Forbidden") == true) shouldBe true
+            }
+        }
+
+        test("setPushNotificationsEnabled persists immediately and does not mark dirty") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(pushNotificationsEnabled = false))
+                everySuspend { fixture.updateServerSettingsUseCase.updatePushNotificationsEnabled(true) } returns
+                    AppResult.Success(createServerSettings(pushNotificationsEnabled = true))
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setPushNotificationsEnabled(true)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                ready.pushNotificationsEnabled shouldBe true
+                // A switch applies on tap — no Save needed, so it never enters the dirty/Save-FAB state.
+                ready.isDirty shouldBe false
+                verifySuspend(VerifyMode.atLeast(1)) {
+                    fixture.updateServerSettingsUseCase.updatePushNotificationsEnabled(true)
+                }
+            }
+        }
+
+        test("setPushNotificationsEnabled failure reverts the toggle and surfaces the error") {
+            runTest {
+                val fixture = createFixture(settings = createServerSettings(pushNotificationsEnabled = true))
+                everySuspend { fixture.updateServerSettingsUseCase.updatePushNotificationsEnabled(false) } returns
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Forbidden"),
+                    )
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.setPushNotificationsEnabled(false)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminSettingsUiState.Ready>()
+                // The optimistic flip reverts to the server-confirmed value on failure.
+                ready.pushNotificationsEnabled shouldBe true
                 (ready.error?.message?.contains("Forbidden") == true) shouldBe true
             }
         }

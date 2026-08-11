@@ -22,7 +22,8 @@ private const val MAX_REMOTE_URL = 2048
 
 /**
  * [AdminSettingsService] implementation — server-identity settings (server name, remote URL,
- * inbox-enabled gate) backed by [ServerSettingsRepository] and [LibraryRepository]. Admin-gated
+ * inbox-enabled gate, push-notifications toggle) backed by [ServerSettingsRepository] and
+ * [LibraryRepository]. Admin-gated
  * via [requireAdmin]; route handlers bind the caller via [copyWith] (the Koin singleton carries
  * an unscoped placeholder).
  */
@@ -64,6 +65,10 @@ class AdminSettingsServiceImpl(
                 is AppResult.Success -> changed = true
             }
         }
+        patch.pushNotificationsEnabled?.let { enabled ->
+            settings.setPushNotificationsEnabled(enabled)
+            changed = true
+        }
         // Nudge every connected client to re-fetch getServerInfo so an admin's new name/remote URL
         // reaches them without a cold start. Content-free broadcast — carries no per-user data.
         if (changed) changeBus.broadcastControl(SyncControl.ServerInfoChanged)
@@ -75,6 +80,7 @@ class AdminSettingsServiceImpl(
             serverName = settings.serverName(),
             remoteUrl = settings.remoteUrl(),
             inboxEnabled = libraryRepository.readInboxEnabled(libraryRegistry.currentLibrary()),
+            pushNotificationsEnabled = settings.pushNotificationsEnabled(),
         )
 
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */

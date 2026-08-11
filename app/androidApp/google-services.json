@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "464100124865",
+    "project_id": "listenup-b087e",
+    "storage_bucket": "listenup-b087e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:464100124865:android:67fd018ec9838c5d74cc40",
+        "android_client_info": {
+          "package_name": "com.calypsan.listenup.client"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbiJ2h0bPrj_xQfAs5Ly0DuDVuRKqTHAc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

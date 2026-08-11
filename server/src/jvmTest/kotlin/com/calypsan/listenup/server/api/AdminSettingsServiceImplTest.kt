@@ -223,6 +223,51 @@ class AdminSettingsServiceImplTest :
                 }
             }
         }
+
+        // (i) pushNotificationsEnabled defaults to true and round-trips through getServerSettings
+        test(
+            "updateServerSettings pushNotificationsEnabled defaults true and round-trips through getServerSettings",
+        ) {
+            withSqlDatabase {
+                runTest {
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            principal = principalFor("root1", UserRole.ROOT),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("root1", UserRole.ROOT))
+
+                    svc.getServerSettings().shouldSucceed().pushNotificationsEnabled shouldBe true
+
+                    svc.updateServerSettings(AdminServerSettingsPatch(pushNotificationsEnabled = false)).shouldSucceed()
+                    svc.getServerSettings().shouldSucceed().pushNotificationsEnabled shouldBe false
+                }
+            }
+        }
+
+        // (j) a pushNotificationsEnabled change broadcasts ServerInfoChanged
+        test("updateServerSettings broadcasts ServerInfoChanged on a pushNotificationsEnabled change") {
+            withSqlDatabase {
+                runTest {
+                    val bus = ChangeBus()
+                    val (svc) =
+                        makeAdminSettingsService(
+                            db = this@withSqlDatabase,
+                            bus = bus,
+                            principal = principalFor("a1", UserRole.ADMIN),
+                        )
+                    seedLibrary(this@withSqlDatabase, principalFor("a1", UserRole.ADMIN))
+
+                    bus.subscribeControl().test {
+                        svc.updateServerSettings(AdminServerSettingsPatch(pushNotificationsEnabled = false)).shouldSucceed()
+                        val frame = awaitItem()
+                        frame.control shouldBe SyncControl.ServerInfoChanged
+                        frame.userId shouldBe ChangeBus.BROADCAST
+                        cancelAndIgnoreRemainingEvents()
+                    }
+                }
+            }
+        }
     })
 
 // ── Test fixtures ─────────────────────────────────────────────────────────────
