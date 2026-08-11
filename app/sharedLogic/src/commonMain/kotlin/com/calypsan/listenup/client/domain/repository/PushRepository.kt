@@ -15,7 +15,7 @@ import com.calypsan.listenup.api.result.AppResult
  *
  * Part of the domain layer — implementations live in the data layer.
  */
-interface PushRepository {
+internal interface PushRepository {
     /**
      * Registers (or re-binds, after platform token rotation) this device's push token.
      *

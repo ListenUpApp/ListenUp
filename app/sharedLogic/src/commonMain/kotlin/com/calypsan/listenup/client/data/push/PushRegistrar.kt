@@ -20,7 +20,7 @@ private val logger = KotlinLogging.logger {}
  * stops sending, and the token dies with the session (logout/session eviction
  * is the existing cleanup path).
  */
-class PushRegistrar(
+class PushRegistrar internal constructor(
     private val instanceRepository: InstanceRepository,
     private val pushRepository: PushRepository,
     private val tokenProvider: PushTokenProvider?,
