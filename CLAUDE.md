@@ -260,7 +260,19 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 > line. If you must capture output, use `set -o pipefail` first (zsh/bash) or check
 > `$pipestatus[1]` / `${PIPESTATUS[0]}` afterwards.
 
-**†iOS** = requires a Mac with Xcode 26. On an iOS-capable machine, run these before pushing. **On a non-iOS dev machine (e.g. Linux), the iOS gates can't run locally — push and rely on remote CI to run them** (the `Test (iOS)` / `Build (iOS)` / Swift-lint jobs gate the PR regardless).
+**†iOS** = requires a Mac with Xcode 26. On an iOS-capable machine, run these before pushing.
+
+**Off a Mac, reach for one before falling back to CI.** `kit` on the Tailnet is a macOS box kept for
+exactly this — **`ssh simon@kit`** (the login is `simon`; a bare `ssh kit` inherits the Linux box's
+own username and fails with a `Permission denied (publickey,…)` that reads exactly like an
+unauthorized key, which is a trap worth knowing about). Its checkout is
+`/Users/simon/Code/listenup/client` — an older layout than this repo's — and it cannot push, so land
+the branch on `origin` first and fetch it there. Use a login shell or absolute paths when probing;
+a non-login `ssh kit '<cmd>'` has a thin PATH and makes Xcode look absent. **Never `git reset --hard`
+that checkout** — it is shared and may hold in-flight work.
+
+Only when no Mac is reachable at all: push and let remote CI run them (the `Test (iOS)` /
+`Build (iOS)` / Swift-lint jobs gate the PR regardless).
 
 > **iOS local gate:** `Build (iOS)` (`xcodebuild build`) does **not** compile `ListenUpTests`. Before pushing iOS changes from a Mac, also run `xcodebuild build-for-testing` (or the full `Test (iOS)` command) so test-target drift can't slip to CI.
 
