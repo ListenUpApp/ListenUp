@@ -3,9 +3,16 @@ package com.calypsan.listenup.client.domain.model
 /**
  * User permission flags for action-level access control.
  *
+ * Both flags mirror the contract `UserPermissions` one-for-one. [canEdit] was absent here until
+ * #1270, which is why no admin screen could ever grant it: the server has gated every metadata
+ * mutation on it since `V26`, but the client's mappers collapsed the contract user down to an
+ * admin bit and dropped the rest.
+ *
+ * @property canEdit Whether user can edit content metadata — tags, moods, genres, series, contributors
  * @property canShare Whether user can share collections with other users
  */
 data class UserPermissions(
+    val canEdit: Boolean = true,
     val canShare: Boolean = true,
 )
 

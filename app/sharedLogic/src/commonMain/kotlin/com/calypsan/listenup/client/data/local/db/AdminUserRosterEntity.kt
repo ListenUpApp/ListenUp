@@ -29,6 +29,11 @@ internal data class AdminUserRosterEntity(
     val status: String,
     /** Whether the user can share content. */
     val canShare: Boolean,
+    /**
+     * Whether the user can edit content metadata (#1270). Defaults to `true` to match the
+     * server column default, so a roster row synced before `V60` reads as it behaved.
+     */
+    val canEdit: Boolean = true,
     /** Epoch-ms account creation timestamp. */
     val accountCreatedAt: Long,
     /** Monotonic server revision; 0 until the server has confirmed the row. */

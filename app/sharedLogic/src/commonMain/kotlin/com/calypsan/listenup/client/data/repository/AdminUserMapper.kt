@@ -20,6 +20,6 @@ internal fun User.toAdminUserInfo(): AdminUserInfo =
         isRoot = role == UserRole.ROOT,
         role = role.name,
         status = status.name,
-        permissions = UserPermissions(canShare = permissions.canShare),
+        permissions = UserPermissions(canEdit = permissions.canEdit, canShare = permissions.canShare),
         createdAt = createdAt.toString(),
     )

@@ -48,6 +48,7 @@ class UserDetailViewModel(
                     state.update {
                         UserDetailUiState.Ready(
                             user = user,
+                            canEdit = user.permissions.canEdit,
                             canShare = user.permissions.canShare,
                             isProtected = user.isProtected,
                         )
@@ -68,46 +69,74 @@ class UserDetailViewModel(
     }
 
     /**
+     * Toggle the canEdit permission — whether this member may edit content metadata.
+     *
+     * Optimistically updates the UI state, then saves to server. Reverts on failure.
+     */
+    fun toggleCanEdit() {
+        val ready = state.value as? UserDetailUiState.Ready ?: return
+        togglePermission(
+            name = "canEdit",
+            previousValue = ready.canEdit,
+            optimistic = { current, value -> current.copy(canEdit = value) },
+            save = { value -> adminRepository.updateUser(userId = userId, canEdit = value) },
+            reconcile = { current, user -> current.copy(canEdit = user.permissions.canEdit) },
+        )
+    }
+
+    /**
      * Toggle the canShare permission.
      *
-     * Optimistically updates the UI state, then saves to server.
-     * Reverts on failure.
+     * Optimistically updates the UI state, then saves to server. Reverts on failure.
      */
     fun toggleCanShare() {
         val ready = state.value as? UserDetailUiState.Ready ?: return
+        togglePermission(
+            name = "canShare",
+            previousValue = ready.canShare,
+            optimistic = { current, value -> current.copy(canShare = value) },
+            save = { value -> adminRepository.updateUser(userId = userId, canShare = value) },
+            reconcile = { current, user -> current.copy(canShare = user.permissions.canShare) },
+        )
+    }
+
+    /**
+     * The shared optimistic-toggle cycle behind both permission switches.
+     *
+     * Both flags round-trip identically — flip locally, save, then either reconcile against what
+     * the server actually stored or revert — and #1270 added the second one. Two copies of this
+     * would be two places for the revert to rot, and a permission toggle that fails to revert
+     * leaves the admin looking at a grant the server never made.
+     *
+     * [reconcile] deliberately re-reads the flag off the server's response rather than trusting
+     * the optimistic value: the server applies permissions wholesale, so its answer is the truth.
+     */
+    private fun togglePermission(
+        name: String,
+        previousValue: Boolean,
+        optimistic: (UserDetailUiState.Ready, Boolean) -> UserDetailUiState.Ready,
+        save: suspend (Boolean) -> AppResult<AdminUserInfo>,
+        reconcile: (UserDetailUiState.Ready, AdminUserInfo) -> UserDetailUiState.Ready,
+    ) {
+        val ready = state.value as? UserDetailUiState.Ready ?: return
         if (ready.isProtected) return
 
-        val previousValue = ready.canShare
         val newValue = !previousValue
-
-        // Optimistic update
-        updateReady { it.copy(canShare = newValue, isSaving = true) }
+        updateReady { optimistic(it, newValue).copy(isSaving = true) }
 
         viewModelScope.launch {
-            when (val result = adminRepository.updateUser(userId = userId, canShare = newValue)) {
+            when (val result = save(newValue)) {
                 is AppResult.Success -> {
                     val updatedUser = result.data
-                    logger.info { "Updated canShare for user $userId to $newValue" }
-                    updateReady {
-                        it.copy(
-                            isSaving = false,
-                            user = updatedUser,
-                            canShare = updatedUser.permissions.canShare,
-                        )
-                    }
+                    logger.info { "Updated $name for user $userId to $newValue" }
+                    updateReady { reconcile(it, updatedUser).copy(isSaving = false, user = updatedUser) }
                 }
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    logger.error { "Failed to update canShare for user: $userId — ${result.error}" }
+                    logger.error { "Failed to update $name for user: $userId — ${result.error}" }
                     // Revert optimistic change and surface transient error in Ready.
-                    updateReady {
-                        it.copy(
-                            isSaving = false,
-                            canShare = previousValue,
-                            error = result.error,
-                        )
-                    }
+                    updateReady { optimistic(it, previousValue).copy(isSaving = false, error = result.error) }
                 }
             }
         }
@@ -137,7 +166,7 @@ class UserDetailViewModel(
  * Sealed hierarchy:
  * - [Loading] before the first `getUser` response.
  * - [Ready] once the user has loaded; carries the user, edit buffer
- *   (`canShare`), `isProtected` guard, the `isSaving` overlay for optimistic
+ *   (`canEdit`/`canShare`), `isProtected` guard, the `isSaving` overlay for optimistic
  *   permission toggling, and a transient `error` surfaced as a snackbar when
  *   a toggle fails after the initial load.
  * - [Error] terminal state when the initial load fails.
@@ -146,11 +175,12 @@ sealed interface UserDetailUiState {
     data object Loading : UserDetailUiState
 
     /**
-     * User has loaded; carries the canonical user, edit buffer (`canShare`),
+     * User has loaded; carries the canonical user, edit buffer (`canEdit`/`canShare`),
      * the `isProtected` guard, save overlay, and a transient `error`.
      */
     data class Ready(
         val user: AdminUserInfo,
+        val canEdit: Boolean,
         val canShare: Boolean,
         val isProtected: Boolean,
         val isSaving: Boolean = false,

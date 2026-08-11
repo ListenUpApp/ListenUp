@@ -42,3 +42,28 @@ internal val MIGRATION_2_3 =
             connection.executeDdl("ALTER TABLE books ADD COLUMN normalizationGainDb REAL")
         }
     }
+
+/**
+ * v3 → v4: the per-user permission flags the client used to drop on the floor (#1270).
+ *
+ * `admin_user_roster.canEdit` mirrors the server column added in `V60`, so the admin Users screen
+ * can finally show and set the metadata-edit permission `UserPermissionPolicy` has enforced since
+ * `V26`. `users.canEdit`/`users.canShare` carry the *signed-in* user's own flags, which
+ * `ContractUserMapper` previously collapsed into `isAdmin` alone.
+ *
+ * `DEFAULT 1` on all three matches both the server column defaults and `UserPermissions`' own
+ * defaults, so nobody's effective permissions move: an existing row reads as "may edit, may share"
+ * exactly as it did when the flags were absent, and the real values arrive with the next roster
+ * sync and the next sign-in respectively. Non-destructive `ADD COLUMN`, per the migration policy
+ * in [ListenUpDatabase] — the local DB holds the unsynced outbox.
+ */
+internal val MIGRATION_3_4 =
+    object : Migration(3, 4) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "ALTER TABLE admin_user_roster ADD COLUMN canEdit INTEGER NOT NULL DEFAULT 1",
+            )
+            connection.executeDdl("ALTER TABLE users ADD COLUMN canEdit INTEGER NOT NULL DEFAULT 1")
+            connection.executeDdl("ALTER TABLE users ADD COLUMN canShare INTEGER NOT NULL DEFAULT 1")
+        }
+    }

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.test.db
 import androidx.room3.testing.MigrationTestHelper
 import androidx.room3.migration.Migration
 import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.SQLiteStatement
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import java.nio.file.Files
@@ -78,4 +79,23 @@ fun createMigrationTestHelper(): ListenUpMigrationTestHelper {
             databaseClass = ListenUpDatabase::class,
         )
     return ListenUpMigrationTestHelper(delegate)
+}
+
+/**
+ * Prepares [sql], runs [block] against the statement, and always closes it.
+ *
+ * Lives here rather than beside one migration spec because every migration test asserts the same
+ * way — read the migrated rows back and check them — and a second private copy is a second thing
+ * to keep in step.
+ */
+internal inline fun <T> SQLiteConnection.withStatement(
+    sql: String,
+    block: (SQLiteStatement) -> T,
+): T {
+    val statement = prepare(sql)
+    return try {
+        block(statement)
+    } finally {
+        statement.close()
+    }
 }

@@ -10,6 +10,7 @@ CREATE TABLE admin_user_roster (
     role               TEXT    NOT NULL,
     status             TEXT    NOT NULL,
     can_share          INTEGER NOT NULL,
+    can_edit           INTEGER NOT NULL DEFAULT 1,
     account_created_at INTEGER NOT NULL,
     created_at         INTEGER NOT NULL,
     updated_at         INTEGER NOT NULL,
@@ -47,12 +48,12 @@ selectByIds:
 SELECT * FROM admin_user_roster WHERE id IN :ids;
 
 insert:
-INSERT INTO admin_user_roster (id, email, display_name, role, status, can_share, account_created_at, created_at, updated_at, revision, deleted_at, client_op_id)
-VALUES (:id, :email, :display_name, :role, :status, :can_share, :account_created_at, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+INSERT INTO admin_user_roster (id, email, display_name, role, status, can_share, can_edit, account_created_at, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :email, :display_name, :role, :status, :can_share, :can_edit, :account_created_at, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
 
 update:
 UPDATE admin_user_roster
-SET email = :email, display_name = :display_name, role = :role, status = :status, can_share = :can_share,
+SET email = :email, display_name = :display_name, role = :role, status = :status, can_share = :can_share, can_edit = :can_edit,
     account_created_at = :account_created_at, revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
 WHERE id = :id;
 

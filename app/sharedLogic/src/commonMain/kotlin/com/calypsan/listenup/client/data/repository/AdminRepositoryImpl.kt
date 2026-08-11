@@ -100,21 +100,27 @@ internal class AdminRepositoryImpl(
         firstName: String?,
         lastName: String?,
         role: String?,
+        canEdit: Boolean?,
         canShare: Boolean?,
     ): AppResult<AdminUserInfo> {
         // firstName/lastName have no contract field — they must NOT be sent (displayName is deferred
         // to a future domain-realignment follow-up). The server applies AdminUserPatch.permissions
-        // wholesale (canEdit + canShare) and the admin UI only toggles canShare, so read the user
-        // first — in its OWN RPC frame — to preserve its current canEdit. Read and mutate ride
-        // separate call blocks (composed with flatMap) so the engine's pre-delivery retry can never
-        // re-fire the mutation off the back of a re-run read.
+        // wholesale (canEdit + canShare) while the admin UI toggles one flag at a time, so read the
+        // user first — in its OWN RPC frame — and carry the flag that isn't moving through unchanged.
+        // Read and mutate ride separate call blocks (composed with flatMap) so the engine's
+        // pre-delivery retry can never re-fire the mutation off the back of a re-run read.
         val permissions: AppResult<UserPermissions?> =
-            if (canShare == null) {
+            if (canEdit == null && canShare == null) {
                 AppResult.Success(null)
             } else {
                 adminUserChannel
                     .call(idempotent = true) { it.getUser(UserId(userId)) }
-                    .map { UserPermissions(canEdit = it.permissions.canEdit, canShare = canShare) }
+                    .map {
+                        UserPermissions(
+                            canEdit = canEdit ?: it.permissions.canEdit,
+                            canShare = canShare ?: it.permissions.canShare,
+                        )
+                    }
             }
         return permissions.flatMap { perms ->
             val patch = AdminUserPatch(role = role?.let { UserRole.valueOf(it) }, permissions = perms)

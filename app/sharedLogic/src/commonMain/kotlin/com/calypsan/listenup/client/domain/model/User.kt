@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
  * @property firstName User's first name (optional)
  * @property lastName User's last name (optional)
  * @property isAdmin Whether user has admin privileges
+ * @property permissions Per-user action permissions (metadata edit, collection share)
  * @property tagline User's profile tagline/bio
  * @property createdAtMs Creation timestamp in epoch milliseconds
  * @property updatedAtMs Last update timestamp in epoch milliseconds
@@ -29,6 +30,7 @@ data class User(
     val firstName: String? = null,
     val lastName: String? = null,
     val isAdmin: Boolean,
+    val permissions: UserPermissions = UserPermissions(),
     val tagline: String? = null,
     val createdAtMs: Long,
     val updatedAtMs: Long,

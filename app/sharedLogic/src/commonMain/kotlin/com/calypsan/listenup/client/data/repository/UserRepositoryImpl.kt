@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.model.UserPermissions
 import com.calypsan.listenup.client.domain.model.toDomain
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -84,6 +85,7 @@ private fun UserEntity.toDomain(): User =
         firstName = firstName,
         lastName = lastName,
         isAdmin = isRoot,
+        permissions = UserPermissions(canEdit = canEdit, canShare = canShare),
         tagline = tagline,
         createdAtMs = createdAt.epochMillis,
         updatedAtMs = updatedAt.epochMillis,
@@ -102,6 +104,8 @@ private fun User.toEntity(): UserEntity =
         firstName = firstName,
         lastName = lastName,
         isRoot = isAdmin,
+        canEdit = permissions.canEdit,
+        canShare = permissions.canShare,
         tagline = tagline,
         createdAt = Timestamp(createdAtMs),
         updatedAt = Timestamp(updatedAtMs),
