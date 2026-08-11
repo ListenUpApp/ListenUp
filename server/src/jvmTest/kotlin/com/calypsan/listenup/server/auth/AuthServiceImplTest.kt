@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.migratedTestDatabase
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -63,6 +64,7 @@ class AuthServiceImplTest :
                 sessionIssuer = SessionIssuer(sessions, jwt, svcClock),
                 clock = svcClock,
                 settings = settings,
+                passwordResetService = testPasswordResetService(db, svcClock),
             )
         }
 
@@ -85,6 +87,7 @@ class AuthServiceImplTest :
                 settings = settings,
                 remoteHost = remoteHost,
                 loginRateLimiter = LoginRateLimiter(clock),
+                passwordResetService = testPasswordResetService(db, clock),
             )
         }
 
@@ -119,6 +122,7 @@ class AuthServiceImplTest :
                                     driver = driver,
                                 ),
                         ),
+                    passwordResetService = testPasswordResetService(db, clock),
                 )
             return svc to activities
         }
@@ -561,6 +565,41 @@ class AuthServiceImplTest :
                 val throttled = svc.observeRegistrationStatus("whatever").toList()
                 val error = throttled.single().shouldBeInstanceOf<RpcEvent.Error>()
                 error.error.shouldBeInstanceOf<AuthError.RateLimited>()
+            }
+        }
+
+        test("requestPasswordReset throttles after the REQUEST_PASSWORD_RESET ceiling from one host") {
+            runTest {
+                val svc = newSvcWithRateLimiter("10.0.0.10")
+
+                repeat(AuthRateBucket.REQUEST_PASSWORD_RESET.perMinuteLimit) {
+                    svc.requestPasswordReset("nobody@x", "claim").shouldBeInstanceOf<AppResult.Success<*>>()
+                }
+
+                svc
+                    .requestPasswordReset("nobody@x", "claim")
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.RateLimited>()
+            }
+        }
+
+        test("resetRootPassword throttles after the RESET_ROOT_PASSWORD ceiling from one host") {
+            runTest {
+                val svc = newSvcWithRateLimiter("10.0.0.11")
+
+                // The hatch is disarmed (no rootPasswordResetService override) — every one of
+                // these fails as RootResetUnavailable, not RateLimited, so the throttle itself
+                // (not the token check) is what's under test here.
+                repeat(AuthRateBucket.RESET_ROOT_PASSWORD.perMinuteLimit) {
+                    svc.resetRootPassword("wrong-token", "a-strong-new-password")
+                }
+
+                svc
+                    .resetRootPassword("wrong-token", "a-strong-new-password")
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.RateLimited>()
             }
         }
     })

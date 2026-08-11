@@ -134,6 +134,14 @@
     "change_server": "Change Server",
     "check_status": "Check Status",
     "checking_automatically": "Checking automatically",
+    "forgot_password": "Forgot password?",
+    "forgot_password_title": "Reset your password",
+    "forgot_password_explainer": "Your server admin will need to approve this and give you a code.",
+    "forgot_password_awaiting": "Waiting for your admin to approve this. You can close the app — come back with your code when you have it.",
+    "forgot_password_enter_code": "Enter the code your admin gave you",
+    "forgot_password_denied": "Your admin declined this request.",
+    "forgot_password_attempts": "%1$d attempts left",
+    "forgot_password_complete": "Your password has been reset. Sign in with your new password.",
     "pending_review": "Pending review",
     "reg_step_account_created": "Account created",
     "reg_step_admin_approval": "Admin approval",
@@ -168,7 +176,10 @@
     "your_registration_request_has_been": "Your registration request has been submitted and is awaiting admin approval.",
     "new_to_listenup": "New to ListenUp?",
     "server_administrator": "Server administrator",
-    "your_email": "Your email: %1$s"
+    "your_email": "Your email: %1$s",
+    "reset_root": "Reset root password",
+    "reset_root_explainer": "Start the server with LISTENUP_ROOT_RESET set, then enter the token from the server log.",
+    "reset_root_token_label": "Token"
   },
   "connect": {
     "continue": "Continue",
@@ -1015,7 +1026,16 @@
     "inbox_released_count": "Released %1$d book",
     "inbox_released_count_plural": "Released %1$d books",
     "expand_all": "Expand All",
-    "collapse_all": "Collapse All"
+    "collapse_all": "Collapse All",
+    "password_resets": "Password resets",
+    "no_pending_password_resets": "No pending password reset requests.",
+    "approve_reset": "Approve reset",
+    "deny_reset": "Deny reset",
+    "reset_code_title": "Give this code to %1$s",
+    "reset_code_instruction": "Give this code to %1$s yourself — by phone, in person, or a chat you already use. Do not send it back through the app.",
+    "reset_code_copied": "Code copied",
+    "reset_code_done": "Done",
+    "reset_code_recipient_fallback": "this user"
   },
   "import": {
     "title": "Import from Audiobookshelf",

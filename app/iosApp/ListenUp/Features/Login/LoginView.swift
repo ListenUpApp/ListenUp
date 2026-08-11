@@ -18,6 +18,7 @@ struct LoginView: View {
     // MARK: - Environment
 
     @Environment(\.navigateToRegister) private var navigateToRegister
+    @Environment(\.navigateToForgotPassword) private var navigateToForgotPassword
     @Environment(\.dependencies) private var dependencies
 
     // MARK: - State
@@ -98,6 +99,10 @@ struct LoginView: View {
 
     @ViewBuilder
     private var footerLinks: some View {
+        Button(String(localized: "auth.forgot_password")) { navigateToForgotPassword() }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Color.listenUpOrange)
+            .buttonStyle(.plain)
         if openRegistration {
             HStack(spacing: 4) {
                 Text(String(localized: "auth.dont_have_account"))

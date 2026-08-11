@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin.imports
 
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.AbsItemRef
@@ -1119,6 +1121,13 @@ private class FakeAdminRepository(
         role: String?,
         canShare: Boolean?,
     ): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
+
+    override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> = AppResult.Success(emptyList())
+
+    override suspend fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ): AppResult<PasswordResetDecisionOutcome> = AppResult.Success(PasswordResetDecisionOutcome.Denied)
 
     override suspend fun getInvites(): AppResult<List<InviteInfo>> = AppResult.Success(emptyList())
 

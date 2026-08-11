@@ -12,6 +12,7 @@
     <string name="admin_administrator">Administrator</string>
     <string name="admin_all_users_are_already_members">All users are already members of this collection</string>
     <string name="admin_allow_sharing_collections_with_other">Allow sharing collections with other users</string>
+    <string name="admin_approve_reset">Approve reset</string>
     <string name="admin_backup">Backup</string>
     <string name="admin_backup_created_at">Created: %1$s at %2$s</string>
     <string name="admin_backup_download_failed">Couldn't save the backup to your device.</string>
@@ -56,6 +57,7 @@
     <string name="admin_creating_backup">Creating Backup...</string>
     <string name="admin_delete_backup">Delete Backup</string>
     <string name="admin_deny_registration">Deny Registration</string>
+    <string name="admin_deny_reset">Deny reset</string>
     <string name="admin_download_backup">Download</string>
     <string name="admin_email_already_in_use">A user with this email already exists.</string>
     <string name="admin_enter_a_name_for_the">Enter a name for the collection</string>
@@ -96,9 +98,11 @@
     <string name="admin_no_books_in_this_collection">No books in this collection</string>
     <string name="admin_no_merge_target_available">No other genres available as a merge target.</string>
     <string name="admin_no_move_target_top_level_only">No other genres available — only 'Top level' is possible.</string>
+    <string name="admin_no_pending_password_resets">No pending password reset requests.</string>
     <string name="admin_no_pending_registrations">No pending registrations</string>
     <string name="admin_no_users_available">No users available</string>
     <string name="admin_organize_books_into_collections_for">Organize books into collections for access control</string>
+    <string name="admin_password_resets">Password resets</string>
     <string name="admin_pending_invites">Pending Invites</string>
     <string name="admin_pending_registrations">Pending Registrations</string>
     <string name="admin_protected_user">Protected User</string>
@@ -122,6 +126,11 @@
     <string name="admin_remove_scan_path">Remove Scan Path</string>
     <string name="admin_rename_genre">Rename Genre</string>
     <string name="admin_rescan_library">Rescan Library</string>
+    <string name="admin_reset_code_copied">Code copied</string>
+    <string name="admin_reset_code_done">Done</string>
+    <string name="admin_reset_code_instruction">Give this code to %1$s yourself — by phone, in person, or a chat you already use. Do not send it back through the app.</string>
+    <string name="admin_reset_code_recipient_fallback">this user</string>
+    <string name="admin_reset_code_title">Give this code to %1$s</string>
     <string name="admin_restore">Restore</string>
     <string name="admin_restore_backup">Restore Backup</string>
     <string name="admin_restore_complete">Restore complete</string>
@@ -188,6 +197,14 @@
     <string name="auth_enter_password">Please enter your password</string>
     <string name="auth_first_name">First Name</string>
     <string name="auth_first_name_placeholder">First</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_forgot_password_attempts">%1$d attempts left</string>
+    <string name="auth_forgot_password_awaiting">Waiting for your admin to approve this. You can close the app — come back with your code when you have it.</string>
+    <string name="auth_forgot_password_complete">Your password has been reset. Sign in with your new password.</string>
+    <string name="auth_forgot_password_denied">Your admin declined this request.</string>
+    <string name="auth_forgot_password_enter_code">Enter the code your admin gave you</string>
+    <string name="auth_forgot_password_explainer">Your server admin will need to approve this and give you a code.</string>
+    <string name="auth_forgot_password_title">Reset your password</string>
     <string name="auth_hero_tagline">Thousands of audiobooks.
 One beautiful library.</string>
     <string name="auth_invalid_credentials">Invalid email or password</string>
@@ -206,6 +223,9 @@ One beautiful library.</string>
     <string name="auth_reg_step_start_listening">Start listening</string>
     <string name="auth_reg_step_start_listening_sub">Your library unlocks the moment you're approved.</string>
     <string name="auth_request_account">Request Account</string>
+    <string name="auth_reset_root">Reset root password</string>
+    <string name="auth_reset_root_explainer">Start the server with LISTENUP_ROOT_RESET set, then enter the token from the server log.</string>
+    <string name="auth_reset_root_token_label">Token</string>
     <string name="auth_server_administrator">Server administrator</string>
     <string name="auth_server_error">Server error. Please try again.</string>
     <string name="auth_set_up_your_listenup_server">Set up your ListenUp server by creating the first admin account.</string>

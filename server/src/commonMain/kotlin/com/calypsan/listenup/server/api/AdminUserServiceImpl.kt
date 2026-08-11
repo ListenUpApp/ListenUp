@@ -5,6 +5,8 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -20,6 +22,7 @@ import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
+import com.calypsan.listenup.server.services.PasswordResetService
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
@@ -79,6 +82,16 @@ class AdminUserServiceImpl(
      * published — the roster self-heals via [AdminUserRosterMaintainer.backfillAll] at startup.
      */
     private val adminUserRosterMaintainer: AdminUserRosterMaintainer? = null,
+    /**
+     * Non-null with no default: a construction site that forgets to wire this is a compile
+     * error, not a silent skip. The alternative — a nullable fallback — used to make
+     * [listPasswordResetRequests] silently report an empty queue and [decidePasswordReset]
+     * report [AuthError.ResetRequestNotFound] as if the request never existed; if DI wiring
+     * were ever wrong, an admin would see no work to do and no test would fail. Mirrors
+     * [PasswordResetService]'s own `sessions` parameter, which applies the same reasoning to
+     * session revocation.
+     */
+    private val passwordResetService: PasswordResetService,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
@@ -95,6 +108,7 @@ class AdminUserServiceImpl(
             activityRecorder,
             defaultGrantIssuer,
             adminUserRosterMaintainer,
+            passwordResetService,
         )
 
     override suspend fun listUsers(): AppResult<List<User>> {
@@ -223,6 +237,7 @@ class AdminUserServiceImpl(
                     return@suspendTransaction AppResult.Failure(AdminError.CannotDeleteLastAdmin())
                 }
                 sql.usersQueries.markDeletedAt(deleted_at = clock.now().toEpochMilliseconds(), id = id.value)
+                sql.passwordResetRequestsQueries.deleteForUser(id.value)
                 AppResult.Success(Unit)
             }
 
@@ -318,6 +333,25 @@ class AdminUserServiceImpl(
         // reconnecting subscriber re-reads the same durable value.
         registrationPolicyBroadcaster.notify(policy)
         return AppResult.Success(Unit)
+    }
+
+    /** Delegates to [PasswordResetService.listPending]. */
+    override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> {
+        requireAdmin()?.let { return it }
+        return AppResult.Success(passwordResetService.listPending())
+    }
+
+    /**
+     * Delegates to [PasswordResetService.decide], passing the caller's id as the deciding admin
+     * — mirrors [decidePendingRegistration]'s shape.
+     */
+    override suspend fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ): AppResult<PasswordResetDecisionOutcome> {
+        val caller = principal.current() ?: return AppResult.Failure(AuthError.SessionExpired())
+        if (!caller.role.isAdmin()) return AppResult.Failure(AuthError.PermissionDenied())
+        return passwordResetService.decide(requestId, approved, caller.userId.value)
     }
 
     // ── Private helpers ─────────────────────────────────────────────────────────

@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -91,6 +92,7 @@ class AdminUserServiceRosterPublishTest :
                 bus = ChangeBus(),
                 publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                 adminUserRosterMaintainer = maintainer,
+                passwordResetService = testPasswordResetService(sql, fixedClock),
             )
         }
 

@@ -9,12 +9,14 @@ import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.data.repository.InviteRepositoryImpl
+import com.calypsan.listenup.client.data.repository.PasswordResetRepositoryImpl
 import com.calypsan.listenup.client.data.repository.RegistrationPolicyStreamImpl
 import com.calypsan.listenup.client.data.repository.RegistrationStatusStreamImpl
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
+import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
@@ -128,6 +130,13 @@ internal val clientAuthModule: Module
             // rides the same AuthServicePublic channel as the status stream above.
             single<RegistrationPolicyStream> {
                 RegistrationPolicyStreamImpl(channel = rpcChannel())
+            }
+
+            // Admin-approval password-reset flow — rides the same AuthServicePublic channel bound
+            // above (open/observe/complete are all pre-auth, since the person resetting is by
+            // definition not signed in).
+            single<PasswordResetRepository> {
+                PasswordResetRepositoryImpl(channel = rpcChannel(), secureStorage = get())
             }
 
             // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here by the

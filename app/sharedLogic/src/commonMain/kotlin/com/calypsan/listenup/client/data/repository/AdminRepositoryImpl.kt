@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
@@ -122,6 +124,21 @@ internal class AdminRepositoryImpl(
 
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> =
         adminUserChannel.call(idempotent = true) { it.getRegistrationPolicy() }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PASSWORD RESETS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> =
+        adminUserChannel.call(idempotent = true) { it.listPasswordResetRequests() }
+
+    // Not idempotent: approval mints a fresh code every call and denial is only valid once
+    // (the request leaves PENDING on either decision), so a lost-response retry must never
+    // re-fire this.
+    override suspend fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ): AppResult<PasswordResetDecisionOutcome> = adminUserChannel.call { it.decidePasswordReset(requestId, approved) }
 
     // ═══════════════════════════════════════════════════════════════════════
     // INVITE MANAGEMENT

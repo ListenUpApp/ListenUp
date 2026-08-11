@@ -30,7 +30,12 @@ class DemoProfileBootTest :
                 application { module() }
                 val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
-                eventually(5.seconds) {
+                // Generous window: demo seeding runs async post-boot and hashes the demo
+                // password with Argon2id (memory-hard by design), which a loaded shared CI
+                // runner can take several seconds to finish. `eventually` returns on the first
+                // success, so the wide bound costs nothing on a fast machine — 5s flaked on CI
+                // (login kept returning InvalidCredentials until the seed landed).
+                eventually(30.seconds) {
                     val response =
                         publicAuthService()
                             .login(

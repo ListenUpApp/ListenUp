@@ -117,6 +117,11 @@ private fun AuthError.withCorrelationId(id: String?): AuthError =
         is AuthError.WeakPassword -> copy(correlationId = id)
         is AuthError.PermissionDenied -> copy(correlationId = id)
         is AuthError.RegistrationNotFound -> copy(correlationId = id)
+        is AuthError.ResetRequestNotFound -> copy(correlationId = id)
+        is AuthError.ResetNotApproved -> copy(correlationId = id)
+        is AuthError.ResetCodeIncorrect -> copy(correlationId = id)
+        is AuthError.ResetAttemptsExhausted -> copy(correlationId = id)
+        is AuthError.RootResetUnavailable -> copy(correlationId = id)
     }
 
 private fun ScanError.withCorrelationId(id: String?): ScanError =

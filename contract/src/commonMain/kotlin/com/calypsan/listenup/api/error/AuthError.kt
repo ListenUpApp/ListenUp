@@ -209,4 +209,76 @@ sealed interface AuthError : AppError {
         override val code: String = "AUTH_REGISTRATION_NOT_FOUND"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * The ticket is unknown, expired, or already consumed. All three collapse to one shape
+     * deliberately — distinguishing them would let a caller probe for live tickets.
+     */
+    @Serializable
+    @SerialName("AuthError.ResetRequestNotFound")
+    data class ResetRequestNotFound(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : AuthError {
+        override val message: String = "That reset request is no longer valid. Please start again."
+        override val code: String = "AUTH_RESET_NOT_FOUND"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * Completion was attempted while the request is still pending, or after it was denied.
+     * Both collapse to one shape deliberately — distinguishing them would let the requesting
+     * device tell "not yet" apart from "never will be", which is an admin decision, not
+     * information to leak to an unauthenticated caller.
+     */
+    @Serializable
+    @SerialName("AuthError.ResetNotApproved")
+    data class ResetNotApproved(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : AuthError {
+        override val message: String = "This reset has not been approved yet."
+        override val code: String = "AUTH_RESET_NOT_APPROVED"
+        override val isRetryable: Boolean = false
+    }
+
+    /** Wrong code. [attemptsRemaining] lets the UI warn before the request dies. */
+    @Serializable
+    @SerialName("AuthError.ResetCodeIncorrect")
+    data class ResetCodeIncorrect(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+        val attemptsRemaining: Int,
+    ) : AuthError {
+        override val message: String = "That code is not correct."
+        override val code: String = "AUTH_RESET_CODE_INCORRECT"
+        override val isRetryable: Boolean = false
+    }
+
+    /** The attempt budget is spent. The request is dead. */
+    @Serializable
+    @SerialName("AuthError.ResetAttemptsExhausted")
+    data class ResetAttemptsExhausted(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : AuthError {
+        override val message: String = "Too many incorrect codes. Please start again."
+        override val code: String = "AUTH_RESET_ATTEMPTS_EXHAUSTED"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
+     * Root reset is unarmed, the window has closed, the token was already used, or the token is
+     * wrong. One shape for all four — the caller must not learn which.
+     */
+    @Serializable
+    @SerialName("AuthError.RootResetUnavailable")
+    data class RootResetUnavailable(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : AuthError {
+        override val message: String = "That reset token is not valid. Check the server log and try again."
+        override val code: String = "AUTH_ROOT_RESET_UNAVAILABLE"
+        override val isRetryable: Boolean = false
+    }
 }

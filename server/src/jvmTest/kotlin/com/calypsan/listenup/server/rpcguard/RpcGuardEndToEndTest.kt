@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
+import com.calypsan.listenup.api.dto.auth.PasswordResetStatusEvent
+import com.calypsan.listenup.api.dto.auth.PasswordResetTicket
 import com.calypsan.listenup.api.dto.auth.RefreshRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
@@ -124,4 +126,23 @@ private class BrokenAuthService : AuthServicePublic {
     override fun observeRegistrationStatus(userId: String): Flow<RpcEvent<RegistrationStatusEvent>> = error("not used in this test")
 
     override fun observeRegistrationPolicy(): Flow<RpcEvent<RegistrationPolicy>> = error("not used in this test")
+
+    override suspend fun requestPasswordReset(
+        email: String,
+        deviceClaim: String,
+    ): AppResult<PasswordResetTicket> = error("not used in this test")
+
+    override fun observePasswordResetStatus(ticketId: String): Flow<RpcEvent<PasswordResetStatusEvent>> = error("not used in this test")
+
+    override suspend fun completePasswordReset(
+        ticketId: String,
+        claimSecret: String,
+        code: String,
+        newPassword: String,
+    ): AppResult<Unit> = error("not used in this test")
+
+    override suspend fun resetRootPassword(
+        token: String,
+        newPassword: String,
+    ): AppResult<Unit> = error("not used in this test")
 }

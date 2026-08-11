@@ -66,6 +66,11 @@ fun authModule(
 ): Module {
     val secrets = resolveServerSecrets(config)
     return module {
+        // AuthServiceImpl/AdminUserServiceImpl require a PasswordResetService — includes() makes
+        // it structurally impossible to load authModule without the reset bindings, rather than
+        // relying on ApplicationPlugins to remember a second `modules +=` line.
+        includes(passwordResetModule(config))
+
         single<Clock> { Clock.System }
 
         single<DatabaseHandle> {
@@ -158,6 +163,8 @@ fun authModule(
                 // Same sharing requirement for the policy fan-out: AdminUserServiceImpl notifies
                 // this singleton on a policy write; observeRegistrationPolicy watches it.
                 registrationPolicyBroadcaster = get(),
+                passwordResetService = get(),
+                rootPasswordResetService = get(),
             )
         }
 
@@ -175,6 +182,7 @@ fun authModule(
                 defaultGrantIssuer = getOrNull(),
                 // Nullable — the admin-roster module may not be loaded in minimal test containers.
                 adminUserRosterMaintainer = getOrNull(),
+                passwordResetService = get(),
             )
         }
 

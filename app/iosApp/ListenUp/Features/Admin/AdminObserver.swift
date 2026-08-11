@@ -40,6 +40,10 @@ final class AdminObserver {
     func approveUser(id: String) { viewModel.approveUser(userId: id) }
     func denyUser(id: String) { viewModel.denyUser(userId: id) }
     func setRegistrationPolicy(_ policy: RegistrationPolicy) { viewModel.setRegistrationPolicy(policy: policy) }
+    func decidePasswordReset(id: String, approved: Bool) {
+        viewModel.decidePasswordReset(requestId: id, approved: approved)
+    }
+    func dismissResetCode() { viewModel.dismissResetCode() }
     func clearError() { viewModel.clearError() }
 
     // MARK: - State mapping
@@ -75,10 +79,16 @@ struct AdminReadyModel {
     let users: [AdminUserRowModel]
     let pendingUsers: [AdminUserRowModel]
     let pendingInvites: [AdminInviteRowModel]
+    let pendingPasswordResets: [AdminResetRequestRowModel]
     let deletingUserId: String?
     let revokingInviteId: String?
     let approvingUserId: String?
     let denyingUserId: String?
+    let decidingPasswordResetId: String?
+    /// The one-time reset code awaiting conveyance — surfaced by the VM exactly once after an
+    /// approval; only `dismissResetCode()` clears it (never a stray dismissal).
+    let resetCodeToConvey: String?
+    let resetCodeRecipientName: String?
     let error: String?
 
     init(from ready: AdminUiStateReady) {
@@ -87,11 +97,35 @@ struct AdminReadyModel {
         self.users = ready.users.map(AdminUserRowModel.init(from:))
         self.pendingUsers = ready.pendingUsers.map(AdminUserRowModel.init(from:))
         self.pendingInvites = ready.pendingInvites.map(AdminInviteRowModel.init(from:))
+        self.pendingPasswordResets = ready.pendingPasswordResets.map(AdminResetRequestRowModel.init(from:))
         self.deletingUserId = ready.deletingUserId
         self.revokingInviteId = ready.revokingInviteId
         self.approvingUserId = ready.approvingUserId
         self.denyingUserId = ready.denyingUserId
+        self.decidingPasswordResetId = ready.decidingPasswordResetId
+        self.resetCodeToConvey = ready.resetCodeToConvey
+        self.resetCodeRecipientName = ready.resetCodeRecipientName
         self.error = ready.error
+    }
+}
+
+/// One pending password-reset request: the requester's display name + email. Mapped to a native
+/// value type at the observer boundary (iOS rule 8) — the row never re-reads the bridged DTO.
+struct AdminResetRequestRowModel: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let email: String
+
+    init(from request: PasswordResetRequest) {
+        self.id = request.id
+        self.name = request.displayName
+        self.email = request.email
+    }
+
+    init(id: String, name: String, email: String) {
+        self.id = id
+        self.name = name
+        self.email = email
     }
 }
 

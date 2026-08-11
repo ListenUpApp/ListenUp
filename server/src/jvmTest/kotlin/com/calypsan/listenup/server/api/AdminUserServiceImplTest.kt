@@ -37,6 +37,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import app.cash.turbine.test
 import io.kotest.core.spec.style.FunSpec
@@ -94,6 +95,7 @@ class AdminUserServiceImplTest :
                 bus = bus,
                 publicProfileMaintainer = db.sql.noOpPublicProfileMaintainer(),
                 activityRecorder = activityRecorder,
+                passwordResetService = testPasswordResetService(db.sql, fixedClock),
             )
         }
 
@@ -339,6 +341,7 @@ class AdminUserServiceImplTest :
                             registrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
                             bus = ChangeBus(),
                             publicProfileMaintainer = db.sql.noOpPublicProfileMaintainer(),
+                            passwordResetService = testPasswordResetService(db.sql, fixedClock),
                         ).copyWith(principalFor("a1", UserRole.ADMIN))
 
                     // m1 has an active session that must be revoked on delete.
@@ -356,6 +359,28 @@ class AdminUserServiceImplTest :
 
                     // sessions revoked: rotate on m1's refresh token now fails.
                     sessions.rotate(m1Session.refreshToken) shouldBe null
+                }
+            }
+        }
+
+        test("deleteUser sweeps the deleted user's pending password-reset request") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.passwordResetRequestsQueries.insert(
+                    id = "reset-row-1",
+                    user_id = "m1",
+                    requested_at = fixedClock.now().toEpochMilliseconds(),
+                    expires_at = fixedClock.now().toEpochMilliseconds() + 900_000,
+                    status = "PENDING",
+                    device_claim_hash = "irrelevant-hash",
+                )
+                runTest {
+                    val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
+                    svc.deleteUser(UserId("m1")).shouldSucceed()
+
+                    sql.passwordResetRequestsQueries.selectById("reset-row-1").executeAsOneOrNull() shouldBe null
                 }
             }
         }

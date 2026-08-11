@@ -46,3 +46,11 @@ data object Login : AuthRoute
  */
 @Serializable
 data object Register : AuthRoute
+
+/**
+ * Forgot-password screen - admin-approval password reset flow.
+ * User requests a reset, waits for an admin to approve it, then completes with the
+ * out-of-band code the admin conveys.
+ */
+@Serializable
+data object ForgotPassword : AuthRoute

@@ -37,6 +37,30 @@ enum class AuthRateBucket(
      * the same ceiling: a legitimate client re-subscribes on every reconnect-with-backoff attempt.
      */
     OBSERVE_REGISTRATION_POLICY(20),
+
+    /**
+     * `requestPasswordReset`. Unauthenticated, and the known/unknown-account branches differ
+     * measurably in cost (the known path runs an extra transaction plus an HMAC). That timing
+     * delta is not a one-shot signal, but it is repeatable and free to sample — this bucket is
+     * what makes averaging over many probes impractical, so it is the mitigation the
+     * enumeration-oracle argument in `PasswordResetService.request` explicitly leans on.
+     */
+    REQUEST_PASSWORD_RESET(5),
+
+    /**
+     * `completePasswordReset`. Guessing the code is already bounded by the per-ticket attempt
+     * counter; this bounds the *other* axis — an attacker spraying one guess each across many
+     * tickets — and caps the Argon2 CPU/memory amplification behind each call.
+     */
+    COMPLETE_PASSWORD_RESET(5),
+
+    /**
+     * `resetRootPassword`. The 128-bit token makes guessing impractical and a wrong guess costs
+     * only an in-memory comparison — but this is an unauthenticated method on the public mount,
+     * and every sibling here is bucketed. Consistency is the point: an un-bucketed auth method is
+     * an exception a reader has to go and verify, so it should not exist without a reason.
+     */
+    RESET_ROOT_PASSWORD(5),
 }
 
 /** Outcome of a rate-limit probe: proceed, or reject with a client-surfaced `Retry-After`. */

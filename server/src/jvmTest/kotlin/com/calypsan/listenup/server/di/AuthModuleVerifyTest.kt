@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.db.SwappableSqlDriver
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
+import com.calypsan.listenup.server.services.SessionRevoker
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -16,6 +17,11 @@ import java.nio.file.Files
  * Verifies the auth Koin module's dependency graph statically — every
  * constructor parameter on declared bindings can be resolved from another
  * binding (or from the whitelist). Catches DI wiring regressions in CI.
+ *
+ * Verifies [authModule] alone: it `includes(passwordResetModule(config))` internally, and
+ * Koin's verifier follows `includes()` transitively, so this also proves
+ * [passwordResetModule]'s bindings — including `PasswordResetService`, which resolves
+ * `AuthServiceImpl`/`AdminUserServiceImpl`'s `passwordResetService` parameter.
  */
 class AuthModuleVerifyTest :
     FunSpec({
@@ -53,6 +59,11 @@ class AuthModuleVerifyTest :
                         // (both loaded at application startup but absent here):
                         CollectionGrantRepository::class,
                         CollectionRepository::class,
+                        // PasswordResetService's `sessions` param is a SessionRevoker — bound in the real
+                        // graph as a method reference off the shared SessionService singleton
+                        // (get<SessionService>()::revokeAll), not as its own Koin definition. Verify()
+                        // inspects the constructor's static type, blind to how the lambda supplies it.
+                        SessionRevoker::class,
                     ),
             )
         }

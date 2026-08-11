@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
+import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
@@ -86,6 +87,12 @@ internal val authPresentationModule =
             )
         }
         factory {
+            ForgotPasswordViewModel(
+                repository = get(),
+                errorBus = get(),
+            )
+        }
+        factory {
             com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel(
                 repository = get(),
                 serverConfig = get(),
@@ -130,6 +137,8 @@ internal val adminPresentationModule =
                 approveUserUseCase = get(),
                 denyUserUseCase = get(),
                 setRegistrationPolicyUseCase = get(),
+                loadPasswordResetRequestsUseCase = get(),
+                decidePasswordResetUseCase = get(),
                 adminRepository = get(),
             )
         }

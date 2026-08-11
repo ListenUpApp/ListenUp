@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.calypsan.listenup.client.features.admin
 
 import androidx.compose.foundation.layout.Arrangement
@@ -28,10 +30,12 @@ import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -40,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.TextButton
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -59,11 +64,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.client.design.components.ActionTile
 import com.calypsan.listenup.client.design.components.AvatarSize
@@ -88,6 +96,8 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_approve_reset
+import listenup.composeapp.generated.resources.admin_deny_reset
 import listenup.composeapp.generated.resources.admin_inbox
 import listenup.composeapp.generated.resources.admin_inbox_subtitle
 import listenup.composeapp.generated.resources.admin_inbox_setting_subtitle
@@ -104,8 +114,11 @@ import listenup.composeapp.generated.resources.admin_library_settings
 import listenup.composeapp.generated.resources.admin_library_settings_subtitle
 import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.admin_management
+import listenup.composeapp.generated.resources.admin_no_pending_password_resets
 import listenup.composeapp.generated.resources.admin_no_pending_registrations
+import listenup.composeapp.generated.resources.admin_password_resets
 import listenup.composeapp.generated.resources.admin_registration_approval_desc
+import listenup.composeapp.generated.resources.admin_reset_code_recipient_fallback
 import listenup.composeapp.generated.resources.admin_registration_closed_desc
 import listenup.composeapp.generated.resources.admin_registration_open_desc
 import listenup.composeapp.generated.resources.admin_registration_policy
@@ -119,6 +132,10 @@ import listenup.composeapp.generated.resources.admin_push_setting_subtitle
 import listenup.composeapp.generated.resources.admin_push_setting_title
 import listenup.composeapp.generated.resources.admin_remote_url
 import listenup.composeapp.generated.resources.admin_remote_url_placeholder
+import listenup.composeapp.generated.resources.admin_reset_code_copied
+import listenup.composeapp.generated.resources.admin_reset_code_done
+import listenup.composeapp.generated.resources.admin_reset_code_instruction
+import listenup.composeapp.generated.resources.admin_reset_code_title
 import listenup.composeapp.generated.resources.admin_revoke_invite
 import listenup.composeapp.generated.resources.admin_save_settings
 import listenup.composeapp.generated.resources.admin_server_name
@@ -130,6 +147,7 @@ import listenup.composeapp.generated.resources.common_administration
 import listenup.composeapp.generated.resources.common_approve
 import listenup.composeapp.generated.resources.common_categories
 import listenup.composeapp.generated.resources.common_collections
+import listenup.composeapp.generated.resources.common_copy
 import listenup.composeapp.generated.resources.common_delete
 import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.common_deny
@@ -138,6 +156,10 @@ import listenup.composeapp.generated.resources.common_no_items_found
 import listenup.composeapp.generated.resources.common_revoke
 import listenup.composeapp.generated.resources.common_users
 import listenup.composeapp.generated.resources.connect_listenup_server
+import listenup.composeapp.generated.resources.discover_time_ago_days
+import listenup.composeapp.generated.resources.discover_time_ago_hours
+import listenup.composeapp.generated.resources.discover_time_ago_minutes
+import listenup.composeapp.generated.resources.discover_time_ago_now
 
 /**
  * Combined admin screen showing server settings, users, pending registrations & invites, and the
@@ -176,10 +198,12 @@ fun AdminScreen(
     val scope = rememberCoroutineScope()
     val copyToClipboard = rememberCopyToClipboard()
     val linkCopiedMessage = stringResource(Res.string.admin_link_copied)
+    val resetCodeCopiedMessage = stringResource(Res.string.admin_reset_code_copied)
 
     val userToDeleteState = remember { mutableStateOf<AdminUserInfo?>(null) }
     val inviteToRevokeState = remember { mutableStateOf<InviteInfo?>(null) }
     val userToDenyState = remember { mutableStateOf<AdminUserInfo?>(null) }
+    val resetToDenyState = remember { mutableStateOf<PasswordResetRequest?>(null) }
 
     // Transient mutation-failure error in snackbar (only meaningful in Ready).
     val readyError = (state as? AdminUiState.Ready)?.error
@@ -237,6 +261,8 @@ fun AdminScreen(
                         }
                     },
                     onRevokeInviteClick = { inviteToRevokeState.value = it },
+                    onApprovePasswordResetClick = { viewModel.decidePasswordReset(it.id, approved = true) },
+                    onDenyPasswordResetClick = { resetToDenyState.value = it },
                     onInviteClick = onInviteClick,
                     onCollectionsClick = onCollectionsClick,
                     onCategoriesClick = onCategoriesClick,
@@ -263,7 +289,26 @@ fun AdminScreen(
         userToDeleteState = userToDeleteState,
         inviteToRevokeState = inviteToRevokeState,
         userToDenyState = userToDenyState,
+        resetToDenyState = resetToDenyState,
     )
+
+    // The one-time reset code. It is returned exactly once, by the approval call, and by no
+    // other surface — there is no way to retrieve it later. `onDismissRequest` is a no-op:
+    // dismissal is only via the explicit "Done" button in the dialog itself, so a stray
+    // back-press or outside tap can never lose it before the admin has read/copied it.
+    (state as? AdminUiState.Ready)?.resetCodeToConvey?.let { code ->
+        PasswordResetCodeDialog(
+            code = code,
+            recipientName = (state as AdminUiState.Ready).resetCodeRecipientName,
+            onCopyClick = {
+                copyToClipboard(code)
+                scope.launch {
+                    snackbarHostState.showSnackbar(resetCodeCopiedMessage)
+                }
+            },
+            onDone = { viewModel.dismissResetCode() },
+        )
+    }
 }
 
 @Composable
@@ -272,10 +317,12 @@ private fun AdminConfirmationDialogs(
     userToDeleteState: MutableState<AdminUserInfo?>,
     inviteToRevokeState: MutableState<InviteInfo?>,
     userToDenyState: MutableState<AdminUserInfo?>,
+    resetToDenyState: MutableState<PasswordResetRequest?>,
 ) {
     var userToDelete by userToDeleteState
     var inviteToRevoke by inviteToRevokeState
     var userToDeny by userToDenyState
+    var resetToDeny by resetToDenyState
 
     // Delete user confirmation dialog
     userToDelete?.let { user ->
@@ -325,6 +372,21 @@ private fun AdminConfirmationDialogs(
             onDismiss = { userToDeny = null },
         )
     }
+
+    // Deny password-reset confirmation dialog
+    resetToDeny?.let { request ->
+        ListenUpDestructiveDialog(
+            onDismissRequest = { resetToDeny = null },
+            title = stringResource(Res.string.admin_deny_reset),
+            text = "Are you sure you want to deny the password reset for ${request.displayName}?",
+            confirmText = stringResource(Res.string.common_deny),
+            onConfirm = {
+                viewModel.decidePasswordReset(request.id, approved = false)
+                resetToDeny = null
+            },
+            onDismiss = { resetToDeny = null },
+        )
+    }
 }
 
 // AdminContent fans hoisted state + per-row callbacks straight into its layout sections;
@@ -340,6 +402,8 @@ private fun AdminContent(
     onUserClick: (String) -> Unit,
     onCopyInviteClick: (InviteInfo) -> Unit,
     onRevokeInviteClick: (InviteInfo) -> Unit,
+    onApprovePasswordResetClick: (PasswordResetRequest) -> Unit,
+    onDenyPasswordResetClick: (PasswordResetRequest) -> Unit,
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
@@ -372,6 +436,8 @@ private fun AdminContent(
             onUserClick = onUserClick,
             onCopyInviteClick = onCopyInviteClick,
             onRevokeInviteClick = onRevokeInviteClick,
+            onApprovePasswordResetClick = onApprovePasswordResetClick,
+            onDenyPasswordResetClick = onDenyPasswordResetClick,
             onInviteClick = onInviteClick,
             onCollectionsClick = onCollectionsClick,
             onCategoriesClick = onCategoriesClick,
@@ -421,6 +487,8 @@ private fun AdminContent(
                 onDenyUserClick = onDenyUserClick,
                 onCopyInviteClick = onCopyInviteClick,
                 onRevokeInviteClick = onRevokeInviteClick,
+                onApprovePasswordResetClick = onApprovePasswordResetClick,
+                onDenyPasswordResetClick = onDenyPasswordResetClick,
                 onInviteClick = onInviteClick,
             )
 
@@ -452,6 +520,8 @@ private fun AdminTwoPaneContent(
     onUserClick: (String) -> Unit,
     onCopyInviteClick: (InviteInfo) -> Unit,
     onRevokeInviteClick: (InviteInfo) -> Unit,
+    onApprovePasswordResetClick: (PasswordResetRequest) -> Unit,
+    onDenyPasswordResetClick: (PasswordResetRequest) -> Unit,
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
@@ -501,6 +571,8 @@ private fun AdminTwoPaneContent(
                 onDenyUserClick = onDenyUserClick,
                 onCopyInviteClick = onCopyInviteClick,
                 onRevokeInviteClick = onRevokeInviteClick,
+                onApprovePasswordResetClick = onApprovePasswordResetClick,
+                onDenyPasswordResetClick = onDenyPasswordResetClick,
                 onInviteClick = onInviteClick,
             )
         }
@@ -680,6 +752,8 @@ private fun LazyListScope.usersSection(
     onDenyUserClick: (AdminUserInfo) -> Unit,
     onCopyInviteClick: (InviteInfo) -> Unit,
     onRevokeInviteClick: (InviteInfo) -> Unit,
+    onApprovePasswordResetClick: (PasswordResetRequest) -> Unit,
+    onDenyPasswordResetClick: (PasswordResetRequest) -> Unit,
     onInviteClick: () -> Unit,
 ) {
     item {
@@ -709,6 +783,18 @@ private fun LazyListScope.usersSection(
                 onRevokeInviteClick = onRevokeInviteClick,
             )
         }
+    }
+
+    // Task 15 (password-reset arc): minimal and deliberately temporary — a follow-up plan
+    // relocates this into a rewritten people-management surface. Always visible (not gated
+    // on emptiness like PendingInvitesGroup) so an admin knows where to look even when the
+    // queue is empty.
+    item {
+        PasswordResetsGroup(
+            state = state,
+            onApproveClick = onApprovePasswordResetClick,
+            onDenyClick = onDenyPasswordResetClick,
+        )
     }
 }
 
@@ -990,6 +1076,183 @@ private fun InviteRow(
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Password resets section (Task 15 — minimal and deliberately temporary; see
+// docs/superpowers/plans/2026-08-09-password-reset.md for the follow-up plan that relocates
+// this into a rewritten people-management surface)
+// ---------------------------------------------------------------------------
+
+@Composable
+private fun PasswordResetsGroup(
+    state: AdminUiState.Ready,
+    onApproveClick: (PasswordResetRequest) -> Unit,
+    onDenyClick: (PasswordResetRequest) -> Unit,
+) {
+    val accent = MaterialTheme.colorScheme.tertiary
+    SectionGroup(
+        label = stringResource(Res.string.admin_password_resets),
+        icon = Icons.Outlined.Key,
+        accent = accent,
+    ) {
+        if (state.pendingPasswordResets.isEmpty()) {
+            Text(
+                text = stringResource(Res.string.admin_no_pending_password_resets),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
+            )
+        } else {
+            state.pendingPasswordResets.forEachIndexed { index, request ->
+                PasswordResetRow(
+                    request = request,
+                    isDeciding = state.decidingPasswordResetId == request.id,
+                    showDivider = index > 0,
+                    onApproveClick = { onApproveClick(request) },
+                    onDenyClick = { onDenyClick(request) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PasswordResetRow(
+    request: PasswordResetRequest,
+    isDeciding: Boolean,
+    showDivider: Boolean,
+    onApproveClick: () -> Unit,
+    onDenyClick: () -> Unit,
+) {
+    val approveLabel = stringResource(Res.string.admin_approve_reset)
+    val denyLabel = stringResource(Res.string.admin_deny_reset)
+    SettingRow(
+        title = request.displayName,
+        subtitle = "${request.email} · ${passwordResetAge(request.requestedAt)}",
+        showDivider = showDivider,
+        leading = {
+            UserAvatar(
+                userId = request.userId.value,
+                size = AvatarSize.Medium,
+                fallbackName = request.displayName,
+            )
+        },
+    ) {
+        if (isDeciding) {
+            ListenUpLoadingIndicatorSmall()
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedIconButton(onClick = onDenyClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = denyLabel,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                FilledTonalIconButton(onClick = onApproveClick) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = approveLabel,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private const val MS_PER_MINUTE = 60_000L
+private const val MINUTES_PER_HOUR = 60L
+private const val HOURS_PER_DAY = 24L
+
+/** Compact relative timestamp ("Just now", "5m ago", "3h ago") from an epoch-ms instant. */
+@Composable
+private fun passwordResetAge(requestedAtMs: Long): String {
+    val nowMs =
+        kotlin.time.Clock.System
+            .now()
+            .toEpochMilliseconds()
+    val minutes = (nowMs - requestedAtMs).coerceAtLeast(0L) / MS_PER_MINUTE
+    return when {
+        minutes < 1L -> {
+            stringResource(Res.string.discover_time_ago_now)
+        }
+
+        minutes < MINUTES_PER_HOUR -> {
+            stringResource(Res.string.discover_time_ago_minutes, minutes.toInt())
+        }
+
+        minutes < MINUTES_PER_HOUR * HOURS_PER_DAY -> {
+            stringResource(Res.string.discover_time_ago_hours, (minutes / MINUTES_PER_HOUR).toInt())
+        }
+
+        else -> {
+            stringResource(Res.string.discover_time_ago_days, (minutes / (MINUTES_PER_HOUR * HOURS_PER_DAY)).toInt())
+        }
+    }
+}
+
+/**
+ * The one-time reset code, shown exactly once. Dismissal is **only** via the explicit "Done"
+ * button — [DialogProperties] disables both back-press and outside-tap dismissal, and
+ * `onDismissRequest` is a no-op, so the code cannot vanish before the admin has read or
+ * copied it. The instruction text is load-bearing, not decoration: conveying the code out of
+ * band (phone, in person, a chat the admin and requester already use) IS the identity check
+ * this whole design rests on, so this dialog offers no way to send it back through the app.
+ */
+@Composable
+private fun PasswordResetCodeDialog(
+    code: String,
+    recipientName: String?,
+    onCopyClick: () -> Unit,
+    onDone: () -> Unit,
+) {
+    val name = recipientName ?: stringResource(Res.string.admin_reset_code_recipient_fallback)
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        shape = MaterialTheme.shapes.large,
+        containerColor = MaterialTheme.colorScheme.surface,
+        icon = { Icon(Icons.Outlined.Key, contentDescription = null) },
+        title = { Text(stringResource(Res.string.admin_reset_code_title, name)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        text = code,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Monospace),
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Text(
+                    text = stringResource(Res.string.admin_reset_code_instruction, name),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDone) {
+                Text(stringResource(Res.string.admin_reset_code_done))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onCopyClick) {
+                Icon(
+                    imageVector = Icons.Outlined.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(stringResource(Res.string.common_copy))
+            }
+        },
+    )
 }
 
 // ---------------------------------------------------------------------------

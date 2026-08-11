@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalTime::class)
+
 package com.calypsan.listenup.server
 
+import com.calypsan.listenup.server.auth.RootResetToken
 import com.calypsan.listenup.server.db.DataDirLock
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.io.readEnv
@@ -9,7 +12,9 @@ import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.config.ApplicationConfig
+import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.ExperimentalTime
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
@@ -189,6 +194,45 @@ internal fun ApplicationConfig.periodicRescanInterval(): Duration =
         ?.takeIf { it.isNotBlank() }
         ?.let { runCatching { Duration.parse(it) }.getOrNull() }
         ?: Duration.ZERO
+
+/**
+ * Arms the root-password escape hatch when `LISTENUP_ROOT_RESET` is set to a truthy value, and
+ * prints its one-time token. The warning is deliberately blunt: an operator who leaves this set
+ * is re-arming the hatch on every restart, and needs to be told so.
+ *
+ * Reads the env var directly (the [readEnv] idiom [resolveImageHome] already uses for
+ * `LISTENUP_HOME`) rather than through Ktor's `Application.environment.config` — this is a
+ * plain function, not an `Application` extension, so it can be called from inside a Koin module
+ * builder (`passwordResetModule`), which only ever sees the Ktor `ApplicationConfig`, not the
+ * live `Application`.
+ *
+ * ⚠️ This deliberately logs a secret, which the project's "never log sensitive data" rule
+ * otherwise forbids. It is the one exception: the operator has no other channel to learn the
+ * token, and without it the hatch cannot be used at all — a hatch nobody can open is not a
+ * hatch.
+ */
+internal fun resolveRootResetToken(clock: Clock): RootResetToken {
+    val enabled = readEnv("LISTENUP_ROOT_RESET")?.toBooleanStrictOrNull() ?: false
+    if (!enabled) return RootResetToken.disarmed()
+
+    val armed = RootResetToken.armed(clock)
+    val banner = "=".repeat(ROOT_RESET_BANNER_WIDTH)
+    logger.warn {
+        buildString {
+            appendLine(banner)
+            appendLine("ROOT PASSWORD RESET IS ARMED for the next ${RootResetToken.WINDOW}.")
+            appendLine("One-time token: ${armed.token}")
+            appendLine("Anyone who can reach the login screen AND read this log can take the")
+            appendLine("root account. Reset the password now, then REMOVE LISTENUP_ROOT_RESET")
+            appendLine("and restart — leaving it set re-arms the hatch on every boot.")
+            append(banner)
+        }
+    }
+    return armed
+}
+
+/** Width of the `=`-rule framing the root-reset startup warning — purely cosmetic. */
+private const val ROOT_RESET_BANNER_WIDTH = 72
 
 /**
  * Reads `web.root` from configuration — the directory holding the bundled web client

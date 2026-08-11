@@ -15,10 +15,12 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.DecidePasswordResetUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.LoadPasswordResetRequestsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadServerSettingsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
@@ -40,6 +42,8 @@ import org.koin.test.verify.verify
  *  - [ApproveUserUseCase] — owned by `adminModule`.
  *  - [DenyUserUseCase] — owned by `adminModule`.
  *  - [SetRegistrationPolicyUseCase] — owned by `adminModule`.
+ *  - [LoadPasswordResetRequestsUseCase] — owned by `adminModule`.
+ *  - [DecidePasswordResetUseCase] — owned by `adminModule`.
  *  - [EventStreamRepository] — owned by `adminModule`.
  *  - [CreateInviteUseCase] — owned by `adminModule`.
  *  - [LoadServerSettingsUseCase] — owned by `adminModule`.
@@ -73,6 +77,8 @@ class AdminPresentationModuleVerifyTest :
                         ApproveUserUseCase::class,
                         DenyUserUseCase::class,
                         SetRegistrationPolicyUseCase::class,
+                        LoadPasswordResetRequestsUseCase::class,
+                        DecidePasswordResetUseCase::class,
                         EventStreamRepository::class,
                         CreateInviteUseCase::class,
                         LoadServerSettingsUseCase::class,

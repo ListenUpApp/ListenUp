@@ -149,6 +149,10 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // RpcEvent.Error (e.g. an unrecognised registration id) must not look like a silent
             // "still pending". Flow-returning APIs have no AppResult seat; the thrown value is
             // typed and consumed at the collection site, not swallowed.
-            !line.contains("throw RegistrationStatusStreamFailure(")
+            !line.contains("throw RegistrationStatusStreamFailure(") &&
+            // Same pattern, same rationale: PasswordResetRepositoryImpl.observeStatus mirrors
+            // RegistrationStatusStreamImpl.streamStatus exactly, throwing this typed failure on a
+            // server-surfaced RpcEvent.Error rather than letting it look like "still pending".
+            !line.contains("throw PasswordResetStatusStreamFailure(")
     }
 }

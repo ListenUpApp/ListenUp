@@ -191,6 +191,11 @@ private fun AuthError.toHttpStatus(): HttpStatusCode =
         is AuthError.WeakPassword -> HttpStatusCode.BadRequest
         is AuthError.PermissionDenied -> HttpStatusCode.Forbidden
         is AuthError.RegistrationNotFound -> HttpStatusCode.NotFound
+        is AuthError.ResetRequestNotFound -> HttpStatusCode.NotFound
+        is AuthError.ResetNotApproved -> HttpStatusCode.Forbidden
+        is AuthError.ResetCodeIncorrect -> HttpStatusCode.BadRequest
+        is AuthError.ResetAttemptsExhausted -> HttpStatusCode.TooManyRequests
+        is AuthError.RootResetUnavailable -> HttpStatusCode.Forbidden
     }
 
 private fun ScanError.toHttpStatus(): HttpStatusCode =

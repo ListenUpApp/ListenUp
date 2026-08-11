@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationOutcome
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
@@ -114,6 +116,16 @@ private class FakeAdminUserService : AdminUserService {
         lastSetPolicy = policy
         return AppResult.Success(Unit)
     }
+
+    override suspend fun listPasswordResetRequests(): AppResult<List<PasswordResetRequest>> = AppResult.Success(emptyList())
+
+    override suspend fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ): AppResult<PasswordResetDecisionOutcome> =
+        AppResult.Success(
+            if (approved) PasswordResetDecisionOutcome.Approved("ABCD-2345") else PasswordResetDecisionOutcome.Denied,
+        )
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -288,6 +300,33 @@ class AdminRepositoryImplUserTest :
             val result = repo.setRegistrationPolicy(RegistrationPolicy.CLOSED)
             (result is AppResult.Success) shouldBe true
             service.lastSetPolicy shouldBe RegistrationPolicy.CLOSED
+        }
+
+        test("listPasswordResetRequests forwards the service's pending queue") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+
+            val result = repo.listPasswordResetRequests()
+
+            result shouldBe AppResult.Success(emptyList())
+        }
+
+        test("decidePasswordReset(approved=true) forwards the approval and surfaces the minted code") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+
+            val result = repo.decidePasswordReset("reset-1", approved = true)
+
+            result shouldBe AppResult.Success(PasswordResetDecisionOutcome.Approved("ABCD-2345"))
+        }
+
+        test("decidePasswordReset(approved=false) forwards the denial") {
+            val service = FakeAdminUserService()
+            val repo = buildRepo(service)
+
+            val result = repo.decidePasswordReset("reset-1", approved = false)
+
+            result shouldBe AppResult.Success(PasswordResetDecisionOutcome.Denied)
         }
 
         test("setRegistrationPolicy returns a typed Failure (never throws) when the RPC transport throws") {

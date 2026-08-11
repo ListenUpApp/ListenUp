@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.dto.auth.PasswordResetDecisionOutcome
+import com.calypsan.listenup.api.dto.auth.PasswordResetRequest
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
@@ -8,9 +10,11 @@ import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.DecidePasswordResetUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
+import com.calypsan.listenup.client.domain.usecase.admin.LoadPasswordResetRequestsUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
@@ -36,6 +40,8 @@ class AdminViewModel(
     private val approveUserUseCase: ApproveUserUseCase,
     private val denyUserUseCase: DenyUserUseCase,
     private val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase,
+    private val loadPasswordResetRequestsUseCase: LoadPasswordResetRequestsUseCase,
+    private val decidePasswordResetUseCase: DecidePasswordResetUseCase,
     private val adminRepository: AdminRepository,
 ) : ViewModel() {
     val state: StateFlow<AdminUiState>
@@ -73,6 +79,7 @@ class AdminViewModel(
             // Load all data in parallel — no dependencies between these calls
             val deferredOpenReg = async { getRegistrationPolicyUseCase() }
             val deferredInvites = async { loadInvitesUseCase() }
+            val deferredPasswordResets = async { loadPasswordResetRequestsUseCase() }
 
             val registrationPolicy =
                 when (val result = deferredOpenReg.await()) {
@@ -81,6 +88,7 @@ class AdminViewModel(
                 }
 
             val invitesResult = deferredInvites.await()
+            val passwordResetsResult = deferredPasswordResets.await()
 
             // Every section degrades independently. A single failed fetch must never black out the
             // whole page — that strands the admin without the (independent) registration-policy
@@ -91,10 +99,24 @@ class AdminViewModel(
                     is AppResult.Success -> invitesResult.data.filter { it.claimedAt == null }
                     is AppResult.Failure -> emptyList()
                 }
+            val pendingPasswordResets =
+                when (passwordResetsResult) {
+                    is AppResult.Success -> passwordResetsResult.data
+                    is AppResult.Failure -> emptyList()
+                }
             val loadError =
-                when (invitesResult) {
-                    is AppResult.Success -> null
-                    is AppResult.Failure -> "Failed to load invites: ${invitesResult.message}"
+                when {
+                    invitesResult is AppResult.Failure -> {
+                        "Failed to load invites: ${invitesResult.message}"
+                    }
+
+                    passwordResetsResult is AppResult.Failure -> {
+                        "Failed to load password resets: ${passwordResetsResult.message}"
+                    }
+
+                    else -> {
+                        null
+                    }
                 }
 
             state.update { current ->
@@ -102,6 +124,7 @@ class AdminViewModel(
                     current.copy(
                         registrationPolicy = registrationPolicy,
                         pendingInvites = pendingInvites,
+                        pendingPasswordResets = pendingPasswordResets,
                         error = loadError,
                     )
                 } else {
@@ -111,6 +134,7 @@ class AdminViewModel(
                     AdminUiState.Ready(
                         registrationPolicy = registrationPolicy,
                         pendingInvites = pendingInvites,
+                        pendingPasswordResets = pendingPasswordResets,
                         error = loadError,
                     )
                 }
@@ -237,6 +261,67 @@ class AdminViewModel(
         }
     }
 
+    /**
+     * Approve or deny a pending password-reset request.
+     *
+     * On approval, the code returned by [decidePasswordResetUseCase] is surfaced via
+     * [AdminUiState.Ready.resetCodeToConvey] — this is the **only** place in the client
+     * that ever sees it. The screen is responsible for showing it once and requiring an
+     * explicit [dismissResetCode] before it disappears; nothing here re-fetches it.
+     */
+    fun decidePasswordReset(
+        requestId: String,
+        approved: Boolean,
+    ) {
+        val recipientName =
+            (state.value as? AdminUiState.Ready)
+                ?.pendingPasswordResets
+                ?.firstOrNull { it.id == requestId }
+                ?.displayName
+
+        viewModelScope.launch {
+            updateReady { it.copy(decidingPasswordResetId = requestId) }
+
+            when (val result = decidePasswordResetUseCase(requestId, approved)) {
+                is AppResult.Success -> {
+                    val approvedCode = (result.data as? PasswordResetDecisionOutcome.Approved)?.code
+                    updateReady { ready ->
+                        ready.copy(
+                            decidingPasswordResetId = null,
+                            pendingPasswordResets = ready.pendingPasswordResets.filter { it.id != requestId },
+                            resetCodeToConvey = approvedCode ?: ready.resetCodeToConvey,
+                            resetCodeRecipientName =
+                                if (approvedCode !=
+                                    null
+                                ) {
+                                    recipientName
+                                } else {
+                                    ready.resetCodeRecipientName
+                                },
+                        )
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    updateReady {
+                        it.copy(
+                            decidingPasswordResetId = null,
+                            error = result.message,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Clears the surfaced reset code once the admin has conveyed it. It is never
+     * retrievable again after this — there is no other surface that returns it.
+     */
+    fun dismissResetCode() {
+        updateReady { it.copy(resetCodeToConvey = null, resetCodeRecipientName = null) }
+    }
+
     fun setRegistrationPolicy(policy: RegistrationPolicy) {
         viewModelScope.launch {
             updateReady { it.copy(isTogglingRegistrationPolicy = true) }
@@ -287,29 +372,44 @@ class AdminViewModel(
  * Sealed hierarchy:
  * - [Loading] before the first `loadData()` emission.
  * - [Ready] once data has loaded; carries registrationPolicy, users,
- *   pendingUsers, pendingInvites, per-action overlays
+ *   pendingUsers, pendingInvites, pendingPasswordResets, per-action overlays
  *   (`deletingUserId`, `revokingInviteId`, `approvingUserId`,
- *   `denyingUserId`, `isTogglingRegistrationPolicy`), and a transient
- *   `error` surfaced as a snackbar. Initial-load failures also surface
- *   via the transient `error` field on [Ready].
+ *   `denyingUserId`, `decidingPasswordResetId`, `isTogglingRegistrationPolicy`),
+ *   the one-time `resetCodeToConvey`/`resetCodeRecipientName` pair, and a
+ *   transient `error` surfaced as a snackbar. Initial-load failures also
+ *   surface via the transient `error` field on [Ready].
+ *
+ * Deliberately just **two** subtypes — `SwiftExportSourcePatcher.expectedSealedSubtypeCounts`
+ * pins that count for the Swift Export surface, so new admin data is added as fields on
+ * [Ready] rather than a new sealed arm.
  */
 sealed interface AdminUiState {
     data object Loading : AdminUiState
 
     /**
-     * Admin data has loaded; carries users, pending users, pending invites,
-     * per-action overlays, and a transient `error` surfaced as a snackbar.
+     * Admin data has loaded; carries users, pending users, pending invites, pending
+     * password-reset requests, per-action overlays, the one-time reset code awaiting
+     * conveyance, and a transient `error` surfaced as a snackbar.
      */
     data class Ready(
         val registrationPolicy: RegistrationPolicy = RegistrationPolicy.CLOSED,
         val users: List<AdminUserInfo> = emptyList(),
         val pendingUsers: List<AdminUserInfo> = emptyList(),
         val pendingInvites: List<InviteInfo> = emptyList(),
+        val pendingPasswordResets: List<PasswordResetRequest> = emptyList(),
         val deletingUserId: String? = null,
         val revokingInviteId: String? = null,
         val approvingUserId: String? = null,
         val denyingUserId: String? = null,
+        val decidingPasswordResetId: String? = null,
         val isTogglingRegistrationPolicy: Boolean = false,
+        /**
+         * The code an admin just minted by approving a reset, surfaced exactly once so it
+         * can be conveyed out of band. `null` when no code is awaiting conveyance.
+         */
+        val resetCodeToConvey: String? = null,
+        /** Display name of the requester [resetCodeToConvey] is for, for the dialog copy. */
+        val resetCodeRecipientName: String? = null,
         val error: String? = null,
     ) : AdminUiState
 }

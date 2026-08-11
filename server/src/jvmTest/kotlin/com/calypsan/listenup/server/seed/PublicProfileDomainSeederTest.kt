@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -57,6 +58,7 @@ class PublicProfileDomainSeederTest :
                 sessionIssuer = SessionIssuer(sessions, jwt, clock),
                 clock = clock,
                 settings = settings,
+                passwordResetService = testPasswordResetService(sql, clock),
             )
         }
 

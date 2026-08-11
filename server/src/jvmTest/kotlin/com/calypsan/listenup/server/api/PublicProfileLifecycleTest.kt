@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.tempAvatarImageStore
+import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -84,6 +85,7 @@ class PublicProfileLifecycleTest :
                 registrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
                 bus = ChangeBus(),
                 publicProfileMaintainer = maintainer,
+                passwordResetService = testPasswordResetService(this, fixedClock),
             )
         }
 
