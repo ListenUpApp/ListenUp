@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
 import com.calypsan.listenup.web.design.Panel
@@ -13,6 +14,8 @@ import com.calypsan.listenup.web.design.Pill
 import com.calypsan.listenup.web.design.ProgressLine
 import com.calypsan.listenup.web.design.TabItem
 import com.calypsan.listenup.web.design.Tabs
+import com.calypsan.listenup.web.design.WebIcon
+import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H3
@@ -46,12 +49,22 @@ fun BookDetailPage(
 
         when (state) {
             is BookDetailUiState.Loading -> {
-                Notice("Loading", "Reading this book from your library.")
+                EmptyState(WebIcon.Clock, "Loading", "Reading this book from your library.")
             }
 
             is BookDetailUiState.Error -> {
                 val (heading, body) = explain(state.error)
-                Notice(heading, body)
+                // A state that can't show what was asked for still owes the reader somewhere to
+                // go. Library is the only honest destination: web sync is unwritten, so a "sync
+                // this browser" button would be a control with nothing behind it.
+                EmptyState(WebIcon.Book, heading, body) {
+                    Button(attrs = {
+                        classes("btn-c")
+                        onClick { onOpenLibrary() }
+                    }) {
+                        Text("Back to Library")
+                    }
+                }
             }
 
             is BookDetailUiState.Ready -> {
@@ -62,19 +75,34 @@ fun BookDetailPage(
                         listOf(
                             TabItem("overview", "Overview"),
                             TabItem("chapters", "Chapters", count = state.chapters.size.toString()),
+                            TabItem(
+                                "files",
+                                "Files",
+                                count =
+                                    state.book.audioFiles.size
+                                        .toString(),
+                            ),
                         ),
                     active = tab,
                     onSelect = onSelectTab,
                 )
 
-                if (tab == "chapters") {
-                    ChaptersPane(
-                        chapters = state.chapters.toWebChapters(),
-                        selection = selection,
-                        onSelectionChange = onSelectionChange,
-                    )
-                } else {
-                    OverviewPane(state)
+                when (tab) {
+                    "chapters" -> {
+                        ChaptersPane(
+                            chapters = state.chapters.toWebChapters(),
+                            selection = selection,
+                            onSelectionChange = onSelectionChange,
+                        )
+                    }
+
+                    "files" -> {
+                        FilesPane(state)
+                    }
+
+                    else -> {
+                        OverviewPane(state)
+                    }
                 }
             }
         }
@@ -129,7 +157,7 @@ private fun OverviewPane(state: BookDetailUiState.Ready) {
                     }
                 }
                 if (state.descriptionText.isBlank() && state.genres.isEmpty()) {
-                    Hint("No description has been written for this book.")
+                    PaneHint("No description has been written for this book.")
                 }
             }
         }
@@ -182,19 +210,28 @@ private fun explain(error: AppError): Pair<String, String> =
         "This book can't be shown" to error.message
     }
 
+/**
+ * The shape every state with no book takes: a mark, what happened, and — when there is somewhere
+ * honest to go — the way out. The `.empty` rule in the sheet has always carried an `.ico` slot;
+ * drawing it is what turns a bare sentence into a page.
+ */
 @Composable
-private fun Notice(
+private fun EmptyState(
+    icon: WebIcon,
     heading: String,
     body: String,
+    action: (@Composable () -> Unit)? = null,
 ) {
     Div(attrs = { classes("empty") }) {
+        Div(attrs = { classes("ico") }) { Icon(icon, size = ICON_SIZE) }
         H3 { Text(heading) }
         P { Text(body) }
+        action?.let { it() }
     }
 }
 
 @Composable
-private fun Hint(text: String) {
+internal fun PaneHint(text: String) {
     P(attrs = {
         style {
             property("margin", "0")
@@ -212,3 +249,5 @@ private const val PERCENT = 100
 private const val COVER_SIZE = 180
 
 private const val COVER_RADIUS = 16
+
+private const val ICON_SIZE = 24
