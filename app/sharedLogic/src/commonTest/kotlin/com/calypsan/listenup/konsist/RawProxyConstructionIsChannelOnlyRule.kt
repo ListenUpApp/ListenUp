@@ -13,6 +13,15 @@ import io.kotest.matchers.shouldBe
  *    single-flight, self-healing engine.
  *  - [com.calypsan.listenup.client.data.remote.InstanceRpcFactory]: the allowlisted, deliberately
  *    cacheless pre-auth probe that verifies a server URL before any [ServerConfig] exists.
+ *  - `client.diagnostics.RpcTransportProbe` (jsMain): the browser transport probe. Its entire
+ *    purpose is to answer "does a kotlinx.rpc socket open from a browser at all", which it cannot
+ *    do through the engine — the engine is the thing whose substrate is in question. Diagnostics
+ *    only; nothing in the app calls it.
+ *
+ * ⚠️ This rule reads `jsMain`, which is **not** an input to `jvmTest`. A violation added there
+ * leaves this task UP-TO-DATE and the gate silently passes — which is exactly how the probe above
+ * went unnoticed for a dozen commits. After touching a non-jvm source set, run
+ * `./gradlew :app:sharedLogic:jvmTest --rerun`.
  *
  * The tell is the `kotlinx.rpc.withService` import: reaching a bare proxy is impossible without it.
  * Pinning the importing set to those two files makes "call the service proxy directly" a build
@@ -27,7 +36,7 @@ import io.kotest.matchers.shouldBe
 class RawProxyConstructionIsChannelOnlyRule :
     FunSpec({
         test("raw withService proxy construction lives only in RpcChannel + InstanceRpcFactory") {
-            val allowlist = setOf("RpcChannel.kt", "InstanceRpcFactory.kt")
+            val allowlist = setOf("RpcChannel.kt", "InstanceRpcFactory.kt", "RpcTransportProbe.kt")
 
             val rawProxyFiles =
                 productionScope()
