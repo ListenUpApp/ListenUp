@@ -43,6 +43,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
+import com.calypsan.listenup.client.features.auth.components.AuthStepRow
+import com.calypsan.listenup.client.features.auth.components.AuthStepState
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import org.jetbrains.compose.resources.stringResource
@@ -199,92 +201,23 @@ private fun RegistrationTimeline(email: String) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(vertical = 6.dp)) {
-            RegStepRow(
-                state = StepState.DONE,
+            AuthStepRow(
+                state = AuthStepState.DONE,
                 icon = Icons.Outlined.Person,
                 title = stringResource(Res.string.auth_reg_step_account_created),
                 subtitle = email,
             )
-            RegStepRow(
-                state = StepState.ACTIVE,
+            AuthStepRow(
+                state = AuthStepState.ACTIVE,
                 icon = Icons.Outlined.Shield,
                 title = stringResource(Res.string.auth_reg_step_admin_approval),
                 subtitle = stringResource(Res.string.auth_reg_step_admin_approval_sub),
             )
-            RegStepRow(
-                state = StepState.TODO,
+            AuthStepRow(
+                state = AuthStepState.TODO,
                 icon = Icons.Outlined.Headphones,
                 title = stringResource(Res.string.auth_reg_step_start_listening),
                 subtitle = stringResource(Res.string.auth_reg_step_start_listening_sub),
-            )
-        }
-    }
-}
-
-private enum class StepState { DONE, ACTIVE, TODO }
-
-@Composable
-private fun RegStepRow(
-    state: StepState,
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-) {
-    val circleColor =
-        when (state) {
-            StepState.DONE -> MaterialTheme.colorScheme.primary
-            StepState.ACTIVE -> MaterialTheme.colorScheme.primaryContainer
-            StepState.TODO -> MaterialTheme.colorScheme.surfaceVariant
-        }
-    val iconColor =
-        when (state) {
-            StepState.DONE -> MaterialTheme.colorScheme.onPrimary
-            StepState.ACTIVE -> MaterialTheme.colorScheme.onPrimaryContainer
-            StepState.TODO -> MaterialTheme.colorScheme.onSurfaceVariant
-        }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp),
-        horizontalArrangement = Arrangement.spacedBy(13.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier.size(34.dp).clip(CircleShape).background(circleColor),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = if (state == StepState.DONE) Icons.Rounded.Check else icon,
-                contentDescription = null,
-                tint = iconColor,
-                modifier = Modifier.size(19.dp),
-            )
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (state == StepState.ACTIVE) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        shape = CircleShape,
-                    ) {
-                        Text(
-                            text = stringResource(Res.string.auth_reg_step_in_progress).uppercase(),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        )
-                    }
-                }
-            }
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
             )
         }
     }

@@ -8,7 +8,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import com.calypsan.listenup.client.features.auth.components.CODE_BOX_TAG
 import com.calypsan.listenup.client.features.auth.components.CODE_FIELD_TAG
@@ -84,7 +86,7 @@ class ForgotPasswordScreenTest {
             .assertIsDisplayed()
         composeRule.onNodeWithText("Request #7F2A").assertExists()
         composeRule.onNodeWithText("You can close ListenUp — your request is kept.").assertExists()
-        composeRule.onNodeWithText("Check Status").performClick()
+        composeRule.onNodeWithText("Check Status").performSemanticsAction(SemanticsActions.OnClick)
 
         checked shouldBe true
     }

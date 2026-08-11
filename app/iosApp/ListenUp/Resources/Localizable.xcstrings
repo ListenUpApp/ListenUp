@@ -2131,6 +2131,26 @@
         }
       }
     },
+    "auth.forgot_password_step_approve": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An admin approves it"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_approve_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They'll give you a code"
+          }
+        }
+      }
+    },
     "auth.forgot_password_step_code": {
       "localizations": {
         "en": {
@@ -2157,6 +2177,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "An admin on this server gets your request and approves it."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request sent"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_set": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a new password"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_set_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the code to finish"
           }
         }
       }
