@@ -3,10 +3,12 @@ package com.calypsan.listenup.web.shell
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
+import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.dom.Aside
 import org.jetbrains.compose.web.dom.B
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Main
 import org.jetbrains.compose.web.dom.Nav
 import org.jetbrains.compose.web.dom.Span
@@ -59,7 +61,21 @@ fun Shell(
             if (collapsed) classes("clpsd")
         }) {
             Div(attrs = { classes("sb-brand") }) {
-                B(attrs = { classes("sb-name") }) { Text("ListenUp") }
+                Div(attrs = { classes("sb-lockup") }) {
+                    // The shipped asset is a STACKED lockup (mark over wordmark), which does not fit
+                    // a short horizontal rail — so the rail pairs the mark with live text instead,
+                    // which also keeps the wordmark crisp at 18px and in the app's own face.
+                    // `alt` is empty on purpose: the adjacent text already names the brand, and a
+                    // description here would have a screen reader announce "ListenUp" twice.
+                    Img(
+                        src = BRAND_MARK_SRC,
+                        attrs = {
+                            classes("sb-mark")
+                            alt("")
+                        },
+                    )
+                    B(attrs = { classes("sb-name") }) { Text("ListenUp") }
+                }
                 if (!collapsed) {
                     onToggleCollapse?.let { toggle ->
                         Button(attrs = {
@@ -126,6 +142,14 @@ private fun NavItem(
         Span(attrs = { classes("lb") }) { Text(entry.label) }
     }
 }
+
+/**
+ * The brand mark, served from `web/public/`.
+ *
+ * A crop of the shipped `listenup_logo_black.svg` down to the mark alone — same vector art the
+ * Android and iOS brand assets use, so the rail cannot drift from the other clients' logo.
+ */
+private const val BRAND_MARK_SRC = "/listenup-mark.svg"
 
 private const val NAV_ICON_SIZE = 21
 

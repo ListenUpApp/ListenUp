@@ -449,6 +449,9 @@ body { margin: 0; }
 .shell { display:flex; height:100dvh; background:var(--paper); }
 .sidebar { width:252px; flex-shrink:0; display:flex; flex-direction:column; background:var(--surface); border-right:1px solid var(--line); padding:18px 16px; transition:width .2s; overflow-y:auto; }
 .sb-brand { display:flex; align-items:center; justify-content:space-between; height:40px; margin-bottom:14px; }
+/* Mark + wordmark travel together so `space-between` still pushes the collapse toggle to the edge. */
+.sb-lockup { display:flex; align-items:center; gap:9px; min-width:0; }
+.sb-mark { width:26px; height:26px; flex:none; }
 .sb-name { font-size:18px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
 .sb-toggle { color:var(--ink-3); }
 .sb-group { display:block; margin:16px 0 6px 14px; font-family:var(--mono); font-size:10.5px; font-weight:600; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); }
