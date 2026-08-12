@@ -29,6 +29,25 @@ internal fun logJwtRejection(reason: String) {
 const val JWT_PROVIDER = "jwt"
 
 /**
+ * Name of the provider gating the byte-serving GETs a DOM element fetches for itself — covers,
+ * documents, contributor photos, series covers, avatars.
+ *
+ * It differs from [JWT_PROVIDER] in one respect: it also accepts [ACCESS_TOKEN_COOKIE]. That has to
+ * be a separate provider rather than a third carrier on the existing one, because a cookie is the
+ * one credential the browser attaches on its own, to requests this server did not initiate. A
+ * WebSocket upgrade is not subject to CORS, so a cookie honoured by [JWT_PROVIDER] would let a
+ * cross-site page open the entire authenticated RPC surface on a visitor's session. `SameSite`
+ * would stop that — but `SameSite` is an attribute the server asks a client to enforce, and a
+ * credential this broad should not rest on a promise made by the party being defended against.
+ *
+ * So the cookie's reach is bounded by the routes it is mounted on instead, and those routes are all
+ * reads of bytes. Mount it as a **sibling** of the [JWT_PROVIDER] block, never nested inside it:
+ * Ktor's route interceptors are inherited, so a nested block would stack both providers and the
+ * outer one would reject a cookie-only request before this one ever ran.
+ */
+const val DOM_FETCH_PROVIDER = "jwt-dom-fetch"
+
+/**
  * Query parameter carrying a single-use [SocketTicketStore] ticket when the request cannot carry an
  * `Authorization` header.
  *
@@ -51,18 +70,25 @@ private const val SOCKET_TICKET_QUERY_PARAM = "ticket"
  * socket ticket solves for WebSocket upgrades. The browser writes this itself beside the token it
  * already keeps in origin-scoped localStorage, so it exposes nothing a script on this origin
  * could not already read.
+ *
+ * Read by [DOM_FETCH_PROVIDER] alone — see there for why that boundary is the security property.
  */
 const val ACCESS_TOKEN_COOKIE = "listenup_access"
 
 /**
- * Installs a `bearer` provider named [JWT_PROVIDER] that verifies the access
- * JWT, then runs an `isLive` check on the session row before handing back a
- * [UserPrincipal]. A revoked or expired session can't sneak through on a
- * still-valid JWT — the access window is bounded by the JWT's TTL (≤15m).
+ * Installs the two bearer providers. Both verify the access JWT and then run an `isLive` check on
+ * the session row before handing back a [UserPrincipal] — a revoked or expired session can't sneak
+ * through on a still-valid JWT, so the access window is bounded by the JWT's TTL (≤15m).
  *
- * [socketTickets] is the browser's way in: a ticket in the query redeems to the access token it
- * stands for, which is then verified on exactly the path a header-borne token takes. Null disables
- * the ticket path entirely (no browser client, no query credential accepted).
+ * They differ only in which carriers they will read a credential from:
+ *  - [JWT_PROVIDER] — `Authorization` header, or a single-use socket ticket in the query. Gates the
+ *    RPC surface and every mutating route.
+ *  - [DOM_FETCH_PROVIDER] — `Authorization` header, or [ACCESS_TOKEN_COOKIE]. Gates the byte-serving
+ *    GETs only.
+ *
+ * [socketTickets] is the browser's way onto the socket: a ticket in the query redeems to the access
+ * token it stands for, which is then verified on exactly the path a header-borne token takes. Null
+ * disables the ticket path entirely (no browser client, no query credential accepted).
  */
 fun KtorApplication.installJwtAuth(
     jwt: JwtConfiguration,
@@ -71,7 +97,48 @@ fun KtorApplication.installJwtAuth(
 ) {
     install(Authentication) {
         bearerJwt(jwt, sessionLiveness, socketTickets)
+        domFetchJwt(jwt, sessionLiveness)
     }
+}
+
+private fun AuthenticationConfig.domFetchJwt(
+    jwt: JwtConfiguration,
+    sessionLiveness: SessionLiveness,
+) {
+    bearer(DOM_FETCH_PROVIDER) {
+        // Header first for the same reason as above: a native client's request is read exactly as
+        // it always was. No ticket here — a ticket is spent by the connection it opens, and a page
+        // full of covers issues one request per image.
+        authHeader { call ->
+            call.request.parseAuthorizationHeader() ?: call.accessTokenFromCookie()
+        }
+        // Both carriers hold the access token itself, so there is nothing to redeem and no
+        // precedence to re-derive — whichever one `authHeader` chose, it verifies the same way.
+        authenticate { credential -> principalFor(credential.token, jwt, sessionLiveness) }
+    }
+}
+
+/**
+ * The verification both providers share: a valid signature is necessary but not sufficient, because
+ * a revoked session must not stay reachable for the rest of a still-valid JWT's TTL.
+ */
+private suspend fun principalFor(
+    accessToken: String,
+    jwt: JwtConfiguration,
+    sessionLiveness: SessionLiveness,
+): UserPrincipal? {
+    val claims =
+        try {
+            jwt.verify(accessToken)
+        } catch (_: JwtVerificationException) {
+            logJwtRejection("token verification failed")
+            return null
+        }
+    if (!sessionLiveness.isLive(claims.sessionId)) {
+        logJwtRejection("session no longer live for sessionId=${claims.sessionId}")
+        return null
+    }
+    return UserPrincipal(claims.userId, claims.sessionId, claims.role)
 }
 
 private fun AuthenticationConfig.bearerJwt(
@@ -83,44 +150,22 @@ private fun AuthenticationConfig.bearerJwt(
         // Header first, so every native client is byte-for-byte unchanged and the browser's
         // URL-borne ticket is only ever consulted when there is no header to prefer.
         authHeader { call ->
-            call.request.parseAuthorizationHeader()
-                ?: call.socketTicketFromQuery()
-                ?: call.accessTokenFromCookie()
+            call.request.parseAuthorizationHeader() ?: call.socketTicketFromQuery()
         }
         authenticate { credential ->
-            // `authHeader` cannot suspend, so redemption happens here, where it can. Which carrier
-            // produced this credential is decided by the same precedence `authHeader` applied: a
-            // present header always wins, then the query ticket, then the cookie. Only the ticket
-            // needs redeeming — the header and the cookie both carry the access token directly.
+            // `authHeader` cannot suspend, so redemption happens here, where it can. Which of the
+            // two carriers produced this credential is decided by the same rule `authHeader`
+            // applied: a present header always wins, so a ticket is only in play without one.
             val accessToken =
-                when {
-                    request.parseAuthorizationHeader() != null -> {
-                        credential.token
-                    }
-
-                    request.queryParameters[SOCKET_TICKET_QUERY_PARAM] != null -> {
-                        socketTickets?.redeem(credential.token) ?: run {
-                            logJwtRejection("socket ticket was unknown, expired, or already spent")
-                            return@authenticate null
-                        }
-                    }
-
-                    else -> {
-                        credential.token
+                if (request.parseAuthorizationHeader() != null) {
+                    credential.token
+                } else {
+                    socketTickets?.redeem(credential.token) ?: run {
+                        logJwtRejection("socket ticket was unknown, expired, or already spent")
+                        return@authenticate null
                     }
                 }
-            val claims =
-                try {
-                    jwt.verify(accessToken)
-                } catch (_: JwtVerificationException) {
-                    logJwtRejection("token verification failed")
-                    return@authenticate null
-                }
-            if (!sessionLiveness.isLive(claims.sessionId)) {
-                logJwtRejection("session no longer live for sessionId=${claims.sessionId}")
-                return@authenticate null
-            }
-            UserPrincipal(claims.userId, claims.sessionId, claims.role)
+            principalFor(accessToken, jwt, sessionLiveness)
         }
     }
 }

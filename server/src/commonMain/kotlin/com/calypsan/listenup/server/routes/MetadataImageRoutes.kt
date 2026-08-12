@@ -14,7 +14,9 @@ import kotlinx.io.files.Path
 
 /**
  * Routes that serve contributor photos and series cover images from local
- * storage. Mounted inside the JWT-authenticated scope in `Application.kt`.
+ * storage. Mount inside `authenticate(DOM_FETCH_PROVIDER)` — both are displayed by an `<img src>`,
+ * which has no way to set an `Authorization` header. The matching uploads are the `PUT`s in
+ * [contributorRoutes] / [seriesRoutes], which stay behind `JWT_PROVIDER`.
  *
  * Range requests are honoured automatically via the [PartialContent] plugin
  * installed at application startup.

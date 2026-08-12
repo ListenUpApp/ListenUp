@@ -36,10 +36,13 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.plugins.DOM_FETCH_PROVIDER
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.RpcServices
 import com.calypsan.listenup.server.routes.audioRoutes
+import com.calypsan.listenup.server.routes.avatarImageRoute
 import com.calypsan.listenup.server.routes.backupRoutes
+import com.calypsan.listenup.server.routes.bookBlobReadRoutes
 import com.calypsan.listenup.server.routes.bookRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.coverCastRoutes
@@ -114,13 +117,21 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         healthRoutes()
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
-            bookRoutes(bookService, coverResponder, bookAccessPolicy, documentFileLocator)
+            bookRoutes(bookService)
             contributorRoutes(contributorService, homeDir, imageStorage)
             seriesRoutes(seriesService, homeDir, imageStorage)
-            metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
+        }
+        // A SIBLING of the block above, never nested inside it: Ktor inherits route interceptors
+        // down the tree, so nesting would stack both providers and the outer one would 401 the
+        // cookie-only request this block exists to serve. These are the reads a DOM element issues
+        // for itself — and the only place the access-token cookie buys anything.
+        authenticate(DOM_FETCH_PROVIDER) {
+            bookBlobReadRoutes(coverResponder, bookAccessPolicy, documentFileLocator)
+            metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
+            avatarImageRoute(avatarImageStore)
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)

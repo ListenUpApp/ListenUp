@@ -44,7 +44,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
 private const val COVER_MAX_BYTES = 10L * 1024 * 1024
 
 /**
- * REST surface for [BookService]. Five endpoints, all blob transfer:
+ * The book blobs a DOM element fetches for itself. Three endpoints, all reads:
  *
  *  - `GET /api/v1/books/{id}/cover` — serves the book's cover image bytes
  *    (filesystem image or embedded artwork). HTTP 200 with the image on
@@ -53,29 +53,17 @@ private const val COVER_MAX_BYTES = 10L * 1024 * 1024
  *    identical access-gate semantics to the nested route above.
  *  - `GET /api/v1/books/{id}/documents/{docId}` — serves the bytes of a supplementary
  *    document (PDF/ebook) shipped with the book.
- *  - `PUT /api/v1/books/{id}/cover` — uploads a replacement cover image (multipart).
- *    Gated on the `canEdit` permission flag; ROOT/ADMIN pass implicitly. HTTP 204 on
- *    success; 403 when the caller lacks `canEdit`; 413 when the part exceeds 10 MiB;
- *    422 when the bytes carry no recognised image magic number.
- *  - `DELETE /api/v1/books/{id}/cover` — removes the book's cover image.
- *    HTTP 204 on success.
  *
- * All endpoints require JWT authentication (mounted inside the authenticate
- * block in Application.kt). Cover serving is delegated to [coverResponder].
+ * Mount inside `authenticate(DOM_FETCH_PROVIDER)` — these are exactly the requests an `<img src>`
+ * or a document link issues, and those cannot set an `Authorization` header. The split from
+ * [bookRoutes] is what keeps the cookie carrier off the mutations; the provider's own KDoc has why.
  *
- * These stay on REST rather than folding into [BookService]'s RPC surface because they
- * carry blobs: a cacheable GET stays CDN- and range-request-friendly, and an upload
- * streams as multipart instead of being framed into a JSON-RPC message. Everything else
- * on [BookService] — book detail, patching, contributors/chapters/series/genres — is
- * RPC-only; server-side search in particular was removed along with its FTS5 indexes.
- *
- * The cover and document reads are access-gated through [accessPolicy]: a member must
- * not fetch the artwork or document bytes of a book they can't reach. A denied read
- * answers 404 (indistinguishable from an absent/cover-less book — never 403, which
+ * Cover serving is delegated to [coverResponder]. Both reads are access-gated through
+ * [accessPolicy]: a member must not fetch the artwork or document bytes of a book they can't reach.
+ * A denied read answers 404 (indistinguishable from an absent/cover-less book — never 403, which
  * would leak existence).
  */
-internal fun Route.bookRoutes(
-    bookService: BookService,
+internal fun Route.bookBlobReadRoutes(
     coverResponder: CoverResponder,
     accessPolicy: BookAccessPolicy,
     documentFileLocator: DocumentFileLocator,
@@ -95,7 +83,28 @@ internal fun Route.bookRoutes(
     get<BookResources.Document> { res ->
         call.respondGatedDocument(res.id, res.docId, accessPolicy, documentFileLocator)
     }
+}
 
+/**
+ * The mutating half of [BookService]'s REST surface. Two endpoints:
+ *
+ *  - `PUT /api/v1/books/{id}/cover` — uploads a replacement cover image (multipart).
+ *    Gated on the `canEdit` permission flag; ROOT/ADMIN pass implicitly. HTTP 204 on
+ *    success; 403 when the caller lacks `canEdit`; 413 when the part exceeds 10 MiB;
+ *    422 when the bytes carry no recognised image magic number.
+ *  - `DELETE /api/v1/books/{id}/cover` — removes the book's cover image.
+ *    HTTP 204 on success.
+ *
+ * Mount inside `authenticate(JWT_PROVIDER)`: a mutation is app-initiated, so it can always set a
+ * header, and it must never be reachable by a credential the browser attaches on its own.
+ *
+ * These stay on REST rather than folding into [BookService]'s RPC surface because they
+ * carry blobs: a cacheable GET stays CDN- and range-request-friendly, and an upload
+ * streams as multipart instead of being framed into a JSON-RPC message. Everything else
+ * on [BookService] — book detail, patching, contributors/chapters/series/genres — is
+ * RPC-only; server-side search in particular was removed along with its FTS5 indexes.
+ */
+internal fun Route.bookRoutes(bookService: BookService) {
     put<BookResources.Cover> { res ->
         call.handleCoverUpload(res.id, call.scoped(bookService))
     }
