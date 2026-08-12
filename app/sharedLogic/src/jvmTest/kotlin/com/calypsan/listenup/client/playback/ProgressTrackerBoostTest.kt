@@ -86,4 +86,25 @@ class ProgressTrackerBoostTest :
                 }
             }
         }
+
+        // C-C06: onBookFinished previously called markComplete (which never writes positionMs) —
+        // it must route through savePlaybackState(BookFinished) so the true final position lands.
+        test("onBookFinished saves PlaybackUpdate.BookFinished") {
+            runTest {
+                val positionRepository = defaultPositionRepository()
+                val tracker = buildProgressTracker(scope = this, positionRepository = positionRepository)
+
+                tracker.onBookFinished(BOOK_ID, finalPositionMs = 123_000L)
+                advanceUntilIdle()
+
+                verifySuspend(VerifyMode.exactly(1)) {
+                    positionRepository.savePlaybackState(
+                        any(),
+                        matches<PlaybackUpdate>({ "BookFinished(finalPositionMs=123000)" }) {
+                            it is PlaybackUpdate.BookFinished && it.finalPositionMs == 123_000L
+                        },
+                    )
+                }
+            }
+        }
     })
