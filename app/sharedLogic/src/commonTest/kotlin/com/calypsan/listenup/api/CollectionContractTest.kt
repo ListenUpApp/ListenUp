@@ -2,8 +2,6 @@ package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.CollectionShareDto
 import com.calypsan.listenup.api.dto.CollectionSummary
-import com.calypsan.listenup.api.dto.CreateCollectionBody
-import com.calypsan.listenup.api.dto.ShareCollectionBody
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
@@ -259,36 +257,6 @@ class CollectionContractTest :
                     permission = SharePermission.Write,
                 )
             val decoded = json.decodeFromString<CollectionShareDto>(json.encodeToString(original))
-            decoded shouldBe original
-        }
-
-        // ── CreateCollectionBody ──────────────────────────────────────────────
-
-        test("CreateCollectionBody round-trips") {
-            val original = CreateCollectionBody(libraryId = "lib-1", name = "My Audiobooks")
-            val decoded =
-                json.decodeFromString<CreateCollectionBody>(json.encodeToString(original))
-            decoded shouldBe original
-        }
-
-        // ── ShareCollectionBody ───────────────────────────────────────────────
-
-        test("ShareCollectionBody round-trips with default permission") {
-            val original = ShareCollectionBody(sharedWithUserId = "user-2")
-            val decoded =
-                json.decodeFromString<ShareCollectionBody>(json.encodeToString(original))
-            decoded shouldBe original
-            decoded.permission shouldBe SharePermission.Read
-        }
-
-        test("ShareCollectionBody round-trips with Write permission") {
-            val original =
-                ShareCollectionBody(
-                    sharedWithUserId = "user-3",
-                    permission = SharePermission.Write,
-                )
-            val decoded =
-                json.decodeFromString<ShareCollectionBody>(json.encodeToString(original))
             decoded shouldBe original
         }
     })

@@ -96,6 +96,7 @@ class PlaybackManagerAutoRewindOnResumeTest :
 
             val downloadService: DownloadService = mock()
             everySuspend { downloadService.getLocalPath(any()) } returns null
+            everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns AppResult.Success(DownloadOutcome.AlreadyDownloaded)
 

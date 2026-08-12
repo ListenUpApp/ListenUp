@@ -15,21 +15,47 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 internal interface PlaybackPositionDao {
     /**
-     * Get the saved position for a book.
+     * Get the saved position for a book, INCLUDING soft-deleted (tombstoned) rows.
+     *
+     * Deliberately unfiltered — two callers need the raw row regardless of tombstone status:
+     * every write handler in
+     * [com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl] reads the
+     * current row before merging so per-field writers (speed, boost, gain, …) don't clobber
+     * each other, and [com.calypsan.listenup.client.data.sync.domains.PlaybackPositionsDomain]'s
+     * `NewerWins` conflict check compares against this row's real `lastPlayedAt` to reject a
+     * stale inbound snapshot even when the row is currently tombstoned. Filtering this query
+     * would make a tombstoned-but-present row look absent to both: a merge would fall to the
+     * "never played" fallback and silently wipe every other field to blank defaults, and the
+     * conflict check would treat a stale inbound payload as unconditionally newer (no local
+     * stamp to compare against) and resurrect it. Resume/Continue-Listening reads that must
+     * exclude tombstones use [getLive] instead (C-C04).
      *
      * @param bookId The book to get position for
-     * @return The position entity or null if never played
+     * @return The position entity or null if never played (tombstoned rows ARE returned)
      */
     @Query("SELECT * FROM playback_positions WHERE bookId = :bookId")
     suspend fun get(bookId: BookId): PlaybackPositionEntity?
 
     /**
-     * Observe the saved position for a book.
+     * Get the saved position for a book, EXCLUDING soft-deleted (tombstoned) rows.
+     *
+     * Resume/Continue-Listening reads must never resurface a position the server tombstoned
+     * (C-C04). See [get] for why the write-handler and sync-conflict callers deliberately use
+     * the unfiltered query instead of this one.
+     *
+     * @param bookId The book to get position for
+     * @return The position entity or null if never played or tombstoned
+     */
+    @Query("SELECT * FROM playback_positions WHERE bookId = :bookId AND deletedAt IS NULL")
+    suspend fun getLive(bookId: BookId): PlaybackPositionEntity?
+
+    /**
+     * Observe the saved position for a book, EXCLUDING soft-deleted (tombstoned) rows (C-C04).
      *
      * @param bookId The book to observe
      * @return Flow emitting position updates
      */
-    @Query("SELECT * FROM playback_positions WHERE bookId = :bookId")
+    @Query("SELECT * FROM playback_positions WHERE bookId = :bookId AND deletedAt IS NULL")
     fun observe(bookId: BookId): Flow<PlaybackPositionEntity?>
 
     /**
@@ -53,9 +79,9 @@ internal interface PlaybackPositionDao {
      * Used for batch operations during sync.
      *
      * @param bookIds The book IDs to get positions for
-     * @return List of positions (may be fewer than requested if some don't exist)
+     * @return List of positions (may be fewer than requested if some don't exist or are tombstoned)
      */
-    @Query("SELECT * FROM playback_positions WHERE bookId IN (:bookIds)")
+    @Query("SELECT * FROM playback_positions WHERE bookId IN (:bookIds) AND deletedAt IS NULL")
     suspend fun getByBookIds(bookIds: List<BookId>): List<PlaybackPositionEntity>
 
     /**
@@ -68,11 +94,17 @@ internal interface PlaybackPositionDao {
      * explicit speed/boost changes (onSpeedChanged, boost writes, gain measurements).
      * Both run on Dispatchers.IO concurrently and would otherwise clobber each other.
      *
+     * Also clears [PlaybackPositionEntity.deletedAt] — an active local write (real listening)
+     * heals a position-only server tombstone rather than leaving it permanently excluded from
+     * resume/Continue-Listening reads and the streak (C-C04). The `WHERE bookId = :bookId`
+     * clause has no `deletedAt` predicate, so this matches and heals a tombstoned row too, not
+     * just a live one.
+     *
      * @return The number of rows updated (0 if no record exists for this book)
      */
     @Query(
         "UPDATE playback_positions SET positionMs = :positionMs, updatedAt = :updatedAt, " +
-            "syncedAt = NULL, lastPlayedAt = :lastPlayedAt WHERE bookId = :bookId",
+            "syncedAt = NULL, lastPlayedAt = :lastPlayedAt, deletedAt = NULL WHERE bookId = :bookId",
     )
     suspend fun updatePositionOnly(
         bookId: BookId,
@@ -128,10 +160,15 @@ internal interface PlaybackPositionDao {
      * Uses COALESCE to handle legacy data where lastPlayedAt may be null,
      * falling back to updatedAt in those cases.
      *
+     * Excludes soft-deleted (tombstoned) rows (C-C04) — see [getLive].
+     *
      * @param limit Maximum number of positions to return
      * @return List of positions ordered by lastPlayedAt descending (with updatedAt fallback)
      */
-    @Query("SELECT * FROM playback_positions ORDER BY COALESCE(lastPlayedAt, updatedAt) DESC LIMIT :limit")
+    @Query(
+        "SELECT * FROM playback_positions WHERE deletedAt IS NULL " +
+            "ORDER BY COALESCE(lastPlayedAt, updatedAt) DESC LIMIT :limit",
+    )
     suspend fun getRecentPositions(limit: Int): List<PlaybackPositionEntity>
 
     /**
@@ -146,23 +183,25 @@ internal interface PlaybackPositionDao {
      * recomputed. SQL-filtering isFinished eliminates the limit-then-filter undercount
      * that previously caused the shelf to appear shorter than it should be.
      *
+     * Also excludes soft-deleted (tombstoned) rows (C-C04) — see [getLive].
+     *
      * @param limit Maximum number of positions to emit per update
      * @return Flow emitting ordered positions; re-emits on any row change
      */
     @Query(
         "SELECT * FROM playback_positions " +
-            "WHERE positionMs > 0 AND isFinished = 0 " +
+            "WHERE positionMs > 0 AND isFinished = 0 AND deletedAt IS NULL " +
             "ORDER BY COALESCE(lastPlayedAt, updatedAt) DESC LIMIT :limit",
     )
     fun observeRecentPositions(limit: Int): Flow<List<PlaybackPositionEntity>>
 
     /**
-     * Observe all playback positions.
+     * Observe all playback positions, EXCLUDING soft-deleted (tombstoned) rows (C-C04).
      * Used for displaying progress indicators throughout the app.
      *
      * @return Flow emitting list of all positions whenever any position changes
      */
-    @Query("SELECT * FROM playback_positions")
+    @Query("SELECT * FROM playback_positions WHERE deletedAt IS NULL")
     fun observeAll(): Flow<List<PlaybackPositionEntity>>
 
     /**

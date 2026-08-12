@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.testing.testPasswordResetService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
@@ -114,6 +115,27 @@ class RegistrationWatchTest :
             }
         }
 
+        test("a blank or oversized token is silently dropped — no row stored") {
+            runTest {
+                val fix = newFixture()
+                val userId = fix.registerPendingUser()
+
+                // Blank: SEC-05, mirrors PushServiceImpl.registerToken's authenticated-path check —
+                // oracle-free here too, so the reply is still Success(Unit).
+                fix.auth
+                    .registerRegistrationWatchToken(userId, "   ", PushPlatform.IOS)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                fix.watchCount() shouldBe 0
+
+                // Oversized: the relay rejects an ENTIRE batch when any token in it exceeds the cap —
+                // one oversized row must never reach the store.
+                fix.auth
+                    .registerRegistrationWatchToken(userId, "t".repeat(MAX_PUSH_TOKEN_LENGTH + 1), PushPlatform.IOS)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                fix.watchCount() shouldBe 0
+            }
+        }
+
         test("push disabled: the reply is indistinguishable but nothing is stored") {
             runTest {
                 val fix = newFixture()
@@ -179,12 +201,17 @@ class RegistrationWatchTest :
                         publicProfileMaintainer = fix.db.noOpPublicProfileMaintainer(),
                         pushNotifier = recorder,
                         pushWatchTokens = fix.store,
+                        // The push runs fire-and-forget on this scope now (#1068 correctness fix) —
+                        // bind it to this test's own TestScope so advanceUntilIdle() below drives it
+                        // to completion deterministically instead of a real background dispatcher.
+                        appScope = this,
                         passwordResetService = testPasswordResetService(fix.db, fix.clock),
                     ).copyWith(principalFor("root1", com.calypsan.listenup.api.dto.auth.UserRole.ADMIN))
 
                 admin
                     .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true))
                     .shouldBeInstanceOf<AppResult.Success<*>>()
+                advanceUntilIdle() // let the fire-and-forget push land
 
                 delivered shouldBe listOf(userId to PushPayload.RegistrationDecision(userId, approved = true))
                 fix.watchCount() shouldBe 0

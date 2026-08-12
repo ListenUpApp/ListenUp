@@ -51,11 +51,13 @@ import com.calypsan.listenup.client.playback.UriPermissionGranter
 import com.calypsan.listenup.client.playback.ContextUriPermissionGranter
 import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.api.push.PushPlatform
+import com.calypsan.listenup.client.data.push.PushAvailability
 import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.push.PushTokenProvider
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.playback.cast.initializeCast
+import com.calypsan.listenup.client.push.AndroidPushAvailability
 import com.calypsan.listenup.client.push.FcmTokenProvider
 import com.calypsan.listenup.client.push.PushNotificationRenderer
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
@@ -140,11 +142,14 @@ val androidModule =
         // Background sync scheduler
         single<BackgroundSyncScheduler> { AndroidBackgroundSyncScheduler(androidContext()) }
 
-        // Push: this build's platform fact + the real FCM token hook. Both are
-        // platform-specific facts that don't belong in commonMain's pushClientModule —
-        // see that module's KDoc for the full external-dependency contract.
+        // Push: this build's platform fact + the real FCM token hook + the
+        // POST_NOTIFICATIONS availability check (#1068 correctness: a token existing does
+        // NOT mean the OS will actually show the push). All platform-specific facts that
+        // don't belong in commonMain's pushClientModule — see that module's KDoc for the
+        // full external-dependency contract.
         single<PushPlatform> { PushPlatform.ANDROID }
         single<PushTokenProvider> { FcmTokenProvider() }
+        single<PushAvailability> { AndroidPushAvailability(androidContext()) }
 
         // Receive-path renderer: enrichment lookups are best-effort local-first reads
         // (Room-backed repositories) resolved once at DI time, invoked per notification.

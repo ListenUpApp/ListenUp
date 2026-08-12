@@ -54,6 +54,16 @@ private const val PERSIST_PROGRESS_TICKS = 100
 private const val INCREMENTAL_FIREHOSE_SUPPRESS_THRESHOLD = 50
 
 /**
+ * Cover bytes are extracted in slices of this size instead of for a whole folder group (worst
+ * case: a single-folder library's entire changed-book set) up front. Kept in lock-step with
+ * [com.calypsan.listenup.server.services.BookRepository]'s own `PERSIST_CHUNK_SIZE` (250), which
+ * bounds the WRITE transaction set for the same reason — matching the bound means a slice's
+ * covers and its write land together, and the CoverSpool invariant this restores ("the scanner
+ * never holds all covers in heap at once") is measured in the same unit as the write chunking.
+ */
+private const val COVER_EXTRACTION_CHUNK_SIZE = 250
+
+/**
  * Sentinel [FolderId] a walked root resolves to when no live `library_folders` row registers it
  * (folder soft-deleted mid-scan, or a stale bundle path). It must never drive identity or the
  * tombstone sweep — [BookPersister] skips the Full-scan sweep when any root resolves to it.
@@ -310,16 +320,6 @@ class BookPersister internal constructor(
         // create + emit identically.
         val identityMaps = ingest.resolveScanIdentities(changedBooks)
 
-        // Extract every changed book's cover bytes OFF the write transaction (filesystem/embedded
-        // reads must not run inside a SQLDelight transaction), keyed by rootRelPath. The batched write
-        // path stores each cover file after the book id is known, exactly as the per-book path did.
-        val coversByBook =
-            buildMap {
-                for (book in changedBooks) {
-                    extractPendingCover(book, Path(folderRootOf(book)))?.let { put(book.candidate.rootRelPath, it) }
-                }
-            }
-
         val persistProgressStride = maxOf(1, toPersist / PERSIST_PROGRESS_TICKS)
         var lastTickAt = -1
 
@@ -341,31 +341,48 @@ class BookPersister internal constructor(
         if (toPersist > 0) emitPersistProgress(0)
 
         // Batched persist, folder group by folder group so each book lands under the folder it was
-        // walked from. Within a group it is the same chunked O(chunks) write. Progress and counts
-        // accumulate across groups so the PERSISTING bar and the Completed summary stay whole-scan.
-        // (An OutOfMemoryError throws PersistAbortedByOom out of the group, carrying its own partial
-        // counts, so this accumulation only needs to be correct on the normal path.)
+        // walked from, and within a group in COVER_EXTRACTION_CHUNK_SIZE-sized slices so cover bytes
+        // are read OFF the write transaction (filesystem/embedded reads must not run inside a
+        // SQLDelight transaction) for one slice at a time rather than the whole group up front —
+        // restoring the CoverSpool invariant that the scanner never holds all covers in heap at once.
+        // A slice's coversByBook map goes out of scope once its resolveOrInsertAll call returns, so
+        // peak cover heap is bounded by COVER_EXTRACTION_CHUNK_SIZE books' worth, not the whole folder
+        // group (worst case: a single-folder library's entire scan) or the whole library. Progress and
+        // counts accumulate across slices so the PERSISTING bar and the Completed summary stay
+        // whole-scan. (An OutOfMemoryError throws PersistAbortedByOom out of the slice, carrying its
+        // own partial counts, so this accumulation only needs to be correct on the normal path.)
         var processedBase = 0
         for ((folderRoot, group) in changedBooks.groupBy(::folderRootOf)) {
-            val groupResult =
-                ingest.resolveOrInsertAll(
-                    libraryId = libraryId,
-                    folderId = folderIdByRoot.getValue(folderRoot),
-                    books = group,
-                    coversByBook = coversByBook,
-                    systemCollectionId = systemCollectionId,
-                    identityMaps = identityMaps,
-                ) { processedInGroup, failedInGroup ->
-                    val processedTotal = processedBase + processedInGroup
-                    failed = failedBase + failedInGroup
-                    if (processedTotal - lastTickAt >= persistProgressStride || processedTotal == toPersist) {
-                        lastTickAt = processedTotal
-                        emitPersistProgress(processedTotal)
+            for (slice in group.chunked(COVER_EXTRACTION_CHUNK_SIZE)) {
+                val sliceCovers =
+                    buildMap {
+                        for (book in slice) {
+                            extractPendingCover(
+                                book,
+                                Path(folderRootOf(book)),
+                            )?.let { put(book.candidate.rootRelPath, it) }
+                        }
                     }
-                }
-            persisted += groupResult.persisted
-            failedBase += groupResult.failed
-            processedBase += group.size
+                val sliceResult =
+                    ingest.resolveOrInsertAll(
+                        libraryId = libraryId,
+                        folderId = folderIdByRoot.getValue(folderRoot),
+                        books = slice,
+                        coversByBook = sliceCovers,
+                        systemCollectionId = systemCollectionId,
+                        identityMaps = identityMaps,
+                    ) { processedInSlice, failedInSlice ->
+                        val processedTotal = processedBase + processedInSlice
+                        failed = failedBase + failedInSlice
+                        if (processedTotal - lastTickAt >= persistProgressStride || processedTotal == toPersist) {
+                            lastTickAt = processedTotal
+                            emitPersistProgress(processedTotal)
+                        }
+                    }
+                persisted += sliceResult.persisted
+                failedBase += sliceResult.failed
+                processedBase += slice.size
+            }
         }
         failed = failedBase
 

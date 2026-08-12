@@ -386,6 +386,64 @@ class ShelfServiceTest :
             }
         }
 
+        // PERF-06: listMyShelves batches its per-shelf book count via
+        // ShelfBookRepository.countLiveForShelves instead of one listByShelf-and-.size call per
+        // shelf — this proves the batched count matches the un-batched materialize-and-.size result
+        // per shelf, including a shelf with zero live rows.
+        test("listMyShelves reports correct per-shelf book counts, including an empty shelf") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("b1")
+                sql.seedTestBook("b2")
+                runTest {
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val collectionRepo = CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                    val collectionBookRepo = CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                    collectionRepo.upsert(
+                        CollectionSyncPayload(
+                            id = "u1-col-counts",
+                            libraryId = "test-library",
+                            ownerId = "u1",
+                            name = "u1 Collection",
+                            isInbox = false,
+                            revision = 0L,
+                            updatedAt = 0L,
+                        ),
+                    )
+                    collectionBookRepo.upsert(
+                        CollectionBookSyncPayload(
+                            id = "u1-col-counts:b1",
+                            collectionId = "u1-col-counts",
+                            bookId = "b1",
+                            createdAt = 0L,
+                            revision = 0L,
+                        ),
+                    )
+                    collectionBookRepo.upsert(
+                        CollectionBookSyncPayload(
+                            id = "u1-col-counts:b2",
+                            collectionId = "u1-col-counts",
+                            bookId = "b2",
+                            createdAt = 0L,
+                            revision = 0L,
+                        ),
+                    )
+
+                    val service = makeService(sql, driver).actAs("u1")
+                    val twoBookShelf = service.createShelf(name = "Two Books").value()
+                    val emptyShelf = service.createShelf(name = "Empty").value()
+                    service.addBookToShelf(twoBookShelf.id, BookId("b1")).value()
+                    service.addBookToShelf(twoBookShelf.id, BookId("b2")).value()
+
+                    val mine = service.listMyShelves().value().associateBy { it.id }
+                    mine.getValue(twoBookShelf.id).bookCount shouldBe 2
+                    mine.getValue(emptyShelf.id).bookCount shouldBe 0
+                }
+            }
+        }
+
         // ── getShelf access basics (full matrix is ShelfAccessTest) ─────────────
 
         test("getShelf returns NotFound to a non-owner on a private shelf") {

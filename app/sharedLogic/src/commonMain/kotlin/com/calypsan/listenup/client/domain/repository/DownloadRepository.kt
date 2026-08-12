@@ -38,6 +38,13 @@ interface DownloadRepository {
     /** Get local file path for an audio file if downloaded; null otherwise. */
     suspend fun getLocalPath(audioFileId: String): String?
 
+    /**
+     * Batched [getLocalPath]: local paths for every id in [audioFileIds] with a COMPLETED
+     * download, in one round trip instead of N. An id absent from the result has no COMPLETED
+     * download — the same completeness predicate [getLocalPath]'s null return signals.
+     */
+    suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String>
+
     /** Get the current [DownloadStatus] for an audio file, or null if no row exists. */
     suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus?
 

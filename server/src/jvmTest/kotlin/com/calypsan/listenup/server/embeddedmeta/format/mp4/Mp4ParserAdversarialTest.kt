@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.io.SeekableSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -65,6 +66,79 @@ class Mp4ParserAdversarialTest :
             type: String,
             size32: Long,
         ): ByteArray = be32(size32) + type.toByteArray(Charsets.US_ASCII)
+
+        /** Wrap [payload] in a well-formed atom: 4-byte BE size (header + payload) + type + payload. */
+        fun atom(
+            type: String,
+            payload: ByteArray,
+        ): ByteArray = atomHeader(type, (payload.size + 8).toLong()) + payload
+
+        /**
+         * Build a self-contained top-level `moov` atom (no `ftyp` needed — [AtomWalker.findTopLevelAtom]
+         * only scans for the requested type) with a valid `mvhd`, an audio `trak` referencing chapter
+         * track id 2 via `tref.chap`, and a chapter text-track (`trak` id 2) whose `stbl` carries the
+         * caller-supplied `stts`/`stsz`/`stco` payloads. Used to drive
+         * [Mp4ChapterExtractor]'s three unbounded-count sites ([Mp4ChapterExtractor] KDoc:
+         * `parseSampleStartsMs`/`parseSampleSizes`/`parseChunkOffsets`) with exactly one adversarial
+         * count at a time — the atom framing itself stays well-formed (correct size fields) so the
+         * walker descends correctly; only the count VALUE inside the targeted atom is malicious.
+         */
+        fun buildChapterTrackMoov(
+            sttsPayload: ByteArray,
+            stszPayload: ByteArray,
+            stcoPayload: ByteArray,
+        ): ByteArray {
+            // mvhd v0: version+flags(4) + creation(4) + modification(4) + timescale(4) + duration(4).
+            val mvhd = atom("mvhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000) + be32(90_000))
+
+            // Audio trak: tref.chap -> chapter track id 2. No tkhd needed — findChapterTrackRef
+            // doesn't read it.
+            val chap = atom("chap", be32(2))
+            val tref = atom("tref", chap)
+            val audioTrak = atom("trak", tref)
+
+            // Chapter trak (id = 2): tkhd v0 (track_id at +12) + mdia(mdhd + minf/stbl).
+            val tkhd = atom("tkhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(2))
+            val mdhd = atom("mdhd", ByteArray(4) + ByteArray(4) + ByteArray(4) + be32(1000))
+            val stts = atom("stts", sttsPayload)
+            val stsz = atom("stsz", stszPayload)
+            val stco = atom("stco", stcoPayload)
+            val stbl = atom("stbl", stts + stsz + stco)
+            val minf = atom("minf", stbl)
+            val mdia = atom("mdia", mdhd + minf)
+            val chapterTrak = atom("trak", tkhd + mdia)
+
+            return atom("moov", mvhd + audioTrak + chapterTrak)
+        }
+
+        /** `stts` payload with entryCount = 0 — benign, returns emptyList() with no loop. */
+        fun benignSttsPayload(): ByteArray = ByteArray(4) + be32(0)
+
+        /** `stsz` payload with count = 0 — benign, returns IntArray(0) with no allocation. */
+        fun benignStszPayload(): ByteArray = ByteArray(4) + be32(0) + be32(0)
+
+        /** `stco` payload with count = 0 — benign, returns LongArray(0) with no allocation. */
+        fun benignStcoPayload(): ByteArray = ByteArray(4) + be32(0)
+
+        /**
+         * `stts` payload with one entry declaring sampleCount near Int.MAX_VALUE — the atom is only
+         * 16 bytes long (version+flags + entryCount + one 8-byte entry), yet
+         * `parseSampleStartsMs`'s inner `for (j in 0 until sampleCount)` would append ~2.1 billion
+         * entries to a `MutableList<Long>` with no per-entry bytes to bound it.
+         */
+        fun maliciousSttsPayload(): ByteArray = ByteArray(4) + be32(1) + be32(0x7FFFFFFFL) + be32(1)
+
+        /**
+         * `stsz` payload declaring count near Int.MAX_VALUE with zero per-entry bytes present —
+         * `parseSampleSizes` allocates `IntArray(count)` (~8 GB) before reading a single entry.
+         */
+        fun maliciousStszPayload(): ByteArray = ByteArray(4) + be32(0) + be32(0x7FFFFFFFL)
+
+        /**
+         * `stco` payload declaring count near Int.MAX_VALUE with zero per-entry bytes present —
+         * `parseChunkOffsets` allocates `LongArray(count)` (~17 GB) before reading a single entry.
+         */
+        fun maliciousStcoPayload(): ByteArray = ByteArray(4) + be32(0x7FFFFFFFL)
 
         test("moov declaring a size far larger than the file is rejected, not allocated") {
             // A single top-level `moov` atom header that lies: it declares a
@@ -201,6 +275,107 @@ class Mp4ParserAdversarialTest :
 
             val result = runBlocking { parser.parse(byteSource(bytes)) }
 
+            val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+            failure.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
+        }
+
+        // C-03: the chapter text-track sample-table counts (`stts`/`stsz`/`stco`) are untrusted
+        // 32-bit fields that directly drive IntArray/LongArray allocations and an unbounded append
+        // loop in Mp4ChapterExtractor. Each test below is malicious in exactly ONE of the three
+        // fields (the other two are benign zero-count atoms) so a hang/OOM is attributable to a
+        // single site. Run each in ISOLATION first (`--tests` with the exact test name) before the
+        // fix lands — the point of RED here is that the JVM must OOM or otherwise fail to return,
+        // never that the assertion body fails.
+
+        test("chapter text-track stts sampleCount near Int.MAX_VALUE returns in bounded memory") {
+            // parseSampleStartsMs's inner `for (j in 0 until sampleCount)` has no bound on the
+            // number of `MutableList<Long>` appends — a single stts entry declaring sampleCount =
+            // 0x7FFFFFFF (~2.1 billion) in a 16-byte atom drives ~2.1 billion boxed-Long appends.
+            val bytes =
+                buildChapterTrackMoov(
+                    sttsPayload = maliciousSttsPayload(),
+                    stszPayload = benignStszPayload(),
+                    stcoPayload = benignStcoPayload(),
+                )
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            // The point is that parse RETURNS at all, in bounded time/memory — either outcome is
+            // acceptable, chapters just aren't required to survive a malicious sample table.
+            when (result) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
+            }
+        }
+
+        test("chapter text-track stsz count near Int.MAX_VALUE returns in bounded memory") {
+            // parseSampleSizes allocates `IntArray(count)` (~8 GB for 0x7FFFFFFF) BEFORE reading a
+            // single per-entry size — the atom itself is only 12 bytes long.
+            val bytes =
+                buildChapterTrackMoov(
+                    sttsPayload = benignSttsPayload(),
+                    stszPayload = maliciousStszPayload(),
+                    stcoPayload = benignStcoPayload(),
+                )
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            when (result) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
+            }
+        }
+
+        test("chapter text-track stco count near Int.MAX_VALUE returns in bounded memory") {
+            // parseChunkOffsets allocates `LongArray(count)` (~17 GB for 0x7FFFFFFF) BEFORE reading
+            // a single per-entry offset — the atom itself is only 8 bytes long.
+            val bytes =
+                buildChapterTrackMoov(
+                    sttsPayload = benignSttsPayload(),
+                    stszPayload = benignStszPayload(),
+                    stcoPayload = maliciousStcoPayload(),
+                )
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            when (result) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
+            }
+        }
+
+        // C-04: Mp4Parser.parse's post-moov body (readMvhdDurationMs, ilst, chapters) runs
+        // unguarded, and AtomWalker.readHeader's `offset + size > end` bounds check is
+        // overflow-prone for an attacker-controlled `size` near Int.MAX_VALUE at a non-zero
+        // offset. Both scenarios must surface AppResult.Failure(CorruptHeader) — never an
+        // uncaught exception.
+
+        test("mvhd atom with no payload at the end of moov does not throw indexing the version byte") {
+            // mvhd is a bare 8-byte header (no payload) and is the LAST byte in the buffer, so
+            // mvhd.dataOffset == bytes.size. readMvhdDurationMs's own bounds check catches this
+            // before indexing `bytes[p]` and degrades gracefully to durationMs = 0 rather than
+            // failing the whole parse — mvhd being truncated doesn't mean the rest of the file
+            // (tags, chapters) isn't genuinely readable.
+            val bytes = atom("moov", atomHeader("mvhd", size32 = 8))
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 0L
+        }
+
+        test("atom size declared near Int.MAX_VALUE at a non-zero offset overflows offset+size safely") {
+            // The lone child of moov starts at offset 8 (right after moov's own 8-byte header —
+            // a non-zero offset) and declares a size that, added to that offset, overflows Int:
+            // the pre-fix `offset + size > end` check silently passes because the sum wraps
+            // negative, producing an Atom whose `.end` is also negative. The walker's next
+            // `readHeader` call then indexes `bytes[<negative offset>]`.
+            val bytes = atom("moov", atomHeader("free", size32 = Int.MAX_VALUE.toLong() - 5))
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            // mvhd is never found behind the lying "free" atom -> CorruptHeader, never an
+            // uncaught exception.
             val failure = result.shouldBeInstanceOf<AppResult.Failure>()
             failure.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
         }

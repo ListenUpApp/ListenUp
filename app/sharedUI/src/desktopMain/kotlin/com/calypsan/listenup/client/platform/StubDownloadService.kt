@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.flowOf
 class StubDownloadService : DownloadService {
     override suspend fun getLocalPath(audioFileId: String): String? = null
 
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> = emptyMap()
+
     override suspend fun wasExplicitlyDeleted(bookId: BookId): Boolean = false
 
     override suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome> =

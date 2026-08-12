@@ -39,6 +39,7 @@ final class Dependencies {
     func makeServerSelectViewModel() -> ServerSelectViewModel { KoinHelper.shared.getServerSelectViewModel() }
     func makeLibrarySetupViewModel() -> LibrarySetupViewModel { KoinHelper.shared.getLibrarySetupViewModel() }
     func makeHomeViewModel() -> HomeViewModel { KoinHelper.shared.getHomeViewModel() }
+    func makeLibraryViewModel() -> LibraryViewModel { KoinHelper.shared.getLibraryViewModel() }
 
     // MARK: - ViewModels (singletons)
 

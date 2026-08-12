@@ -18,6 +18,9 @@ import com.calypsan.listenup.client.download.DownloadEnqueuer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+/** SQLite binds one host parameter per `IN (:list)` element; chunk below the ~999 ceiling. */
+private const val SQLITE_IN_CLAUSE_CHUNK_SIZE = 900
+
 /**
  * Single seam for download state + aggregation. All download writes go through this class
  * (Sync Engine Rule 5). Aggregation reducer lives here so platforms share the same state-machine.
@@ -73,6 +76,16 @@ internal class DownloadRepositoryImpl(
         }
 
     override suspend fun getLocalPath(audioFileId: String): String? = downloadDao.getLocalPath(audioFileId)
+
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> {
+        if (audioFileIds.isEmpty()) return emptyMap()
+        return audioFileIds
+            .distinct()
+            .chunked(SQLITE_IN_CLAUSE_CHUNK_SIZE)
+            .flatMap { downloadDao.getLocalPaths(it) }
+            .mapNotNull { row -> row.localPath?.let { row.audioFileId to it } }
+            .toMap()
+    }
 
     override suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus? =
         downloadDao.getByAudioFileId(audioFileId)?.state?.toDomain()

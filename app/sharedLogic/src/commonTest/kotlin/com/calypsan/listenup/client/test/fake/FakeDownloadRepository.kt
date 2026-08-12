@@ -44,6 +44,8 @@ class FakeDownloadRepository(
 
     override suspend fun getLocalPath(audioFileId: String): String? = null
 
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> = emptyMap()
+
     override suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus? = null
 
     override suspend fun markDownloading(

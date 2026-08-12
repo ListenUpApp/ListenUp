@@ -23,6 +23,13 @@ private class FakePushTokenProvider(
     override suspend fun currentToken(): String? = token
 }
 
+/** Fake [PushAvailability] returning a fixed [available] verdict. */
+private class FakePushAvailability(
+    private val available: Boolean,
+) : PushAvailability {
+    override suspend fun canDeliver(): Boolean = available
+}
+
 private fun serverInfo(pushEnabled: Boolean): ServerInfo =
     ServerInfo(
         name = "ListenUp",
@@ -47,10 +54,36 @@ class PushRegistrarTest :
                     mock<PushRepository> {
                         everySuspend { registerRegistrationWatchToken(any(), any()) } returns AppResult.Success(Unit)
                     }
-                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"))
+                val registrar =
+                    PushRegistrar(
+                        instanceRepository,
+                        pushRepository,
+                        FakePushTokenProvider("token-1"),
+                        availability = FakePushAvailability(true),
+                    )
 
                 registrar.registerRegistrationWatch("user-1") shouldBe true
                 verifySuspend { pushRepository.registerRegistrationWatchToken("user-1", "token-1") }
+            }
+        }
+
+        test("registerRegistrationWatch is false when notification delivery is not available, even with a valid token") {
+            runTest {
+                val instanceRepository =
+                    mock<InstanceRepository> {
+                        everySuspend { getServerInfoOrNull() } returns serverInfo(pushEnabled = true)
+                    }
+                val pushRepository = mock<PushRepository>()
+                val registrar =
+                    PushRegistrar(
+                        instanceRepository,
+                        pushRepository,
+                        FakePushTokenProvider("token-1"),
+                        availability = FakePushAvailability(false),
+                    )
+
+                registrar.registerRegistrationWatch("user-1") shouldBe false
+                verifySuspend(exactly(0)) { pushRepository.registerRegistrationWatchToken(any(), any()) }
             }
         }
 

@@ -791,6 +791,8 @@ private object ThrowingDownloadRepository : DownloadRepository {
 
     override suspend fun getLocalPath(audioFileId: String): String? = TODO("not used in handler test")
 
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> = TODO("not used in handler test")
+
     override suspend fun getStateForAudioFile(audioFileId: String) = TODO("not used in handler test")
 
     override suspend fun markDownloading(

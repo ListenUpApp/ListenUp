@@ -407,14 +407,15 @@ open class ProgressTracker(
                 logger.warn { "Failed to clear download tombstones for ${bookId.value} (non-fatal): ${e.message}" }
             }
 
-            // Mark book as complete
-            val finishedAt = nowMillis()
+            // Mark book as complete. Routes through BookFinished (not markComplete) so the
+            // stored row lands on the true final position — handleBookFinished sets positionMs,
+            // markComplete never does, leaving the position up to one 30s heartbeat behind the
+            // end (C-C06).
             when (
                 val r =
-                    positionRepository.markComplete(
+                    positionRepository.savePlaybackState(
                         bookId = bookId,
-                        startedAt = null,
-                        finishedAt = finishedAt,
+                        update = PlaybackUpdate.BookFinished(finalPositionMs = finalPositionMs),
                     )
             ) {
                 is AppResult.Success -> {

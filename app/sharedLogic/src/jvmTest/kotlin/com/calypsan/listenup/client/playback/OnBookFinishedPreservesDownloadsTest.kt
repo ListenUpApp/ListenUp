@@ -77,7 +77,7 @@ class OnBookFinishedPreservesDownloadsTest :
                             enqueuer = NoopEnqueuer(),
                         )
                     val positionRepository: PlaybackPositionRepository = mock()
-                    everySuspend { positionRepository.markComplete(any(), any(), any()) } returns AppResult.Success(Unit)
+                    everySuspend { positionRepository.savePlaybackState(any(), any()) } returns AppResult.Success(Unit)
 
                     val tracker =
                         ProgressTracker(

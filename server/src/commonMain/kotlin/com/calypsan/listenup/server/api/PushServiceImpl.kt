@@ -9,15 +9,17 @@ import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.AuthRateBucket
+import com.calypsan.listenup.server.auth.LoginRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.RateDecision
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.push.PushNotifier
+import com.calypsan.listenup.server.push.isValidPushToken
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import kotlin.time.Clock
-
-private const val MAX_TOKEN_LENGTH = 4096
 
 /**
  * [PushService] implementation — the session-bound device push-token registry.
@@ -41,6 +43,15 @@ internal class PushServiceImpl(
     private val notifier: PushNotifier,
     private val clock: Clock,
     private val principal: PrincipalProvider,
+    /**
+     * Throttles [sendTestNotification] at [AuthRateBucket.PUSH_TEST] — the shared RPC-auth-surface
+     * throttling mechanism, reused here rather than a bespoke limiter so there's one throttling
+     * shape. Keyed per-user (the caller is always authenticated by the time it's consulted),
+     * unlike the auth buckets' per-IP keying. Nullable — `null` is a no-op, matching
+     * [com.calypsan.listenup.server.auth.AuthServiceImpl]'s own optional limiter, so the many
+     * direct-construction unit tests are unaffected unless they opt in.
+     */
+    private val rateLimiter: LoginRateLimiter? = null,
 ) : PushService {
     override suspend fun registerToken(
         token: String,
@@ -72,6 +83,7 @@ internal class PushServiceImpl(
 
     override suspend fun sendTestNotification(): AppResult<Unit> {
         val caller = principal.current() ?: return noPrincipal()
+        enforcePushTestRate(caller.userId.value)?.let { return AppResult.Failure(it) }
         if (!enabled()) return AppResult.Failure(PushError.PushDisabled())
         notifier.notify(caller.userId.value, PushPayload.TestNotification(sentAtMs = clock.now().toEpochMilliseconds()))
         return AppResult.Success(Unit)
@@ -86,16 +98,32 @@ internal class PushServiceImpl(
             notifier = notifier,
             clock = clock,
             principal = principal,
+            rateLimiter = rateLimiter,
         )
 
     private suspend fun enabled(): Boolean = settings.pushNotificationsEnabled() && pushConfig.configured
 
-    private fun validateToken(token: String): ValidationError? =
-        when {
-            token.isBlank() -> ValidationError(message = "token must not be blank.")
-            token.length > MAX_TOKEN_LENGTH -> ValidationError(message = "token is too long.")
-            else -> null
+    /**
+     * Per-user throttle probe for [AuthRateBucket.PUSH_TEST]. Returns an [AuthError.RateLimited]
+     * to short-circuit the caller when over the ceiling, or null to proceed. A no-op (null) unless
+     * [rateLimiter] is bound — i.e. in production, not in tests that don't opt in.
+     */
+    private suspend fun enforcePushTestRate(userId: String): AuthError? {
+        val limiter = rateLimiter ?: return null
+        return when (val decision = limiter.check(AuthRateBucket.PUSH_TEST, userId)) {
+            RateDecision.Allowed -> null
+            is RateDecision.Throttled -> AuthError.RateLimited(retryAfterSeconds = decision.retryAfterSeconds)
         }
+    }
+
+    private fun validateToken(token: String): ValidationError? {
+        if (isValidPushToken(token)) return null
+        return if (token.isBlank()) {
+            ValidationError(message = "token must not be blank.")
+        } else {
+            ValidationError(message = "token is too long.")
+        }
+    }
 
     private fun noPrincipal(): AppResult.Failure = AppResult.Failure(AuthError.PermissionDenied())
 }

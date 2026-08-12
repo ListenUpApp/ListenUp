@@ -31,6 +31,15 @@ import kotlinx.io.IOException
 @Suppress("MagicNumber")
 internal object Mp4ChapterExtractor {
     /**
+     * Absolute ceiling on chapter text-track sample-table entries this extractor will
+     * materialise (`stts` starts, `stsz` sizes, `stco`/`co64` offsets). A real audiobook
+     * chapter track carries thousands of samples, not millions — this exists purely to
+     * cap an untrusted 32-bit count from driving a multi-GB allocation or an unbounded
+     * append loop. Mirrors [Mp4Parser]'s `MOOV_SOFT_LIMIT_BYTES`.
+     */
+    private const val MAX_SAMPLE_ENTRIES = 2_000_000
+
+    /**
      * Read Nero `chpl` chapters. Returns an empty list if `moov.udta.chpl`
      * is absent or contains zero entries.
      */
@@ -225,12 +234,17 @@ internal object Mp4ChapterExtractor {
         p += 4
         val starts = mutableListOf<Long>()
         var cursorTimescaleUnits = 0L
-        for (i in 0 until entryCount) {
+        // `sampleCount` is an untrusted 32-bit field read as an unsigned Long (up to
+        // ~4.3 billion) and doesn't consume any buffer bytes per unit — cap the TOTAL
+        // number of starts produced across every entry against MAX_SAMPLE_ENTRIES so a
+        // corrupt/malicious entry can't drive an unbounded `MutableList<Long>` append loop.
+        entryLoop@ for (i in 0 until entryCount) {
             if (p + 8 > end) break
             val sampleCount = AtomWalker.readBeUInt32(bytes, p)
             val sampleDelta = AtomWalker.readBeUInt32(bytes, p + 4)
             p += 8
             for (j in 0 until sampleCount) {
+                if (starts.size >= MAX_SAMPLE_ENTRIES) break@entryLoop
                 starts += (cursorTimescaleUnits * 1000L) / timescale.toLong()
                 cursorTimescaleUnits += sampleDelta
             }
@@ -251,12 +265,22 @@ internal object Mp4ChapterExtractor {
         val count = AtomWalker.readBeInt32(bytes, p)
         p += 4
         if (count <= 0) return IntArray(0)
-        val out = IntArray(count)
+        // `count` is an untrusted 32-bit field — cap it against the bytes actually
+        // remaining before allocating. Per-entry sizes cost 4 bytes each when
+        // defaultSize == 0; when non-zero there are no per-entry bytes to bound
+        // against, so fall back to the absolute MAX_SAMPLE_ENTRIES ceiling.
+        val safeCount =
+            if (defaultSize != 0) {
+                count.coerceAtMost(MAX_SAMPLE_ENTRIES)
+            } else {
+                count.coerceAtMost((end - p) / 4)
+            }
+        val out = IntArray(safeCount)
         if (defaultSize != 0) {
-            for (i in 0 until count) out[i] = defaultSize
+            for (i in 0 until safeCount) out[i] = defaultSize
             return out
         }
-        for (i in 0 until count) {
+        for (i in 0 until safeCount) {
             if (p + 4 > end) return out.copyOf(i)
             out[i] = AtomWalker.readBeInt32(bytes, p)
             p += 4
@@ -282,8 +306,12 @@ internal object Mp4ChapterExtractor {
         val count = AtomWalker.readBeInt32(bytes, p)
         p += 4
         if (count <= 0) return LongArray(0)
-        val out = LongArray(count)
-        for (i in 0 until count) {
+        // `count` is an untrusted 32-bit field — cap it against the bytes actually
+        // remaining before allocating (stco entries are 4 bytes each, co64 entries are 8).
+        val entryWidth = if (is64) 8 else 4
+        val safeCount = count.coerceAtMost((end - p) / entryWidth)
+        val out = LongArray(safeCount)
+        for (i in 0 until safeCount) {
             if (is64) {
                 if (p + 8 > end) return out.copyOf(i)
                 out[i] = AtomWalker.readBeInt64(bytes, p)

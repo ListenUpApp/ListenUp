@@ -43,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
+import com.calypsan.listenup.client.features.permission.RequestPostNotificationsPermission
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalUiState
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import org.jetbrains.compose.resources.stringResource
@@ -81,6 +82,12 @@ fun PendingApprovalScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val notifyPromise by viewModel.notifyPromise.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Request POST_NOTIFICATIONS here too — a pending registrant never reaches AppShell's own
+    // request, so without this the "we'll notify you" promise below could be shown to a device
+    // that can't actually receive the push (Android 13+ defaults the permission to ungranted).
+    // Fire-and-forget: prompts at most once per session, self-guards on repeat composition.
+    RequestPostNotificationsPermission()
 
     LaunchedEffect(state) {
         val current = state

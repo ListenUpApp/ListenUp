@@ -24,7 +24,6 @@ import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installAutoHeadResponse
 import com.calypsan.listenup.server.plugins.installCallId
 import com.calypsan.listenup.server.plugins.installCallLogging
-import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.plugins.installVersionHeaders
 import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
@@ -83,13 +82,14 @@ internal fun Application.installDependencies(
     embeddedCoverCacheSize: Int,
     watchEnabled: Boolean,
     pushRelayUrl: String,
+    pushRelayToken: String?,
 ) {
     // KoinIsolated (not Koin): the DI graph is scoped to THIS Application instance instead of the
     // process-global Koin context. Production runs one Application, so behaviour is unchanged — but
     // it removes the global `on(ApplicationStopped){ stopKoin() }` whose late async firing could rip
     // the live context out of the next test spec (the BookAccessPolicy NoDefinitionFound E2E flake).
     install(KoinIsolated) {
-        val modules = mutableListOf(authModule(environment.config, pushRelayUrl))
+        val modules = mutableListOf(authModule(environment.config, pushRelayUrl, applicationScope, pushRelayToken))
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
         modules += metadataModule(homeDir)
@@ -128,14 +128,17 @@ internal fun Application.installDependencies(
 
 /**
  * Installs the request-pipeline plugins that depend on Koin being wired: correlation-id + logging,
- * rate limiting, version-header exchange, and the [com.calypsan.listenup.api.error.AppError]
- * status-page mapper. Sequenced after [install] of Koin in [module] because each reads a
- * Koin-provided collaborator.
+ * version-header exchange, and the [com.calypsan.listenup.api.error.AppError] status-page mapper.
+ * Sequenced after [install] of Koin in [module] because each reads a Koin-provided collaborator.
+ *
+ * Rate limiting is NOT installed here — the auth surface (login/register/setupRoot/refresh/...)
+ * and the push-test send button throttle through the RPC-side `enforceRate`/`AuthRateBucket`
+ * mechanism (`com.calypsan.listenup.server.auth.LoginRateLimiter`) instead, since first-party
+ * clients call these over RPC where a Ktor route-level plugin never runs.
  */
 internal fun Application.installRequestPipeline() {
     installCallId()
     installCallLogging()
-    installRateLimiting()
     installVersionHeaders()
     installAppErrorStatusPages()
 }

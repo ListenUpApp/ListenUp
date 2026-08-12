@@ -25,4 +25,21 @@ class MetadataErrorSerializationTest :
             decoded.message shouldBe
                 "This edition's chapter count doesn't match your audiobook, so chapter names can't be applied."
         }
+
+        test("UnsafeUrl round-trips through the contract JSON as a typed AppError") {
+            val original: AppError =
+                MetadataError.UnsafeUrl(
+                    correlationId = "corr-2",
+                    debugInfo = "cover URL rejected: must be a public HTTPS destination",
+                )
+
+            val json = contractJson.encodeToString(original)
+            val decoded = contractJson.decodeFromString<AppError>(json)
+
+            decoded.shouldBeInstanceOf<MetadataError.UnsafeUrl>()
+            decoded.code shouldBe "METADATA_UNSAFE_URL"
+            decoded.isRetryable shouldBe false
+            decoded.debugInfo shouldBe "cover URL rejected: must be a public HTTPS destination"
+            decoded.message shouldBe "That image URL can't be used."
+        }
     })

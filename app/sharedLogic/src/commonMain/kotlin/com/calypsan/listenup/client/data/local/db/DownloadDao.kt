@@ -53,6 +53,14 @@ internal interface DownloadDao {
     @Query("SELECT localPath FROM downloads WHERE audioFileId = :audioFileId AND state = 'COMPLETED'")
     suspend fun getLocalPath(audioFileId: String): String?
 
+    /**
+     * Batched [getLocalPath]: one row per COMPLETED download among [audioFileIds], in a single
+     * round trip instead of N. Same completeness predicate as [getLocalPath] (`state = 'COMPLETED'`)
+     * — an id with no COMPLETED row is simply absent from the result, not returned as a null row.
+     */
+    @Query("SELECT audioFileId, localPath FROM downloads WHERE audioFileId IN (:audioFileIds) AND state = 'COMPLETED'")
+    suspend fun getLocalPaths(audioFileIds: List<String>): List<AudioFileLocalPath>
+
     // Insert
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(download: DownloadEntity)
@@ -181,3 +189,12 @@ internal interface DownloadDao {
     @Query("DELETE FROM downloads")
     suspend fun deleteAll()
 }
+
+/**
+ * Row shape for [DownloadDao.getLocalPaths]: one (audioFileId, localPath) pair per COMPLETED
+ * download among the requested ids.
+ */
+internal data class AudioFileLocalPath(
+    val audioFileId: String,
+    val localPath: String?,
+)

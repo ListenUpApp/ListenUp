@@ -195,6 +195,7 @@ class PlaybackPreparerTest :
         fun streamingDownloadService(): DownloadService {
             val downloadService: DownloadService = mock()
             everySuspend { downloadService.getLocalPath(any()) } returns null
+            everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns
                 AppResult.Success(DownloadOutcome.AlreadyDownloaded)
@@ -226,6 +227,8 @@ class PlaybackPreparerTest :
             val downloadService: DownloadService = mock()
             everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
             everySuspend { downloadService.getLocalPath(audioFile2) } returns "/local/af-prep-2.mp3"
+            everySuspend { downloadService.getLocalPaths(any()) } returns
+                mapOf(audioFile1 to "/local/af-prep-1.mp3", audioFile2 to "/local/af-prep-2.mp3")
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns
                 AppResult.Success(DownloadOutcome.AlreadyDownloaded)
@@ -641,6 +644,8 @@ class PlaybackPreparerTest :
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
                 everySuspend { downloadService.getLocalPath(audioFile2) } returns "/local/af-prep-2.mp3"
+                everySuspend { downloadService.getLocalPaths(any()) } returns
+                    mapOf(audioFile1 to "/local/af-prep-1.mp3", audioFile2 to "/local/af-prep-2.mp3")
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
                 everySuspend { downloadService.downloadBook(any()) } returns
                     AppResult
@@ -679,6 +684,8 @@ class PlaybackPreparerTest :
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
                 everySuspend { downloadService.getLocalPath(audioFile2) } returns null // missing
+                everySuspend { downloadService.getLocalPaths(any()) } returns
+                    mapOf(audioFile1 to "/local/af-prep-1.mp3") // audioFile2 missing — sparse map
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
                 everySuspend { downloadService.downloadBook(any()) } returns
                     AppResult.Success(DownloadOutcome.AlreadyDownloaded)
@@ -727,6 +734,7 @@ class PlaybackPreparerTest :
                 val downloadService: DownloadService = mock()
                 // Both files NOT downloaded → streaming path
                 everySuspend { downloadService.getLocalPath(any()) } returns null
+                everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
                 everySuspend { downloadService.downloadBook(any()) } returns
                     AppResult
@@ -771,6 +779,7 @@ class PlaybackPreparerTest :
 
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(any()) } returns null
+                everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
 
                 val preparer = buildPreparer(downloadService, fakeFactory)
@@ -795,6 +804,7 @@ class PlaybackPreparerTest :
 
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(any()) } returns null
+                everySuspend { downloadService.getLocalPaths(any()) } returns emptyMap()
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
 
                 val preparer = buildPreparer(downloadService, fakeFactory)

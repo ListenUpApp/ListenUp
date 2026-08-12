@@ -445,15 +445,17 @@ class PlaybackPreparer internal constructor(
         domainAudioFiles: List<AudioFile>,
         serverUrl: String,
     ): TimelineBuildResult? {
-        val localPaths: Map<String, String?> =
-            domainAudioFiles.associate { it.id to downloadService.getLocalPath(it.id) }
+        // Batched instead of one Room query per file — a chaptered book can have 100-300 audio
+        // files, and preparing playback is a <500ms budget. Sparse: only downloaded-and-verified
+        // files are keys; `localPaths[file.id]` returns null for the rest either way.
+        val localPaths: Map<String, String> = downloadService.getLocalPaths(domainAudioFiles.map { it.id })
 
         // Server-authoritative resume position, populated only when prepare() is called
         // (streaming path). Null on the fully-downloaded path — resume then resolves from Room alone.
         var serverResumePosition: PlaybackPositionSyncPayload? = null
 
-        val downloadedCount = localPaths.values.count { it != null }
-        val missingCount = localPaths.size - downloadedCount
+        val downloadedCount = localPaths.size
+        val missingCount = domainAudioFiles.size - downloadedCount
 
         val signedUrls: Map<String, String> =
             if (missingCount == 0) {

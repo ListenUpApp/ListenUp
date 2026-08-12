@@ -5,9 +5,6 @@ import com.calypsan.listenup.core.CollectionId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** Maximum length, in characters, of a collection display name. */
-private const val MAX_COLLECTION_NAME_LENGTH = 200
-
 /**
  * Permission level granted to a user for a shared collection.
  *
@@ -81,38 +78,4 @@ data class CollectionShareDto(
     @SerialName("sharedWithUserId") val sharedWithUserId: UserId,
     /** The permission level granted to the recipient. */
     @SerialName("permission") val permission: SharePermission,
-)
-
-/**
- * Request body for creating a new collection.
- *
- * [name] must be between 1 and 200 characters. [libraryId] scopes the collection
- * to a specific library — each collection belongs to exactly one library.
- */
-@Serializable
-@SerialName("CreateCollectionBody")
-data class CreateCollectionBody(
-    /** The library to create the collection in. */
-    @SerialName("libraryId") val libraryId: String,
-    /** Display name for the new collection (1..200 characters). */
-    @SerialName("name") val name: String,
-) {
-    init {
-        require(name.isNotBlank() && name.length <= MAX_COLLECTION_NAME_LENGTH) { "name must be 1..200 chars" }
-    }
-}
-
-/**
- * Request body for sharing a collection with another user.
- *
- * [sharedWithUserId] must be a different user than the caller — sharing with yourself
- * is rejected with `CollectionError.SelfShare`. [permission] defaults to [SharePermission.Read].
- */
-@Serializable
-@SerialName("ShareCollectionBody")
-data class ShareCollectionBody(
-    /** The user to share the collection with. Must not be the caller. */
-    @SerialName("sharedWithUserId") val sharedWithUserId: String,
-    /** The permission level to grant. Defaults to [SharePermission.Read]. */
-    @SerialName("permission") val permission: SharePermission = SharePermission.Read,
 )

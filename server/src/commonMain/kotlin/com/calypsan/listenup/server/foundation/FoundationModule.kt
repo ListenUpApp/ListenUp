@@ -6,7 +6,6 @@ import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
 import com.calypsan.listenup.server.plugins.installCallId
 import com.calypsan.listenup.server.plugins.installJwtAuth
-import com.calypsan.listenup.server.plugins.installRateLimiting
 import io.ktor.serialization.kotlinx.json.json as ktorJson
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -47,7 +46,6 @@ fun Application.installFoundation(deps: FoundationDeps) {
     install(WebSockets)
     install(Krpc)
     installCallId()
-    installRateLimiting()
     installAppErrorStatusPages()
     installJwtAuth(deps.jwt, deps.sessionLiveness)
 

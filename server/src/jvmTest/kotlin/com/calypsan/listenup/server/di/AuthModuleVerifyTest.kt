@@ -10,6 +10,8 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import io.kotest.core.spec.style.FunSpec
 import io.ktor.server.config.MapApplicationConfig
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.koin.test.verify.verify
 import java.nio.file.Files
 
@@ -46,7 +48,7 @@ class AuthModuleVerifyTest :
             // constructed inside the DatabaseFactory.init() closure, not injected from the Koin graph.
             // LibraryRegistry, LibraryRepository: AdminSettingsServiceImpl deps resolved from
             // booksModule/libraryModule, both loaded at application startup but absent here.
-            authModule(config, "https://push.example.com").verify(
+            authModule(config, "https://push.example.com", CoroutineScope(SupervisorJob()), pushRelayToken = null).verify(
                 extraTypes =
                     listOf(
                         ByteArray::class,

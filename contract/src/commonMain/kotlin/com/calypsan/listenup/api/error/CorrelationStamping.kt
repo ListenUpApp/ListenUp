@@ -202,6 +202,7 @@ private fun MetadataError.withCorrelationId(id: String?): MetadataError =
         is MetadataError.NotFound -> copy(correlationId = id)
         is MetadataError.Malformed -> copy(correlationId = id)
         is MetadataError.ChapterCountMismatch -> copy(correlationId = id)
+        is MetadataError.UnsafeUrl -> copy(correlationId = id)
     }
 
 private fun LibraryError.withCorrelationId(id: String?): LibraryError =

@@ -75,7 +75,16 @@ internal object Id3v2Reader {
                 } else {
                     decodeBigEndian32(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3])
                 }
-            offset += if (version == 4) extSize else extSize + 4
+            // ID3v2.3's extSize is a plain (non-sync-safe) 32-bit field, so a corrupt tag can
+            // declare a value near Int.MIN_VALUE or Int.MAX_VALUE. Validate the resulting skip
+            // against the bytes actually remaining in the tag before advancing `offset` — an
+            // unchecked `offset += skip` can send it deeply negative (the frame loop's
+            // `bytes[offset]` then throws, losing the WHOLE tag as CorruptHeader) or past
+            // `tagEnd` (silently dropping every frame, including ones that would have parsed
+            // fine). When the skip is out of range, don't advance at all — fall through to frame
+            // parsing at the current offset boundary instead of trusting the lying size.
+            val skip = if (version == 4) extSize else extSize + 4
+            if (skip in 0..(totalSize - offset)) offset += skip
         }
 
         val builder = AudioTagsBuilder()
