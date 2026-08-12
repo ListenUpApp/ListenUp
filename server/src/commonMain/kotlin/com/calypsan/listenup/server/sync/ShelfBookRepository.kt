@@ -227,6 +227,22 @@ class ShelfBookRepository(
         }
 
     /**
+     * Live junction-row counts for many shelves in one round trip, batched by [SQLITE_IN_CHUNK] —
+     * same predicate as [listByShelf] (`deleted_at IS NULL`), just `COUNT(*)` instead of
+     * materializing and mapping every row just to call `.size`. A shelf with zero live rows is
+     * absent from the result; callers default it to 0.
+     */
+    suspend fun countLiveForShelves(shelfIds: List<String>): Map<String, Int> {
+        if (shelfIds.isEmpty()) return emptyMap()
+        return suspendTransaction(db) {
+            shelfIds
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.shelfBooksQueries.countLiveForShelves(chunk).executeAsList() }
+                .associate { it.shelf_id to it.live_count.toInt() }
+        }
+    }
+
+    /**
      * Appends [bookId] to [shelfId] at the next free sort order, owned by [userId].
      *
      * Idempotent: re-adding a book already live on the shelf is a no-op that returns
