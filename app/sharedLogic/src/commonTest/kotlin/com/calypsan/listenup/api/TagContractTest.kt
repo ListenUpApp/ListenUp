@@ -1,6 +1,5 @@
 package com.calypsan.listenup.api
 
-import com.calypsan.listenup.api.dto.TagHit
 import com.calypsan.listenup.api.dto.TagSummary
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
@@ -97,19 +96,6 @@ class TagContractTest :
                     bookCount = 0L,
                 )
             roundTrip<TagSummary>(original) shouldBe original
-        }
-
-        // ── TagHit ────────────────────────────────────────────────────────────
-
-        test("TagHit round-trips") {
-            val original =
-                TagHit(
-                    id = TagId("tag-abc123"),
-                    slug = "sci-fi",
-                    name = "Sci-Fi",
-                    bookCount = 12L,
-                )
-            roundTrip<TagHit>(original) shouldBe original
         }
 
         // ── TagError subtypes ─────────────────────────────────────────────────
