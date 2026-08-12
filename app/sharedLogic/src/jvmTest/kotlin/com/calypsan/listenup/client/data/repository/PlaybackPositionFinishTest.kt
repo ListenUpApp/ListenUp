@@ -10,18 +10,13 @@ import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.BookId
-import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -30,12 +25,14 @@ import kotlinx.coroutines.test.runTest
  *
  * - C-C06: [ProgressTracker.onBookFinished] must persist the true final position and stay
  *   finished, not the up-to-30s-stale value [PlaybackPositionRepository.markComplete] left behind.
+ *   Exercised here against the repository leg directly (deterministic — see the context block
+ *   below); the ProgressTracker wiring is pinned separately in
+ *   [com.calypsan.listenup.client.playback.ProgressTrackerBoostTest].
  * - C-C05: a position-only write against a book with no prior row must create the row locally,
  *   not silently no-op while still enqueuing an outbox push (Room/server would otherwise diverge).
  * - C-C04: a position-only server tombstone must not permanently exclude a book from
  *   resume/Continue-Listening or the streak — an active local write must heal it.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
 class PlaybackPositionFinishTest :
     FunSpec({
 
@@ -70,24 +67,29 @@ class PlaybackPositionFinishTest :
         // ──────────────────────────────────────────────────────────────────
 
         context("C-C06: onBookFinished") {
+            // Deliberately exercises the repository leg directly — repo.savePlaybackState is a
+            // suspend fun awaited inline inside runTest, so the assertion cannot observe the row
+            // before the write lands. The ProgressTracker WIRING (that onBookFinished passes
+            // PlaybackUpdate.BookFinished, not markComplete) is pinned separately and
+            // deterministically in ProgressTrackerBoostTest's "onBookFinished saves
+            // PlaybackUpdate.BookFinished" (a mock repository — no real dispatcher hop).
+            //
+            // The scope.launch { ... } + advanceUntilIdle() shape previously used here is racy:
+            // createInMemoryTestDatabase's Room queries run on the real Dispatchers.IO (see
+            // TestDatabase.kt), not the StandardTestDispatcher advanceUntilIdle() controls, so
+            // advanceUntilIdle() can return before the launched coroutine's DB write actually
+            // lands, and the assertion then reads a stale value.
             test("persists the final position and marks the book finished") {
                 val db = createInMemoryTestDatabase()
                 try {
-                    val dispatcher = StandardTestDispatcher()
-                    runTest(dispatcher) {
+                    runTest {
                         val repo = repoAgainst(db)
                         val bookId = BookId("b1")
                         db.playbackPositionDao().save(playedEntity(bookId))
 
-                        val tracker =
-                            ProgressTracker(
-                                downloadRepository = mock(),
-                                positionRepository = repo,
-                                scope = CoroutineScope(dispatcher),
-                            )
-
-                        tracker.onBookFinished(bookId, finalPositionMs = 123_000L)
-                        advanceUntilIdle()
+                        repo
+                            .savePlaybackState(bookId, PlaybackUpdate.BookFinished(finalPositionMs = 123_000L))
+                            .shouldBeInstanceOf<AppResult.Success<*>>()
 
                         val stored = db.playbackPositionDao().get(bookId).shouldNotBeNull()
                         stored.positionMs shouldBe 123_000L
@@ -101,26 +103,20 @@ class PlaybackPositionFinishTest :
             test("re-finishing a book keeps the original finishedAt but updates the position") {
                 val db = createInMemoryTestDatabase()
                 try {
-                    val dispatcher = StandardTestDispatcher()
-                    runTest(dispatcher) {
+                    runTest {
                         val repo = repoAgainst(db)
                         val bookId = BookId("b1")
                         db.playbackPositionDao().save(playedEntity(bookId))
 
-                        val tracker =
-                            ProgressTracker(
-                                downloadRepository = mock(),
-                                positionRepository = repo,
-                                scope = CoroutineScope(dispatcher),
-                            )
-
-                        tracker.onBookFinished(bookId, finalPositionMs = 100_000L)
-                        advanceUntilIdle()
+                        repo
+                            .savePlaybackState(bookId, PlaybackUpdate.BookFinished(finalPositionMs = 100_000L))
+                            .shouldBeInstanceOf<AppResult.Success<*>>()
                         val first = db.playbackPositionDao().get(bookId).shouldNotBeNull()
                         val firstFinishedAt = first.finishedAt.shouldNotBeNull()
 
-                        tracker.onBookFinished(bookId, finalPositionMs = 150_000L)
-                        advanceUntilIdle()
+                        repo
+                            .savePlaybackState(bookId, PlaybackUpdate.BookFinished(finalPositionMs = 150_000L))
+                            .shouldBeInstanceOf<AppResult.Success<*>>()
                         val second = db.playbackPositionDao().get(bookId).shouldNotBeNull()
 
                         second.finishedAt shouldBe firstFinishedAt
@@ -269,25 +265,20 @@ class PlaybackPositionFinishTest :
                 }
             }
 
+            // Repository leg directly, same rationale as the C-C06 tests above — no
+            // scope.launch/advanceUntilIdle race against Room's real Dispatchers.IO.
             test("a tombstoned book-finish also heals the tombstone and preserves other fields") {
                 val db = createInMemoryTestDatabase()
                 try {
-                    val dispatcher = StandardTestDispatcher()
-                    runTest(dispatcher) {
+                    runTest {
                         val repo = repoAgainst(db)
                         val bookId = BookId("b1")
                         db.playbackPositionDao().save(playedEntity(bookId).copy(volumeBoostDb = 4f, hasCustomBoost = true))
                         db.playbackPositionDao().softDelete(bookId, deletedAt = 2_000L, revision = 5L)
 
-                        val tracker =
-                            ProgressTracker(
-                                downloadRepository = mock(),
-                                positionRepository = repo,
-                                scope = CoroutineScope(dispatcher),
-                            )
-
-                        tracker.onBookFinished(bookId, finalPositionMs = 200_000L)
-                        advanceUntilIdle()
+                        repo
+                            .savePlaybackState(bookId, PlaybackUpdate.BookFinished(finalPositionMs = 200_000L))
+                            .shouldBeInstanceOf<AppResult.Success<*>>()
 
                         val healed = db.playbackPositionDao().get(bookId).shouldNotBeNull()
                         healed.positionMs shouldBe 200_000L
