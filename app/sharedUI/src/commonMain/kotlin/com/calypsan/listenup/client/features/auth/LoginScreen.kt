@@ -92,7 +92,9 @@ fun LoginScreen(
     modifier: Modifier = Modifier,
     openRegistration: Boolean = false,
     onRegister: () -> Unit = {},
-    onForgotPassword: () -> Unit = {},
+    // No default: a call site that forgets this ships a visible button that silently does
+    // nothing (androidMain's LoginNavigation did exactly that). Every host must decide.
+    onForgotPassword: () -> Unit,
     viewModel: LoginViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
