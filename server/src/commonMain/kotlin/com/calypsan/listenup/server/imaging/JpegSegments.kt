@@ -8,8 +8,8 @@ internal class JpegComponent(
     val quantTable: Int,
 ) {
     /** DC/AC entropy tables for the scan currently being read; reassigned per scan. */
-    var dcTable: Int = 0
-    var acTable: Int = 0
+    var dcTable: JpegHuffmanTable? = null
+    var acTable: JpegHuffmanTable? = null
 
     /** Running DC predictor — DC is coded as a delta from the previous block of this component. */
     var dcPredictor: Int = 0
@@ -164,7 +164,7 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
 
             MARKER_SOS -> {
                 val current = frame ?: return null
-                val scan = parseScanHeader(bytes, segmentStart, segmentEnd, current) ?: return null
+                val scan = parseScanHeader(bytes, segmentStart, segmentEnd, current, dcTables, acTables) ?: return null
                 // Entropy data runs from the end of the SOS header to the next marker that is not a
                 // stuffed 0xFF00 or a restart marker.
                 val dataStart = segmentEnd
@@ -187,24 +187,31 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
 
     val decoded = frame ?: return null
     if (scans.isEmpty()) return null
-    return JpegSegments(decoded, quantTables, dcTables, acTables, restartInterval, scans)
+    return JpegSegments(decoded, quantTables, restartInterval, scans)
 }
 
 /** Everything the entropy stage needs, gathered from the marker segments. */
 internal class JpegSegments(
     val frame: JpegFrame,
     val quantTables: Array<IntArray?>,
-    val dcTables: Array<JpegHuffmanTable?>,
-    val acTables: Array<JpegHuffmanTable?>,
     val restartInterval: Int,
     val scans: List<JpegScan>,
 )
 
-/** One SOS segment: which components it codes, and (for progressive) which coefficients. */
+/**
+ * One SOS segment: which components it codes, the entropy tables it codes them with, and (for
+ * progressive) which coefficients.
+ *
+ * The tables are **resolved here, not by id at decode time**, because a DHT redefines a table slot
+ * for the scans that follow it — and a progressive file redefines them constantly. Keeping one
+ * table per id and reading it after the whole file is parsed hands every scan the *last*
+ * definition, which is how the chroma AC scans came to be decoded with a later scan's
+ * end-of-band-only table and dropped all their coefficients.
+ */
 internal data class JpegScan(
     val componentIndices: List<Int>,
-    val dcTableIds: List<Int>,
-    val acTableIds: List<Int>,
+    val dcTables: List<JpegHuffmanTable?>,
+    val acTables: List<JpegHuffmanTable?>,
     val spectralStart: Int,
     val spectralEnd: Int,
     val approximationHigh: Int,
@@ -218,29 +225,33 @@ private fun parseScanHeader(
     start: Int,
     end: Int,
     frame: JpegFrame,
+    dcTables: Array<JpegHuffmanTable?>,
+    acTables: Array<JpegHuffmanTable?>,
 ): JpegScan? {
     val count = bytes[start].toInt() and 0xFF
     if (count == 0 || start + 1 + count * 2 + 3 > end) return null
 
     val indices = mutableListOf<Int>()
-    val dcIds = mutableListOf<Int>()
-    val acIds = mutableListOf<Int>()
+    val scanDcTables = mutableListOf<JpegHuffmanTable?>()
+    val scanAcTables = mutableListOf<JpegHuffmanTable?>()
     for (i in 0 until count) {
         val at = start + 1 + i * 2
         val componentId = bytes[at].toInt() and 0xFF
         val index = frame.components.indexOfFirst { it.id == componentId }
         if (index < 0) return null
         indices += index
-        dcIds += (bytes[at + 1].toInt() and 0xF0) shr 4
-        acIds += bytes[at + 1].toInt() and 0x0F
+        // An id outside the table array, or one never defined, resolves to null and declines later
+        // — a scan only touches the class of table its spectral band actually needs.
+        scanDcTables += dcTables.getOrNull((bytes[at + 1].toInt() and 0xF0) shr 4)
+        scanAcTables += acTables.getOrNull(bytes[at + 1].toInt() and 0x0F)
     }
 
     val tail = start + 1 + count * 2
     val approximation = bytes[tail + 2].toInt() and 0xFF
     return JpegScan(
         componentIndices = indices,
-        dcTableIds = dcIds,
-        acTableIds = acIds,
+        dcTables = scanDcTables,
+        acTables = scanAcTables,
         spectralStart = bytes[tail].toInt() and 0xFF,
         spectralEnd = bytes[tail + 1].toInt() and 0xFF,
         approximationHigh = (approximation and 0xF0) shr 4,

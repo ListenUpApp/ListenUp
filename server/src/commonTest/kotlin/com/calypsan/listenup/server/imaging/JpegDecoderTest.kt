@@ -87,18 +87,15 @@ class JpegDecoderTest :
         }
 
         // The whole point of the scaled design: progressive is not a special case to decline.
+        // 589 of 1180 real covers are progressive, so this test is the difference between fixing
+        // the library grid and fixing half of it.
         //
-        // ⛔ KNOWN RED — disabled while the progressive path is finished, NOT because the case is
-        // optional. 589 of 1180 real covers are progressive, so this test passing is the difference
-        // between fixing the library grid and fixing half of it.
-        //
-        // Diagnosis so far: DC decodes correctly. On this 16x16 4:2:0 fixture the left/right split
-        // lives in the two luma DC values, and the decoded halves differ by ~24 — exactly the
-        // expected luma delta. What is missing is CHROMA AC: 4:2:0 puts the whole image in a single
-        // 8x8 chroma block, so its left/right variation is carried by AC coefficient 1, and the
-        // `[1] Ss=1` / `[2] Ss=1` scans are not landing it. Suspect the end-of-band run accounting
-        // in decodeProgressiveAc.
-        test("progressive decodes, and agrees with baseline").config(enabled = false) {
+        // It is also the regression guard for entropy-table scoping. This fixture defines AC table
+        // 1 four times — the real table for the chroma first passes, then an end-of-band-only one
+        // for the refinement scans — so a decoder that keeps a single table per id and reads it
+        // after parsing decodes the chroma with the wrong table, lands no chroma AC at all, and
+        // renders this image a flat purple-grey (r=130 g=79 b=131) instead of red and blue.
+        test("progressive decodes, and agrees with baseline") {
             val image = decodeJpeg(progressive, maxWidth = 4)!!
 
             image.width shouldBe 4

@@ -73,8 +73,8 @@ private fun decodeScan(
     val components = scan.componentIndices.map { frame.components[it] }
 
     components.forEachIndexed { index, component ->
-        component.dcTable = scan.dcTableIds[index]
-        component.acTable = scan.acTableIds[index]
+        component.dcTable = scan.dcTables[index]
+        component.acTable = scan.acTables[index]
         component.dcPredictor = 0
     }
 
@@ -143,8 +143,8 @@ private fun decodeBlock(
     val coefficients = component.coefficients
 
     if (!segments.frame.progressive) {
-        val dcTable = segments.dcTables[component.dcTable] ?: return null
-        val acTable = segments.acTables[component.acTable] ?: return null
+        val dcTable = component.dcTable ?: return null
+        val acTable = component.acTable ?: return null
         val magnitude = reader.decodeHuffman(dcTable) ?: return null
         val diff = if (magnitude == 0) 0 else reader.receiveExtend(magnitude)
         component.dcPredictor += diff
@@ -171,7 +171,7 @@ private fun decodeBlock(
         return Unit
     }
 
-    return decodeProgressiveBlock(reader, segments, scan, component, base)
+    return decodeProgressiveBlock(reader, scan, component, base)
 }
 
 /**
@@ -183,7 +183,6 @@ private fun decodeBlock(
 @Suppress("ReturnCount")
 private fun decodeProgressiveBlock(
     reader: JpegBitReader,
-    segments: JpegSegments,
     scan: JpegScan,
     component: JpegComponent,
     base: Int,
@@ -193,7 +192,7 @@ private fun decodeProgressiveBlock(
     if (scan.spectralStart == 0) {
         // DC scan — first pass codes a delta, refinement passes append one bit.
         if (scan.approximationHigh == 0) {
-            val dcTable = segments.dcTables[component.dcTable] ?: return null
+            val dcTable = component.dcTable ?: return null
             val magnitude = reader.decodeHuffman(dcTable) ?: return null
             val diff = if (magnitude == 0) 0 else reader.receiveExtend(magnitude)
             component.dcPredictor += diff
@@ -207,19 +206,18 @@ private fun decodeProgressiveBlock(
     // AC scans. We only need the handful of low-frequency coefficients the reduced transforms read;
     // anything beyond them cannot change the output, so the scan is skipped rather than walked.
     if (scan.spectralStart >= AC_BANDS_WE_NEED) return Unit
-    return decodeProgressiveAc(reader, segments, scan, component, base)
+    return decodeProgressiveAc(reader, scan, component, base)
 }
 
 @Suppress("ReturnCount")
 private fun decodeProgressiveAc(
     reader: JpegBitReader,
-    segments: JpegSegments,
     scan: JpegScan,
     component: JpegComponent,
     base: Int,
 ): Unit? {
     val coefficients = component.coefficients
-    val acTable = segments.acTables[component.acTable] ?: return null
+    val acTable = component.acTable ?: return null
 
     // Refinement of already-present AC bits is not modelled: at 1/8 and 1/4 the extra precision is
     // below the rounding of the downscale itself, so the first pass is what the picture is made of.
