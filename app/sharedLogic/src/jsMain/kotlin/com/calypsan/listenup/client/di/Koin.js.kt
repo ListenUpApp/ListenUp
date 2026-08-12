@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.core.CookieMirroringSecureStorage
 import com.calypsan.listenup.client.data.discovery.NoDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.data.local.documents.BrowserDocumentStorage
@@ -52,14 +53,19 @@ internal actual val platformDiscoveryModule: Module =
 /**
  * Browser storage module. Each binding is a browser decision, documented on its class:
  * [BrowserSecureStorage] (origin-scoped localStorage, wrapped in the same read cache as the
- * JVM binding), [BrowserImageStorage] (no local byte cache — the server's blob endpoints plus
+ * JVM binding, plus [CookieMirroringSecureStorage] so the DOM can authenticate cover requests), [BrowserImageStorage] (no local byte cache — the server's blob endpoints plus
  * the browser's HTTP cache are the web cover story), [BrowserNetworkMonitor]
  * (`navigator.onLine`), and the deliberately-throwing [DownloadFileManager] (offline audio in
  * a browser is undesigned; the binding exists so the graph resolves, and any call is loud).
  */
 internal actual val platformStorageModule: Module =
     module {
-        single<SecureStorage> { CachingSecureStorage(BrowserSecureStorage()) }
+        // The cookie mirror sits INSIDE the read cache: the cache answers reads, so every write
+        // that reaches storage must also reach the cookie. See CookieMirroringSecureStorage for
+        // why the DOM needs a credential of its own at all.
+        single<SecureStorage> {
+            CachingSecureStorage(CookieMirroringSecureStorage(BrowserSecureStorage()))
+        }
 
         // Overrides mediaModule's filesystem DocumentStorage — platform modules load last for
         // exactly this. See BrowserDocumentStorage for why the common one cannot run here.
