@@ -31,10 +31,7 @@ class ListenUpMessagingService :
     override fun onMessageReceived(message: RemoteMessage) {
         // Decode BEFORE deciding: whether to render depends on what arrived, and a test
         // notification is exempt from foreground suppression (see PushForegroundPolicy).
-        val payload =
-            message.data["payload"]?.let { raw ->
-                runCatching { contractJson.decodeFromString(PushPayload.serializer(), raw) }.getOrNull()
-            } // null (absent OR unknown discriminator) → generic notification, never a crash
+        val payload = decodePushPayload(message.data) // null → generic notification, never a crash
 
         val foreground =
             ProcessLifecycleOwner
@@ -50,3 +47,13 @@ class ListenUpMessagingService :
         runBlocking { registrar.onTokenRotated(token) }
     }
 }
+
+/**
+ * Decodes the FCM data payload into a typed [PushPayload], or `null` when the `payload` key is
+ * absent, its discriminator is unknown (a future push kind an older client doesn't recognize
+ * yet), or the JSON is malformed — the caller falls back to a generic notification, never a crash.
+ */
+internal fun decodePushPayload(data: Map<String, String>): PushPayload? =
+    data["payload"]?.let { raw ->
+        runCatching { contractJson.decodeFromString(PushPayload.serializer(), raw) }.getOrNull()
+    }
