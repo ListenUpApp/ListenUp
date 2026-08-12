@@ -60,6 +60,48 @@ class Mp3ParserAdversarialTest :
                 (declaredBodySize and 0x7F).toByte(),
             )
 
+        /**
+         * Same as [id3v2Header] but with the extended-header flag (0x40) set, for exercising the
+         * ID3v2.3 extended-header skip in [Id3v2Reader.read].
+         */
+        fun id3v2HeaderWithExtFlag(
+            version: Int,
+            declaredBodySize: Int,
+        ): ByteArray =
+            byteArrayOf(
+                0x49,
+                0x44,
+                0x33, // "ID3"
+                version.toByte(),
+                0x00, // minor
+                0x40, // flags: extended header present
+                ((declaredBodySize ushr 21) and 0x7F).toByte(),
+                ((declaredBodySize ushr 14) and 0x7F).toByte(),
+                ((declaredBodySize ushr 7) and 0x7F).toByte(),
+                (declaredBodySize and 0x7F).toByte(),
+            )
+
+        /** Build a well-formed ID3v2.3 `TIT2` (title) frame carrying [title] as ISO-8859-1 text. */
+        fun tit2Frame(title: String): ByteArray {
+            val text = title.toByteArray(Charsets.ISO_8859_1)
+            val frameData = byteArrayOf(0x00) + text // encoding 0 = ISO-8859-1
+            val size = frameData.size
+            val header =
+                byteArrayOf(
+                    'T'.code.toByte(),
+                    'I'.code.toByte(),
+                    'T'.code.toByte(),
+                    '2'.code.toByte(),
+                    ((size ushr 24) and 0xFF).toByte(),
+                    ((size ushr 16) and 0xFF).toByte(),
+                    ((size ushr 8) and 0xFF).toByte(),
+                    (size and 0xFF).toByte(),
+                    0x00,
+                    0x00, // frame flags
+                )
+            return header + frameData
+        }
+
         test("ID3v2 header declaring a tag far larger than the file does not OOM") {
             // Header claims the maximum a sync-safe int can encode (~256 MB body)
             // but the file is only the 10-byte header itself. A missing
@@ -256,6 +298,45 @@ class Mp3ParserAdversarialTest :
             // here through EmbeddedMetadataParser, but Mp3Parser called
             // directly must still not throw.
             result.shouldBeInstanceOf<AppResult<EmbeddedAudioMetadata>>()
+        }
+
+        // C-09: the ID3v2.3 extended-header skip (`offset += extSize + 4`, a plain non-sync-safe
+        // 32-bit field) is unchecked. Both scenarios below place a "bogus" 10-byte frame right
+        // after the header whose bytes double as the extSize field being decoded — frameSize = 0
+        // makes the bogus frame a harmless no-op once the reader stops trying to skip past it —
+        // followed immediately by a real, recoverable TIT2 frame. A tolerant parse must recover
+        // the title either way; only the buggy skip loses it.
+
+        test("ID3v2.3 extended-header size decoded as a large negative value does not lose the tag") {
+            // decodeBigEndian32(0x80,0x00,0x00,0x01) = a value near Int.MIN_VALUE. Pre-fix,
+            // `offset += extSize + 4` sends offset deeply negative; the frame loop's
+            // `bytes[offset]` then throws, and Mp3Parser's outer guard (A11) degrades the WHOLE
+            // file to CorruptHeader — losing the recoverable title along with it.
+            val extSizeBytes = byteArrayOf(0x80.toByte(), 0x00, 0x00, 0x01)
+            val bogusFrame = extSizeBytes + byteArrayOf(0x00, 0x00, 0x00, 0x00) + byteArrayOf(0x00, 0x00)
+            val body = bogusFrame + tit2Frame("Test Title")
+            val bytes = id3v2HeaderWithExtFlag(version = 3, declaredBodySize = body.size) + body
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.tags.title shouldBe "Test Title"
+        }
+
+        test("ID3v2.3 extended-header size declaring bytes past the tag body does not lose the tag") {
+            // decodeBigEndian32(0x7F,0xFF,0xFF,0xF0) ~= 2.1 billion — wildly past this tiny tag.
+            // Pre-fix, `offset += extSize + 4` jumps past tagEnd, so the frame loop's
+            // `while (offset + 10 <= tagEnd)` never runs even once and every frame — including
+            // the recoverable TIT2 — is silently dropped, not just skipped.
+            val extSizeBytes = byteArrayOf(0x7F, 0xFF.toByte(), 0xFF.toByte(), 0xF0.toByte())
+            val bogusFrame = extSizeBytes + byteArrayOf(0x00, 0x00, 0x00, 0x00) + byteArrayOf(0x00, 0x00)
+            val body = bogusFrame + tit2Frame("Test Title")
+            val bytes = id3v2HeaderWithExtFlag(version = 3, declaredBodySize = body.size) + body
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.tags.title shouldBe "Test Title"
         }
     })
 
