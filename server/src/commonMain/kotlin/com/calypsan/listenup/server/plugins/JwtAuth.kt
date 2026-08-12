@@ -29,8 +29,8 @@ internal fun logJwtRejection(reason: String) {
 const val JWT_PROVIDER = "jwt"
 
 /**
- * Name of the provider gating the byte-serving GETs a DOM element fetches for itself — covers,
- * documents, contributor photos, series covers, avatars.
+ * Name of the provider gating the byte-serving GETs the browser loads into an element for itself —
+ * covers, documents, contributor photos, series covers, avatars.
  *
  * It differs from [JWT_PROVIDER] in one respect: it also accepts [ACCESS_TOKEN_COOKIE]. That has to
  * be a separate provider rather than a third carrier on the existing one, because a cookie is the
@@ -41,11 +41,17 @@ const val JWT_PROVIDER = "jwt"
  * credential this broad should not rest on a promise made by the party being defended against.
  *
  * So the cookie's reach is bounded by the routes it is mounted on instead, and those routes are all
- * reads of bytes. Mount it as a **sibling** of the [JWT_PROVIDER] block, never nested inside it:
- * Ktor's route interceptors are inherited, so a nested block would stack both providers and the
- * outer one would reject a cookie-only request before this one ever ran.
+ * reads of bytes — hence the name, which is the property that has to stay true. Two rules keep it
+ * that way:
+ *
+ *  - **Mount only GETs here.** A mutation reachable by a browser-attached credential is the hole
+ *    this provider exists to avoid. `CookieCarrierScopeTest` walks the routing tree and fails on
+ *    any other method, so this is enforced rather than merely asked for.
+ *  - **Mount it as a sibling of the [JWT_PROVIDER] block, never nested inside it.** Ktor's route
+ *    interceptors are inherited, so a nested block stacks both providers and the outer one rejects
+ *    a cookie-only request before this one ever runs.
  */
-const val DOM_FETCH_PROVIDER = "jwt-dom-fetch"
+const val BLOB_READ_PROVIDER = "jwt-blob-read"
 
 /**
  * Query parameter carrying a single-use [SocketTicketStore] ticket when the request cannot carry an
@@ -71,9 +77,26 @@ private const val SOCKET_TICKET_QUERY_PARAM = "ticket"
  * already keeps in origin-scoped localStorage, so it exposes nothing a script on this origin
  * could not already read.
  *
- * Read by [DOM_FETCH_PROVIDER] alone — see there for why that boundary is the security property.
+ * Read by [BLOB_READ_PROVIDER] alone — see there for why that boundary is the security property.
+ *
+ * **The client half of this contract, which the server cannot enforce:**
+ *
+ *  - **The name is duplicated, not shared.** The web client writes it from its own copy in
+ *    `app/webApp/.../jsMain` — the two must agree. Unlike the socket ticket's mirrored constant, a
+ *    disagreement here is silent: no error, no failed call, every image on the page simply never
+ *    loads.
+ *  - **Set it `SameSite=Strict; Secure; Path=/`.** Strict rather than Lax because nothing needs
+ *    this cookie on a cross-site top-level navigation — the SPA shell is not cookie-gated, and by
+ *    the time any subresource asks for bytes the load is same-site. The provider boundary above is
+ *    what the server relies on; `SameSite` is the defence-in-depth on top, and it closes a real
+ *    residual: with the cookie riding an `<img>` from any origin, a hostile page can tell 200 from
+ *    404 through `onload`/`onerror` and enumerate which books a visitor can reach — exactly the
+ *    existence leak the 404-not-403 answer in `BookRoutes` exists to prevent.
+ *  - **Rewrite it on every token refresh.** It carries an access token, so it expires with one
+ *    (≤15m). A client that sets it once at login has images start 401ing mid-session, and an
+ *    `<img>` reports that as nothing at all.
  */
-const val ACCESS_TOKEN_COOKIE = "listenup_access"
+internal const val ACCESS_TOKEN_COOKIE = "listenup_access"
 
 /**
  * Installs the two bearer providers. Both verify the access JWT and then run an `isLive` check on
@@ -83,7 +106,7 @@ const val ACCESS_TOKEN_COOKIE = "listenup_access"
  * They differ only in which carriers they will read a credential from:
  *  - [JWT_PROVIDER] — `Authorization` header, or a single-use socket ticket in the query. Gates the
  *    RPC surface and every mutating route.
- *  - [DOM_FETCH_PROVIDER] — `Authorization` header, or [ACCESS_TOKEN_COOKIE]. Gates the byte-serving
+ *  - [BLOB_READ_PROVIDER] — `Authorization` header, or [ACCESS_TOKEN_COOKIE]. Gates the byte-serving
  *    GETs only.
  *
  * [socketTickets] is the browser's way onto the socket: a ticket in the query redeems to the access
@@ -97,18 +120,47 @@ fun KtorApplication.installJwtAuth(
 ) {
     install(Authentication) {
         bearerJwt(jwt, sessionLiveness, socketTickets)
-        domFetchJwt(jwt, sessionLiveness)
+        blobReadJwt(jwt, sessionLiveness)
     }
 }
 
-private fun AuthenticationConfig.domFetchJwt(
+private fun AuthenticationConfig.bearerJwt(
+    jwt: JwtConfiguration,
+    sessionLiveness: SessionLiveness,
+    socketTickets: SocketTicketStore?,
+) {
+    bearer(JWT_PROVIDER) {
+        // Header first, so every native client is byte-for-byte unchanged and the browser's
+        // URL-borne ticket is only ever consulted when there is no header to prefer.
+        authHeader { call ->
+            call.request.parseAuthorizationHeader() ?: call.socketTicketFromQuery()
+        }
+        authenticate { credential ->
+            // `authHeader` cannot suspend, so redemption happens here, where it can. Which of the
+            // two carriers produced this credential is decided by the same rule `authHeader`
+            // applied: a present header always wins, so a ticket is only in play without one.
+            val accessToken =
+                if (request.parseAuthorizationHeader() != null) {
+                    credential.token
+                } else {
+                    socketTickets?.redeem(credential.token) ?: run {
+                        logJwtRejection("socket ticket was unknown, expired, or already spent")
+                        return@authenticate null
+                    }
+                }
+            principalFor(accessToken, jwt, sessionLiveness)
+        }
+    }
+}
+
+private fun AuthenticationConfig.blobReadJwt(
     jwt: JwtConfiguration,
     sessionLiveness: SessionLiveness,
 ) {
-    bearer(DOM_FETCH_PROVIDER) {
-        // Header first for the same reason as above: a native client's request is read exactly as
-        // it always was. No ticket here — a ticket is spent by the connection it opens, and a page
-        // full of covers issues one request per image.
+    bearer(BLOB_READ_PROVIDER) {
+        // Header first for the same reason [bearerJwt] prefers it: a native client's request is
+        // read exactly as it always was. No ticket here — a ticket is spent by the connection it
+        // opens, and a page full of covers issues one request per image.
         authHeader { call ->
             call.request.parseAuthorizationHeader() ?: call.accessTokenFromCookie()
         }
@@ -141,63 +193,32 @@ private suspend fun principalFor(
     return UserPrincipal(claims.userId, claims.sessionId, claims.role)
 }
 
-private fun AuthenticationConfig.bearerJwt(
-    jwt: JwtConfiguration,
-    sessionLiveness: SessionLiveness,
-    socketTickets: SocketTicketStore?,
-) {
-    bearer(JWT_PROVIDER) {
-        // Header first, so every native client is byte-for-byte unchanged and the browser's
-        // URL-borne ticket is only ever consulted when there is no header to prefer.
-        authHeader { call ->
-            call.request.parseAuthorizationHeader() ?: call.socketTicketFromQuery()
-        }
-        authenticate { credential ->
-            // `authHeader` cannot suspend, so redemption happens here, where it can. Which of the
-            // two carriers produced this credential is decided by the same rule `authHeader`
-            // applied: a present header always wins, so a ticket is only in play without one.
-            val accessToken =
-                if (request.parseAuthorizationHeader() != null) {
-                    credential.token
-                } else {
-                    socketTickets?.redeem(credential.token) ?: run {
-                        logJwtRejection("socket ticket was unknown, expired, or already spent")
-                        return@authenticate null
-                    }
-                }
-            principalFor(accessToken, jwt, sessionLiveness)
-        }
-    }
-}
+/** The single-use ticket in the `ticket` query parameter, shaped as a bearer credential. */
+private fun ApplicationCall.socketTicketFromQuery(): HttpAuthHeader? =
+    request.queryParameters[SOCKET_TICKET_QUERY_PARAM]
+        ?.asBearerCredential("query ticket is not a well-formed credential")
+
+/** The access token carried by [ACCESS_TOKEN_COOKIE], shaped as a bearer credential. */
+private fun ApplicationCall.accessTokenFromCookie(): HttpAuthHeader? =
+    request.cookies[ACCESS_TOKEN_COOKIE]
+        ?.asBearerCredential("cookie credential is not well-formed")
 
 /**
- * The `ticket` query parameter shaped as the bearer credential the provider expects, or null when
- * there is none — or when what is there could never have been one.
+ * This string as the bearer credential the providers expect, or null when it could never have been
+ * one.
  *
  * A blob outside RFC 7235's token68 alphabet makes [HttpAuthHeader.Single] throw, and an exception
- * escaping here would answer a bad credential with a 500. Absent and malformed both mean the same
- * thing to a caller — not authenticated. Tickets are base64url, so a real one always passes.
+ * escaping an `authHeader` block would answer a bad credential with a 500. Absent and malformed
+ * both mean the same thing to a caller — not authenticated. Tickets are base64url and access tokens
+ * are JWTs, so anything real always passes.
  */
-private fun ApplicationCall.socketTicketFromQuery(): HttpAuthHeader? {
-    val ticket = request.queryParameters[SOCKET_TICKET_QUERY_PARAM] ?: return null
-    return try {
-        HttpAuthHeader.Single(AuthScheme.Bearer, ticket)
+private fun String.asBearerCredential(malformedReason: String): HttpAuthHeader? =
+    try {
+        HttpAuthHeader.Single(AuthScheme.Bearer, this)
     } catch (_: ParseException) {
-        logJwtRejection("query ticket is not a well-formed credential")
+        logJwtRejection(malformedReason)
         null
     }
-}
-
-/** The access token carried by [ACCESS_TOKEN_COOKIE], or null when the cookie is absent. */
-private fun ApplicationCall.accessTokenFromCookie(): HttpAuthHeader? {
-    val token = request.cookies[ACCESS_TOKEN_COOKIE] ?: return null
-    return try {
-        HttpAuthHeader.Single(AuthScheme.Bearer, token)
-    } catch (_: ParseException) {
-        logJwtRejection("cookie credential is not well-formed")
-        null
-    }
-}
 
 /**
  * Convenience accessor — returns the authenticated principal, or null if the

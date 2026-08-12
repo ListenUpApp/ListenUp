@@ -44,7 +44,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
 private const val COVER_MAX_BYTES = 10L * 1024 * 1024
 
 /**
- * The book blobs a DOM element fetches for itself. Three endpoints, all reads:
+ * The book blobs the browser loads into an element for itself. Three endpoints, all reads:
  *
  *  - `GET /api/v1/books/{id}/cover` — serves the book's cover image bytes
  *    (filesystem image or embedded artwork). HTTP 200 with the image on
@@ -54,9 +54,10 @@ private const val COVER_MAX_BYTES = 10L * 1024 * 1024
  *  - `GET /api/v1/books/{id}/documents/{docId}` — serves the bytes of a supplementary
  *    document (PDF/ebook) shipped with the book.
  *
- * Mount inside `authenticate(DOM_FETCH_PROVIDER)` — these are exactly the requests an `<img src>`
+ * Mount inside `authenticate(BLOB_READ_PROVIDER)` — these are exactly the requests an `<img src>`
  * or a document link issues, and those cannot set an `Authorization` header. The split from
- * [bookRoutes] is what keeps the cookie carrier off the mutations; the provider's own KDoc has why.
+ * [bookBlobWriteRoutes] is what keeps the cookie carrier off the mutations; the provider's own
+ * KDoc has why.
  *
  * Cover serving is delegated to [coverResponder]. Both reads are access-gated through
  * [accessPolicy]: a member must not fetch the artwork or document bytes of a book they can't reach.
@@ -104,7 +105,7 @@ internal fun Route.bookBlobReadRoutes(
  * on [BookService] — book detail, patching, contributors/chapters/series/genres — is
  * RPC-only; server-side search in particular was removed along with its FTS5 indexes.
  */
-internal fun Route.bookRoutes(bookService: BookService) {
+internal fun Route.bookBlobWriteRoutes(bookService: BookService) {
     put<BookResources.Cover> { res ->
         call.handleCoverUpload(res.id, call.scoped(bookService))
     }
@@ -151,7 +152,7 @@ private suspend fun ApplicationCall.respondBareAppError(error: AppError) {
  * [BookServiceImpl.setBookCover] retains its own `requireCanEdit()` call as defense-in-depth —
  * the early check here short-circuits before any body buffering occurs.
  *
- * Extracted from the [bookRoutes] function body to keep cyclomatic complexity within the project
+ * Extracted from the [bookBlobWriteRoutes] function body to keep cyclomatic complexity within the project
  * threshold.
  */
 private suspend fun ApplicationCall.handleCoverUpload(

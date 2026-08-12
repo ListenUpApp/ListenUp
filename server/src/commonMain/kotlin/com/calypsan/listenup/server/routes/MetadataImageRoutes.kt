@@ -14,7 +14,7 @@ import kotlinx.io.files.Path
 
 /**
  * Routes that serve contributor photos and series cover images from local
- * storage. Mount inside `authenticate(DOM_FETCH_PROVIDER)` — both are displayed by an `<img src>`,
+ * storage. Mount inside `authenticate(BLOB_READ_PROVIDER)` — both are displayed by an `<img src>`,
  * which has no way to set an `Authorization` header. The matching uploads are the `PUT`s in
  * [contributorRoutes] / [seriesRoutes], which stay behind `JWT_PROVIDER`.
  *

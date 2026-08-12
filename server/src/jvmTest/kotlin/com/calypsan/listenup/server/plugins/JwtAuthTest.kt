@@ -2,11 +2,6 @@
 
 package com.calypsan.listenup.server.plugins
 
-import com.calypsan.listenup.api.dto.auth.SessionId
-import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.server.auth.JwtConfiguration
-import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.auth.SocketTicketStore
 import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import io.kotest.core.spec.style.FunSpec
@@ -17,20 +12,20 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.auth.authenticate
-import io.ktor.server.response.respondText
-import io.ktor.server.routing.get
-import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import org.slf4j.event.Level
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * The bearer provider reads its credential from the `Authorization` header first and from a
- * single-use `ticket` query parameter second — the browser path, because the `WebSocket`
- * constructor has no header parameter and Ktor's JS engine therefore drops the header the `Auth`
- * plugin wrote. Header-first is what keeps every native client byte-for-byte unchanged.
+ * What [JWT_PROVIDER] accepts: the `Authorization` header first, and a single-use `ticket` query
+ * parameter second — the browser path, because the `WebSocket` constructor has no header parameter
+ * and Ktor's JS engine therefore drops the header the `Auth` plugin wrote. Header-first is what
+ * keeps every native client byte-for-byte unchanged.
+ *
+ * It is not the only bearer provider. [BLOB_READ_PROVIDER] gates the byte-serving GETs and reads a
+ * header or a cookie instead; [CookieCarrierTest] is its spec, and also holds the case pinning that
+ * a cookie buys nothing *here*. The shared fixture for both is in `JwtAuthFixtures.kt`.
  *
  * The query carries a TICKET and never an access token: a URL lands in a reverse-proxy access log,
  * so what goes there has to be single-use and seconds-lived. The test below that rejects a valid
@@ -38,35 +33,15 @@ import kotlin.time.ExperimentalTime
  */
 class JwtAuthTest :
     FunSpec({
-        val jwt =
-            JwtConfiguration(
-                secret = "test-secret-that-is-long-enough-32",
-                issuer = "listenup-test",
-                audience = "listenup-test-clients",
-            )
-
-        fun tokenFor(sessionId: String) =
-            jwt.issue(
-                userId = UserId("user-1"),
-                sessionId = SessionId(sessionId),
-                role = UserRole.ADMIN,
-            )
 
         test("a valid token in the Authorization header authenticates") {
             testApplication {
-                application {
-                    installJwtAuth(jwt, SessionLiveness { true })
-                    routing {
-                        authenticate(JWT_PROVIDER) {
-                            get("/gated") { call.respondText(call.userPrincipalOrNull()?.userId?.value ?: "none") }
-                        }
-                    }
-                }
+                gatedRoute(JWT_PROVIDER)
 
                 val response = client.get("/gated") { bearerAuth(tokenFor("session-1")) }
 
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe "user-1"
+                response.bodyAsText() shouldBe FIXTURE_USER_ID
             }
         }
 
@@ -74,19 +49,12 @@ class JwtAuthTest :
             testApplication {
                 val tickets = SocketTicketStore(Clock.System)
                 val ticket = tickets.issue(tokenFor("session-2"))
-                application {
-                    installJwtAuth(jwt, SessionLiveness { true }, tickets)
-                    routing {
-                        authenticate(JWT_PROVIDER) {
-                            get("/gated") { call.respondText(call.userPrincipalOrNull()?.userId?.value ?: "none") }
-                        }
-                    }
-                }
+                gatedRoute(JWT_PROVIDER, tickets)
 
                 val response = client.get("/gated?ticket=$ticket")
 
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe "user-1"
+                response.bodyAsText() shouldBe FIXTURE_USER_ID
             }
         }
 
@@ -94,14 +62,7 @@ class JwtAuthTest :
             testApplication {
                 val tickets = SocketTicketStore(Clock.System)
                 val ticket = tickets.issue(tokenFor("session-2"))
-                application {
-                    installJwtAuth(jwt, SessionLiveness { true }, tickets)
-                    routing {
-                        authenticate(JWT_PROVIDER) {
-                            get("/gated") { call.respondText("reached") }
-                        }
-                    }
-                }
+                gatedRoute(JWT_PROVIDER, tickets)
 
                 client.get("/gated?ticket=$ticket").status shouldBe HttpStatusCode.OK
 
@@ -113,14 +74,7 @@ class JwtAuthTest :
 
         test("a raw access token in the query is REJECTED — the ticket path is not a token path") {
             testApplication {
-                application {
-                    installJwtAuth(jwt, SessionLiveness { true }, SocketTicketStore(Clock.System))
-                    routing {
-                        authenticate(JWT_PROVIDER) {
-                            get("/gated") { call.respondText("reached") }
-                        }
-                    }
-                }
+                gatedRoute(JWT_PROVIDER, SocketTicketStore(Clock.System))
 
                 // A perfectly valid JWT. Accepting it here would put a 15-minute credential in
                 // every reverse-proxy access log, which is the entire thing tickets exist to avoid.
@@ -130,14 +84,7 @@ class JwtAuthTest :
 
         test("the Authorization header wins when both are present and the ticket is junk") {
             testApplication {
-                application {
-                    installJwtAuth(jwt, SessionLiveness { true }, SocketTicketStore(Clock.System))
-                    routing {
-                        authenticate(JWT_PROVIDER) {
-                            get("/gated") { call.respondText(call.userPrincipalOrNull()?.userId?.value ?: "none") }
-                        }
-                    }
-                }
+                gatedRoute(JWT_PROVIDER, SocketTicketStore(Clock.System))
 
                 // The ticket was never issued: success proves it was never read.
                 val response =
@@ -146,20 +93,13 @@ class JwtAuthTest :
                     }
 
                 response.status shouldBe HttpStatusCode.OK
-                response.bodyAsText() shouldBe "user-1"
+                response.bodyAsText() shouldBe FIXTURE_USER_ID
             }
         }
 
         test("neither a header nor a ticket is 401") {
             testApplication {
-                application {
-                    installJwtAuth(jwt, SessionLiveness { true }, SocketTicketStore(Clock.System))
-                    routing {
-                        authenticate(JWT_PROVIDER) {
-                            get("/gated") { call.respondText("reached") }
-                        }
-                    }
-                }
+                gatedRoute(JWT_PROVIDER, SocketTicketStore(Clock.System))
 
                 client.get("/gated").status shouldBe HttpStatusCode.Unauthorized
             }
@@ -167,14 +107,7 @@ class JwtAuthTest :
 
         test("a ticket that is not a valid credential shape is 401, not a 500") {
             testApplication {
-                application {
-                    installJwtAuth(jwt, SessionLiveness { true }, SocketTicketStore(Clock.System))
-                    routing {
-                        authenticate(JWT_PROVIDER) {
-                            get("/gated") { call.respondText("reached") }
-                        }
-                    }
-                }
+                gatedRoute(JWT_PROVIDER, SocketTicketStore(Clock.System))
 
                 // `!` is outside RFC 7235's token68 alphabet — building an HttpAuthHeader.Single from
                 // it raises ParseException, which must never escape as a 500.
@@ -184,14 +117,7 @@ class JwtAuthTest :
 
         test("with no ticket store configured, a ticket in the query cannot authenticate") {
             testApplication {
-                application {
-                    installJwtAuth(jwt, SessionLiveness { true })
-                    routing {
-                        authenticate(JWT_PROVIDER) {
-                            get("/gated") { call.respondText("reached") }
-                        }
-                    }
-                }
+                gatedRoute(JWT_PROVIDER)
 
                 client.get("/gated?ticket=anything").status shouldBe HttpStatusCode.Unauthorized
             }

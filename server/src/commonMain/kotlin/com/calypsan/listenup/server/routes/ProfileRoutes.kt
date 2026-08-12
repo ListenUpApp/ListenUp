@@ -31,7 +31,7 @@ const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
  * Avatar upload (the JSON profile lives on ProfileService RPC):
  *  - POST /api/v1/profile/avatar  — own avatar, multipart; validates+stores via [imageStore], flips avatar_type=image.
  *
- * Mount inside `authenticate(JWT_PROVIDER)`. The matching read is [avatarImageRoute], which is
+ * Mount inside `authenticate(JWT_PROVIDER)`. The matching read is [avatarImageRoutes], which is
  * mounted under the DOM-fetch provider instead — an `<img src>` displays an avatar, nothing but the
  * app itself uploads one.
  */
@@ -82,10 +82,10 @@ fun Route.profileRoutes(
  * Avatar read:
  *  - GET /api/v1/avatars/{userId} — raw image, authed (any user, for presence); 404 when none.
  *
- * Mount inside `authenticate(DOM_FETCH_PROVIDER)` — it is displayed by an `<img src>`, which has no
+ * Mount inside `authenticate(BLOB_READ_PROVIDER)` — it is displayed by an `<img src>`, which has no
  * way to set an `Authorization` header.
  */
-fun Route.avatarImageRoute(imageStore: ImageStore) {
+fun Route.avatarImageRoutes(imageStore: ImageStore) {
     get("/api/v1/avatars/{userId}") {
         val target = call.parameters["userId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val path = imageStore.pathFor(target) ?: return@get call.respond(HttpStatusCode.NotFound)
