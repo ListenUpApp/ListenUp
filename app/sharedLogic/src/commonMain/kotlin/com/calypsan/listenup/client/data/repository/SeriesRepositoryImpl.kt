@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.SeriesService
-import com.calypsan.listenup.api.dto.SeriesHit
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.IODispatcher
@@ -299,11 +298,4 @@ private fun SeriesEntity.toSearchResult(): SeriesSearchResult =
         id = id.value,
         name = name,
         bookCount = 0, // Not available in offline mode
-    )
-
-private fun SeriesHit.toDomain(): SeriesSearchResult =
-    SeriesSearchResult(
-        id = id.value,
-        name = name,
-        bookCount = bookCount,
     )
