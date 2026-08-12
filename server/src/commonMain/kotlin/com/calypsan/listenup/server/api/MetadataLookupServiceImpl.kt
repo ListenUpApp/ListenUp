@@ -43,7 +43,10 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.withCapturedFrames
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
+
+private val logger = loggerFor<MetadataLookupServiceImpl>()
 
 /**
  * Server-side implementation of [MetadataLookupService].
@@ -317,18 +320,23 @@ internal class MetadataLookupServiceImpl(
                 // Non-retryable: re-firing the same call against the same URL can't succeed. The
                 // debugInfo below is a fixed string — echoing the caught exception's own message
                 // here would let a caller distinguish connected/refused/not-an-image outcomes for
-                // hosts it has no business probing (SEC-05).
+                // hosts it has no business probing (SEC-05). Logged server-side only.
+                logger.warn(e) { COVER_FETCH_FAILURE_LOG_MESSAGE }
                 AppResult.Failure(MetadataError.Malformed(debugInfo = COVER_REJECTED_DEBUG))
             } catch (e: CoverTooLargeException) {
+                logger.warn(e) { COVER_FETCH_FAILURE_LOG_MESSAGE }
                 AppResult.Failure(MetadataError.Malformed(debugInfo = COVER_REJECTED_DEBUG))
             } catch (e: Exception) {
                 // Same rationale as above: a constant debugInfo, no exception detail included.
+                // Logged server-side only.
+                logger.warn(e) { COVER_FETCH_FAILURE_LOG_MESSAGE }
                 AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = COVER_DOWNLOAD_FAILED_DEBUG))
             }
         }
     }
 }
 
+private const val COVER_FETCH_FAILURE_LOG_MESSAGE = "cover download/store failed"
 private const val COVER_REJECTED_DEBUG = "cover bytes rejected"
 private const val COVER_DOWNLOAD_FAILED_DEBUG = "cover download/store failed"
 

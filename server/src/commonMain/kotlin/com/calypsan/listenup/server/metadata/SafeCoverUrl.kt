@@ -55,7 +55,7 @@ object SafeCoverUrl {
         for (part in parts) {
             if (part.isEmpty() || part.length > 3 || !part.all(Char::isDigit)) return null
             val octet = part.toUIntOrNull() ?: return null
-            if (octet > 255u) return null
+            if (octet > MAX_IPV4_OCTET) return null
             addr = (addr shl BITS_PER_OCTET) or octet
         }
         return addr
@@ -92,8 +92,8 @@ object SafeCoverUrl {
 
     private fun isReservedIPv4(addr: UInt): Boolean =
         RESERVED_IPV4_BLOCKS.any { (network, bits) ->
-            val mask = if (bits == 0) 0u else (0xFFFFFFFFu shl (UInt.SIZE_BITS - bits))
-            (addr and mask) == (network and mask)
+            val mask = if (bits == 0) 0u else 0xFFFFFFFFu shl UInt.SIZE_BITS - bits
+            addr and mask == network and mask
         }
 
     // ─── IPv6 ─────────────────────────────────────────────────────────────────
@@ -111,6 +111,7 @@ object SafeCoverUrl {
     }
 
     private const val BITS_PER_OCTET = 8
+    private const val MAX_IPV4_OCTET = 255u
     private const val HEX_RADIX = 16
     private const val GLOBAL_UNICAST_IPV6_LOW = 0x2000
     private const val GLOBAL_UNICAST_IPV6_HIGH = 0x3FFF
