@@ -4,7 +4,9 @@ import com.calypsan.listenup.core.configureLogging
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
+import com.calypsan.listenup.client.data.push.AlwaysAvailablePush
 import com.calypsan.listenup.client.data.push.ApnsTokenStore
+import com.calypsan.listenup.client.data.push.PushAvailability
 import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.push.PushTokenProvider
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
@@ -109,12 +111,16 @@ internal actual fun initializeKoin(additionalModules: List<Module>) {
 /**
  * iOS push bindings — the mirror of the Android platform module's pair: this build IS the iOS
  * platform, and its token provider is the APNs token store the AppDelegate callback fills
- * through [KoinHelper.onPushTokenReceived].
+ * through [KoinHelper.onPushTokenReceived]. [PushAvailability] binds [AlwaysAvailablePush]: APNs
+ * registration only ever yields a token after the user grants the OS permission prompt, so
+ * [ApnsTokenStore] (the [PushTokenProvider]) already gates on delivery — a second check here
+ * would be redundant (see [PushAvailability]'s KDoc).
  */
 internal val iosPushModule: Module =
     module {
         single<PushPlatform> { PushPlatform.IOS }
         single { ApnsTokenStore() } bind PushTokenProvider::class
+        single<PushAvailability> { AlwaysAvailablePush }
     }
 
 /**

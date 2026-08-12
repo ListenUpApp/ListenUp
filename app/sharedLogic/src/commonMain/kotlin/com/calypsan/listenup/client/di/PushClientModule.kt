@@ -26,6 +26,10 @@ import org.koin.dsl.module
  *    Android platform module binds `FcmTokenProvider`); resolved here via
  *    `getOrNull()` so its absence (desktop, or an Android build without Play
  *    services) is a normal, non-crashing case.
+ *  - [com.calypsan.listenup.client.data.push.PushAvailability] — bound per-platform
+ *    (Android checks `POST_NOTIFICATIONS`; iOS binds `AlwaysAvailablePush`, since its
+ *    token provider already gates on the OS permission prompt); resolved here via
+ *    `getOrNull()` the same way as [PushTokenProvider].
  */
 internal val pushClientModule: Module =
     module {
@@ -46,12 +50,13 @@ internal val pushClientModule: Module =
 
         // PushRegistrar — orchestrates registration post-auth, on rotation, and on toggle
         // change. `tokenProvider` is nullable by design: no binding means no platform push
-        // hook on this build.
+        // hook on this build. `availability` is likewise nullable — see this module's KDoc.
         single {
             PushRegistrar(
                 instanceRepository = get(),
                 pushRepository = get(),
                 tokenProvider = getOrNull(),
+                availability = getOrNull(),
             )
         }
     }

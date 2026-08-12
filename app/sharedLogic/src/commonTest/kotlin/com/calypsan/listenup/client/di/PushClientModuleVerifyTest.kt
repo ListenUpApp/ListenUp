@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.push.PushPlatform
+import com.calypsan.listenup.client.data.push.PushAvailability
 import com.calypsan.listenup.client.data.push.PushTokenProvider
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcAuthRecovery
@@ -25,6 +26,8 @@ import org.koin.test.verify.verify
  *    because `verify()`'s static analysis needs every referenced type
  *    resolvable, nullable or not — the nullability is a runtime distinction,
  *    not a static-graph one.
+ *  - [PushAvailability] — owned by the Android platform module (and iOS's push
+ *    module). Same `getOrNull()` treatment as [PushTokenProvider].
  */
 @OptIn(KoinExperimentalAPI::class)
 class PushClientModuleVerifyTest :
@@ -40,6 +43,7 @@ class PushClientModuleVerifyTest :
                         InstanceRepository::class,
                         PushPlatform::class,
                         PushTokenProvider::class,
+                        PushAvailability::class,
                     ),
             )
         }
