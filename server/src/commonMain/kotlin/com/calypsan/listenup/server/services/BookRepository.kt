@@ -672,16 +672,19 @@ class BookRepository(
      *     aggregates for the idempotency + cover-sticky checks (one batched read); and the cover-file
      *     stores (off-transaction I/O). Each book becomes a [PreparedBook] carrying its payload,
      *     genre ids, isNew flag, stored cover, and an idempotency-skip flag.
-     *  2. **WRITE (chunked synchronous transactions).** Process the prepared books in chunks of
-     *     [PERSIST_CHUNK_SIZE]; each chunk is ONE [suspendTransaction] whose synchronous body loops the
-     *     books, each in its own nested `transactionWithResult` SAVEPOINT (per-book error containment),
-     *     calling [upsertInOpenTransaction]. The result is O(chunks) write transactions, not O(books).
+     *  2. **WRITE (chunked, one real transaction per book).** Process the prepared books in chunks of
+     *     [PERSIST_CHUNK_SIZE]; each book in the chunk runs in its OWN [suspendTransaction] (per-book
+     *     error containment — SQLDelight 2.3.2 does not implement nested transactions as SQLite
+     *     SAVEPOINTs, so a shared outer transaction cannot isolate a bad book, see [writeChunk]),
+     *     calling [upsertInOpenTransaction]. Chunking still batches the *progress/tag/revival* passes
+     *     that run after each chunk; it no longer batches the SQL commits themselves.
      *
      * Invariants preserved exactly from the per-book path: idempotent-rescan skip (unchanged content +
      * cover → no revision bump, no emit), cover sticky-UPLOADED, system-collection membership on
      * genuine-insert only, [FirehoseSuppressed] suppression (read once, threaded into every write),
-     * per-book containment (a savepoint rollback logs + counts the book, never aborts the chunk), and
-     * OOM abort (a compromised heap stops the loop and propagates via [PersistAbortedByOom]).
+     * per-book containment (a failed book's own transaction rolls back, logs, and is counted — the
+     * rest of the chunk is genuinely unaffected because each book commits independently), and OOM
+     * abort (a compromised heap stops the loop and propagates via [PersistAbortedByOom]).
      */
     override suspend fun resolveOrInsertAll(
         libraryId: LibraryId,
@@ -744,9 +747,23 @@ class BookRepository(
     }
 
     /**
-     * Writes one chunk of [PreparedBook]s in ONE [suspendTransaction], each book in its own nested
-     * [app.cash.sqldelight.TransactionWithReturn] savepoint for per-book error containment. Returns the
-     * books that committed (so the caller can count them + run their post-commit tag pass).
+     * Writes one chunk of [PreparedBook]s, each book in its OWN [suspendTransaction] — genuine per-book
+     * error containment. Returns the books that committed (so the caller can count them + run their
+     * post-commit tag pass).
+     *
+     * **Why one transaction per book, not one transaction for the whole chunk.** SQLDelight 2.3.2 does
+     * NOT implement nested `db.transactionWithResult { }` calls as SQLite SAVEPOINTs. Reading the
+     * runtime source (`Transacter.kt`'s `postTransactionCleanup`): a nested transaction's cleanup sets
+     * `enclosing.childrenSuccessful = transaction.successful && transaction.childrenSuccessful` — an
+     * ASSIGNMENT that reflects only the most recently completed nested child, not an accumulating AND
+     * across every child. A shared outer transaction wrapping a nested transaction per book therefore
+     * cannot reliably isolate a bad book: depending on what runs after it, either the failure gets
+     * silently overwritten back to "successful" by a later good book (so nothing rolls back, but the
+     * caller has no way to know that was luck), or — when the bad book is the last nested child that
+     * completes before the outer transaction's own `endTransaction()` — the ENTIRE outer transaction,
+     * including every sibling book already "committed" in the nested sense, rolls back. Neither outcome
+     * is genuine isolation. Only a real, separate [suspendTransaction] per book (a real BEGIN/COMMIT/
+     * ROLLBACK on the connection) makes one book's failure incapable of touching another's.
      *
      * A [book.skip][PreparedBook.skip] book writes only its genre junctions (the idempotent-content
      * re-scan still reconciles genres without a revision bump — matchesStoredContent normalizes genres
@@ -754,12 +771,15 @@ class BookRepository(
      * [upsertInOpenTransaction] aggregate write with its [PreparedBook.extras] (cover, system-collection
      * membership, genre ids) mirrored onto the transaction thread.
      *
-     * Per-book containment: a thrown book rolls back its savepoint, is logged + dropped from the result,
-     * and has its reserved firehose events discarded ([ChangeBus.discardReservedSince]) — SQLDelight
-     * transfers a rolled-back child's afterCommit hooks to the parent rather than discarding them, so
-     * without that call the failed book would still be announced. It never aborts the chunk. An [OutOfMemoryError] aborts the
-     * batch via [PersistAbortedByOom], carrying the partial counts [oomPartial] computes from this
-     * chunk's already-committed successes and the books that failed up to the OOM point.
+     * Per-book containment: a thrown book's OWN transaction rolls back (its afterCommit hooks
+     * discarded) and it is logged + dropped from the result — every other book's transaction has
+     * already committed or will commit independently, so the rest of the chunk is genuinely
+     * unaffected. Firehose emit ordering is preserved: each book's `afterCommit` fires the instant
+     * that book's own transaction commits, and books are processed sequentially (one `suspendTransaction`
+     * awaited before the next begins), so emits still fire in ascending revision order — the same order
+     * [nextRevision] allocated them in. An [OutOfMemoryError] aborts the batch via [PersistAbortedByOom],
+     * carrying the partial counts [oomPartial] computes from this chunk's already-committed successes
+     * and the books that failed up to the OOM point.
      */
     private suspend fun writeChunk(
         chunk: List<PreparedBook>,
@@ -768,40 +788,32 @@ class BookRepository(
     ): List<PreparedBook> {
         val succeeded = mutableListOf<PreparedBook>()
         var failedInChunk = 0
-        suspendTransaction<Unit>(db) {
-            for (book in chunk) {
-                // Everything this book's savepoint reserves, so a failure can drop exactly those.
-                val publishMark = bus.mark()
-                try {
-                    db.transactionWithResult {
-                        if (book.skip) {
-                            bookGenreWriter.writeJunctions(book.bookId.value, book.genreIds)
-                        } else {
-                            setTransactionLocal(book.extras)
-                            try {
-                                upsertInOpenTransaction(book.payload, suppressed)
-                            } finally {
-                                setTransactionLocal(null)
-                            }
+        for (book in chunk) {
+            try {
+                suspendTransaction<Unit>(db) {
+                    if (book.skip) {
+                        bookGenreWriter.writeJunctions(book.bookId.value, book.genreIds)
+                    } else {
+                        setTransactionLocal(book.extras)
+                        try {
+                            upsertInOpenTransaction(book.payload, suppressed)
+                        } finally {
+                            setTransactionLocal(null)
                         }
                     }
-                    succeeded += book
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: OutOfMemoryError) {
-                    failedInChunk++
-                    throw PersistAbortedByOom(oomPartial(succeeded.toList(), failedInChunk), e)
-                } catch (e: Throwable) {
-                    // Per-book savepoint rollback: this book's nested transaction rolled back and the
-                    // rest of the chunk is unaffected — but SQLDelight hands a rolled-back child's
-                    // afterCommit hooks UP to the enclosing transaction, which runs them on ITS commit.
-                    // Without this the book's already-reserved events (notably the system-collection
-                    // membership written before its children) would be announced for rows that were
-                    // rolled away. Only this catch knows the savepoint died, so it drops them here.
-                    bus.discardReservedSince(publishMark)
-                    failedInChunk++
-                    log.warn(e) { "Book persist threw: ${book.payload.rootRelPath} — continuing" }
                 }
+                succeeded += book
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: OutOfMemoryError) {
+                failedInChunk++
+                throw PersistAbortedByOom(oomPartial(succeeded.toList(), failedInChunk), e)
+            } catch (e: Throwable) {
+                // Per-book isolation: this book's OWN transaction rolled back (its afterCommit hooks
+                // discarded), and every other book's transaction is a separate commit — the rest of
+                // the chunk is genuinely unaffected.
+                failedInChunk++
+                log.warn(e) { "Book persist threw: ${book.payload.rootRelPath} — continuing" }
             }
         }
         return succeeded
