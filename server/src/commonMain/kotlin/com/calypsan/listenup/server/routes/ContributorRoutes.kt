@@ -2,13 +2,9 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
-import com.calypsan.listenup.server.routes.resources.MergeContributorsBody
-import com.calypsan.listenup.server.routes.resources.UnmergeContributorBody
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.server.routes.resources.ContributorResources
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -20,11 +16,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
-import io.ktor.server.request.receive
-import io.ktor.server.resources.delete
-import io.ktor.server.resources.get
-import io.ktor.server.resources.patch
-import io.ktor.server.resources.post
 import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -32,30 +23,22 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
 /**
- * REST surface for [ContributorService]. Seven endpoints:
+ * REST surface for [ContributorService]. One endpoint:
  *
- *  - `GET /api/v1/contributors/{id}` — returns the full [ContributorSyncPayload]
- *    for the given id, or null when no contributor with that id exists. HTTP 200
- *    on both (null is a valid "not cached yet" response — clients show a stub
- *    while sync catches up). Follows the third-party RESTful convention: responds
- *    the unwrapped value, not the [AppResult] envelope.
- *  - `GET /api/v1/contributors/{id}/books` — returns the [BookSyncPayload]s
- *    associated with the contributor that the caller can reach. HTTP 200 with an
- *    empty list when the contributor has no accessible books. The scoped service
- *    access-filters the listing (via `BookAccessPolicy`), so an inaccessible book
- *    is simply absent — existence-preserving, identical to a contributor that has
- *    no accessible books. ROOT/ADMIN bypass the filter.
- *  - `PATCH /api/v1/contributors/{id}` — applies a [ContributorUpdate] patch to
- *    the contributor. HTTP 204 on success.
- *  - `DELETE /api/v1/contributors/{id}` — hard-deletes the contributor and
- *    removes all junction rows. HTTP 204 on success.
- *  - `POST /api/v1/contributors/merge` — merges source into target contributor.
- *    HTTP 204 on success.
- *  - `POST /api/v1/contributors/{id}/unmerge` — unmerges an alias back out of
- *    the contributor. HTTP 200 with the new [ContributorId] on success.
+ *  - `PUT /api/v1/contributors/{id}/image` — uploads a contributor photo,
+ *    content-addressed under [imageHome], then applies the resulting path via
+ *    a [ContributorUpdate] patch through the scoped service (so `canEdit`,
+ *    revision bump, and sync-event publication all fire). HTTP 204 on
+ *    success; a rejected update deletes the just-written file so rejected
+ *    uploads can't accumulate on disk.
  *
- * All endpoints require JWT authentication (mounted inside the authenticate block
- * in Application.kt).
+ * Every other [ContributorService] operation (get, list books, patch,
+ * delete, merge, unmerge) is RPC-only — this file used to also mirror a
+ * merge/unmerge REST pair, but those handlers were never registered; the
+ * image upload above is the only route this file actually mounts.
+ *
+ * Requires JWT authentication (mounted inside the authenticate block in
+ * Application.kt).
  */
 private const val AUTH_WALL_REGRESSION_MSG =
     "contributor REST mount reached without a principal — auth wall regression"
