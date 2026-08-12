@@ -42,7 +42,7 @@ fun contractLibrary(
         series = emptyList(),
         authors = emptyList(),
         narrators = emptyList(),
-        bookProgress = books.associate { it.id to 0.4f },
+        bookProgress = books.associate { it.id to PARTIAL_PROGRESS },
         bookIsFinished = emptyMap(),
         booksInProgress = emptyList(),
         seriesProgress = emptyMap(),
@@ -50,6 +50,14 @@ fun contractLibrary(
         isServerScanning = false,
         scanProgress = null,
     )
+
+/**
+ * Part-read, so the progress bar actually renders.
+ *
+ * The page draws `.lib-progress` only when progress is greater than zero, so a contract built on
+ * zero would assert against markup that was never emitted.
+ */
+private const val PARTIAL_PROGRESS = 0.4f
 
 /** A minimal book for contract rendering — only `id` and `title` reach the DOM. */
 fun contractBook(
