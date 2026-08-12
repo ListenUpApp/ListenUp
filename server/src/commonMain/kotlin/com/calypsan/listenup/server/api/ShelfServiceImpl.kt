@@ -195,11 +195,13 @@ internal class ShelfServiceImpl(
 
     override suspend fun listMyShelves(): AppResult<List<Shelf>> {
         val caller = resolveCaller() ?: return noPrincipal()
+        val owned = shelfRepo.listOwnedBy(caller.userId)
+        // One batched count round trip instead of one listByShelf-and-.size per shelf.
+        val counts = shelfBookRepo.countLiveForShelves(owned.map { it.id })
         val shelves =
-            shelfRepo
-                .listOwnedBy(caller.userId)
+            owned
                 .sortedByDescending { it.updatedAt }
-                .map { shelf -> shelf.toSummary(liveBookCount(ShelfId(shelf.id))) }
+                .map { shelf -> shelf.toSummary(counts[shelf.id] ?: 0) }
         return AppResult.Success(shelves)
     }
 
@@ -362,7 +364,8 @@ internal class ShelfServiceImpl(
         return owned.shelf.toSummary(bookCount = accessibleCount)
     }
 
-    private suspend fun liveBookCount(shelfId: ShelfId): Int = shelfBookRepo.listByShelf(shelfId.value).size
+    private suspend fun liveBookCount(shelfId: ShelfId): Int =
+        shelfBookRepo.countLiveForShelves(listOf(shelfId.value))[shelfId.value] ?: 0
 
     private fun ShelfSyncPayload.toSummary(bookCount: Int): Shelf =
         Shelf(
