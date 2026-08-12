@@ -414,6 +414,13 @@ private fun LoginNavigation(
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator(),
             ),
+        // Guarded like AuthNavigation's: popping the last entry would empty the stack and leave
+        // NavDisplay in an undefined state (a frozen composition over cleared ViewModel stores).
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeAt(backStack.lastIndex)
+            }
+        },
         entryProvider =
             entryProvider {
                 entry<Login> {
