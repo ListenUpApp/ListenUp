@@ -12,11 +12,14 @@ import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.BookId
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -212,6 +215,88 @@ class PlaybackPositionFinishTest :
                         // updatePositionOnly never touches speed — the seeded 1.25f/custom=true survive.
                         stored.playbackSpeed shouldBe 1.25f
                         stored.hasCustomSpeed shouldBe true
+                    }
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        // ──────────────────────────────────────────────────────────────────
+        // C-C04 — position-only tombstone must heal on an active local write
+        // ──────────────────────────────────────────────────────────────────
+
+        context("C-C04: tombstone-then-replay") {
+            test(
+                "a tombstoned position is excluded from get/getRecentPositions/streak, " +
+                    "then heals on an active local write",
+            ) {
+                val db = createInMemoryTestDatabase()
+                try {
+                    runTest {
+                        val repo = repoAgainst(db)
+                        val bookId = BookId("b1")
+                        db.playbackPositionDao().save(playedEntity(bookId))
+                        db.playbackPositionDao().softDelete(bookId, deletedAt = 2_000L, revision = 5L)
+
+                        // Tombstoned: excluded from resume/Continue-Listening reads AND the streak.
+                        // getLive is the resume-facing read (dao.get stays unfiltered — it's also
+                        // read by write-handler merges and the sync conflict check, which must see
+                        // the raw row regardless of tombstone status; see PlaybackPositionDao.get's
+                        // KDoc).
+                        db.playbackPositionDao().getLive(bookId) shouldBe null
+                        db.playbackPositionDao().getRecentPositions(10) shouldBe emptyList()
+                        db.playbackPositionDao().observeListenedDayTimestamps().first() shouldBe emptyList()
+
+                        // An active local write heals it.
+                        repo
+                            .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 5_000L, speed = 1.0f))
+                            .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                        val healed = db.playbackPositionDao().getLive(bookId).shouldNotBeNull()
+                        healed.positionMs shouldBe 5_000L
+                        healed.deletedAt shouldBe null
+
+                        db.playbackPositionDao().getRecentPositions(10).map { it.bookId } shouldContain bookId
+                        db
+                            .playbackPositionDao()
+                            .observeListenedDayTimestamps()
+                            .first()
+                            .shouldNotBeEmpty()
+                    }
+                } finally {
+                    db.close()
+                }
+            }
+
+            test("a tombstoned book-finish also heals the tombstone and preserves other fields") {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val dispatcher = StandardTestDispatcher()
+                    runTest(dispatcher) {
+                        val repo = repoAgainst(db)
+                        val bookId = BookId("b1")
+                        db.playbackPositionDao().save(playedEntity(bookId).copy(volumeBoostDb = 4f, hasCustomBoost = true))
+                        db.playbackPositionDao().softDelete(bookId, deletedAt = 2_000L, revision = 5L)
+
+                        val tracker =
+                            ProgressTracker(
+                                downloadRepository = mock(),
+                                positionRepository = repo,
+                                scope = CoroutineScope(dispatcher),
+                            )
+
+                        tracker.onBookFinished(bookId, finalPositionMs = 200_000L)
+                        advanceUntilIdle()
+
+                        val healed = db.playbackPositionDao().get(bookId).shouldNotBeNull()
+                        healed.positionMs shouldBe 200_000L
+                        healed.isFinished shouldBe true
+                        healed.deletedAt shouldBe null
+                        // The tombstone-clearing merge must not wipe fields the finish write
+                        // doesn't own — volumeBoostDb/hasCustomBoost survive from the seeded row.
+                        healed.volumeBoostDb shouldBe 4f
+                        healed.hasCustomBoost shouldBe true
                     }
                 } finally {
                     db.close()
