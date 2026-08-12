@@ -124,13 +124,14 @@ class ForgotPasswordScreenTest {
     }
 
     @Test
-    fun `the code is entered as six separate boxes`() {
+    fun `the code is entered as eight separate boxes, matching the server's code length`() {
         // Someone is reading the code aloud; grouped characters are easier to key and re-check
-        // than a run of six in one field.
+        // than a run of eight in one field. Eight, not six: the server's ResetCodeGenerator
+        // mints 4+4 codes, and a shorter row silently truncates a real code.
         setContent(state = ForgotPasswordUiState.EnterCode(ticketId = "t-1"))
 
         // Unmerged: the cells are the text field's decoration, so their semantics merge into it.
-        composeRule.onAllNodesWithTag(CODE_BOX_TAG, useUnmergedTree = true).assertCountEquals(6)
+        composeRule.onAllNodesWithTag(CODE_BOX_TAG, useUnmergedTree = true).assertCountEquals(8)
     }
 
     @Test

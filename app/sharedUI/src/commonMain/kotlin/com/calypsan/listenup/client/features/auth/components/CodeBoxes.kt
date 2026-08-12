@@ -25,8 +25,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-/** How many characters the out-of-band reset code carries. */
-const val CODE_LENGTH: Int = 6
+/**
+ * How many characters the out-of-band reset code carries. Must match the server's
+ * `ResetCodeGenerator` (4 + 4, spoken as `YGFD-NBRW`) — a shorter row of cells silently
+ * truncates real codes and makes completion impossible.
+ */
+const val CODE_LENGTH: Int = 8
 
 /** Test tag on each rendered character cell. */
 const val CODE_BOX_TAG: String = "code-box"
@@ -35,7 +39,7 @@ const val CODE_BOX_TAG: String = "code-box"
 const val CODE_FIELD_TAG: String = "code-field"
 
 /**
- * The reset code as six separate cells.
+ * The reset code as eight separate cells, grouped four-and-four.
  *
  * Someone is reading this code to the requester over the phone or across a room, so the characters
  * are grouped rather than run together in one field — easier to key, and far easier to re-check
@@ -88,7 +92,7 @@ private fun CodeCells(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(CODE_LENGTH) { index ->
-            // The gap after the third cell is the same break the code is spoken with.
+            // The gap after the fourth cell is the same break the code is spoken with.
             if (index == CODE_LENGTH / 2) {
                 Box(
                     Modifier
@@ -132,11 +136,13 @@ private fun CodeCell(
 /** Upper-case, `[0-9A-Z]` only, never longer than the code — the server's own normalise. */
 private fun String.normalizedCode(): String = uppercase().filter { it in '0'..'9' || it in 'A'..'Z' }.take(CODE_LENGTH)
 
-private val CELL_WIDTH = 46.dp
+// Sized so eight cells, seven gaps and the group dash fit a compact-width phone with the
+// auth screens' horizontal padding: 8×36 + 7×6 + 12 = 342dp.
+private val CELL_WIDTH = 36.dp
 
-private val CELL_HEIGHT = 60.dp
+private val CELL_HEIGHT = 52.dp
 
-private val CELL_GAP = 8.dp
+private val CELL_GAP = 6.dp
 
 private val GROUP_DASH_WIDTH = 12.dp
 
