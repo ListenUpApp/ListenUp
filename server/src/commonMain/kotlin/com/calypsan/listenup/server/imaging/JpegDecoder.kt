@@ -158,8 +158,9 @@ private fun decodeBlock(
             val run = (symbol and 0xF0) shr 4
             val size = symbol and 0x0F
             if (size == 0) {
-                if (run != ZERO_RUN_16) break
-                index += ZERO_RUN_16
+                // Size zero is either end-of-block, or ZRL — sixteen zeroes and the block goes on.
+                if (run != ZERO_RUN_SYMBOL) break
+                index += ZERO_RUN_LENGTH
                 continue
             }
             index += run
@@ -234,12 +235,13 @@ private fun decodeProgressiveAc(
         val run = (symbol and 0xF0) shr 4
         val size = symbol and 0x0F
         if (size == 0) {
-            if (run < ZERO_RUN_16 - 1) {
+            // Below ZRL, size zero ends a run of entirely-empty blocks rather than this block alone.
+            if (run != ZERO_RUN_SYMBOL) {
                 reader.endOfBandRun = (1 shl run) - 1
                 if (run > 0) reader.endOfBandRun += reader.readBits(run)
                 break
             }
-            index += ZERO_RUN_16
+            index += ZERO_RUN_LENGTH
             continue
         }
         index += run
@@ -330,4 +332,7 @@ private val SUPPORTED_REDUCTIONS = listOf(4, 8)
  */
 private const val RETAINED_COEFFICIENTS = 10
 private const val AC_BANDS_WE_NEED = 3
-private const val ZERO_RUN_16 = 16
+
+/** The run field of a ZRL symbol. Four bits wide, so it can never hold [ZERO_RUN_LENGTH] itself. */
+private const val ZERO_RUN_SYMBOL = 15
+private const val ZERO_RUN_LENGTH = 16
