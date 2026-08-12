@@ -140,7 +140,13 @@ class TitleSortUtilsTest :
         //
         // This block is the cross-platform contract: Android, the web library and the Swift mirror
         // in app/iosApp/ListenUp/Core/TitleSorting.swift all group by these rules, so a change here
-        // is a change to every client's section headers.
+        // is a change to every client's section headers. The Swift counterpart cases live in
+        // `BookSectioningTests` — change one table, change both.
+        //
+        // Which rule applies is decided by the SORT, not by taste: a header must match the order the
+        // list is in, or a book files under a letter it does not sort beneath. Series are sorted by
+        // `sortableTitle` (article-aware → `sortLetter`); authors and books-within-a-series are
+        // sorted by plain `lowercase()` (literal → `nameLetter`).
 
         test("nameLetter uppercases the first letter of a name") {
             TitleSortUtils.nameLetter("frank herbert") shouldBe 'F'
