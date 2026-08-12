@@ -400,11 +400,19 @@ private fun LoginNavigation(
     val scope = rememberCoroutineScope()
     val backStack = rememberNavBackStack(Login)
     val serverConfig: com.calypsan.listenup.client.domain.repository.ServerConfig = koinInject()
+    val instanceRepository: com.calypsan.listenup.client.domain.repository.InstanceRepository = koinInject()
+    var rootResetArmed by remember { mutableStateOf(false) }
 
     // Refresh open registration value from server
     // This ensures the "Create Account" link appears if admin enabled it
     LaunchedEffect(Unit) {
         authSession.refreshOpenRegistration()
+        // Live probe, never cached: the root-reset hatch is a 15-minute window armed by a server
+        // restart, so only a fresh answer is meaningful. On failure the entry simply stays hidden.
+        rootResetArmed =
+            (instanceRepository.getServerInfo(forceRefresh = true) as? AppResult.Success)
+                ?.data
+                ?.rootResetArmed == true
     }
 
     NavDisplay(
@@ -439,6 +447,7 @@ private fun LoginNavigation(
                             onForgotPassword = {
                                 backStack.add(ForgotPassword)
                             },
+                            showRootResetEntry = rootResetArmed,
                         )
                 }
                 entry<Register> {

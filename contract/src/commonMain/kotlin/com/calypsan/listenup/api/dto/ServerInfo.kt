@@ -37,6 +37,15 @@ data class ServerInfo(
     @SerialName("pushEnabled")
     val pushEnabled: Boolean = false,
     /**
+     * True while the operator's root-password escape hatch (`LISTENUP_ROOT_RESET`) is armed, its
+     * 15-minute window still open and its one-time token unconsumed. Gates the sign-in screen's
+     * "Reset root password" affordance so it only exists during the window the operator opened —
+     * exposing armed-ness grants nothing (the log token is still required), it only reveals what
+     * the operator just did on their own host.
+     */
+    @SerialName("rootResetArmed")
+    val rootResetArmed: Boolean = false,
+    /**
      * Stable server-instance id (the mDNS TXT `id`), persisted server-side so it survives restarts.
      * Clients compare it on reconnect to tell a restart of the *same* server (stay signed in) from a
      * *different* server (clean re-auth).

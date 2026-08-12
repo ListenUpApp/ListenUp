@@ -47,6 +47,17 @@ class RootResetToken private constructor(
         }
     }
 
+    /**
+     * True while the hatch can still be opened: armed, inside [WINDOW], token not yet burned.
+     * Read-only — never mutates state, so surfaces like `ServerInfo.rootResetArmed` can poll it
+     * freely without spending anything.
+     */
+    fun isLive(now: Instant): Boolean {
+        val at = armedAt ?: return false
+        if (consumed.value) return false
+        return now <= at.plus(WINDOW)
+    }
+
     companion object {
         /** How long after startup the hatch stays open. */
         val WINDOW = 15.minutes

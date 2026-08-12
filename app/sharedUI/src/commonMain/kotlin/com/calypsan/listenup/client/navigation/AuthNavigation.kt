@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -24,6 +27,7 @@ import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.features.auth.ForgotPasswordScreen
@@ -250,10 +254,18 @@ private fun LoginNavigation(
     val scope = rememberCoroutineScope()
     val backStack = rememberNavBackStack(authNavSavedStateConfiguration, Login)
     val serverConfig: com.calypsan.listenup.client.domain.repository.ServerConfig = koinInject()
+    val instanceRepository: com.calypsan.listenup.client.domain.repository.InstanceRepository = koinInject()
+    var rootResetArmed by remember { mutableStateOf(false) }
 
     // Refresh open registration value from server
     LaunchedEffect(Unit) {
         authSession.refreshOpenRegistration()
+        // Live probe, never cached: the root-reset hatch is a 15-minute window armed by a server
+        // restart, so only a fresh answer is meaningful. On failure the entry simply stays hidden.
+        rootResetArmed =
+            (instanceRepository.getServerInfo(forceRefresh = true) as? AppResult.Success)
+                ?.data
+                ?.rootResetArmed == true
     }
 
     NavDisplay(
@@ -287,6 +299,7 @@ private fun LoginNavigation(
                         onForgotPassword = {
                             backStack.add(ForgotPassword)
                         },
+                        showRootResetEntry = rootResetArmed,
                     )
                 }
                 entry<Register> {
