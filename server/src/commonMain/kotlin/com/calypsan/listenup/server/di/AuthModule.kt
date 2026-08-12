@@ -42,6 +42,7 @@ import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.ktor.server.config.ApplicationConfig
+import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
 import org.koin.core.scope.Scope
 import org.koin.dsl.module
@@ -53,9 +54,12 @@ import kotlin.time.ExperimentalTime
 /**
  * The [AdminUserServiceImpl] singleton, extracted from [authModule] purely to keep that
  * function under the LongMethod threshold. `getOrNull()` collaborators are modules that may
- * not be loaded in minimal test containers (roster, profiles, push).
+ * not be loaded in minimal test containers (roster, profiles, push). [applicationScope] is
+ * captured directly (not resolved via Koin) rather than re-declared as a `single<CoroutineScope>`
+ * here — `scannerModule` already binds one, and a second `single { }` for the same type would
+ * collide with it.
  */
-private fun org.koin.core.module.Module.adminUserServiceSingle() {
+private fun org.koin.core.module.Module.adminUserServiceSingle(applicationScope: CoroutineScope) {
     single {
         AdminUserServiceImpl(
             sql = get<ListenUpDatabase>(),
@@ -68,9 +72,12 @@ private fun org.koin.core.module.Module.adminUserServiceSingle() {
             publicProfileMaintainer = getOrNull(),
             activityRecorder = getOrNull(),
             defaultGrantIssuer = getOrNull(),
-            adminUserRosterMaintainer = getOrNull(),
             pushNotifier = getOrNull(),
             pushWatchTokens = getOrNull(),
+            // The server's real long-lived application scope — the decision push (#1068) is
+            // fired fire-and-forget here, never awaited on the RPC path.
+            appScope = applicationScope,
+            adminUserRosterMaintainer = getOrNull(),
             passwordResetService = get(),
         )
     }
@@ -85,10 +92,14 @@ private fun org.koin.core.module.Module.adminUserServiceSingle() {
  * primitives; then the top-level `AuthServiceImpl`. [pushRelayUrl] is resolved
  * once at startup (`Application.resolvePushRelayUrl`) and threaded through here
  * the same way `homeDir` reaches domain modules — see `installDependencies`.
+ * [applicationScope] is the server's real long-lived coroutine scope (see
+ * `scannerModule`'s KDoc) — [AdminUserServiceImpl] fires the registration-decision push on it,
+ * fire-and-forget, rather than awaiting it inline on the RPC path.
  */
 fun authModule(
     config: ApplicationConfig,
     pushRelayUrl: String,
+    applicationScope: CoroutineScope,
 ): Module {
     val secrets = resolveServerSecrets(config)
     return module {
@@ -196,7 +207,7 @@ fun authModule(
             )
         }
 
-        adminUserServiceSingle()
+        adminUserServiceSingle(applicationScope)
 
         single {
             AdminSettingsServiceImpl(

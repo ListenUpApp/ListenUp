@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.testing.testPasswordResetService
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
@@ -179,12 +180,17 @@ class RegistrationWatchTest :
                         publicProfileMaintainer = fix.db.noOpPublicProfileMaintainer(),
                         pushNotifier = recorder,
                         pushWatchTokens = fix.store,
+                        // The push runs fire-and-forget on this scope now (#1068 correctness fix) —
+                        // bind it to this test's own TestScope so advanceUntilIdle() below drives it
+                        // to completion deterministically instead of a real background dispatcher.
+                        appScope = this,
                         passwordResetService = testPasswordResetService(fix.db, fix.clock),
                     ).copyWith(principalFor("root1", com.calypsan.listenup.api.dto.auth.UserRole.ADMIN))
 
                 admin
                     .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true))
                     .shouldBeInstanceOf<AppResult.Success<*>>()
+                advanceUntilIdle() // let the fire-and-forget push land
 
                 delivered shouldBe listOf(userId to PushPayload.RegistrationDecision(userId, approved = true))
                 fix.watchCount() shouldBe 0
