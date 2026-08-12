@@ -329,9 +329,13 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         // Periodic position save during playback. Use updatePositionOnly to preserve
         // hasCustomSpeed + playbackSpeed against concurrent speed-change writers
-        // (PlaybackPositionDao.updatePositionOnly contract).
+        // (PlaybackPositionDao.updatePositionOnly contract). A book with no prior row
+        // updates 0 rows — insert a fresh blank row in that case only, so the fallback
+        // can never race a concurrent speed/boost writer (C-C05).
         val now = currentEpochMilliseconds()
-        dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now)
+        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+            dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
+        }
     }
 
     private suspend fun handleSpeed(
@@ -476,17 +480,23 @@ internal class PlaybackPositionRepositoryImpl(
         u: PlaybackUpdate.PlaybackPaused,
     ) {
         // Same shape as Position — periodic position flush; speed preserved via
-        // updatePositionOnly (per dao contract).
+        // updatePositionOnly (per dao contract). See handlePosition for the insert-if-zero
+        // fallback rationale (C-C05).
         val now = currentEpochMilliseconds()
-        dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now)
+        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+            dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
+        }
     }
 
     private suspend fun handlePeriodicUpdate(
         bookId: BookId,
         u: PlaybackUpdate.PeriodicUpdate,
     ) {
+        // See handlePosition for the insert-if-zero fallback rationale (C-C05).
         val now = currentEpochMilliseconds()
-        dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now)
+        if (dao.updatePositionOnly(bookId, u.positionMs, updatedAt = now, lastPlayedAt = now) == 0) {
+            dao.save(blank(bookId, now).copy(positionMs = u.positionMs, lastPlayedAt = now))
+        }
     }
 
     private suspend fun handleBookFinished(
