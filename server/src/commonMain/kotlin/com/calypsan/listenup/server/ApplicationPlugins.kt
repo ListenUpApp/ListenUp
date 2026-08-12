@@ -82,13 +82,14 @@ internal fun Application.installDependencies(
     embeddedCoverCacheSize: Int,
     watchEnabled: Boolean,
     pushRelayUrl: String,
+    pushRelayToken: String?,
 ) {
     // KoinIsolated (not Koin): the DI graph is scoped to THIS Application instance instead of the
     // process-global Koin context. Production runs one Application, so behaviour is unchanged — but
     // it removes the global `on(ApplicationStopped){ stopKoin() }` whose late async firing could rip
     // the live context out of the next test spec (the BookAccessPolicy NoDefinitionFound E2E flake).
     install(KoinIsolated) {
-        val modules = mutableListOf(authModule(environment.config, pushRelayUrl, applicationScope))
+        val modules = mutableListOf(authModule(environment.config, pushRelayUrl, applicationScope, pushRelayToken))
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
         modules += metadataModule(homeDir)

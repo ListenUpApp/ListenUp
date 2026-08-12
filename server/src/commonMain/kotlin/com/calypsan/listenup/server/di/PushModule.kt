@@ -43,7 +43,12 @@ fun pushModule(): Module =
             if (config.configured) {
                 RelayPushNotifier(
                     db = get<ListenUpDatabase>(),
-                    relay = PushRelayClient(relayUrl = config.relayUrl!!.removeSuffix("/"), http = pushHttpClient()),
+                    relay =
+                        PushRelayClient(
+                            relayUrl = config.relayUrl!!.removeSuffix("/"),
+                            http = pushHttpClient(),
+                            relayToken = config.relayToken,
+                        ),
                     settings = get(),
                     clock = get(),
                 )

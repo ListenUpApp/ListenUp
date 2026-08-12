@@ -127,9 +127,12 @@ class RelayPushNotifierTest :
 
         fun failure(): suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData = { throw IOException("relay unreachable") }
 
-        fun relayClientFor(engine: MockEngine): PushRelayClient {
+        fun relayClientFor(
+            engine: MockEngine,
+            relayToken: String? = null,
+        ): PushRelayClient {
             val http = HttpClient(engine) { install(ContentNegotiation) { json(contractJson) } }
-            return PushRelayClient(relayUrl = "https://relay.example.com", http = http)
+            return PushRelayClient(relayUrl = "https://relay.example.com", http = http, relayToken = relayToken)
         }
 
         test("fans out to all live tokens in one relay call") {
@@ -177,6 +180,33 @@ class RelayPushNotifierTest :
                 // "platform must be android|ios"); rows store the PushPlatform enum name.
                 sentTokens shouldBe setOf("token-android" to "android", "token-ios" to "ios")
                 body["payload"] shouldBe contractJson.encodeToJsonElement(PushPayload.serializer(), payload)
+                // No relayToken configured — no Authorization header at all (relay phase 1: absent proceeds).
+                recorder.requests.single().headers["Authorization"] shouldBe null
+            }
+        }
+
+        test("attaches the sender credential as a bearer Authorization header when configured") {
+            withSqlDatabase {
+                sql.seedTestUser("alice")
+                sql.seedTestSession("live-1", "alice")
+                sql.seedTestToken("token-android", "ANDROID", "live-1", "alice")
+
+                val recorder =
+                    RecordingEngine(mutableListOf(jsonResponse("""{"results":[{"token":"token-android","status":"ok"}]}""")))
+                val notifier =
+                    RelayPushNotifier(
+                        db = sql,
+                        relay = relayClientFor(recorder.engine(), relayToken = "relay-sender-secret"),
+                        settings = enabledSettings(sql),
+                        clock = FixedClock(fixedNow),
+                    )
+
+                runTest {
+                    notifier.notify("alice", PushPayload.TestNotification(sentAtMs = fixedNow.toEpochMilliseconds()))
+                }
+
+                recorder.requests shouldHaveSize 1
+                recorder.requests.single().headers["Authorization"] shouldBe "Bearer relay-sender-secret"
             }
         }
 

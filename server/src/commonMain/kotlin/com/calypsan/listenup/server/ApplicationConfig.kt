@@ -176,6 +176,19 @@ internal fun Application.resolvePushRelayUrl(): String {
     return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() } ?: PushConfig.DEFAULT_RELAY_URL
 }
 
+/**
+ * Push relay sender credential: `push.relayToken` config key, else LISTENUP_PUSH_RELAY_TOKEN
+ * env, else unset. This is the shared secret the relay's `/v1/send` validates (see the
+ * relay's `PROTOCOL.md` § Sender credential) — currently optional (phase 1: the relay still
+ * serves callers that omit it), so an unset value is a valid, unremarkable configuration, not
+ * an error. Never logged.
+ */
+internal fun Application.resolvePushRelayToken(): String? {
+    val fromConfig = environment.config.propertyOrNull("push.relayToken")?.getString()
+    val fromEnv = readEnv("LISTENUP_PUSH_RELAY_TOKEN")
+    return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() }
+}
+
 internal fun ApplicationConfig.rescanOnStartup(): Boolean =
     propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
 

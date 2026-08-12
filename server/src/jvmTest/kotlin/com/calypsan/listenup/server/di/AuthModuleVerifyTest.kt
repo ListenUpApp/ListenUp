@@ -48,7 +48,7 @@ class AuthModuleVerifyTest :
             // constructed inside the DatabaseFactory.init() closure, not injected from the Koin graph.
             // LibraryRegistry, LibraryRepository: AdminSettingsServiceImpl deps resolved from
             // booksModule/libraryModule, both loaded at application startup but absent here.
-            authModule(config, "https://push.example.com", CoroutineScope(SupervisorJob())).verify(
+            authModule(config, "https://push.example.com", CoroutineScope(SupervisorJob()), pushRelayToken = null).verify(
                 extraTypes =
                     listOf(
                         ByteArray::class,
