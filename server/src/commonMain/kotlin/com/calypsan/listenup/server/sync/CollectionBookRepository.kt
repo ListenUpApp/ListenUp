@@ -223,6 +223,22 @@ open class CollectionBookRepository(
         }
 
     /**
+     * Batched [countLiveForCollection]: live junction-row counts for many collections in one
+     * round trip, batched by [SQLITE_IN_CHUNK] — same book-liveness-aware predicate, just
+     * `COUNT(*)` instead of one query per collection. A collection with zero live rows is absent
+     * from the result; callers default it to 0.
+     */
+    suspend fun countLiveForCollections(collectionIds: List<String>): Map<String, Long> {
+        if (collectionIds.isEmpty()) return emptyMap()
+        return suspendTransaction(db) {
+            collectionIds
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.collectionBooksQueries.countLiveForCollections(chunk).executeAsList() }
+                .associate { it.collection_id to it.live_count }
+        }
+    }
+
+    /**
      * Soft-deletes the junction row for `(collectionId, bookId)`. Bumps revision and publishes
      * [SyncEvent.Deleted] to the change bus. Returns [AppResult.Failure] if no live row exists
      * for this pair.
