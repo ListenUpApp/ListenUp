@@ -44,6 +44,7 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import kotlin.time.Clock
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.io.files.Path
@@ -52,6 +53,9 @@ import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.core.scope.Scope
 import org.koin.dsl.module
+
+private const val METADATA_REQUEST_TIMEOUT_MS = 10_000L
+private const val METADATA_CONNECT_TIMEOUT_MS = 5_000L
 
 /**
  * Koin module for the metadata enrichment slice. Wires:
@@ -102,6 +106,12 @@ fun metadataModule(imageHome: Path): Module =
                             isLenient = true
                         },
                     )
+                }
+                // A hung provider or a slow-drip image response must not block the caller
+                // indefinitely — bounded budget, mirroring PushModule's relay client.
+                install(HttpTimeout) {
+                    requestTimeoutMillis = METADATA_REQUEST_TIMEOUT_MS
+                    connectTimeoutMillis = METADATA_CONNECT_TIMEOUT_MS
                 }
             }
         }

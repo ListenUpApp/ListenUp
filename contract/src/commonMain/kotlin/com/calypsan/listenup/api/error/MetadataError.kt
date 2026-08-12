@@ -100,4 +100,21 @@ sealed interface MetadataError : AppError {
         override val code: String = "METADATA_CHAPTER_COUNT_MISMATCH"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * The supplied image URL was rejected before any fetch was attempted: not HTTPS, or hosted at
+     * a loopback/link-local/private destination rather than a public one. Raised by
+     * `applyCover` (`com.calypsan.listenup.api.MetadataLookupService`), the one RPC method that
+     * accepts a caller-supplied URL. Non-retryable — the same URL will always be rejected.
+     */
+    @Serializable
+    @SerialName("MetadataError.UnsafeUrl")
+    data class UnsafeUrl(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : MetadataError {
+        override val message: String = "That image URL can't be used."
+        override val code: String = "METADATA_UNSAFE_URL"
+        override val isRetryable: Boolean = false
+    }
 }

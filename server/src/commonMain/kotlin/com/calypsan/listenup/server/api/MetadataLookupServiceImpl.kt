@@ -24,7 +24,10 @@ import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.metadata.audible.toAudibleRegion
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.metadata.ComposedBook
+import com.calypsan.listenup.server.metadata.CoverTooLargeException
 import com.calypsan.listenup.server.metadata.EnrichmentCoordinator
+import com.calypsan.listenup.server.metadata.SafeCoverUrl
+import com.calypsan.listenup.server.metadata.UnsafeCoverUrlException
 import com.calypsan.listenup.server.metadata.spi.BookIdentity
 import com.calypsan.listenup.server.metadata.spi.ContributorHitRanker
 import com.calypsan.listenup.server.metadata.spi.ContributorMeta
@@ -288,6 +291,10 @@ internal class MetadataLookupServiceImpl(
         url: String,
     ): AppResult<Mutated<Unit>> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
+        // Reject an unsafe URL (non-HTTPS, loopback/link-local/private host) before ever touching
+        // the network — SafeCoverUrl also re-runs on every redirect hop inside downloadBytes below,
+        // but failing fast here for the common case avoids entering withCapturedFrames at all.
+        SafeCoverUrl.validate(url)?.let { return AppResult.Failure(it) }
         // Validate the book exists before fetching/storing, so an unknown id can't leave an
         // orphaned cover file on disk (the store keys on bookId, but setManagedCover would fail).
         bookRepository.findById(bookId)
@@ -302,18 +309,28 @@ internal class MetadataLookupServiceImpl(
                 bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: UnsafeCoverUrlException) {
+                // A redirect hop pointed at a loopback/link-local/private host.
+                AppResult.Failure(e.appError)
             } catch (e: ImageStore.InvalidImageException) {
                 // The fetched bytes are not a usable image — user must pick a different URL.
-                // Non-retryable: re-firing the same call against the same URL can't succeed.
-                AppResult.Failure(MetadataError.Malformed(debugInfo = "cover bytes rejected: ${e.message}"))
+                // Non-retryable: re-firing the same call against the same URL can't succeed. The
+                // debugInfo below is a fixed string — echoing the caught exception's own message
+                // here would let a caller distinguish connected/refused/not-an-image outcomes for
+                // hosts it has no business probing (SEC-05).
+                AppResult.Failure(MetadataError.Malformed(debugInfo = COVER_REJECTED_DEBUG))
+            } catch (e: CoverTooLargeException) {
+                AppResult.Failure(MetadataError.Malformed(debugInfo = COVER_REJECTED_DEBUG))
             } catch (e: Exception) {
-                AppResult.Failure(
-                    MetadataError.ExternalUnavailable(debugInfo = "cover download/store failed: ${e.message}"),
-                )
+                // Same rationale as above: a constant debugInfo, no exception detail included.
+                AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = COVER_DOWNLOAD_FAILED_DEBUG))
             }
         }
     }
 }
+
+private const val COVER_REJECTED_DEBUG = "cover bytes rejected"
+private const val COVER_DOWNLOAD_FAILED_DEBUG = "cover download/store failed"
 
 // ─── Internal → wire DTO mappers ─────────────────────────────────────────────
 
