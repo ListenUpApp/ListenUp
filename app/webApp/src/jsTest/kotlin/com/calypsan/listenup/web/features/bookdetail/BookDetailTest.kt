@@ -14,6 +14,7 @@ import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import com.calypsan.listenup.web.features.library.fakeLibrary
 
 /**
  * Book Detail through the URL contract: `/book/{id}?tab=…` names the book and the pane, pane
@@ -41,7 +42,7 @@ class BookDetailTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { WebAppRoot(router, source) }
+            renderComposable(root = host) { WebAppRoot(router, source, fakeLibrary()) }
             return host to router
         }
 

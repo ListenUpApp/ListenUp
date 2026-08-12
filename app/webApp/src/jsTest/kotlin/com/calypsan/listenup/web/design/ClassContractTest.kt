@@ -20,6 +20,10 @@ import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.renderComposable
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
+import com.calypsan.listenup.client.presentation.library.LibraryUiState
+import com.calypsan.listenup.web.features.library.LibraryPage
+import com.calypsan.listenup.web.features.library.contractBook
+import com.calypsan.listenup.web.features.library.contractLibrary
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
@@ -142,6 +146,17 @@ class ClassContractTest :
                             onSelectTab = {},
                             onOpenLibrary = {},
                         )
+                        // Every Library state draws classes of its own — the grid and sort row
+                        // from a loaded page, and the two empty states, which are the ones most
+                        // likely to be styled by eye and never looked at again.
+                        LibraryPage(
+                            state = contractLibrary(books = listOf(contractBook("b1", "Dune"))),
+                            onEvent = {},
+                            onOpenBook = {},
+                        )
+                        LibraryPage(state = contractLibrary(syncing = true), onEvent = {}, onOpenBook = {})
+                        LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {})
+                        LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {})
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))

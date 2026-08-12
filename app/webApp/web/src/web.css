@@ -558,3 +558,16 @@ body { margin: 0; }
   display: flex; align-items: center; justify-content: center;
   min-height: 100dvh; background: var(--paper); color: var(--ink-2);
 }
+
+/* Library — books grid, sort control, progress (web sync arc). */
+.lib-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.lib-sort { display: flex; gap: 0.5rem; align-items: center; }
+.lib-sort-option { cursor: pointer; opacity: 0.6; }
+.lib-sort-option.is-active { opacity: 1; font-weight: 600; }
+.lib-sort-direction { cursor: pointer; user-select: none; }
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
+.lib-card { cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem; }
+.lib-cover { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 6px; }
+.lib-title { font-size: 0.9rem; line-height: 1.2; }
+.lib-progress { height: 3px; border-radius: 2px; overflow: hidden; background: var(--luw-border, #333); }
+.lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
