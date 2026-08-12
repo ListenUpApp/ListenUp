@@ -110,35 +110,53 @@ internal class Mp4Parser : AudioFormatParser {
                     ),
                 )
 
-        val durationMs = readMvhdDurationMs(moovBytes, mvhd)
+        return try {
+            val durationMs = readMvhdDurationMs(moovBytes, mvhd)
 
-        val ilst = findIlst(moovBytes, moov)
-        val ilstResult = ilst?.let { IlstReader.read(moovBytes, it) }
-        val tags = ilstResult?.tags ?: emptyAudioTags()
-        val artwork = ilstResult?.artwork
+            val ilst = findIlst(moovBytes, moov)
+            val ilstResult = ilst?.let { IlstReader.read(moovBytes, it) }
+            val tags = ilstResult?.tags ?: emptyAudioTags()
+            val artwork = ilstResult?.artwork
 
-        val chapterResult = extractMp4Chapters(moovBytes, moov, durationMs, source)
+            val chapterResult = extractMp4Chapters(moovBytes, moov, durationMs, source)
 
-        val audioStream =
-            try {
-                Mp4CodecExtractor.extract(moovBytes, moov)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                null // codec extraction is best-effort; never fail the whole parse
-            }
+            val audioStream =
+                try {
+                    Mp4CodecExtractor.extract(moovBytes, moov)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    null // codec extraction is best-effort; never fail the whole parse
+                }
 
-        return AppResult.Success(
-            EmbeddedAudioMetadata(
-                format = AudioFormat.Mp4,
-                durationMs = durationMs,
-                tags = tags,
-                chapters = chapterResult.chapters,
-                chaptersSource = if (chapterResult.chapters.isEmpty()) ChapterSource.None else chapterResult.source,
-                artwork = artwork,
-                audioStream = audioStream,
-            ),
-        )
+            AppResult.Success(
+                EmbeddedAudioMetadata(
+                    format = AudioFormat.Mp4,
+                    durationMs = durationMs,
+                    tags = tags,
+                    chapters = chapterResult.chapters,
+                    chaptersSource = if (chapterResult.chapters.isEmpty()) ChapterSource.None else chapterResult.source,
+                    artwork = artwork,
+                    audioStream = audioStream,
+                ),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // An unexpected fault in the atom-walking/tag/chapter readers (a malformed mvhd,
+            // ilst, or sample-table atom that trips index/format math) must degrade THIS file to
+            // a typed CorruptHeader so the book still ingests with a scan warning — never let it
+            // escape and drop the whole book from the library. Mirrors Mp3Parser's blanket guard.
+            AppResult.Failure(
+                AudioMetadataError.CorruptHeader(
+                    pathString = "<source>",
+                    format = AudioFormat.Mp4,
+                    offset = moov.offset.toLong(),
+                    expected = "readable moov structure",
+                    debugInfo = e.message ?: e::class.simpleName,
+                ),
+            )
+        }
     }
 
     private companion object {
@@ -178,9 +196,18 @@ internal class Mp4Parser : AudioFormatParser {
         mvhd: Atom,
     ): Long {
         var p = mvhd.dataOffset
+        // Need at least 1 byte for the version before we know which of the two (v0/v1) field
+        // layouts follows — a header-only mvhd (no payload) fails this check and returns 0
+        // rather than indexing past the atom (or the buffer).
+        if (p + 1 > mvhd.end) return 0
         val version = bytes[p].toInt() and 0xFF
         p += 1
         p += 3 // flags
+        // Remaining bytes this function reads: v0 = creation(4) + modification(4) +
+        // timescale(4) + duration(4) = 16; v1 = creation(8) + modification(8) +
+        // timescale(4) + duration(8) = 28.
+        val fieldsSize = if (version == 1) 28 else 16
+        if (p + fieldsSize > mvhd.end) return 0
         val (timescale, durationUnits) =
             if (version == 1) {
                 p += 16 // creation(8) + modification(8)

@@ -97,7 +97,12 @@ internal object AtomWalker {
         if (size < 8) {
             throw AtomParseException(offset, "atom size $size below 8-byte minimum")
         }
-        if (offset + size > end) {
+        // Overflow-safe: `offset + size` can wrap a 32-bit Int negative when `size` is an
+        // attacker-controlled value near Int.MAX_VALUE at a non-zero `offset` — a wrapped sum
+        // would slip past a naive `offset + size > end` check. `end - offset` never overflows
+        // (both are bounded by the buffer length, itself capped well under Int.MAX_VALUE by
+        // the moov soft-size limit), so comparing against it directly is safe either way.
+        if (size > end - offset) {
             throw AtomParseException(offset, "atom size $size extends past end ($end)")
         }
         return Atom(type = type, offset = offset, size = size, extended = extended)
