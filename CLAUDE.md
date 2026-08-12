@@ -156,13 +156,13 @@ Concrete example: `data/remote/` API methods route through exactly one of the tw
 
 ### Modern Everything
 
-This codebase targets the latest stable versions. Kotlin 2.4.0, Compose Multiplatform 1.11.1, Room 3.0, Ktor 3.5, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
+This codebase targets the latest stable versions. Kotlin 2.4.x, Compose Multiplatform 1.11.1, Room 3.0, Ktor 3.5, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
 
 ### The Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Kotlin 2.4.0 (KMP) |
+| Language | Kotlin 2.4.x (KMP) |
 | UI | Compose Multiplatform |
 | Navigation | Compose Navigation 3 (multiplatform) |
 | DI | Koin 4.2 |
