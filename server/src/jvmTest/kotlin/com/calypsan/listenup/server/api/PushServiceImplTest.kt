@@ -148,7 +148,7 @@ class PushServiceImplTest :
             }
         }
 
-        test("registerToken fails PUSH_DISABLED when toggle off or relay unconfigured") {
+        test("registerToken fails PUSH_DISABLED when toggle off, relay unconfigured, or push disabled at deploy time") {
             withSqlDatabase {
                 sql.seedTestUser("alice")
                 sql.seedTestSession("session-1", "alice")
@@ -168,6 +168,18 @@ class PushServiceImplTest :
                             .registerToken("token-2", PushPlatform.ANDROID)
                     noRelay.shouldBeInstanceOf<AppResult.Failure>()
                     noRelay.error.shouldBeInstanceOf<PushError.PushDisabled>()
+
+                    // Axis 3: admin toggle on (default), relay configured, but the deploy-time
+                    // master switch (LISTENUP_PUSH_ENABLED / push.enabled) is OFF — a hard override
+                    // that beats the admin toggle and a present relay URL.
+                    val masterOff =
+                        makeService(
+                            sql,
+                            principalFor("alice", "session-1"),
+                            pushConfig = PushConfig(relayUrl = "https://push.example.com", enabled = false),
+                        ).registerToken("token-3", PushPlatform.ANDROID)
+                    masterOff.shouldBeInstanceOf<AppResult.Failure>()
+                    masterOff.error.shouldBeInstanceOf<PushError.PushDisabled>()
 
                     sql.pushTokensQueries.countAll().executeAsOne() shouldBe 0L
                 }

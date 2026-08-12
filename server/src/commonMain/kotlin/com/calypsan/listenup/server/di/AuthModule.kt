@@ -102,6 +102,7 @@ fun authModule(
     pushRelayUrl: String,
     applicationScope: CoroutineScope,
     pushRelayToken: String?,
+    pushEnabled: Boolean = true,
 ): Module {
     val secrets = resolveServerSecrets(config)
     return module {
@@ -167,7 +168,7 @@ fun authModule(
 
         single { ServerSettingsRepository(sql = get(), default = config.registrationPolicy()) }
 
-        single { PushConfig(relayUrl = pushRelayUrl, relayToken = pushRelayToken) }
+        single { PushConfig(relayUrl = pushRelayUrl, relayToken = pushRelayToken, enabled = pushEnabled) }
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 

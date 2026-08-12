@@ -189,6 +189,17 @@ internal fun Application.resolvePushRelayToken(): String? {
     return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() }
 }
 
+/**
+ * Push master switch: `push.enabled` config key, else LISTENUP_PUSH_ENABLED env, else ON.
+ * A deploy-time hard override — when false, push is off regardless of the runtime admin toggle
+ * (see [PushConfig.enabled]). Any value other than a strict `true`/`false` falls back to ON.
+ */
+internal fun Application.resolvePushEnabled(): Boolean {
+    val fromConfig = environment.config.propertyOrNull("push.enabled")?.getString()
+    val fromEnv = readEnv("LISTENUP_PUSH_ENABLED")
+    return (fromConfig ?: fromEnv)?.trim()?.toBooleanStrictOrNull() ?: true
+}
+
 internal fun ApplicationConfig.rescanOnStartup(): Boolean =
     propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
 
