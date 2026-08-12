@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
+import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
@@ -117,6 +118,11 @@ class AppErrorStatusPagesTest :
             val stamped = err.withCorrelationId("corr-123")
             stamped.shouldBeInstanceOf<AudioMetadataError.UnsupportedFormat>()
             stamped.correlationId shouldBe "corr-123"
+        }
+
+        test("MetadataError.UnsafeUrl maps to 400 BadRequest") {
+            val err: AppError = MetadataError.UnsafeUrl()
+            err.toHttpStatus() shouldBe HttpStatusCode.BadRequest
         }
 
         test("AdminError.UserNotFound maps to 404 NotFound") {
