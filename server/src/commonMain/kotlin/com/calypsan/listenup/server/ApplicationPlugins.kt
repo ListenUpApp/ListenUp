@@ -94,7 +94,7 @@ internal fun Application.installDependencies(
     // it removes the global `on(ApplicationStopped){ stopKoin() }` whose late async firing could rip
     // the live context out of the next test spec (the BookAccessPolicy NoDefinitionFound E2E flake).
     install(KoinIsolated) {
-        val modules = mutableListOf(authModule(environment.config, pushRelayUrl, pushSenderToken))
+        val modules = mutableListOf(authModule(environment.config, pushRelayUrl, applicationScope, pushSenderToken))
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
         modules += metadataModule(homeDir)

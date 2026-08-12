@@ -21,7 +21,9 @@ import kotlinx.serialization.json.encodeToJsonElement
  * per-token verdicts: `invalid` tokens are deleted, `retryable` tokens get a single batched
  * retry, and `unsupported` is left alone (no delete, no retry — nothing actionable). A
  * transport failure (relay unreachable) is retried once as a whole batch, then silently
- * dropped — push is best-effort by design (see [PushNotifier] KDoc).
+ * dropped — push is best-effort by design (see [PushNotifier] KDoc). [notify] and [notifyWatch]
+ * each wrap their ENTIRE body in a catch-all: a DB fault reading tokens, not just a relay
+ * failure, must never escape and violate the "MUST NOT throw" contract.
  */
 class RelayPushNotifier(
     private val db: ListenUpDatabase,
@@ -35,16 +37,23 @@ class RelayPushNotifier(
         userId: String,
         payload: PushPayload,
     ) {
-        if (!settings.pushNotificationsEnabled()) return
-        val rows =
-            suspendTransaction(db) {
-                db.pushTokensQueries.selectLiveForUser(userId, clock.now().toEpochMilliseconds()).executeAsList()
-            }
-        // Rows store the PushPlatform enum name ("ANDROID"); the relay protocol speaks lowercase.
-        fanOut(
-            tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) },
-            payload = payload,
-        ) { dead -> suspendTransaction(db) { dead.forEach { db.pushTokensQueries.deleteByToken(it) } } }
+        try {
+            if (!settings.pushNotificationsEnabled()) return
+            val rows =
+                suspendTransaction(db) {
+                    db.pushTokensQueries.selectLiveForUser(userId, clock.now().toEpochMilliseconds()).executeAsList()
+                }
+            // Rows store the PushPlatform enum name ("ANDROID"); the relay protocol speaks lowercase.
+            fanOut(
+                tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) },
+                payload = payload,
+            ) { dead -> suspendTransaction(db) { dead.forEach { db.pushTokensQueries.deleteByToken(it) } } }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // Never log token/payload contents — error class name only (PushNotifier's contract).
+            log.warn { "notify failed: ${e::class.simpleName}" }
+        }
     }
 
     override suspend fun notifyWatch(
@@ -52,17 +61,24 @@ class RelayPushNotifier(
         key: String,
         payload: PushPayload,
     ) {
-        if (!settings.pushNotificationsEnabled()) return
-        val rows =
-            suspendTransaction(db) {
-                db.pushWatchTokensQueries
-                    .selectLiveForKey(kind.wire, key, clock.now().toEpochMilliseconds())
-                    .executeAsList()
-            }
-        fanOut(
-            tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) },
-            payload = payload,
-        ) { dead -> suspendTransaction(db) { dead.forEach { db.pushWatchTokensQueries.deleteByToken(it) } } }
+        try {
+            if (!settings.pushNotificationsEnabled()) return
+            val rows =
+                suspendTransaction(db) {
+                    db.pushWatchTokensQueries
+                        .selectLiveForKey(kind.wire, key, clock.now().toEpochMilliseconds())
+                        .executeAsList()
+                }
+            fanOut(
+                tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) },
+                payload = payload,
+            ) { dead -> suspendTransaction(db) { dead.forEach { db.pushWatchTokensQueries.deleteByToken(it) } } }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // Never log token/payload contents — error class name only (PushNotifier's contract).
+            log.warn { "notifyWatch failed: ${e::class.simpleName}" }
+        }
     }
 
     /**
