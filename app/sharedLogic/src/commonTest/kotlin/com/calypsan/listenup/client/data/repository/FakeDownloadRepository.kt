@@ -65,6 +65,15 @@ internal open class FakeDownloadRepository(
     override suspend fun getLocalPath(audioFileId: String): String? =
         state.value[audioFileId]?.takeIf { it.state == DownloadState.COMPLETED }?.localPath
 
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> =
+        audioFileIds
+            .mapNotNull { id ->
+                state.value[id]
+                    ?.takeIf { it.state == DownloadState.COMPLETED }
+                    ?.localPath
+                    ?.let { id to it }
+            }.toMap()
+
     override suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus? =
         state.value[audioFileId]?.state?.toDomain()
 

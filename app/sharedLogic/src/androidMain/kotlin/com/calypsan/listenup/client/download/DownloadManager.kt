@@ -274,6 +274,26 @@ class DownloadManager internal constructor(
     }
 
     /**
+     * Batched [getLocalPath]: one DB round trip via [DownloadRepository.getLocalPaths] instead of
+     * one per file, then the same on-disk existence check + externally-deleted cleanup per
+     * candidate as [getLocalPath].
+     */
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> {
+        if (audioFileIds.isEmpty()) return emptyMap()
+        val completed = downloadRepository.getLocalPaths(audioFileIds)
+        return buildMap {
+            for ((audioFileId, path) in completed) {
+                if (fileManager.fileExists(path)) {
+                    put(audioFileId, path)
+                } else {
+                    logger.warn { "Downloaded file missing, cleaning up: $audioFileId" }
+                    downloadDao.updateError(audioFileId, "File missing - deleted externally")
+                }
+            }
+        }
+    }
+
+    /**
      * Resume any incomplete downloads (e.g. after re-authentication or app restart).
      * Resets stalled states to QUEUED and re-enqueues via WorkManager with KEEP policy
      * so already-running work is not restarted.

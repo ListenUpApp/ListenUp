@@ -133,6 +133,26 @@ class AppleDownloadService internal constructor(
         return null
     }
 
+    /**
+     * Batched [getLocalPath]: one DB round trip via [DownloadRepository.getLocalPaths] instead of
+     * one per file, then the same on-disk existence check + externally-deleted cleanup per
+     * candidate as [getLocalPath].
+     */
+    override suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String> {
+        if (audioFileIds.isEmpty()) return emptyMap()
+        val completed = downloadRepository.getLocalPaths(audioFileIds)
+        return buildMap {
+            for ((audioFileId, path) in completed) {
+                if (fileManager.fileExists(path)) {
+                    put(audioFileId, path)
+                } else {
+                    logger.warn { "Downloaded file missing, cleaning up: $audioFileId" }
+                    downloadDao.updateError(audioFileId, "File missing - deleted externally")
+                }
+            }
+        }
+    }
+
     override suspend fun wasExplicitlyDeleted(bookId: BookId): Boolean = downloadDao.hasDeletedRecords(bookId.value)
 
     @Suppress("ReturnCount")

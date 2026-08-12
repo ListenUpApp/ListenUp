@@ -28,6 +28,15 @@ interface DownloadService {
     suspend fun getLocalPath(audioFileId: String): String?
 
     /**
+     * Batched [getLocalPath]: local paths for every downloaded-and-verified file among
+     * [audioFileIds], in one query round trip instead of N — the same completeness, on-disk
+     * file-existence check, and externally-deleted cleanup as calling [getLocalPath] once per id.
+     * An id absent from the result is not downloaded, not completed, or was cleaned up because its
+     * file is missing on disk.
+     */
+    suspend fun getLocalPaths(audioFileIds: List<String>): Map<String, String>
+
+    /**
      * Check if user explicitly deleted downloads for this book.
      * Used to determine if we should auto-download on playback.
      */
