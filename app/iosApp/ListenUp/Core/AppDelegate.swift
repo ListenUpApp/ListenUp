@@ -29,7 +29,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
-        let token = deviceToken.map { String(format: "%02x", $0) }.joined()
+        let token = hexEncodedAPNsToken(deviceToken)
         Task {
             do {
                 try await KoinHelper.shared.onPushTokenReceived(token: token)
