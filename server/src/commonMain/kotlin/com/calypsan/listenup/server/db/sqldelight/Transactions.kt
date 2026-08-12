@@ -37,26 +37,29 @@ suspend fun <T> suspendTransaction(
     withContext(sqlIoDispatcher) {
         // Mirror any TransactionLocal carried in the coroutine context onto this thread for the
         // synchronous transaction body — the cross-platform replacement for the JVM-only
-        // ThreadContextElement. Save/restore the prior value so nested transactions compose.
-        val priorTxLocal = currentTransactionLocal()
-        setTransactionLocal(coroutineContext[TransactionLocal]?.value)
-        try {
-            var lastError: Throwable? = null
-            repeat(MAX_TX_ATTEMPTS) { attempt ->
-                try {
-                    return@withContext db.transactionWithResult { body() }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Throwable) {
-                    if (!e.isRetryableSqliteError()) throw e
-                    lastError = e
-                    if (attempt < MAX_TX_ATTEMPTS - 1) {
-                        delay(Random.nextLong(MIN_RETRY_DELAY_MS, MAX_RETRY_DELAY_MS + 1))
-                    }
-                }
+        // ThreadContextElement. The desired value is read from the context once (it doesn't change
+        // across attempts), but applied fresh on EVERY attempt: a retry resumes after `delay(...)`,
+        // which can land on a different worker thread where the mirror was never set, or one still
+        // holding a previous coroutine's value. Save/restore the prior value per attempt so nested
+        // transactions compose.
+        val desired = coroutineContext[TransactionLocal]?.value
+        var lastError: Throwable? = null
+        repeat(MAX_TX_ATTEMPTS) { attempt ->
+            val priorTxLocal = currentTransactionLocal()
+            setTransactionLocal(desired)
+            try {
+                return@withContext db.transactionWithResult { body() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                if (!e.isRetryableSqliteError()) throw e
+                lastError = e
+            } finally {
+                setTransactionLocal(priorTxLocal)
             }
-            throw lastError ?: IllegalStateException("suspendTransaction retry loop exited without a result")
-        } finally {
-            setTransactionLocal(priorTxLocal)
+            if (attempt < MAX_TX_ATTEMPTS - 1) {
+                delay(Random.nextLong(MIN_RETRY_DELAY_MS, MAX_RETRY_DELAY_MS + 1))
+            }
         }
+        throw lastError ?: IllegalStateException("suspendTransaction retry loop exited without a result")
     }
