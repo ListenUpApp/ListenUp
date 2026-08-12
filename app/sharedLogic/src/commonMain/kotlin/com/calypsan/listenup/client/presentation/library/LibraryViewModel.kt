@@ -73,6 +73,7 @@ private data class SyncSnapshot(
     val syncState: SyncState,
     val isServerScanning: Boolean,
     val scanProgress: ScanProgressState?,
+    val isBuildingInitialLibrary: Boolean,
 )
 
 /** Progress maps derived from playback positions and book durations. */
@@ -223,6 +224,7 @@ class LibraryViewModel(
             syncRepository.syncState,
             syncRepository.isServerScanning,
             syncRepository.scanProgress,
+            syncRepository.isBuildingInitialLibrary,
             ::SyncSnapshot,
             // SyncSnapshot is a data class — structural equality prevents re-sorting the library
             // on every firehose heartbeat or scan-progress tick when the values haven't actually changed.
@@ -479,6 +481,7 @@ class LibraryViewModel(
             syncState = sync.syncState,
             isServerScanning = sync.isServerScanning,
             scanProgress = sync.scanProgress,
+            isBuildingInitialLibrary = sync.isBuildingInitialLibrary,
         )
     }
 
