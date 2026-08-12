@@ -140,7 +140,7 @@
     "forgot_password_explainer": "This server has no email, so a person handles this instead.",
     "forgot_password_how_it_works": "How this works",
     "forgot_password_step_request": "An admin on this server gets your request and approves it.",
-    "forgot_password_step_code": "They give you a 6-character code — however you normally reach them.",
+    "forgot_password_step_code": "They give you an 8-character code — however you normally reach them.",
     "forgot_password_step_finish": "You enter the code here and pick a new password.",
     "forgot_password_send_request": "Send request",
     "forgot_password_awaiting": "Waiting for an admin to approve this. Ask whoever runs this server for the code.",

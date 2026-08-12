@@ -92,7 +92,13 @@ fun LoginScreen(
     modifier: Modifier = Modifier,
     openRegistration: Boolean = false,
     onRegister: () -> Unit = {},
-    onForgotPassword: () -> Unit = {},
+    // No default: a call site that forgets this ships a visible button that silently does
+    // nothing (androidMain's LoginNavigation did exactly that). Every host must decide.
+    onForgotPassword: () -> Unit,
+    // Hidden by default — the root escape hatch surfaces only while the server reports
+    // `LISTENUP_ROOT_RESET` armed ([ServerInfo.rootResetArmed]), so the once-in-a-blue-moon
+    // operator affordance never clutters the everyday sign-in screen.
+    showRootResetEntry: Boolean = false,
     viewModel: LoginViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -130,6 +136,7 @@ fun LoginScreen(
                 openRegistration = openRegistration,
                 onRegister = onRegister,
                 onChangeServer = onChangeServer,
+                showRootReset = showRootResetEntry,
                 onResetRoot = { showRootReset = true },
             )
         }
@@ -212,6 +219,7 @@ internal fun LoginFooter(
     openRegistration: Boolean,
     onRegister: () -> Unit,
     onChangeServer: () -> Unit,
+    showRootReset: Boolean,
     onResetRoot: () -> Unit = {},
 ) {
     if (openRegistration) {
@@ -240,15 +248,19 @@ internal fun LoginFooter(
         Text(stringResource(Res.string.auth_change_server))
     }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        TextButton(onClick = onResetRoot) {
-            Text(
-                text = stringResource(Res.string.auth_reset_root),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+    // Only while the server reports the LISTENUP_ROOT_RESET hatch armed: the operator who just
+    // armed it sees the entry for their 15-minute window; everyone else never sees it at all.
+    if (showRootReset) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            TextButton(onClick = onResetRoot) {
+                Text(
+                    text = stringResource(Res.string.auth_reset_root),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

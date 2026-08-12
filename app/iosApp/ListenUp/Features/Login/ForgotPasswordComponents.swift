@@ -87,7 +87,7 @@ struct ForgotPasswordHowItWorks: View {
 
 // MARK: - Code entry
 
-/// The reset code as six separate boxes.
+/// The reset code as eight separate boxes, grouped four-and-four.
 ///
 /// Someone is reading this code aloud to the requester, so the characters are grouped rather than
 /// run together in one field — easier to key, and far easier to re-check against what you were
@@ -103,10 +103,15 @@ struct ForgotPasswordCodeField: View {
     var isError: Bool = false
 
     @FocusState private var isFocused: Bool
-    @ScaledMetric(relativeTo: .title2) private var boxWidth: CGFloat = 44
-    @ScaledMetric(relativeTo: .title2) private var boxHeight: CGFloat = 56
+    // Sized so eight cells, seven gaps and the group dash fit a compact-width phone with the
+    // auth screens' horizontal padding.
+    @ScaledMetric(relativeTo: .title3) private var boxWidth: CGFloat = 36
+    @ScaledMetric(relativeTo: .title3) private var boxHeight: CGFloat = 52
 
-    static let length = 6
+    /// How many characters the out-of-band reset code carries. Must match the server's
+    /// `ResetCodeGenerator` (4 + 4, spoken as `YGFD-NBRW`) — a shorter row of cells silently
+    /// truncates real codes and makes completion impossible.
+    static let length = 8
 
     private var characters: [Character?] {
         let typed = Array(code)
@@ -129,12 +134,13 @@ struct ForgotPasswordCodeField: View {
                     if clipped != newValue { code = clipped }
                 }
 
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(0..<Self.length, id: \.self) { index in
+                    // The gap after the fourth cell is the same break the code is spoken with.
                     if index == Self.length / 2 {
                         Capsule()
                             .fill(.tertiary)
-                            .frame(width: 11, height: 2)
+                            .frame(width: 12, height: 2)
                     }
                     box(at: index)
                 }
@@ -163,7 +169,7 @@ struct ForgotPasswordCodeField: View {
             .overlay {
                 if let character {
                     Text(String(character))
-                        .font(.title2.weight(.semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(isError ? .red : .primary)
                 }
             }

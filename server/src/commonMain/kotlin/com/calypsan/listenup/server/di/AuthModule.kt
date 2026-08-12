@@ -212,6 +212,8 @@ fun authModule(
                 settings = get(),
                 instanceIdentity = get(),
                 pushConfig = get(),
+                rootResetToken = get(),
+                clock = get(),
             )
         }
 

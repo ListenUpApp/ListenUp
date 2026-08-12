@@ -217,7 +217,7 @@
     <string name="auth_forgot_password_send_request">Send request</string>
     <string name="auth_forgot_password_step_approve">An admin approves it</string>
     <string name="auth_forgot_password_step_approve_sub">They'll give you a code</string>
-    <string name="auth_forgot_password_step_code">They give you a 6-character code — however you normally reach them.</string>
+    <string name="auth_forgot_password_step_code">They give you an 8-character code — however you normally reach them.</string>
     <string name="auth_forgot_password_step_finish">You enter the code here and pick a new password.</string>
     <string name="auth_forgot_password_step_request">An admin on this server gets your request and approves it.</string>
     <string name="auth_forgot_password_step_sent">Request sent</string>

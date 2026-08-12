@@ -50,7 +50,7 @@ class LoginScreenTest {
     }
 
     @Test
-    fun `reset root password entry invokes its callback`() {
+    fun `reset root password entry invokes its callback while the hatch is armed`() {
         var clicked = false
         composeRule.setContent {
             MaterialTheme {
@@ -59,6 +59,7 @@ class LoginScreenTest {
                         openRegistration = false,
                         onRegister = {},
                         onChangeServer = {},
+                        showRootReset = true,
                         onResetRoot = { clicked = true },
                     )
                 }
@@ -69,5 +70,26 @@ class LoginScreenTest {
         composeRule.onNodeWithText("Reset root password").performClick()
 
         clicked shouldBe true
+    }
+
+    @Test
+    fun `reset root password entry is absent while the hatch is disarmed`() {
+        // The everyday sign-in screen carries no operator plumbing: the entry exists only while
+        // the server reports LISTENUP_ROOT_RESET armed (ServerInfo.rootResetArmed).
+        composeRule.setContent {
+            MaterialTheme {
+                Column {
+                    LoginFooter(
+                        openRegistration = false,
+                        onRegister = {},
+                        onChangeServer = {},
+                        showRootReset = false,
+                        onResetRoot = {},
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText("Reset root password").assertDoesNotExist()
     }
 }

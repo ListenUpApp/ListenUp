@@ -80,6 +80,7 @@ import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeigh
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.ConnectionHealthBanner
 import com.calypsan.listenup.client.features.shell.shellDestinationSaver
+import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
 import kotlinx.coroutines.launch
@@ -399,11 +400,19 @@ private fun LoginNavigation(
     val scope = rememberCoroutineScope()
     val backStack = rememberNavBackStack(Login)
     val serverConfig: com.calypsan.listenup.client.domain.repository.ServerConfig = koinInject()
+    val instanceRepository: com.calypsan.listenup.client.domain.repository.InstanceRepository = koinInject()
+    var rootResetArmed by remember { mutableStateOf(false) }
 
     // Refresh open registration value from server
     // This ensures the "Create Account" link appears if admin enabled it
     LaunchedEffect(Unit) {
         authSession.refreshOpenRegistration()
+        // Live probe, never cached: the root-reset hatch is a 15-minute window armed by a server
+        // restart, so only a fresh answer is meaningful. On failure the entry simply stays hidden.
+        rootResetArmed =
+            (instanceRepository.getServerInfo(forceRefresh = true) as? AppResult.Success)
+                ?.data
+                ?.rootResetArmed == true
     }
 
     NavDisplay(
@@ -413,6 +422,13 @@ private fun LoginNavigation(
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator(),
             ),
+        // Guarded like AuthNavigation's: popping the last entry would empty the stack and leave
+        // NavDisplay in an undefined state (a frozen composition over cleared ViewModel stores).
+        onBack = {
+            if (backStack.size > 1) {
+                backStack.removeAt(backStack.lastIndex)
+            }
+        },
         entryProvider =
             entryProvider {
                 entry<Login> {
@@ -428,12 +444,28 @@ private fun LoginNavigation(
                             onRegister = {
                                 backStack.add(Register)
                             },
+                            onForgotPassword = {
+                                backStack.add(ForgotPassword)
+                            },
+                            showRootResetEntry = rootResetArmed,
                         )
                 }
                 entry<Register> {
                     com.calypsan.listenup.client.features.auth
                         .RegisterScreen(
                             onBackClick = {
+                                backStack.removeAt(backStack.lastIndex)
+                            },
+                        )
+                }
+                entry<ForgotPassword> {
+                    val viewModel: ForgotPasswordViewModel = koinViewModel()
+                    // Complete and Denied both render "Back to Sign In" through onBack — that is
+                    // what returns the user to Login instead of dead-ending on a terminal message.
+                    com.calypsan.listenup.client.features.auth
+                        .ForgotPasswordScreen(
+                            viewModel = viewModel,
+                            onBack = {
                                 backStack.removeAt(backStack.lastIndex)
                             },
                         )
@@ -777,6 +809,21 @@ private fun authenticatedNavEntries(
             openRegistration = false,
             onChangeServer = {
                 scope.launch { serverConfig.disconnectFromServer() }
+            },
+            onForgotPassword = {
+                backStack.add(ForgotPassword)
+            },
+        )
+    }
+    // Reachable only from the re-auth Login above. A lapsed session whose password is lost
+    // needs the same admin-approval flow — completion revokes every session server-side, so
+    // the user lands back here and signs in with the new password.
+    entry<ForgotPassword> {
+        val viewModel: ForgotPasswordViewModel = koinViewModel()
+        com.calypsan.listenup.client.features.auth.ForgotPasswordScreen(
+            viewModel = viewModel,
+            onBack = {
+                backStack.removeAt(backStack.lastIndex)
             },
         )
     }

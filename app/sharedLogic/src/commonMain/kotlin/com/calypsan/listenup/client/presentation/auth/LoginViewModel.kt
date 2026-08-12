@@ -10,9 +10,12 @@ import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.ValidationField
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * ViewModel for the login screen.
@@ -50,6 +53,16 @@ class LoginViewModel(
         email: String,
         password: String,
     ) {
+        // A closed VM's viewModelScope is cancelled, so the launch below would be a SILENT no-op —
+        // the user taps Sign In into the void with no spinner, no error, no log. That exact wedge
+        // was observed once on-device (2026-08-11) and points at a composition outliving its
+        // ViewModel store. Surface it loudly instead of swallowing it: the error state tells the
+        // user something is wrong, and the log names the mechanism if it ever recurs.
+        if (closed) {
+            logger.error { "onLoginSubmit called on a closed LoginViewModel — the screen is driving a dead VM" }
+            state.value = LoginUiState.Error(LoginErrorType.ServerError(null))
+            return
+        }
         viewModelScope.launch {
             state.value = LoginUiState.Loading
             state.value =

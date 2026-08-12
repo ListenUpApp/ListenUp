@@ -165,6 +165,24 @@ class LoginViewModelTest :
             }
         }
 
+        test("submit on a closed ViewModel surfaces an error instead of silently doing nothing") {
+            // A closed VM's viewModelScope is cancelled, so a plain launch would be a silent
+            // no-op — the exact on-device wedge of 2026-08-11: taps into the void, no spinner,
+            // no error. The guard must turn that into a visible Error state.
+            runTest(testDispatcher) {
+                val useCase = mock<LoginUseCase>()
+                everySuspend { useCase(any(), any()) } returns AppResult.Success(fakeUser())
+                val vm = LoginViewModel(useCase)
+                vm.close()
+
+                vm.onLoginSubmit("alice@example.com", "password123")
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                val error = vm.state.value.shouldBeInstanceOf<LoginUiState.Error>()
+                error.type.shouldBeInstanceOf<LoginErrorType.ServerError>()
+            }
+        }
+
         test("clearError resets Error state to Idle") {
             runTest(testDispatcher) {
                 val useCase = mock<LoginUseCase>()

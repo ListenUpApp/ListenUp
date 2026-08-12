@@ -1,13 +1,17 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.RootResetToken
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import kotlin.time.Clock
 
 /**
  * Serves the pre-auth [ServerInfo] the client fetches on first connect.
@@ -26,6 +30,10 @@ class InstanceServiceImpl(
     private val settings: ServerSettingsRepository,
     private val instanceIdentity: InstanceIdentity,
     private val pushConfig: PushConfig,
+    // No defaults on these two: a construction site that forgets them must fail to compile, not
+    // silently report a permanently-disarmed hatch (the RootResetToken lesson, again).
+    private val rootResetToken: RootResetToken,
+    private val clock: Clock,
 ) : InstanceService {
     override suspend fun getServerInfo(): AppResult<ServerInfo> {
         // setupRequired is derived: a fresh instance with no users needs root setup.
@@ -40,6 +48,7 @@ class InstanceServiceImpl(
                 remoteUrl = settings.remoteUrl(),
                 instanceId = instanceIdentity.instanceId(),
                 pushEnabled = settings.pushNotificationsEnabled() && pushConfig.configured,
+                rootResetArmed = rootResetToken.isLive(clock.now()),
             ),
         )
     }
