@@ -165,8 +165,7 @@ class MetadataLookupServiceApplyCoverTest :
     })
 
 /** An engine whose handler fails the test if ever invoked — proves no network call was made. */
-private fun neverCalledEngine(): MockEngine =
-    MockEngine { request -> error("must never make a network request for a rejected URL: ${request.url}") }
+private fun neverCalledEngine(): MockEngine = MockEngine { request -> error("must never make a network request for a rejected URL: ${request.url}") }
 
 /**
  * Spins up an in-memory DB seeded with one book ("book1"), a cover-scoped [ImageStore] over a
