@@ -39,8 +39,10 @@ struct ForgotPasswordComponentsTests {
 
     // MARK: - Code shape
 
-    @Test("the code field holds exactly the six characters a reset code has")
+    /// Regression: this asserted 6 — the comp's OTP default — while the server issues 8
+    /// (`YGFD-NBRW`). Six cells silently truncated every real code, so completion was impossible.
+    @Test("the code field holds exactly the characters a server reset code has")
     func codeLengthMatchesTheServer() {
-        #expect(ForgotPasswordCodeField.length == 6)
+        #expect(ForgotPasswordCodeField.length == 8)
     }
 }

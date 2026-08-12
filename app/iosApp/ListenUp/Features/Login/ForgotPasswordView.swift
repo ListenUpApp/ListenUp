@@ -143,7 +143,9 @@ struct ForgotPasswordView: View {
             ) {
                 ForgotPasswordMark(symbol: "clock")
             }
-            Text(String(format: String(localized: "auth.forgot_password_ticket"), ticketId))
+            // The raw ticket id is `<uuid>.<issuedAtMs>.<sig>` — an internal blob. Show only the
+            // first UUID segment as the human-scale reference; enough to quote to an admin.
+            Text(String(format: String(localized: "auth.forgot_password_ticket"), ticketReference(ticketId)))
                 .font(.caption)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
@@ -218,6 +220,11 @@ struct ForgotPasswordView: View {
                 navigateBack()
             }
         }
+    }
+
+    /// The short, quotable form of the signed ticket id — matching what the Compose screen shows.
+    private func ticketReference(_ ticketId: String) -> String {
+        String(ticketId.prefix(while: { $0 != "." && $0 != "-" })).uppercased()
     }
 
     /// Editing the code hides any retained wrong-code feedback until the next submit outcome.
