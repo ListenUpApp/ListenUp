@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.server.auth.LoginRateLimiter
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.push.NoOpPushNotifier
 import com.calypsan.listenup.server.push.PushConfig
@@ -35,6 +36,7 @@ class PushModuleVerifyTest :
                                 single<Clock> { Clock.System }
                                 single { ServerSettingsRepository(get<ListenUpDatabase>(), RegistrationPolicy.CLOSED) }
                                 single { PushConfig(relayUrl = "https://push.example.com") }
+                                single { LoginRateLimiter(clock = get()) }
                             },
                             pushModule(),
                         )
@@ -58,6 +60,7 @@ class PushModuleVerifyTest :
                                 single<Clock> { Clock.System }
                                 single { ServerSettingsRepository(get<ListenUpDatabase>(), RegistrationPolicy.CLOSED) }
                                 single { PushConfig(relayUrl = null) }
+                                single { LoginRateLimiter(clock = get()) }
                             },
                             pushModule(),
                         )

@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.server.api.PushServiceImpl
+import com.calypsan.listenup.server.auth.LoginRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.push.NoOpPushNotifier
@@ -62,6 +63,9 @@ fun pushModule(): Module =
                     PrincipalProvider {
                         error("Unscoped PushService — call copyWith(PrincipalProvider) at the route")
                     },
+                // Shared with the RPC auth-throttle mechanism (bound in authModule) — see
+                // PushServiceImpl's rateLimiter KDoc for why sendTestNotification reuses it.
+                rateLimiter = get<LoginRateLimiter>(),
             )
         }
         single<PushService> { get<PushServiceImpl>() }

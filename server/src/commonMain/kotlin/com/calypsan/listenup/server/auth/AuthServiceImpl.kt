@@ -283,6 +283,7 @@ class AuthServiceImpl(
     }
 
     override suspend fun setupRoot(request: RegisterRequest): AppResult<AuthSession> {
+        enforceRate(AuthRateBucket.SETUP)?.let { return AppResult.Failure(it) }
         if (!Email.isLikelyEmail(request.email)) return AppResult.Failure(AuthError.InvalidCredentials())
 
         val empty =

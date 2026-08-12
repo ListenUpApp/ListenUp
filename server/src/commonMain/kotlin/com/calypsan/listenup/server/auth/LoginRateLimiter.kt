@@ -11,9 +11,10 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
 /**
- * The throttled auth operations reachable over the RPC public mount, with their per-IP, per-minute
- * ceilings. The values mirror the REST `RateLimitBuckets` limits so a first-party client gets the
- * same protection whether it logs in over REST or RPC.
+ * The throttled auth operations reachable over the RPC public mount, with their per-IP (or, for
+ * [PUSH_TEST], per-user) per-minute ceilings. This — not a Ktor route-level plugin — is the sole
+ * throttle for these operations: auth has no REST mirror, and the push-test send button is
+ * authenticated RPC only.
  */
 enum class AuthRateBucket(
     val perMinuteLimit: Int,
@@ -68,6 +69,21 @@ enum class AuthRateBucket(
      * an exception a reader has to go and verify, so it should not exist without a reason.
      */
     RESET_ROOT_PASSWORD(5),
+
+    /**
+     * `setupRoot` — the one-time bootstrap that creates the ROOT account. Unauthenticated (there
+     * is no account yet) and runs Argon2 on every attempt like [REGISTER], so it gets the same
+     * ceiling.
+     */
+    SETUP(3),
+
+    /**
+     * `PushService.sendTestNotification` — the push-test send button. Authenticated, but cheap to
+     * loop: an unthrottled caller could drain the server's per-IP relay budget and the operator's
+     * FCM/APNs quota. Keyed per-user (not per-IP, unlike every bucket above) since the caller is
+     * always authenticated by the time this bucket is consulted.
+     */
+    PUSH_TEST(3),
 }
 
 /** Outcome of a rate-limit probe: proceed, or reject with a client-surfaced `Retry-After`. */

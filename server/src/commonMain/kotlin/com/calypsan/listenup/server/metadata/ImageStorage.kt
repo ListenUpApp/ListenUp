@@ -130,10 +130,10 @@ class ImageStorage(
 
     companion object {
         /**
-         * Shared ceiling for cover and contributor-photo downloads. Larger than either local
-         * upload cap (`COVER_MAX_BYTES` 10 MiB, `AVATAR_MAX_BYTES` 5 MiB) so it never rejects a
-         * legitimate image before the type-specific store gets to validate it — this is purely a
-         * memory-exhaustion guard against an oversized or hostile response.
+         * Shared ceiling for cover and contributor-photo downloads. Matches the larger of the two
+         * local upload caps (`COVER_MAX_BYTES` 10 MiB, `AVATAR_MAX_BYTES` 5 MiB) so it never
+         * rejects a legitimate image before the type-specific store gets to validate it — this is
+         * purely a memory-exhaustion guard against an oversized or hostile response.
          */
         const val DEFAULT_MAX_DOWNLOAD_BYTES: Long = 10L * 1024 * 1024
 
