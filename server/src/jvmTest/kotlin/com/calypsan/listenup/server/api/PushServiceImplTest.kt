@@ -12,6 +12,8 @@ import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.auth.AuthRateBucket
+import com.calypsan.listenup.server.auth.LoginRateLimiter
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -82,6 +84,7 @@ class PushServiceImplTest :
             notifier: PushNotifier = RecordingPushNotifier(),
             pushConfig: PushConfig = PushConfig(relayUrl = "https://push.example.com"),
             settings: ServerSettingsRepository = ServerSettingsRepository(sql = sql, default = RegistrationPolicy.APPROVAL_QUEUE),
+            rateLimiter: LoginRateLimiter? = null,
         ): PushServiceImpl =
             PushServiceImpl(
                 db = sql,
@@ -90,6 +93,7 @@ class PushServiceImplTest :
                 notifier = notifier,
                 clock = FixedClock(fixedNow),
                 principal = principal,
+                rateLimiter = rateLimiter,
             )
 
         fun <T> AppResult<T>.value(): T {
@@ -214,6 +218,54 @@ class PushServiceImplTest :
                     userId shouldBe "alice"
                     payload.shouldBeInstanceOf<PushPayload.TestNotification>()
                     payload.sentAtMs shouldBe fixedNow.toEpochMilliseconds()
+                }
+            }
+        }
+
+        test("sendTestNotification throttles after the PUSH_TEST ceiling for one user") {
+            withSqlDatabase {
+                sql.seedTestUser("alice")
+                sql.seedTestSession("session-1", "alice")
+                runTest {
+                    val notifier = RecordingPushNotifier()
+                    val limiter = LoginRateLimiter(FixedClock(fixedNow))
+                    val service =
+                        makeService(sql, principalFor("alice", "session-1"), notifier = notifier, rateLimiter = limiter)
+
+                    repeat(AuthRateBucket.PUSH_TEST.perMinuteLimit) {
+                        service.sendTestNotification()
+                    }
+
+                    val throttled = service.sendTestNotification()
+                    throttled.shouldBeInstanceOf<AppResult.Failure>()
+                    throttled.error.shouldBeInstanceOf<AuthError.RateLimited>()
+
+                    // The ceiling wasn't reached, so only the allowed calls actually notified.
+                    notifier.calls shouldHaveSize AuthRateBucket.PUSH_TEST.perMinuteLimit
+                }
+            }
+        }
+
+        test("sendTestNotification throttle is keyed per-user, not shared across callers") {
+            withSqlDatabase {
+                sql.seedTestUser("alice")
+                sql.seedTestUser("bob")
+                sql.seedTestSession("alice-session", "alice")
+                sql.seedTestSession("bob-session", "bob")
+                runTest {
+                    val limiter = LoginRateLimiter(FixedClock(fixedNow))
+
+                    repeat(AuthRateBucket.PUSH_TEST.perMinuteLimit) {
+                        makeService(sql, principalFor("alice", "alice-session"), rateLimiter = limiter)
+                            .sendTestNotification()
+                            .value()
+                    }
+
+                    // Alice is now at her ceiling, but Bob's own bucket is untouched.
+                    val bobResult =
+                        makeService(sql, principalFor("bob", "bob-session"), rateLimiter = limiter)
+                            .sendTestNotification()
+                    bobResult.shouldBeInstanceOf<AppResult.Success<*>>()
                 }
             }
         }

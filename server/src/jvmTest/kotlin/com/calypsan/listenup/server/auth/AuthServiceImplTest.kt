@@ -584,6 +584,25 @@ class AuthServiceImplTest :
             }
         }
 
+        test("setupRoot throttles after the SETUP ceiling from one host") {
+            runTest {
+                val svc = newSvcWithRateLimiter("10.0.0.12")
+
+                // Each call after the first fails as SetupAlreadyComplete (the ROOT account already
+                // exists), not RateLimited — the throttle sits ahead of that check, so it's what's
+                // under test here, same shape as the RESET_ROOT_PASSWORD case below.
+                repeat(AuthRateBucket.SETUP.perMinuteLimit) {
+                    svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+                }
+
+                svc
+                    .setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root"))
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.RateLimited>()
+            }
+        }
+
         test("resetRootPassword throttles after the RESET_ROOT_PASSWORD ceiling from one host") {
             runTest {
                 val svc = newSvcWithRateLimiter("10.0.0.11")

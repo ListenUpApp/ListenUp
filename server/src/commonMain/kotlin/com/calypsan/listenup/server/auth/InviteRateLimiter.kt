@@ -12,9 +12,8 @@ import kotlin.time.ExperimentalTime
 
 /**
  * The throttled invite operations reachable over the RPC public mount, with their per-IP,
- * per-minute ceilings. The values mirror the REST `RateLimitBuckets.InviteClaim` /
- * `RateLimitBuckets.InviteLookup` limits so a first-party client gets the same protection whether
- * it claims or looks up an invite over REST or RPC.
+ * per-minute ceilings. This is the sole throttle for these operations — the invite claim/lookup
+ * surface has no REST mirror.
  */
 enum class InviteRateBucket(
     val perMinuteLimit: Int,
