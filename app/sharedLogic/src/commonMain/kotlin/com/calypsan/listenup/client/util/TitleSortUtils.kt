@@ -97,6 +97,23 @@ object TitleSortUtils {
         val first = sortable.firstOrNull()?.uppercaseChar() ?: '#'
         return if (first.isLetter()) first else '#'
     }
+
+    /**
+     * Returns the section header letter for a person or series name.
+     *
+     * The companion to [sortLetter], which is title-shaped and strips leading articles. A name is
+     * never article-stripped — "The Rolling Stones" files under T, while the book *The Hobbit* files
+     * under H — so the two rules are deliberately separate rather than one function with a flag.
+     *
+     * Every client groups by this: Android's books/authors/narrators grids, the web library, and the
+     * Swift mirror in `app/iosApp/ListenUp/Core/TitleSorting.swift`. Keep those in step with this.
+     *
+     * @return an uppercase A–Z letter, or '#' for a blank, numeric or symbolic name.
+     */
+    fun nameLetter(name: String?): Char {
+        val first = name?.trimStart()?.firstOrNull()?.uppercaseChar() ?: '#'
+        return if (first.isLetter()) first else '#'
+    }
 }
 
 /**
@@ -108,3 +125,8 @@ fun String.sortableTitle(ignoreArticles: Boolean): String = TitleSortUtils.sorta
  * Extension function for section header letter.
  */
 fun String.sortLetter(ignoreArticles: Boolean): Char = TitleSortUtils.sortLetter(this, ignoreArticles)
+
+/**
+ * Extension function for a person or series name's section header letter.
+ */
+fun String?.nameLetter(): Char = TitleSortUtils.nameLetter(this)

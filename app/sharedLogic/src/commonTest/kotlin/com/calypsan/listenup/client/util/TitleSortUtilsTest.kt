@@ -135,4 +135,42 @@ class TitleSortUtilsTest :
         test("sortLetter returns hash for empty string") {
             TitleSortUtils.sortLetter("", ignoreArticles = false) shouldBe '#'
         }
+
+        // ========== Name Letter Tests ==========
+        //
+        // This block is the cross-platform contract: Android, the web library and the Swift mirror
+        // in app/iosApp/ListenUp/Core/TitleSorting.swift all group by these rules, so a change here
+        // is a change to every client's section headers. The Swift counterpart cases live in
+        // `BookSectioningTests` — change one table, change both.
+        //
+        // Which rule applies is decided by the SORT, not by taste: a header must match the order the
+        // list is in, or a book files under a letter it does not sort beneath. Series are sorted by
+        // `sortableTitle` (article-aware → `sortLetter`); authors and books-within-a-series are
+        // sorted by plain `lowercase()` (literal → `nameLetter`).
+
+        test("nameLetter uppercases the first letter of a name") {
+            TitleSortUtils.nameLetter("frank herbert") shouldBe 'F'
+        }
+
+        // The rule that separates nameLetter from sortLetter. A band or series keeps its article —
+        // "The Rolling Stones" belongs under T — while the BOOK "The Hobbit" belongs under H.
+        test("nameLetter does not strip a leading article, unlike sortLetter") {
+            TitleSortUtils.nameLetter("The Rolling Stones") shouldBe 'T'
+            TitleSortUtils.sortLetter("The Hobbit", ignoreArticles = true) shouldBe 'H'
+        }
+
+        test("nameLetter buckets numeric and symbolic names under hash") {
+            TitleSortUtils.nameLetter("24 Assets") shouldBe '#'
+            TitleSortUtils.nameLetter("!!!") shouldBe '#'
+        }
+
+        test("nameLetter buckets a missing or blank name under hash") {
+            TitleSortUtils.nameLetter(null) shouldBe '#'
+            TitleSortUtils.nameLetter("") shouldBe '#'
+            TitleSortUtils.nameLetter("   ") shouldBe '#'
+        }
+
+        test("nameLetter ignores leading whitespace rather than bucketing it under hash") {
+            TitleSortUtils.nameLetter("  Ursula K. Le Guin") shouldBe 'U'
+        }
     })

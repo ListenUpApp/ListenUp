@@ -2,17 +2,23 @@ package com.calypsan.listenup.web
 
 import com.calypsan.listenup.client.data.settings.seedServerUrlFromOrigin
 import com.calypsan.listenup.client.di.jsSharedModules
+import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
+import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.renderComposable
 import org.koin.core.Koin
@@ -46,6 +52,7 @@ fun main() {
     // impossible without blocking the JS thread — suspension yields, it doesn't freeze the tab.
     CoroutineScope(Dispatchers.Default).launch {
         seedServerUrlIfNeeded(koin)
+        connectSyncWhenAuthenticated(koin, this)
 
         val router = Router()
         renderComposable(root = mount) {
@@ -53,8 +60,45 @@ fun main() {
                 authGraph = graphAuth(koin),
                 router = router,
                 openBookDetail = graphBookDetail(koin),
+                openLibrary = graphLibrary(koin),
             )
         }
+    }
+}
+
+/**
+ * Connects realtime sync on every transition into [AuthState.Authenticated].
+ *
+ * The analogue of `MainActivity`'s `repeatOnLifecycle` collector, and the reason a signed-in browser
+ * had an empty library: `clientSyncModule` wires the whole sync engine into the browser graph and
+ * nothing ever started it.
+ *
+ * Collected on the app-level scope rather than inside a composable — a connection whose lifetime is
+ * tied to composition would be torn down by a route change. `connectRealtime()` is single-flight, so
+ * a re-entry from a later transition is safe.
+ */
+private fun connectSyncWhenAuthenticated(
+    koin: Koin,
+    scope: CoroutineScope,
+) {
+    val authSession = koin.get<AuthSession>()
+    val syncRepository = koin.get<SyncRepository>()
+    scope.launch {
+        authSession.authState
+            .map { it is AuthState.Authenticated }
+            .distinctUntilChanged()
+            .collect { authenticated ->
+                if (!authenticated) return@collect
+                try {
+                    syncRepository.connectRealtime()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Never take the tab down over a sync failure: the shell and every already
+                    // synced row still work, which is the whole point of reading from Room.
+                    console.warn("Failed to connect realtime sync: ${e.message}")
+                }
+            }
     }
 }
 

@@ -196,6 +196,7 @@ class LibraryViewModelTest :
             every { fixture.syncRepository.syncState } returns fixture.syncStateFlow
             every { fixture.syncRepository.isServerScanning } returns MutableStateFlow(false)
             every { fixture.syncRepository.scanProgress } returns MutableStateFlow(null)
+            every { fixture.syncRepository.isBuildingInitialLibrary } returns MutableStateFlow(false)
             every { fixture.playbackPositionRepository.observeAll() } returns flowOf(emptyMap())
 
             // Default library preferences stubs (no persisted state)

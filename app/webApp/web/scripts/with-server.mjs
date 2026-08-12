@@ -3,6 +3,15 @@
 // Isolated by LISTENUP_HOME: the server takes a lockfile on its home directory and refuses to
 // start a second instance against the same one, so a throwaway home is both what keeps a test
 // run out of a developer's real library and what lets runs overlap.
+//
+// The throwaway home also boots the server with an EMPTY library, which is what `AuthArcTest`
+// wants (NeedsSetup is reachable without a fixture) and what an end-to-end sync check cannot use
+// — there is nothing to sync. So the server is pointed at the synthetic library the repo already
+// knows how to build: `:server:generateSeedLibrary` (10 ffmpeg-generated books, Gradle-cached
+// between runs), handed over as LISTENUP_LIBRARY_PATH, which ApplicationStartup seeds as a folder
+// on first boot and scans at startup. Building it is a hard requirement rather than a
+// best-effort: a lane that quietly boots with no books would turn the sync proof into a spec that
+// passes for the wrong reason.
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -166,7 +175,10 @@ const port = await freePort()
 const url = `http://localhost:${port}`
 const home = await mkdtemp(join(tmpdir(), 'listenup-webtest-'))
 
-console.log(`server: ${url}  home: ${home}`)
+// Matches `seedLibraryDir` in server/build.gradle.kts — the output the generator task declares.
+const seedLibrary = join(repoRoot, 'server', 'build', 'seed-library')
+
+console.log(`server: ${url}  home: ${home}  library: ${seedLibrary}`)
 
 let server = null
 let cleanedUp = false
@@ -200,6 +212,7 @@ try {
   // come up.
   await runGradleToCompletion([
     ':server:jvmMainClasses',
+    ':server:generateSeedLibrary',
     '--no-daemon',
     '--no-configuration-cache',
     '--no-watch-fs',
@@ -220,7 +233,16 @@ try {
   server = await spawnLongRunning(
     './gradlew',
     [':server:runJvm', '--no-daemon', '--no-configuration-cache', '--no-watch-fs'],
-    { cwd: repoRoot, env: { ...process.env, LISTENUP_HOME: home, PORT: String(port) }, stdio: 'inherit' },
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        LISTENUP_HOME: home,
+        PORT: String(port),
+        LISTENUP_LIBRARY_PATH: seedLibrary,
+      },
+      stdio: 'inherit',
+    },
   )
 
   if (!(await waitForHealth(url))) throw new Error('server never became healthy')

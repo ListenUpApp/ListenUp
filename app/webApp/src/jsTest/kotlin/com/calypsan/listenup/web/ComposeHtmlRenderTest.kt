@@ -11,6 +11,7 @@ import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
+import com.calypsan.listenup.web.features.library.fakeLibrary
 
 /**
  * Proves Compose HTML actually drives the DOM in this build — the composition runs, emits real
@@ -34,7 +35,7 @@ class ComposeHtmlRenderTest :
 
         test("a composable emits real DOM elements") {
             val router = Router()
-            val host = mount { WebAppRoot(router, fixedBookDetail(readyBook())) }
+            val host = mount { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary()) }
             router.dispose()
 
             val brand = host.querySelector(".sb-name")
@@ -46,7 +47,7 @@ class ComposeHtmlRenderTest :
             // the root element, every token lookup silently falls back and the page renders
             // unstyled rather than broken.
             val router = Router()
-            val host = mount { WebAppRoot(router, fixedBookDetail(readyBook())) }
+            val host = mount { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary()) }
             router.dispose()
 
             val root = host.querySelector(".luw") as? HTMLElement

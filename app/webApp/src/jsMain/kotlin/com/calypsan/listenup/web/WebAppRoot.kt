@@ -10,6 +10,9 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
+import com.calypsan.listenup.web.features.library.LibraryPage
+import com.calypsan.listenup.web.features.library.LibrarySession
+import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -37,13 +40,14 @@ import org.jetbrains.compose.web.dom.Text
 fun WebAppRoot(
     router: Router,
     openBookDetail: OpenBookDetail,
+    openLibrary: OpenLibrary,
     onSignOut: () -> Unit = {},
 ) {
     var collapsed by remember { mutableStateOf(false) }
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
     // A book lives in the library, so the deep link keeps Library lit in the sidebar.
-    val active = if (page == BOOK_KEY) "library" else page
+    val active = if (page == BOOK_KEY) LIBRARY_KEY else page
 
     Shell(
         sections = listOf(PRIMARY_NAV),
@@ -67,7 +71,7 @@ fun WebAppRoot(
                 onSelectTab = { tab ->
                     router.replace(Route(route.segments, route.query + ("tab" to tab)))
                 },
-                onOpenLibrary = { router.navigate(Route(listOf("library"))) },
+                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
                 selection = parseSelection(route.query["sel"]),
                 onSelectionChange = { selection ->
                     val query =
@@ -78,6 +82,13 @@ fun WebAppRoot(
                         }
                     router.replace(Route(route.segments, query))
                 },
+            )
+        } else if (active == LIBRARY_KEY) {
+            val session = libraryState(openLibrary)
+            LibraryPage(
+                state = session.state.collectAsState().value,
+                onEvent = session.onEvent,
+                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
             )
         } else {
             PagePlaceholder(active)
@@ -98,6 +109,17 @@ private fun bookDetailState(
     val session = remember(bookId) { openBookDetail(bookId) }
     DisposableEffect(session) { onDispose { session.close() } }
     return session.state.collectAsState().value
+}
+
+/**
+ * Opens a Library session while the page is showing and closes it when it stops, so the ViewModel's
+ * flows do not outlive the route.
+ */
+@Composable
+private fun libraryState(openLibrary: OpenLibrary): LibrarySession {
+    val session = remember { openLibrary() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session
 }
 
 /**
@@ -125,12 +147,14 @@ private const val HOME_KEY = "home"
 
 private const val BOOK_KEY = "book"
 
+private const val LIBRARY_KEY = "library"
+
 private val PRIMARY_NAV =
     NavSection(
         entries =
             listOf(
                 NavEntry(HOME_KEY, "Home", WebIcon.Home),
-                NavEntry("library", "Library", WebIcon.Book),
+                NavEntry(LIBRARY_KEY, "Library", WebIcon.Book),
                 NavEntry("discover", "Discover", WebIcon.Compass),
                 NavEntry("search", "Search", WebIcon.Search),
             ),

@@ -56,6 +56,15 @@ sealed interface LibraryUiState {
         val syncState: SyncState,
         val isServerScanning: Boolean,
         val scanProgress: ScanProgressState?,
+        /**
+         * Whether the first population of this library is still arriving.
+         *
+         * Distinct from [isSyncing], which tracks the CONNECTION: the socket is `Connected` for the
+         * whole of an initial seed, so [isSyncing] is false while thousands of books are still
+         * streaming in. An empty screen must consult this instead, or it tells a reader their
+         * library is empty while it is being filled.
+         */
+        val isBuildingInitialLibrary: Boolean,
     ) : LibraryUiState {
         /** Whether the library is empty (loaded but contains no books). */
         val isEmpty: Boolean

@@ -51,6 +51,7 @@ import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
+import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.launch
@@ -118,15 +119,14 @@ private fun groupBooksWithHeaders(
                         book.title.sortLetter(ignoreArticles)
                     }
 
-                    // Other text sorts use literal first letter
+                    // Other text sorts use the shared name rule — the same one the web library and
+                    // the iOS Swift mirror group by, so a name files under one letter everywhere.
                     SortCategory.AUTHOR -> {
-                        val first = book.authorNames.firstOrNull()?.uppercaseChar() ?: '#'
-                        if (first.isLetter()) first else '#'
+                        book.authorNames.nameLetter()
                     }
 
                     SortCategory.SERIES -> {
-                        val first = book.seriesName?.firstOrNull()?.uppercaseChar() ?: '#'
-                        if (first.isLetter()) first else '#'
+                        book.seriesName.nameLetter()
                     }
 
                     else -> {

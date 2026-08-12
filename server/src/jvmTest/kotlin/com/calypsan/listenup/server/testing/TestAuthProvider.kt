@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.plugins.BLOB_READ_PROVIDER
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import io.ktor.http.auth.HttpAuthHeader
 import io.ktor.server.auth.AuthenticationConfig
@@ -59,8 +60,14 @@ class TestAuthProvider(
 }
 
 /**
- * Installs a [TestAuthProvider] under [JWT_PROVIDER] so `authenticate(JWT_PROVIDER)`
- * route blocks resolve a [UserPrincipal] in tests without a real token.
+ * Installs a [TestAuthProvider] under both real provider names, so `authenticate(JWT_PROVIDER)` and
+ * `authenticate(BLOB_READ_PROVIDER)` route blocks alike resolve a [UserPrincipal] in tests without a
+ * real token.
+ *
+ * Both, because a route test cares about its handler and not about which carrier let the caller in —
+ * a blob-read route mounted in a test with only [JWT_PROVIDER] registered would fail to resolve its
+ * provider rather than run. The carrier boundary itself is asserted against the real providers, in
+ * `CookieCarrierTest` and `CookieCarrierScopeTest`; this harness deliberately has no opinion on it.
  *
  * [roleResolver] maps the authenticated user id to its [UserRole]; the default
  * grants every principal [UserRole.ROOT] (the all-bypassing behaviour most route
@@ -70,5 +77,7 @@ fun AuthenticationConfig.testAuth(
     defaultUserId: String = "test-user",
     roleResolver: (String) -> UserRole = { UserRole.ROOT },
 ) {
-    register(TestAuthProvider(TestAuthProvider.Config(JWT_PROVIDER, defaultUserId, roleResolver)))
+    listOf(JWT_PROVIDER, BLOB_READ_PROVIDER).forEach { name ->
+        register(TestAuthProvider(TestAuthProvider.Config(name, defaultUserId, roleResolver)))
+    }
 }

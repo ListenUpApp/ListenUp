@@ -15,6 +15,7 @@ import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import com.calypsan.listenup.web.features.library.fakeLibrary
 
 /**
  * Routers created by [mountGate], disposed together after the spec.
@@ -34,6 +35,7 @@ private fun mountGate(graph: FakeAuthGraph): HTMLElement {
             authGraph = graph,
             router = router,
             openBookDetail = fixedBookDetail(readyBook()),
+            openLibrary = fakeLibrary(),
         )
     }
     return host

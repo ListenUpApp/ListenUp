@@ -5,6 +5,12 @@ import Testing
 /// scrubber. The regression guard: grouping/ordering runs over the native `BookRow`
 /// value type (cheap Swift strings), not re-bridged Kotlin objects — and the `#`
 /// bucket for non-letter titles sorts to the top.
+///
+/// These cases also stand in for the letter rule itself: `TitleSorting` is a hand-maintained
+/// mirror of the shared Kotlin `TitleSortUtils`, whose counterpart cases live in
+/// `TitleSortUtilsTest` (commonTest). The two tables are the contract — change one, change both.
+/// Drift here is silent rather than loud: books still render, they just file under a header they
+/// do not sort beneath.
 @Suite("BookRow sectioning")
 struct BookSectioningTests {
     private func row(_ id: String, _ title: String) -> BookRow {
@@ -60,6 +66,24 @@ struct BookSectioningTests {
         // stripped, so both keep their real first letter "A".
         let sections = bookSections(from: [row("1", "A.I."), row("2", "Anchor")], ignoreArticles: true)
         #expect(sections.map { $0.letter } == ["A"])
+        #expect(sections.first?.books.count == 2)
+    }
+
+    /// A title that is nothing but an article has no whitespace to strip on, so it keeps its
+    /// letter rather than collapsing into the "#" bucket.
+    @Test func aTitleThatIsOnlyAnArticleKeepsItsLetter() {
+        let sections = bookSections(from: [row("1", "The")], ignoreArticles: true)
+        #expect(sections.map { $0.letter } == ["T"])
+    }
+
+    /// Stripping runs BEFORE the letter is classified, so an article in front of a symbol still
+    /// lands in "#" — the case a real library hits with titles like "The $100 Startup".
+    @Test func symbolLeadingTitlesBucketUnderHashEvenBehindAnArticle() {
+        let sections = bookSections(
+            from: [row("1", "The $100 Startup"), row("2", "‘Salem’s Lot")],
+            ignoreArticles: true
+        )
+        #expect(sections.map { $0.letter } == ["#"])
         #expect(sections.first?.books.count == 2)
     }
 }

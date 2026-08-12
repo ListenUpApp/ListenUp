@@ -36,11 +36,14 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.plugins.BLOB_READ_PROVIDER
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.RpcServices
 import com.calypsan.listenup.server.routes.audioRoutes
+import com.calypsan.listenup.server.routes.avatarImageRoutes
 import com.calypsan.listenup.server.routes.backupRoutes
-import com.calypsan.listenup.server.routes.bookRoutes
+import com.calypsan.listenup.server.routes.bookBlobReadRoutes
+import com.calypsan.listenup.server.routes.bookBlobWriteRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.coverCastRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
@@ -114,13 +117,20 @@ internal fun Application.installAppRoutes(homeDir: Path) {
         healthRoutes()
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
-            bookRoutes(bookService, coverResponder, bookAccessPolicy, documentFileLocator)
+            bookBlobWriteRoutes(bookService)
             contributorRoutes(contributorService, homeDir, imageStorage)
             seriesRoutes(seriesService, homeDir, imageStorage)
-            metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
+        }
+        // The only place the access-token cookie buys anything. Two rules govern this block — it
+        // is a SIBLING of the one above rather than nested inside it, and it carries GETs only —
+        // and both, with why they are load-bearing, are documented on BLOB_READ_PROVIDER.
+        authenticate(BLOB_READ_PROVIDER) {
+            bookBlobReadRoutes(coverResponder, bookAccessPolicy, documentFileLocator)
+            metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
+            avatarImageRoutes(avatarImageStore)
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)

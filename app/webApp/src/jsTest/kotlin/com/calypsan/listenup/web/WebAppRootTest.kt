@@ -12,6 +12,7 @@ import org.w3c.dom.HTMLElement
 import org.jetbrains.compose.web.renderComposable
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import com.calypsan.listenup.web.features.library.fakeLibrary
 
 /**
  * The root wiring: the sidebar drives the URL and the URL drives the sidebar. This is where the
@@ -35,7 +36,7 @@ class WebAppRootTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { WebAppRoot(router, fixedBookDetail(readyBook())) }
+            renderComposable(root = host) { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary()) }
             return host to router
         }
 
