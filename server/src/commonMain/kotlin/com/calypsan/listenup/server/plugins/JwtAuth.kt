@@ -45,6 +45,16 @@ const val JWT_PROVIDER = "jwt"
 private const val SOCKET_TICKET_QUERY_PARAM = "ticket"
 
 /**
+ * Cookie carrying the access token for credentials the DOM sends on our behalf.
+ *
+ * An `<img>` tag cannot set an Authorization header, which is the same shape of problem the
+ * socket ticket solves for WebSocket upgrades. The browser writes this itself beside the token it
+ * already keeps in origin-scoped localStorage, so it exposes nothing a script on this origin
+ * could not already read.
+ */
+const val ACCESS_TOKEN_COOKIE = "listenup_access"
+
+/**
  * Installs a `bearer` provider named [JWT_PROVIDER] that verifies the access
  * JWT, then runs an `isLive` check on the session row before handing back a
  * [UserPrincipal]. A revoked or expired session can't sneak through on a
@@ -73,19 +83,30 @@ private fun AuthenticationConfig.bearerJwt(
         // Header first, so every native client is byte-for-byte unchanged and the browser's
         // URL-borne ticket is only ever consulted when there is no header to prefer.
         authHeader { call ->
-            call.request.parseAuthorizationHeader() ?: call.socketTicketFromQuery()
+            call.request.parseAuthorizationHeader()
+                ?: call.socketTicketFromQuery()
+                ?: call.accessTokenFromCookie()
         }
         authenticate { credential ->
-            // `authHeader` cannot suspend, so redemption happens here, where it can. Which of the
-            // two carriers produced this credential is decided by the same rule `authHeader`
-            // applied: a present header always wins, so a ticket is only in play without one.
+            // `authHeader` cannot suspend, so redemption happens here, where it can. Which carrier
+            // produced this credential is decided by the same precedence `authHeader` applied: a
+            // present header always wins, then the query ticket, then the cookie. Only the ticket
+            // needs redeeming — the header and the cookie both carry the access token directly.
             val accessToken =
-                if (request.parseAuthorizationHeader() != null) {
-                    credential.token
-                } else {
-                    socketTickets?.redeem(credential.token) ?: run {
-                        logJwtRejection("socket ticket was unknown, expired, or already spent")
-                        return@authenticate null
+                when {
+                    request.parseAuthorizationHeader() != null -> {
+                        credential.token
+                    }
+
+                    request.queryParameters[SOCKET_TICKET_QUERY_PARAM] != null -> {
+                        socketTickets?.redeem(credential.token) ?: run {
+                            logJwtRejection("socket ticket was unknown, expired, or already spent")
+                            return@authenticate null
+                        }
+                    }
+
+                    else -> {
+                        credential.token
                     }
                 }
             val claims =
@@ -118,6 +139,17 @@ private fun ApplicationCall.socketTicketFromQuery(): HttpAuthHeader? {
         HttpAuthHeader.Single(AuthScheme.Bearer, ticket)
     } catch (_: ParseException) {
         logJwtRejection("query ticket is not a well-formed credential")
+        null
+    }
+}
+
+/** The access token carried by [ACCESS_TOKEN_COOKIE], or null when the cookie is absent. */
+private fun ApplicationCall.accessTokenFromCookie(): HttpAuthHeader? {
+    val token = request.cookies[ACCESS_TOKEN_COOKIE] ?: return null
+    return try {
+        HttpAuthHeader.Single(AuthScheme.Bearer, token)
+    } catch (_: ParseException) {
+        logJwtRejection("cookie credential is not well-formed")
         null
     }
 }
