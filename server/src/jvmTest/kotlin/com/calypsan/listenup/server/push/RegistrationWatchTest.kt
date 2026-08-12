@@ -115,6 +115,27 @@ class RegistrationWatchTest :
             }
         }
 
+        test("a blank or oversized token is silently dropped — no row stored") {
+            runTest {
+                val fix = newFixture()
+                val userId = fix.registerPendingUser()
+
+                // Blank: SEC-05, mirrors PushServiceImpl.registerToken's authenticated-path check —
+                // oracle-free here too, so the reply is still Success(Unit).
+                fix.auth
+                    .registerRegistrationWatchToken(userId, "   ", PushPlatform.IOS)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                fix.watchCount() shouldBe 0
+
+                // Oversized: the relay rejects an ENTIRE batch when any token in it exceeds the cap —
+                // one oversized row must never reach the store.
+                fix.auth
+                    .registerRegistrationWatchToken(userId, "t".repeat(MAX_PUSH_TOKEN_LENGTH + 1), PushPlatform.IOS)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                fix.watchCount() shouldBe 0
+            }
+        }
+
         test("push disabled: the reply is indistinguishable but nothing is stored") {
             runTest {
                 val fix = newFixture()

@@ -17,10 +17,9 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.push.PushNotifier
+import com.calypsan.listenup.server.push.isValidPushToken
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import kotlin.time.Clock
-
-private const val MAX_TOKEN_LENGTH = 4096
 
 /**
  * [PushService] implementation — the session-bound device push-token registry.
@@ -117,12 +116,14 @@ internal class PushServiceImpl(
         }
     }
 
-    private fun validateToken(token: String): ValidationError? =
-        when {
-            token.isBlank() -> ValidationError(message = "token must not be blank.")
-            token.length > MAX_TOKEN_LENGTH -> ValidationError(message = "token is too long.")
-            else -> null
+    private fun validateToken(token: String): ValidationError? {
+        if (isValidPushToken(token)) return null
+        return if (token.isBlank()) {
+            ValidationError(message = "token must not be blank.")
+        } else {
+            ValidationError(message = "token is too long.")
         }
+    }
 
     private fun noPrincipal(): AppResult.Failure = AppResult.Failure(AuthError.PermissionDenied())
 }
