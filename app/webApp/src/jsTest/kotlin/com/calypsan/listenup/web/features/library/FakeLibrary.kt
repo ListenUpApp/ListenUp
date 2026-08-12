@@ -49,6 +49,7 @@ fun contractLibrary(
         syncState = if (syncing) SyncState.Syncing else SyncState.Idle,
         isServerScanning = false,
         scanProgress = null,
+        isBuildingInitialLibrary = false,
     )
 
 /**

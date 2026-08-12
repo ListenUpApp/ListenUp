@@ -1,11 +1,17 @@
 package com.calypsan.listenup.web.features.library
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
+import com.calypsan.listenup.client.util.nameLetter
+import com.calypsan.listenup.client.util.sortLetter
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
@@ -60,12 +66,18 @@ private fun LoadedLibrary(
     }
 
     if (state.books.isEmpty()) {
-        EmptyLibrary(isSyncing = state.isSyncing)
+        EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
         return
     }
 
     Div(attrs = { classes("lib-grid") }) {
+        var currentLetter: Char? = null
         state.books.forEach { book ->
+            val letter = book.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles)
+            if (letter != null && letter != currentLetter) {
+                currentLetter = letter
+                Div(attrs = { classes("lib-section") }) { Text(letter.toString()) }
+            }
             BookCard(
                 book = book,
                 progress = state.bookProgress[book.id] ?: 0f,
@@ -76,13 +88,36 @@ private fun LoadedLibrary(
 }
 
 /**
+ * The letter this book files under for the given sort, or null when the sort is not alphabetical.
+ *
+ * Delegates to the shared [sortLetter] / [nameLetter] rules rather than taking a first character
+ * here: those are what Android groups by and what the Swift mirror follows, and a fourth private
+ * copy of "which letter is this?" is exactly how three platforms end up disagreeing about where
+ * *The Hobbit* belongs. Added and Duration return null — a letter rail over a date sort would label
+ * runs of books with letters that mean nothing.
+ */
+private fun BookListItem.sectionLetter(
+    category: SortCategory,
+    ignoreTitleArticles: Boolean,
+): Char? =
+    when (category) {
+        SortCategory.TITLE -> title.sortLetter(ignoreTitleArticles)
+        SortCategory.AUTHOR -> authors.firstOrNull()?.name.nameLetter()
+        else -> null
+    }
+
+/**
  * Zero books means one of two very different things, and saying the wrong one is worse than saying
  * nothing: a library mid-seed is not an empty library.
+ *
+ * Driven by `isBuildingInitialLibrary` rather than `isSyncing` deliberately. `isSyncing` reports the
+ * CONNECTION, which is `Connected` for the whole of an initial seed — so this branch read "No books
+ * yet" for the entire pre-first-batch window against a real 1195-book library.
  */
 @Composable
-private fun EmptyLibrary(isSyncing: Boolean) {
+private fun EmptyLibrary(isBuilding: Boolean) {
     Div(attrs = { classes("empty") }) {
-        if (isSyncing) {
+        if (isBuilding) {
             H3 { Text("Syncing your library…") }
             P { Text("Books will appear here as they arrive.") }
         } else {
@@ -98,18 +133,36 @@ private fun BookCard(
     progress: Float,
     onOpen: () -> Unit,
 ) {
+    // A library of any size has books the server holds no artwork for, and a bare <img> renders
+    // those as a broken-image icon. The book detail page already falls back to a titled tile; this
+    // is the same treatment, so one missing cover does not look like a broken page.
+    var coverFailed by remember(book.id) { mutableStateOf(false) }
+
     Div(attrs = {
         classes("lib-card")
         onClick { onOpen() }
     }) {
-        Img(
-            src = coverUrl(book.id.value),
-            attrs = {
-                classes("lib-cover")
-                alt(book.title)
-            },
-        )
+        if (coverFailed) {
+            Div(attrs = { classes("lib-cover", "lib-cover-fallback") }) { Text(book.title) }
+        } else {
+            Img(
+                src = coverUrl(book.id.value),
+                attrs = {
+                    classes("lib-cover")
+                    alt(book.title)
+                    // The browser fetches only what the reader approaches, and decodes off the main
+                    // thread. Without these a 1200-book library pulls 1200 covers on first paint.
+                    attr("loading", "lazy")
+                    attr("decoding", "async")
+                    addEventListener("error") { coverFailed = true }
+                },
+            )
+        }
         Div(attrs = { classes("lib-title") }) { Text(book.title) }
+        val authorLine = book.authors.joinToString(", ") { it.name }
+        if (authorLine.isNotEmpty()) {
+            Div(attrs = { classes("lib-author") }) { Text(authorLine) }
+        }
         if (progress > 0f) {
             Div(attrs = { classes("lib-progress") }) {
                 Div(attrs = {

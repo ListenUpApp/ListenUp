@@ -459,7 +459,9 @@ body { margin: 0; }
 .nav-i .lb { display:block; flex:1; overflow:hidden; text-overflow:ellipsis; }
 .sb-spacer { flex:1; }
 .sb-expand { margin:0 auto 10px; }
-.shell-main { flex:1; min-width:0; overflow:auto; }
+/* Every page's content lands here, so this is the one place that owes it breathing room —
+   without it a grid or heading sits flush against the sidebar and the top of the window. */
+.shell-main { flex:1; min-width:0; overflow:auto; padding:24px 28px; }
 
 /* The rail form. ONE mechanism, two triggers: the manual .clpsd class (>=1280 preference)
    and the narrow-viewport media query below, which forces it. Keep the two blocks identical. */
@@ -536,6 +538,9 @@ body { margin: 0; }
   padding: 48px 24px;
 }
 .auth-col { width: 100%; max-width: 460px; display: flex; flex-direction: column; }
+/* The heading sets `margin: 0`, so without this the badge sits flush against it. Scoped to the
+   auth column because `.badge` is shared — `.dir-b .badge` styles it differently elsewhere. */
+.auth-col > .badge { margin-bottom: 18px; }
 .auth-t {
   margin: 0; color: var(--ink);
   font-size: 40px; font-weight: 800; letter-spacing: -1.5px; line-height: 1.0;
@@ -565,9 +570,58 @@ body { margin: 0; }
 .lib-sort-option { cursor: pointer; opacity: 0.6; }
 .lib-sort-option.is-active { opacity: 1; font-weight: 600; }
 .lib-sort-direction { cursor: pointer; user-select: none; }
-.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; }
-.lib-card { cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem; }
-.lib-cover { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 6px; }
+.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1.25rem; }
+/* `loading="lazy"` on the cover carries the scroll win on its own: measured at 1195 books, only the
+   covers near the viewport are fetched and decoded instead of all 1195 at once.
+   `content-visibility: auto` was tried here as well and REVERTED — on a grid item it skips the
+   item's layout, so `contain-intrinsic-size` governed the row heights, cards misaligned, and the
+   lazy covers never entered the viewport calculation to load at all. Don't reintroduce it on
+   `.lib-card`; if more is needed, contain a section wrapper, not the grid items. */
+.lib-card {
+  cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem;
+  animation: lib-card-in 260ms ease-out both;
+}
+
+/* Books arrive in batches during the initial seed, ~100 at a time. The animation is on the CARD
+   rather than the grid so it plays per element as each is inserted — a grid-level transition would
+   re-run over every existing card each time a batch landed, which reads as the whole page flashing.
+   Cards already on screen keep their DOM node and so do not replay. */
+@keyframes lib-card-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Letter section header. Spans the whole grid row so the run of books below it reads as its group,
+   and sticks to the top while that run scrolls past. */
+.lib-section {
+  grid-column: 1 / -1;
+  position: sticky; top: -24px; z-index: 2;
+  padding: 14px 2px 6px;
+  background: var(--paper);
+  font-size: 1.05rem; font-weight: 700; color: var(--ink);
+  animation: none;
+}
+
+/* Motion here is decoration, and a 1200-card cascade is exactly the kind of thing that makes a
+   reader who asked for less of it feel worse. */
+@media (prefers-reduced-motion: reduce) {
+  .lib-card { animation: none; }
+}
+/* The background is what a lazy cover shows while it is still being fetched, so an unloaded card
+   reads as a waiting tile rather than a hole in the grid. */
+.lib-cover {
+  width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 6px;
+  background: var(--coral-soft);
+}
+/* Shown in place of the <img> when the server holds no artwork for a book, so a coverless book
+   reads as a titled tile rather than the browser's broken-image icon. */
+.lib-cover-fallback {
+  display: flex; align-items: flex-end; padding: 10px;
+  background: linear-gradient(150deg, var(--coral-soft), var(--paper-2, #e7e0d8));
+  color: var(--ink-2); font-size: 0.8rem; font-weight: 600; line-height: 1.25;
+  overflow: hidden;
+}
 .lib-title { font-size: 0.9rem; line-height: 1.2; }
+.lib-author { font-size: 0.8rem; line-height: 1.2; color: var(--ink-2); }
 .lib-progress { height: 3px; border-radius: 2px; overflow: hidden; background: var(--luw-border, #333); }
 .lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
