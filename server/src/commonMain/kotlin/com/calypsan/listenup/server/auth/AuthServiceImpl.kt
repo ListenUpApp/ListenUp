@@ -39,6 +39,7 @@ import com.calypsan.listenup.server.services.SessionRevoker
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.push.isValidPushToken
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -432,10 +433,13 @@ class AuthServiceImpl(
 
     /**
      * Pre-auth watch-token registration (#1068). Deliberately oracle-free: push disabled, an
-     * unknown [userId], or a registration that is no longer pending all return the same
-     * [AppResult.Success] as the stored case — the reply reveals nothing about account
+     * invalid token, an unknown [userId], or a registration that is no longer pending all return
+     * the same [AppResult.Success] as the stored case — the reply reveals nothing about account
      * existence or state. The trust model matches [observeRegistrationStatus]: possession of
-     * the unguessable [userId] handle.
+     * the unguessable [userId] handle. [token] is validated with the same shape
+     * [isValidPushToken] check as the authenticated path (SEC-05) — the relay rejects an entire
+     * send batch when any token in it is oversized, so an invalid token must never reach the
+     * store.
      */
     override suspend fun registerRegistrationWatchToken(
         userId: String,
@@ -445,6 +449,7 @@ class AuthServiceImpl(
         enforceRate(AuthRateBucket.REGISTER_WATCH_TOKEN)?.let { return AppResult.Failure(it) }
         val store = pushWatchTokens ?: return AppResult.Success(Unit)
         if (!settings.pushNotificationsEnabled()) return AppResult.Success(Unit)
+        if (!isValidPushToken(token)) return AppResult.Success(Unit)
         val pending =
             suspendTransaction(db) {
                 db.usersQueries.selectById(userId).executeAsOneOrNull()
