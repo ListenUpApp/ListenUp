@@ -20,7 +20,7 @@ final class CarPlayLibraryWrapper {
     private let viewModel: LibraryViewModel
     private let bridge = FlowBridge()
 
-    init(viewModel: LibraryViewModel = Dependencies.shared.libraryViewModel) {
+    init(viewModel: LibraryViewModel = Dependencies.shared.makeLibraryViewModel()) {
         self.viewModel = viewModel
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
         viewModel.onScreenVisible()
