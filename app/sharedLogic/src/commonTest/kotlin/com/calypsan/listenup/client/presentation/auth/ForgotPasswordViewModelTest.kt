@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.PasswordResetRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -47,7 +48,13 @@ private class FakePasswordResetRepository(
     var abandonCallCount = 0
         private set
 
-    override suspend fun requestReset(email: String): AppResult<PasswordResetTicket> = requestResetResult
+    /** Every address the ViewModel asked for, in order — so a re-ask can be told from a first ask. */
+    val requestedEmails = mutableListOf<String>()
+
+    override suspend fun requestReset(email: String): AppResult<PasswordResetTicket> {
+        requestedEmails += email
+        return requestResetResult
+    }
 
     override fun observeStatus(ticketId: String): Flow<PasswordResetStatusEvent> {
         subscriptionCount++
@@ -121,6 +128,50 @@ class ForgotPasswordViewModelTest :
 
                     val awaiting = vm.state.value.shouldBeInstanceOf<ForgotPasswordUiState.AwaitingApproval>()
                     awaiting.ticketId shouldBe "t-1"
+                } finally {
+                    vm.close()
+                }
+            }
+        }
+
+        test("asking again after a decline re-opens the request with the address already given") {
+            // A decline is usually a misunderstanding, so the requester should not have to walk
+            // back through sign-in and retype an address they just entered.
+            runTest {
+                Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+                val repo = FakePasswordResetRepository(resumable = null)
+                val vm = viewModel(repo)
+                try {
+                    runCurrent()
+                    vm.requestReset("ada@example.com")
+                    runCurrent()
+
+                    vm.retryRequest()
+                    runCurrent()
+
+                    repo.requestedEmails shouldBe listOf("ada@example.com", "ada@example.com")
+                    vm.state.value.shouldBeInstanceOf<ForgotPasswordUiState.AwaitingApproval>()
+                } finally {
+                    vm.close()
+                }
+            }
+        }
+
+        test("asking again with nothing remembered falls back to the email step") {
+            // The ViewModel is screen-scoped, so a process death takes the address with it.
+            // Asking for it again beats failing silently.
+            runTest {
+                Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+                val repo = FakePasswordResetRepository(resumable = null)
+                val vm = viewModel(repo)
+                try {
+                    runCurrent()
+
+                    vm.retryRequest()
+                    runCurrent()
+
+                    repo.requestedEmails.shouldBeEmpty()
+                    vm.state.value shouldBe ForgotPasswordUiState.EnterEmail
                 } finally {
                     vm.close()
                 }

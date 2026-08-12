@@ -1,20 +1,34 @@
 package com.calypsan.listenup.client.features.auth
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Login
-import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Cancel
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MailOutline
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +38,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -36,19 +54,38 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpTextField
+import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
+import com.calypsan.listenup.client.features.auth.components.AuthStepRow
+import com.calypsan.listenup.client.features.auth.components.AuthStepState
+import com.calypsan.listenup.client.features.auth.components.CodeBoxes
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordUiState
 import com.calypsan.listenup.client.presentation.auth.ForgotPasswordViewModel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.auth_check_status
 import listenup.composeapp.generated.resources.auth_checking_automatically
 import listenup.composeapp.generated.resources.auth_forgot_password_attempts
+import listenup.composeapp.generated.resources.auth_forgot_password_attempts_one
 import listenup.composeapp.generated.resources.auth_forgot_password_awaiting
 import listenup.composeapp.generated.resources.auth_forgot_password_complete
 import listenup.composeapp.generated.resources.auth_forgot_password_denied
 import listenup.composeapp.generated.resources.auth_forgot_password_enter_code
 import listenup.composeapp.generated.resources.auth_forgot_password_explainer
+import listenup.composeapp.generated.resources.auth_forgot_password_how_it_works
+import listenup.composeapp.generated.resources.auth_forgot_password_retry
+import listenup.composeapp.generated.resources.auth_forgot_password_reveal_hint
+import listenup.composeapp.generated.resources.auth_forgot_password_send_request
+import listenup.composeapp.generated.resources.auth_forgot_password_step_code
+import listenup.composeapp.generated.resources.auth_forgot_password_step_finish
+import listenup.composeapp.generated.resources.auth_forgot_password_step_request
+import listenup.composeapp.generated.resources.auth_forgot_password_step_approve
+import listenup.composeapp.generated.resources.auth_forgot_password_step_approve_sub
+import listenup.composeapp.generated.resources.auth_forgot_password_step_sent
+import listenup.composeapp.generated.resources.auth_forgot_password_step_set
+import listenup.composeapp.generated.resources.auth_forgot_password_step_set_sub
+import listenup.composeapp.generated.resources.auth_forgot_password_survives
+import listenup.composeapp.generated.resources.auth_forgot_password_ticket
 import listenup.composeapp.generated.resources.auth_forgot_password_title
 import listenup.composeapp.generated.resources.auth_password_label
 import listenup.composeapp.generated.resources.auth_pending_review
@@ -56,7 +93,6 @@ import listenup.composeapp.generated.resources.common_continue
 import listenup.composeapp.generated.resources.common_email
 import listenup.composeapp.generated.resources.common_something_went_wrong
 import listenup.composeapp.generated.resources.common_try_again
-import listenup.composeapp.generated.resources.invite_enter_code
 import listenup.composeapp.generated.resources.setup_back_to_sign_in
 import org.jetbrains.compose.resources.stringResource
 
@@ -86,6 +122,7 @@ fun ForgotPasswordScreen(
         onRequestReset = viewModel::requestReset,
         onCheckStatus = viewModel::checkStatus,
         onCompleteReset = viewModel::completeReset,
+        onRetry = viewModel::retryRequest,
         modifier = modifier,
     )
 }
@@ -101,6 +138,7 @@ internal fun ForgotPasswordContent(
     onRequestReset: (email: String) -> Unit,
     onCheckStatus: () -> Unit,
     onCompleteReset: (code: String, newPassword: String) -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     when (state) {
@@ -113,7 +151,11 @@ internal fun ForgotPasswordContent(
         }
 
         is ForgotPasswordUiState.AwaitingApproval -> {
-            AwaitingApprovalContent(onCheckStatus = onCheckStatus, modifier = modifier)
+            AwaitingApprovalContent(
+                ticketId = state.ticketId,
+                onCheckStatus = onCheckStatus,
+                modifier = modifier,
+            )
         }
 
         is ForgotPasswordUiState.EnterCode -> {
@@ -121,19 +163,11 @@ internal fun ForgotPasswordContent(
         }
 
         ForgotPasswordUiState.Denied -> {
-            MessageContent(
-                subtitle = stringResource(Res.string.auth_forgot_password_denied),
-                onBackToSignIn = onBack,
-                modifier = modifier,
-            )
+            DeniedContent(onRetry = onRetry, onBackToSignIn = onBack, modifier = modifier)
         }
 
         ForgotPasswordUiState.Complete -> {
-            MessageContent(
-                subtitle = stringResource(Res.string.auth_forgot_password_complete),
-                onBackToSignIn = onBack,
-                modifier = modifier,
-            )
+            CompleteContent(onBackToSignIn = onBack, modifier = modifier)
         }
 
         is ForgotPasswordUiState.Error -> {
@@ -171,18 +205,75 @@ private fun EnterEmailContent(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
         )
+        HowItWorks()
         ListenUpButton(
-            text = stringResource(Res.string.common_continue),
+            text = stringResource(Res.string.auth_forgot_password_send_request),
             onClick = { submit() },
             enabled = email.isNotBlank(),
-            leadingIcon = Icons.AutoMirrored.Outlined.Login,
+            leadingIcon = Icons.AutoMirrored.Outlined.Send,
         )
     }
 }
 
-/** Waiting for an admin. The manual "Check Status" button is the never-stranded fallback. */
+/**
+ * The three steps, stated before the request is sent.
+ *
+ * This is the single biggest thing the screen was missing: a self-hosted server has no mail
+ * transport, so without this the user waits at a screen with no explanation and is then asked for
+ * a code that has never been mentioned. No admin is named — this screen is reachable by anyone who
+ * is signed out, and no account has been matched to the typed email yet.
+ */
+@Composable
+private fun HowItWorks() {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .padding(HOW_IT_WORKS_PADDING),
+        verticalArrangement = Arrangement.spacedBy(STEP_SPACING),
+    ) {
+        Text(
+            text = stringResource(Res.string.auth_forgot_password_how_it_works),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        listOf(
+            Res.string.auth_forgot_password_step_request,
+            Res.string.auth_forgot_password_step_code,
+            Res.string.auth_forgot_password_step_finish,
+        ).forEachIndexed { index, step ->
+            Row(horizontalArrangement = Arrangement.spacedBy(STEP_SPACING)) {
+                Text(
+                    text = "${index + 1}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = stringResource(step),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Waiting for an admin. The manual "Check Status" button is the never-stranded fallback.
+ *
+ * The ticket number is shown because the request outlives the screen — the device claim is
+ * persisted, so quoting a number to the person you are asking is useful, and knowing the request
+ * survives is what stops someone sitting on this screen waiting.
+ *
+ * No admin is named here. Several people may hold the role, and this is the one state a request
+ * for an unrecognised address also reaches — naming someone would separate real accounts from
+ * unknown ones at a glance.
+ */
 @Composable
 private fun AwaitingApprovalContent(
+    ticketId: String,
     onCheckStatus: () -> Unit,
     modifier: Modifier,
 ) {
@@ -192,6 +283,12 @@ private fun AwaitingApprovalContent(
         badge = AuthBadge(Icons.Outlined.Schedule, stringResource(Res.string.auth_pending_review)),
         modifier = modifier,
     ) {
+        ResetTimeline(ticketId)
+        Text(
+            text = stringResource(Res.string.auth_forgot_password_survives),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Row(
             modifier = Modifier,
             horizontalArrangement = Arrangement.Center,
@@ -253,24 +350,22 @@ private fun EnterCodeContent(
         subtitle = stringResource(Res.string.auth_forgot_password_enter_code),
         modifier = modifier,
     ) {
-        ListenUpTextField(
+        CodeBoxes(
             value = code,
             onValueChange = {
                 code = it
                 errorDismissed = true
             },
-            label = stringResource(Res.string.invite_enter_code),
             isError = displayedError != null,
-            supportingText = displayedError,
-            leadingIcon = Icons.Outlined.Key,
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    capitalization = KeyboardCapitalization.Characters,
-                    imeAction = ImeAction.Next,
-                ),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+            onDone = { focusManager.moveFocus(FocusDirection.Down) },
         )
+        displayedError?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         ListenUpTextField(
             value = newPassword,
             onValueChange = { newPassword = it },
@@ -281,14 +376,12 @@ private fun EnterCodeContent(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { submit() }),
         )
-        val attemptsRemaining = state.attemptsRemaining
-        if (attemptsRemaining != null) {
-            Text(
-                text = stringResource(Res.string.auth_forgot_password_attempts, attemptsRemaining),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
+        Text(
+            text = stringResource(Res.string.auth_forgot_password_reveal_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        AttemptsRemaining(state.attemptsRemaining)
         ListenUpButton(
             text = stringResource(Res.string.common_continue),
             onClick = { submit() },
@@ -297,18 +390,177 @@ private fun EnterCodeContent(
     }
 }
 
-/** Shared shape for the two terminal, non-error messages: denied and complete. */
+/**
+ * Where the request has got to, in the same three-step vocabulary the registration waiting room
+ * uses — the two are the same situation (a human is deciding something), so they should read as
+ * the same app rather than two unrelated waiting screens.
+ */
 @Composable
-private fun MessageContent(
-    subtitle: String,
+private fun ResetTimeline(ticketId: String) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        AuthStepRow(
+            state = AuthStepState.DONE,
+            icon = Icons.AutoMirrored.Outlined.Send,
+            title = stringResource(Res.string.auth_forgot_password_step_sent),
+            subtitle = stringResource(Res.string.auth_forgot_password_ticket, ticketId),
+        )
+        AuthStepRow(
+            state = AuthStepState.ACTIVE,
+            icon = Icons.Outlined.Schedule,
+            title = stringResource(Res.string.auth_forgot_password_step_approve),
+            subtitle = stringResource(Res.string.auth_forgot_password_step_approve_sub),
+        )
+        AuthStepRow(
+            state = AuthStepState.TODO,
+            icon = Icons.Outlined.Lock,
+            title = stringResource(Res.string.auth_forgot_password_step_set),
+            subtitle = stringResource(Res.string.auth_forgot_password_step_set_sub),
+        )
+    }
+}
+
+/**
+ * The terminal mark — the scalloped shape the rest of the app uses for people and medallions,
+ * rather than a plain circle. Tone carries the outcome: an error container for a decline, the
+ * tertiary container for a success, so the two terminals are distinguishable at a glance and
+ * before any copy is read.
+ */
+@Composable
+private fun TerminalMark(
+    icon: ImageVector,
+    container: Color,
+    ink: Color,
+) {
+    Box(
+        modifier = Modifier.size(TERMINAL_MARK_SIZE).clip(cookieScallopShape()).background(container),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = ink,
+            modifier = Modifier.size(TERMINAL_ICON_SIZE),
+        )
+    }
+}
+
+/**
+ * The remaining attempt budget, stated only once it is worth stating.
+ *
+ * The previous version painted every count in the error colour, which spends the alarm long before
+ * it means anything — by the time one attempt is left, the styling has nothing louder to say. A
+ * comfortable budget says nothing at all; a shrinking one is a plain note; the last one is an
+ * error, and only then is it worth explaining what running out costs.
+ */
+@Composable
+private fun AttemptsRemaining(remaining: Int?) {
+    if (remaining == null || remaining >= ATTEMPTS_WORTH_MENTIONING) return
+    val isLast = remaining <= 1
+    val container =
+        if (isLast) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.tertiaryContainer
+    val ink =
+        if (isLast) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .background(container)
+                .padding(ATTEMPTS_PADDING),
+        horizontalArrangement = Arrangement.spacedBy(STEP_SPACING),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (isLast) Icons.Outlined.Warning else Icons.Outlined.Info,
+            contentDescription = null,
+            tint = ink,
+            modifier = Modifier.size(ATTEMPTS_ICON_SIZE),
+        )
+        Text(
+            text =
+                if (isLast) {
+                    stringResource(Res.string.auth_forgot_password_attempts_one)
+                } else {
+                    stringResource(Res.string.auth_forgot_password_attempts, remaining)
+                },
+            style = MaterialTheme.typography.labelLarge,
+            color = ink,
+        )
+    }
+}
+
+/**
+ * Declined, but not a dead end.
+ *
+ * A decline is usually a misunderstanding rather than a verdict — the person approving may simply
+ * not have recognised the request. "Ask again" re-opens it, so it reappears in the admin's queue
+ * without the requester having to find their way back through the flow from sign-in.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DeniedContent(
+    onRetry: () -> Unit,
     onBackToSignIn: () -> Unit,
     modifier: Modifier,
 ) {
     AuthScaffold(
         title = stringResource(Res.string.auth_forgot_password_title),
-        subtitle = subtitle,
+        subtitle = stringResource(Res.string.auth_forgot_password_denied),
         modifier = modifier,
     ) {
+        TerminalMark(
+            icon = Icons.Outlined.Cancel,
+            container = MaterialTheme.colorScheme.errorContainer,
+            ink = MaterialTheme.colorScheme.onErrorContainer,
+        )
+        // The connected pair the comp draws: one choice with two halves, using M3's own connected
+        // corner tokens. The expressive `ButtonGroup` container itself is still alpha and renders
+        // no reachable label under the render tests, so the shapes come from it and the layout
+        // does not — the figure is the same, and it stays verifiable.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
+        ) {
+            OutlinedButton(
+                onClick = onBackToSignIn,
+                shape = ButtonGroupDefaults.connectedLeadingButtonShape,
+                modifier = Modifier.weight(1f).height(PAIR_HEIGHT),
+            ) {
+                Text(stringResource(Res.string.setup_back_to_sign_in))
+            }
+            Button(
+                onClick = onRetry,
+                shape = ButtonGroupDefaults.connectedTrailingButtonShape,
+                modifier = Modifier.weight(RETRY_WEIGHT).height(PAIR_HEIGHT),
+            ) {
+                Text(stringResource(Res.string.auth_forgot_password_retry))
+            }
+        }
+    }
+}
+
+/** Done — the one screen in this flow that gets to be purely good news. */
+@Composable
+private fun CompleteContent(
+    onBackToSignIn: () -> Unit,
+    modifier: Modifier,
+) {
+    AuthScaffold(
+        title = stringResource(Res.string.auth_forgot_password_title),
+        subtitle = stringResource(Res.string.auth_forgot_password_complete),
+        modifier = modifier,
+    ) {
+        TerminalMark(
+            icon = Icons.Outlined.CheckCircle,
+            container = MaterialTheme.colorScheme.tertiaryContainer,
+            ink = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
         ListenUpButton(
             text = stringResource(Res.string.setup_back_to_sign_in),
             onClick = onBackToSignIn,
@@ -335,3 +587,23 @@ private fun ErrorContent(
         )
     }
 }
+
+/** Below this, the remaining budget is comfortable enough not to be worth saying. */
+private const val ATTEMPTS_WORTH_MENTIONING = 4
+
+private val HOW_IT_WORKS_PADDING = 16.dp
+
+private val STEP_SPACING = 12.dp
+
+private val TERMINAL_MARK_SIZE = 96.dp
+
+private val TERMINAL_ICON_SIZE = 40.dp
+
+private val ATTEMPTS_PADDING = 14.dp
+
+private val ATTEMPTS_ICON_SIZE = 20.dp
+
+/** The way forward is asking again, so it carries the wider half of the pair. */
+private const val RETRY_WEIGHT = 2f
+
+private val PAIR_HEIGHT = 56.dp

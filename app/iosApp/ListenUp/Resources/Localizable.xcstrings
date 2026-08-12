@@ -2051,12 +2051,22 @@
         }
       }
     },
+    "auth.forgot_password_attempts_one": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 attempt left. After that the request is cancelled and you'll need to ask again."
+          }
+        }
+      }
+    },
     "auth.forgot_password_awaiting": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Waiting for your admin to approve this. You can close the app — come back with your code when you have it."
+            "value": "Waiting for an admin to approve this. Ask whoever runs this server for the code."
           }
         }
       }
@@ -2076,7 +2086,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your admin declined this request."
+            "value": "Your request was turned down. If that's unexpected, ask whoever runs this server — they may not have recognised it."
           }
         }
       }
@@ -2086,7 +2096,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enter the code your admin gave you"
+            "value": "Enter the code you were given, then choose a new password."
           }
         }
       }
@@ -2096,7 +2106,147 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Your server admin will need to approve this and give you a code."
+            "value": "This server has no email, so a person handles this instead."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_how_it_works": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How this works"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_retry": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask again"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_reveal_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At least 8 characters. A typo here means asking again — tap the eye to check it."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_send_request": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send request"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_approve": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An admin approves it"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_approve_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They'll give you a code"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They give you a 6-character code — however you normally reach them."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_finish": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You enter the code here and pick a new password."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_request": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An admin on this server gets your request and approves it."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request sent"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_set": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set a new password"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_step_set_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter the code to finish"
+          }
+        }
+      }
+    },
+    "auth.forgot_password_survives": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can close ListenUp — your request is kept."
+          }
+        }
+      }
+    },
+    "auth.forgot_password_ticket": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request #%1$@"
           }
         }
       }

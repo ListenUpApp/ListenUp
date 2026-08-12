@@ -6,7 +6,9 @@ import Shared
 enum ForgotPasswordPhase: Equatable {
     case enterEmail
     case submitting
-    case awaitingApproval
+    /// Waiting on a person. Carries the ticket so the screen can quote it — the request outlives
+    /// the screen, and a number is what you refer to when you go and ask.
+    case awaitingApproval(ticketId: String)
     /// Approved — collecting the out-of-band code plus the new password. `error` is the
     /// wrong-code feedback the ViewModel retained; `attemptsRemaining` its budget, when known.
     case enterCode(attemptsRemaining: Int?, error: String?)
@@ -48,6 +50,13 @@ final class ForgotPasswordObserver {
         viewModel.checkStatus()
     }
 
+    /// Re-opens a declined request so it reappears in the admin's queue. A decline is usually a
+    /// misunderstanding rather than a verdict, so this beats sending the requester back through
+    /// sign-in to retype an address they just gave.
+    func retryRequest() {
+        viewModel.retryRequest()
+    }
+
     func completeReset(code: String, newPassword: String) {
         viewModel.completeReset(code: code, newPassword: newPassword)
     }
@@ -60,8 +69,8 @@ final class ForgotPasswordObserver {
             phase = .enterEmail
         case .submitting:
             phase = .submitting
-        case .awaitingApproval:
-            phase = .awaitingApproval
+        case .awaitingApproval(let awaiting):
+            phase = .awaitingApproval(ticketId: awaiting.ticketId)
         case .enterCode(let enterCode):
             phase = .enterCode(
                 attemptsRemaining: enterCode.attemptsRemaining.map { Int($0) },
