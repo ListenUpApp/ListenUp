@@ -397,6 +397,9 @@ private fun EnterCodeContent(
  */
 @Composable
 private fun ResetTimeline(ticketId: String) {
+    // The raw ticket id is `<uuid>.<issuedAtMs>.<sig>` — an internal blob. Show only the first
+    // UUID segment as the human-scale reference; it's plenty to correlate with the admin's list.
+    val ticketReference = ticketId.substringBefore('.').substringBefore('-').uppercase()
     Column(
         modifier =
             Modifier
@@ -408,7 +411,7 @@ private fun ResetTimeline(ticketId: String) {
             state = AuthStepState.DONE,
             icon = Icons.AutoMirrored.Outlined.Send,
             title = stringResource(Res.string.auth_forgot_password_step_sent),
-            subtitle = stringResource(Res.string.auth_forgot_password_ticket, ticketId),
+            subtitle = stringResource(Res.string.auth_forgot_password_ticket, ticketReference),
         )
         AuthStepRow(
             state = AuthStepState.ACTIVE,
