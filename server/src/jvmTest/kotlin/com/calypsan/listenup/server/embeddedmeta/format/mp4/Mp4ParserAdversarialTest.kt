@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.io.SeekableSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -341,6 +342,42 @@ class Mp4ParserAdversarialTest :
                 is AppResult.Success -> Unit
                 is AppResult.Failure -> result.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
             }
+        }
+
+        // C-04: Mp4Parser.parse's post-moov body (readMvhdDurationMs, ilst, chapters) runs
+        // unguarded, and AtomWalker.readHeader's `offset + size > end` bounds check is
+        // overflow-prone for an attacker-controlled `size` near Int.MAX_VALUE at a non-zero
+        // offset. Both scenarios must surface AppResult.Failure(CorruptHeader) — never an
+        // uncaught exception.
+
+        test("mvhd atom with no payload at the end of moov does not throw indexing the version byte") {
+            // mvhd is a bare 8-byte header (no payload) and is the LAST byte in the buffer, so
+            // mvhd.dataOffset == bytes.size. readMvhdDurationMs's own bounds check catches this
+            // before indexing `bytes[p]` and degrades gracefully to durationMs = 0 rather than
+            // failing the whole parse — mvhd being truncated doesn't mean the rest of the file
+            // (tags, chapters) isn't genuinely readable.
+            val bytes = atom("moov", atomHeader("mvhd", size32 = 8))
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            val success = result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            success.data.durationMs shouldBe 0L
+        }
+
+        test("atom size declared near Int.MAX_VALUE at a non-zero offset overflows offset+size safely") {
+            // The lone child of moov starts at offset 8 (right after moov's own 8-byte header —
+            // a non-zero offset) and declares a size that, added to that offset, overflows Int:
+            // the pre-fix `offset + size > end` check silently passes because the sum wraps
+            // negative, producing an Atom whose `.end` is also negative. The walker's next
+            // `readHeader` call then indexes `bytes[<negative offset>]`.
+            val bytes = atom("moov", atomHeader("free", size32 = Int.MAX_VALUE.toLong() - 5))
+
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+
+            // mvhd is never found behind the lying "free" atom -> CorruptHeader, never an
+            // uncaught exception.
+            val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+            failure.error.shouldBeInstanceOf<AudioMetadataError.CorruptHeader>()
         }
     })
 
