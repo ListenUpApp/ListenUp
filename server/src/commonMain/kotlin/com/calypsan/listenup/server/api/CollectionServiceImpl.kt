@@ -117,6 +117,76 @@ internal fun accessScopeFor(
 }
 
 /**
+ * The collections visible to a caller for [CollectionServiceImpl.listCollections], plus the active
+ * grants (keyed by collectionId) that resolve a non-owner's permission — resolved once so
+ * [decisionFor] can build each collection's Decision inline instead of a fresh
+ * [CollectionAccessPolicy.decide] call per collection.
+ */
+private data class ListableCollections(
+    val collections: List<CollectionSyncPayload>,
+    val grantsByCollectionId: Map<String, SharePermission>,
+)
+
+/**
+ * Resolves [ListableCollections] for `(callerUserId, callerRole)` — [CollectionServiceImpl.listCollections]'s
+ * own-vs-admin-vs-shared collection resolution, extracted to a top-level function to keep the
+ * class body lean. Admin sees every collection including the system ones (ALL_BOOKS, INBOX) and
+ * never needs the grants map (owner-or-admin-bypass covers every row); everyone else sees their
+ * owned collections plus any collection actively shared to them, with system collections filtered
+ * out (spec §3.2 — a member's default ALL_BOOKS grant must not leak ALL_BOOKS/INBOX into their list).
+ */
+private suspend fun listableCollectionsFor(
+    collectionRepo: CollectionRepository,
+    grantRepo: CollectionGrantRepository,
+    callerUserId: String,
+    callerRole: UserRoleColumn,
+): ListableCollections {
+    if (callerRole == UserRoleColumn.ROOT || callerRole == UserRoleColumn.ADMIN) {
+        return ListableCollections(collectionRepo.listAll(), emptyMap())
+    }
+    val owned = collectionRepo.listOwnedBy(callerUserId)
+    val grants = grantRepo.listActiveGrantsForUser(callerUserId)
+    val shared = grants.map { it.collectionId }.mapNotNull { collectionRepo.findById(it) }
+    val systemIds = collectionRepo.systemCollectionIds()
+    val collections = (owned + shared).distinctBy { it.id }.filterNot { it.id in systemIds }
+    return ListableCollections(collections, grants.associateBy({ it.collectionId }, { it.permission }))
+}
+
+/**
+ * Reconstructs the [CollectionAccessPolicy.Decision] for [collection] from data already in hand
+ * — [CollectionServiceImpl.listCollections]'s batched replacement for calling
+ * [CollectionAccessPolicy.decide] (and its redundant `collectionRepo.findById` re-read) once per
+ * listed collection. Mirrors `decide`'s owner → admin → active-share precedence exactly. Safe to
+ * skip the "deleted/missing" branch: every collection reaching this function came from a
+ * `listAll`/`listOwnedBy`/`findById` call that only ever returns LIVE rows, so `canAccess` is
+ * unconditionally true here. [grantsByCollectionId] backs the active-share branch only — never
+ * consulted for an owner or an admin/root caller, matching `decide`'s short-circuit order.
+ */
+private fun decisionFor(
+    collection: CollectionSyncPayload,
+    callerUserId: String,
+    callerRole: UserRoleColumn,
+    grantsByCollectionId: Map<String, SharePermission>,
+): CollectionAccessPolicy.Decision =
+    when {
+        collection.ownerId == callerUserId -> {
+            CollectionAccessPolicy.Decision(true, SharePermission.Write, true)
+        }
+
+        callerRole == UserRoleColumn.ROOT || callerRole == UserRoleColumn.ADMIN -> {
+            CollectionAccessPolicy.Decision(true, SharePermission.Write, false)
+        }
+
+        else -> {
+            CollectionAccessPolicy.Decision(
+                canAccess = true,
+                permission = grantsByCollectionId[collection.id] ?: SharePermission.Read,
+                isOwner = false,
+            )
+        }
+    }
+
+/**
  * [CollectionService] implementation.
  *
  * Resolves the authenticated caller from [principal] (never from request fields),
@@ -190,23 +260,20 @@ internal class CollectionServiceImpl(
 
     override suspend fun listCollections(): AppResult<List<CollectionSummary>> {
         val caller = resolveCaller() ?: return noPrincipal()
+        val (collections, grantsByCollectionId) =
+            listableCollectionsFor(collectionRepo, grantRepo, caller.userId, caller.role)
 
-        val collections =
-            if (caller.role == UserRoleColumn.ROOT || caller.role == UserRoleColumn.ADMIN) {
-                // Admin god-view: all collections including system ones (ALL_BOOKS, INBOX).
-                collectionRepo.listAll()
-            } else {
-                val owned = collectionRepo.listOwnedBy(caller.userId)
-                val sharedIds = grantRepo.listActiveGrantsForUser(caller.userId).map { it.collectionId }
-                val shared = sharedIds.mapNotNull { collectionRepo.findById(it) }
-                // Spec §3.2: ALL_BOOKS and INBOX must not appear in a member's collection list.
-                // Every member holds a default ALL_BOOKS grant, so the shared path leaks it;
-                // filter the combined result by the set of live system-collection ids.
-                val systemIds = collectionRepo.systemCollectionIds()
-                (owned + shared).distinctBy { it.id }.filterNot { it.id in systemIds }
+        // One batched count round trip instead of one countLiveForCollection call per collection.
+        val counts = collectionBookRepo.countLiveForCollections(collections.map { it.id })
+        val summaries =
+            collections.map { collection ->
+                summarize(
+                    collection,
+                    caller,
+                    decision = decisionFor(collection, caller.userId, caller.role, grantsByCollectionId),
+                    bookCount = counts[collection.id] ?: 0L,
+                )
             }
-
-        val summaries = collections.map { summarize(it, caller) }
         return AppResult.Success(summaries)
     }
 
@@ -1075,6 +1142,7 @@ internal class CollectionServiceImpl(
         collection: CollectionSyncPayload,
         caller: Caller,
         decision: CollectionAccessPolicy.Decision? = null,
+        bookCount: Long? = null,
     ): CollectionSummary {
         val verdict = decision ?: accessPolicy.decide(caller.userId, caller.role, collection.id)
         return CollectionSummary(
@@ -1083,7 +1151,7 @@ internal class CollectionServiceImpl(
             ownerId = UserId(collection.ownerId),
             isInbox = collection.isInbox,
             isSystem = collection.isSystem,
-            bookCount = collectionBookRepo.countLiveForCollection(collection.id),
+            bookCount = bookCount ?: collectionBookRepo.countLiveForCollection(collection.id),
             callerPermission = verdict.permission,
             isOwner = verdict.isOwner,
         )

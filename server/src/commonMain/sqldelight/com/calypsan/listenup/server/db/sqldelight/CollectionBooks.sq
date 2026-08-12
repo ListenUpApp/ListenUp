@@ -96,6 +96,15 @@ SELECT COUNT(*) FROM collection_books cb
 JOIN books b ON b.id = cb.book_id AND b.deleted_at IS NULL
 WHERE cb.collection_id = :collection_id AND cb.deleted_at IS NULL;
 
+-- Batched countLiveForCollection: same book-liveness-aware predicate, across many collections in
+-- one round trip instead of one query per collection. A collection with zero live+book-live rows
+-- is absent from the result (GROUP BY only emits rows that exist); callers default it to 0.
+countLiveForCollections:
+SELECT cb.collection_id, COUNT(*) AS live_count FROM collection_books cb
+JOIN books b ON b.id = cb.book_id AND b.deleted_at IS NULL
+WHERE cb.collection_id IN :collection_ids AND cb.deleted_at IS NULL
+GROUP BY cb.collection_id;
+
 -- Live synthetic ids for a collection — the cascade set for softDeleteAllForCollection.
 liveIdsForCollection:
 SELECT id FROM collection_books
