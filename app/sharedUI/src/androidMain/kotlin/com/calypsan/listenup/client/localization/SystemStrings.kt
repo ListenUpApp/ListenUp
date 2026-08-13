@@ -11,6 +11,7 @@ import listenup.composeapp.generated.resources.car_forward_30
 import listenup.composeapp.generated.resources.car_library
 import listenup.composeapp.generated.resources.car_sign_in_action
 import listenup.composeapp.generated.resources.car_sign_in_message
+import listenup.composeapp.generated.resources.player_cast_session_lost
 import listenup.composeapp.generated.resources.player_cast_start_failed
 import listenup.composeapp.generated.resources.player_cast_unsupported_format
 import listenup.composeapp.generated.resources.player_chapter_of
@@ -99,6 +100,8 @@ data class SystemStrings(
     val playerCastStartFailed: String,
     /** Toast shown when a book's format cannot be cast. */
     val playerCastUnsupportedFormat: String,
+    /** Toast shown when the cast session drops while a handoff was in flight. */
+    val playerCastSessionLost: String,
 ) {
     companion object {
         /**
@@ -132,6 +135,7 @@ data class SystemStrings(
                 playerRefusalTitle = "Couldn't start playback",
                 playerCastStartFailed = "Couldn't start casting.",
                 playerCastUnsupportedFormat = "This book's format can't be cast.",
+                playerCastSessionLost = "Casting stopped — playing on this device instead.",
             )
     }
 }
@@ -169,6 +173,7 @@ suspend fun loadSystemStrings(): SystemStrings =
         playerRefusalTitle = getString(Res.string.player_refusal_title),
         playerCastStartFailed = getString(Res.string.player_cast_start_failed),
         playerCastUnsupportedFormat = getString(Res.string.player_cast_unsupported_format),
+        playerCastSessionLost = getString(Res.string.player_cast_session_lost),
     )
 
 /**

@@ -54,6 +54,7 @@ internal val playbackPresentationModule =
                 downloadRepository = get(),
                 playbackPositionRepository = get(),
                 sheetState = get(),
+                errorBus = get(),
             )
         }
     }

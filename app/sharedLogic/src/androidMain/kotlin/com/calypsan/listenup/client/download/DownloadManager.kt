@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 
@@ -53,6 +54,7 @@ class DownloadManager internal constructor(
     private val localPreferences: com.calypsan.listenup.client.domain.repository.LocalPreferences,
     private val downloadRepository: DownloadRepository,
     private val transactionRunner: TransactionRunner,
+    private val errorBus: ErrorBus,
 ) : DownloadService {
     companion object {
         private const val STORAGE_BUFFER_MULTIPLIER = 1.1 // 10% buffer for download size estimates
@@ -233,6 +235,11 @@ class DownloadManager internal constructor(
      * Delete downloaded files for a book.
      * Marks records as DELETED (keeps them for tracking) and removes files.
      * This prevents auto-download on next playback - user must explicitly tap download.
+     *
+     * Honest-over-silent (audit finding): a partial/failed file deletion must NOT be recorded as
+     * a completed delete — that would orphan bytes on disk with no DB row pointing at them and no
+     * way for the user to reclaim the space. [DownloadFileManager.deleteBookFiles]'s boolean
+     * result gates the DB write; on failure the row is left DOWNLOADED so the listener can retry.
      */
     override suspend fun deleteDownload(bookId: BookId) {
         // Cancel any active downloads first
@@ -242,7 +249,12 @@ class DownloadManager internal constructor(
         workManager.cancelAllWorkByTag(bookTag(bookId)).await()
 
         // Delete files from disk
-        fileManager.deleteBookFiles(bookId.value)
+        if (!fileManager.deleteBookFiles(bookId.value)) {
+            val bookTitle = bookDao.getById(bookId)?.title
+            errorBus.emit(DownloadError.DeleteFailed(bookTitle = bookTitle))
+            logger.error { "Failed to fully delete files for book: ${bookId.value}" }
+            return
+        }
 
         // Mark as deleted (don't remove records - used to track explicit deletion)
         downloadDao.markDeletedForBook(bookId.value)

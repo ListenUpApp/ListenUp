@@ -85,6 +85,7 @@ internal val iosPlaybackModule: Module =
                 downloadRepository = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 playbackBandwidthCoordinator = get(),
+                errorBus = get(),
             )
         }
 
@@ -94,6 +95,7 @@ internal val iosPlaybackModule: Module =
                 downloadRepository = get(),
                 positionRepository = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
+                errorBus = get(),
             )
         }
 

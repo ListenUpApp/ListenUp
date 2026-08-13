@@ -30,4 +30,17 @@ class DownloadErrorTest :
             err.bookTitle shouldBe "Foundation"
             err.message.isNotBlank() shouldBe true
         }
+
+        test("DeleteFailed has stable code and is retryable") {
+            val err: AppError = DownloadError.DeleteFailed()
+            err.message.isNotBlank() shouldBe true
+            err.code shouldBe "DOWNLOAD_DELETE_FAILED"
+            err.isRetryable shouldBe true
+        }
+
+        test("DeleteFailed carries the bookTitle payload") {
+            val err = DownloadError.DeleteFailed(bookTitle = "Dune")
+            err.bookTitle shouldBe "Dune"
+            err.message.isNotBlank() shouldBe true
+        }
     })

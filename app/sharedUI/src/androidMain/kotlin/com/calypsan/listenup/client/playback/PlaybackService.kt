@@ -537,6 +537,9 @@ class PlaybackService :
         // before committing so we never swap onto a dead cast session with no path back.
         if (!controller.isSessionAvailable) {
             logger.warn { "Cast session gone during prepare — staying local" }
+            // Honest-over-silent, matching the siblings above/below: the user tapped cast and
+            // audio just keeps playing locally with no explanation otherwise.
+            Toast.makeText(this, systemStrings.current.playerCastSessionLost, Toast.LENGTH_LONG).show()
             return
         }
         // Snapshot the currently-loaded items for queue order + on-TV metadata.

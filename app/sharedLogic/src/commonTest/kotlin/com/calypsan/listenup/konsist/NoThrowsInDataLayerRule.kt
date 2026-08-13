@@ -153,6 +153,13 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // Same pattern, same rationale: PasswordResetRepositoryImpl.observeStatus mirrors
             // RegistrationStatusStreamImpl.streamStatus exactly, throwing this typed failure on a
             // server-surfaced RpcEvent.Error rather than letting it look like "still pending".
-            !line.contains("throw PasswordResetStatusStreamFailure(")
+            !line.contains("throw PasswordResetStatusStreamFailure(") &&
+            // pullCatching's sanctioned early-exit signal (core/ResultCatching.kt): pullCatching's
+            // `block` is `crossinline`, so a plain `return` cannot short-circuit it — throwing this
+            // marker and unwrapping it in the crossinline's own catch clause is the only way to bail
+            // out of a block that mixes plain throwing work with an already-AppResult-returning call
+            // without re-deriving a coarser AppError via ErrorMapper. Never escapes the function it
+            // is thrown from — pullCatching converts it back to the carried AppError.Failure.
+            !line.contains("throw TypedAppErrorException(")
     }
 }

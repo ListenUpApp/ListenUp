@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.test.fake.FakeProgressTracker
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -27,11 +28,13 @@ import kotlinx.coroutines.Job
 fun buildProgressTracker(
     scope: CoroutineScope = CoroutineScope(Job()),
     positionRepository: PlaybackPositionRepository = defaultPositionRepository(),
+    errorBus: ErrorBus = ErrorBus(),
 ): ProgressTracker =
     ProgressTracker(
         downloadRepository = mock<DownloadRepository>(),
         positionRepository = positionRepository,
         scope = scope,
+        errorBus = errorBus,
     )
 
 /**

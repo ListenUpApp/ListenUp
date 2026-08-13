@@ -40,4 +40,23 @@ sealed interface DownloadError : AppError {
         override val code: String = "DOWNLOAD_INSUFFICIENT_STORAGE"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * Deleting a downloaded book's local files failed (partially or entirely). The download row
+     * is left untouched — never marked deleted — so the listener can retry rather than the app
+     * silently reporting reclaimed space that was never freed.
+     */
+    @Serializable
+    @SerialName("DownloadError.DeleteFailed")
+    data class DeleteFailed(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+        val bookTitle: String? = null,
+    ) : DownloadError {
+        override val message: String =
+            bookTitle?.let { "Failed to delete \"$it\"." }
+                ?: "Failed to delete download."
+        override val code: String = "DOWNLOAD_DELETE_FAILED"
+        override val isRetryable: Boolean = true
+    }
 }

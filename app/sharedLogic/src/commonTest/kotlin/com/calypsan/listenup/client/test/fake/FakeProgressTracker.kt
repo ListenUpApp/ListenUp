@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.test.fake
 
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -28,6 +29,7 @@ class FakeProgressTracker(
         downloadRepository = downloadRepository,
         positionRepository = positionRepository,
         scope = scope,
+        errorBus = ErrorBus(),
     ) {
     private val _onPlaybackStartedCalls: MutableList<Triple<BookId, Long, Float>> = mutableListOf()
     val onPlaybackStartedCalls: List<Triple<BookId, Long, Float>> get() = _onPlaybackStartedCalls.toList()

@@ -211,6 +211,7 @@ val playbackModule =
                 downloadRepository = get(),
                 positionRepository = get(),
                 scope = get(),
+                errorBus = get(),
             )
         }
 
