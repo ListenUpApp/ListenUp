@@ -42,6 +42,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
         return false
     }
 
+    var isPreparing: Bool {
+        if case .preparing = phase { return true }
+        return false
+    }
+
     /// True when playback failed to start/continue — drives the inline error+retry surface so the
     /// user is never stranded on a vanished player.
     var isErrored: Bool {

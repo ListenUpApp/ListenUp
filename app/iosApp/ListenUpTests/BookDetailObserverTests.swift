@@ -15,6 +15,31 @@ struct BookDetailObserverTests {
     }
 }
 
+/// `BookDetailObserver.isPlayPending` — the pure `phase`/`bookId` comparison that drives the
+/// Resume/Play button's busy variant. `PlayerPhase`/`PreparingState` are plain Swift value types,
+/// so this is directly constructible without a live KMP `PlayerCoordinator`.
+@Suite("BookDetailObserver.isPlayPending")
+struct BookDetailObserverIsPlayPendingTests {
+    @Test func trueWhenPreparingThisBook() {
+        let phase = PlayerPhase.preparing(PreparingState(bookId: "book1"))
+        #expect(BookDetailObserver.isPlayPending(phase: phase, bookId: "book1"))
+    }
+
+    @Test func falseWhenPreparingAnotherBook() {
+        let phase = PlayerPhase.preparing(PreparingState(bookId: "book2"))
+        #expect(BookDetailObserver.isPlayPending(phase: phase, bookId: "book1") == false)
+    }
+
+    @Test func falseWhenNotPreparing() {
+        #expect(BookDetailObserver.isPlayPending(phase: .idle, bookId: "book1") == false)
+    }
+
+    @Test func falseWhenBookIdIsNil() {
+        let phase = PlayerPhase.preparing(PreparingState(bookId: "book1"))
+        #expect(BookDetailObserver.isPlayPending(phase: phase, bookId: nil) == false)
+    }
+}
+
 @Suite("Cast helpers")
 struct CastHelpersTests {
     private func member(_ name: String, _ roles: [String]) -> CastMember {

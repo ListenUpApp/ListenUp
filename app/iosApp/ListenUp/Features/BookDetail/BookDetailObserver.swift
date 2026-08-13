@@ -128,6 +128,23 @@ final class BookDetailObserver {
     private(set) var isDiscardingProgress: Bool = false
     private(set) var isRestarting: Bool = false
 
+    /// True while a play request for THIS book is in flight — drives the Resume/Play button's
+    /// busy variant (spinner + "Preparing…" label, including to VoiceOver). Sourced directly from
+    /// `PlayerCoordinator`'s native `PlayerPhase.preparing`, not a bridged Kotlin flow: iOS never
+    /// binds the shared `PlaybackManager` (see `PlaybackModule.ios.kt`), so this is the
+    /// platform-native equivalent of `PlaybackManager.preparingBookIdUi`. `@Observable` composes
+    /// across the two objects, so this recomputes and republishes whenever `playerCoordinator.phase`
+    /// changes — no separate subscription needed.
+    var isPlayPending: Bool {
+        Self.isPlayPending(phase: playerCoordinator.phase, bookId: book?.idString)
+    }
+
+    /// Pure: `phase` is `.preparing` for exactly `bookId`.
+    nonisolated static func isPlayPending(phase: PlayerPhase, bookId: String?) -> Bool {
+        guard let bookId, case .preparing(let state) = phase else { return false }
+        return state.bookId == bookId
+    }
+
     // MARK: - Dependencies
 
     private let viewModel: BookDetailViewModel
