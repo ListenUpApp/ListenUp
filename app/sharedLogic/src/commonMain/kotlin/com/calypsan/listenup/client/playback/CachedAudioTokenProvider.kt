@@ -142,12 +142,19 @@ class CachedAudioTokenProvider(
     /**
      * Rotate the token and cache it, or fall back to stored. Caller holds [refreshMutex].
      *
-     * The upstream refresh is bounded to [FORCED_REFRESH_BOUND] via [withTimeoutOrNull]. Unbounded,
-     * this call left [refreshToken] able to hang forever on a dead/half-open socket — and
-     * [refreshToken] is called from `AudioTokenAuthenticator` via `runBlocking` on a SHARED OkHttp
-     * dispatcher thread, so that hang blocked the whole request pool, not just this one call. This
-     * bound also covers [prepareForPlayback]'s call into [performRefresh] — that path has no tighter
-     * budget of its own in this codebase yet, so it inherits this one too.
+     * The upstream refresh is bounded to [FORCED_REFRESH_BOUND] via [withTimeoutOrNull], wrapped
+     * DIRECTLY around [authRepository]'s call — safe to do only because
+     * [com.calypsan.listenup.client.data.repository.AuthRepositoryImpl.refreshAccessToken] already
+     * runs its own rotation on a scope independent of whichever caller invokes it. Abandoning this
+     * `withTimeoutOrNull`'s wait therefore only stops WAITING; it never cancels the rotation itself,
+     * which keeps running for whoever else is waiting, or for the next call to find already done.
+     * See that method's KDoc for the full reasoning — this bound would be actively unsafe wrapped
+     * around a refresh that ran on the calling coroutine instead. Unbounded, this call left
+     * [refreshToken] able to hang forever waiting on a dead/half-open socket — and [refreshToken] is
+     * called from `AudioTokenAuthenticator` via `runBlocking` on a SHARED OkHttp dispatcher thread,
+     * so that hang blocked the whole request pool, not just this one call. This bound also covers
+     * [prepareForPlayback]'s call into [performRefresh] — that path has no tighter budget of its own
+     * in this codebase yet, so it inherits this one too.
      */
     private suspend fun performRefresh() {
         when (val result = withTimeoutOrNull(FORCED_REFRESH_BOUND) { authRepository.refreshAccessToken() }) {

@@ -353,6 +353,13 @@ internal class RpcProxyCache<T : Any>(
      * a transient refresh failure below: keep the session, surface retryable. That is strictly safer
      * than either alternative — re-raising the 401 would force a logout over what might be a slow
      * network, and waiting past the caller's own bound is the exact defect this fixes.
+     *
+     * `withTimeoutOrNull` here bounds the WAIT only, never the WORK: [RpcAuthRecoveryImpl] runs the
+     * actual refresh on its own injected scope, independent of this call's coroutine, so this
+     * caller giving up does not cancel the refresh — it keeps running for whoever else is waiting, or
+     * for the next call to find already done. Wrapping a refresh that ran on THIS coroutine would be
+     * an active regression: a network merely slower than [timeout] would cancel every attempt before
+     * it could complete, turning transient slowness into a session that can never heal.
      */
     private suspend fun <R> retryAfterAuthRefresh(
         e: Throwable,

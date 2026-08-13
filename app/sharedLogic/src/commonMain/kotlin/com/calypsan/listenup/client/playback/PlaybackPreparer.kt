@@ -301,28 +301,7 @@ class PlaybackPreparer internal constructor(
         }
 
         // 7. Trigger background download if not fully downloaded (best-effort caching)
-        if (!deviceContext.supportsDownloads) {
-            logger.info { "Device does not support downloads, streaming only" }
-        } else if (!timeline.isFullyDownloaded && !downloadService.wasExplicitlyDeleted(bookId)) {
-            logger.info { "Book not fully downloaded, triggering background download" }
-            scope.launch {
-                // Best-effort: this is an auto-triggered cache-ahead, not a user-initiated tap, so a
-                // failure here does not surface to the UI the way the explicit download button's
-                // handleDownloadResult does — the listener would otherwise learn only when they go
-                // offline and the book isn't there. Logging is the minimum honesty bar so the failure
-                // is diagnosable instead of silently discarded.
-                when (val result = downloadService.downloadBook(bookId)) {
-                    is AppResult.Success -> {}
-                    is AppResult.Failure -> {
-                        logger.warn {
-                            "Background download failed for ${bookId.value}: ${result.error.code} — ${result.error.message}"
-                        }
-                    }
-                }
-            }
-        } else if (!timeline.isFullyDownloaded) {
-            logger.info { "Book was explicitly deleted, streaming only (no auto-download)" }
-        }
+        triggerBackgroundDownloadIfNeeded(bookId, timeline)
 
         return PreparedPlayback(
             timeline = timeline,
@@ -591,6 +570,45 @@ class PlaybackPreparer internal constructor(
                 false
             }
         }
+
+    /**
+     * Best-effort background caching: fires [DownloadService.downloadBook] when [timeline] isn't
+     * fully downloaded and the listener hasn't explicitly deleted this book. Split out of
+     * [prepareInternal] purely to keep it under detekt's method-length/complexity budget — no
+     * behavioral reason for the split.
+     */
+    private suspend fun triggerBackgroundDownloadIfNeeded(
+        bookId: BookId,
+        timeline: PlaybackTimeline,
+    ) {
+        if (!deviceContext.supportsDownloads) {
+            logger.info { "Device does not support downloads, streaming only" }
+        } else if (!timeline.isFullyDownloaded && !downloadService.wasExplicitlyDeleted(bookId)) {
+            logger.info { "Book not fully downloaded, triggering background download" }
+            scope.launch { logBackgroundDownloadFailure(bookId) }
+        } else if (!timeline.isFullyDownloaded) {
+            logger.info { "Book was explicitly deleted, streaming only (no auto-download)" }
+        }
+    }
+
+    /**
+     * Runs the actual auto-download and logs a failure. Best-effort: this is an auto-triggered
+     * cache-ahead, not a user-initiated tap, so a failure here does not surface to the UI the way
+     * the explicit download button's `handleDownloadResult` does — the listener would otherwise
+     * learn only when they go offline and the book isn't there. Logging is the minimum honesty bar
+     * so the failure is diagnosable instead of silently discarded.
+     */
+    private suspend fun logBackgroundDownloadFailure(bookId: BookId) {
+        when (val result = downloadService.downloadBook(bookId)) {
+            is AppResult.Success -> {}
+            is AppResult.Failure -> {
+                logger.warn {
+                    "Background download failed for ${bookId.value}: " +
+                        "${result.error.code} — ${result.error.message}"
+                }
+            }
+        }
+    }
 
     /** Load chapters for a book. */
     private suspend fun loadChapters(bookId: BookId): List<Chapter> {
