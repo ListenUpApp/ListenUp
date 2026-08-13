@@ -16,6 +16,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlin.coroutines.cancellation.CancellationException
@@ -340,6 +341,25 @@ internal class RpcProxyCache<T : Any>(
      * Refresh the bearer token for a handshake 401, then retry once on a rebuilt connection. If the
      * refresh fails (tokens cleared), re-raise the original 401 instead of firing a doomed retry —
      * [com.calypsan.listenup.client.core.error.ErrorMapper] maps it to a typed `SessionExpired`.
+     *
+     * The refresh itself is bounded to THIS caller's own [timeout] via [withTimeoutOrNull].
+     * [RpcAuthRecovery.refreshAndRebuild] rides its own channel (the Public mount) with its own
+     * internal bound — left unwrapped, that leg sat entirely OUTSIDE any caller-declared budget: it
+     * runs BETWEEN the original attempt's `withTimeout` exiting and [retryOnce]'s `withTimeout`
+     * starting, so a caller declaring an 800ms playback-start budget could still pay up to
+     * [DEFAULT_RPC_TIMEOUT]'s 15s — doubled to ~30s by the refresh channel's own pre-delivery retry —
+     * defeating that budget entirely. A refresh that merely ran out of time is indistinguishable from
+     * one this caller's budget says isn't worth waiting for, so it is folded into the SAME outcome as
+     * a transient refresh failure below: keep the session, surface retryable. That is strictly safer
+     * than either alternative — re-raising the 401 would force a logout over what might be a slow
+     * network, and waiting past the caller's own bound is the exact defect this fixes.
+     *
+     * `withTimeoutOrNull` here bounds the WAIT only, never the WORK: [RpcAuthRecoveryImpl] runs the
+     * actual refresh on its own injected scope, independent of this call's coroutine, so this
+     * caller giving up does not cancel the refresh — it keeps running for whoever else is waiting, or
+     * for the next call to find already done. Wrapping a refresh that ran on THIS coroutine would be
+     * an active regression: a network merely slower than [timeout] would cancel every attempt before
+     * it could complete, turning transient slowness into a session that can never heal.
      */
     private suspend fun <R> retryAfterAuthRefresh(
         e: Throwable,
@@ -348,7 +368,11 @@ internal class RpcProxyCache<T : Any>(
         block: suspend (T) -> R,
     ): R {
         logger.info { "RPC handshake 401; refreshing token before retry" }
-        val outcome = authRecovery.refreshAndRebuild()
+        val outcome =
+            withTimeoutOrNull(timeout) { authRecovery.refreshAndRebuild() } ?: run {
+                logger.warn { "Auth refresh exceeded the $timeout caller budget; treating as transient" }
+                AuthRecoveryOutcome.Transient
+            }
         invalidate(leasedGeneration)
         return when (outcome) {
             AuthRecoveryOutcome.Refreshed -> {

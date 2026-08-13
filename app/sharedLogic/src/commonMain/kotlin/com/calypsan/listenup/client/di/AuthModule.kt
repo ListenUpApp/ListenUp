@@ -106,6 +106,10 @@ internal val clientAuthModule: Module
                     authPublicChannel = rpcChannel(),
                     authedChannel = rpcChannel(),
                     authSession = get(),
+                    // The refresh must outlive any individual caller's own timeout-bounded wait — a
+                    // caller giving up on its own budget must never abort a rotation another caller
+                    // (or the next call) is counting on. See AuthRepositoryImpl's KDoc.
+                    scope = get(qualifier = named(APP_SCOPE)),
                 )
             }
 

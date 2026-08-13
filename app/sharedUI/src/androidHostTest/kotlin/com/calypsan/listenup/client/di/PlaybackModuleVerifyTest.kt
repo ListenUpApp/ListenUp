@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playbackModule
+import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import org.koin.test.verify.verify
 
@@ -53,6 +54,7 @@ class PlaybackModuleVerifyTest :
                         PlaybackPrepareRepository::class,
                         ContributorRepository::class,
                         SeriesRepository::class,
+                        ErrorBus::class,
                     ),
             )
         }

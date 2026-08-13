@@ -27,10 +27,13 @@ internal enum class AuthRecoveryOutcome {
  * [RefreshAccessToken] seam and rebuilds the request client so its Bearer provider re-reads the new
  * token (the streaming client is deliberately spared via [ApiClientFactory.invalidateRequestClientOnly]).
  *
- * A [Mutex] serializes concurrent refreshes so they don't race the token store or stampede the
- * refresh endpoint; it does not deduplicate them into a single call across factories (each 401
- * still enters, and a later one may refresh an already-fresh token). That is acceptable — refresh
- * is idempotent and cheap relative to the failure it recovers.
+ * [RpcProxyCache.retryAfterAuthRefresh] wraps [refreshAndRebuild] in `withTimeoutOrNull(timeout)` so
+ * a caller can give up on its own budget. That is safe to do here specifically because
+ * [RefreshAccessToken] (backed by [com.calypsan.listenup.client.data.repository.AuthRepositoryImpl])
+ * already runs its own rotation on a scope independent of whichever caller invokes it — a caller
+ * abandoning its wait never cancels the underlying refresh, only its own `.await()` of it. The
+ * cancellation-safety invariant lives THERE, once, rather than being re-implemented at every call
+ * site; see that class's KDoc for the full reasoning.
  */
 internal interface RpcAuthRecovery {
     /** Classifies the refresh so a transient failure can't be mistaken for session death (C5). */
@@ -49,6 +52,15 @@ internal class RpcAuthRecoveryImpl(
 ) : RpcAuthRecovery {
     private val mutex = Mutex()
 
+    /**
+     * Serializes the classify-and-rebuild step (not the refresh itself — [refreshAccessToken]
+     * dedupes concurrent rotations on its own) so two callers coalescing onto the same refresh
+     * outcome don't both race [ApiClientFactory.invalidateRequestClientOnly] /
+     * [AuthSession.clearSessionCredentials]. A caller cancelling its own wait here (via the
+     * `withTimeoutOrNull` in [RpcProxyCache.retryAfterAuthRefresh]) only abandons its own
+     * `.await()` inside [refreshAccessToken] — the rotation itself keeps running independently; see
+     * that method's KDoc.
+     */
     override suspend fun refreshAndRebuild(): AuthRecoveryOutcome =
         mutex.withLock {
             // The rotated tokens (on success) are persisted inside the single-flight refresh (C1); here

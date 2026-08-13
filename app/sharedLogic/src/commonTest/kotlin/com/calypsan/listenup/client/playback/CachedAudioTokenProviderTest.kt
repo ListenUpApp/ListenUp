@@ -14,14 +14,28 @@ import com.calypsan.listenup.api.dto.auth.User
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.auth.UserStatus
+import com.calypsan.listenup.api.AuthServiceAuthed
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.DEFAULT_RPC_TIMEOUT
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.RpcPolicy
+import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PendingRegistration
+import dev.mokkery.answering.calls
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -33,6 +47,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -320,6 +335,127 @@ class CachedAudioTokenProviderTest :
                 provider.refreshToken()
 
                 repo.calls shouldBe 2
+                provider.getToken() shouldBe "t2"
+            }
+        }
+
+        // Regression for the unbounded-refreshToken latency bug: refreshToken() is called from
+        // AudioTokenAuthenticator via `runBlocking` on a SHARED OkHttp dispatcher thread, and from
+        // PlaybackErrorHandler mid-playback recovery. Pre-fix it awaited authRepository's upstream
+        // refresh directly with no bound at all — a dead/half-open socket left it (and the blocked
+        // OkHttp worker) suspended forever. It MUST stay a forced (never-coalesced) rotation — see
+        // the "concurrent refreshToken calls serialize" test above — so the bound must be generous
+        // enough to survive that test's 1s-delay fixture without dropping any of the 4 calls.
+        test("refreshToken bounds a hanging upstream refresh instead of hanging forever, falling back to stored") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val freshExpiry = clock.now().toEpochMilliseconds() + 60.minutes.inWholeMilliseconds
+                val freshJwt = jwtWithExp(freshExpiry / 1000)
+                val repo = FakeAudioAuthRepository { awaitCancellation() } // models a dead/half-open socket
+                val storage = FakeStorageAuthSession(stored = AccessToken(freshJwt))
+                val provider = CachedAudioTokenProvider(storage, repo, backgroundScope, clock)
+
+                // The stored JWT is comfortably fresh (C11), so init skips its own refresh entirely —
+                // this test exercises ONLY the explicit forced rotation via refreshToken(), isolated
+                // from init's own launch.
+                testScheduler.runCurrent()
+                repo.calls shouldBe 0
+
+                val job = launch { provider.refreshToken() }
+                advanceUntilIdle()
+
+                job.isCompleted shouldBe true
+                repo.calls shouldBe 1
+            }
+        }
+
+        // Regression for the SAME latency-bound hazard closed in AuthRepositoryImpl.refreshAccessToken:
+        // withTimeoutOrNull CANCELS a slow refresh, it does not merely stop waiting for it.
+        // performRefresh's bound wraps authRepository.refreshAccessToken() DIRECTLY — safe only
+        // because that method runs its OWN rotation on a scope independent of whichever caller
+        // invokes it (see its KDoc), so this caller's own withTimeoutOrNull giving up never cancels
+        // the underlying refresh. Proves the bound gives up WAITING without cancelling the underlying
+        // refresh, using the REAL AuthRepositoryImpl (not the simplified FakeAudioAuthRepository) so
+        // its own single-flight is genuinely exercised.
+        //
+        // FORCED_REFRESH_BOUND (CachedAudioTokenProvider's own private constant) is literally
+        // `= DEFAULT_RPC_TIMEOUT` — the SAME 15s the mocked public channel's own `call()` would use
+        // as ITS internal timeout on refreshSession() by default. Advancing time with a blanket
+        // advanceUntilIdle() (or any advance that also crosses 15s on that inner channel) fires BOTH
+        // bounds in the same sweep: the inner RPC-channel timeout resolves `performRefresh()` on its
+        // own, clearing AuthRepositoryImpl's `inFlightRefresh` for a reason that has nothing to do
+        // with caller A giving up — so caller B, arriving after, finds nothing to coalesce onto and
+        // starts its own rotation. That produced the ORIGINAL failure here (refreshCalls hit 2). The
+        // fix gives the mocked public channel a much longer internal timeout, so within this test's
+        // time window ONLY the forced-rotation bound can fire — the refresh genuinely stays in
+        // flight (parked on `gate`) past that point, which is the scenario under test.
+        test(
+            "refreshToken's bound gives up waiting without cancelling AuthRepositoryImpl's refresh — " +
+                "a concurrent caller coalesces onto it",
+        ) {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val freshExpiry = clock.now().toEpochMilliseconds() + 60.minutes.inWholeMilliseconds
+                val freshJwt = jwtWithExp(freshExpiry / 1000)
+
+                var refreshCalls = 0
+                val gate = CompletableDeferred<Unit>()
+                val public =
+                    mock<AuthServicePublic> {
+                        everySuspend { refreshSession(any()) } calls {
+                            refreshCalls++
+                            // Parks — models a refresh RPC slower than the forced-rotation budget.
+                            gate.await()
+                            AppResult.Success(contractSession("t2", freshExpiry))
+                        }
+                    }
+                val clientAuthSession: AuthSession = mock()
+                everySuspend { clientAuthSession.currentAuthEpoch() } returns 0L
+                everySuspend { clientAuthSession.getRefreshToken() } returns RefreshToken("rt-0")
+                everySuspend { clientAuthSession.saveAuthTokens(any(), any(), any(), any(), any()) } returns Unit
+
+                val authRepository =
+                    AuthRepositoryImpl(
+                        authPublicChannel =
+                            RpcChannel.forTest(public, RpcPolicy.Public.copy(defaultTimeout = 1.hours)),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
+                        authSession = clientAuthSession,
+                        scope = backgroundScope,
+                    )
+
+                val storage = FakeStorageAuthSession(stored = AccessToken(freshJwt))
+                val provider = CachedAudioTokenProvider(storage, authRepository, backgroundScope, clock)
+
+                // The stored JWT is comfortably fresh (C11), so init skips its own refresh entirely.
+                testScheduler.runCurrent()
+                refreshCalls shouldBe 0
+
+                // Caller A: a forced rotation whose upstream refresh takes longer than the bound.
+                // Advance to JUST past FORCED_REFRESH_BOUND (== DEFAULT_RPC_TIMEOUT) — enough for
+                // caller A's own withTimeoutOrNull to fire, nowhere near the channel's own 1-hour
+                // timeout above, so the underlying refresh is still genuinely parked on `gate`.
+                val jobA = launch { provider.refreshToken() }
+                advanceTimeBy(DEFAULT_RPC_TIMEOUT + 1.milliseconds)
+                runCurrent()
+                jobA.isCompleted shouldBe true
+                refreshCalls shouldBe 1 // the refresh DID start, under caller A's own leadership
+
+                // Caller B arrives while that SAME refresh — abandoned by caller A's own wait, but
+                // never cancelled — is still in flight. It must coalesce onto it, not trigger a
+                // second refreshSession call (which would present the same not-yet-rotated refresh
+                // token twice — the replay-detection hazard AuthRepositoryImpl's single-flight
+                // exists to prevent).
+                val jobB = launch { provider.refreshToken() }
+                runCurrent()
+                refreshCalls shouldBe 1
+
+                // Releasing `gate` resolves the mock immediately — no further delay is involved, so
+                // runCurrent() (not a virtual-time advance) is enough to drive it to completion.
+                gate.complete(Unit)
+                runCurrent()
+
+                jobB.isCompleted shouldBe true
+                refreshCalls shouldBe 1
                 provider.getToken() shouldBe "t2"
             }
         }

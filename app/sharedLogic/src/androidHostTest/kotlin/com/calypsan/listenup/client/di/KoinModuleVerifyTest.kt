@@ -30,6 +30,7 @@ import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
+import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -86,6 +87,7 @@ class KoinModuleVerifyTest :
                         DocumentRepository::class,
                         DownloadRepository::class,
                         PlaybackPositionRepository::class,
+                        ErrorBus::class,
                     ),
             )
         }
@@ -133,6 +135,7 @@ class KoinModuleVerifyTest :
                         LocalPreferences::class,
                         DownloadRepository::class,
                         TransactionRunner::class,
+                        ErrorBus::class,
                     ),
             )
         }

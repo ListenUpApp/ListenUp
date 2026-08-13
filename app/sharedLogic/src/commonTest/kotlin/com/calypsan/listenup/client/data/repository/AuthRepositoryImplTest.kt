@@ -33,6 +33,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -46,11 +47,12 @@ import kotlinx.coroutines.test.runTest
 class AuthRepositoryImplTest :
     FunSpec({
 
-        fun repository(authed: AuthServiceAuthed): AuthRepositoryImpl =
+        fun TestScope.repository(authed: AuthServiceAuthed): AuthRepositoryImpl =
             AuthRepositoryImpl(
                 authPublicChannel = RpcChannel.forTest(mock<AuthServicePublic>(), RpcPolicy.Public),
                 authedChannel = RpcChannel.forTest(authed),
                 authSession = mock(),
+                scope = backgroundScope,
             )
 
         test("listSessions delegates to the authed service") {
@@ -129,6 +131,7 @@ class AuthRepositoryImplTest :
                         authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
+                        scope = backgroundScope,
                     )
 
                 val first = async { repo.refreshAccessToken() }
@@ -174,6 +177,7 @@ class AuthRepositoryImplTest :
                         authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
+                        scope = backgroundScope,
                     )
 
                 repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
@@ -199,7 +203,7 @@ class AuthRepositoryImplTest :
         // (refreshMutex.withLock) inside an already-cancelled coroutine; if that clear ever failed
         // to run, every later refresh would coalesce onto the cancelled leader's stale Failure
         // forever — token refresh permanently dead until process restart.
-        test("a leader cancelled mid-refresh clears inFlightRefresh so the next refresh starts fresh") {
+        test("a caller cancelled mid-refresh does not kill the rotation — a later caller coalesces onto it") {
             runTest {
                 var refreshCalls = 0
                 val gate = CompletableDeferred<Unit>()
@@ -237,23 +241,38 @@ class AuthRepositoryImplTest :
                         authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
+                        scope = backgroundScope,
                     )
 
                 val leaderJob = launch { repo.refreshAccessToken() }
-                runCurrent() // leader registers as leader, suspends inside refreshSession on `gate`
+                runCurrent() // the rotation is launched on `scope`; this caller awaits it
                 refreshCalls shouldBe 1
 
                 // Simulate CachedAudioTokenProvider's withTimeoutOrNull giving up on this call.
                 leaderJob.cancel()
                 leaderJob.join()
 
-                // A brand-new call must perform a genuinely new refresh — not replay the cancelled
-                // leader's Failure(InternalError()). If inFlightRefresh was never cleared, this
-                // would short-circuit to `existing.await()` with refreshCalls staying at 1.
-                val second = repo.refreshAccessToken()
+                // The rotation runs on `scope`, NOT on whichever coroutine happened to trigger it, so
+                // abandoning this wait must not abandon the refresh — it is still parked on `gate`.
+                // A caller arriving now therefore COALESCES onto it rather than starting a second
+                // rotation. That matters beyond latency: the refresh token rotates on every use, so
+                // two concurrent physical rotations would each present the same pre-rotation token
+                // and the server's replay detection would read the second as theft, revoking the
+                // whole session family.
+                val second = async { repo.refreshAccessToken() }
+                runCurrent()
+                refreshCalls shouldBe 1
 
+                gate.complete(Unit)
+                runCurrent()
+                second.await().shouldBeInstanceOf<AppResult.Success<*>>()
+
+                // ...and once that rotation has finished, the slot is released, so a LATER call does
+                // perform a genuinely new refresh rather than replaying the finished one forever.
+                // (This is what the pre-#1286 version of this test was really protecting: an
+                // inFlightRefresh that never clears wedges every future refresh behind a dead entry.)
+                repo.refreshAccessToken().shouldBeInstanceOf<AppResult.Success<*>>()
                 refreshCalls shouldBe 2
-                second.shouldBeInstanceOf<AppResult.Success<*>>()
             }
         }
 
@@ -263,6 +282,12 @@ class AuthRepositoryImplTest :
                 // coalesced onto its in-flight deferred. Before the fix the leader never completed the
                 // deferred, so the follower awaited it forever (runTest would time out). The leader
                 // must ALWAYS complete its deferred.
+                //
+                // The actual refresh runs on `scope` (see refreshAccessToken's KDoc), independent of
+                // whichever caller won leadership — so the throw happens on THAT worker, not on the
+                // leader's own calling coroutine. Every caller, leader included, merely awaits the
+                // shared deferred and sees a normal Failure VALUE, never the raw exception — a leader
+                // that "just happened" to win the race is no longer distinguishable from a follower.
                 val readGate = CompletableDeferred<Unit>()
                 val authSession = mock<ClientAuthSession>()
                 everySuspend { authSession.currentAuthEpoch() } returns 0L
@@ -275,17 +300,17 @@ class AuthRepositoryImplTest :
                         authPublicChannel = RpcChannel.forTest(mock<AuthServicePublic>(), RpcPolicy.Public),
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
+                        scope = backgroundScope,
                     )
 
-                val leader = async { runCatching { repo.refreshAccessToken() } }
+                val leader = async { repo.refreshAccessToken() }
                 val follower = async { repo.refreshAccessToken() }
                 runCurrent() // leader registers + suspends on the token read; follower coalesces + awaits it
-                readGate.complete(Unit) // the leader's read now throws
+                readGate.complete(Unit) // the leader's underlying worker read now throws
 
-                // The follower WAKES with a Failure instead of hanging on a never-completed deferred.
+                // BOTH wake with a Failure instead of hanging on a never-completed deferred.
                 follower.await().shouldBeInstanceOf<AppResult.Failure>()
-                // The leader's own call still surfaced the throw (rethrown after completing the deferred).
-                leader.await().isFailure shouldBe true
+                leader.await().shouldBeInstanceOf<AppResult.Failure>()
             }
         }
 
@@ -305,6 +330,7 @@ class AuthRepositoryImplTest :
                         authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
+                        scope = backgroundScope,
                     )
 
                 val result = repo.refreshAccessToken()
@@ -327,6 +353,7 @@ class AuthRepositoryImplTest :
                         authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
+                        scope = backgroundScope,
                     )
 
                 val result = repo.refreshAccessToken()

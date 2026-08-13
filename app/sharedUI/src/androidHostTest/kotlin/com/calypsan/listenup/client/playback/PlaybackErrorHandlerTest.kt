@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.core.error.ErrorBus
 import android.media.AudioDeviceInfo
 import android.net.Uri
 import android.os.Looper
@@ -738,6 +739,7 @@ private class FakeProgressTracker {
             downloadRepository = ThrowingDownloadRepository,
             positionRepository = repo,
             scope = CoroutineScope(Dispatchers.Unconfined),
+            errorBus = ErrorBus(),
         ) {}
 }
 

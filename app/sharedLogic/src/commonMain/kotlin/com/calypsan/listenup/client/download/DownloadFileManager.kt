@@ -27,8 +27,11 @@ expect class DownloadFileManager {
 
     /**
      * Delete all downloaded files for a book.
+     *
+     * @return `true` if the book's directory no longer exists afterward (nothing to delete, or
+     *   deletion fully succeeded); `false` if any file under it survived the attempt.
      */
-    fun deleteBookFiles(bookId: String)
+    fun deleteBookFiles(bookId: String): Boolean
 
     /**
      * Delete all downloaded files.

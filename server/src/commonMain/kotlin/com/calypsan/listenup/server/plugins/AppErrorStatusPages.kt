@@ -231,6 +231,7 @@ private fun DownloadError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is DownloadError.DownloadFailed -> HttpStatusCode.ServiceUnavailable
         is DownloadError.InsufficientStorage -> HttpStatusCode.InsufficientStorage
+        is DownloadError.DeleteFailed -> HttpStatusCode.InternalServerError
     }
 
 private fun ImportError.toHttpStatus(): HttpStatusCode =

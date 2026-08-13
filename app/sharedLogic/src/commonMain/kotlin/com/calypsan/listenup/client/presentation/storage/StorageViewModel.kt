@@ -10,12 +10,15 @@ import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -62,6 +65,14 @@ class StorageViewModel(
     private val storageSpaceProvider: StorageSpaceProvider,
     private val errorBus: ErrorBus,
     private val playbackStateProvider: PlaybackStateProvider,
+    /**
+     * Where [StorageSpaceProvider.calculateStorageUsed]'s blocking tree walk runs — injected, not
+     * hardcoded, so tests can substitute a dispatcher the test scheduler controls. Pinning
+     * [IODispatcher] directly made `state` resolve asynchronously to `runTest`'s virtual time and
+     * raced every assertion against it; [com.calypsan.listenup.client.presentation.library.LibraryViewModel]
+     * already injects its `backgroundDispatcher` for the same reason.
+     */
+    private val backgroundDispatcher: CoroutineDispatcher = IODispatcher,
 ) : ViewModel() {
     private val internalState = MutableStateFlow(StorageUiState())
 
@@ -70,8 +81,21 @@ class StorageViewModel(
             internalState,
             downloadRepository.observeDownloadedBooks(),
         ) { internal, books ->
-            val totalUsed = storageSpaceProvider.calculateStorageUsed()
-            val available = storageSpaceProvider.getAvailableSpace()
+            // calculateStorageUsed() walks the ENTIRE downloads tree — File.walkTopDown() plus a
+            // stat per file, with zero suspension points — and getAvailableSpace() is a blocking
+            // statvfs. This transform runs on the collector's context, i.e. Main
+            // (viewModelScope is Dispatchers.Main.immediate), and re-runs on every
+            // observeDownloadedBooks() emission, so every download add/delete re-walks the tree.
+            // On a large offline library that is an ANR candidate, not merely jank.
+            //
+            // Moved with withContext rather than flowOn deliberately: flowOn would shift the whole
+            // upstream flow onto another dispatcher and insert a channel, which changes when this
+            // StateFlow emits relative to its collector. withContext moves only the blocking work
+            // and leaves emission timing untouched.
+            val (totalUsed, available) =
+                withContext(backgroundDispatcher) {
+                    storageSpaceProvider.calculateStorageUsed() to storageSpaceProvider.getAvailableSpace()
+                }
             internal.copy(
                 isLoading = false,
                 totalStorageUsed = totalUsed,

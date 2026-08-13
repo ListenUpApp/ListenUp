@@ -102,6 +102,7 @@ val platformModule: Module =
                 downloadRepository = get(),
                 positionRepository = get(),
                 scope = get(qualifier = named("playbackScope")),
+                errorBus = get(),
             )
         }
 

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.nowplaying
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
@@ -79,6 +80,7 @@ class NowPlayingViewModelTest :
             val documentRepository: DocumentRepository = mock()
             val sleepTimerManager: SleepTimerManager = SleepTimerManager(CoroutineScope(Job()))
             val sheetState = NowPlayingSheetState()
+            val errorBus = ErrorBus()
 
             init {
                 // Default: networkMonitor.isOnline() returns true. Tests override to false where needed.
@@ -116,6 +118,7 @@ class NowPlayingViewModelTest :
                         com.calypsan.listenup.client.test.fake
                             .FakePlaybackPositionRepository(),
                     sheetState = sheetState,
+                    errorBus = errorBus,
                 )
         }
 
@@ -1049,6 +1052,40 @@ class NowPlayingViewModelTest :
                     withClue("expected OpenDocumentViewer($localPath); got: $action") {
                         (action is NowPlayingNavAction.OpenDocumentViewer && action.localPath == localPath) shouldBe true
                     }
+                }
+            }
+        }
+
+        test("onOpenCurrentPdf emits the typed error to the errorBus on failure") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                val docId = "doc-pdf-1"
+                val pdfDoc =
+                    BookDocument(
+                        id = docId,
+                        index = 0,
+                        filename = "guide.pdf",
+                        format = "pdf",
+                        size = 1_000L,
+                        hash = "abc123",
+                    )
+                val error =
+                    com.calypsan.listenup.api.error.TransportError
+                        .NetworkUnavailable()
+                every { fixture.documentRepository.observeDocuments(bookId) } returns MutableStateFlow(listOf(pdfDoc))
+                everySuspend { fixture.documentRepository.ensureLocal(bookId, docId) } returns AppResult.Failure(error)
+                fixture.fakePm.activateBook(bookId)
+
+                val vm = fixture.newVm()
+                backgroundScope.launch { vm.firstPdfDocId.collect {} }
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    vm.onOpenCurrentPdf()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe error
+                    cancelAndIgnoreRemainingEvents()
                 }
             }
         }

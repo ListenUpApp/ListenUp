@@ -17,7 +17,7 @@ actual class DownloadFileManager {
         isTemp: Boolean,
     ): Path = TODO("web: offline download storage is undesigned")
 
-    actual fun deleteBookFiles(bookId: String): Unit = TODO("web: offline download storage is undesigned")
+    actual fun deleteBookFiles(bookId: String): Boolean = TODO("web: offline download storage is undesigned")
 
     actual fun deleteAllFiles(): Unit = TODO("web: offline download storage is undesigned")
 

@@ -232,6 +232,38 @@ class ListenUpSessionCallbackTest {
         player.seekCalls.shouldBeEmpty()
     }
 
+    // ── Honest chapter-nav result when there is nothing to do ──────────────────
+    //
+    // Both branches used to fall through to the shared `return
+    // Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))` at the end of
+    // onCustomCommand regardless of whether the guard let the seek run — so a head unit was
+    // actively told the command worked while the player never moved.
+
+    @Test
+    fun `previous chapter with no chapters reports skipped, not success`() {
+        val player = FakeExoPlayer()
+        val callback =
+            callbackWith(player = player, bookPositionMs = 10_000L, timeline = threeFileTimeline(), chapters = emptyList())
+
+        val result = callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_PREV_CHAPTER)
+
+        result.resultCode shouldBe SessionResult.RESULT_INFO_SKIPPED
+        player.seekCalls.shouldBeEmpty()
+        player.fileRelativeSeekCalls.shouldBeEmpty()
+    }
+
+    @Test
+    fun `next chapter with no timeline reports skipped, not success`() {
+        val player = FakeExoPlayer()
+        val callback = callbackWith(player = player, bookPositionMs = 10_000L, timeline = null, chapters = twoChapters())
+
+        val result = callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_NEXT_CHAPTER)
+
+        result.resultCode shouldBe SessionResult.RESULT_INFO_SKIPPED
+        player.seekCalls.shouldBeEmpty()
+        player.fileRelativeSeekCalls.shouldBeEmpty()
+    }
+
     // ── No transport player ───────────────────────────────────────────────────
 
     @Test

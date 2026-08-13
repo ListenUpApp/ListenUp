@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
@@ -84,6 +85,7 @@ class OnBookFinishedPreservesDownloadsTest :
                             downloadRepository = downloadRepository,
                             positionRepository = positionRepository,
                             scope = CoroutineScope(dispatcher),
+                            errorBus = ErrorBus(),
                         )
 
                     tracker.onBookFinished(BookId("b1"), finalPositionMs = 1_000L)

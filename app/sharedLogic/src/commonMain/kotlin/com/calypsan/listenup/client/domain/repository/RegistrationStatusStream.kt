@@ -5,8 +5,10 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Domain model for streamed registration status updates.
  *
- * This is distinct from [RegistrationStatus] (used for polling)
- * as it provides a sealed hierarchy for type-safe when expressions.
+ * Named `Streamed*` from when a REST-era `RegistrationStatus` polling model existed alongside
+ * it; that polling fallback was removed (see [AuthRepository]'s note on
+ * `checkRegistrationStatus`), so this sealed hierarchy is now the only registration-status shape
+ * in the domain layer.
  */
 sealed interface StreamedRegistrationStatus {
     /** Registration is still pending admin approval. */

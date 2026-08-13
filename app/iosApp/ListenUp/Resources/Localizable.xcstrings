@@ -10461,6 +10461,16 @@
         }
       }
     },
+    "player.cast_session_lost": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Casting stopped — playing on this device instead."
+          }
+        }
+      }
+    },
     "player.cast_start_failed": {
       "localizations": {
         "en": {

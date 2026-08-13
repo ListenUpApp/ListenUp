@@ -165,6 +165,7 @@ class TokenRefreshSingleFlightTest :
                         authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
                         authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
+                        scope = backgroundScope,
                     )
 
                 val engine =

@@ -880,6 +880,12 @@ internal class ListenUpSessionCallback(
                     val resolved = timeline.resolve(target)
                     seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Previous chapter target: ${target}ms" }
+                } else {
+                    // Honest-over-silent: no chapter data means nothing happened. Telling the head
+                    // unit RESULT_SUCCESS here would be a lie — it actively tells the car the
+                    // command worked when the player never moved.
+                    logger.debug { "Previous chapter requested with no chapter data available — skipping" }
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_INFO_SKIPPED))
                 }
             }
 
@@ -892,6 +898,9 @@ internal class ListenUpSessionCallback(
                     val resolved = timeline.resolve(target)
                     seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                     logger.debug { "Next chapter target: ${target}ms" }
+                } else {
+                    logger.debug { "Next chapter requested with no chapter data available — skipping" }
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_INFO_SKIPPED))
                 }
             }
 

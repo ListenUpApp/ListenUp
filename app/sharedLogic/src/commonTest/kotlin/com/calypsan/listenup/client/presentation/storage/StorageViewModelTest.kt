@@ -21,6 +21,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -62,7 +64,7 @@ class StorageViewModelTest :
             val storageSpaceProvider: StorageSpaceProvider,
         )
 
-        fun buildVm(
+        fun TestScope.buildVm(
             downloads: List<DownloadedBookSummary> = emptyList(),
             totalUsed: Long = 0L,
             available: Long = 1_000_000L,
@@ -84,6 +86,7 @@ class StorageViewModelTest :
                     storageSpaceProvider = fixture.storageSpaceProvider,
                     errorBus = ErrorBus(),
                     playbackStateProvider = FakePlaybackStateProvider(playingBookId),
+                    backgroundDispatcher = UnconfinedTestDispatcher(testScheduler),
                 )
             return vm to fixture
         }

@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -23,8 +24,10 @@ import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
@@ -137,6 +140,38 @@ class PlaybackManagerFallbackFetchAtomicityTest :
                     withClue("fetchBookFromServer should return false when persistence fails") { result shouldBe false }
                     verifySuspend(VerifyMode.exactly(1)) {
                         handler.onCatchUpItem(any<BookSyncPayload>(), any())
+                    }
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        // Regression: fetchBookFromServer is the tap-to-audio fallback fetch that runs when a book's
+        // audio-file rows haven't synced yet — this WAS the "old getPosition bug, verbatim" (15s RPC
+        // default, no explicit budget). Unlike getPosition it has no degrade-to-local path (a failed
+        // fetch fails playback outright), so this proves it is bounded to an explicit playback-start
+        // budget rather than the 15s default — not that it degrades gracefully.
+        test("fetchBookFromServer is bounded to a playback-start budget, not the 15s RPC default") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookService: BookService = mock()
+                    val handler = mock<SyncDomainHandler<BookSyncPayload>>()
+                    // Models a dead/half-open socket: the RPC frame is sent but no response ever lands.
+                    everySuspend { bookService.getBook(any()) } calls { awaitCancellation() }
+
+                    val startedAt = testScheduler.currentTime
+                    val result =
+                        preparer(db, RpcChannel.forTest(bookService), handler)
+                            .fetchBookFromServer(BookId("book-slow"))
+                    val elapsedMs = testScheduler.currentTime - startedAt
+
+                    withClue("fetchBookFromServer should fail (not hang) when the fetch never returns") {
+                        result shouldBe false
+                    }
+                    withClue("elapsed ${elapsedMs}ms should stay well under the 15s RPC default") {
+                        elapsedMs shouldBeLessThan 15_000L
                     }
                 }
             } finally {

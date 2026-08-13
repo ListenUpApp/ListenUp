@@ -105,6 +105,9 @@ class NowPlayingTeardownTest :
                 downloadRepository = downloadRepository,
                 playbackPositionRepository = positionRepository,
                 sheetState = NowPlayingSheetState(),
+                errorBus =
+                    com.calypsan.listenup.core.error
+                        .ErrorBus(),
             )
         }
 

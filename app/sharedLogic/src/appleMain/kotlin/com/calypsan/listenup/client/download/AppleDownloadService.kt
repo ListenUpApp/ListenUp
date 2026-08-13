@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.playback.AudioFileResponse
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
@@ -98,6 +99,7 @@ class AppleDownloadService internal constructor(
     private val downloadRepository: DownloadRepository,
     private val scope: CoroutineScope,
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
+    private val errorBus: ErrorBus,
 ) : DownloadService {
     /**
      * Delegate handles download progress and completion.
@@ -326,9 +328,21 @@ class AppleDownloadService internal constructor(
         }
     }
 
+    /**
+     * Honest-over-silent (audit finding): a partial/failed file deletion must NOT be recorded as
+     * a completed delete — that would orphan bytes on disk with no DB row pointing at them and no
+     * way for the user to reclaim the space. [DownloadFileManager.deleteBookFiles]'s boolean
+     * result gates the DB write; on failure the row is left DOWNLOADED so the listener can retry.
+     * Mirrors the Android `DownloadManager.deleteDownload` fix.
+     */
     override suspend fun deleteDownload(bookId: BookId) {
         logger.info { "Deleting downloads for book: ${bookId.value}" }
-        fileManager.deleteBookFiles(bookId.value)
+        if (!fileManager.deleteBookFiles(bookId.value)) {
+            val bookTitle = bookDao.getById(bookId)?.title
+            errorBus.emit(DownloadError.DeleteFailed(bookTitle = bookTitle))
+            logger.error { "Failed to fully delete files for book: ${bookId.value}" }
+            return
+        }
         downloadDao.markDeletedForBook(bookId.value)
     }
 

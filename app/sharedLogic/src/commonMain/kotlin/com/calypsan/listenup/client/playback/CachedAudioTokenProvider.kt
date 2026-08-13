@@ -4,6 +4,7 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.DEFAULT_RPC_TIMEOUT
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -156,9 +157,25 @@ class CachedAudioTokenProvider(
         refreshMutex.withLock { performRefresh() }
     }
 
-    /** Rotate the token and cache it, or fall back to stored. Caller holds [refreshMutex]. */
+    /**
+     * Rotate the token and cache it, or fall back to stored. Caller holds [refreshMutex].
+     *
+     * The upstream refresh is bounded to [FORCED_REFRESH_BOUND] via [withTimeoutOrNull], wrapped
+     * DIRECTLY around [authRepository]'s call — safe to do only because
+     * [com.calypsan.listenup.client.data.repository.AuthRepositoryImpl.refreshAccessToken] already
+     * runs its own rotation on a scope independent of whichever caller invokes it. Abandoning this
+     * `withTimeoutOrNull`'s wait therefore only stops WAITING; it never cancels the rotation itself,
+     * which keeps running for whoever else is waiting, or for the next call to find already done.
+     * See that method's KDoc for the full reasoning — this bound would be actively unsafe wrapped
+     * around a refresh that ran on the calling coroutine instead. Unbounded, this call left
+     * [refreshToken] able to hang forever waiting on a dead/half-open socket — and [refreshToken] is
+     * called from `AudioTokenAuthenticator` via `runBlocking` on a SHARED OkHttp dispatcher thread,
+     * so that hang blocked the whole request pool, not just this one call. This bound also covers
+     * [prepareForPlayback]'s call into [performRefresh] — that path has no tighter budget of its own
+     * in this codebase yet, so it inherits this one too.
+     */
     private suspend fun performRefresh() {
-        when (val result = authRepository.refreshAccessToken()) {
+        when (val result = withTimeoutOrNull(FORCED_REFRESH_BOUND) { authRepository.refreshAccessToken() }) {
             is AppResult.Success -> {
                 // Persistence already happened inside the single-flight refresh (C1); here we only
                 // update this provider's in-memory cache so getToken() serves the fresh token.
@@ -170,6 +187,11 @@ class CachedAudioTokenProvider(
 
             is AppResult.Failure -> {
                 logger.warn { "Token refresh failed (${result.error}), falling back to stored" }
+                fallbackToStored()
+            }
+
+            null -> {
+                logger.warn { "Token refresh exceeded the $FORCED_REFRESH_BOUND bound; falling back to stored" }
                 fallbackToStored()
             }
         }
@@ -250,5 +272,18 @@ class CachedAudioTokenProvider(
          * capture on 2026-08-13).
          */
         private val PREPARE_PLAYBACK_REFRESH_BOUND = 800.milliseconds
+
+        /**
+         * Latency budget for [performRefresh]'s upstream refresh call — see its KDoc. One RPC
+         * attempt's worth of waiting ([DEFAULT_RPC_TIMEOUT]), never the doubled ~30s a pre-delivery
+         * transport retry can add on top: enough for a legitimately slow single attempt to
+         * complete, but short enough that a dead/half-open socket can't block the shared OkHttp
+         * dispatcher thread [refreshToken] runs on indefinitely.
+         *
+         * Distinct from [PREPARE_PLAYBACK_REFRESH_BOUND], which is far tighter because a listener is
+         * waiting on it; this one is the outer net for the forced rotation, where nobody is watching
+         * a play button but an OkHttp worker thread is held.
+         */
+        private val FORCED_REFRESH_BOUND = DEFAULT_RPC_TIMEOUT
     }
 }
