@@ -33,6 +33,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
@@ -181,6 +182,45 @@ class CachedAudioTokenProviderTest :
                 // 24s of the 54s tap-to-audio delay reproduced on 2026-08-07.
                 repo.calls shouldBe 1
                 provider.getToken() shouldBe "stored"
+            }
+        }
+
+        // Regression for the 2026-08-13 device capture: a launch-time refresh was still in flight
+        // (parked on the RPC's 15s bound) when the play tap landed 7s later. prepareForPlayback
+        // coalesced onto it (correct — see the test above) but inherited the REMAINDER of that
+        // 15s bound with no budget of its own, so the tap blocked for 8.08s before falling back to
+        // exactly the token it already had. The fix bounds prepareForPlayback's own wait — whether
+        // it is queued behind another refresh's mutex hold or running its own — to a playback-start
+        // budget, falling back to stored on expiry instead of continuing to wait.
+        test("prepareForPlayback bounds a coalesced wait to the playback-start budget instead of inheriting an in-flight refresh's full RPC timeout") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val repo =
+                    FakeAudioAuthRepository {
+                        delay(5.seconds)
+                        AppResult.Failure(AuthError.SessionExpired())
+                    }
+                val storage = FakeStorageAuthSession(stored = AccessToken("stored"))
+                val provider = CachedAudioTokenProvider(storage, repo, backgroundScope, clock)
+
+                // init's refresh is parked inside the 5s delay, holding refreshMutex — modelling the
+                // launch-time refresh a tap 7s later coalesced onto in the real incident.
+                runCurrent()
+                repo.calls shouldBe 1
+
+                launch { provider.prepareForPlayback() }
+                runCurrent()
+
+                // Advance exactly to the playback-start budget — well short of init's still-running
+                // 5s refresh. Pre-fix, prepareForPlayback would remain blocked on refreshMutex here,
+                // inheriting whatever's left of init's RPC bound (the 8.08s device capture).
+                advanceTimeBy(800.milliseconds)
+                runCurrent()
+
+                provider.getToken() shouldBe "stored"
+                // Our own call never acquired the mutex — it gave up waiting at the budget, so it
+                // never performed a refresh of its own. Only init's (still in-flight) call has fired.
+                repo.calls shouldBe 1
             }
         }
 

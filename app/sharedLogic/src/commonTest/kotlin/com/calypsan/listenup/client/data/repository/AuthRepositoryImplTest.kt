@@ -32,6 +32,7 @@ import io.ktor.client.plugins.websocket.WebSocketException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
@@ -187,6 +188,72 @@ class AuthRepositoryImplTest :
                         ifEpoch = 7L,
                     )
                 }
+            }
+        }
+
+        // Regression for the CachedAudioTokenProvider playback-start-budget fix (2026-08-13): that
+        // fix wraps prepareForPlayback's wait (mutex queue + its own refresh) in withTimeoutOrNull,
+        // which can now cancel THIS call while it holds AuthRepositoryImpl's single-flight
+        // leadership — previously near-unreachable at the 15s RPC bound, routine at an 800ms one.
+        // The leader's finally clause clears inFlightRefresh via a SUSPEND call
+        // (refreshMutex.withLock) inside an already-cancelled coroutine; if that clear ever failed
+        // to run, every later refresh would coalesce onto the cancelled leader's stale Failure
+        // forever — token refresh permanently dead until process restart.
+        test("a leader cancelled mid-refresh clears inFlightRefresh so the next refresh starts fresh") {
+            runTest {
+                var refreshCalls = 0
+                val gate = CompletableDeferred<Unit>()
+                val freshSession =
+                    ContractAuthSession(
+                        accessToken = AccessToken("fresh-access"),
+                        accessTokenExpiresAt = 0L,
+                        refreshToken = RefreshToken("fresh-refresh"),
+                        refreshTokenExpiresAt = 0L,
+                        sessionId = SessionId("session-1"),
+                        user =
+                            User(
+                                id = UserId("user-1"),
+                                email = "alice@example.com",
+                                displayName = "Alice",
+                                role = UserRole.MEMBER,
+                                status = UserStatus.ACTIVE,
+                                createdAt = 0L,
+                            ),
+                    )
+                val public = mock<AuthServicePublic>()
+                everySuspend { public.refreshSession(any()) } calls {
+                    refreshCalls++
+                    // Only the first (leader) call parks — it's the one we cancel mid-flight.
+                    if (refreshCalls == 1) gate.await()
+                    AppResult.Success(freshSession)
+                }
+                val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.currentAuthEpoch() } returns 0L
+                everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
+                everySuspend { authSession.saveAuthTokens(any(), any(), any(), any(), any()) } returns Unit
+
+                val repo =
+                    AuthRepositoryImpl(
+                        authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
+                        authSession = authSession,
+                    )
+
+                val leaderJob = launch { repo.refreshAccessToken() }
+                runCurrent() // leader registers as leader, suspends inside refreshSession on `gate`
+                refreshCalls shouldBe 1
+
+                // Simulate CachedAudioTokenProvider's withTimeoutOrNull giving up on this call.
+                leaderJob.cancel()
+                leaderJob.join()
+
+                // A brand-new call must perform a genuinely new refresh — not replay the cancelled
+                // leader's Failure(InternalError()). If inFlightRefresh was never cleared, this
+                // would short-circuit to `existing.await()` with refreshCalls staying at 1.
+                val second = repo.refreshAccessToken()
+
+                refreshCalls shouldBe 2
+                second.shouldBeInstanceOf<AppResult.Success<*>>()
             }
         }
 
