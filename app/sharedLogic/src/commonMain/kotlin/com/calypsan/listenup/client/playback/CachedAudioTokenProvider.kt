@@ -145,10 +145,9 @@ class CachedAudioTokenProvider(
      * The upstream refresh is bounded to [FORCED_REFRESH_BOUND] via [withTimeoutOrNull]. Unbounded,
      * this call left [refreshToken] able to hang forever on a dead/half-open socket — and
      * [refreshToken] is called from `AudioTokenAuthenticator` via `runBlocking` on a SHARED OkHttp
-     * dispatcher thread, so that hang blocked the whole request pool, not just this one call.
-     * [prepareForPlayback]'s own [PREPARE_PLAYBACK_REFRESH_BOUND] is tighter and wraps the mutex wait
-     * too, so it always wins on that path — this bound is the outer safety net for [refreshToken]'s
-     * forced, un-coalesced rotation, which has no tighter budget of its own.
+     * dispatcher thread, so that hang blocked the whole request pool, not just this one call. This
+     * bound also covers [prepareForPlayback]'s call into [performRefresh] — that path has no tighter
+     * budget of its own in this codebase yet, so it inherits this one too.
      */
     private suspend fun performRefresh() {
         when (val result = withTimeoutOrNull(FORCED_REFRESH_BOUND) { authRepository.refreshAccessToken() }) {

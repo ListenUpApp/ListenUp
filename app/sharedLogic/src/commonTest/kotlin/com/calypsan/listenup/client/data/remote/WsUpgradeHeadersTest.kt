@@ -10,9 +10,12 @@ import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -170,6 +173,35 @@ class WsUpgradeHeadersTest :
                 // Not an exception and not a retry here — a ticket-less URL is a 401, and
                 // RpcAuthRecovery already knows how to refresh and retry that exactly once.
                 ticket.shouldBeNull()
+            }
+        }
+
+        // Regression: mintSocketTicket runs INSIDE lease() — before the outer RpcProxyCache.call's
+        // own withTimeout starts — so an unbounded call here sits outside every caller's budget on
+        // EVERY web reconnect. A hung mint must fall back to a ticket-less URL (→ 401 → the existing
+        // RpcAuthRecovery heal) quickly, not ride the 15s RPC default.
+        test("a hanging mint is bounded, not left to ride the 15s RPC default") {
+            runTest {
+                val service =
+                    mock<AuthServicePublic>(MockMode.autofill) {
+                        // Models a dead/half-open socket: the frame is sent but no response ever lands.
+                        everySuspend { issueSocketTicket(any()) } calls { awaitCancellation() }
+                    }
+
+                val startedAt = testScheduler.currentTime
+                val ticket =
+                    mintSocketTicket(
+                        accessToken = { "stale.token.here" },
+                        authChannel = { RpcChannel.forTest(service) },
+                    )
+                val elapsedMs = testScheduler.currentTime - startedAt
+
+                withClue("a hung mint should fall back to null (ticket-less), not hang") {
+                    ticket.shouldBeNull()
+                }
+                withClue("elapsed ${elapsedMs}ms should stay well under the 15s RPC default") {
+                    elapsedMs shouldBeLessThan 15_000L
+                }
             }
         }
     })

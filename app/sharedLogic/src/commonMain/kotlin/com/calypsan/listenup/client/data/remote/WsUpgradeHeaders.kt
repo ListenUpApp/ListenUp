@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.remote
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.result.AppResult
 import io.ktor.http.encodeURLParameter
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Whether this platform's WebSocket upgrade can carry request headers.
@@ -60,6 +61,16 @@ internal suspend fun rpcMountUrl(
 }
 
 /**
+ * Latency budget for [mintSocketTicket] — see its KDoc. The mint runs INSIDE [RpcProxyCache.lease],
+ * before that call's own `withTimeout` starts, so it sits outside every caller's budget unless
+ * bounded here explicitly — on every web reconnect, not just a rare recovery path. A hung mint
+ * already degrades gracefully to a ticket-less URL (→ 401 → the existing [RpcAuthRecovery] heal),
+ * so this can be short: a failure here costs nothing beyond one extra round-trip through that
+ * already-correct heal, so there is no reason to wait anywhere near the 15s RPC default for it.
+ */
+private val TICKET_MINT_TIMEOUT = 800.milliseconds
+
+/**
  * Trades this client's access token for a one-connection ticket, or null when there is no session
  * or the server declines.
  *
@@ -74,6 +85,7 @@ internal suspend fun mintSocketTicket(
 ): String? {
     val token = accessToken() ?: return null
     // Not idempotent: every call deliberately mints a NEW ticket, so a re-fire is never a no-op.
-    val result = authChannel().call(idempotent = false) { it.issueSocketTicket(token) }
+    val result =
+        authChannel().call(timeout = TICKET_MINT_TIMEOUT, idempotent = false) { it.issueSocketTicket(token) }
     return (result as? AppResult.Success)?.data?.value
 }
