@@ -38,6 +38,7 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import app.cash.turbine.test
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -353,6 +354,153 @@ class NowPlayingViewModelTest :
                 }
                 verifySuspend(VerifyMode.exactly(0)) {
                     fixture.playbackController.startPlayback(any())
+                }
+            }
+        }
+
+        test("playBook opens the pending-play window synchronously, before prepare resolves") {
+            runTest(testDispatcher) {
+                // markPreparing must fire on the calling thread, NOT inside the launched
+                // coroutine — otherwise two taps in the same tick would both observe a null
+                // window and both proceed, defeating the swallow-repeat-taps guarantee below.
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
+
+                val vm = fixture.newVm()
+                vm.playBook(bookId)
+                // No advanceUntilIdle yet: the coroutine body has not run, but markPreparing is
+                // called synchronously before the launch.
+                withClue("preparingBookId must be set synchronously by playBook, before prepare resolves") {
+                    fixture.fakePm.preparingBookIdFlow.value shouldBe bookId
+                }
+
+                advanceUntilIdle()
+            }
+        }
+
+        test("playBook swallows a repeat tap for the SAME book while its prepare is already in flight") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
+
+                val vm = fixture.newVm()
+                vm.playBook(bookId) // opens the window synchronously
+                vm.playBook(bookId) // repeat tap before the first prepare has resolved — must no-op
+                advanceUntilIdle()
+
+                withClue("prepareForPlayback must be invoked exactly once, not twice") {
+                    fixture.fakePm.prepareForPlaybackCalls shouldBe listOf(bookId)
+                }
+                withClue("activateBook must be invoked exactly once, not twice") {
+                    fixture.fakePm.activatedBookIds shouldBe listOf(bookId)
+                }
+                verifySuspend(VerifyMode.exactly(1)) {
+                    fixture.playbackController.startPlayback(any())
+                }
+            }
+        }
+
+        test("playBook for a DIFFERENT book supersedes the in-flight prepare instead of dropping the tap") {
+            runTest(testDispatcher) {
+                // Regression: an earlier version of the pending-play guard swallowed ANY tap while
+                // ANY prepare was in flight — so tapping book B while book A was still preparing
+                // silently dropped B. That is exactly the silent no-op this whole feature exists to
+                // remove. The fix must cancel A's stale prepare and start B's.
+                val fixture = TestFixture()
+                val bookA = BookId("book-a")
+                val bookB = BookId("book-b")
+                // A real suspension point (not a synchronous return) — required so book A's
+                // coroutine is genuinely parked mid-prepare when book B's tap arrives, instead of
+                // having already run to completion before the second call.
+                val prepareGate = CompletableDeferred<Unit>()
+                fixture.fakePm.prepareForPlaybackSuspension = { prepareGate.await() }
+
+                val vm = fixture.newVm()
+                vm.playBook(bookA)
+                advanceUntilIdle() // let book A's coroutine actually reach the suspension point
+
+                withClue("precondition: book A's window is open while its prepare is in flight") {
+                    fixture.fakePm.preparingBookIdFlow.value shouldBe bookA
+                }
+
+                vm.playBook(bookB) // supersede: cancel A's stale prepare, open B's window, start B's prepare
+                advanceUntilIdle() // let A's cancellation (and its finally) settle; B parks on the same gate
+
+                withClue("book B's tap must NOT be silently dropped — both prepares must have started") {
+                    fixture.fakePm.prepareForPlaybackCalls shouldBe listOf(bookA, bookB)
+                }
+                withClue(
+                    "book A's cancelled cleanup must NOT wipe book B's window — this is the ownership-check " +
+                        "race the ordering exists to prevent (a naive unconditional clearPreparing() in the " +
+                        "finally would null this out)",
+                ) {
+                    fixture.fakePm.preparingBookIdFlow.value shouldBe bookB
+                }
+            }
+        }
+
+        test("playBook closes the pending-play window after a successful prepare") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.fakePm.stubbedPrepareResult = stubPrepareResult(bookId)
+                everySuspend { fixture.playbackController.startPlayback(any()) } returns Unit
+
+                val vm = fixture.newVm()
+                vm.playBook(bookId)
+                advanceUntilIdle()
+
+                fixture.fakePm.clearPreparingCalls shouldBe 1
+                withClue("preparingBookId must be cleared once the sequence completes") {
+                    fixture.fakePm.preparingBookIdFlow.value shouldBe null
+                }
+            }
+        }
+
+        test("playBook closes the pending-play window even when prepare fails") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                fixture.fakePm.stubbedPrepareResult = null
+                every { fixture.networkMonitor.isOnline() } returns true
+
+                val vm = fixture.newVm()
+                vm.playBook(bookId)
+                advanceUntilIdle()
+
+                fixture.fakePm.clearPreparingCalls shouldBe 1
+                withClue("preparingBookId must be cleared even on a failed prepare — never stranded") {
+                    fixture.fakePm.preparingBookIdFlow.value shouldBe null
+                }
+            }
+        }
+
+        test("screenState.isPlayPending reflects PlaybackManager.preparingBookIdUi") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                fixture.fakePm.activateBook(BookId("book-1"))
+
+                val vm = fixture.newVm()
+                backgroundScope.launch { vm.screenState.collect {} }
+                advanceUntilIdle()
+                withClue("no play request in flight — isPlayPending must start false") {
+                    vm.screenState.value.isPlayPending shouldBe false
+                }
+
+                fixture.fakePm.preparingBookIdUiFlow.value = BookId("book-2")
+                advanceUntilIdle()
+                withClue("a play request is in flight — isPlayPending must be true") {
+                    vm.screenState.value.isPlayPending shouldBe true
+                }
+
+                fixture.fakePm.preparingBookIdUiFlow.value = null
+                advanceUntilIdle()
+                withClue("the play request resolved — isPlayPending must be false again") {
+                    vm.screenState.value.isPlayPending shouldBe false
                 }
             }
         }

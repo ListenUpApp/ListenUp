@@ -156,6 +156,17 @@ struct PlayerCoordinatorWiringTests {
         #expect(progress.startedCalls.first?.0 == "book1")
         #expect(progress.startedCalls.first?.1 == 2000)
     }
+
+    /// `isPreparing` drives the Book Detail play button's busy variant and the mini player's
+    /// spinner — it must flip true the instant `play(bookId:)` returns (synchronous, before the
+    /// prepare task even runs) and clear once the book has actually started.
+    @Test func isPreparingIsTrueImmediatelyAfterPlayAndFalseOnceStarted() async throws {
+        let (coordinator, _, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        #expect(coordinator.isPreparing)
+        await progress.waitForStarted(bookId: "book1")
+        #expect(coordinator.isPreparing == false)
+    }
 }
 
 @Suite("Sleep timer firing")

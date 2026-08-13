@@ -248,6 +248,7 @@ struct BookDetailView: View {
             downloadProgress: observer.downloadProgress,
             canPlay: observer.canPlay,
             canDownload: observer.canDownload,
+            isPlayPending: observer.isPlayPending,
             onResume: { observer.play() },
             onDownload: { observer.downloadBook() },
             onCancelDownload: { observer.cancelDownload() },

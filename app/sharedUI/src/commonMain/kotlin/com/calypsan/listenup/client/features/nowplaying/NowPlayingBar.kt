@@ -55,6 +55,11 @@ import org.jetbrains.compose.resources.stringResource
  *
  * Visible only when [state] is [NowPlayingState.Active] and [isExpanded] is false.
  * Tapping anywhere expands to the full-screen player via [onTap].
+ *
+ * @param isPlayPending True while a play request is in flight anywhere in the app (e.g. the user
+ *  tapped play on a different book from the library while this bar is still showing the
+ *  previous one) — see [com.calypsan.listenup.client.playback.NowPlayingScreenState.isPlayPending].
+ *  Reuses [PlayPauseFab]'s buffering spinner rather than tearing this bar down.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -66,6 +71,7 @@ fun NowPlayingBar(
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     modifier: Modifier = Modifier,
+    isPlayPending: Boolean = false,
 ) {
     val isVisible = state is NowPlayingState.Active && !isExpanded
 
@@ -115,6 +121,7 @@ fun NowPlayingBar(
                     progress = progress,
                     onPlayPause = onPlayPause,
                     onSkipBack = onSkipBack,
+                    isPlayPending = isPlayPending,
                 )
             }
         }
@@ -128,6 +135,7 @@ private fun MiniPlayerContent(
     progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
+    isPlayPending: Boolean,
 ) {
     Column {
         Row(
@@ -186,9 +194,11 @@ private fun MiniPlayerContent(
             )
 
             // Play/pause squircle FAB. No drop shadow — the bar's rounded Surface would clip it.
+            // isPlayPending piggybacks on the same buffering spinner: a play request in flight
+            // for another book is visual feedback the user asked for, without hiding this bar.
             PlayPauseFab(
                 isPlaying = state.isPlaying,
-                isBuffering = state.isBuffering,
+                isBuffering = state.isBuffering || isPlayPending,
                 onClick = onPlayPause,
                 size = 48.dp,
                 shadowElevation = 0.dp,

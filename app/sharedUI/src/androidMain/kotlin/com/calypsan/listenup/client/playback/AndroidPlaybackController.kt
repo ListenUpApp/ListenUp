@@ -8,7 +8,11 @@ import androidx.media3.session.MediaController
 import com.calypsan.listenup.client.automotive.CoverUri
 import com.calypsan.listenup.client.automotive.CustomActions
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,21 +30,30 @@ interface ControllerHolder {
 
     val isConnected: StateFlow<Boolean>
     val controller: MediaController?
+
+    /** See [MediaControllerHolder.awaitController]. */
+    suspend fun awaitController(): MediaController?
 }
 
 /**
  * Android implementation of [PlaybackController]. Wraps [ControllerHolder] (backed by
  * [MediaControllerHolder] in production) + Media3 [MediaController].
  *
- * Command methods route through `holder.controller?.X()` — if the controller is
- * null (not yet connected, or disconnected), the command is silently dropped
- * with a warn-log. This matches the pre-Phase-E1 VM behavior of
- * `mediaController ?: return`. Throwing would leak Media3 service-lifecycle
- * quirks into VM error handling.
+ * Command methods route through [ControllerHolder.awaitController] — a bounded suspend wait,
+ * not a `holder.controller` snapshot read — so a command issued before the controller has
+ * finished connecting (the common case on a cold start) still reaches it once connection
+ * completes, instead of silently no-opping. If the bound elapses without a connection,
+ * [MediaControllerHolder.awaitController] itself reports a real, user-visible failure via
+ * `playbackManager.reportError` — this class never needs to duplicate that reporting.
+ *
+ * [play], [pause], [seekTo], [setPlaybackSpeed], [stop], and [setVolume] are non-suspend on the
+ * [PlaybackController] contract, so each dispatches its await + action onto [scope] rather than
+ * suspending the caller.
  */
 class AndroidPlaybackController(
     private val holder: ControllerHolder,
     private val packageName: String,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
 ) : PlaybackController {
     private var cachedQueue: List<PlaybackMediaItem> = emptyList()
 
@@ -51,22 +64,23 @@ class AndroidPlaybackController(
     override val isReady: StateFlow<Boolean> = holder.isConnected
 
     override fun play() {
-        val controller =
-            holder.controller
-                ?: return logger.warn { "AndroidPlaybackController.play: controller not ready" }
+        scope.launch {
+            val controller = holder.awaitController() ?: return@launch
 
-        // An idle player — left that way by a terminal error, or by the recovery stop/prepare
-        // cycle — ignores play() entirely. See needsPrepareBeforePlay.
-        if (needsPrepareBeforePlay(controller.playbackState)) {
-            logger.info { "AndroidPlaybackController.play: player idle, re-preparing before play" }
-            controller.prepare()
+            // An idle player — left that way by a terminal error, or by the recovery stop/prepare
+            // cycle — ignores play() entirely. See needsPrepareBeforePlay.
+            if (needsPrepareBeforePlay(controller.playbackState)) {
+                logger.info { "AndroidPlaybackController.play: player idle, re-preparing before play" }
+                controller.prepare()
+            }
+            controller.play()
         }
-        controller.play()
     }
 
     override fun pause() {
-        holder.controller?.pause()
-            ?: logger.warn { "AndroidPlaybackController.pause: controller not ready" }
+        scope.launch {
+            holder.awaitController()?.pause()
+        }
     }
 
     /**
@@ -82,16 +96,14 @@ class AndroidPlaybackController(
      * raw transport player, bypassing the wrapper's chapter-relative reinterpretation entirely.
      */
     override fun seekTo(positionMs: Long) {
-        val controller = holder.controller
-        if (controller == null) {
-            logger.warn { "AndroidPlaybackController.seekTo($positionMs): controller not ready" }
-            return
+        scope.launch {
+            val controller = holder.awaitController() ?: return@launch
+            logger.debug { "AndroidPlaybackController.seekTo: bookPos=$positionMs via SEEK_TO_BOOK_POSITION" }
+            controller.sendCustomCommand(
+                CustomActions.seekToBookPositionCommand(),
+                CustomActions.seekToBookPositionArgs(positionMs),
+            )
         }
-        logger.debug { "AndroidPlaybackController.seekTo: bookPos=$positionMs via SEEK_TO_BOOK_POSITION" }
-        controller.sendCustomCommand(
-            CustomActions.seekToBookPositionCommand(),
-            CustomActions.seekToBookPositionArgs(positionMs),
-        )
     }
 
     /**
@@ -127,29 +139,28 @@ class AndroidPlaybackController(
     }
 
     override fun setPlaybackSpeed(speed: Float) {
-        holder.controller?.setPlaybackParameters(PlaybackParameters(speed))
-            ?: logger.warn { "AndroidPlaybackController.setPlaybackSpeed($speed): controller not ready" }
+        scope.launch {
+            holder.awaitController()?.setPlaybackParameters(PlaybackParameters(speed))
+        }
     }
 
     override fun stop() {
-        holder.controller?.stop()
-            ?: logger.warn { "AndroidPlaybackController.stop: controller not ready" }
+        scope.launch {
+            holder.awaitController()?.stop()
+        }
     }
 
     override fun setVolume(volume: Float) {
-        holder.controller?.let { it.volume = volume }
-            ?: logger.warn { "AndroidPlaybackController.setVolume($volume): controller not ready" }
+        scope.launch {
+            holder.awaitController()?.let { it.volume = volume }
+        }
     }
 
     override suspend fun setMediaQueue(
         items: List<PlaybackMediaItem>,
         startPositionMs: Long,
     ) {
-        val controller = holder.controller
-        if (controller == null) {
-            logger.warn { "AndroidPlaybackController.setMediaQueue: controller not ready" }
-            return
-        }
+        val controller = holder.awaitController() ?: return
         cachedQueue = items
         val mediaItems =
             items.map { item ->
@@ -183,9 +194,9 @@ class AndroidPlaybackController(
     /**
      * Maps a [PlaybackManager.PrepareResult] onto the queue items Media3 consumes.
      *
-     * `internal` and pure so it can be tested without a [MediaController], which is a final
-     * Android class that cannot be instantiated in host tests — the same reason
-     * [resolveQueuePosition] is exposed this way.
+     * `internal` and pure so it can be tested without a [MediaController] — it has no public or
+     * internal constructor, so it cannot be instantiated (or mocked) in a JVM host test — the same
+     * reason [resolveQueuePosition] is exposed this way.
      *
      * Artwork is addressed by book ID through `CoverContentProvider`, never by local path.
      * Android Auto rejects `file://` artwork URIs outright, so `prepareResult.coverPath` is
@@ -220,4 +231,6 @@ fun MediaControllerHolder.asControllerHolder(): ControllerHolder =
 
         override val isConnected: StateFlow<Boolean> = this@asControllerHolder.isConnected
         override val controller: MediaController? get() = this@asControllerHolder.controller
+
+        override suspend fun awaitController(): MediaController? = this@asControllerHolder.awaitController()
     }

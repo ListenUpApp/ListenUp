@@ -28,6 +28,11 @@ struct ResumeBar: View {
     /// When false the download control is disabled — no playback platform, or the server is
     /// genuinely unreachable right now (same evidence-based signal as `canPlay`).
     var canDownload: Bool = true
+    /// True while a play request for this book is in flight (`BookDetailObserver.isPlayPending`).
+    /// Swaps the Resume/Play button's icon for an indeterminate spinner and its label for
+    /// "Preparing…" — the label change is what makes this accessible, since the button merges
+    /// descendant semantics and the label becomes VoiceOver's entire announced name.
+    var isPlayPending: Bool = false
     let onResume: () -> Void
     let onDownload: () -> Void
     let onCancelDownload: () -> Void
@@ -60,12 +65,18 @@ struct ResumeBar: View {
     // MARK: - Resume button
 
     private var resumeButton: some View {
-        PrimaryButton(title: resumeTitle, icon: canPlay ? "play.fill" : "cloud.slash.fill", action: onResume)
-            .disabled(!canPlay)
-            .accessibilityLabel(resumeAccessibilityLabel)
+        PrimaryButton(
+            title: resumeTitle,
+            icon: canPlay ? "play.fill" : "cloud.slash.fill",
+            isLoading: isPlayPending,
+            action: onResume
+        )
+        .disabled(!canPlay)
+        .accessibilityLabel(resumeAccessibilityLabel)
     }
 
     private var resumeTitle: String {
+        if isPlayPending { return String(localized: "book.detail_preparing") }
         if !canPlay { return String(localized: "book.detail_unavailable_offline") }
         return isInProgress
             ? String(localized: "book.detail_resume")
@@ -73,6 +84,9 @@ struct ResumeBar: View {
     }
 
     private var resumeAccessibilityLabel: Text {
+        // Preparing wins over the progress-percent announcement below: the button is busy and
+        // has nothing state-changing to report until the prepare resolves one way or the other.
+        if isPlayPending { return Text(resumeTitle) }
         if isInProgress, let progress {
             let percent = Int((progress * 100).rounded())
             return Text(String(format: String(localized: "book.detail_resume_progress_a11y"), percent))
@@ -173,6 +187,21 @@ struct ResumeBar: View {
             currentChapterLabel: nil,
             downloadState: .downloading,
             downloadProgress: 0.65,
+            onResume: {},
+            onDownload: {},
+            onCancelDownload: {},
+            onDeleteDownload: {}
+        )
+
+        // Preparing — play request in flight.
+        ResumeBar(
+            progress: 0.38,
+            isComplete: false,
+            timeRemaining: "9h 59m left",
+            currentChapterLabel: "Ch. 1 · A Game Begins",
+            downloadState: .notDownloaded,
+            downloadProgress: 0,
+            isPlayPending: true,
             onResume: {},
             onDownload: {},
             onCancelDownload: {},

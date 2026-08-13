@@ -72,6 +72,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.RestartBookDi
 import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
+import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
@@ -216,9 +217,15 @@ private fun BookDetailReadyContent(
 ) {
     val platformActions: BookDetailPlatformActions = koinInject()
     val instanceRepository: InstanceRepository = koinInject()
+    val playbackManager: PlaybackManager = koinInject()
     val scope = rememberCoroutineScope()
     val snackbarHostState = LocalSnackbarHostState.current
     val documents by viewModel.documents.collectAsStateWithLifecycle()
+    // Delayed against a fast prepare (see PlaybackManager.preparingBookIdUi) — never flashes on a
+    // book that starts playing quickly. Compared against this screen's own bookId so ONLY this
+    // book's play button goes busy, not every open Book Detail screen at once.
+    val preparingBookId by playbackManager.preparingBookIdUi.collectAsStateWithLifecycle(initialValue = null)
+    val isPreparing = preparingBookId == BookId(bookId)
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
@@ -279,6 +286,7 @@ private fun BookDetailReadyContent(
         canPlay = state.canPlay,
         canDownload = state.canDownload,
         showServerWarning = state.showServerWarning,
+        isPreparing = isPreparing,
         onRetryConnection = { viewModel.retryConnection() },
         onPlayDisabledClick = {
             scope.launch {
@@ -428,6 +436,7 @@ fun BookDetailContent(
     canPlay: Boolean,
     canDownload: Boolean,
     showServerWarning: Boolean,
+    isPreparing: Boolean = false,
     onRetryConnection: () -> Unit,
     onPlayDisabledClick: () -> Unit,
     onDownloadClick: () -> Unit,
@@ -480,6 +489,7 @@ fun BookDetailContent(
             playEnabled = canPlay,
             downloadEnabled = canDownload,
             showServerWarning = showServerWarning,
+            isPreparing = isPreparing,
             onRetryConnection = onRetryConnection,
             onPlayDisabledClick = onPlayDisabledClick,
             onSeriesClick = onSeriesClick,
@@ -516,6 +526,7 @@ fun BookDetailContent(
             canPlay = canPlay,
             canDownload = canDownload,
             showServerWarning = showServerWarning,
+            isPreparing = isPreparing,
             onRetryConnection = onRetryConnection,
             onPlayDisabledClick = onPlayDisabledClick,
             onDownloadClick = onDownloadClick,
@@ -571,6 +582,7 @@ private fun ImmersiveBookDetail(
     canPlay: Boolean,
     canDownload: Boolean,
     showServerWarning: Boolean,
+    isPreparing: Boolean = false,
     onRetryConnection: () -> Unit,
     onPlayDisabledClick: () -> Unit,
     onDownloadClick: () -> Unit,
@@ -686,6 +698,7 @@ private fun ImmersiveBookDetail(
                         downloadEnabled = canDownload,
                         onPlayDisabledClick = onPlayDisabledClick,
                         showServerWarning = showServerWarning,
+                        isPreparing = isPreparing,
                     )
                 }
             }
