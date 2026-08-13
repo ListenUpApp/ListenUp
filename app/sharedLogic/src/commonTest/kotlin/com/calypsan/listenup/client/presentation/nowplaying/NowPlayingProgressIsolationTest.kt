@@ -84,6 +84,9 @@ class NowPlayingProgressIsolationTest :
                     com.calypsan.listenup.client.test.fake
                         .FakePlaybackPositionRepository(),
                 sheetState = NowPlayingSheetState(),
+                errorBus =
+                    com.calypsan.listenup.core.error
+                        .ErrorBus(),
             )
         }
 

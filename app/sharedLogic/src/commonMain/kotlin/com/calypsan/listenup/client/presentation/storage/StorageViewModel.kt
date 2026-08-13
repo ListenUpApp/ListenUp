@@ -10,11 +10,13 @@ import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.download.StorageSpaceProvider
 import com.calypsan.listenup.client.playback.PlaybackStateProvider
+import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -78,11 +80,17 @@ class StorageViewModel(
                 availableStorage = available,
                 downloadedBooks = books,
             )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = StorageUiState(),
-        )
+        }
+            // calculateStorageUsed() walks the entire downloads tree with zero suspension points —
+            // on Main (viewModelScope is Dispatchers.Main.immediate) that's an ANR candidate, and it
+            // re-runs on every observeDownloadedBooks() emission. Keep it off Main, matching
+            // SeriesRepositoryImpl's per-book blocking cover stat.
+            .flowOn(IODispatcher)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = StorageUiState(),
+            )
 
     /**
      * Show confirmation dialog for deleting a single book.

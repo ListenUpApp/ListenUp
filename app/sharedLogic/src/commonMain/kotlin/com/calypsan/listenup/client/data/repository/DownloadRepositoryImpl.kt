@@ -1,8 +1,11 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.error.DownloadError
+import com.calypsan.listenup.client.core.TypedAppErrorException
+import com.calypsan.listenup.client.core.pullCatching
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
@@ -136,13 +139,15 @@ internal class DownloadRepositoryImpl(
         )
 
     override suspend fun cancelForBook(bookId: BookId): AppResult<Unit> =
-        suspendRunCatching {
+        pullCatching {
             val rows = downloadDao.getForBook(bookId.value)
-            // Transition all non-terminal rows to CANCELLED.
+            // Transition all non-terminal rows to CANCELLED. A failed transition is NOT
+            // swallowed (honest-over-silent, audit finding): reporting Success while a row is
+            // still DOWNLOADING leaves aggregateBookDownloadStatus stuck on InProgress forever —
+            // a permanent spinner with no worker behind it and no way to retry or dismiss.
             for (row in rows) {
                 if (row.state != DownloadState.COMPLETED && row.state != DownloadState.DELETED) {
-                    // Best-effort per row — a single failed transition shouldn't abort the cancel sweep.
-                    val _ = markCancelled(row.audioFileId)
+                    markCancelled(row.audioFileId).getOrElse { error -> throw TypedAppErrorException(error) }
                 }
             }
         }

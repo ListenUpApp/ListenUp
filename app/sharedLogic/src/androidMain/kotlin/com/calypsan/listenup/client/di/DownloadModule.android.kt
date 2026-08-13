@@ -39,6 +39,7 @@ val androidDownloadModule: Module =
                 localPreferences = get<LocalPreferences>(),
                 downloadRepository = get(),
                 transactionRunner = get(),
+                errorBus = get(),
             )
         } bind DownloadService::class
 

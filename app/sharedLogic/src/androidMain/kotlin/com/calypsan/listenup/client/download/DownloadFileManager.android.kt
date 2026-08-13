@@ -42,12 +42,10 @@ actual class DownloadFileManager(
         return Path(bookDir.toString(), finalName)
     }
 
-    actual fun deleteBookFiles(bookId: String) {
+    actual fun deleteBookFiles(bookId: String): Boolean {
         // java.io.File needed for recursive deletion
         val bookDir = File(downloadDir.toString(), bookId)
-        if (bookDir.exists()) {
-            bookDir.deleteRecursively()
-        }
+        return if (bookDir.exists()) bookDir.deleteRecursively() else true
     }
 
     actual fun deleteAllFiles() {

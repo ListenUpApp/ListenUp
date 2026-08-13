@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SurfaceMetadata
 import com.calypsan.listenup.client.playback.mapToNowPlayingState
 import com.calypsan.listenup.client.playback.mapToPlaybackProgress
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -89,6 +90,7 @@ class NowPlayingViewModel internal constructor(
     private val downloadRepository: DownloadRepository,
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val sheetState: NowPlayingSheetState,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private companion object {
         const val FADE_DURATION_MS = 3000L
@@ -432,6 +434,7 @@ class NowPlayingViewModel internal constructor(
                 }
 
                 is AppResult.Failure -> {
+                    errorBus.emit(result.error)
                     logger.error {
                         "Failed to open PDF $docId for book $bookId: ${result.error.message}"
                     }

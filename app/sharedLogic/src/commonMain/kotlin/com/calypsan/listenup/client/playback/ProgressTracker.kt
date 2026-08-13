@@ -4,11 +4,13 @@ package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +20,18 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Consecutive periodic-tick position-save failures before the listener is told.
+ *
+ * The 10-30s periodic tick ([ProgressTracker.onPositionUpdate]) must never surface a snackbar on
+ * a single transient failure — that would be noisier than the silence it replaces. Three in a row
+ * is a genuinely persistent problem (disk full, corruption) rather than one blip, and is surfaced
+ * exactly once per streak (see [ProgressTracker.savePosition]) rather than on every failure past
+ * the threshold, so a still-failing disk does not spam a snackbar every tick. The explicit
+ * pause/seek path is not gated by this constant — see [ProgressTracker.onPlaybackPaused].
+ */
+internal const val POSITION_SAVE_FAILURES_TO_SURFACE = 3
 
 /**
  * Coordinates position persistence and playback-session tracking.
@@ -38,6 +52,11 @@ open class ProgressTracker(
     private val positionRepository: PlaybackPositionRepository,
     private val scope: CoroutineScope,
     /**
+     * Global error surface. Defaults to a fresh, unwired instance so tests that don't care about
+     * error surfacing need not pass one; production DI always wires the app-wide singleton.
+     */
+    private val errorBus: ErrorBus = ErrorBus(),
+    /**
      * Wall-clock read seam. Defaults to the system clock; tests inject a virtual clock so
      * session-start/pause/finish timestamps are deterministic.
      */
@@ -45,6 +64,9 @@ open class ProgressTracker(
 ) {
     val sessionState: StateFlow<SessionState>
         field = MutableStateFlow<SessionState>(SessionState.Idle)
+
+    /** Consecutive periodic-tick failures since the last success — see [POSITION_SAVE_FAILURES_TO_SURFACE]. */
+    private val consecutivePeriodicFailures = atomic(0)
 
     /**
      * Called when playback starts/resumes.
@@ -77,6 +99,7 @@ open class ProgressTracker(
                     )
             ) {
                 is AppResult.Success -> {
+                    consecutivePeriodicFailures.value = 0
                     logger.debug { "Initial position recorded: book=${bookId.value}" }
                 }
 
@@ -84,6 +107,9 @@ open class ProgressTracker(
                     logger.warn {
                         "Failed to record initial position for ${bookId.value}: ${r.error.message}"
                     }
+                    // Explicit, low-frequency event (one per play tap) — honest-over-silent surfaces
+                    // it immediately, unlike the gated periodic-tick path below.
+                    errorBus.emit(r.error)
                 }
             }
         }
@@ -159,8 +185,9 @@ open class ProgressTracker(
         speed: Float,
     ) {
         scope.launch {
-            // Save position locally
-            savePosition(bookId, positionMs, speed)
+            // Save position locally. Periodic (fires every 10-30s) — gated so a persistent
+            // failure is surfaced once, not spammed every tick.
+            savePosition(bookId, positionMs, speed, isPeriodicTick = true)
         }
     }
 
@@ -168,14 +195,27 @@ open class ProgressTracker(
      * Save position via the repository seam.
      * Routes through [PlaybackPositionRepository.savePlaybackState] with [PlaybackUpdate.PeriodicUpdate].
      *
+     * Position is sacred, so every failure is logged — but how loudly it is surfaced to the
+     * listener depends on [isPeriodicTick]:
+     * - **Explicit pause/seek** (`isPeriodicTick = false`, the default — [savePositionNow] and
+     *   [onPlaybackPaused] both land here): a low-frequency, user-triggered event, so every
+     *   failure is surfaced immediately via [errorBus].
+     * - **Periodic tick** (`isPeriodicTick = true`, [onPositionUpdate] only): fires every 10-30s
+     *   during ordinary playback, so surfacing every failure would be worse than the silence it
+     *   replaces. Gated on [POSITION_SAVE_FAILURES_TO_SURFACE] consecutive failures, and only at
+     *   the moment the streak crosses that threshold — not on every failure after — so a
+     *   still-failing disk tells the listener once rather than every tick.
+     *
      * @param bookId The book to save position for
      * @param positionMs Current position in milliseconds
      * @param speed Current playback speed
+     * @param isPeriodicTick true when called from the 10-30s [onPositionUpdate] poll
      */
     private suspend fun savePosition(
         bookId: BookId,
         positionMs: Long,
         speed: Float,
+        isPeriodicTick: Boolean = false,
     ) {
         when (
             val r =
@@ -184,8 +224,22 @@ open class ProgressTracker(
                     update = PlaybackUpdate.PeriodicUpdate(positionMs = positionMs, speed = speed),
                 )
         ) {
-            is AppResult.Success -> logger.info { "Position saved: book=${bookId.value}, position=$positionMs" }
-            is AppResult.Failure -> logger.warn { "Failed to save position for ${bookId.value}: ${r.error.message}" }
+            is AppResult.Success -> {
+                consecutivePeriodicFailures.value = 0
+                logger.info { "Position saved: book=${bookId.value}, position=$positionMs" }
+            }
+
+            is AppResult.Failure -> {
+                logger.warn { "Failed to save position for ${bookId.value}: ${r.error.message}" }
+                if (isPeriodicTick) {
+                    // Emit exactly once per streak — at the crossing, not every failure past it.
+                    if (consecutivePeriodicFailures.incrementAndGet() == POSITION_SAVE_FAILURES_TO_SURFACE) {
+                        errorBus.emit(r.error)
+                    }
+                } else {
+                    errorBus.emit(r.error)
+                }
+            }
         }
     }
 
@@ -215,8 +269,15 @@ open class ProgressTracker(
                         update = PlaybackUpdate.Speed(positionMs = positionMs, speed = newSpeed, custom = true),
                     )
             ) {
-                is AppResult.Success -> logger.debug { "Speed changed: book=${bookId.value}, speed=$newSpeed" }
-                is AppResult.Failure -> logger.warn { "Failed to change speed for ${bookId.value}: ${r.error.message}" }
+                is AppResult.Success -> {
+                    consecutivePeriodicFailures.value = 0
+                    logger.debug { "Speed changed: book=${bookId.value}, speed=$newSpeed" }
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to change speed for ${bookId.value}: ${r.error.message}" }
+                    errorBus.emit(r.error)
+                }
             }
         }
     }
@@ -247,8 +308,15 @@ open class ProgressTracker(
                         update = PlaybackUpdate.SpeedReset(positionMs = positionMs, defaultSpeed = defaultSpeed),
                     )
             ) {
-                is AppResult.Success -> logger.debug { "Speed reset: book=${bookId.value}, speed=$defaultSpeed" }
-                is AppResult.Failure -> logger.warn { "Failed to reset speed for ${bookId.value}: ${r.error.message}" }
+                is AppResult.Success -> {
+                    consecutivePeriodicFailures.value = 0
+                    logger.debug { "Speed reset: book=${bookId.value}, speed=$defaultSpeed" }
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Failed to reset speed for ${bookId.value}: ${r.error.message}" }
+                    errorBus.emit(r.error)
+                }
             }
         }
     }

@@ -1,13 +1,22 @@
 package com.calypsan.listenup.client.download
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCObjectVar
+import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
+import kotlinx.cinterop.ptr
+import kotlinx.cinterop.value
 import kotlinx.io.files.Path
 import platform.Foundation.NSDocumentDirectory
+import platform.Foundation.NSError
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSFileSize
 import platform.Foundation.NSFileSystemFreeSize
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDomainMask
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * iOS implementation of DownloadFileManager.
@@ -63,10 +72,16 @@ actual class DownloadFileManager {
         return Path(bookDirPath, finalName)
     }
 
-    actual fun deleteBookFiles(bookId: String) {
+    actual fun deleteBookFiles(bookId: String): Boolean {
         val bookDirPath = Path(downloadDir, bookId).toString()
-        if (fileManager.fileExistsAtPath(bookDirPath)) {
-            fileManager.removeItemAtPath(bookDirPath, error = null)
+        if (!fileManager.fileExistsAtPath(bookDirPath)) return true
+        return memScoped {
+            val errorPtr = alloc<ObjCObjectVar<NSError?>>()
+            val removed = fileManager.removeItemAtPath(bookDirPath, error = errorPtr.ptr)
+            if (!removed) {
+                logger.warn { "Failed to delete book dir $bookDirPath: ${errorPtr.value?.localizedDescription}" }
+            }
+            removed
         }
     }
 
