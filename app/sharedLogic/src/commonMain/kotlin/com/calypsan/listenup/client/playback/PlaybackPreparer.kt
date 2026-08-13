@@ -171,10 +171,7 @@ class PlaybackPreparer internal constructor(
     private suspend fun prepareInternal(bookId: BookId): PreparedPlayback? {
         logger.info { "Preparing playback for book: ${bookId.value}" }
 
-        // 1. Ensure fresh auth token
-        tokenProvider.prepareForPlayback()
-
-        // 2. Get server URL — the ACTIVE url, so audio streams from the remote host after a roam
+        // 1. Get server URL — the ACTIVE url, so audio streams from the remote host after a roam
         //    off-LAN switches the active url away from the (now-unreachable) local one.
         val serverUrl = serverConfig.getActiveUrl()?.value
         if (serverUrl == null) {
@@ -182,7 +179,7 @@ class PlaybackPreparer internal constructor(
             return null
         }
 
-        // 3. Get book with contributors from database
+        // 2. Get book with contributors from database
         val bookWithContributors = bookDao.getByIdWithContributors(bookId)
         if (bookWithContributors == null) {
             logger.error { "Book not found: ${bookId.value}" }
@@ -210,7 +207,7 @@ class PlaybackPreparer internal constructor(
                 null
             }
 
-        // 4. Load audio files from the junction. Fallback-fetch if empty locally.
+        // 3. Load audio files from the junction. Fallback-fetch if empty locally.
         var audioFileEntities = audioFileDao.getForBook(bookId.value)
         if (audioFileEntities.isEmpty()) {
             logger.info { "No audio files for book: ${bookId.value}, fetching from server..." }
@@ -231,10 +228,18 @@ class PlaybackPreparer internal constructor(
 
         logAudioFileDiagnostics(bookId, audioFiles)
 
-        // 5. Build PlaybackTimeline — offline-first via signed RPC URLs
+        // 4. Build PlaybackTimeline — offline-first via signed RPC URLs
         val domainAudioFiles = audioFileEntities.map { it.toAudioFile() }
         val buildResult = buildTimeline(bookId, domainAudioFiles, serverUrl) ?: return null
         val timeline = buildResult.timeline
+
+        // 5. Ensure a fresh audio token — only when playback will hit the network. A
+        //    fully-downloaded book plays from local file:// paths and never needs one; awaiting a
+        //    refresh unconditionally (the prior step 1) was the 8.08s stall reproduced on
+        //    2026-08-13. Runs AFTER buildTimeline (isFullyDownloaded is only known once the
+        //    timeline is assembled); buildTimeline's own network call rides the RPC channel's own
+        //    auth, not this token provider, so nothing is lost by asking last.
+        if (!timeline.isFullyDownloaded) tokenProvider.prepareForPlayback()
 
         // Load chapters for this book
         val chapters = loadChapters(bookId)

@@ -177,7 +177,10 @@ struct MiniPlayerBar: View {
             observer.togglePlayback()
         } label: {
             Group {
-                if observer.isBuffering {
+                // isPreparing piggybacks on the same buffering spinner: a play request in flight
+                // (e.g. the user tapped a different book while this bar was still showing the
+                // previous one) is visual feedback the user asked for, without a new affordance.
+                if observer.isBuffering || observer.isPreparing {
                     // Honest buffering: a spinner while the stream loads, matching the full player
                     // and Android — not a pause glyph implying audio is already flowing.
                     ProgressView()
@@ -195,9 +198,13 @@ struct MiniPlayerBar: View {
             .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(observer.isPlaybackActive
-            ? String(localized: "player.pause")
-            : String(localized: "player.play"))
+        .accessibilityLabel(
+            observer.isPreparing
+                ? String(localized: "book.detail_preparing")
+                : (observer.isPlaybackActive
+                    ? String(localized: "player.pause")
+                    : String(localized: "player.play"))
+        )
         .haptic(.toggleOn, trigger: playPauseTapCount)
     }
 }

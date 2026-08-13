@@ -12,10 +12,30 @@ import com.google.common.util.concurrent.MoreExecutors
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 private val logger = KotlinLogging.logger {}
+
+/** Bound on [MediaControllerHolder.awaitController]'s wait for a Media3 service bind. */
+private const val CONTROLLER_CONNECT_TIMEOUT_MS = 10_000L
+
+/**
+ * Suspends until [ready] emits `true`, bounded by [timeoutMs]. Returns `true` once ready, or
+ * `false` if the bound elapses first. `internal` (not `private`) so it can be tested directly
+ * against a plain [kotlinx.coroutines.flow.MutableStateFlow] — [MediaController] itself has no
+ * public or internal constructor and cannot be instantiated or mocked in a JVM host test, so this
+ * is where the actual bounded-wait mechanism is verified.
+ *
+ * A genuine external cancellation of the calling coroutine always propagates — only this
+ * function's own timeout is absorbed, matching [withTimeoutOrNull]'s contract.
+ */
+internal suspend fun awaitReady(
+    ready: StateFlow<Boolean>,
+    timeoutMs: Long,
+): Boolean = withTimeoutOrNull(timeoutMs) { ready.first { it } } != null
 
 /**
  * Singleton holder for the MediaController connection.
@@ -42,9 +62,31 @@ private val logger = KotlinLogging.logger {}
 class MediaControllerHolder(
     private val context: Context,
     private val playbackManager: PlaybackStateWriter,
+    /**
+     * Builds the connection future given the [MediaController.Listener] that detects a session
+     * drop. Defaults to the real Media3 [MediaController.Builder]. Overridable so tests can
+     * exercise connect/reconnect without a real [Context] or Media3 session — see
+     * `MediaControllerHolderTest`. (Takes the listener as a parameter, rather than closing over
+     * it, because a constructor default-value expression cannot reference `this` — [handleDisconnect]
+     * isn't available yet at that point in initialization.)
+     */
+    private val connectionFactory: (MediaController.Listener) -> ListenableFuture<MediaController> = { listener ->
+        MediaController
+            .Builder(
+                context,
+                SessionToken(context, ComponentName(context, PlaybackService::class.java)),
+            ).setListener(listener)
+            .buildAsync()
+    },
 ) {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var _controller: MediaController? = null
+
+    /** Detects a Media3-initiated session drop and reconnects via [handleDisconnect]. */
+    private val disconnectListener =
+        object : MediaController.Listener {
+            override fun onDisconnected(controller: MediaController) = handleDisconnect()
+        }
 
     val isConnected: StateFlow<Boolean>
         field = MutableStateFlow(false)
@@ -134,21 +176,25 @@ class MediaControllerHolder(
     }
 
     /**
-     * Execute an action with the controller when it becomes available.
-     * If already connected, executes immediately on the current thread.
-     * If not connected, queues the action for when connection completes.
+     * Suspends until a connected [MediaController] is available, bounded by
+     * [CONTROLLER_CONNECT_TIMEOUT_MS]. Returns immediately if already connected.
+     *
+     * If the bound elapses without a connection — e.g. the Media3 service is slow to bind on a
+     * cold start, or never binds at all — reports a user-visible failure via [playbackManager]
+     * and returns `null`, rather than leaving the caller to silently no-op on a stale snapshot.
      */
-    fun withController(action: (MediaController) -> Unit) {
-        val current = _controller
-        if (current != null) {
-            action(current)
-            return
-        }
+    suspend fun awaitController(): MediaController? {
+        controller?.let { return it }
 
-        // Queue for when connected
-        controllerFuture?.addListener({
-            _controller?.let(action)
-        }, MoreExecutors.directExecutor())
+        if (!awaitReady(isConnected, CONTROLLER_CONNECT_TIMEOUT_MS)) {
+            logger.error { "MediaControllerHolder.awaitController: timed out waiting for connection" }
+            playbackManager.reportError(
+                message = "Couldn't start playback. Please try again.",
+                isRecoverable = true,
+            )
+            return null
+        }
+        return controller
     }
 
     private fun connect() {
@@ -159,16 +205,11 @@ class MediaControllerHolder(
 
         logger.info { "MediaControllerHolder: establishing connection" }
 
-        val sessionToken =
-            SessionToken(
-                context,
-                ComponentName(context, PlaybackService::class.java),
-            )
-
-        controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
-        controllerFuture?.addListener({
+        val future = connectionFactory(disconnectListener)
+        controllerFuture = future
+        future.addListener({
             try {
-                _controller = controllerFuture?.get()
+                _controller = future.get()
                 isConnected.value = true
                 _controller?.addListener(playerListener)
                 logger.info { "MediaControllerHolder: connected" }
@@ -179,11 +220,9 @@ class MediaControllerHolder(
         }, MoreExecutors.directExecutor())
     }
 
-    private fun disconnect() {
-        logger.info { "MediaControllerHolder: disconnecting" }
-
+    /** Tears down the current connection state — shared by [disconnect] and [handleDisconnect]. */
+    private fun teardownConnection() {
         _controller?.removeListener(playerListener)
-
         _controller?.release()
         _controller = null
 
@@ -191,5 +230,26 @@ class MediaControllerHolder(
         controllerFuture = null
 
         isConnected.value = false
+    }
+
+    private fun disconnect() {
+        logger.info { "MediaControllerHolder: disconnecting" }
+        teardownConnection()
+    }
+
+    /**
+     * Called when Media3 reports the connection dropped ([MediaController.Listener.onDisconnected]).
+     * A dropped controller must not permanently brick transport for the rest of the process, so
+     * this tears down state and — if still acquired — immediately attempts to reconnect. `internal`
+     * so tests can trigger it directly without a real Media3 session.
+     */
+    internal fun handleDisconnect() {
+        logger.warn { "MediaControllerHolder: connection dropped" }
+        teardownConnection()
+
+        if (refCount.load() > 0) {
+            logger.info { "MediaControllerHolder: reconnecting after disconnect" }
+            connect()
+        }
     }
 }

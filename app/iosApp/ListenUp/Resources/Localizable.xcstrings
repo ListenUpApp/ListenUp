@@ -3301,6 +3301,16 @@
         }
       }
     },
+    "book.detail_preparing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing…"
+          }
+        }
+      }
+    },
     "book.detail_progresspercent": {
       "localizations": {
         "en": {

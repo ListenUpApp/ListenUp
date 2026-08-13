@@ -23,6 +23,7 @@ import kotlin.concurrent.Volatile
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 
@@ -101,14 +102,31 @@ class CachedAudioTokenProvider(
 
     override suspend fun prepareForPlayback() {
         if (hasUsableToken()) return
-        refreshMutex.withLock {
-            // Re-check under the lock. A refresh that landed while we waited has already produced a
-            // usable token — or installed the stored-token fallback — so firing our own would only
-            // queue a second full round-trip behind the first. On a half-open socket each one costs
-            // the entire 15s RPC bound, which is how a resume after a long idle spent 24s here
-            // before playing a book that was already downloaded.
-            if (hasUsableToken()) return
-            performRefresh()
+        val refreshed =
+            withTimeoutOrNull(PREPARE_PLAYBACK_REFRESH_BOUND) {
+                refreshMutex.withLock {
+                    // Re-check under the lock. A refresh that landed while we waited has already
+                    // produced a usable token — or installed the stored-token fallback — so firing
+                    // our own would only queue a second full round-trip behind the first. On a
+                    // half-open socket each one costs the entire 15s RPC bound, which is how a
+                    // resume after a long idle spent 24s here before playing a book that was
+                    // already downloaded.
+                    if (hasUsableToken()) return@withLock
+                    performRefresh()
+                }
+            }
+        if (refreshed == null) {
+            // Budget exceeded — either this call was still queued behind another in-flight refresh's
+            // mutex hold, or its own refresh RPC, when the playback-start budget ran out. Reach for
+            // the same stored-token fallback a failed refresh would install anyway (fallbackToStored,
+            // below); the only difference is not waiting up to 15s to find out. This write races
+            // whichever refresh is still in flight on the @Volatile cache fields below — a race this
+            // class already tolerates (see the class KDoc's Concurrency note): last write wins, and
+            // the in-flight refresh's own eventual write supersedes this one when it lands.
+            logger.warn {
+                "Token refresh exceeded the $PREPARE_PLAYBACK_REFRESH_BOUND playback-start budget; falling back to stored"
+            }
+            fallbackToStored()
         }
     }
 
@@ -243,11 +261,28 @@ class CachedAudioTokenProvider(
         private const val MILLIS_PER_SECOND = 1_000L
 
         /**
+         * Latency budget for [prepareForPlayback]'s wait — bounds BOTH queuing behind another
+         * in-flight refresh (the coalescing re-check above) and, if this call ends up performing
+         * the refresh itself, the RPC round-trip. Mirrors
+         * [com.calypsan.listenup.client.data.repository.PlaybackPrepareRepositoryImpl]'s
+         * `RESUME_POSITION_FETCH_BOUND`: a healthy refresh answers in well under this, so the
+         * budget only bites when the connection is degraded — and 800ms of visible delay beats the
+         * 15s RPC-timeout wait this class produced pre-fix, when a tap coalesced onto a refresh that
+         * started before the tap and inherited whatever remained of its bound (the 8.08s device
+         * capture on 2026-08-13).
+         */
+        private val PREPARE_PLAYBACK_REFRESH_BOUND = 800.milliseconds
+
+        /**
          * Latency budget for [performRefresh]'s upstream refresh call — see its KDoc. One RPC
          * attempt's worth of waiting ([DEFAULT_RPC_TIMEOUT]), never the doubled ~30s a pre-delivery
          * transport retry can add on top: enough for a legitimately slow single attempt to
          * complete, but short enough that a dead/half-open socket can't block the shared OkHttp
          * dispatcher thread [refreshToken] runs on indefinitely.
+         *
+         * Distinct from [PREPARE_PLAYBACK_REFRESH_BOUND], which is far tighter because a listener is
+         * waiting on it; this one is the outer net for the forced rotation, where nobody is watching
+         * a play button but an OkHttp worker thread is held.
          */
         private val FORCED_REFRESH_BOUND = DEFAULT_RPC_TIMEOUT
     }

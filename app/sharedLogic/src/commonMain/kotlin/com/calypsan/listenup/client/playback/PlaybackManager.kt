@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -63,6 +64,37 @@ interface PlaybackManager :
     /** Chapter list for the current book. */
     val chapters: StateFlow<List<Chapter>>
 
+    /**
+     * Non-null while a play request is in flight for this book — from the moment
+     * [NowPlayingViewModel.playBook] opens the window (via [markPreparing]) until it closes it
+     * (via [clearPreparing]) in a `finally`, spanning [prepareForPlayback], [activateBook], and
+     * [PlaybackController.startPlayback].
+     *
+     * Instant — set/cleared synchronously, so [NowPlayingViewModel.playBook] can check it
+     * before launching to swallow a repeat tap while a prepare is already in flight. UI surfaces
+     * must NOT observe this directly (see [preparingBookIdUi]) — a fast prepare would flash a
+     * spinner for no reason.
+     */
+    val preparingBookId: StateFlow<BookId?>
+
+    /**
+     * UI-facing view of [preparingBookId], delayed behind it by [PREPARING_UI_DELAY] so a fast
+     * prepare never flashes a spinner. Both the mini player (Active-state visual feedback) and
+     * the Book Detail play button (busy variant) observe this — never [preparingBookId] — for
+     * visual feedback.
+     *
+     * A plain, COLD `Flow` — deliberately not a `StateFlow`. Per the rubric ("Streaming is
+     * `Flow<T>`. State is `.stateIn(scope)` at the call site"), turning this into hot state is the
+     * consumer's job: [NowPlayingViewModel] folds it into its own `combine(...).stateIn(...)` for
+     * [NowPlayingScreenState]; a Compose call site can use
+     * `collectAsStateWithLifecycle(initialValue = null)`. Being cold means every fresh collector
+     * re-runs [PREPARING_UI_DELAY]'s debounce from ITS OWN subscription point rather than inheriting
+     * an already-elapsed one — bounded to at most one extra [PREPARING_UI_DELAY] of lag right after a
+     * (re)subscribe, the same class of staleness `WhileSubscribed`/lifecycle-scoped collection
+     * already introduces for every other field these surfaces observe.
+     */
+    val preparingBookIdUi: Flow<BookId?>
+
     /** Currently active chapter (derived from [currentPositionMs] + [chapters]). */
     val currentChapter: StateFlow<ChapterInfo?>
 
@@ -89,6 +121,19 @@ interface PlaybackManager :
 
     /** Set the current book ID — call only when playback is confirmed to proceed. */
     fun activateBook(bookId: BookId)
+
+    /**
+     * Open the pending-play window for [bookId] — sets [preparingBookId] synchronously. Call once,
+     * before starting to prepare it.
+     */
+    fun markPreparing(bookId: BookId)
+
+    /**
+     * Close the pending-play window opened by [markPreparing]. Call in a `finally` around the
+     * prepare/activate/start-playback sequence so a thrown or failed prepare can never strand the
+     * window open.
+     */
+    fun clearPreparing()
 
     /**
      * Prepare for playback of a book.

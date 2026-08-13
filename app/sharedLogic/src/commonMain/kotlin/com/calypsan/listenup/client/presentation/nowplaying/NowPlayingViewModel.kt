@@ -31,6 +31,7 @@ import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -187,12 +188,14 @@ class NowPlayingViewModel internal constructor(
             overlayFlow,
             sheetState.isExpanded,
             sleepTimerManager.state,
-        ) { state, overlay, isExpanded, sleepTimer ->
+            playbackManager.preparingBookIdUi,
+        ) { state, overlay, isExpanded, sleepTimer, preparingBookIdUi ->
             NowPlayingScreenState(
                 state = state,
                 overlay = overlay,
                 isExpanded = isExpanded,
                 sleepTimerState = sleepTimer,
+                isPlayPending = preparingBookIdUi != null,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -207,6 +210,14 @@ class NowPlayingViewModel internal constructor(
                     // while the sheet is already expanded from the first instance's perspective.
                     isExpanded = sheetState.isExpanded.value,
                     sleepTimerState = sleepTimerManager.state.value,
+                    // preparingBookIdUi is a plain (cold, debounced) Flow with no .value — seed from
+                    // the instant preparingBookId StateFlow instead. This can seed `true` slightly
+                    // before the real, debounced combine value would (skipping the debounce grace
+                    // period for this one synchronous read) — an acceptable "fail visible" bias: a
+                    // fresh VM instance built while a prepare is genuinely already in flight must
+                    // never seed false and mask it, and the combine's first emission corrects this
+                    // within one collection regardless.
+                    isPlayPending = playbackManager.preparingBookId.value != null,
                 ),
         )
 
@@ -455,22 +466,57 @@ class NowPlayingViewModel internal constructor(
 
     // === Playback actions ===
 
+    /** The prepare/activate/start-playback [Job] currently holding [PlaybackManager]'s pending-play
+     * window open — see [playBook]. Held so a tap for a DIFFERENT book can cancel the stale one
+     * instead of either being swallowed (the original bug) or racing it. */
+    private var preparingJob: Job? = null
+
+    /**
+     * Start playback of [bookId].
+     *
+     * A repeat tap for the SAME book while its prepare is already in flight is swallowed:
+     * [PlaybackManager.markPreparing] is called synchronously (before [viewModelScope.launch]) so
+     * the guard below sees it on the very next call, even one dispatched in the same tick — closing
+     * the TOCTOU gap a check-then-launch would otherwise leave.
+     *
+     * A tap for a DIFFERENT book while one is in flight is never dropped — that would just trade one
+     * silent no-op for another. Instead it *supersedes*: [preparingJob] is cancelled, then a new
+     * window opens for the new book. The stale job's `finally` still runs (cancellation unwinds the
+     * `try` normally) — it only calls [PlaybackManager.clearPreparing] if [PlaybackManager.preparingBookId]
+     * still names ITS book, never unconditionally. Without that ownership check, a superseded job's
+     * cleanup could run after the new job's [PlaybackManager.markPreparing] and wipe the new window —
+     * this is the exact race [preparingJob] and the check below exist to prevent.
+     *
+     * The window spans the whole prepare/activate/start-playback sequence and — for whichever job
+     * still owns it — is always closed via [PlaybackManager.clearPreparing] in a `finally`, so a
+     * thrown or failed prepare can never strand it open.
+     */
     fun playBook(bookId: BookId) {
-        viewModelScope.launch {
-            val result = playbackManager.prepareForPlayback(bookId)
-            if (result == null) {
-                val message =
-                    if (networkMonitor.isOnline()) {
-                        "Failed to load book"
-                    } else {
-                        "Can't play this book offline. Download it first."
+        if (playbackManager.preparingBookId.value == bookId) return
+        preparingJob?.cancel()
+        playbackManager.markPreparing(bookId)
+        preparingJob =
+            viewModelScope.launch {
+                try {
+                    val result = playbackManager.prepareForPlayback(bookId)
+                    if (result == null) {
+                        val message =
+                            if (networkMonitor.isOnline()) {
+                                "Failed to load book"
+                            } else {
+                                "Can't play this book offline. Download it first."
+                            }
+                        playbackManager.reportError(message, isRecoverable = true)
+                        return@launch
                     }
-                playbackManager.reportError(message, isRecoverable = true)
-                return@launch
+                    playbackManager.activateBook(bookId)
+                    playbackController.startPlayback(result)
+                } finally {
+                    if (playbackManager.preparingBookId.value == bookId) {
+                        playbackManager.clearPreparing()
+                    }
+                }
             }
-            playbackManager.activateBook(bookId)
-            playbackController.startPlayback(result)
-        }
     }
 
     fun playPause() {

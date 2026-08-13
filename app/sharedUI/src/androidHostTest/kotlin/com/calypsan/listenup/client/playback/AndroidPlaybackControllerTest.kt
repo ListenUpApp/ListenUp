@@ -2,25 +2,34 @@ package com.calypsan.listenup.client.playback
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
  * Delegation tests for [AndroidPlaybackController].
  *
- * [androidx.media3.session.MediaController] is a final Android framework class that
- * cannot be instantiated in JVM host tests. Tests therefore cover:
+ * [androidx.media3.session.MediaController] has no public or internal constructor (verified via
+ * `javap` against the media3-session jar — it is not `final`, but its only constructor is
+ * package-private inside `androidx.media3.session`), so it cannot be instantiated *or mocked* in
+ * a JVM host test. Tests therefore cover:
  *
  * 1. acquire/release delegate to [ControllerHolder]
  * 2. isReady mirrors holder.isConnected
- * 3. All command methods are silent no-ops when controller is null (no crash) — including
+ * 3. All command methods are no-throw when the controller never becomes available (bounded
+ *    [ControllerHolder.awaitController] exhausts its bound and resolves to null) — including
  *    [AndroidPlaybackController.seekTo], which now sends a `SEEK_TO_BOOK_POSITION` custom
  *    command rather than resolving a cached queue; the null-controller guard fires first either
  *    way, so no separate coverage of the custom-command send itself lives here (it's adapter
  *    glue over a non-instantiable [MediaController], the same reasoning as `ChapterWindowPlayer`'s
  *    "No androidHostTest for this class" KDoc).
- * 4. resolveQueuePosition index and offset arithmetic (now [AndroidPlaybackController.setMediaQueue]'s
+ * 4. Commands await the controller via [ControllerHolder.awaitController] rather than reading a
+ *    stale `holder.controller` snapshot — the F6 regression (see `MediaControllerHolderTest` for
+ *    the underlying bounded-wait mechanism, which is where the "reaches it once it binds"
+ *    property is actually proven, since a real controller value can't be produced here).
+ * 5. resolveQueuePosition index and offset arithmetic (now [AndroidPlaybackController.setMediaQueue]'s
  *    sole caller — see [AndroidPlaybackController.seekTo]'s KDoc for why seeks no longer use it)
  *
  * [AndroidPlaybackController.buildMediaItems] (artwork URI mapping) is covered separately in
@@ -81,62 +90,188 @@ class AndroidPlaybackControllerTest :
         }
 
         // ---------------------------------------------------------------------------
-        // Null-controller silent no-ops
+        // Null-controller: awaitController() exhausting its bound must not throw —
+        // the user-visible failure is reported by MediaControllerHolder.awaitController()
+        // itself (see MediaControllerHolderTest), not by these command methods.
         // ---------------------------------------------------------------------------
 
-        test("play does not throw when controller is null") {
-            val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
-
-            sut.play() // holder.controller == null — must not throw
-        }
-
-        test("pause does not throw when controller is null") {
-            val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
-
-            sut.pause()
-        }
-
-        test("seekTo does not throw when controller is null") {
-            val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
-
-            sut.seekTo(30_000L)
-        }
-
-        test("setPlaybackSpeed does not throw when controller is null") {
-            val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
-
-            sut.setPlaybackSpeed(1.5f)
-        }
-
-        test("setMediaQueue does not throw when controller is null") {
+        test("play does not throw when the controller never becomes available") {
             runTest {
                 val holder = FakeControllerHolder()
-                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.play() // holder.awaitController() resolves to null — must not throw
+                advanceUntilIdle()
+            }
+        }
+
+        test("pause does not throw when the controller never becomes available") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.pause()
+                advanceUntilIdle()
+            }
+        }
+
+        test("seekTo does not throw when the controller never becomes available") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.seekTo(30_000L)
+                advanceUntilIdle()
+            }
+        }
+
+        test("setPlaybackSpeed does not throw when the controller never becomes available") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.setPlaybackSpeed(1.5f)
+                advanceUntilIdle()
+            }
+        }
+
+        test("setMediaQueue does not throw when the controller never becomes available") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
 
                 sut.setMediaQueue(emptyList(), 0L)
             }
         }
 
         // ---------------------------------------------------------------------------
-        // stop / setVolume — null-controller silent no-ops
+        // stop / setVolume — same bounded-await, no-throw contract
         // ---------------------------------------------------------------------------
 
-        test("stop does not throw when controller is null") {
-            val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
+        test("stop does not throw when the controller never becomes available") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
 
-            sut.stop() // holder.controller == null — must not throw
+                sut.stop()
+                advanceUntilIdle()
+            }
         }
 
-        test("setVolume does not throw when controller is null") {
-            val holder = FakeControllerHolder()
-            val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client")
+        test("setVolume does not throw when the controller never becomes available") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
 
-            sut.setVolume(0.5f) // holder.controller == null — must not throw
+                sut.setVolume(0.5f)
+                advanceUntilIdle()
+            }
+        }
+
+        // ---------------------------------------------------------------------------
+        // Commands await the controller via ControllerHolder.awaitController() instead
+        // of reading a stale holder.controller snapshot (the F6 regression: a command
+        // issued before the controller binds must still reach it once it binds).
+        // ---------------------------------------------------------------------------
+
+        test("play awaits the controller via awaitController rather than a stale snapshot read") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.play()
+                advanceUntilIdle()
+
+                holder.awaitControllerCallCount shouldBe 1
+            }
+        }
+
+        test("pause awaits the controller via awaitController") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.pause()
+                advanceUntilIdle()
+
+                holder.awaitControllerCallCount shouldBe 1
+            }
+        }
+
+        test("seekTo awaits the controller via awaitController") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.seekTo(30_000L)
+                advanceUntilIdle()
+
+                holder.awaitControllerCallCount shouldBe 1
+            }
+        }
+
+        test("setPlaybackSpeed awaits the controller via awaitController") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.setPlaybackSpeed(1.5f)
+                advanceUntilIdle()
+
+                holder.awaitControllerCallCount shouldBe 1
+            }
+        }
+
+        test("stop awaits the controller via awaitController") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.stop()
+                advanceUntilIdle()
+
+                holder.awaitControllerCallCount shouldBe 1
+            }
+        }
+
+        test("setVolume awaits the controller via awaitController") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.setVolume(0.5f)
+                advanceUntilIdle()
+
+                holder.awaitControllerCallCount shouldBe 1
+            }
+        }
+
+        test("setMediaQueue awaits the controller via awaitController") {
+            runTest {
+                val holder = FakeControllerHolder()
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.setMediaQueue(emptyList(), 0L)
+
+                holder.awaitControllerCallCount shouldBe 1
+            }
+        }
+
+        test("play waits for a controller that binds after a delay, instead of giving up on a stale null snapshot (F6)") {
+            runTest {
+                val holder = FakeControllerHolder().apply { awaitControllerDelayMs = 5_000L }
+                val sut = AndroidPlaybackController(holder, "com.calypsan.listenup.client", scope = this)
+
+                sut.play()
+
+                // The await hasn't resolved yet — proves play() is genuinely waiting on the
+                // controller rather than having already read a stale null and given up, which
+                // is exactly the F6 bug (startPlayback silently no-op'd on a cold-start race).
+                testScheduler.runCurrent()
+                holder.awaitControllerCallCount shouldBe 1
+
+                advanceUntilIdle() // let the delayed await resolve; must not hang or throw
+            }
         }
 
         // ---------------------------------------------------------------------------
@@ -220,12 +355,26 @@ internal class FakeControllerHolder(
     /** Always null — MediaController cannot be instantiated in JVM host tests. */
     override val controller: androidx.media3.session.MediaController? = null
 
+    /** Simulates the controller binding after a delay — the F6 cold-start race. */
+    var awaitControllerDelayMs: Long = 0L
+
+    var awaitControllerCallCount = 0
+        private set
+
     override fun acquire() {
         acquireCount++
     }
 
     override fun release() {
         releaseCount++
+    }
+
+    override suspend fun awaitController(): androidx.media3.session.MediaController? {
+        awaitControllerCallCount++
+        if (awaitControllerDelayMs > 0) {
+            delay(awaitControllerDelayMs)
+        }
+        return controller
     }
 
     fun setConnected(value: Boolean) {

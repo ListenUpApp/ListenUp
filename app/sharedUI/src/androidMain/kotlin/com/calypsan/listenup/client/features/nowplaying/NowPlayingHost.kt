@@ -166,6 +166,7 @@ fun NowPlayingHost(
                 onSeek = viewModel::seekWithinChapter,
                 onSpeedClick = viewModel::showSpeedPicker,
                 modifier = Modifier.align(Alignment.BottomCenter),
+                isPlayPending = screenState.isPlayPending,
             )
         } else if (!hasBottomNav) {
             // Only render floating mini bar on detail screens (not Shell)
@@ -214,6 +215,7 @@ fun NowPlayingHost(
                                 onBarFootprintChanged(with(density) { size.height.toDp() })
                             }
                         }.padding(bottom = bottomPadding),
+                isPlayPending = screenState.isPlayPending,
             )
         }
 
