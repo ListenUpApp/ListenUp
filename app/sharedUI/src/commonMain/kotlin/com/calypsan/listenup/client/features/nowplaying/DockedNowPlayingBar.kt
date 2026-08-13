@@ -63,6 +63,10 @@ internal val DockedNowPlayingBarHeight = 72.dp
  * - speed pill + expand button
  *
  * Renders for [NowPlayingState.Active] only; animated in/out with slide + fade.
+ *
+ * @param isPlayPending True while a play request is in flight anywhere in the app — see
+ *  [com.calypsan.listenup.client.playback.NowPlayingScreenState.isPlayPending]. Reuses
+ *  [PlayPauseFab]'s buffering spinner rather than tearing this bar down.
  */
 @Composable
 fun DockedNowPlayingBar(
@@ -76,6 +80,7 @@ fun DockedNowPlayingBar(
     onSeek: (Float) -> Unit,
     onSpeedClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isPlayPending: Boolean = false,
 ) {
     val isVisible = state is NowPlayingState.Active && !isExpanded
 
@@ -128,6 +133,7 @@ fun DockedNowPlayingBar(
                     onSeek = onSeek,
                     onSpeedClick = onSpeedClick,
                     onExpand = onTap,
+                    isPlayPending = isPlayPending,
                 )
             }
         }
@@ -144,6 +150,7 @@ private fun ActiveDockedContent(
     onSeek: (Float) -> Unit,
     onSpeedClick: () -> Unit,
     onExpand: () -> Unit,
+    isPlayPending: Boolean,
 ) {
     Row(
         modifier =
@@ -197,9 +204,11 @@ private fun ActiveDockedContent(
             onClick = onSkipBack,
             size = 40.dp,
         )
+        // isPlayPending piggybacks on the same buffering spinner: a play request in flight for
+        // another book is visual feedback the user asked for, without hiding this bar.
         PlayPauseFab(
             isPlaying = state.isPlaying,
-            isBuffering = state.isBuffering,
+            isBuffering = state.isBuffering || isPlayPending,
             onClick = onPlayPause,
             size = 44.dp,
             shadowElevation = 0.dp,

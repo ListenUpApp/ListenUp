@@ -331,6 +331,7 @@ One beautiful library.</string>
     <string name="book_detail_other_authors">%1$s, %2$d other authors</string>
     <string name="book_detail_other_narrators">%1$s, %2$d other narrators</string>
     <string name="book_detail_play">Play</string>
+    <string name="book_detail_preparing">Preparing…</string>
     <string name="book_detail_progresspercent">%1$s%</string>
     <string name="book_detail_published">Published</string>
     <string name="book_detail_publisher">Publisher</string>

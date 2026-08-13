@@ -86,6 +86,7 @@ fun WideBookDetail(
     playEnabled: Boolean = true,
     downloadEnabled: Boolean = true,
     showServerWarning: Boolean = false,
+    isPreparing: Boolean = false,
     onRetryConnection: () -> Unit,
     onPlayDisabledClick: () -> Unit = {},
     onSeriesClick: (seriesId: String) -> Unit,
@@ -182,6 +183,7 @@ fun WideBookDetail(
                 playEnabled = playEnabled,
                 downloadEnabled = downloadEnabled,
                 showServerWarning = showServerWarning,
+                isPreparing = isPreparing,
                 isDescriptionExpanded = isDescriptionExpanded,
                 onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
                 documents = documents,
@@ -231,6 +233,7 @@ private fun WideBodyColumns(
     playEnabled: Boolean,
     downloadEnabled: Boolean,
     showServerWarning: Boolean,
+    isPreparing: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
     documents: List<BookDocument>,
@@ -262,6 +265,7 @@ private fun WideBodyColumns(
             playEnabled = playEnabled,
             downloadEnabled = downloadEnabled,
             showServerWarning = showServerWarning,
+            isPreparing = isPreparing,
             isDescriptionExpanded = isDescriptionExpanded,
             onToggleDescription = onToggleDescription,
             onContributorClick = onContributorClick,
@@ -305,6 +309,7 @@ private fun WideLeftColumn(
     playEnabled: Boolean,
     downloadEnabled: Boolean,
     showServerWarning: Boolean,
+    isPreparing: Boolean,
     isDescriptionExpanded: Boolean,
     onToggleDescription: () -> Unit,
     onContributorClick: (contributorId: String) -> Unit,
@@ -336,6 +341,7 @@ private fun WideLeftColumn(
                 downloadEnabled = downloadEnabled,
                 onPlayDisabledClick = onPlayDisabledClick,
                 showServerWarning = showServerWarning,
+                isPreparing = isPreparing,
             )
         }
 
