@@ -29,4 +29,4 @@ internal const val BITS_PER_BYTE = 8
 private const val BYTE_MASK = 0xFF
 private const val HIGH_NIBBLE_MASK = 0xF0
 private const val LOW_NIBBLE_MASK = 0x0F
-private const val NIBBLE_BITS = 4
+internal const val NIBBLE_BITS = 4
