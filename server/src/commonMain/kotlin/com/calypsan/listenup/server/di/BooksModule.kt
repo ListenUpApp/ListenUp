@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.cover.CoverDerivatives
 import com.calypsan.listenup.server.cover.CoverImageStore
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -77,6 +78,9 @@ import org.koin.dsl.module
  *  - [CoverImageStore] — the cover-scoped [ImageStore] rooted at
  *    `$LISTENUP_HOME/covers` (10 MiB cap). A distinct wrapper type so it doesn't
  *    collide with the avatar [ImageStore] in [profileModule].
+ *  - [CoverDerivatives] — the on-demand store behind `?w=`, rooted at
+ *    `$LISTENUP_HOME/cache/covers`. ⛔ Deliberately **not** under `covers/`, which
+ *    `BackupArchive` walks recursively into every archive.
  *
  * Exposed as a **function** rather than a top-level `val` for the same reason
  * as [syncModule] — each Koin container receives a fresh [Module] (and a fresh
@@ -285,11 +289,15 @@ private fun Module.coverAndPersisterBindings(
             .CoverSpool(Path(homeDir, "scan-spool"))
     }
     single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
+    // ⛔ Under `cache/`, never under `covers/` — BackupArchive walks the covers directory
+    // recursively into every archive, and derivatives regenerate for free.
+    single { CoverDerivatives(Path(homeDir, "cache/covers")) }
     single {
         CoverResponder(
             repository = get<BookRepository>(),
             cache = get(),
             parser = get<EmbeddedMetadataParser>(),
+            derivatives = get<CoverDerivatives>(),
         )
     }
     single { DocumentFileLocator(get<ListenUpDatabase>()) }
