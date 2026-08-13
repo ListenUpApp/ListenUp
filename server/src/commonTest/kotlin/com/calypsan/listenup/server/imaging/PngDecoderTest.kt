@@ -18,13 +18,8 @@ import io.kotest.matchers.shouldBe
 class PngDecoderTest :
     FunSpec({
 
-        // 4x5 RGBA, one filter type per row.
-        val fixture =
-            hexBytes(
-                "89504e470d0a1a0a0000000d494844520000000400000005080600000062ad4ddb0000003f4944415478da63" +
-                    "6038c1fe5f70b7cb1fa5758d3f8d17eefbc6a8b15ae897e067dbbf30cca4f198fb3732660ed0922a937dadf2" +
-                    "07865940a2829fb9ffc23000dd5c294bbe6f2e8c0000000049454e44ae426082",
-            )
+        // The shared fixture: 4x5 RGBA, a different filter type on every row.
+        val fixture = PNG_FIXTURE
 
         /** Row-major expected pixels, as (r, g, b, a). */
         fun expected(
