@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.playback.loudness.VolumeGain
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -154,6 +155,22 @@ internal class PlaybackManagerImpl(
     override val chapters: StateFlow<List<Chapter>>
         field = MutableStateFlow<List<Chapter>>(emptyList())
 
+    override val preparingBookId: StateFlow<BookId?>
+        field = MutableStateFlow<BookId?>(null)
+
+    // A plain, COLD Flow — deliberately NOT `.stateIn(scope, ...)` here. `stateIn` launches its
+    // sharing coroutine into `scope` at the moment this property is initialized, regardless of
+    // SharingStarted mode (Eagerly/Lazily/WhileSubscribed all park a coroutine there — only WHEN it
+    // starts collecting differs, not WHETHER a coroutine gets created); that coroutine never
+    // completes, and every PlaybackManagerImpl ever constructed — including test-only instances that
+    // never touch this flow — got one for free. jvmTests that bind `scope` to their TestScope (needed
+    // so `advanceUntilIdle` can drain ProgressTracker/PlaybackManager coroutines) then failed with
+    // `UncompletedCoroutinesError` on the dangling collector; see PlaybackManagerPreparingSharingTest.
+    // Per the rubric ("Streaming is Flow<T>. State is .stateIn(scope) at the call site"), state-ifying
+    // this is the CONSUMER's job — NowPlayingViewModel already folds it into its own
+    // `combine(...).stateIn(viewModelScope, WhileSubscribed(...))` for [NowPlayingScreenState].
+    override val preparingBookIdUi: Flow<BookId?> = preparingBookIdUiFlow(preparingBookId)
+
     override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?>
         field = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
 
@@ -173,6 +190,16 @@ internal class PlaybackManagerImpl(
 
     // Callback for chapter changes - used by PlaybackService to update notification
     override var onChapterChanged: ((PlaybackManager.ChapterInfo) -> Unit)? = null
+
+    /** Open the pending-play window for [bookId]. See [PlaybackManager.markPreparing]. */
+    override fun markPreparing(bookId: BookId) {
+        preparingBookId.value = bookId
+    }
+
+    /** Close the pending-play window. See [PlaybackManager.clearPreparing]. */
+    override fun clearPreparing() {
+        preparingBookId.value = null
+    }
 
     /** Set the current book ID — call this only when playback is confirmed to proceed. */
     override fun activateBook(bookId: BookId) {

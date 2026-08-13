@@ -70,6 +70,14 @@ class FakePlaybackManager : PlaybackManager {
     val effectiveGainDbFlow = MutableStateFlow(0f)
     override val effectiveGainDb: StateFlow<Float> = effectiveGainDbFlow.asStateFlow()
 
+    val preparingBookIdFlow = MutableStateFlow<BookId?>(null)
+    override val preparingBookId: StateFlow<BookId?> = preparingBookIdFlow.asStateFlow()
+
+    // No debounce in the fake — tests drive [preparingBookIdFlow]/[markPreparing] synchronously
+    // and assert on it directly; the real debounce timing is covered by PreparingBookIdUiFlowTest.
+    val preparingBookIdUiFlow = MutableStateFlow<BookId?>(null)
+    override val preparingBookIdUi: StateFlow<BookId?> = preparingBookIdUiFlow.asStateFlow()
+
     // === Notification callback hook ===
 
     override var onChapterChanged: ((ChapterInfo) -> Unit)? = null
@@ -78,7 +86,18 @@ class FakePlaybackManager : PlaybackManager {
 
     var stubbedPrepareResult: PrepareResult? = null
 
+    /**
+     * Optional suspension hook invoked by [prepareForPlayback] before it returns. No-op by
+     * default, so most tests resolve synchronously once the dispatcher advances. Tests that need
+     * to exercise cancellation of an in-flight prepare (e.g. a superseding tap for a different
+     * book) set this to something that genuinely suspends — e.g. `{ someDeferred.await() }` —
+     * so the coroutine can be cancelled mid-flight instead of completing before the second tap.
+     */
+    var prepareForPlaybackSuspension: suspend () -> Unit = {}
+
     val activatedBookIds: MutableList<BookId> = mutableListOf()
+    val markPreparingCalls: MutableList<BookId> = mutableListOf()
+    var clearPreparingCalls: Int = 0
     val prepareForPlaybackCalls: MutableList<BookId> = mutableListOf()
     val startPlaybackCalls: MutableList<StartPlaybackCall> = mutableListOf()
     val reportedErrors: MutableList<PlaybackErrorUiState> = mutableListOf()
@@ -107,8 +126,21 @@ class FakePlaybackManager : PlaybackManager {
         currentBookIdFlow.value = bookId
     }
 
+    override fun markPreparing(bookId: BookId) {
+        markPreparingCalls += bookId
+        preparingBookIdFlow.value = bookId
+        preparingBookIdUiFlow.value = bookId
+    }
+
+    override fun clearPreparing() {
+        clearPreparingCalls += 1
+        preparingBookIdFlow.value = null
+        preparingBookIdUiFlow.value = null
+    }
+
     override suspend fun prepareForPlayback(bookId: BookId): PrepareResult? {
         prepareForPlaybackCalls += bookId
+        prepareForPlaybackSuspension()
         return stubbedPrepareResult
     }
 
