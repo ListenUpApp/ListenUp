@@ -52,10 +52,13 @@ open class ProgressTracker(
     private val positionRepository: PlaybackPositionRepository,
     private val scope: CoroutineScope,
     /**
-     * Global error surface. Defaults to a fresh, unwired instance so tests that don't care about
-     * error surfacing need not pass one; production DI always wires the app-wide singleton.
+     * Global error surface. Deliberately REQUIRED — no default. A defaulted, unwired [ErrorBus]
+     * would let a dropped DI binding silently reintroduce exactly the swallowed-failure bug this
+     * class was fixed for, and Koin's `module.verify()` cannot catch it because a parameter with a
+     * default is not a missing dependency. Making it required means a wiring mistake fails to
+     * compile instead of failing quietly at 3am on someone's commute.
      */
-    private val errorBus: ErrorBus = ErrorBus(),
+    private val errorBus: ErrorBus,
     /**
      * Wall-clock read seam. Defaults to the system clock; tests inject a virtual clock so
      * session-start/pause/finish timestamps are deterministic.

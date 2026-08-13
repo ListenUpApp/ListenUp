@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.core.BookId
@@ -38,6 +39,7 @@ class ProgressTrackerDoesNotRecordEventsTest :
                             downloadRepository = mock<DownloadRepository>(),
                             positionRepository = defaultPositionRepository(),
                             scope = CoroutineScope(queryContext),
+                            errorBus = ErrorBus(),
                         )
 
                     val bookId = BookId("book-1")
