@@ -17,6 +17,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.cover.LiveCover
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.ManagedCoverFiles
 import com.calypsan.listenup.server.cover.PendingCover
@@ -1520,6 +1521,19 @@ class BookRepository(
      * [ManagedCoverFiles.coverInfo]. Returns null when the book is absent or has no cover.
      */
     suspend fun coverInfo(id: BookId): CoverInfo? = managedCoverFiles.coverInfo(id)
+
+    /**
+     * Every live book that has a cover, paired with its content hash — what
+     * [com.calypsan.listenup.server.cover.CoverDerivativeMaintenance] warms from, and what tells it
+     * which cached derivatives still belong to something.
+     */
+    suspend fun listLiveCovers(): List<LiveCover> =
+        suspendTransaction(db) {
+            db.booksQueries
+                .selectLiveCoverHashes()
+                .executeAsList()
+                .mapNotNull { row -> row.cover_hash?.let { LiveCover(BookId(row.id), it) } }
+        }
 
     /**
      * Returns the full book aggregates for every book linked to [contributorId].

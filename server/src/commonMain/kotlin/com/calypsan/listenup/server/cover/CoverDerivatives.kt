@@ -16,6 +16,18 @@ import kotlinx.io.files.SystemFileSystem
 
 private val log = loggerFor<CoverDerivatives>()
 
+/** What a [CoverDerivatives.warm] call had to do — so a warm-up can report honestly. */
+enum class WarmResult {
+    /** The derivative was produced and cached by this call. */
+    GENERATED,
+
+    /** It was already cached; the call cost a `stat`. */
+    ALREADY_PRESENT,
+
+    /** The codec or the ladder could not reach this width; the original stays the answer. */
+    DECLINED,
+}
+
 /**
  * Smaller renderings of a book cover, cached on disk and generated on demand.
  *
@@ -60,6 +72,66 @@ class CoverDerivatives(
      * a rung reaches [derivative], so an arbitrary width in a URL cannot mint a new cache entry.
      */
     fun rungFor(requestedWidth: Int): Int? = RUNGS.firstOrNull { it >= requestedWidth }
+
+    /** Every rung the ladder offers, ascending — what a warm-up iterates. */
+    val rungs: List<Int> get() = RUNGS
+
+    /**
+     * Ensures the [width]-wide derivative of [coverHash] exists, and says what it took.
+     *
+     * The warm-up's counterpart to [derivative]: identical work on a miss, but a hit costs a
+     * `stat` rather than reading the file back. Over a library that is the difference between a
+     * repeat pass being free and it re-reading every derivative it already has.
+     */
+    suspend fun warm(
+        coverHash: String,
+        width: Int,
+        original: suspend () -> ByteArray?,
+    ): WarmResult {
+        require(width > 0) { "width must be positive, got $width" }
+        val file = resolve(coverHash, width) ?: return WarmResult.DECLINED
+        if (exists(file)) return WarmResult.ALREADY_PRESENT
+
+        return inFlight.withLock(file.name) {
+            when {
+                exists(file) -> WarmResult.ALREADY_PRESENT
+                generate(file, width, original) != null -> WarmResult.GENERATED
+                else -> WarmResult.DECLINED
+            }
+        }
+    }
+
+    /**
+     * Deletes every cached derivative whose cover hash is absent from [liveHashes], and answers how
+     * many went. ⛔ **A file that is not shaped like one of ours is left alone** — an unrecognised
+     * name is not evidence of an orphan, and a cache sweep that deletes what it cannot explain is
+     * how a cache turns into data loss.
+     */
+    suspend fun sweepOrphans(liveHashes: Set<String>): Int =
+        withContext(fileIoDispatcher) {
+            if (SystemFileSystem.metadataOrNull(baseDir)?.isDirectory != true) return@withContext 0
+            SystemFileSystem
+                .list(baseDir)
+                .count { file ->
+                    val hash = hashOf(file.name)
+                    if (hash == null || hash in liveHashes) {
+                        false
+                    } else {
+                        SystemFileSystem.delete(file, mustExist = false)
+                        true
+                    }
+                }
+        }
+
+    /** The cover hash a derivative filename encodes, or `null` when the name is not one of ours. */
+    private fun hashOf(name: String): String? {
+        if (!name.endsWith(DERIVATIVE_SUFFIX)) return null
+        val stem = name.removeSuffix(DERIVATIVE_SUFFIX)
+        val at = stem.lastIndexOf('@')
+        if (at <= 0) return null
+        if (stem.substring(at + 1).toIntOrNull() == null) return null
+        return stem.substring(0, at)
+    }
 
     /**
      * The cover with hash [coverHash] rendered at [width] pixels wide, from cache when it is there
@@ -119,6 +191,9 @@ class CoverDerivatives(
             if (SystemFileSystem.metadataOrNull(file)?.isRegularFile == true) file.readBytes() else null
         }
 
+    private suspend fun exists(file: Path): Boolean =
+        withContext(fileIoDispatcher) { SystemFileSystem.metadataOrNull(file)?.isRegularFile == true }
+
     /** Best-effort: a derivative we generated but could not store is still the right answer to return. */
     private suspend fun persist(
         file: Path,
@@ -146,7 +221,8 @@ class CoverDerivatives(
         width: Int,
     ): Path? {
         if (coverHash.isEmpty() || ".." in coverHash || "/" in coverHash || "\\" in coverHash) return null
-        return Path(baseDir, "$coverHash@$width.jpg")
+        if ('@' in coverHash) return null // Would make the filename ambiguous to parse back.
+        return Path(baseDir, "$coverHash@$width$DERIVATIVE_SUFFIX")
     }
 
     private companion object {
@@ -156,6 +232,9 @@ class CoverDerivatives(
          * 1x. A 1200px rung would need a 1/2 reduction — new transform code, not a new constant.
          */
         val RUNGS = listOf(300, 600)
+
+        /** Every derivative is a baseline JPEG, whatever the original was. */
+        const val DERIVATIVE_SUFFIX = ".jpg"
 
         /** Measured at 213KB for a 1200px cover; visually indistinguishable from the source at tile size. */
         const val QUALITY = 85

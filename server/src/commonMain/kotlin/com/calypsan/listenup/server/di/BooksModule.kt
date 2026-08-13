@@ -26,6 +26,8 @@ import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.cover.CoverContentResolver
+import com.calypsan.listenup.server.cover.CoverDerivativeMaintenance
 import com.calypsan.listenup.server.cover.CoverDerivatives
 import com.calypsan.listenup.server.cover.CoverImageStore
 import app.cash.sqldelight.db.SqlDriver
@@ -293,11 +295,25 @@ private fun Module.coverAndPersisterBindings(
     // recursively into every archive, and derivatives regenerate for free.
     single { CoverDerivatives(Path(homeDir, "cache/covers")) }
     single {
-        CoverResponder(
-            repository = get<BookRepository>(),
+        CoverContentResolver(
             cache = get(),
             parser = get<EmbeddedMetadataParser>(),
+        )
+    }
+    single {
+        CoverResponder(
+            repository = get<BookRepository>(),
+            content = get<CoverContentResolver>(),
             derivatives = get<CoverDerivatives>(),
+        )
+    }
+    single {
+        val repository = get<BookRepository>()
+        val content = get<CoverContentResolver>()
+        CoverDerivativeMaintenance(
+            derivatives = get<CoverDerivatives>(),
+            liveCovers = { repository.listLiveCovers() },
+            originalBytes = { id -> repository.coverInfo(id)?.let { content.content(id, it)?.bytes } },
         )
     }
     single { DocumentFileLocator(get<ListenUpDatabase>()) }
