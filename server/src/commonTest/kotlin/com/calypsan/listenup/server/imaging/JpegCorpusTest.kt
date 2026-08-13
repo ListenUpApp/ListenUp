@@ -34,11 +34,15 @@ class JpegCorpusTest :
         val corpus = readEnv(CORPUS_ENV)?.let(::Path)
         val present = corpus != null && SystemFileSystem.metadataOrNull(corpus)?.isDirectory == true
 
-        // Kotest's default 120s does not survive a real library: 1195 covers take ~40s on the JVM
-        // but ~8m30s on Kotlin/Native, which is the target that actually ships. That gap is a
-        // finding in its own right — see the note on native decode cost in the plan — but a walk of
-        // someone's whole library is inherently long, and timing it out proves nothing about the
-        // decoder.
+        // Kotest's default 120s does not survive a walk of a real library, so this one is generous.
+        //
+        // ⛔ Do NOT read a production number off this lane. Measured over 1195 covers: **61s** on the
+        // JVM, **59s** on a RELEASE-optimised Kotlin/Native binary — and **474s** on the DEBUG binary
+        // this lane actually runs, because `linkDebugTestLinuxX64` is the only native test binary the
+        // build defines. Unoptimised Kotlin/Native is 8x slower on a bit-at-a-time entropy decoder;
+        // release native is on par with the JVM. To measure it honestly, add
+        // `test(listOf(NativeBuildType.RELEASE))` to the linuxX64 `binaries { }` block and run
+        // `build/bin/linuxX64/releaseTest/test.kexe` directly.
         test("every JPEG in a real cover library decodes at a derivative scale")
             .config(enabled = present, timeout = CORPUS_TIMEOUT) {
                 val files =
