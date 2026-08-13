@@ -14,6 +14,7 @@ import com.calypsan.listenup.core.Timestamp
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.browser.document
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
@@ -50,6 +51,44 @@ class LibraryPageTest :
 
             val img = root.querySelector(".lib-cover") as HTMLImageElement
             img.getAttribute("src")!! shouldContain "/api/v1/books/b1/cover"
+        }
+
+        // The grid paints ~190px tiles from covers the server stores at 2400px. Pixel count is what
+        // costs a browser, not file size, so asking for the rung that fits is the whole point of the
+        // arc: 36x fewer pixels to decode per tile.
+        test("a cover is requested at the ladder rung the tile needs, not full size") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
+
+            val img = root.querySelector(".lib-cover") as HTMLImageElement
+            img.getAttribute("src")!! shouldContain "w=300"
+        }
+
+        // Density is the browser's decision, not ours: srcset lets a 2x display take the 600px rung
+        // and a 1x display take the 300px one, from markup that states both.
+        test("a cover offers the larger rung to denser displays") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
+
+            val srcset = (root.querySelector(".lib-cover") as HTMLImageElement).getAttribute("srcset")!!
+            srcset shouldContain "w=300 1x"
+            srcset shouldContain "w=600 2x"
+        }
+
+        // \u26d4 The server serves covers `immutable` for a year, so the URL is the ONLY thing that can
+        // tell a browser the artwork changed. Without this a re-covered book stays stale on web
+        // until the cache expires — a live bug on main that Android and desktop never had.
+        test("a cover URL carries the artwork hash, so re-covering a book is visible") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune", coverHash = "abc123"))))
+
+            val img = root.querySelector(".lib-cover") as HTMLImageElement
+            img.getAttribute("src")!! shouldContain "v=abc123"
+            img.getAttribute("srcset")!! shouldContain "v=abc123"
+        }
+
+        test("a cover with no known hash simply omits the version") {
+            val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
+
+            val img = root.querySelector(".lib-cover") as HTMLImageElement
+            img.getAttribute("src")!! shouldNotContain "v="
         }
 
         // A real library is ~1200 books, and every card carries a cover. Eager loading fetches and
@@ -176,6 +215,7 @@ private fun bookItem(
     id: String,
     title: String,
     authors: List<String> = emptyList(),
+    coverHash: String? = null,
 ): BookListItem =
     BookListItem(
         id = BookId(id),
@@ -186,6 +226,7 @@ private fun bookItem(
         narrators = emptyList(),
         duration = 3_600_000L,
         coverPath = null,
+        coverHash = coverHash,
         addedAt = Timestamp(0L),
         updatedAt = Timestamp(0L),
     )
