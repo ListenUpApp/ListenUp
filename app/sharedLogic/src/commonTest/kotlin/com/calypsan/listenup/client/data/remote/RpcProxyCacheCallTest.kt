@@ -24,12 +24,14 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 
@@ -367,6 +369,52 @@ class RpcProxyCacheCallTest :
                 error.isRetryable shouldBe true
                 transientRecovery.count shouldBe 1
                 connects() shouldBe 1 // no retry against the same dead socket
+            }
+        }
+
+        test(
+            "a handshake 401 whose refresh hangs past the caller's declared timeout is bounded — " +
+                "keeps the session, surfaces retryable",
+        ) {
+            runTest {
+                // Refresh never actually returns within the caller's budget — models a refresh call
+                // riding a degraded connection. Pre-fix this leg was UNBOUNDED (only the retry leg
+                // downstream carried a `timeout`), so a caller declaring a short playback-start budget
+                // (e.g. 800ms) could still pay the refresh channel's own full internal bound (up to
+                // DEFAULT_RPC_TIMEOUT's 15s, doubled to ~30s by its own pre-delivery retry) — precisely
+                // what defeated the fix in PR #1284 on the stale-token long-idle case it targeted.
+                val hangingRecovery =
+                    object : RpcAuthRecovery {
+                        var count = 0
+
+                        override suspend fun refreshAndRebuild(): AuthRecoveryOutcome {
+                            count++
+                            delay(10.seconds)
+                            return AuthRecoveryOutcome.Refreshed
+                        }
+                    }
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                { throw WebSocketException("expected status code 101 but was 401") },
+                                { "must-not-run" },
+                            ),
+                        ),
+                        authRecovery = hangingRecovery,
+                    )
+
+                val result: AppResult<String> =
+                    catchingRpcResult { cache.call(timeout = 50.milliseconds) { AppResult.Success(it.work()) } }
+
+                val error = result.shouldBeInstanceOf<AppResult.Failure>().error
+                // Bounded to the CALLER's own declared timeout, not the refresh channel's internal
+                // bound — and treated the same as a transient refresh failure: retryable, session kept
+                // (NOT SessionExpired / a forced logout for what might just be a slow network).
+                error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+                error.isRetryable shouldBe true
+                hangingRecovery.count shouldBe 1
+                connects() shouldBe 1 // the retry never ran — refresh didn't complete within budget
             }
         }
 
