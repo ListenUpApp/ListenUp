@@ -24,11 +24,14 @@ private val logger = KotlinLogging.logger {}
  * exactly the right place for this block — no UI thread is involved, and
  * OkHttp will not dispatch another request on the same call until we return.
  *
- * Coalescing: concurrent 401s on different Media3 segments funnel into
- * [CachedAudioTokenProvider.refreshToken], which serialises through its
- * internal `refreshMutex`. The first 401 does the network refresh; later
- * 401s observe the freshly-stored token via [CachedAudioTokenProvider.getToken]
- * without re-hitting the server.
+ * No coalescing: concurrent 401s on different Media3 segments funnel into
+ * [CachedAudioTokenProvider.refreshToken], which only *serialises* through its internal
+ * `refreshMutex` — it does not dedupe (see that class's own KDoc). Each queued 401 performs its
+ * own full upstream round-trip in turn; a later 401 does NOT simply observe whatever the first
+ * one stored. [CachedAudioTokenProvider.prepareForPlayback] is the one caller that coalesces onto
+ * an in-flight refresh instead of firing its own; [refreshToken] deliberately does not, because a
+ * 401 means the CACHED token is confirmed bad and callers need a rotation, not a re-check of a
+ * cache that just failed them.
  */
 class AudioTokenAuthenticator(
     private val tokenProvider: CachedAudioTokenProvider,

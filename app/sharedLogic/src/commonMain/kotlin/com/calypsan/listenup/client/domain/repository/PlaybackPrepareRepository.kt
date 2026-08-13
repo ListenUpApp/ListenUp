@@ -28,7 +28,15 @@ interface PlaybackPrepareRepository {
      * the server's position and cannot reconcile a stale local Room row against another device's
      * newer progress. This best-effort read closes that clobber for downloaded books — the caller
      * folds the result through the same newer-wins merge and degrades to the local row on any
-     * failure (offline), never blocking or failing playback.
+     * failure.
+     *
+     * **This DOES block — it is awaited, on the path between tapping play and hearing audio.** It is
+     * bounded SHORT (the production implementation's timeout override), so the cost is sub-second
+     * even when the socket is dead, and any failure (including a timeout) returns
+     * [AppResult.Failure] rather than hanging — but it is not "non-blocking," and treating it as such
+     * is what let an earlier, unbounded version of this call stall the tap-to-audio path for tens of
+     * seconds. See [com.calypsan.listenup.client.playback.PlaybackPreparer.fetchAuthoritativePosition]
+     * for the caller-side accounting of that cost.
      */
     suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?>
 }
