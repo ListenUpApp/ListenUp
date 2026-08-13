@@ -41,7 +41,10 @@ class JpegCorpusTest :
         // decoder.
         test("every JPEG in a real cover library decodes at a derivative scale")
             .config(enabled = present, timeout = CORPUS_TIMEOUT) {
-                val files = SystemFileSystem.list(corpus!!).filter { SystemFileSystem.metadataOrNull(it)?.isDirectory != true }
+                val files =
+                    SystemFileSystem
+                        .list(corpus!!)
+                        .filter { SystemFileSystem.metadataOrNull(it)?.isDirectory != true }
 
                 var jpegs = 0
                 var decoded = 0
@@ -96,14 +99,16 @@ class JpegCorpusTest :
                 // covers are progressive — which is the whole reason this decoder reconstructs scales
                 // rather than declining SOF2.
                 withClue("undecodable: ${undecodable.take(REPORTED_FAILURES)}") {
-                    (decoded * PERCENT / jpegs) shouldBeGreaterThan MINIMUM_DECODED_PERCENT
+                    decoded * PERCENT / jpegs shouldBeGreaterThan MINIMUM_DECODED_PERCENT
                 }
             }
     })
 
 /** SOI. Enough to tell a JPEG from the WebP and PNG covers that share a real library. */
-private fun looksLikeJpeg(bytes: ByteArray): Boolean = bytes.size > 1 && (bytes[0].toInt() and 0xFF) == 0xFF && (bytes[1].toInt() and 0xFF) == 0xD8
+private fun looksLikeJpeg(bytes: ByteArray): Boolean = bytes.size > 1 && readUByte(bytes, 0) == SOI_HIGH && readUByte(bytes, 1) == SOI_LOW
 
+private const val SOI_HIGH = 0xFF
+private const val SOI_LOW = 0xD8
 private val CORPUS_TIMEOUT = 30.minutes
 private const val CORPUS_ENV = "LISTENUP_COVER_CORPUS"
 private const val DERIVATIVE_WIDTH = 400

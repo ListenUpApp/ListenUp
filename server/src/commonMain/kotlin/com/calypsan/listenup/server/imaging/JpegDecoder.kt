@@ -94,18 +94,34 @@ private fun decodeScan(
             sinceRestart++
 
             if (singleComponent) {
-                val component = components[0]
-                decodeBlock(reader, segments, scan, component, row, column) ?: return null
+                decodeBlock(reader, segments, scan, components[0], row, column) ?: return null
             } else {
-                for (component in components) {
-                    for (v in 0 until component.verticalSampling) {
-                        for (h in 0 until component.horizontalSampling) {
-                            val blockRow = row * component.verticalSampling + v
-                            val blockColumn = column * component.horizontalSampling + h
-                            decodeBlock(reader, segments, scan, component, blockRow, blockColumn) ?: return null
-                        }
-                    }
-                }
+                decodeMcu(reader, segments, scan, components, row, column) ?: return null
+            }
+        }
+    }
+    return Unit
+}
+
+/**
+ * Decodes one MCU: every component's full sampling cycle of blocks, in the interleaved order the
+ * format defines. A 4:2:0 MCU is four luma blocks then one of each chroma.
+ */
+@Suppress("ReturnCount")
+private fun decodeMcu(
+    reader: JpegBitReader,
+    segments: JpegSegments,
+    scan: JpegScan,
+    components: List<JpegComponent>,
+    mcuRow: Int,
+    mcuColumn: Int,
+): Unit? {
+    for (component in components) {
+        for (v in 0 until component.verticalSampling) {
+            for (h in 0 until component.horizontalSampling) {
+                val blockRow = mcuRow * component.verticalSampling + v
+                val blockColumn = mcuColumn * component.horizontalSampling + h
+                decodeBlock(reader, segments, scan, component, blockRow, blockColumn) ?: return null
             }
         }
     }
@@ -155,8 +171,8 @@ private fun decodeBlock(
         var index = 1
         while (index < BLOCK_COEFFICIENTS) {
             val symbol = reader.decodeHuffman(acTable) ?: return null
-            val run = (symbol and 0xF0) shr 4
-            val size = symbol and 0x0F
+            val run = highNibble(symbol)
+            val size = lowNibble(symbol)
             if (size == 0) {
                 // Size zero is either end-of-block, or ZRL — sixteen zeroes and the block goes on.
                 if (run != ZERO_RUN_SYMBOL) break
@@ -232,8 +248,8 @@ private fun decodeProgressiveAc(
     var index = scan.spectralStart
     while (index <= scan.spectralEnd) {
         val symbol = reader.decodeHuffman(acTable) ?: return null
-        val run = (symbol and 0xF0) shr 4
-        val size = symbol and 0x0F
+        val run = highNibble(symbol)
+        val size = lowNibble(symbol)
         if (size == 0) {
             // Below ZRL, size zero ends a run of entirely-empty blocks rather than this block alone.
             if (run != ZERO_RUN_SYMBOL) {

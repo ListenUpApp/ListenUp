@@ -71,7 +71,7 @@ internal class JpegHuffmanTable(
  * lossless modes, 12-bit precision — rather than guessing, because a wrong guess here produces a
  * plausible-looking but wrong image, which is worse than no derivative at all.
  */
-@Suppress("ReturnCount", "CyclomaticComplexMethod", "NestedBlockDepth", "LongMethod")
+@Suppress("ReturnCount")
 internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
     if (bytes.size < MIN_JPEG_BYTES) return null
     if (readUShort(bytes, 0) != MARKER_SOI) return null
@@ -83,53 +83,26 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
     var restartInterval = 0
     val scans = mutableListOf<JpegScan>()
 
-    var offset = 2
-    while (offset + 2 <= bytes.size) {
-        if ((bytes[offset].toInt() and 0xFF) != MARKER_PREFIX) return null
-        val marker = MARKER_PREFIX shl 8 or (bytes[offset + 1].toInt() and 0xFF)
-        offset += 2
+    var offset = MARKER_BYTES
+    while (offset + MARKER_BYTES <= bytes.size) {
+        if (readUByte(bytes, offset) != MARKER_PREFIX) return null
+        val marker = MARKER_PREFIX shl BITS_PER_BYTE or readUByte(bytes, offset + 1)
+        offset += MARKER_BYTES
 
         if (marker == MARKER_EOI) break
-        if (offset + 2 > bytes.size) return null
+        if (offset + MARKER_BYTES > bytes.size) return null
         val segmentLength = readUShort(bytes, offset)
-        if (segmentLength < 2 || offset + segmentLength > bytes.size) return null
-        val segmentStart = offset + 2
+        if (segmentLength < SEGMENT_LENGTH_BYTES || offset + segmentLength > bytes.size) return null
+        val segmentStart = offset + SEGMENT_LENGTH_BYTES
         val segmentEnd = offset + segmentLength
 
         when (marker) {
             MARKER_DQT -> {
-                var at = segmentStart
-                while (at < segmentEnd) {
-                    val precision = (bytes[at].toInt() and 0xF0) shr 4
-                    val id = bytes[at].toInt() and 0x0F
-                    if (id >= MAX_TABLES) return null
-                    at++
-                    // 16-bit quantisation tables accompany 12-bit precision, which we do not decode.
-                    if (precision != 0) return null
-                    if (at + BLOCK_COEFFICIENTS > segmentEnd) return null
-                    quantTables[id] = IntArray(BLOCK_COEFFICIENTS) { bytes[at + it].toInt() and 0xFF }
-                    at += BLOCK_COEFFICIENTS
-                }
+                readQuantTables(bytes, segmentStart, segmentEnd, quantTables) ?: return null
             }
 
             MARKER_DHT -> {
-                var at = segmentStart
-                while (at < segmentEnd) {
-                    val classAndId = bytes[at].toInt()
-                    val tableClass = (classAndId and 0xF0) shr 4
-                    val id = classAndId and 0x0F
-                    if (id >= MAX_TABLES) return null
-                    at++
-                    if (at + MAX_CODE_LENGTH > segmentEnd) return null
-                    val counts = IntArray(MAX_CODE_LENGTH) { bytes[at + it].toInt() and 0xFF }
-                    at += MAX_CODE_LENGTH
-                    val total = counts.sum()
-                    if (at + total > segmentEnd) return null
-                    val values = IntArray(total) { bytes[at + it].toInt() and 0xFF }
-                    at += total
-                    val table = JpegHuffmanTable(counts, values)
-                    if (tableClass == 0) dcTables[id] = table else acTables[id] = table
-                }
+                readHuffmanTables(bytes, segmentStart, segmentEnd, dcTables, acTables) ?: return null
             }
 
             MARKER_DRI -> {
@@ -137,29 +110,9 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
             }
 
             MARKER_SOF0, MARKER_SOF1, MARKER_SOF2 -> {
+                // A second frame header means a hierarchical image, which we do not reconstruct.
                 if (frame != null) return null
-                val precision = bytes[segmentStart].toInt() and 0xFF
-                if (precision != SUPPORTED_PRECISION) return null
-                val height = readUShort(bytes, segmentStart + 1)
-                val width = readUShort(bytes, segmentStart + 3)
-                val componentCount = bytes[segmentStart + 5].toInt() and 0xFF
-                if (width <= 0 || height <= 0 || componentCount == 0) return null
-                if (componentCount != GREYSCALE_COMPONENTS && componentCount != YCBCR_COMPONENTS) return null
-
-                val components =
-                    (0 until componentCount).map { index ->
-                        val at = segmentStart + 6 + index * 3
-                        if (at + 2 >= bytes.size) return null
-                        val sampling = bytes[at + 1].toInt() and 0xFF
-                        JpegComponent(
-                            id = bytes[at].toInt() and 0xFF,
-                            horizontalSampling = (sampling and 0xF0) shr 4,
-                            verticalSampling = sampling and 0x0F,
-                            quantTable = bytes[at + 2].toInt() and 0xFF,
-                        )
-                    }
-                if (components.any { it.horizontalSampling == 0 || it.verticalSampling == 0 }) return null
-                frame = JpegFrame(marker == MARKER_SOF2, width, height, components)
+                frame = readFrameHeader(bytes, segmentStart, progressive = marker == MARKER_SOF2) ?: return null
             }
 
             MARKER_SOS -> {
@@ -188,6 +141,89 @@ internal fun parseJpegSegments(bytes: ByteArray): JpegSegments? {
     val decoded = frame ?: return null
     if (scans.isEmpty()) return null
     return JpegSegments(decoded, quantTables, restartInterval, scans)
+}
+
+/** Reads one DQT segment, which may carry several tables back to back. */
+@Suppress("ReturnCount")
+private fun readQuantTables(
+    bytes: ByteArray,
+    start: Int,
+    end: Int,
+    into: Array<IntArray?>,
+): Unit? {
+    var at = start
+    while (at < end) {
+        val precision = highNibble(readUByte(bytes, at))
+        val id = lowNibble(readUByte(bytes, at))
+        if (id >= MAX_TABLES) return null
+        at++
+        // 16-bit quantisation tables accompany 12-bit precision, which we do not decode.
+        if (precision != QUANT_PRECISION_8BIT) return null
+        if (at + BLOCK_COEFFICIENTS > end) return null
+        into[id] = IntArray(BLOCK_COEFFICIENTS) { readUByte(bytes, at + it) }
+        at += BLOCK_COEFFICIENTS
+    }
+    return Unit
+}
+
+/** Reads one DHT segment, which may carry several tables back to back. */
+@Suppress("ReturnCount")
+private fun readHuffmanTables(
+    bytes: ByteArray,
+    start: Int,
+    end: Int,
+    dcTables: Array<JpegHuffmanTable?>,
+    acTables: Array<JpegHuffmanTable?>,
+): Unit? {
+    var at = start
+    while (at < end) {
+        val classAndId = readUByte(bytes, at)
+        val tableClass = highNibble(classAndId)
+        val id = lowNibble(classAndId)
+        if (id >= MAX_TABLES) return null
+        at++
+        if (at + MAX_CODE_LENGTH > end) return null
+        val counts = IntArray(MAX_CODE_LENGTH) { readUByte(bytes, at + it) }
+        at += MAX_CODE_LENGTH
+        val total = counts.sum()
+        if (at + total > end) return null
+        val values = IntArray(total) { readUByte(bytes, at + it) }
+        at += total
+        val table = JpegHuffmanTable(counts, values)
+        if (tableClass == HUFFMAN_CLASS_DC) dcTables[id] = table else acTables[id] = table
+    }
+    return Unit
+}
+
+/** Reads a SOF0/SOF1/SOF2 header: image size and the components' sampling factors. */
+@Suppress("ReturnCount")
+private fun readFrameHeader(
+    bytes: ByteArray,
+    start: Int,
+    progressive: Boolean,
+): JpegFrame? {
+    if (readUByte(bytes, start) != SUPPORTED_PRECISION) return null
+    val height = readUShort(bytes, start + 1)
+    val width = readUShort(bytes, start + 3)
+    val componentCount = readUByte(bytes, start + 5)
+    if (width <= 0 || height <= 0) return null
+    if (componentCount != GREYSCALE_COMPONENTS && componentCount != YCBCR_COMPONENTS) return null
+
+    val components =
+        (0 until componentCount).map { index ->
+            val at = start + FRAME_HEADER_BYTES + index * COMPONENT_ENTRY_BYTES
+            if (at + 2 >= bytes.size) return null
+            val sampling = readUByte(bytes, at + 1)
+            JpegComponent(
+                id = readUByte(bytes, at),
+                horizontalSampling = highNibble(sampling),
+                verticalSampling = lowNibble(sampling),
+                quantTable = readUByte(bytes, at + 2),
+            )
+        }
+    // A zero sampling factor would divide the block grid by zero.
+    if (components.any { it.horizontalSampling == 0 || it.verticalSampling == 0 }) return null
+    return JpegFrame(progressive, width, height, components)
 }
 
 /** Everything the entropy stage needs, gathered from the marker segments. */
@@ -228,34 +264,34 @@ private fun parseScanHeader(
     dcTables: Array<JpegHuffmanTable?>,
     acTables: Array<JpegHuffmanTable?>,
 ): JpegScan? {
-    val count = bytes[start].toInt() and 0xFF
-    if (count == 0 || start + 1 + count * 2 + 3 > end) return null
+    val count = readUByte(bytes, start)
+    if (count == 0 || start + 1 + count * SCAN_ENTRY_BYTES + SCAN_TAIL_BYTES > end) return null
 
     val indices = mutableListOf<Int>()
     val scanDcTables = mutableListOf<JpegHuffmanTable?>()
     val scanAcTables = mutableListOf<JpegHuffmanTable?>()
     for (i in 0 until count) {
-        val at = start + 1 + i * 2
-        val componentId = bytes[at].toInt() and 0xFF
+        val at = start + 1 + i * SCAN_ENTRY_BYTES
+        val componentId = readUByte(bytes, at)
         val index = frame.components.indexOfFirst { it.id == componentId }
         if (index < 0) return null
         indices += index
         // An id outside the table array, or one never defined, resolves to null and declines later
         // — a scan only touches the class of table its spectral band actually needs.
-        scanDcTables += dcTables.getOrNull((bytes[at + 1].toInt() and 0xF0) shr 4)
-        scanAcTables += acTables.getOrNull(bytes[at + 1].toInt() and 0x0F)
+        scanDcTables += dcTables.getOrNull(highNibble(readUByte(bytes, at + 1)))
+        scanAcTables += acTables.getOrNull(lowNibble(readUByte(bytes, at + 1)))
     }
 
-    val tail = start + 1 + count * 2
-    val approximation = bytes[tail + 2].toInt() and 0xFF
+    val tail = start + 1 + count * SCAN_ENTRY_BYTES
+    val approximation = readUByte(bytes, tail + 2)
     return JpegScan(
         componentIndices = indices,
         dcTables = scanDcTables,
         acTables = scanAcTables,
-        spectralStart = bytes[tail].toInt() and 0xFF,
-        spectralEnd = bytes[tail + 1].toInt() and 0xFF,
-        approximationHigh = (approximation and 0xF0) shr 4,
-        approximationLow = approximation and 0x0F,
+        spectralStart = readUByte(bytes, tail),
+        spectralEnd = readUByte(bytes, tail + 1),
+        approximationHigh = highNibble(approximation),
+        approximationLow = lowNibble(approximation),
     )
 }
 
@@ -271,8 +307,8 @@ private fun findEntropyEnd(
 ): Int {
     var at = from
     while (at + 1 < bytes.size) {
-        if ((bytes[at].toInt() and 0xFF) == MARKER_PREFIX) {
-            val next = bytes[at + 1].toInt() and 0xFF
+        if (readUByte(bytes, at) == MARKER_PREFIX) {
+            val next = readUByte(bytes, at + 1)
             val isStuffedByte = next == 0
             val isRestart = next in RESTART_MARKER_LOW..RESTART_MARKER_HIGH
             if (!isStuffedByte && !isRestart) return at
@@ -281,11 +317,6 @@ private fun findEntropyEnd(
     }
     return bytes.size
 }
-
-internal fun readUShort(
-    bytes: ByteArray,
-    at: Int,
-): Int = ((bytes[at].toInt() and 0xFF) shl 8) or (bytes[at + 1].toInt() and 0xFF)
 
 internal fun ceilDiv(
     value: Int,
@@ -300,6 +331,14 @@ internal const val RESTART_MARKER_LOW = 0xD0
 internal const val RESTART_MARKER_HIGH = 0xD7
 
 private const val MIN_JPEG_BYTES = 4
+private const val MARKER_BYTES = 2
+private const val SEGMENT_LENGTH_BYTES = 2
+private const val FRAME_HEADER_BYTES = 6
+private const val COMPONENT_ENTRY_BYTES = 3
+private const val SCAN_ENTRY_BYTES = 2
+private const val SCAN_TAIL_BYTES = 3
+private const val QUANT_PRECISION_8BIT = 0
+private const val HUFFMAN_CLASS_DC = 0
 private const val MAX_TABLES = 4
 private const val SUPPORTED_PRECISION = 8
 private const val GREYSCALE_COMPONENTS = 1

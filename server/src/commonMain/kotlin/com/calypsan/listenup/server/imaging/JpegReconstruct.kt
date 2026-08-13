@@ -92,37 +92,58 @@ private fun renderPlane(
     for (blockRow in 0 until component.blocksPerColumn) {
         for (blockColumn in 0 until component.blocksPerLine) {
             val base = (blockRow * component.blocksPerLine + blockColumn) * BLOCK_COEFFICIENTS
-            val dc = component.coefficients[base] * quant[0]
-
             if (pixelsPerBlock == 1) {
-                // DC alone is the block's mean: divide out the DCT's 8x scaling and re-centre.
-                val value = (dc / DCT_SIZE) + LEVEL_SHIFT
-                samples[blockRow * width + blockColumn] = value.coerceIn(0, MAX_CHANNEL)
+                samples[blockRow * width + blockColumn] = blockAverage(component, quant, base)
             } else {
-                // 2x2 from the top-left 2x2 coefficients — the separable inverse DCT truncated to
-                // its two lowest basis functions in each direction.
-                val c01 = component.coefficients[base + 1] * quant[1]
-                val c10 = component.coefficients[base + DCT_SIZE] * quant[DCT_SIZE]
-                val c11 = component.coefficients[base + DCT_SIZE + 1] * quant[DCT_SIZE + 1]
-                for (dy in 0 until 2) {
-                    for (dx in 0 until 2) {
-                        val horizontal = if (dx == 0) 1 else -1
-                        val vertical = if (dy == 0) 1 else -1
-                        val sum =
-                            dc +
-                                horizontal * scaleOdd(c01) +
-                                vertical * scaleOdd(c10) +
-                                horizontal * vertical * scaleOdd(c11)
-                        val value = (sum / DCT_SIZE) + LEVEL_SHIFT
-                        val px = blockColumn * 2 + dx
-                        val py = blockRow * 2 + dy
-                        samples[py * width + px] = value.coerceIn(0, MAX_CHANNEL)
-                    }
-                }
+                writeBlockQuadrants(component, quant, base, samples, width, blockRow, blockColumn)
             }
         }
     }
     return Plane(width, height, samples)
+}
+
+/** DC alone is the block's mean: divide out the DCT's 8x scaling and re-centre. */
+private fun blockAverage(
+    component: JpegComponent,
+    quant: IntArray,
+    base: Int,
+): Int {
+    val dc = component.coefficients[base] * quant[0]
+    return (dc / DCT_SIZE + LEVEL_SHIFT).coerceIn(0, MAX_CHANNEL)
+}
+
+/**
+ * Writes a block's 2x2 from its top-left 2x2 coefficients — the separable inverse DCT truncated to
+ * its two lowest basis functions in each direction, which is exactly a quarter-scale reconstruction.
+ */
+private fun writeBlockQuadrants(
+    component: JpegComponent,
+    quant: IntArray,
+    base: Int,
+    samples: IntArray,
+    width: Int,
+    blockRow: Int,
+    blockColumn: Int,
+) {
+    val dc = component.coefficients[base] * quant[0]
+    val c01 = component.coefficients[base + 1] * quant[1]
+    val c10 = component.coefficients[base + DCT_SIZE] * quant[DCT_SIZE]
+    val c11 = component.coefficients[base + DCT_SIZE + 1] * quant[DCT_SIZE + 1]
+
+    for (quadrant in 0 until QUADRANTS) {
+        val dx = quadrant % 2
+        val dy = quadrant / 2
+        val horizontal = if (dx == 0) 1 else -1
+        val vertical = if (dy == 0) 1 else -1
+        val sum =
+            dc +
+                horizontal * scaleOdd(c01) +
+                vertical * scaleOdd(c10) +
+                horizontal * vertical * scaleOdd(c11)
+        val px = blockColumn * 2 + dx
+        val py = blockRow * 2 + dy
+        samples[py * width + px] = (sum / DCT_SIZE + LEVEL_SHIFT).coerceIn(0, MAX_CHANNEL)
+    }
 }
 
 /**
@@ -131,7 +152,7 @@ private fun renderPlane(
  * cos(pi/16)-family terms average to roughly 0.9 of the coefficient across each half; 231/256
  * carries that in integer arithmetic without a floating-point multiply per sample.
  */
-private fun scaleOdd(coefficient: Int): Int = (coefficient * ODD_WEIGHT_NUMERATOR) / ODD_WEIGHT_DENOMINATOR
+private fun scaleOdd(coefficient: Int): Int = coefficient * ODD_WEIGHT_NUMERATOR / ODD_WEIGHT_DENOMINATOR
 
 private fun yCbCrToRgb(
     luma: Int,
@@ -140,12 +161,13 @@ private fun yCbCrToRgb(
 ): Int {
     val cb = blueDiff - LEVEL_SHIFT
     val cr = redDiff - LEVEL_SHIFT
-    val red = (luma + (RED_CR * cr) / FIXED_POINT).coerceIn(0, MAX_CHANNEL)
+    val red = (luma + RED_CR * cr / FIXED_POINT).coerceIn(0, MAX_CHANNEL)
     val green = (luma - (GREEN_CB * cb + GREEN_CR * cr) / FIXED_POINT).coerceIn(0, MAX_CHANNEL)
-    val blue = (luma + (BLUE_CB * cb) / FIXED_POINT).coerceIn(0, MAX_CHANNEL)
+    val blue = (luma + BLUE_CB * cb / FIXED_POINT).coerceIn(0, MAX_CHANNEL)
     return packPixel(OPAQUE, red, green, blue)
 }
 
+private const val QUADRANTS = 4
 private const val LEVEL_SHIFT = 128
 private const val MAX_CHANNEL = 255
 private const val OPAQUE = 255

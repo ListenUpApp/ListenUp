@@ -22,9 +22,9 @@ internal class JpegBitReader(
     fun readBit(): Int {
         if (bitCount == 0) {
             if (offset >= end) return 0
-            var byte = bytes[offset++].toInt() and 0xFF
+            var byte = readUByte(bytes, offset++)
             if (byte == MARKER_PREFIX) {
-                val next = if (offset < end) bytes[offset].toInt() and 0xFF else 0
+                val next = if (offset < end) readUByte(bytes, offset) else 0
                 if (next == 0) {
                     offset++ // stuffed byte
                 } else {
@@ -61,11 +61,12 @@ internal class JpegBitReader(
 
     /**
      * Reads a [magnitude]-bit value and sign-extends it, per the JPEG "receive and extend" rule:
-     * values whose top bit is clear are negative and offset by the band's range.
+     * values in the bottom half of the band are negative, offset by the band's range.
      */
     fun receiveExtend(magnitude: Int): Int {
         val value = readBits(magnitude)
-        return if (value < (1 shl (magnitude - 1))) value - (1 shl magnitude) + 1 else value
+        val range = 1 shl magnitude
+        return if (value * 2 < range) value - range + 1 else value
     }
 
     /** Skips to just past the next restart marker and clears any partial byte. */
@@ -73,8 +74,8 @@ internal class JpegBitReader(
         bitCount = 0
         endOfBandRun = 0
         while (offset + 1 < end) {
-            if ((bytes[offset].toInt() and 0xFF) == MARKER_PREFIX) {
-                val next = bytes[offset + 1].toInt() and 0xFF
+            if (readUByte(bytes, offset) == MARKER_PREFIX) {
+                val next = readUByte(bytes, offset + 1)
                 if (next in RESTART_MARKER_LOW..RESTART_MARKER_HIGH) {
                     offset += 2
                     return
@@ -82,9 +83,5 @@ internal class JpegBitReader(
             }
             offset++
         }
-    }
-
-    private companion object {
-        const val BITS_PER_BYTE = 8
     }
 }

@@ -61,10 +61,10 @@ private fun parsePngHeader(
 ): PngHeader? {
     if (length < IHDR_LENGTH) return null
     val width = readBigEndianInt(bytes, at)
-    val height = readBigEndianInt(bytes, at + 4)
-    val bitDepth = bytes[at + 8].toInt() and 0xFF
-    val colourType = bytes[at + 9].toInt() and 0xFF
-    val interlace = bytes[at + 12].toInt() and 0xFF
+    val height = readBigEndianInt(bytes, at + LENGTH_FIELD_BYTES)
+    val bitDepth = readUByte(bytes, at + IHDR_BIT_DEPTH)
+    val colourType = readUByte(bytes, at + IHDR_COLOUR_TYPE)
+    val interlace = readUByte(bytes, at + IHDR_INTERLACE)
 
     if (width <= 0 || height <= 0) return null
     if (bitDepth != SUPPORTED_BIT_DEPTH) return null
@@ -95,7 +95,7 @@ private fun inflateAndUnfilter(
     return try {
         if (compressed.size < ZLIB_HEADER_BYTES) return null
         compressed.readAtMostTo(zlibHeader, 0, ZLIB_HEADER_BYTES)
-        if ((zlibHeader[0].toInt() and ZLIB_METHOD_MASK) != ZLIB_DEFLATE_METHOD) return null
+        if (zlibHeader[0].toInt() and ZLIB_METHOD_MASK != ZLIB_DEFLATE_METHOD) return null
 
         val stride = header.width * header.channels
         val raw =
@@ -131,14 +131,14 @@ private fun unfilter(
 
     var read = 0
     for (y in 0 until header.height) {
-        val filter = raw[read++].toInt() and 0xFF
+        val filter = readUByte(raw, read++)
         raw.copyInto(current, 0, read, read + stride)
         read += stride
 
         for (i in 0 until stride) {
-            val a = if (i >= bpp) current[i - bpp].toInt() and 0xFF else 0
-            val b = prior[i].toInt() and 0xFF
-            val c = if (i >= bpp) prior[i - bpp].toInt() and 0xFF else 0
+            val a = if (i >= bpp) readUByte(current, i - bpp) else 0
+            val b = readUByte(prior, i)
+            val c = if (i >= bpp) readUByte(prior, i - bpp) else 0
             val predicted =
                 when (filter) {
                     FILTER_NONE -> 0
@@ -148,17 +148,17 @@ private fun unfilter(
                     FILTER_PAETH -> paethPredictor(a, b, c)
                     else -> return null
                 }
-            current[i] = ((current[i].toInt() and 0xFF) + predicted).toByte()
+            current[i] = (readUByte(current, i) + predicted).toByte()
         }
 
         for (x in 0 until header.width) {
             val at = x * bpp
             out[y * header.width + x] =
                 packPixel(
-                    alpha = if (bpp == RGBA_CHANNELS) current[at + 3].toInt() and 0xFF else OPAQUE,
-                    red = current[at].toInt() and 0xFF,
-                    green = current[at + 1].toInt() and 0xFF,
-                    blue = current[at + 2].toInt() and 0xFF,
+                    alpha = if (bpp == RGBA_CHANNELS) readUByte(current, at + ALPHA_OFFSET) else OPAQUE,
+                    red = readUByte(current, at),
+                    green = readUByte(current, at + 1),
+                    blue = readUByte(current, at + 2),
                 )
         }
 
@@ -193,16 +193,16 @@ private fun hasPngSignature(bytes: ByteArray): Boolean =
 private fun readBigEndianInt(
     bytes: ByteArray,
     at: Int,
-): Int =
-    ((bytes[at].toInt() and 0xFF) shl 24) or
-        ((bytes[at + 1].toInt() and 0xFF) shl 16) or
-        ((bytes[at + 2].toInt() and 0xFF) shl 8) or
-        (bytes[at + 3].toInt() and 0xFF)
+): Int {
+    var value = 0
+    for (i in 0 until LENGTH_FIELD_BYTES) value = value shl BITS_PER_BYTE or readUByte(bytes, at + i)
+    return value
+}
 
 private fun readChunkType(
     bytes: ByteArray,
     at: Int,
-): String = buildString { for (i in 0 until TYPE_FIELD_BYTES) append((bytes[at + i].toInt() and 0xFF).toChar()) }
+): String = buildString { for (i in 0 until TYPE_FIELD_BYTES) append(readUByte(bytes, at + i).toChar()) }
 
 private val PNG_SIGNATURE =
     byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
@@ -212,6 +212,10 @@ private const val TYPE_FIELD_BYTES = 4
 private const val CRC_FIELD_BYTES = 4
 private const val CHUNK_OVERHEAD = LENGTH_FIELD_BYTES + TYPE_FIELD_BYTES + CRC_FIELD_BYTES
 private const val IHDR_LENGTH = 13
+private const val IHDR_BIT_DEPTH = 8
+private const val IHDR_COLOUR_TYPE = 9
+private const val IHDR_INTERLACE = 12
+private const val ALPHA_OFFSET = 3
 private const val SUPPORTED_BIT_DEPTH = 8
 private const val INTERLACE_NONE = 0
 private const val COLOUR_TYPE_RGB = 2
