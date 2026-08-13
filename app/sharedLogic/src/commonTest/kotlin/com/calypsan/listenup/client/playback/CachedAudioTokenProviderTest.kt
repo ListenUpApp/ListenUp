@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PendingRegistration
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -281,6 +282,36 @@ class CachedAudioTokenProviderTest :
 
                 repo.calls shouldBe 2
                 provider.getToken() shouldBe "t2"
+            }
+        }
+
+        // Regression for the unbounded-refreshToken latency bug: refreshToken() is called from
+        // AudioTokenAuthenticator via `runBlocking` on a SHARED OkHttp dispatcher thread, and from
+        // PlaybackErrorHandler mid-playback recovery. Pre-fix it awaited authRepository's upstream
+        // refresh directly with no bound at all — a dead/half-open socket left it (and the blocked
+        // OkHttp worker) suspended forever. It MUST stay a forced (never-coalesced) rotation — see
+        // the "concurrent refreshToken calls serialize" test above — so the bound must be generous
+        // enough to survive that test's 1s-delay fixture without dropping any of the 4 calls.
+        test("refreshToken bounds a hanging upstream refresh instead of hanging forever, falling back to stored") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val freshExpiry = clock.now().toEpochMilliseconds() + 60.minutes.inWholeMilliseconds
+                val freshJwt = jwtWithExp(freshExpiry / 1000)
+                val repo = FakeAudioAuthRepository { awaitCancellation() } // models a dead/half-open socket
+                val storage = FakeStorageAuthSession(stored = AccessToken(freshJwt))
+                val provider = CachedAudioTokenProvider(storage, repo, backgroundScope, clock)
+
+                // The stored JWT is comfortably fresh (C11), so init skips its own refresh entirely —
+                // this test exercises ONLY the explicit forced rotation via refreshToken(), isolated
+                // from init's own launch.
+                testScheduler.runCurrent()
+                repo.calls shouldBe 0
+
+                val job = launch { provider.refreshToken() }
+                advanceUntilIdle()
+
+                job.isCompleted shouldBe true
+                repo.calls shouldBe 1
             }
         }
 
