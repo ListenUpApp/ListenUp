@@ -9,14 +9,9 @@ import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.BookAudioFilePayload
-import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.CoverPayload
-import com.calypsan.listenup.api.sync.CoverSource
-import com.calypsan.listenup.core.FolderId
-import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.testing.filesystemCoverBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -77,7 +72,7 @@ class CoverResponderEtagTest :
                     Files.write(bookDir.resolve("cover.jpg"), jpegBytes)
 
                     val repo by application.inject<BookRepository>()
-                    repo.upsert(coverFixture(id = "b1", hash = "abc123"))
+                    repo.upsert(filesystemCoverBook(id = "b1", hash = "abc123"))
 
                     val response = client.get("/api/v1/books/b1/cover") { bearerAuth(token) }
 
@@ -106,7 +101,7 @@ class CoverResponderEtagTest :
                     Files.write(bookDir.resolve("cover.jpg"), fakeJpeg())
 
                     val repo by application.inject<BookRepository>()
-                    repo.upsert(coverFixture(id = "b2", hash = "abc123"))
+                    repo.upsert(filesystemCoverBook(id = "b2", hash = "abc123"))
 
                     val response =
                         client.get("/api/v1/books/b2/cover") {
@@ -137,7 +132,7 @@ class CoverResponderEtagTest :
                     Files.write(bookDir.resolve("cover.jpg"), jpegBytes)
 
                     val repo by application.inject<BookRepository>()
-                    repo.upsert(coverFixture(id = "b3", hash = "abc123"))
+                    repo.upsert(filesystemCoverBook(id = "b3", hash = "abc123"))
 
                     val response =
                         client.get("/api/v1/books/b3/cover") {
@@ -165,50 +160,4 @@ private fun fakeJpeg(): ByteArray =
         0x10,
         'J'.code.toByte(),
         'F'.code.toByte(),
-    )
-
-/** Filesystem-cover book payload with a caller-supplied coverHash. */
-private fun coverFixture(
-    id: String,
-    hash: String,
-): BookSyncPayload =
-    BookSyncPayload(
-        id = id,
-        libraryId = LibraryId("test-library"),
-        folderId = FolderId("test-folder"),
-        title = "Book $id",
-        sortTitle = "Book $id",
-        subtitle = null,
-        description = null,
-        publishYear = null,
-        publisher = null,
-        language = null,
-        isbn = null,
-        asin = null,
-        abridged = false,
-        explicit = false,
-        totalDuration = 3_600_000L,
-        cover = CoverPayload(source = CoverSource.FILESYSTEM, hash = hash),
-        rootRelPath = "books/$id",
-        inode = null,
-        scannedAt = 1_730_000_000_000L,
-        contributors = emptyList(),
-        series = emptyList(),
-        audioFiles =
-            listOf(
-                BookAudioFilePayload(
-                    id = "af-$id",
-                    index = 0,
-                    filename = "01.m4b",
-                    format = "m4b",
-                    codec = "",
-                    duration = 3_600_000L,
-                    size = 500_000_000L,
-                ),
-            ),
-        chapters = emptyList(),
-        revision = 0L,
-        updatedAt = 0L,
-        createdAt = 0L,
-        deletedAt = null,
     )

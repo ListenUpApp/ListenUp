@@ -73,6 +73,9 @@ internal fun Application.startBackgroundTasks(
     orphanImageCleanupTask.start(scope)
     val statsFreshnessSweepTask by inject<StatsFreshnessSweepTask>()
     statsFreshnessSweepTask.start(scope)
+    // Warms the `?w=` derivative cache and sweeps its orphans. Purely a head start — the cover
+    // route generates on demand regardless — so it is safe for this to lag, fail, or never run.
+    koinGet<com.calypsan.listenup.server.cover.CoverDerivativeMaintenance>().start(scope)
 
     // Heal any ABS import whose apply was interrupted by a crash: re-running is idempotent and
     // restores stats + the client nudge. A path-less boot is a no-op (the imports dir is absent).

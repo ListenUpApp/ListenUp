@@ -318,3 +318,9 @@ SELECT COUNT(*) FROM books WHERE deleted_at IS NULL;
 -- should use selectLiveIdsBySortTitle instead.
 selectAllLiveIds:
 SELECT id FROM books WHERE deleted_at IS NULL;
+
+-- Live books that have a cover, with the content hash their derivatives are keyed on —
+-- CoverDerivativeMaintenance warms from this list and treats any cached derivative whose
+-- hash is absent from it as an orphan.
+selectLiveCoverHashes:
+SELECT id, cover_hash FROM books WHERE deleted_at IS NULL AND cover_hash IS NOT NULL;

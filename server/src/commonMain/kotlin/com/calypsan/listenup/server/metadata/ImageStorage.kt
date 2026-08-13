@@ -1,11 +1,10 @@
 package com.calypsan.listenup.server.metadata
 
+import com.calypsan.listenup.server.io.writeBytesAtomically
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsBytes
-import kotlinx.io.buffered
 import kotlinx.io.files.Path
-import kotlinx.io.files.SystemFileSystem
 
 /**
  * Downloads an image from an external URL to a local path. Writes to a sibling
@@ -54,16 +53,5 @@ class ImageStorage(
     fun writeBytes(
         bytes: ByteArray,
         destination: Path,
-    ) {
-        val tmp = Path(destination.parent!!.toString(), "${destination.name}.tmp")
-        try {
-            SystemFileSystem.sink(tmp).buffered().use { sink ->
-                sink.write(bytes)
-            }
-            SystemFileSystem.atomicMove(tmp, destination)
-        } catch (e: Throwable) {
-            SystemFileSystem.delete(tmp, mustExist = false)
-            throw e
-        }
-    }
+    ) = destination.writeBytesAtomically(bytes)
 }

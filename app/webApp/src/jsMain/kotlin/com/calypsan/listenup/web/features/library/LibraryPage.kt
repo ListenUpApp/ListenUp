@@ -146,10 +146,14 @@ private fun BookCard(
             Div(attrs = { classes("lib-cover", "lib-cover-fallback") }) { Text(book.title) }
         } else {
             Img(
-                src = coverUrl(book.id.value),
+                src = coverUrl(book.id.value, book.coverHash, GRID_RUNG),
                 attrs = {
                     classes("lib-cover")
                     alt(book.title)
+                    // Which rung a display needs is the browser's call, not ours — it knows the
+                    // device pixel ratio and we do not. Stating both lets a 1x screen take 300px
+                    // and a Retina one take 600px from the same markup.
+                    attr("srcset", coverSrcset(book.id.value, book.coverHash))
                     // The browser fetches only what the reader approaches, and decodes off the main
                     // thread. Without these a 1200-book library pulls 1200 covers on first paint.
                     attr("loading", "lazy")
@@ -206,7 +210,41 @@ private fun SortControl(
  * Relative rather than absolute on purpose: the server serves this bundle in the normal deployment,
  * and a cookie cannot cross origins anyway — so an absolute URL pointing at a different server would
  * produce an unauthenticated request rather than a working image.
+ *
+ * **`w`** asks for a rung of the server's derivative ladder. The server rounds it up to a rung it
+ * has, and serves the full-size original for anything it cannot derive — so a width is a request,
+ * never a demand, and a cover that declines is no worse off than before the parameter existed.
+ *
+ * ⛔ **`v` is the artwork's content hash, and it is load-bearing.** Covers are served
+ * `immutable` for a year, so the URL is the only thing that can tell a browser the artwork changed;
+ * without it, a re-covered book stays stale on web until the cache expires. Android and desktop
+ * have always done this — web had not, which was a live bug rather than a missing nicety.
  */
-private fun coverUrl(bookId: String): String = "/api/v1/books/$bookId/cover"
+private fun coverUrl(
+    bookId: String,
+    coverHash: String?,
+    width: Int? = null,
+): String {
+    val query =
+        listOfNotNull(
+            width?.let { "w=$it" },
+            coverHash?.let { "v=$it" },
+        ).joinToString("&")
+    return "/api/v1/books/$bookId/cover" + if (query.isEmpty()) "" else "?$query"
+}
+
+/** The same cover at both rungs, for the browser to choose between by pixel density. */
+private fun coverSrcset(
+    bookId: String,
+    coverHash: String?,
+): String =
+    "${coverUrl(bookId, coverHash, GRID_RUNG)} 1x, " +
+        "${coverUrl(bookId, coverHash, GRID_RUNG_DENSE)} 2x"
 
 private const val PERCENT = 100
+
+/** The grid's tiles are `minmax(190px, 1fr)`; 300 is the smallest rung that covers one at 1x. */
+private const val GRID_RUNG = 300
+
+/** The rung a 2x display needs for the same tile. Also the largest the ladder offers. */
+private const val GRID_RUNG_DENSE = 600
