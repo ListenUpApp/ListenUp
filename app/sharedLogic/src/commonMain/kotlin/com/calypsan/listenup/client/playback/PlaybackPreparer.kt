@@ -31,6 +31,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -39,6 +40,21 @@ private val logger = KotlinLogging.logger {}
 
 /** One second in milliseconds. */
 private const val MS_PER_SECOND = 1000L
+
+/**
+ * Latency budget for [PlaybackPreparer.fetchBookFromServer] — see its KDoc.
+ *
+ * Unlike [PlaybackPrepareRepository.getPosition] this call has no degrade-to-local path: it IS how
+ * a book's row set lands in Room the first time, so a fetch that simply failed cannot fall back to
+ * anything and playback preparation fails outright. Cutting it as tight as a nice-to-have reconcile
+ * (800ms) would fail legitimate slow-but-working fetches outright, so this is a full order of
+ * magnitude looser — long enough for a real, moderately-degraded fetch to still succeed. It is still
+ * a fraction of [com.calypsan.listenup.client.data.remote.DEFAULT_RPC_TIMEOUT] (15s, up to ~30s once
+ * doubled by a pre-delivery retry): the failure mode this closes is a dead-socket caller sitting on
+ * the tap-to-audio path for tens of seconds before the outer `prepare()` catch-all folds it to null
+ * and the listener sees "couldn't start playback" — the same outcome, arrived at far faster.
+ */
+private val FETCH_BOOK_TIMEOUT = 5.seconds
 
 /** One minute in milliseconds. */
 private const val MS_PER_MINUTE = 60_000L
@@ -290,7 +306,19 @@ class PlaybackPreparer internal constructor(
         } else if (!timeline.isFullyDownloaded && !downloadService.wasExplicitlyDeleted(bookId)) {
             logger.info { "Book not fully downloaded, triggering background download" }
             scope.launch {
-                downloadService.downloadBook(bookId)
+                // Best-effort: this is an auto-triggered cache-ahead, not a user-initiated tap, so a
+                // failure here does not surface to the UI the way the explicit download button's
+                // handleDownloadResult does — the listener would otherwise learn only when they go
+                // offline and the book isn't there. Logging is the minimum honesty bar so the failure
+                // is diagnosable instead of silently discarded.
+                when (val result = downloadService.downloadBook(bookId)) {
+                    is AppResult.Success -> {}
+                    is AppResult.Failure -> {
+                        logger.warn {
+                            "Background download failed for ${bookId.value}: ${result.error.code} — ${result.error.message}"
+                        }
+                    }
+                }
             }
         } else if (!timeline.isFullyDownloaded) {
             logger.info { "Book was explicitly deleted, streaming only (no auto-download)" }
@@ -523,10 +551,20 @@ class PlaybackPreparer internal constructor(
      * Internal visibility allows [PlaybackManagerFallbackFetchAtomicityTest] to
      * invoke the method directly.
      *
+     * Bounded to [FETCH_BOOK_TIMEOUT] rather than the 15s RPC default — this was the "old
+     * `getPosition` bug, verbatim": no explicit budget, plus `idempotent = true`, which together let
+     * a half-open socket cost up to 15s + 15s on the tap-to-audio path for any book whose audio-file
+     * rows haven't synced yet. `idempotent` is now `false`: unlike `getPosition`'s reconcile, a
+     * failed fetch here has no fallback (playback preparation fails outright either way), so the
+     * auto-retry bought nothing but the doubled worst case that caused the original incident.
+     *
      * @return true if fetch + persist succeeded.
      */
     internal suspend fun fetchBookFromServer(bookId: BookId): Boolean =
-        when (val result = channel.call(idempotent = true) { it.getBook(bookId) }) {
+        when (
+            val result =
+                channel.call(timeout = FETCH_BOOK_TIMEOUT, idempotent = false) { it.getBook(bookId) }
+        ) {
             is AppResult.Success -> {
                 val payload = result.data
                 logger.info { "Fetched book from server: ${payload.title}" }
