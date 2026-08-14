@@ -3,11 +3,15 @@
 package com.calypsan.listenup.server.process
 
 import com.calypsan.listenup.server.io.fileIoDispatcher
-import kotlinx.atomicfu.atomic
+import com.calypsan.listenup.server.logging.loggerFor
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
@@ -17,30 +21,38 @@ import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.set
+import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.job
-import kotlinx.coroutines.withContext
-import kotlinx.cinterop.toKString
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import platform.posix.EINTR
+import platform.posix.O_RDWR
 import platform.posix.SIGKILL
 import platform.posix.STDERR_FILENO
+import platform.posix.STDIN_FILENO
+import platform.posix.STDOUT_FILENO
 import platform.posix.X_OK
+import platform.posix._SC_OPEN_MAX
 import platform.posix._exit
 import platform.posix.access
 import platform.posix.close
 import platform.posix.dup2
+import platform.posix.errno
 import platform.posix.fork
 import platform.posix.getenv
 import platform.posix.kill as posixKill
+import platform.posix.open
 import platform.posix.pipe
 import platform.posix.read
+import platform.posix.sysconf
 import platform.posix.waitpid
 import rawexec.execv
+import rawexec.lu_close_fds_from
 
-/** A missing/unresolvable binary is a normal outcome (the provisioner probes for one), not a crash. */
-private const val MISSING_BINARY_EXIT_CODE = 127
+private val log = loggerFor<ProcessRunner>()
 
 /** Shell-style "128 + signal" exit code reported when `waitpid` says the child died from a signal. */
 private const val SIGNALED_EXIT_BASE = 128
@@ -53,6 +65,16 @@ private const val WAIT_STATUS_EXIT_SHIFT = 8
 private const val WAIT_STATUS_EXIT_MASK = 0xff
 
 private const val READ_BUFFER_BYTES = 4096
+
+/** The first descriptor the child may not keep: 0, 1 and 2 are redirected, everything above is ours. */
+private const val FIRST_INHERITABLE_FD = 3u
+
+/**
+ * Ceiling for the child's close() walk when `close_range` is unavailable. Only reached on a
+ * pre-5.9 kernel, where an `RLIMIT_NOFILE` above this is vanishingly unlikely; a bounded walk beats
+ * a million wasted syscalls in a process that is about to `execv` anyway.
+ */
+private const val MAX_FD_SCAN = 65_536L
 
 /**
  * `posix_spawn` is unavailable in Kotlin/Native's `platform.posix` bindings on Linux — verified
@@ -75,32 +97,42 @@ private const val READ_BUFFER_BYTES = 4096
  * implicit, malloc-backed interop memory scope, silently reintroducing the exact allocation-in-child
  * hazard `execv` was chosen to avoid. The `rawexec` declaration keeps `path` a raw `CPointer<ByteVar>`,
  * built in the parent alongside `argv` — pre-fork, where allocating is unremarkable — and handed
- * straight through. With that, the child does nothing but `dup2`/`close`/`execv`/`_exit` — and never
- * returns into Kotlin/coroutine machinery, since that would run the caller's whole stack twice.
+ * straight through. Every other thing the child touches is a pointer or a descriptor number built
+ * before the fork for the same reason, `/dev/null` included: the child runs `dup2`, a descriptor
+ * sweep, `execv` and `_exit`, and never returns into Kotlin/coroutine machinery, since that would
+ * run the caller's whole stack twice.
  */
 actual class ProcessRunner {
     private val started = CompletableDeferred<Unit>()
-    private val childPid = atomic(0)
+    private val lock = SynchronizedObject()
+
+    /**
+     * The running child's pid, or 0. Guarded by [lock], and cleared *before* `waitpid` rather than
+     * after — see [kill] and [reap], where that ordering is the whole pid-reuse defence.
+     */
+    private var childPid = 0
+
+    /** Guarded by [lock]. Records a [kill] that arrived before there was a child to kill. */
+    private var killRequested = false
 
     actual suspend fun run(
         command: List<String>,
         onStderr: (String) -> Unit,
     ): Int =
-        withContext(fileIoDispatcher) {
-            // If the surrounding coroutine is cancelled while the child is still running, kill it —
-            // an abandoned transcode must not leak a running ffmpeg process.
-            currentCoroutineContext().job.invokeOnCompletion { kill() }
-
-            val spawned = spawn(command)
-            if (spawned == null) {
-                started.complete(Unit)
-                return@withContext MISSING_BINARY_EXIT_CODE
+        coroutineScope {
+            val child = async(fileIoDispatcher) { runToCompletion(command, onStderr) }
+            try {
+                child.await()
+            } catch (cancellation: CancellationException) {
+                // `job.invokeOnCompletion { kill() }` cannot serve here: the body below is blocking
+                // with no suspension point, so the job cannot reach a final state until that body
+                // has already finished by itself — the handler would fire *after* the child exited
+                // on its own, which is never. `await()` resumes the moment the caller is cancelled,
+                // so the kill lands mid-blocking-call, and `coroutineScope` then waits for the reap
+                // before the cancellation propagates.
+                kill()
+                throw cancellation
             }
-            childPid.value = spawned.pid
-            started.complete(Unit)
-
-            readStderr(spawned.stderrReadFd, onStderr)
-            reap(spawned.pid)
         }
 
     actual suspend fun awaitStarted() {
@@ -108,51 +140,113 @@ actual class ProcessRunner {
     }
 
     actual fun kill() {
-        val pid = childPid.value
-        if (pid != 0) posixKill(pid, SIGKILL)
+        synchronized(lock) {
+            killRequested = true
+            // Signalling *inside* the lock is what closes the pid-reuse race. `waitpid` is what
+            // lets the kernel recycle a pid, and [reap] clears `childPid` under this same lock
+            // before it waits — so a pid still visible here is one the kernel has not been allowed
+            // to hand to anybody else yet.
+            if (childPid != 0) posixKill(childPid, SIGKILL)
+        }
     }
 
-    /**
-     * `null` means either the executable couldn't be resolved on `$PATH`, or the fork itself failed
-     * (pipe/fork syscall error) — both are treated like a missing binary.
-     */
-    private fun spawn(command: List<String>): Spawned? {
-        val executablePath = resolveExecutable(command[0]) ?: return null
+    private fun runToCompletion(
+        command: List<String>,
+        onStderr: (String) -> Unit,
+    ): Int {
+        val spawned = spawn(command)
+        if (spawned !is Spawn.Started) {
+            started.complete(Unit)
+            return if (spawned is Spawn.BinaryNotFound) MISSING_BINARY_EXIT_CODE else SPAWN_FAILED_EXIT_CODE
+        }
+        adopt(spawned.pid)
+        started.complete(Unit)
+
+        readStderr(spawned.stderrReadFd, onStderr)
+        return reap(spawned.pid)
+    }
+
+    /** Takes ownership of [pid], honouring a [kill] that arrived while the child was being started. */
+    private fun adopt(pid: Int) {
+        synchronized(lock) {
+            childPid = pid
+            if (killRequested) posixKill(pid, SIGKILL)
+        }
+    }
+
+    private fun spawn(command: List<String>): Spawn {
+        val executablePath = resolveExecutable(command.first()) ?: return Spawn.BinaryNotFound
         return memScoped {
             val fds = allocArray<IntVar>(2)
-            if (pipe(fds) != 0) return null
+            if (pipe(fds) != 0) {
+                log.error { "pipe() failed (errno $errno) spawning ${command.first()}" }
+                return@memScoped Spawn.Failed
+            }
             val readFd = fds[0]
             val writeFd = fds[1]
 
-            // Build argv and the resolved exec path before forking so the child touches no
-            // Kotlin/Native allocator itself — only pre-built pointers and syscalls.
-            val argv = allocArray<CPointerVar<ByteVar>>(command.size + 1)
-            for (i in command.indices) argv[i] = command[i].cstr.getPointer(this)
-            argv[command.size] = null
-            val execPath = executablePath.cstr.getPointer(this)
+            // Opened in the parent: `open` takes a path, and marshalling a Kotlin String into a C
+            // string allocates — the one thing the forked child must never do.
+            val devNullFd = open("/dev/null", O_RDWR)
+            if (devNullFd < 0) {
+                log.error { "open(/dev/null) failed (errno $errno) spawning ${command.first()}" }
+                close(readFd)
+                close(writeFd)
+                return@memScoped Spawn.Failed
+            }
 
+            val child =
+                ChildPlan(
+                    argv = argv(command),
+                    executablePath = executablePath.cstr.getPointer(this),
+                    stderrWriteFd = writeFd,
+                    devNullFd = devNullFd,
+                    highestFd = highestFd(),
+                )
             when (val pid = fork()) {
                 -1 -> {
+                    log.error { "fork() failed (errno $errno) spawning ${command.first()}" }
                     close(readFd)
                     close(writeFd)
-                    null
+                    close(devNullFd)
+                    Spawn.Failed
                 }
 
                 0 -> {
-                    close(readFd)
-                    dup2(writeFd, STDERR_FILENO)
-                    close(writeFd)
-                    execv(execPath, argv)
-                    _exit(MISSING_BINARY_EXIT_CODE)
-                    error("unreachable: _exit does not return")
+                    becomeChild(child)
                 }
 
                 else -> {
                     close(writeFd)
-                    Spawned(pid, readFd)
+                    close(devNullFd)
+                    Spawn.Started(pid, readFd)
                 }
             }
         }
+    }
+
+    /**
+     * Runs in the forked child and never returns: `dup2`, the descriptor sweep, `execv`, `_exit`.
+     * Every value it touches was built before the fork, so it allocates nothing.
+     */
+    private fun becomeChild(plan: ChildPlan): Nothing {
+        dup2(plan.stderrWriteFd, STDERR_FILENO)
+        dup2(plan.devNullFd, STDIN_FILENO)
+        dup2(plan.devNullFd, STDOUT_FILENO)
+        // Runs *after* the dup2s, which is the whole ordering constraint: the sweep closes the
+        // originals it just copied down — the pipe's two ends and /dev/null — along with every
+        // socket and file the server had open. Stdin, stdout and stderr survive it.
+        lu_close_fds_from(FIRST_INHERITABLE_FD, plan.highestFd)
+        execv(plan.executablePath, plan.argv)
+        _exit(MISSING_BINARY_EXIT_CODE)
+        error("unreachable: _exit does not return")
+    }
+
+    private fun MemScope.argv(command: List<String>): CPointer<CPointerVar<ByteVar>> {
+        val argv = allocArray<CPointerVar<ByteVar>>(command.size + 1)
+        for (i in command.indices) argv[i] = command[i].cstr.getPointer(this)
+        argv[command.size] = null
+        return argv
     }
 
     /**
@@ -174,6 +268,12 @@ actual class ProcessRunner {
         return null
     }
 
+    /** The parent's descriptor ceiling, read before the fork because `sysconf` may allocate. */
+    private fun highestFd(): UInt {
+        val limit = sysconf(_SC_OPEN_MAX)
+        return if (limit <= 0) MAX_FD_SCAN.toUInt() else minOf(limit, MAX_FD_SCAN).toUInt()
+    }
+
     private fun readStderr(
         fd: Int,
         onStderr: (String) -> Unit,
@@ -182,6 +282,9 @@ actual class ProcessRunner {
         val pending = StringBuilder()
         while (true) {
             val n = buffer.usePinned { pinned -> read(fd, pinned.addressOf(0), buffer.size.convert()).toInt() }
+            // A signal can interrupt a blocking read before any byte arrives. Treating that as EOF
+            // would truncate the child's diagnostics and reap it early.
+            if (n < 0 && errno == EINTR) continue
             if (n <= 0) break
             for (i in 0 until n) {
                 val b = buffer[i]
@@ -197,11 +300,16 @@ actual class ProcessRunner {
         close(fd)
     }
 
-    private fun reap(pid: Int): Int =
-        memScoped {
+    private fun reap(pid: Int): Int {
+        // Cleared *before* the wait, under the lock: `waitpid` is what frees the pid for reuse, so
+        // no `kill` may hold it across that moment. A kill arriving from here on finds 0 and does
+        // nothing — correct, because stderr reaching EOF already means the child is gone.
+        synchronized(lock) { childPid = 0 }
+        return memScoped {
             val statusVar = alloc<IntVar>()
-            waitpid(pid, statusVar.ptr, 0)
-            childPid.value = 0
+            while (waitpid(pid, statusVar.ptr, 0) < 0 && errno == EINTR) {
+                // A signal interrupted the wait; the child has not been reaped yet, so wait again.
+            }
             val status = statusVar.value
             if (status and WAIT_STATUS_SIGNAL_MASK == 0) {
                 (status shr WAIT_STATUS_EXIT_SHIFT) and WAIT_STATUS_EXIT_MASK
@@ -209,11 +317,32 @@ actual class ProcessRunner {
                 SIGNALED_EXIT_BASE + (status and WAIT_STATUS_SIGNAL_MASK)
             }
         }
+    }
 
-    private class Spawned(
-        val pid: Int,
-        val stderrReadFd: Int,
+    /**
+     * Everything the child needs, built in the parent so the child itself allocates nothing —
+     * [highestFd] included, since `sysconf` is not on POSIX's async-signal-safe list either.
+     */
+    private class ChildPlan(
+        val argv: CPointer<CPointerVar<ByteVar>>,
+        val executablePath: CPointer<ByteVar>,
+        val stderrWriteFd: Int,
+        val devNullFd: Int,
+        val highestFd: UInt,
     )
+
+    private sealed interface Spawn {
+        class Started(
+            val pid: Int,
+            val stderrReadFd: Int,
+        ) : Spawn
+
+        /** Nothing executable by that name — the answer the provisioner's boot probe is asking for. */
+        data object BinaryNotFound : Spawn
+
+        /** A `pipe`/`open`/`fork` syscall failed. Operational, already logged with its errno. */
+        data object Failed : Spawn
+    }
 
     private companion object {
         const val NEWLINE: Byte = '\n'.code.toByte()

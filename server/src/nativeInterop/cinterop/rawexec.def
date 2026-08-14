@@ -1,5 +1,10 @@
 package = rawexec
 ---
+// The two things a forked child does before it becomes another program, declared raw so that
+// neither of them can allocate. Nothing here includes a libc header on purpose: `execv` below
+// deliberately disagrees with `<unistd.h>`'s declaration of it, and pulling the real one in would
+// be a conflicting-types error.
+
 // A raw `execv(2)` declaration — deliberately NOT via `platform.posix`, whose `execv` binding maps
 // `const char *path` to a convenience Kotlin `String?` parameter. That convenience costs an implicit,
 // malloc-backed interop memory scope at every call site to marshal the Kotlin String into a C string.
@@ -10,3 +15,25 @@ package = rawexec
 // exec so the forked child performs provably zero allocation before replacing its image — a raw
 // pointer built in the parent, pre-fork, and handed straight through.
 int execv(const void *path, char *const argv[]);
+
+long syscall(long number, ...);
+int close(int fd);
+
+// close_range(2)'s syscall number, identical on every architecture that has it. Written out rather
+// than taken from <sys/syscall.h> because Kotlin/Native's sysroot headers predate the call.
+#define LU_SYS_CLOSE_RANGE 436
+
+// Closes every descriptor from `first` upwards in the forked child, so the process it is about to
+// become inherits none of the server's: not the listening socket, not a live client connection,
+// not the SQLite handle. `fork()` duplicates the whole descriptor table and nothing in this server
+// sets FD_CLOEXEC, so without this an ffmpeg child is handed all of it — in an image whose whole
+// point is a small attack surface.
+//
+// One syscall on Linux 5.9+. Older kernels answer ENOSYS — a Synology NAS on a 4.4 kernel is a real
+// deployment target — so a plain close() walk up to `last` is the fallback; `last` is the parent's
+// descriptor ceiling, read before the fork because sysconf() is not async-signal-safe. Both paths
+// are: raw syscalls, no allocation, no locks.
+static void lu_close_fds_from(unsigned int first, unsigned int last) {
+    if (syscall(LU_SYS_CLOSE_RANGE, (long) first, (long) ~0U, 0L) == 0) return;
+    for (unsigned int fd = first; fd <= last; fd++) close((int) fd);
+}

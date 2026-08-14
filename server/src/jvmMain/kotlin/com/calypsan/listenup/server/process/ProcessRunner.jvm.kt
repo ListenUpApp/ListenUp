@@ -1,47 +1,48 @@
 package com.calypsan.listenup.server.process
 
 import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.logging.loggerFor
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.job
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.io.BufferedReader
+import java.io.File
 import java.io.IOException
 import java.io.InputStreamReader
 
-/** A missing/unresolvable binary is a normal outcome (the provisioner probes for one), not a crash. */
-private const val MISSING_BINARY_EXIT_CODE = 127
+private val log = loggerFor<ProcessRunner>()
 
 actual class ProcessRunner {
     private val started = CompletableDeferred<Unit>()
+    private val lock = SynchronizedObject()
 
-    @Volatile
+    /** Guarded by [lock] — see [kill] for why the adoption of a fresh child is a critical section. */
     private var process: Process? = null
+
+    /** Guarded by [lock]. Records a [kill] that arrived before there was a child to kill. */
+    private var killRequested = false
 
     actual suspend fun run(
         command: List<String>,
         onStderr: (String) -> Unit,
     ): Int =
-        withContext(fileIoDispatcher) {
-            // If the surrounding coroutine is cancelled while the child is still running, kill it —
-            // an abandoned transcode must not leak a running ffmpeg process.
-            currentCoroutineContext().job.invokeOnCompletion { kill() }
-
-            val proc =
-                try {
-                    ProcessBuilder(command).redirectErrorStream(false).start()
-                } catch (expected: IOException) {
-                    // A missing/unresolvable binary is a normal outcome here, not an error to log.
-                    started.complete(Unit)
-                    return@withContext MISSING_BINARY_EXIT_CODE
-                }
-            process = proc
-            started.complete(Unit)
-
-            BufferedReader(InputStreamReader(proc.errorStream)).use { reader ->
-                reader.lineSequence().forEach(onStderr)
+        coroutineScope {
+            val child = async(fileIoDispatcher) { runToCompletion(command, onStderr) }
+            try {
+                child.await()
+            } catch (cancellation: CancellationException) {
+                // `job.invokeOnCompletion { kill() }` cannot serve here: the body below is blocking
+                // with no suspension point, so the job cannot reach a final state until that body
+                // has already finished by itself — the handler would fire *after* the child exited
+                // on its own, which is never. `await()` resumes the moment the caller is cancelled,
+                // so the kill lands mid-blocking-call, and `coroutineScope` then waits for the reap
+                // before the cancellation propagates.
+                kill()
+                throw cancellation
             }
-            proc.waitFor()
         }
 
     actual suspend fun awaitStarted() {
@@ -49,6 +50,77 @@ actual class ProcessRunner {
     }
 
     actual fun kill() {
-        process?.destroyForcibly()
+        synchronized(lock) {
+            killRequested = true
+            process?.destroyForcibly()
+        }
+    }
+
+    private fun runToCompletion(
+        command: List<String>,
+        onStderr: (String) -> Unit,
+    ): Int {
+        // Resolved here rather than left to `start()`: an IOException from ProcessBuilder folds a
+        // missing binary together with permission denied, E2BIG and fd exhaustion, and the three
+        // want very different reactions. Mirrors the native actual, which resolves in the parent
+        // anyway so the forked child can call the async-signal-safe `execv`.
+        if (resolveExecutable(command.first()) == null) {
+            started.complete(Unit)
+            return MISSING_BINARY_EXIT_CODE
+        }
+
+        val process =
+            try {
+                ProcessBuilder(command)
+                    // stdout goes nowhere rather than into a pipe nobody drains: past ~64KB an
+                    // undrained pipe blocks the child forever. FFmpeg's diagnostics are on stderr,
+                    // which we do read.
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectErrorStream(false)
+                    .start()
+            } catch (failure: IOException) {
+                log.error(failure) { "Spawning ${command.first()} failed" }
+                started.complete(Unit)
+                return SPAWN_FAILED_EXIT_CODE
+            }
+        // Closing the pipe hands the child EOF on stdin. Without it an FFmpeg prompt
+        // ("overwrite? [y/n]") would sit there waiting for an answer that never comes.
+        process.outputStream.close()
+
+        adopt(process)
+        started.complete(Unit)
+
+        BufferedReader(InputStreamReader(process.errorStream)).use { reader ->
+            reader.lineSequence().forEach(onStderr)
+        }
+        return process.waitFor()
+    }
+
+    /** Takes ownership of [spawned], honouring a [kill] that arrived while it was being started. */
+    private fun adopt(spawned: Process) {
+        val alreadyKilled =
+            synchronized(lock) {
+                process = spawned
+                killRequested
+            }
+        if (alreadyKilled) spawned.destroyForcibly()
+    }
+
+    /**
+     * Resolves [name] the way `execvp` would: a name containing a separator is taken as a path,
+     * anything else is searched for on `$PATH`. `null` means nothing executable was found, which is
+     * a normal answer — the provisioner asks exactly this question at boot.
+     */
+    private fun resolveExecutable(name: String): File? {
+        if (name.contains('/') || name.contains(File.separatorChar)) {
+            return File(name).takeIf { it.canExecute() }
+        }
+        val searchPath = System.getenv("PATH") ?: return null
+        return searchPath
+            .split(File.pathSeparatorChar)
+            .asSequence()
+            .filter { it.isNotEmpty() }
+            .map { File(it, name) }
+            .firstOrNull { it.canExecute() }
     }
 }
