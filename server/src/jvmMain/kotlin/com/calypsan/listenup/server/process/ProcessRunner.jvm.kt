@@ -1,13 +1,9 @@
 package com.calypsan.listenup.server.process
 
-import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
@@ -25,25 +21,12 @@ actual class ProcessRunner {
     /** Guarded by [lock]. Records a [kill] that arrived before there was a child to kill. */
     private var killRequested = false
 
+    // Named argument, not a trailing lambda into the last slot: both parameters are functional, and
+    // naming them is what stops a future one from silently stealing the block.
     actual suspend fun run(
         command: List<String>,
         onStderr: (String) -> Unit,
-    ): Int =
-        coroutineScope {
-            val child = async(fileIoDispatcher) { runToCompletion(command, onStderr) }
-            try {
-                child.await()
-            } catch (cancellation: CancellationException) {
-                // `job.invokeOnCompletion { kill() }` cannot serve here: the body below is blocking
-                // with no suspension point, so the job cannot reach a final state until that body
-                // has already finished by itself — the handler would fire *after* the child exited
-                // on its own, which is never. `await()` resumes the moment the caller is cancelled,
-                // so the kill lands mid-blocking-call, and `coroutineScope` then waits for the reap
-                // before the cancellation propagates.
-                kill()
-                throw cancellation
-            }
-        }
+    ): Int = runKillingChildOnCancellation(killChild = ::kill) { runToCompletion(command, onStderr) }
 
     actual suspend fun awaitStarted() {
         started.await()

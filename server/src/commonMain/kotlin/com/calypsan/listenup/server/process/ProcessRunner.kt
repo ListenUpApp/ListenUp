@@ -1,5 +1,10 @@
 package com.calypsan.listenup.server.process
 
+import com.calypsan.listenup.server.io.fileIoDispatcher
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+
 /** A missing/unresolvable binary is a normal outcome (the provisioner probes for one), not a crash. */
 internal const val MISSING_BINARY_EXIT_CODE = 127
 
@@ -8,8 +13,44 @@ internal const val MISSING_BINARY_EXIT_CODE = 127
  * but could not be executed. Deliberately outside the 0..255 range a real child can exit with, so a
  * caller can never mistake an operational failure for the child's own status. Always logged: fd or
  * process exhaustion is an operational emergency, and it must not read as "FFmpeg isn't installed".
+ *
+ * ⚠️ The paths that return this — a failed `pipe`, `open` or `fork`, and `ProcessBuilder`'s
+ * `IOException` — are **review-verified, not test-pinned**: provoking those syscalls into failing
+ * needs rlimit surgery no portable spec can do.
  */
 internal const val SPAWN_FAILED_EXIT_CODE = -1
+
+/**
+ * Runs [blockingWork] off the caller's thread and returns its exit code, calling [killChild] if the
+ * caller is cancelled first.
+ *
+ * ⛔ **`currentCoroutineContext().job.invokeOnCompletion { kill() }` cannot do this job**, which is
+ * the whole reason this exists. Its single-argument form is `onCancelling = false`, so it fires only
+ * once the job reaches a *final* state — and [blockingWork] is a blocking call with no suspension
+ * point, so the job cannot get there until that work has already finished by itself. Measured on the
+ * real thing: cancelling 100ms into a 2s body fired the handler at ~2005ms. If FFmpeg hangs, the
+ * kill never happens at all.
+ *
+ * `await()` resumes the instant the caller is cancelled, so the kill lands mid-blocking-call, and
+ * `coroutineScope` still waits for [blockingWork] to unwind — which is what makes the child reliably
+ * *reaped*, not merely signalled, before the cancellation propagates.
+ *
+ * Lives in commonMain because both actuals need exactly this and the reasoning above is too subtle
+ * to keep two copies of.
+ */
+internal suspend fun runKillingChildOnCancellation(
+    killChild: () -> Unit,
+    blockingWork: () -> Int,
+): Int =
+    coroutineScope {
+        val child = async(fileIoDispatcher) { blockingWork() }
+        try {
+            child.await()
+        } catch (cancellation: CancellationException) {
+            killChild()
+            throw cancellation
+        }
+    }
 
 /**
  * Spawns one external process, streams its stderr, and can kill it.

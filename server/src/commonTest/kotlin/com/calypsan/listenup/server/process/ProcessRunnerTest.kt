@@ -134,6 +134,8 @@ class ProcessRunnerTest :
 
         // stdout is discarded rather than piped: a pipe nobody drains blocks the writer for good
         // once the ~64KB buffer fills, and the child would hang holding a transcode open.
+        // ⚠️ This pins the JVM fix (mutation-verified). Native never piped stdout — it inherited
+        // fd 1 — so on that lane it asserts an invariant rather than catching the old bug.
         test("a child that floods stdout is not blocked by an undrained pipe") {
             val runner = ProcessRunner()
             val code =
@@ -145,6 +147,8 @@ class ProcessRunnerTest :
 
         // The child reads /dev/null (native) or a closed pipe (JVM), never the server's own stdin —
         // an ffmpeg prompt must not be able to consume it, and must not wait forever for an answer.
+        // ⚠️ Mutation-verified on JVM. On native its strength depends on what stdin the test binary
+        // itself inherits under Gradle: if that is already empty, the test passes either way there.
         test("a child reading stdin sees EOF rather than the server's input") {
             val runner = ProcessRunner()
             val code =
@@ -181,6 +185,10 @@ class ProcessRunnerTest :
             }
         }
 
+        // ⚠️ A smoke test, NOT a regression pin for the pid-reuse fix — it would pass against the
+        // unlocked version too. The child here is nowhere near being reaped, and the real race
+        // (kill concurrent with `waitpid`, microseconds wide) cannot be provoked deterministically;
+        // that fix is argued structurally in `kill`/`reap` instead of tested.
         test("kill from several coroutines at once is safe") {
             val runner = ProcessRunner()
             val result =

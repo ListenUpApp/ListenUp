@@ -2,7 +2,6 @@
 
 package com.calypsan.listenup.server.process
 
-import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
@@ -24,10 +23,7 @@ import kotlinx.cinterop.set
 import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import platform.posix.EINTR
 import platform.posix.O_RDWR
 import platform.posix.SIGKILL
@@ -70,9 +66,13 @@ private const val READ_BUFFER_BYTES = 4096
 private const val FIRST_INHERITABLE_FD = 3u
 
 /**
- * Ceiling for the child's close() walk when `close_range` is unavailable. Only reached on a
- * pre-5.9 kernel, where an `RLIMIT_NOFILE` above this is vanishingly unlikely; a bounded walk beats
- * a million wasted syscalls in a process that is about to `execv` anyway.
+ * Ceiling for the child's close() walk when `close_range` is unavailable — the pre-5.9-kernel path
+ * only; the syscall itself always sweeps to `UINT_MAX`.
+ *
+ * Container defaults do set `RLIMIT_NOFILE` above this (1,048,576 is common), so the clamp is real —
+ * but descriptors are handed out lowest-free-first, so a number above 65,536 means the server is
+ * genuinely holding ~65,536 open files, which it never is. A bounded walk beats a million wasted
+ * syscalls in a process that is about to `execv` anyway.
  */
 private const val MAX_FD_SCAN = 65_536L
 
@@ -115,25 +115,12 @@ actual class ProcessRunner {
     /** Guarded by [lock]. Records a [kill] that arrived before there was a child to kill. */
     private var killRequested = false
 
+    // Named argument, not a trailing lambda into the last slot: both parameters are functional, and
+    // naming them is what stops a future one from silently stealing the block.
     actual suspend fun run(
         command: List<String>,
         onStderr: (String) -> Unit,
-    ): Int =
-        coroutineScope {
-            val child = async(fileIoDispatcher) { runToCompletion(command, onStderr) }
-            try {
-                child.await()
-            } catch (cancellation: CancellationException) {
-                // `job.invokeOnCompletion { kill() }` cannot serve here: the body below is blocking
-                // with no suspension point, so the job cannot reach a final state until that body
-                // has already finished by itself — the handler would fire *after* the child exited
-                // on its own, which is never. `await()` resumes the moment the caller is cancelled,
-                // so the kill lands mid-blocking-call, and `coroutineScope` then waits for the reap
-                // before the cancellation propagates.
-                kill()
-                throw cancellation
-            }
-        }
+    ): Int = runKillingChildOnCancellation(killChild = ::kill) { runToCompletion(command, onStderr) }
 
     actual suspend fun awaitStarted() {
         started.await()
@@ -238,6 +225,11 @@ actual class ProcessRunner {
         // socket and file the server had open. Stdin, stdout and stderr survive it.
         lu_close_fds_from(FIRST_INHERITABLE_FD, plan.highestFd)
         execv(plan.executablePath, plan.argv)
+        // ⚠️ Known parity gap with the JVM actual, and an unavoidable one. Reaching this line means
+        // `execv` failed *after* the parent's `access(X_OK)` said it would not — a permission change
+        // between the two, or ENOEXEC — which the JVM actual would log and report as
+        // SPAWN_FAILED_EXIT_CODE. Here it is indistinguishable from "not installed", because nothing
+        // in a forked child may allocate, and logging allocates.
         _exit(MISSING_BINARY_EXIT_CODE)
         error("unreachable: _exit does not return")
     }
