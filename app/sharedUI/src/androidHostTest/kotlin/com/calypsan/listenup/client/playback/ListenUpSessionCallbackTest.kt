@@ -314,6 +314,46 @@ class ListenUpSessionCallbackTest {
     // Room is typically empty when genuinely signed out, which is precisely what made it easy to
     // miss: "no results" reads as a missing book, not as a missing session.
 
+    // ⛔ The one that cost a Play policy rejection (Auto App Quality: "app does not load in the
+    // Android Auto environment"). The browse *tree* may be walled off when signed out; the browse
+    // *root* may not. A root that errors leaves the browser with no content hierarchy at all, and
+    // the head unit answers with "ListenUp doesn't seem to be working right now" — the app reads as
+    // broken rather than as signed out, and there is no sign-in prompt to act on.
+    //
+    // This is not a judgement call. Google's media-browser guidance is explicit: "The onGetRoot()
+    // method should quickly return a non-null value. User authentication and other slow processes
+    // shouldn't run in onGetRoot()", and a client that may not browse still gets "a non-null
+    // BrowserRoot" whose "root ID should represent an empty content hierarchy".
+    //
+    // NeedsServerUrl is the state a reviewer is guaranteed to be in: ListenUp is self-hosted, so
+    // there is no server for them to sign in to, and this was reachable on any fresh install.
+    @Test
+    fun `onGetLibraryRoot returns a root when signed out, so Auto can connect at all`() {
+        val callback = browseCallback(authState = AuthState.NeedsServerUrl)
+
+        val result =
+            callback.onLibrarySession { session, browser ->
+                callback.onGetLibraryRoot(session, browser, null)
+            }
+
+        result.resultCode shouldBe LibraryResult.RESULT_SUCCESS
+    }
+
+    // The other half of the same fix: opening the root must not cost us the sign-in prompt. The
+    // gate moves down one level, it does not disappear — the car connects, asks for the root's
+    // children, and *there* gets the typed error carrying the sign-in action.
+    @Test
+    fun `onGetChildren still returns the signed-out error, so the car still prompts to sign in`() {
+        val callback = browseCallback(authState = AuthState.NeedsServerUrl)
+
+        val result =
+            callback.onLibrarySession { session, browser ->
+                callback.onGetChildren(session, browser, BrowseTree.ROOT, 0, 20, null)
+            }
+
+        result.resultCode shouldBe SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED
+    }
+
     @Test
     fun `onGetItem returns the signed-out error instead of resolving a book`() {
         val callback = browseCallback(authState = AuthState.NeedsLogin(openRegistration = false))

@@ -177,12 +177,18 @@ internal class ListenUpSessionCallback(
             logger.debug { "onGetLibraryRoot rejected for untrusted controller: ${browser.packageName}" }
             return Futures.immediateFuture(LibraryResult.ofError(LibraryResult.RESULT_ERROR_PERMISSION_DENIED))
         }
-        if (browseNeedsSignIn(authSession.authState.value)) {
-            logger.debug { "onGetLibraryRoot: signed out — returning auth error" }
-            return Futures.immediateFuture(
-                LibraryResult.ofError(AutoBrowseErrors.signedOutError(context, copy)),
-            )
-        }
+        // ⛔ The root NEVER gates on sign-in, however signed out we are. A root that errors leaves
+        // the browser with no content hierarchy, and the head unit answers "ListenUp doesn't seem
+        // to be working right now" — the app reads as broken rather than as signed out, and there
+        // is no sign-in prompt left to act on. It cost a Play policy rejection (Auto App Quality:
+        // "app does not load in the Android Auto environment"), reachable on any fresh install,
+        // and guaranteed for a reviewer: ListenUp is self-hosted, so they have no server to sign
+        // in to. Google's guidance is explicit that onGetRoot returns a non-null root quickly and
+        // that authentication does not belong in it.
+        //
+        // The gate is not lost, it sits one level down: onGetChildren still answers with the typed
+        // signed-out error carrying the sign-in action, which is the surface Auto can actually
+        // render as a prompt. Both halves are pinned in ListenUpSessionCallbackTest.
         logger.debug { "onGetLibraryRoot" }
         val root = browseTreeProvider.getRoot()
         return Futures.immediateFuture(LibraryResult.ofItem(root, params))
