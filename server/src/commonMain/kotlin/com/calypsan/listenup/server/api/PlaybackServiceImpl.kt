@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
@@ -55,7 +56,15 @@ internal class PlaybackServiceImpl(
     private val clock: Clock = Clock.System,
 ) : PlaybackService {
 
-    override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> {
+    // The capability arguments are accepted but not yet consulted: the contract widens here so the
+    // client half can be written against it, and the policy that reads them arrives with the
+    // transcode engine. Ignoring them is deliberate and keeps this method bit-identical to the
+    // pre-transcoding behaviour, which is what the legacy-client guarantee requires anyway.
+    override suspend fun prepare(
+        bookId: BookId,
+        capabilities: Set<CodecCapability>?,
+        forceTranscode: Boolean,
+    ): AppResult<PreparedPlayback> {
         val p = principal.current()
             ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
         val book = bookRepository.findById(bookId)
