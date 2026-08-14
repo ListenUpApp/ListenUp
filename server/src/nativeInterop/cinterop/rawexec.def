@@ -1,0 +1,12 @@
+package = rawexec
+---
+// A raw `execv(2)` declaration — deliberately NOT via `platform.posix`, whose `execv` binding maps
+// `const char *path` to a convenience Kotlin `String?` parameter. That convenience costs an implicit,
+// malloc-backed interop memory scope at every call site to marshal the Kotlin String into a C string.
+// `path` is typed `const void *` here (not `const char *`) purely to steer cinterop away from that
+// same String convenience mapping — verified empirically: cinterop maps `const char *` to `String?`
+// on ANY .def, not just platform.posix's, but leaves `const void *` (and pointer-array params, like
+// `argv` below) as a raw pointer type. ProcessRunner.linux.kt calls this between `fork()` and the
+// exec so the forked child performs provably zero allocation before replacing its image — a raw
+// pointer built in the parent, pre-fork, and handed straight through.
+int execv(const void *path, char *const argv[]);
