@@ -30,7 +30,9 @@ struct ContributorDetailView: View {
 
     var body: some View {
         Group {
-            if let observer, !observer.isLoading {
+            if let observer, observer.notFound {
+                notFoundView
+            } else if let observer, !observer.isLoading {
                 content(observer: observer)
             } else {
                 loadingView
@@ -41,7 +43,9 @@ struct ContributorDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                if observer != nil {
+                // Edit/merge/delete make no sense on a row that no longer exists.
+                // (`== false` keeps `observer` optional so the body's chaining stays valid.)
+                if observer?.notFound == false {
                     Menu {
                         Button {
                             showEdit = true
@@ -364,6 +368,16 @@ struct ContributorDetailView: View {
 
     private var loadingView: some View {
         LoadingStateView()
+    }
+
+    /// Terminal state for a contributor with no live local row — merged into another
+    /// contributor or genuinely missing. The navigation bar's back button is the way out.
+    private var notFoundView: some View {
+        ContentUnavailableView {
+            Label(String(localized: "contributor.no_longer_here"), systemImage: "person.slash")
+        } description: {
+            Text(String(localized: "contributor.no_longer_here_detail"))
+        }
     }
 }
 

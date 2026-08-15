@@ -11,6 +11,8 @@ final class ContributorDetailObserver {
 
     private(set) var isLoading: Bool = true
     private(set) var error: String?
+    /// Terminal: the contributor has no live local row (merged away or genuinely missing).
+    private(set) var notFound: Bool = false
     private(set) var roleSections: [RoleSectionRow] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var isDeleting: Bool = false
@@ -81,9 +83,15 @@ final class ContributorDetailObserver {
         case .idle, .loading:
             isLoading = true
             error = nil
+            notFound = false
+        case .notFound:
+            isLoading = false
+            error = nil
+            notFound = true
         case .ready(let r):
             isLoading = false
             error = nil
+            notFound = false
             let contributor = r.contributor
             name = contributor.name
             bio = contributor.description_
@@ -102,10 +110,12 @@ final class ContributorDetailObserver {
         case .error(let err):
             isLoading = false
             error = err.message
+            notFound = false
         case .unknown:
             Log.error("Unexpected ContributorDetailUiState case")
             isLoading = false
             error = String(localized: "common.something_went_wrong")
+            notFound = false
         }
     }
 
