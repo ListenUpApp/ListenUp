@@ -15,6 +15,16 @@ struct ContributorDetailView: View {
     @State private var observer: ContributorDetailObserver?
     @State private var showEdit = false
     @State private var showFindOnAudible = false
+    /// Set when an edit-sheet merge re-targets this screen; from then on it shows the survivor
+    /// instead. (A rename-collision merge soft-deletes the contributor we were opened with; an
+    /// alias merge survives in place, so the re-target is a same-id refresh.)
+    @State private var mergedIntoContributorId: String?
+
+    /// The contributor actually on screen — the survivor after a merge, otherwise the one we were
+    /// opened with. Re-targeting in place is deliberate: pushing the survivor would leave the
+    /// deleted contributor in the back stack for the reader to return to, and popping to the
+    /// library would lose their place. `.task(id:)` reloads when this changes.
+    private var activeContributorId: String { mergedIntoContributorId ?? contributorId }
 
     private var isRegular: Bool { hSize == .regular }
 
@@ -75,16 +85,19 @@ struct ContributorDetailView: View {
             Text(String(localized: "contributor.remove_from_library"))
         }
         .sheet(isPresented: $showEdit) {
-            ContributorEditView(contributorId: contributorId)
+            ContributorEditView(
+                contributorId: activeContributorId,
+                onMergedInto: { survivor in mergedIntoContributorId = survivor }
+            )
         }
         .sheet(isPresented: $showFindOnAudible) {
-            ContributorMetadataView(contributorId: contributorId)
+            ContributorMetadataView(contributorId: activeContributorId)
         }
-        .task(id: contributorId) {
+        .task(id: activeContributorId) {
             let vm = deps.createContributorDetailViewModel()
             let obs = ContributorDetailObserver(viewModel: vm)
             observer = obs
-            obs.loadContributor(contributorId: contributorId)
+            obs.loadContributor(contributorId: activeContributorId)
         }
         .onDisappear {
             // Release the observer; its deinit cancels the FlowBridge subscriptions.
@@ -152,7 +165,7 @@ struct ContributorDetailView: View {
             ContributorAvatar(
                 name: observer.name,
                 imagePath: observer.imagePath,
-                id: contributorId,
+                id: activeContributorId,
                 fontSize: 40,
                 streamsContributorPhoto: true
             )
@@ -304,7 +317,7 @@ struct ContributorDetailView: View {
             Spacer()
             if section.showViewAll {
                 NavigationLink(value: ContributorBooksDestination(
-                    contributorId: contributorId,
+                    contributorId: activeContributorId,
                     role: section.role,
                     contributorName: contributorName,
                     roleDisplayName: section.displayName

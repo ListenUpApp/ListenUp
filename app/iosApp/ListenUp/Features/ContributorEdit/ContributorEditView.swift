@@ -4,6 +4,11 @@ import Shared
 /// Presented sheet for editing a contributor: avatar, name, bio, website, birth/death dates.
 struct ContributorEditView: View {
     let contributorId: String
+    /// Called with the surviving contributor's id when a merge commits. After a rename-collision
+    /// merge the contributor this sheet was editing has been soft-deleted, so the presenter must go
+    /// somewhere other than back to it; after an alias merge the survivor is this contributor,
+    /// reloaded.
+    var onMergedInto: ((String) -> Void)?
 
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
@@ -122,7 +127,13 @@ struct ContributorEditView: View {
                         onDismiss: { showMergeSheet = false }
                     )
                 }
-                .onChange(of: observer.didFinish) { _, finished in if finished { dismiss() } }
+                .onChange(of: observer.didFinish) { _, finished in
+                    guard finished else { return }
+                    // Report the merge BEFORE dismissing: once this sheet is gone the observer goes
+                    // with it, and the presenter would have no way to learn where the survivor is.
+                    if let merged = observer.mergedIntoContributorId { onMergedInto?(merged) }
+                    dismiss()
+                }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }

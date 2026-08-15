@@ -23,6 +23,10 @@ final class ContributorEditObserver {
     private(set) var isUploadingImage: Bool = false
     private(set) var error: String?
     private(set) var didFinish: Bool = false
+    /// Set alongside `didFinish` when a merge committed: the id of the contributor that survived it.
+    /// After a rename-collision merge the contributor this screen was editing has been deleted and
+    /// the survivor is elsewhere; after an alias merge the survivor is this contributor itself.
+    private(set) var mergedIntoContributorId: String?
     private(set) var aliases: [String] = []
     private(set) var mergeQuery: String = ""
     private(set) var mergeCandidates: [MergeCandidate] = []
@@ -100,6 +104,12 @@ final class ContributorEditObserver {
     private func applyNav(_ action: ContributorEditNavAction) {
         switch onEnum(of: action) {
         case .navigateBack, .saveSuccess: didFinish = true
+        case .navigateToMerged(let merged):
+            // A merge can soft-delete the contributor being edited (the rename-collision path), so
+            // dismissing would return to a detail page for something that no longer exists. Surface
+            // the survivor so the presenting detail view can re-target itself in place.
+            mergedIntoContributorId = merged.contributorId.value
+            didFinish = true
         case .unknown: Log.error("Unexpected ContributorEditNavAction case")
         }
     }
