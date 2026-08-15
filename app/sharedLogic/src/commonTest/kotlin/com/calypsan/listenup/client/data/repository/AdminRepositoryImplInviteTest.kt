@@ -10,6 +10,9 @@ import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.error.TransportError
+import com.calypsan.listenup.api.dto.admin.AdminServerSettings
+import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
@@ -18,6 +21,9 @@ import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -110,6 +116,24 @@ private class FakeServerConfig(
     override suspend fun clearAll() = Unit
 }
 
+/**
+ * Answers `getServerSettings()` with a configured [remoteUrl], the way a server whose operator has
+ * set a WAN address does.
+ */
+private class FakeInviteSettingsService(
+    private val remoteUrl: String?,
+) : AdminSettingsService {
+    override suspend fun getServerSettings(): AppResult<AdminServerSettings> =
+        AppResult.Success(
+            AdminServerSettings(serverName = "Test", remoteUrl = remoteUrl, inboxEnabled = false),
+        )
+
+    override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> =
+        AppResult.Success(
+            AdminServerSettings(serverName = "Test", remoteUrl = remoteUrl, inboxEnabled = false),
+        )
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 class AdminRepositoryImplInviteTest :
@@ -118,15 +142,43 @@ class AdminRepositoryImplInviteTest :
         fun buildRepo(
             service: FakeInviteService,
             serverUrl: String = "https://srv.example",
+            settings: AdminSettingsService = mock<AdminSettingsService>(),
         ): AdminRepositoryImpl =
             AdminRepositoryImpl(
                 adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
-                adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
+                adminSettingsChannel = RpcChannel.forTest(settings),
                 inviteAdminChannel = RpcChannel.forTest(service),
                 libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                 serverConfig = FakeServerConfig(serverUrl),
                 adminUserRosterDao = mock(),
             )
+
+        // ⛔ The one that stranded a real invitee. The link's `&remote=` came from a CLIENT-LOCAL
+        // copy of the WAN address, refreshed only when `getServerInfo()` misses its cache — so on a
+        // device that last refreshed before the operator set the URL, the parameter was silently
+        // omitted and the link carried a LAN address the invitee could never reach. The link looked
+        // completely normal; the invitee just got an invite error.
+        //
+        // `FakeServerConfig.getRemoteUrl()` is null here on purpose: that IS the broken state. The
+        // server knows its own address, so the link must be built from the server's answer.
+        test("a server-configured remote URL reaches the invite link even when the local copy is empty") {
+            val service = FakeInviteService()
+            val repo = buildRepo(service, settings = FakeInviteSettingsService("https://remote.example"))
+
+            val created = repo.createInvite(email = "ada@x", role = "ADMIN", expiresInDays = 7)
+
+            created.getOrNull().shouldNotBeNull().url shouldContain "remote=https%3A%2F%2Fremote.example"
+        }
+
+        // The counter-case: a server with no WAN address configured must not grow a bogus parameter.
+        test("no remote URL configured leaves the invite link without a remote parameter") {
+            val service = FakeInviteService()
+            val repo = buildRepo(service, settings = FakeInviteSettingsService(null))
+
+            val created = repo.createInvite(email = "ada@x", role = "ADMIN", expiresInDays = 7)
+
+            created.getOrNull().shouldNotBeNull().url shouldNotContain "remote="
+        }
 
         test("getInvites maps InviteSummary list to InviteInfo with reconstructed url") {
             val service = FakeInviteService()

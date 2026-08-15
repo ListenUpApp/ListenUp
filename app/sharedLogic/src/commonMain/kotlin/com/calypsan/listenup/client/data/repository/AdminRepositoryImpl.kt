@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.getOrNull
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.dto.AccessMode as ContractAccessMode
@@ -184,8 +185,24 @@ internal class AdminRepositoryImpl(
      * so an invitee off the local network can still connect. `null` when unset or identical to the
      * local URL (no point carrying a duplicate). The claim flow tries local first, then this.
      */
-    private suspend fun inviteRemoteUrl(serverUrl: String): String? =
-        serverConfig.getRemoteUrl()?.value?.takeIf { it.isNotBlank() && it != serverUrl }
+    private suspend fun inviteRemoteUrl(serverUrl: String): String? {
+        // Ask the SERVER, which is the only authority on its own external address. The client-local
+        // copy is refreshed only when `getServerInfo()` misses its cache, so a device that last
+        // refreshed before the operator set the URL mints links with no `&remote=` at all — the link
+        // looks entirely normal and strands every off-LAN invitee on a LAN address they cannot
+        // reach. Creating an invite is already an admin action, so this call costs nothing extra in
+        // permissions.
+        //
+        // The local copy remains the fallback: a settings call that fails degrades to the old
+        // behaviour rather than dropping an address we may well already have.
+        val fromServer =
+            adminSettingsChannel
+                .call(idempotent = true) { it.getServerSettings() }
+                .getOrNull()
+                ?.remoteUrl
+        val resolved = fromServer ?: serverConfig.getRemoteUrl()?.value
+        return resolved?.takeIf { it.isNotBlank() && it != serverUrl }
+    }
 
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
         inviteAdminChannel.call { it.revokeInvite(InviteId(inviteId)) }
