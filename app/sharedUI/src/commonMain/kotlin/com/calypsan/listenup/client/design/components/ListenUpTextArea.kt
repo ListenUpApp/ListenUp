@@ -16,6 +16,9 @@ import androidx.compose.ui.text.input.ImeAction
  * Uses [MaterialTheme.shapes.medium] for consistent corner radius across the app.
  * Inherits dynamic color support from the theme.
  *
+ * Owns its caret locally (see [rememberOwnedTextFieldState]): [value] round-trips asynchronously
+ * through the caller, so a stale echo of the user's own keystroke must never clamp the selection.
+ *
  * @param value Current text value
  * @param onValueChange Callback when text changes
  * @param label Floating label text
@@ -44,9 +47,12 @@ fun ListenUpTextArea(
     keyboardOptions: KeyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
     keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
+    val ownedText = rememberOwnedTextFieldState(value)
     OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = ownedText.fieldValue,
+        onValueChange = { newValue ->
+            if (ownedText.edit(newValue)) onValueChange(newValue.text)
+        },
         label = { Text(label) },
         placeholder = placeholder?.let { { Text(it) } },
         enabled = enabled,

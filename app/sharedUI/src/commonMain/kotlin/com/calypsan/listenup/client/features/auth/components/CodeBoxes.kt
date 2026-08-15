@@ -19,11 +19,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.rememberOwnedTextFieldState
 
 /**
  * How many characters the out-of-band reset code carries. Must match the server's
@@ -53,6 +56,10 @@ const val CODE_FIELD_TAG: String = "code-field"
  * the admin actually read out. This mirrors the server rather than adding a second rule: the
  * separator a person naturally speaks or types is the most likely mistranscription, and rejecting
  * it would fail the exact user this flow exists to rescue.
+ *
+ * Owns its text locally (see [rememberOwnedTextFieldState]): because the input is transformed
+ * before propagating, the caller's echo never equals the raw keystroke, so a `String`-overload
+ * field would churn its buffer against every stale echo and silently drop characters.
  */
 @Composable
 internal fun CodeBoxes(
@@ -62,9 +69,18 @@ internal fun CodeBoxes(
     isError: Boolean = false,
     onDone: () -> Unit = {},
 ) {
+    val ownedText = rememberOwnedTextFieldState(value)
     BasicTextField(
-        value = value,
-        onValueChange = { raw -> onValueChange(raw.normalizedCode()) },
+        value = ownedText.fieldValue,
+        onValueChange = { raw ->
+            // Normalise before storing, so the local truth — and therefore the echo the caller
+            // sends back — is always the code the server would read. Caret to the end of the
+            // normalised text: dropped separators shift it, and the code is only ever appended to.
+            val normalized = raw.text.normalizedCode()
+            if (ownedText.edit(TextFieldValue(normalized, TextRange(normalized.length)))) {
+                onValueChange(normalized)
+            }
+        },
         modifier = modifier.testTag(CODE_FIELD_TAG),
         textStyle = MaterialTheme.typography.headlineSmall,
         // The cells carry their own focus affordance; a caret floating over them would be a second,
@@ -78,7 +94,7 @@ internal fun CodeBoxes(
             ),
         keyboardActions = KeyboardActions(onNext = { onDone() }),
         singleLine = true,
-        decorationBox = { CodeCells(value, isError) },
+        decorationBox = { CodeCells(ownedText.fieldValue.text, isError) },
     )
 }
 

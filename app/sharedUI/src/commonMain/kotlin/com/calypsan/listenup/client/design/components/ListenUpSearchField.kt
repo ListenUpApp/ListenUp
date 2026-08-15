@@ -26,6 +26,9 @@ import listenup.composeapp.generated.resources.common_clear_search
  * Uses [MaterialTheme.shapes.medium] for consistent corner radius.
  * Handles Enter key for search submission.
  *
+ * Owns its caret locally (see [rememberOwnedTextFieldState]): [value] round-trips asynchronously
+ * through the caller, so a stale echo of the user's own keystroke must never clamp the selection.
+ *
  * @param value Current search text
  * @param onValueChange Callback when text changes
  * @param onSubmit Callback when Enter key is pressed
@@ -46,9 +49,12 @@ fun ListenUpSearchField(
     isLoading: Boolean = false,
     onClear: (() -> Unit)? = null,
 ) {
+    val ownedText = rememberOwnedTextFieldState(value)
     OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
+        value = ownedText.fieldValue,
+        onValueChange = { newValue ->
+            if (ownedText.edit(newValue)) onValueChange(newValue.text)
+        },
         placeholder = { Text(placeholder) },
         enabled = enabled,
         singleLine = true,
@@ -66,7 +72,9 @@ fun ListenUpSearchField(
                     ListenUpLoadingIndicator(size = 20.dp)
                 }
 
-                value.isNotEmpty() && onClear != null -> {
+                // Gate on the local text — it is what the field renders, so the clear affordance
+                // never disagrees with what the user sees while an echo is in flight.
+                ownedText.fieldValue.text.isNotEmpty() && onClear != null -> {
                     IconButton(onClick = onClear) {
                         Icon(
                             imageVector = Icons.Default.Clear,
