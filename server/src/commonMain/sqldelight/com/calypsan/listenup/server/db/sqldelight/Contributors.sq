@@ -142,12 +142,16 @@ SELECT alias FROM contributor_aliases WHERE contributor_id = :contributor_id;
 -- pen name credited in file tags resolves to the contributor who claims it instead of
 -- minting a duplicate row. A tombstoned contributor's aliases claim nothing. The table
 -- is small (aliases are user-curated facts only), so normalization happens in Kotlin
--- (normalizeForDedup), not SQL.
+-- (normalizeForDedup), not SQL. The ORDER BY is load-bearing: alias rows are rewritten
+-- delete-then-insert on every contributor upsert, so an unordered scan follows rowid
+-- churn — with first-claim-wins map building, the smallest contributor id must win a
+-- duplicate claim deterministically, not whoever upserted least recently.
 selectLiveAliases:
 SELECT ca.alias, ca.contributor_id
 FROM contributor_aliases ca
 JOIN contributors c ON c.id = ca.contributor_id
-WHERE c.deleted_at IS NULL;
+WHERE c.deleted_at IS NULL
+ORDER BY ca.contributor_id, ca.alias;
 
 aliasesForIds:
 SELECT contributor_id, alias FROM contributor_aliases WHERE contributor_id IN :ids;

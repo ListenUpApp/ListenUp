@@ -16,6 +16,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -454,6 +455,47 @@ class ContributorRepositoryTest :
             }
         }
 
+        test("duplicate alias claims resolve to a deterministic winner across re-upserts") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val first = repo.resolveOrCreate("First Claimant", sortName = null)
+                    val second = repo.resolveOrCreate("Second Claimant", sortName = null)
+                    repo.upsert(repo.findById(first.value)!!.copy(aliases = listOf("Shared Pen")))
+                    repo.upsert(repo.findById(second.value)!!.copy(aliases = listOf("Shared Pen")))
+                    // The deterministic rule: the smallest contributor id wins the claim.
+                    val expected = if (first.value < second.value) first else second
+
+                    val before = repo.resolveOrCreate("Shared Pen", sortName = null)
+                    // Re-upserting a claimant rewrites its alias rows (delete-then-insert),
+                    // churning rowids — an unordered alias scan would flip the winner here,
+                    // relinking books nondeterministically between rescans.
+                    repo.upsert(repo.findById(first.value)!!)
+                    val after = repo.resolveOrCreate("Shared Pen", sortName = null)
+
+                    before shouldBe expected
+                    after shouldBe expected
+                }
+            }
+        }
+
+        test("a tombstoned contributor's aliases claim nothing") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val ghost = repo.resolveOrCreate("Ghost Writer", sortName = null)
+                    repo.upsert(repo.findById(ghost.value)!!.copy(aliases = listOf("Haunted Pen")))
+                    repo.softDelete(ghost).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val resolved = repo.resolveOrCreate("Haunted Pen", sortName = null)
+
+                    resolved shouldNotBe ghost // a dead claimant must not capture the name
+                    repo.findById(ghost.value)!!.deletedAt.shouldNotBeNull() // stays tombstoned
+                    repo.listLiveIds() shouldBe setOf(resolved.value) // fresh row minted instead
+                }
+            }
+        }
+
         test("a live exact-name contributor wins over another live contributor's alias claim") {
             withSqlDatabase {
                 val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
@@ -530,6 +572,15 @@ class ContributorRepositoryTest :
                         .executeAsOne()
                         .deleted_at
                         .shouldBeNull()
+                    // Exactly one new row minted (Brand New Author) — the alias and redirect
+                    // keys resolved to existing contributors without creating anything.
+                    repo.listLiveIds() shouldBe
+                        setOf(
+                            rowling.value,
+                            survivor.value,
+                            purged.value,
+                            resolved[keyOf("Brand New Author")]!!.value,
+                        )
                 }
             }
         }

@@ -250,6 +250,8 @@ class ContributorRepository(
                     .selectByNormalizedName(normalized)
                     .executeAsOneOrNull()
             }
+        // Live dedup hit first, BEFORE any alias load — the common rescan case stays one SELECT.
+        if (existing != null && existing.deleted_at == null) return ContributorId(existing.id)
         if (followIndirection) {
             resolveThroughIndirection(
                 hitId = existing?.id,
@@ -259,7 +261,8 @@ class ContributorRepository(
                 aliasOwnerByNameKey = liveAliasOwnersByNameKey(),
             )?.let { return it }
         } else if (existing != null) {
-            if (existing.deleted_at != null) reviveTombstonedHit(existing.id)
+            // Tombstoned here (live returned above): the bypass wants revive-or-create only.
+            reviveTombstonedHit(existing.id)
             return ContributorId(existing.id)
         }
         return createContributor(name, derivedSortName)
@@ -358,9 +361,11 @@ class ContributorRepository(
      * Loads every curated alias belonging to a live contributor as a
      * `normalizeForDedup(alias) → owner id` map. Plain-name keying is deliberate: aliases are
      * display-shaped ("Robert Galbraith"), so [contributorDedupKey]'s sort-name form would
-     * never match a queried display name. First owner wins if two live contributors claim the
-     * same alias. The table is small — aliases are user-curated facts only — so a full load
-     * per resolution pass is cheap.
+     * never match a queried display name. If two live contributors claim the same alias, the
+     * SMALLEST contributor id wins — the query orders by `(contributor_id, alias)` and the
+     * first claim per key is kept, so the winner cannot flip with alias-row rewrite order
+     * between rescans. The table is small — aliases are user-curated facts only — so a full
+     * load per resolution pass is cheap.
      */
     private suspend fun liveAliasOwnersByNameKey(): Map<String, String> {
         val rows = suspendTransaction(db) { db.contributorsQueries.selectLiveAliases().executeAsList() }
