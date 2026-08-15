@@ -26,14 +26,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorCandidate
+import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.core.ContributorId
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.common_search
 import listenup.composeapp.generated.resources.contributor_merge_body
 import listenup.composeapp.generated.resources.contributor_merge_confirm
+import listenup.composeapp.generated.resources.contributor_merge_no_matches
 import listenup.composeapp.generated.resources.contributor_merge_search_placeholder
 import listenup.composeapp.generated.resources.contributor_merge_title
+import listenup.composeapp.generated.resources.contributor_merge_truncated
 import org.jetbrains.compose.resources.stringResource
 
 private const val LIST_MAX_HEIGHT_DP = 280
@@ -50,6 +53,10 @@ private const val SELECTED_BG_ALPHA = 0.4f
  * list are owned by the host ViewModel and passed in.
  *
  * @param candidates Live merge-target candidates (already filtered by [query] on the VM).
+ * @param truncated Whether [candidates] is only the leading slice of a longer list. The list is
+ *   capped and opens unfiltered, so on a real library it shows thirty A-names and the person the
+ *   reader wants is usually absent. Saying so is what stops a truncated list reading as a complete
+ *   one — the mistake behind "merging doesn't work".
  * @param query Current search-query value; bound to the text field.
  * @param onQueryChange Called as the user types.
  * @param onConfirm Called with the highlighted candidate's id when the user taps Merge.
@@ -58,6 +65,7 @@ private const val SELECTED_BG_ALPHA = 0.4f
 @Composable
 fun ContributorMergeDialog(
     candidates: List<ContributorCandidate>,
+    truncated: Boolean,
     query: String,
     onQueryChange: (String) -> Unit,
     onConfirm: (ContributorId) -> Unit,
@@ -83,6 +91,24 @@ fun ContributorMergeDialog(
                     label = stringResource(Res.string.common_search),
                     placeholder = stringResource(Res.string.contributor_merge_search_placeholder),
                 )
+                // Above the list, not below it: the list is capped at LIST_MAX_HEIGHT_DP, so a
+                // notice placed underneath is pushed out of the dialog exactly when it is needed —
+                // when the list is long. Beside the search field is also where it is actionable.
+                if (candidates.isEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(Res.string.contributor_merge_no_matches),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (truncated) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(Res.string.contributor_merge_truncated, MAX_MERGE_CANDIDATES),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(
                     modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT_DP.dp),

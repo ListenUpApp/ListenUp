@@ -6251,6 +6251,16 @@
         }
       }
     },
+    "contributor.merge_no_matches": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No contributors match that search."
+          }
+        }
+      }
+    },
     "contributor.merge_search_placeholder": {
       "localizations": {
         "en": {
@@ -6267,6 +6277,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add an alias"
+          }
+        }
+      }
+    },
+    "contributor.merge_truncated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing the first %1$d. Search to find anyone else."
           }
         }
       }
@@ -11781,6 +11801,16 @@
         }
       }
     },
+    "series.merge_no_matches": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No series match that search."
+          }
+        }
+      }
+    },
     "series.merge_search_placeholder": {
       "localizations": {
         "en": {
@@ -11797,6 +11827,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Merge into…"
+          }
+        }
+      }
+    },
+    "series.merge_truncated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Showing the first %1$d. Search to find anything else."
           }
         }
       }

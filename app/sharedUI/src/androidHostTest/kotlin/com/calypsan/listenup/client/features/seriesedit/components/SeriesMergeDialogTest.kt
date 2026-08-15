@@ -27,6 +27,7 @@ class SeriesMergeDialogTest {
             MaterialTheme {
                 SeriesMergeDialog(
                     candidates = listOf(CANDIDATE),
+                    truncated = false,
                     query = "",
                     bookCount = PLURAL_BOOK_COUNT,
                     onQueryChange = {},
@@ -46,6 +47,7 @@ class SeriesMergeDialogTest {
             MaterialTheme {
                 SeriesMergeDialog(
                     candidates = listOf(CANDIDATE),
+                    truncated = false,
                     query = "",
                     bookCount = SINGULAR_BOOK_COUNT,
                     onQueryChange = {},

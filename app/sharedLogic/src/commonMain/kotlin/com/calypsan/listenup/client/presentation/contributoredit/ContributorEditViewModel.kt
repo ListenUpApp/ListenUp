@@ -32,8 +32,14 @@ import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
-/** Maximum number of merge-target candidates surfaced in the picker dialog. */
-private const val MAX_MERGE_CANDIDATES = 30
+/**
+ * Maximum number of merge-target candidates surfaced in the picker dialog.
+ *
+ * Public because the dialog has to tell the reader when the list it is showing is only the first
+ * [MAX_MERGE_CANDIDATES] of a much longer one. A silently truncated list reads as a complete one,
+ * which is how "my author isn't in here" became "merging is broken".
+ */
+const val MAX_MERGE_CANDIDATES = 30
 
 /** Idle timeout before stopping merge-candidate collection. */
 private const val STOP_TIMEOUT_MS = 5_000L
