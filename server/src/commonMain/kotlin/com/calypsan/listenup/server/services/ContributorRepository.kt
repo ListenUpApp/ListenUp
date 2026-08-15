@@ -10,6 +10,7 @@ import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.db.sqldelight.Contributors
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.scanner.pipeline.SortKeys
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
@@ -21,6 +22,8 @@ import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
+
+private val log = loggerFor<ContributorRepository>()
 
 /**
  * SQLDelight syncable repository for contributors (Books-B1, SQLDelight cutover).
@@ -308,7 +311,8 @@ class ContributorRepository(
      * Revives a tombstoned dedup hit in place: re-upserts the row's own read-back payload with
      * `deletedAt = null`. The base `upsert` bumps the domain revision and publishes
      * [com.calypsan.listenup.api.sync.SyncEvent.Updated]; [writePayload]'s update branch always
-     * clears `deleted_at`. The id stays stable, so junction rows written against it resolve again —
+     * clears `deleted_at` — and `merged_into` with it, since a redirect lives only on
+     * tombstoned rows. The id stays stable, so junction rows written against it resolve again —
      * the same revive semantics as [BookRepository.reviveById] (clear deleted_at + bump revision +
      * publish Updated), composed from the existing substrate instead of a dedicated query.
      * Enrichment columns survive because the payload is the row's own current content.
@@ -321,16 +325,17 @@ class ContributorRepository(
     /**
      * Merge-specific tombstone: soft-deletes the merged-away [source] AND records the
      * server-only `merged_into` redirect to [target] in the same UPDATE statement, so a
-     * tombstoned loser can never exist without the redirect scan-time name resolution will
-     * follow to keep the merge durable across rescans. Revision bump, timestamping, the [SyncEvent.Deleted] publication, and the
-     * [FirehoseSuppressed]/[FrameCapture] gates all mirror the base
-     * [SqlSyncableRepository.softDelete] exactly — `merged_into` itself never crosses the wire.
+     * tombstoned loser can never exist without the redirect that scan-time name resolution
+     * will follow to keep the merge durable across rescans. The same transaction re-points
+     * any redirect already aiming at [source] to [target], so every redirect stays
+     * single-hop no matter how many merges stack up. Revision bump, timestamping, the
+     * [SyncEvent.Deleted] publication, and the [FirehoseSuppressed]/[FrameCapture] gates all
+     * mirror the base [SqlSyncableRepository.softDelete] exactly — `merged_into` itself never
+     * crosses the wire.
      */
     suspend fun softDeleteMergedInto(
         source: ContributorId,
         target: ContributorId,
-        clientOpId: String? = null,
-        userId: String? = null,
     ): AppResult<Unit> {
         val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val capture = currentCoroutineContext()[FrameCapture.Key]
@@ -338,13 +343,16 @@ class ContributorRepository(
             suspendTransaction(db) {
                 val rev = nextRevision()
                 val now = clock.now().toEpochMilliseconds()
+                // Flatten chains first: rows redirecting to the source now redirect to the
+                // target, keeping every redirect single-hop forever.
+                db.contributorsQueries.repointMergedInto(to_id = target.value, from_id = source.value)
                 val rowsAffected =
                     db.contributorsQueries
                         .softDeleteMergedIntoById(
                             revision = rev,
                             updated_at = now,
                             deleted_at = now,
-                            client_op_id = clientOpId,
+                            client_op_id = null,
                             merged_into = target.value,
                             id = source.value,
                         ).value
@@ -361,10 +369,12 @@ class ContributorRepository(
                             id = source.value,
                             revision = rev,
                             occurredAt = now,
-                            clientOpId = clientOpId,
+                            clientOpId = null,
                         )
                     if (!suppressed) {
-                        emitAfterCommit(event = event, userId = userId)
+                        emitAfterCommit(event = event)
+                    } else {
+                        log.debug { "change suppressed (firehose): domain=$domainName id=${source.value}" }
                     }
                     AppResult.Success(event)
                 }

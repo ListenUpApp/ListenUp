@@ -277,7 +277,7 @@ class ContributorServiceImplMergeTest :
 
         // ── Alias hygiene: source's name never becomes an alias ────────────────
 
-        test("mergeContributors does not alias source's name when it's a punctuation variant of target's") {
+        test("mergeContributors never aliases source's name (punctuation variant)") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
@@ -298,7 +298,7 @@ class ContributorServiceImplMergeTest :
             }
         }
 
-        test("mergeContributors does not alias source's name even when it's not a punctuation variant") {
+        test("mergeContributors never aliases source's name (distinct name)") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
@@ -316,6 +316,31 @@ class ContributorServiceImplMergeTest :
 
                     val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
                     targetAfter.aliases.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("mergeContributors still aliases a source's genuine pre-existing alias despite a punctuation-variant name") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("George R. R. Martin", sortName = null)
+                    val sourcePayload = contributorRepo.findById(sourceId.value)!!
+                    contributorRepo
+                        .upsert(sourcePayload.copy(aliases = listOf("GRRM")))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    val targetId = contributorRepo.resolveOrCreate("George R.R. Martin", sortName = null)
+
+                    val result = service.mergeContributors(sourceId, targetId)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
+                    // The punctuation-variant name itself is skipped, but the genuine alias survives.
+                    targetAfter.aliases shouldContainExactlyInAnyOrder listOf("GRRM")
                 }
             }
         }
@@ -345,7 +370,7 @@ class ContributorServiceImplMergeTest :
             }
         }
 
-        test("mergeContributors still aliases a source's genuine pre-existing alias despite a punctuation-variant name") {
+        test("reviving a merged-away contributor clears merged_into") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
@@ -353,19 +378,42 @@ class ContributorServiceImplMergeTest :
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
                 runTest {
-                    val sourceId = contributorRepo.resolveOrCreate("George R. R. Martin", sortName = null)
-                    val sourcePayload = contributorRepo.findById(sourceId.value)!!
-                    contributorRepo
-                        .upsert(sourcePayload.copy(aliases = listOf("GRRM")))
-                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    val targetId = contributorRepo.resolveOrCreate("George R.R. Martin", sortName = null)
+                    val sourceId = contributorRepo.resolveOrCreate("Source Person", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Target Person", sortName = null)
+                    service.mergeContributors(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    val result = service.mergeContributors(sourceId, targetId)
-                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    // Re-resolving the merged-away name revives the tombstoned row in place —
+                    // the same dedup-hit path unmergeCore's resolveOrCreate takes.
+                    val revivedId = contributorRepo.resolveOrCreate("Source Person", sortName = null)
+                    revivedId shouldBe sourceId
 
-                    val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
-                    // The punctuation-variant name itself is skipped, but the genuine alias survives.
-                    targetAfter.aliases shouldContainExactlyInAnyOrder listOf("GRRM")
+                    // A redirect lives only on tombstoned rows: revival must clear it.
+                    val revivedRow = contributorRow(db, sourceId.value)
+                    revivedRow.deleted_at shouldBe null
+                    revivedRow.merged_into shouldBe null
+                }
+            }
+        }
+
+        test("chained merges keep every redirect single-hop") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val a = contributorRepo.resolveOrCreate("Person A", sortName = null)
+                    val b = contributorRepo.resolveOrCreate("Person B", sortName = null)
+                    val c = contributorRepo.resolveOrCreate("Person C", sortName = null)
+
+                    service.mergeContributors(a, b).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    service.mergeContributors(b, c).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // A→B then B→C flattens A's redirect to C at merge-write time, so no
+                    // reader ever has to walk a chain.
+                    contributorRow(db, a.value).merged_into shouldBe c.value
+                    contributorRow(db, b.value).merged_into shouldBe c.value
                 }
             }
         }

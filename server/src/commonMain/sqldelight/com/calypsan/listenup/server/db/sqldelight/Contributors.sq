@@ -88,12 +88,15 @@ INSERT INTO contributors (
 
 -- normalized_name is the dedup key established at INSERT — never updated (see
 -- ContributorRepository.writePayload). sort_name and the enrichment columns update.
+-- merged_into is cleared unconditionally: every update revives (deleted_at is always
+-- written NULL from writePayload), and a redirect lives only on tombstoned rows.
 update:
 UPDATE contributors
 SET name = :name, sort_name = :sort_name, asin = :asin, description = :description,
     image_path = :image_path, birth_date = :birth_date,
     death_date = :death_date, website = :website, revision = :revision,
-    updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
+    updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id,
+    merged_into = NULL
 WHERE id = :id;
 
 -- ── substrate queries ──────────────────────────────────────────────────────────
@@ -116,6 +119,12 @@ UPDATE contributors
 SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id, merged_into = :merged_into
 WHERE id = :id;
+
+-- Chain flattening: rows already redirecting to :from_id re-point at :to_id when
+-- :from_id is itself merged away, so every redirect stays single-hop forever and no
+-- reader ever walks a chain.
+repointMergedInto:
+UPDATE contributors SET merged_into = :to_id WHERE merged_into = :from_id;
 
 selectIdsAboveRevision:
 SELECT id, revision FROM contributors WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
