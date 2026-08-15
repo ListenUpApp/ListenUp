@@ -20,7 +20,8 @@ import androidx.compose.ui.text.input.ImeAction
  * through the caller, so a stale echo of the user's own keystroke must never clamp the selection.
  *
  * @param value Current text value
- * @param onValueChange Callback when text changes
+ * @param onValueChange Callback when text changes. Callers must echo the propagated string back
+ *   through [value] verbatim or not at all — never transformed (see [OwnedTextFieldState])
  * @param label Floating label text
  * @param modifier Optional modifier
  * @param placeholder Hint text shown when empty

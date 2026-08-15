@@ -30,7 +30,8 @@ import listenup.composeapp.generated.resources.common_clear_search
  * through the caller, so a stale echo of the user's own keystroke must never clamp the selection.
  *
  * @param value Current search text
- * @param onValueChange Callback when text changes
+ * @param onValueChange Callback when text changes. Callers must echo the propagated string back
+ *   through [value] verbatim or not at all — never transformed (see [OwnedTextFieldState])
  * @param onSubmit Callback when Enter key is pressed
  * @param placeholder Hint text shown when empty
  * @param modifier Optional modifier

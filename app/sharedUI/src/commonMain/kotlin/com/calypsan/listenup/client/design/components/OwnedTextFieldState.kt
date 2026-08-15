@@ -21,7 +21,13 @@ import androidx.compose.ui.text.input.TextFieldValue
  * (a no-op — the caret is never touched) from a genuine external replacement (adopted with the
  * caret at the end of the new text).
  *
- * Two edges are worth knowing:
+ * Three contract edges are worth knowing:
+ *
+ * **Echo-verbatim contract.** A caller that echoes must echo the propagated string VERBATIM, or
+ * not echo at all. A caller that needs to transform input (trim, uppercase, normalisation) must
+ * transform inside the component before propagating, the way `CodeBoxes` does — a transforming
+ * caller makes every echo read as an external replacement and silently drops in-flight
+ * keystrokes under latency, the exact bug class this class exists to fix.
  *
  * **Ordering assumption.** Callers must deliver value updates in order — a conflated `StateFlow`
  * collected into snapshot state (this codebase's ViewModel wiring) qualifies: conflation can SKIP

@@ -31,4 +31,24 @@ class OwnedTextFieldStateTest {
         state.fieldValue.text shouldBe "a".repeat(keystrokes)
         state.fieldValue.selection shouldBe TextRange(keystrokes)
     }
+
+    @Test
+    fun `a replacement colliding with an in-flight echo is ignored until a differing value heals it`() {
+        val state = OwnedTextFieldState("")
+        // The user types "a"; its echo settles the ledger head at "a"; then types on to "ab".
+        state.edit(TextFieldValue("a", TextRange(1)))
+        state.reconcile("a")
+        state.edit(TextFieldValue("ab", TextRange(2)))
+
+        // While the "ab" echo is in flight, the ViewModel genuinely replaces the value with "a" —
+        // a text the user typed through. Indistinguishable from a stale echo, so it is ignored:
+        // the documented one-round-trip degradation, preferred over clamping live typing.
+        state.reconcile("a")
+        state.fieldValue.text shouldBe "ab"
+
+        // The next differing caller value self-heals: adopted with the caret at the end.
+        state.reconcile("xyz")
+        state.fieldValue.text shouldBe "xyz"
+        state.fieldValue.selection shouldBe TextRange(3)
+    }
 }
