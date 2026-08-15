@@ -382,9 +382,12 @@ class ContributorServiceImplMergeTest :
                     val targetId = contributorRepo.resolveOrCreate("Target Person", sortName = null)
                     service.mergeContributors(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                    // Re-resolving the merged-away name revives the tombstoned row in place —
-                    // the same dedup-hit path unmergeCore's resolveOrCreate takes.
-                    val revivedId = contributorRepo.resolveOrCreate("Source Person", sortName = null)
+                    // Re-resolving the merged-away name with indirection bypassed revives the
+                    // tombstoned row in place — the same dedup-hit path unmergeCore's
+                    // resolveOrCreate takes. (The default path follows the redirect instead;
+                    // ContributorRepositoryTest pins that.)
+                    val revivedId =
+                        contributorRepo.resolveOrCreate("Source Person", sortName = null, followIndirection = false)
                     revivedId shouldBe sourceId
 
                     // A redirect lives only on tombstoned rows: revival must clear it.

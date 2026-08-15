@@ -280,8 +280,13 @@ internal class ContributorServiceImpl(
         //    a pre-existing live row with the same normalized name is reused rather than
         //    blind-inserted, which would violate the `normalized_name` unique index. Passing
         //    aliasName as both name and sortName keeps the canonical name free of `Last, First`
-        //    reordering, matching the prior blind-insert shape.
-        val newId = contributorRepo.resolveOrCreate(name = aliasName, sortName = aliasName)
+        //    reordering, matching the prior blind-insert shape. followIndirection = false is
+        //    load-bearing: the alias being split out still sits on the target at this point,
+        //    and a tombstoned merge-redirect row for the name (the merge → unmerge loop) points
+        //    at the target too — following either would return the target itself and make the
+        //    unmerge a no-op. This resolve wants exactly "revive the tombstoned row (revival
+        //    nulls its redirect) or create fresh".
+        val newId = contributorRepo.resolveOrCreate(name = aliasName, sortName = aliasName, followIndirection = false)
 
         // 2. Snapshot affected books, then re-link the matching junction rows to newId and clear
         //    credited_as — both over the single SQLDelight connection in one mini-transaction.

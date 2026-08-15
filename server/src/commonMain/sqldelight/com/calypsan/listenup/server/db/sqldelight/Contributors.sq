@@ -65,10 +65,11 @@ selectByNormalizedName:
 SELECT * FROM contributors WHERE normalized_name = :normalized_name;
 
 -- Batch dedup lookup: resolveOrCreateAll resolves a whole scan's contributors in one
--- query. Projects (normalized_name, id, deleted_at) so the caller builds the
--- dedup-key → id map without re-reading every column AND can revive tombstoned hits.
+-- query. Projects (normalized_name, id, deleted_at, merged_into) so the caller builds
+-- the dedup-key → id map without re-reading every column, revives tombstoned hits,
+-- AND follows merge redirects without a per-row re-read.
 selectByNormalizedNames:
-SELECT normalized_name, id, deleted_at FROM contributors WHERE normalized_name IN :normalized_names;
+SELECT normalized_name, id, deleted_at, merged_into FROM contributors WHERE normalized_name IN :normalized_names;
 
 -- Live (non-tombstoned) id strings — OrphanImageCleanupTask uses these to keep
 -- images whose contributor still exists.
@@ -136,6 +137,17 @@ SELECT id, revision FROM contributors WHERE deleted_at IS NULL AND revision <= :
 
 aliasesFor:
 SELECT alias FROM contributor_aliases WHERE contributor_id = :contributor_id;
+
+-- Curated aliases of LIVE contributors: scan-time name resolution consults these so a
+-- pen name credited in file tags resolves to the contributor who claims it instead of
+-- minting a duplicate row. A tombstoned contributor's aliases claim nothing. The table
+-- is small (aliases are user-curated facts only), so normalization happens in Kotlin
+-- (normalizeForDedup), not SQL.
+selectLiveAliases:
+SELECT ca.alias, ca.contributor_id
+FROM contributor_aliases ca
+JOIN contributors c ON c.id = ca.contributor_id
+WHERE c.deleted_at IS NULL;
 
 aliasesForIds:
 SELECT contributor_id, alias FROM contributor_aliases WHERE contributor_id IN :ids;
