@@ -18,6 +18,9 @@ final class SeriesEditObserver {
     private(set) var isUploadingCover: Bool = false
     private(set) var error: String?
     private(set) var didFinish: Bool = false
+    /// Set alongside `didFinish` when a merge committed: the id of the series that survived it.
+    /// Non-nil means the series this screen was editing has been deleted.
+    private(set) var mergedIntoSeriesId: String?
 
     private let viewModel: SeriesEditViewModel
     private let bridge = FlowBridge()
@@ -66,6 +69,14 @@ final class SeriesEditObserver {
     private func applyNav(_ action: SeriesEditNavAction) {
         switch onEnum(of: action) {
         case .navigateBack: didFinish = true
+        case .navigateToMerged(let merged):
+            // A merge soft-deletes the series being edited, so dismissing returns to a detail page
+            // for something that no longer exists. Android lands on the survivor instead; iOS
+            // cannot yet, because this screen is a sheet whose presenter owns navigation and has no
+            // way to be told where to go. The id is surfaced so a presenter can act on it — until
+            // one does, iOS keeps the old dismiss behaviour rather than silently doing nothing.
+            mergedIntoSeriesId = merged.seriesId.value
+            didFinish = true
         case .unknown:
             Log.error("Unexpected SeriesEditNavAction case")
         }

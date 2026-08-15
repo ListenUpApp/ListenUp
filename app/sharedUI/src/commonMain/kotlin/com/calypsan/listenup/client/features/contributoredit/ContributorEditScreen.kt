@@ -55,6 +55,7 @@ import com.calypsan.listenup.client.presentation.contributoredit.ContributorEdit
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiEvent
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditUiState
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
+import com.calypsan.listenup.client.presentation.contributoredit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.util.rememberImagePicker
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_edit_keep_editing
@@ -211,6 +212,8 @@ fun ContributorEditScreen(
     if (showMergeDialog) {
         ContributorMergeDialog(
             candidates = mergeCandidates,
+            // The VM caps the list, so a full page is the signal that more exist behind a search.
+            truncated = mergeCandidates.size >= MAX_MERGE_CANDIDATES,
             query = state.mergeQuery,
             onQueryChange = viewModel::onMergeQueryChange,
             onConfirm = { targetId ->

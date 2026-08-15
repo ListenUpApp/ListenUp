@@ -65,6 +65,7 @@ import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
 import com.calypsan.listenup.client.features.seriesedit.components.SeriesMergeDialog
+import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiState
@@ -104,6 +105,12 @@ fun SeriesEditScreen(
     seriesId: String,
     onBackClick: () -> Unit,
     onSaveSuccess: () -> Unit,
+    /**
+     * A merge committed; the surviving series' id. Separate from [onSaveSuccess] because this
+     * series no longer exists — the host must land on the survivor rather than pop back onto a
+     * deleted detail page.
+     */
+    onMergedInto: (String) -> Unit,
     viewModel: SeriesEditViewModel = koinViewModel { parametersOf(seriesId) },
 ) {
     LaunchedEffect(seriesId) {
@@ -117,6 +124,7 @@ fun SeriesEditScreen(
         viewModel.navActions.collect { navAction ->
             when (navAction) {
                 is SeriesEditNavAction.NavigateBack -> onSaveSuccess()
+                is SeriesEditNavAction.NavigateToMerged -> onMergedInto(navAction.seriesId.value)
             }
         }
     }
@@ -200,6 +208,8 @@ fun SeriesEditScreen(
     if (showMergeDialog) {
         SeriesMergeDialog(
             candidates = mergeCandidates,
+            // The VM caps the list, so a full page is the signal that more exist behind a search.
+            truncated = mergeCandidates.size >= MAX_MERGE_CANDIDATES,
             query = state.mergeQuery,
             bookCount = state.bookCount,
             onQueryChange = viewModel::onMergeQueryChange,

@@ -397,6 +397,40 @@ class SeriesEditViewModelTest :
                 verify { fixture.imageStagingRepository.requestSeriesCoverStagingCleanup("series-1") }
             }
         }
+
+        // A series merge soft-deletes the series being EDITED, so `NavigateBack` would pop the
+        // editor onto the detail page of something that no longer exists — an empty shell needing a
+        // second Back to escape. The survivor is the only destination that means anything, and it is
+        // never the entry behind us on the stack.
+        test("a committed merge lands on the surviving series, not back on the deleted one") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.seriesEditRepository.mergeSeries(any(), any()) } returns AppResult.Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                viewModel.navActions.test {
+                    viewModel.onEvent(
+                        SeriesEditUiEvent.MergeInto(
+                            com.calypsan.listenup.core
+                                .SeriesId("series-2"),
+                        ),
+                    )
+                    advanceUntilIdle()
+
+                    awaitItem() shouldBe
+                        SeriesEditNavAction.NavigateToMerged(
+                            com.calypsan.listenup.core
+                                .SeriesId("series-2"),
+                        )
+                }
+            }
+        }
     })
 
 private fun androidx.lifecycle.ViewModel.invokeOnCleared() {

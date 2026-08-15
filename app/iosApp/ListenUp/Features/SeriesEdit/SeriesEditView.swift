@@ -5,6 +5,9 @@ import Shared
 /// `SeriesEditViewModel` via `SeriesEditObserver`.
 struct SeriesEditView: View {
     let seriesId: String
+    /// Called with the surviving series' id when a merge commits. The series this sheet was editing
+    /// has been soft-deleted by then, so the presenter must go somewhere other than back to it.
+    var onMergedInto: ((String) -> Void)?
 
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
@@ -62,7 +65,13 @@ struct SeriesEditView: View {
                 } message: {
                     Text(observer.error ?? "")
                 }
-                .onChange(of: observer.didFinish) { _, finished in if finished { dismiss() } }
+                .onChange(of: observer.didFinish) { _, finished in
+                    guard finished else { return }
+                    // Report the merge BEFORE dismissing: once this sheet is gone the observer goes
+                    // with it, and the presenter would have no way to learn where the books went.
+                    if let merged = observer.mergedIntoSeriesId { onMergedInto?(merged) }
+                    dismiss()
+                }
             } else {
                 LoadingStateView()
             }

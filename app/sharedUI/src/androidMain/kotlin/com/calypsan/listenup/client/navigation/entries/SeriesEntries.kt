@@ -37,6 +37,16 @@ internal fun EntryProviderScope<NavKey>.seriesEntries(backStack: NavBackStack<Na
                 // Navigate back after successful save
                 backStack.removeAt(backStack.lastIndex)
             },
+            onMergedInto = { survivingSeriesId ->
+                // Drop BOTH the editor and the detail page beneath it: the merge soft-deleted the
+                // series they describe, so popping only the editor lands on an empty shell that
+                // takes another Back to escape. Land on the survivor instead.
+                backStack.removeAt(backStack.lastIndex)
+                if (backStack.lastOrNull() is SeriesDetail) {
+                    backStack.removeAt(backStack.lastIndex)
+                }
+                backStack.add(SeriesDetail(survivingSeriesId))
+            },
         )
     }
 }

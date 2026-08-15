@@ -379,6 +379,9 @@ private fun DetailScreen(
                 seriesId = destination.seriesId,
                 onBackClick = navigateBack,
                 onSaveSuccess = navigateBack,
+                // Land on the survivor: the merge soft-deleted the series being edited, so going
+                // back would show a detail page for something that no longer exists.
+                onMergedInto = { navigateTo(DetailDestination.Series(it)) },
             )
         }
 

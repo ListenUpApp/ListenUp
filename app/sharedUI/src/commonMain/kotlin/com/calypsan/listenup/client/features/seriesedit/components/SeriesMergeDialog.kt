@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.core.SeriesId
 import listenup.composeapp.generated.resources.Res
@@ -35,8 +36,10 @@ import listenup.composeapp.generated.resources.series_merge_body
 import listenup.composeapp.generated.resources.series_merge_book_count
 import listenup.composeapp.generated.resources.series_merge_book_count_plural
 import listenup.composeapp.generated.resources.series_merge_confirm
+import listenup.composeapp.generated.resources.series_merge_no_matches
 import listenup.composeapp.generated.resources.series_merge_search_placeholder
 import listenup.composeapp.generated.resources.series_merge_title
+import listenup.composeapp.generated.resources.series_merge_truncated
 import org.jetbrains.compose.resources.stringResource
 
 private const val LIST_MAX_HEIGHT_DP = 280
@@ -53,6 +56,9 @@ private const val SELECTED_BG_ALPHA = 0.4f
  * list are owned by the host ViewModel and passed in.
  *
  * @param candidates Live merge-target candidates (already filtered by [query] on the VM).
+ * @param truncated Whether [candidates] is only the leading slice of a longer list. The list is
+ *   capped and opens unfiltered, so on a real library the series the reader wants is usually
+ *   absent — and a silently truncated list reads as a complete one.
  * @param query Current search-query value; bound to the text field.
  * @param bookCount Books in the source series — the number that will move.
  * @param onQueryChange Called as the user types.
@@ -62,6 +68,7 @@ private const val SELECTED_BG_ALPHA = 0.4f
 @Composable
 fun SeriesMergeDialog(
     candidates: List<SeriesCandidate>,
+    truncated: Boolean,
     query: String,
     bookCount: Int,
     onQueryChange: (String) -> Unit,
@@ -107,6 +114,24 @@ fun SeriesMergeDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
+                // Above the list, not below it: the list is capped at LIST_MAX_HEIGHT_DP, so a
+                // notice underneath is pushed out of the dialog exactly when the list is long
+                // enough to need one.
+                if (candidates.isEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(Res.string.series_merge_no_matches),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else if (truncated) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = stringResource(Res.string.series_merge_truncated, MAX_MERGE_CANDIDATES),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(
                     modifier = Modifier.heightIn(max = LIST_MAX_HEIGHT_DP.dp),

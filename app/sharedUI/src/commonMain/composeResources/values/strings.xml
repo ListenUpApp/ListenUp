@@ -626,8 +626,10 @@ One beautiful library.</string>
     <string name="contributor_merge_body">The contributor you choose is merged into this one: their books are re-linked here (their original credit is preserved) and their name is added as an alias. The chosen contributor is then removed; this contributor's biography, image, and other details are kept.</string>
     <string name="contributor_merge_button">Add an alias</string>
     <string name="contributor_merge_confirm">Add alias</string>
+    <string name="contributor_merge_no_matches">No contributors match that search.</string>
     <string name="contributor_merge_search_placeholder">Search contributors…</string>
     <string name="contributor_merge_title">Add an alias</string>
+    <string name="contributor_merge_truncated">Showing the first %1$d. Search to find anyone else.</string>
     <string name="contributor_name_profile_image">%1$s profile image</string>
     <string name="contributor_new_image">New image</string>
     <string name="contributor_no_aliases_hint">No alternate names yet. Merge another author to add one.</string>
@@ -1179,8 +1181,10 @@ One beautiful library.</string>
     <string name="series_merge_book_count_plural">%1$d books will move.</string>
     <string name="series_merge_confirm">Merge</string>
     <string name="series_merge_into">Merge into…</string>
+    <string name="series_merge_no_matches">No series match that search.</string>
     <string name="series_merge_search_placeholder">Search series…</string>
     <string name="series_merge_title">Merge into…</string>
+    <string name="series_merge_truncated">Showing the first %1$d. Search to find anything else.</string>
     <string name="series_no_cover">No Cover</string>
     <string name="series_not_started">Not Started</string>
     <string name="series_progress_duration">%1$d% · %2$s</string>

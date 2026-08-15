@@ -22,6 +22,15 @@ struct SeriesDetailView: View {
     @State private var reversed: Bool = false
     @State private var showEdit: Bool = false
     @State private var showAuthors: Bool = false
+    /// Set when an edit-sheet merge soft-deletes the series we are showing; from then on this screen
+    /// shows the survivor instead.
+    @State private var mergedIntoSeriesId: String?
+
+    /// The series actually on screen — the survivor after a merge, otherwise the one we were opened
+    /// with. Re-targeting in place is deliberate: pushing the survivor would leave the deleted
+    /// series in the back stack for the reader to return to, and popping to the library would lose
+    /// their place. `.task(id:)` reloads when this changes.
+    private var activeSeriesId: String { mergedIntoSeriesId ?? seriesId }
 
     /// Up to this many author names render inline as tappable chips; beyond it the hero collapses to
     /// "{first} & N others" that opens the authors sheet. Matches Book Detail's inline limit.
@@ -56,7 +65,10 @@ struct SeriesDetailView: View {
             }
         }
         .sheet(isPresented: $showEdit) {
-            SeriesEditView(seriesId: seriesId)
+            SeriesEditView(
+                seriesId: activeSeriesId,
+                onMergedInto: { survivor in mergedIntoSeriesId = survivor }
+            )
         }
         .sheet(isPresented: $showAuthors) {
             SeriesAuthorsSheet(
@@ -64,11 +76,11 @@ struct SeriesDetailView: View {
                 onClose: { showAuthors = false }
             )
         }
-        .task(id: seriesId) {
+        .task(id: activeSeriesId) {
             let vm = deps.createSeriesDetailViewModel()
             let obs = SeriesDetailObserver(viewModel: vm, playerCoordinator: deps.playerCoordinator)
             observer = obs
-            obs.loadSeries(seriesId: seriesId)
+            obs.loadSeries(seriesId: activeSeriesId)
         }
         .onDisappear {
             // Release the observer; its deinit cancels the FlowBridge subscriptions.

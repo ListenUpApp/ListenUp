@@ -29,7 +29,7 @@ import kotlinx.coroutines.launch
 private val logger = KotlinLogging.logger {}
 
 /** Maximum number of merge-target candidates surfaced in the picker dialog. */
-private const val MAX_MERGE_CANDIDATES = 30
+const val MAX_MERGE_CANDIDATES = 30
 
 /** Idle timeout before stopping merge-candidate collection. */
 private const val STOP_TIMEOUT_MS = 5_000L
@@ -120,6 +120,18 @@ sealed interface SeriesEditUiEvent {
  */
 sealed interface SeriesEditNavAction {
     data object NavigateBack : SeriesEditNavAction
+
+    /**
+     * A merge committed; land on [seriesId], the series that survived it.
+     *
+     * Distinct from [NavigateBack] because a series merge deletes the series being *viewed* — so
+     * popping the editor would drop the reader onto the detail page of a series that no longer
+     * exists, showing an empty shell and requiring a second Back to escape. The surviving series
+     * is the only sensible destination, and it is never the one behind us on the stack.
+     */
+    data class NavigateToMerged(
+        val seriesId: SeriesId,
+    ) : SeriesEditNavAction
 }
 
 /**
@@ -294,7 +306,8 @@ class SeriesEditViewModel internal constructor(
             when (val result = seriesEditRepository.mergeSeries(SeriesId(sourceId), targetId)) {
                 is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
-                    _navActions.trySend(SeriesEditNavAction.NavigateBack)
+                    // The target, not back: this merge soft-deleted the series we were editing.
+                    _navActions.trySend(SeriesEditNavAction.NavigateToMerged(targetId))
                 }
 
                 is AppResult.Failure -> {
