@@ -24,6 +24,7 @@ private const val BOOK_ONE_ID = "merge-b1"
 private const val BOOK_TWO_ID = "merge-b2"
 private const val BOOK_THREE_ID = "merge-b3"
 private const val EXPLICIT_CREDITED_AS = "R. Bachman"
+private const val CURATED_ALIAS = "Dickie B"
 
 /**
  * Tier 3 e2e test for the Books-C2 contributor merge: a client-side call to
@@ -32,7 +33,8 @@ private const val EXPLICIT_CREDITED_AS = "R. Bachman"
  * `ContributorService`. The server relinks every `book_contributors` junction row
  * referencing the source onto the target (capturing source's display name into
  * `credited_as` when the column was NULL, preserving any explicit override),
- * absorbs source's display name + aliases into target's alias set, re-upserts
+ * transfers source's user-curated aliases into target's alias set (source's NAME
+ * is never manufactured into one — aliases are user-curated facts only), re-upserts
  * every affected book to bump revisions, soft-deletes the source, and emits a
  * burst of SSE events: one `books.Updated` per affected book + one
  * `contributors.Updated` for the target (alias change) + one `contributors.Deleted`
@@ -41,7 +43,7 @@ private const val EXPLICIT_CREDITED_AS = "R. Bachman"
  * All of these must land in client Room: every affected book's `book_contributors`
  * junction points at the target id (the [BookMirrorApply.applyContributors]
  * path replaces the junction set on every book upsert), the target's
- * `contributor_aliases` rows include the source's display name, and the source
+ * `contributor_aliases` rows include the source's curated alias, and the source
  * row carries `deletedAt != null`. The poll witness combines all three so the
  * cascade is only fully applied when SSE has delivered every event.
  *
@@ -56,13 +58,20 @@ class ContributorMergeE2ETest :
 
         test(
             "mergeContributor cascade: junction relink + creditedAs capture + " +
-                "target alias gain + source tombstone all land in client Room",
+                "curated alias transfer + source tombstone all land in client Room",
         ) {
             withClientSyncEngineAgainstServer {
                 // Seed source + target contributors. resolveOrCreate publishes a
                 // contributor.Created SSE event per call that the engine catches up on.
                 val sourceId = serverContributorRepository.resolveOrCreate(SOURCE_NAME, sortName = null)
                 val targetId = serverContributorRepository.resolveOrCreate(TARGET_NAME, sortName = null)
+                // A user-curated alias on the source: the merge must carry it to the target
+                // (curated facts follow their owner) while never manufacturing source's
+                // NAME into an alias.
+                val seededSource = serverContributorRepository.findById(sourceId.value).shouldNotBeNull()
+                serverContributorRepository
+                    .upsert(seededSource.copy(aliases = listOf(CURATED_ALIAS)))
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val sourcePayload =
                     BookContributorPayload(
                         id = sourceId.value,
@@ -121,7 +130,8 @@ class ContributorMergeE2ETest :
 
                 // Merge complete only when ALL of these hold in client Room:
                 //  - every affected book's junction points at target (via INNER-JOIN witness),
-                //  - target's alias junction contains source.name (from the contributor.Updated event),
+                //  - target's alias junction contains the curated alias (from the
+                //    contributor.Updated event),
                 //  - source row is tombstoned (from the contributor.Deleted event).
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
                     while (!mergeFullyLanded(
@@ -134,11 +144,17 @@ class ContributorMergeE2ETest :
                     }
                 }
 
+                // The merge never manufactures source's name into an alias: Room's final
+                // alias set for the target is the curated alias alone.
+                clientDatabase
+                    .contributorAliasDao()
+                    .getForContributor(targetId.value) shouldContainExactlyInAnyOrder listOf(CURATED_ALIAS)
+
                 // Dual assertion against the server side — proves the server is the
                 // one driving the client state, not a quirk of local handler logic.
                 val finalTargetServer =
                     serverContributorRepository.findById(targetId.value).shouldNotBeNull()
-                finalTargetServer.aliases shouldContainExactlyInAnyOrder listOf(SOURCE_NAME)
+                finalTargetServer.aliases shouldContainExactlyInAnyOrder listOf(CURATED_ALIAS)
                 serverContributorRepository
                     .findById(sourceId.value)
                     .shouldNotBeNull()
@@ -161,7 +177,7 @@ class ContributorMergeE2ETest :
 /**
  * True once every signal of a fully-applied merge is observable in client Room:
  * all three affected books' junctions point at [targetId], target's alias junction
- * contains the source's display name, and the source row is tombstoned.
+ * contains the source's curated alias, and the source row is tombstoned.
  */
 private suspend fun mergeFullyLanded(
     clientDb: ListenUpDatabase,
@@ -173,7 +189,7 @@ private suspend fun mergeFullyLanded(
         listOf(BOOK_ONE_ID, BOOK_TWO_ID, BOOK_THREE_ID).all { bookId ->
             contributorDao.getByBookId(bookId).any { it.id.value == targetId }
         }
-    val targetHasAlias = SOURCE_NAME in clientDb.contributorAliasDao().getForContributor(targetId)
+    val targetHasAlias = CURATED_ALIAS in clientDb.contributorAliasDao().getForContributor(targetId)
     val sourceTombstoned = contributorDao.getById(sourceId)?.deletedAt != null
     return booksOnTarget && targetHasAlias && sourceTombstoned
 }
