@@ -1,19 +1,26 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.db.sqldelight.Contributors
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.pipeline.SortKeys
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
+import com.calypsan.listenup.server.sync.FrameCapture
 import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
+import kotlinx.coroutines.currentCoroutineContext
 
 /**
  * SQLDelight syncable repository for contributors (Books-B1, SQLDelight cutover).
@@ -309,6 +316,65 @@ class ContributorRepository(
     private suspend fun reviveTombstonedHit(idStr: String) {
         val payload = findById(idStr) ?: return
         upsert(payload.copy(deletedAt = null), clientOpId = null)
+    }
+
+    /**
+     * Merge-specific tombstone: soft-deletes the merged-away [source] AND records the
+     * server-only `merged_into` redirect to [target] in the same UPDATE statement, so a
+     * tombstoned loser can never exist without the redirect a rescan needs to keep the merge
+     * durable. Revision bump, timestamping, the [SyncEvent.Deleted] publication, and the
+     * [FirehoseSuppressed]/[FrameCapture] gates all mirror the base
+     * [SqlSyncableRepository.softDelete] exactly — `merged_into` itself never crosses the wire.
+     */
+    suspend fun softDeleteMergedInto(
+        source: ContributorId,
+        target: ContributorId,
+        clientOpId: String? = null,
+        userId: String? = null,
+    ): AppResult<Unit> {
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        val capture = currentCoroutineContext()[FrameCapture.Key]
+        val result =
+            suspendTransaction(db) {
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                val rowsAffected =
+                    db.contributorsQueries
+                        .softDeleteMergedIntoById(
+                            revision = rev,
+                            updated_at = now,
+                            deleted_at = now,
+                            client_op_id = clientOpId,
+                            merged_into = target.value,
+                            id = source.value,
+                        ).value
+                if (rowsAffected == 0L) {
+                    AppResult.Failure(
+                        SyncError.NotFound(
+                            domain = domainName,
+                            entityId = source.value,
+                        ),
+                    )
+                } else {
+                    val event =
+                        SyncEvent.Deleted(
+                            id = source.value,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = clientOpId,
+                        )
+                    if (!suppressed) {
+                        emitAfterCommit(event = event, userId = userId)
+                    }
+                    AppResult.Success(event)
+                }
+            }
+        // Mirror the firehose emit so a mutation's own deletion reaches the originating device
+        // read-your-writes (see [FrameCapture]) — same shape as the base softDelete.
+        if (capture != null && !suppressed && result is AppResult.Success) {
+            capture.add(toSyncFrame(result.data))
+        }
+        return result.map { }
     }
 
     /** Reads a contributor by raw id outside substrate orchestration — test/diagnostic use. */

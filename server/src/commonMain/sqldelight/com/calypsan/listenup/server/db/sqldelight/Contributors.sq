@@ -5,6 +5,7 @@
 --   V18__b2a_substrate.sql       (asin, description, image_path,
 --                                 birth_date, death_date, website)
 --   V53__drop_blurhash_columns.sql (drops the dormant image_blur_hash column)
+--   V61__contributor_merged_into.sql (merged_into)
 --
 -- revision / created_at / updated_at are declared NOT NULL here so the generated
 -- column types are non-null `Long` — every live row carries them (V13 backfills the
@@ -32,7 +33,8 @@ CREATE TABLE contributors (
     image_path      TEXT,
     birth_date      TEXT,
     death_date      TEXT,
-    website         TEXT
+    website         TEXT,
+    merged_into     TEXT
 );
 
 CREATE UNIQUE INDEX idx_contributor_normalized ON contributors(normalized_name);
@@ -103,6 +105,16 @@ softDeleteById:
 UPDATE contributors
 SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
+WHERE id = :id;
+
+-- Merge tombstone: tombstones the merged-away loser AND records the merged_into redirect
+-- in ONE statement, so a tombstoned loser can never exist without its redirect. The
+-- redirect is server-only — it keeps merges durable across rescans without manufacturing
+-- an alias (aliases are user-curated facts only).
+softDeleteMergedIntoById:
+UPDATE contributors
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id, merged_into = :merged_into
 WHERE id = :id;
 
 selectIdsAboveRevision:
