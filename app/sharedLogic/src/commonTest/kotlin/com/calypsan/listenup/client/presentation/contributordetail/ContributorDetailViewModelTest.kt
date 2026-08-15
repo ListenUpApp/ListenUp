@@ -562,7 +562,7 @@ class ContributorDetailViewModelTest :
                 viewModel.loadContributor("contributor-1")
                 // The repository's on-demand RPC fallback emits null first, then the freshly
                 // cached row — advance part-way into the settle window before the row lands.
-                advanceTimeBy(100)
+                advanceTimeBy(ContributorDetailViewModel.NOT_FOUND_SETTLE_WINDOW / 2)
                 fixture.contributorFlow.value = createContributor(name = "Late Arrival")
                 fixture.rolesFlow.value = emptyList()
                 advanceUntilIdle()
@@ -570,6 +570,27 @@ class ContributorDetailViewModelTest :
                 val state = viewModel.state.value.shouldBeInstanceOf<ContributorDetailUiState.Ready>()
                 state.contributor.name shouldBe "Late Arrival"
                 observed.none { it is ContributorDetailUiState.NotFound } shouldBe true
+            }
+        }
+
+        test("a contributor row reappearing after NotFound recovers to Ready") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.state.value shouldBe ContributorDetailUiState.NotFound
+
+                // A fetch slower than the settle window (or a later sync) delivers the row —
+                // the pipeline is still live, so NotFound must flip to Ready, not stick.
+                fixture.contributorFlow.value = createContributor(name = "Recovered")
+                fixture.rolesFlow.value = emptyList()
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<ContributorDetailUiState.Ready>()
+                state.contributor.name shouldBe "Recovered"
             }
         }
 

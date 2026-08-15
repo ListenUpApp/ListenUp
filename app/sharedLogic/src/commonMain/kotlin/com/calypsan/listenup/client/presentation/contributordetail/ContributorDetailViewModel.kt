@@ -112,7 +112,9 @@ class ContributorDetailViewModel(
      * window. The grace period exists because [ContributorRepository.observeById]'s cache-miss RPC
      * fallback emits null first and only then re-emits the freshly cached row — an immediate
      * NotFound would flash before Ready. A row arriving inside the window cancels the pending
-     * emission (`flatMapLatest` upstream), so the happy path never sees NotFound.
+     * emission (`flatMapLatest` upstream), so in the common case the happy path never sees
+     * NotFound. A fetch slower than the window does show NotFound briefly, then self-corrects:
+     * the pipeline stays live, so the state flips to Ready the moment the row lands.
      */
     private fun settleIntoNotFound(): Flow<ContributorDetailUiState> =
         flow {
@@ -257,10 +259,14 @@ class ContributorDetailViewModel(
 
         /**
          * How long a null contributor row may linger before it is declared NotFound — long enough
-         * to cover Room's re-emission after the cache-miss RPC fallback writes a fetched row,
-         * short enough that a genuinely missing contributor doesn't feel stuck on Loading.
+         * to cover Room's re-emission after the cache-miss RPC fallback writes a fetched row (a
+         * slow network fetch included), short enough that a genuinely missing contributor doesn't
+         * feel stuck on Loading. Erring long is deliberate: an extra second of Loading on a
+         * missing row is cheaper than a false "no longer here" verdict flipping to Ready.
+         *
+         * Internal so tests key their virtual-time advances to the real window.
          */
-        private val NOT_FOUND_SETTLE_WINDOW = 500.milliseconds
+        internal val NOT_FOUND_SETTLE_WINDOW = 1500.milliseconds
 
         /** Threshold for showing "View All" button. */
         const val VIEW_ALL_THRESHOLD = 6
