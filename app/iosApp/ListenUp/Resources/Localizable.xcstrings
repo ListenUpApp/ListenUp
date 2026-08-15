@@ -6291,6 +6291,16 @@
         }
       }
     },
+    "contributor.merging": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merging contributors…"
+          }
+        }
+      }
+    },
     "contributor.name_profile_image": {
       "localizations": {
         "en": {
@@ -6327,6 +6337,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "No change"
+          }
+        }
+      }
+    },
+    "contributor.no_longer_here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This contributor is no longer here"
+          }
+        }
+      }
+    },
+    "contributor.no_longer_here_detail": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It may have been merged into another contributor or removed from the library."
           }
         }
       }

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PersonOff
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -67,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.BrowseCarousel
+import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -100,6 +102,8 @@ import listenup.composeapp.generated.resources.contributor_aka
 import listenup.composeapp.generated.resources.contributor_find_on_audible
 import listenup.composeapp.generated.resources.contributor_from_your_library_this_action
 import listenup.composeapp.generated.resources.contributor_name_profile_image
+import listenup.composeapp.generated.resources.contributor_no_longer_here
+import listenup.composeapp.generated.resources.contributor_no_longer_here_detail
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -172,6 +176,20 @@ fun ContributorDetailScreen(
                     text = current.message,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.align(Alignment.Center),
+                )
+            }
+
+            ContributorDetailUiState.NotFound -> {
+                // Merged-away or genuinely missing contributor — a friendly terminal state with
+                // its own back affordance, since the hero (which owns the back button) never loads.
+                EmptyState(
+                    title = stringResource(Res.string.contributor_no_longer_here),
+                    subtitle = stringResource(Res.string.contributor_no_longer_here_detail),
+                    icon = Icons.Default.PersonOff,
+                )
+                HeroNavRow(
+                    onBack = onBackClick,
+                    modifier = Modifier.align(Alignment.TopStart),
                 )
             }
 

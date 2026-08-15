@@ -630,10 +630,13 @@ One beautiful library.</string>
     <string name="contributor_merge_search_placeholder">Search contributors…</string>
     <string name="contributor_merge_title">Add an alias</string>
     <string name="contributor_merge_truncated">Showing the first %1$d. Search to find anyone else.</string>
+    <string name="contributor_merging">Merging contributors…</string>
     <string name="contributor_name_profile_image">%1$s profile image</string>
     <string name="contributor_new_image">New image</string>
     <string name="contributor_no_aliases_hint">No alternate names yet. Merge another author to add one.</string>
     <string name="contributor_no_change">No change</string>
+    <string name="contributor_no_longer_here">This contributor is no longer here</string>
+    <string name="contributor_no_longer_here_detail">It may have been merged into another contributor or removed from the library.</string>
     <string name="contributor_no_profile_in_region">No profile data in the %1$s catalog. Try a different region:</string>
     <string name="contributor_other_books">Other Books</string>
     <string name="contributor_preview_changes">Preview Changes</string>

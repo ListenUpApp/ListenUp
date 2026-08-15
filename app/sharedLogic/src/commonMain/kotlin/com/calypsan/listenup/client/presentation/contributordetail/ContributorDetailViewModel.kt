@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.domain.usecase.contributor.DeleteContributor
 import com.calypsan.listenup.client.util.calculateProgressMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -83,19 +85,40 @@ class ContributorDetailViewModel(
      * `book_contributors` mirror, which re-emits on [ContributorRepository.observeBooksForContributorRole]
      * and refreshes the list here — no re-navigation required (Finding #21). Mirrors the healthy
      * `ContributorBooksViewModel`; the earlier one-shot `.first()` snapshots were the stale-read bug.
+     *
+     * A null contributor row (the DAO filters tombstones) resolves to [ContributorDetailUiState.NotFound]
+     * via [settleIntoNotFound] instead of starving the pipeline — the old `filterNotNull()` left the
+     * screen on Loading forever for a merged-away or never-present contributor.
      */
     private fun observeReadyState(contributorId: String): Flow<ContributorDetailUiState> =
         combine(
-            contributorRepository.observeById(contributorId).filterNotNull(),
+            contributorRepository.observeById(contributorId),
             contributorRepository.observeRolesWithCountForContributor(contributorId),
         ) { contributor, rolesWithCount -> contributor to rolesWithCount }
             .flatMapLatest { (contributor, rolesWithCount) ->
-                observeRoleBooks(contributorId, rolesWithCount).flatMapLatest { roleBooks ->
-                    observeSeries(roleBooks).map { series ->
-                        buildReadyState(contributor, roleBooks, series)
+                if (contributor == null) {
+                    settleIntoNotFound()
+                } else {
+                    observeRoleBooks(contributorId, rolesWithCount).flatMapLatest { roleBooks ->
+                        observeSeries(roleBooks).map { series ->
+                            buildReadyState(contributor, roleBooks, series)
+                        }
                     }
                 }
             }
+
+    /**
+     * Resolves a null contributor row to [ContributorDetailUiState.NotFound] after a short settle
+     * window. The grace period exists because [ContributorRepository.observeById]'s cache-miss RPC
+     * fallback emits null first and only then re-emits the freshly cached row — an immediate
+     * NotFound would flash before Ready. A row arriving inside the window cancels the pending
+     * emission (`flatMapLatest` upstream), so the happy path never sees NotFound.
+     */
+    private fun settleIntoNotFound(): Flow<ContributorDetailUiState> =
+        flow {
+            delay(NOT_FOUND_SETTLE_WINDOW)
+            emit(ContributorDetailUiState.NotFound)
+        }
 
     /** Live per-role book lists, one live subscription per role, combined into a single emission. */
     private fun observeRoleBooks(
@@ -232,6 +255,13 @@ class ContributorDetailViewModel(
         /** Number of books to show in the horizontal preview. */
         private const val PREVIEW_BOOK_COUNT = 10
 
+        /**
+         * How long a null contributor row may linger before it is declared NotFound — long enough
+         * to cover Room's re-emission after the cache-miss RPC fallback writes a fetched row,
+         * short enough that a genuinely missing contributor doesn't feel stuck on Loading.
+         */
+        private val NOT_FOUND_SETTLE_WINDOW = 500.milliseconds
+
         /** Threshold for showing "View All" button. */
         const val VIEW_ALL_THRESHOLD = 6
 
@@ -283,6 +313,14 @@ sealed interface ContributorDetailUiState {
     data class Error(
         val message: String,
     ) : ContributorDetailUiState
+
+    /**
+     * The requested contributor has no live local row — either it was merged into another
+     * contributor (its row is tombstoned, and the server would only return the same tombstone)
+     * or it never existed here (a stale deep link or notification). Terminal: the screen should
+     * offer a way back rather than wait, because no retry can produce this contributor.
+     */
+    data object NotFound : ContributorDetailUiState
 }
 
 /** Navigation events emitted by [ContributorDetailViewModel]. */
