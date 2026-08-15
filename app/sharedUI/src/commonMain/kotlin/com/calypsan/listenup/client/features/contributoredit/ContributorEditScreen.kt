@@ -97,11 +97,15 @@ fun ContributorEditScreen(
     contributorId: String,
     onBackClick: () -> Unit,
     onSaveSuccess: () -> Unit = {},
+    /**
+     * A merge committed; the surviving contributor's id. Separate from [onSaveSuccess] because a
+     * rename-collision merge deletes this contributor — the host must land on the survivor rather
+     * than pop back onto a deleted detail page (an alias merge survives in place and just reloads).
+     */
+    onMergedInto: (String) -> Unit,
     viewModel: ContributorEditViewModel = koinViewModel(),
 ) {
-    LaunchedEffect(contributorId) {
-        viewModel.loadContributor(contributorId)
-    }
+    LaunchedEffect(contributorId) { viewModel.loadContributor(contributorId) }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
     val mergeCandidates by viewModel.mergeCandidates.collectAsStateWithLifecycle()
@@ -111,6 +115,7 @@ fun ContributorEditScreen(
             when (navAction) {
                 is ContributorEditNavAction.NavigateBack -> onBackClick()
                 is ContributorEditNavAction.SaveSuccess -> onSaveSuccess()
+                is ContributorEditNavAction.NavigateToMerged -> onMergedInto(navAction.contributorId.value)
             }
         }
     }

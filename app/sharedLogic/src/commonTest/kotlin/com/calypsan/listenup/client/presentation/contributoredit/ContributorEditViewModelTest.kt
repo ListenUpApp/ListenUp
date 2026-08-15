@@ -349,6 +349,40 @@ class ContributorEditViewModelTest :
             }
         }
 
+        // An alias merge keeps the VIEWED contributor as the survivor, but the hosts still
+        // normalize the stack onto it — pop the editor and the stale detail page, land on a fresh
+        // survivor page — so the emission carries the survivor's id, exactly as the series editor
+        // does. `NavigateBack` would leave a detail page rendered from pre-merge state.
+        test("a committed alias merge lands on the surviving contributor, the viewed one") {
+            runTest {
+                val fixture = createFixture()
+                val viewed = createContributor(id = "viewed-1", name = "J.K. Rowling")
+                everySuspend { fixture.contributorRepository.getById("viewed-1") } returns viewed
+                everySuspend { fixture.contributorEditRepository.mergeContributor(any(), any()) } returns
+                    AppResult.Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("viewed-1")
+                advanceUntilIdle()
+
+                viewModel.navActions.test {
+                    viewModel.onEvent(
+                        ContributorEditUiEvent.MergeInto(
+                            com.calypsan.listenup.core
+                                .ContributorId("chosen-2"),
+                        ),
+                    )
+                    advanceUntilIdle()
+
+                    awaitItem() shouldBe
+                        ContributorEditNavAction.NavigateToMerged(
+                            com.calypsan.listenup.core
+                                .ContributorId("viewed-1"),
+                        )
+                }
+            }
+        }
+
         test("save failure emits typed AppError to ErrorBus for global snackbar") {
             runTest {
                 // Given
@@ -409,7 +443,10 @@ class ContributorEditViewModelTest :
             }
         }
 
-        test("confirming merge on rename merges the edited contributor into the candidate and navigates back") {
+        // The rename-collision merge soft-deletes the contributor being EDITED, so `NavigateBack`
+        // would pop the editor onto the detail page of something that no longer exists. The
+        // candidate is the survivor and the only destination that means anything.
+        test("confirming merge on rename merges the edited contributor into the candidate and lands on it") {
             runTest {
                 // Given: a rename collision has surfaced.
                 val fixture = createFixture()
@@ -442,7 +479,11 @@ class ContributorEditViewModelTest :
                         )
                     }
                     verifySuspend(VerifyMode.not) { fixture.updateContributorUseCase.invoke(any()) }
-                    awaitItem() shouldBe ContributorEditNavAction.NavigateBack
+                    awaitItem() shouldBe
+                        ContributorEditNavAction.NavigateToMerged(
+                            com.calypsan.listenup.core
+                                .ContributorId("other-1"),
+                        )
                 }
             }
         }

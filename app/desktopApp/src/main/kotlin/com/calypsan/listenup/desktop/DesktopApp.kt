@@ -401,6 +401,9 @@ private fun DetailScreen(
                 contributorId = destination.contributorId,
                 onBackClick = navigateBack,
                 onSaveSuccess = navigateBack,
+                // Land on the survivor: a rename-collision merge soft-deleted the contributor being
+                // edited, so going back would show a detail page for something that no longer exists.
+                onMergedInto = { navigateTo(DetailDestination.Contributor(it)) },
             )
         }
 
