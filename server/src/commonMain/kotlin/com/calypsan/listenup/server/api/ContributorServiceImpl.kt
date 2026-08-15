@@ -226,8 +226,8 @@ internal class ContributorServiceImpl(
         // Build target's new alias set — source's PRE-EXISTING aliases merged into
         // target.aliases, case-insensitive dedup, target's own name excluded. Source's NAME is
         // never added: aliases are user-curated facts only (pen names entered via the alias
-        // panel), and merge durability across rescans comes from the `merged_into` redirect
-        // written below (consumed by the scanner's resolve), not from a manufactured alias.
+        // panel), and merge durability across rescans belongs to the `merged_into` redirect
+        // written below (for scan-time name resolution to follow), not to a manufactured alias.
         val mergedAliases =
             mergeAliasesFor(
                 targetAliases = targetPayload.aliases,

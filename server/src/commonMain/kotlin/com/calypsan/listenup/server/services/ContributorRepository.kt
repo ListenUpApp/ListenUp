@@ -321,8 +321,8 @@ class ContributorRepository(
     /**
      * Merge-specific tombstone: soft-deletes the merged-away [source] AND records the
      * server-only `merged_into` redirect to [target] in the same UPDATE statement, so a
-     * tombstoned loser can never exist without the redirect a rescan needs to keep the merge
-     * durable. Revision bump, timestamping, the [SyncEvent.Deleted] publication, and the
+     * tombstoned loser can never exist without the redirect scan-time name resolution will
+     * follow to keep the merge durable across rescans. Revision bump, timestamping, the [SyncEvent.Deleted] publication, and the
      * [FirehoseSuppressed]/[FrameCapture] gates all mirror the base
      * [SqlSyncableRepository.softDelete] exactly — `merged_into` itself never crosses the wire.
      */

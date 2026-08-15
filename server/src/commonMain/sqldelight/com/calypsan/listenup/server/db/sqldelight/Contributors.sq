@@ -109,7 +109,7 @@ WHERE id = :id;
 
 -- Merge tombstone: tombstones the merged-away loser AND records the merged_into redirect
 -- in ONE statement, so a tombstoned loser can never exist without its redirect. The
--- redirect is server-only — it keeps merges durable across rescans without manufacturing
+-- redirect is server-only — it is what will keep merges durable across rescans without manufacturing
 -- an alias (aliases are user-curated facts only).
 softDeleteMergedIntoById:
 UPDATE contributors

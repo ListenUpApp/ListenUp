@@ -337,7 +337,7 @@ class ContributorServiceImplMergeTest :
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     // The loser row carries both the tombstone and the redirect — the durable,
-                    // server-only mapping the scanner's resolve follows across rescans.
+                    // server-only mapping scan-time name resolution will follow across rescans.
                     val sourceRow = contributorRow(db, sourceId.value)
                     sourceRow.merged_into shouldBe targetId.value
                     sourceRow.deleted_at shouldNotBe null
