@@ -20,6 +20,19 @@ import androidx.compose.ui.text.input.TextFieldValue
  * synchronously updated value, and [reconcile] distinguishes the echo of the user's own keystrokes
  * (a no-op — the caret is never touched) from a genuine external replacement (adopted with the
  * caret at the end of the new text).
+ *
+ * Two edges are worth knowing:
+ *
+ * **Ordering assumption.** Callers must deliver value updates in order — a conflated `StateFlow`
+ * collected into snapshot state (this codebase's ViewModel wiring) qualifies: conflation can SKIP
+ * intermediate values but never REORDER them, so a stale echo cannot arrive after a newer
+ * replacement. A caller wired to a transport that can reorder deliveries breaks [reconcile]'s
+ * stale-echo detection.
+ *
+ * **Ambiguity window.** A genuine external replacement whose text still sits in the in-flight
+ * ledger (a value the user typed through moments ago) is indistinguishable from a stale echo and
+ * is ignored until the ledger drains. The window is one echo round-trip wide and self-heals on
+ * the next differing caller value.
  */
 @Stable
 internal class OwnedTextFieldState(
@@ -65,15 +78,33 @@ internal class OwnedTextFieldState(
     fun edit(newValue: TextFieldValue): Boolean {
         val textChanged = newValue.text != fieldValue.text
         fieldValue = newValue
-        if (textChanged) expectedEchoes.add(newValue.text)
+        if (textChanged) {
+            expectedEchoes.add(newValue.text)
+            // Never evict the head: it is the newest caller value already acknowledged, and a
+            // never-echoing caller's pinned value must keep being recognised or the next
+            // reconcile would read it as an external replacement and clobber the typing.
+            while (expectedEchoes.size > MAX_TRACKED_ECHOES) expectedEchoes.removeAt(1)
+        }
         return textChanged
     }
+
+    /** How many texts the ledger currently tracks (adopted head + pending echoes). For tests. */
+    internal val trackedEchoCount: Int get() = expectedEchoes.size
 
     private fun settle(value: String) {
         expectedEchoes.clear()
         expectedEchoes.add(value)
     }
 }
+
+/**
+ * Upper bound on the echo ledger. A well-behaved ViewModel echoes within a frame or two, so the
+ * ledger normally holds one or two entries — this many unacknowledged keystrokes means the caller
+ * is not echoing at all. Overflow evicts the oldest PENDING entry (never the adopted head),
+ * degrading gracefully toward the naive reset-on-difference behavior only for values too old to
+ * be honest echoes.
+ */
+internal const val MAX_TRACKED_ECHOES: Int = 32
 
 /**
  * Remembers an [OwnedTextFieldState] seeded from [value] (caret at the end — so first focus of a

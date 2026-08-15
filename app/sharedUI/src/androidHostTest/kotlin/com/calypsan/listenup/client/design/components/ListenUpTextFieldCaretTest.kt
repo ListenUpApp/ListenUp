@@ -123,6 +123,31 @@ class ListenUpTextFieldCaretTest {
         composeRule.onNodeWithTag(FIELD_TAG).performTextInput("X")
         composeRule.runOnIdle { calls shouldBe 1 }
     }
+
+    @Test
+    fun `a caller that never echoes keeps every keystroke past the ledger cap`() {
+        // Pathological caller: onValueChange is discarded and the value stays pinned at "", so no
+        // echo ever arrives and the ledger can only shed entries through its cap. Typing past the
+        // cap must neither lose text nor let the pinned value read as an external replacement.
+        composeRule.setContent {
+            MaterialTheme {
+                ListenUpTextField(
+                    value = "",
+                    onValueChange = {},
+                    label = "Author",
+                    modifier = Modifier.testTag(FIELD_TAG),
+                )
+            }
+        }
+
+        val typed = MAX_TRACKED_ECHOES + 8
+        repeat(typed) {
+            composeRule.onNodeWithTag(FIELD_TAG).performTextInput("a")
+        }
+
+        composeRule.onNodeWithTag(FIELD_TAG).assertTextContains("a".repeat(typed))
+        composeRule.onNodeWithTag(FIELD_TAG).assertSelection(TextRange(typed))
+    }
 }
 
 private fun SemanticsNodeInteraction.assertSelection(expected: TextRange): SemanticsNodeInteraction = assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, expected))

@@ -76,6 +76,9 @@ internal fun CodeBoxes(
             // Normalise before storing, so the local truth — and therefore the echo the caller
             // sends back — is always the code the server would read. Caret to the end of the
             // normalised text: dropped separators shift it, and the code is only ever appended to.
+            // Rebuilding the value discards any IME composition span on every keystroke —
+            // acceptable here because the code alphabet is uppercase ASCII with a hidden caret,
+            // so there is no composition UI to preserve.
             val normalized = raw.text.normalizedCode()
             if (ownedText.edit(TextFieldValue(normalized, TextRange(normalized.length)))) {
                 onValueChange(normalized)
