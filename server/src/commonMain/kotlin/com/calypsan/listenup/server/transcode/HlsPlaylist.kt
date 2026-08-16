@@ -1,0 +1,83 @@
+package com.calypsan.listenup.server.transcode
+
+import kotlin.math.ceil
+
+/**
+ * Builds a complete VOD playlist for a file **before any of it is encoded**.
+ *
+ * Durations are already known from `embeddedmeta`, so the whole timeline can be written at prepare
+ * time: a listener gets a full seek bar on a 40-hour book instantly, and any segment is addressable
+ * before a byte is transcoded. Segment requests are what pull encoding forward.
+ *
+ * ⛔ **Segment length is frame-aligned, not the round number requested.** FFmpeg cuts AAC on
+ * 1024-sample boundaries, so a 10s request at 44.1 kHz really produces 10.0078s. Declaring 10s
+ * would drift by that much per segment — about four minutes across a 92-hour book — and every seek
+ * would land wrong. Encode at the source sample rate; never resample, or this math describes a file
+ * that was not produced.
+ */
+object HlsPlaylist {
+    /** Frame size of every AAC object type this server encodes to (AAC-LC). */
+    private const val SAMPLES_PER_FRAME = 1024
+
+    /** The dominant rate in a real library, used when a file has none recorded. */
+    private const val FALLBACK_SAMPLE_RATE = 44_100
+
+    /** `#EXTINF` is written to microsecond precision — see [formatSeconds]. */
+    private const val MICROS_PER_SECOND = 1_000_000L
+
+    /** Digits after the decimal point in an `#EXTINF` duration. */
+    private const val FRACTION_DIGITS = 6
+
+    /** The segmentation of one file: how long each segment is, and how many there are. */
+    data class Plan(
+        val segmentSeconds: Double,
+        val segmentDurations: List<Double>,
+    )
+
+    /**
+     * Segments [durationMs] of audio at [sampleRate] into frame-aligned chunks of about
+     * [targetSeconds]. The last segment is short — it carries whatever remains.
+     */
+    fun plan(
+        durationMs: Long,
+        sampleRate: Int?,
+        targetSeconds: Int,
+    ): Plan {
+        val rate = sampleRate?.takeIf { it > 0 } ?: FALLBACK_SAMPLE_RATE
+        val framesPerSegment = ceil(targetSeconds.toDouble() * rate / SAMPLES_PER_FRAME).toInt()
+        val segmentSeconds = framesPerSegment.toDouble() * SAMPLES_PER_FRAME / rate
+        val total = durationMs / 1000.0
+
+        val whole = (total / segmentSeconds).toInt()
+        val remainder = total - whole * segmentSeconds
+        val durations = MutableList(whole) { segmentSeconds }
+        if (remainder > 0.0) durations += remainder
+
+        return Plan(segmentSeconds, durations)
+    }
+
+    /** Renders [plan] as a VOD `.m3u8`, asking [segmentUrl] for each segment's (signed) URL. */
+    fun render(
+        plan: Plan,
+        segmentUrl: (Int) -> String,
+    ): String =
+        buildString {
+            appendLine("#EXTM3U")
+            appendLine("#EXT-X-VERSION:3")
+            appendLine("#EXT-X-PLAYLIST-TYPE:VOD")
+            appendLine("#EXT-X-TARGETDURATION:${ceil(plan.segmentSeconds).toInt()}")
+            appendLine("#EXT-X-MEDIA-SEQUENCE:0")
+            plan.segmentDurations.forEachIndexed { index, seconds ->
+                appendLine("#EXTINF:${formatSeconds(seconds)},")
+                appendLine(segmentUrl(index))
+            }
+            append("#EXT-X-ENDLIST")
+        }
+
+    /** Six decimal places — enough that per-segment rounding cannot accumulate across 33,000 of them. */
+    private fun formatSeconds(seconds: Double): String {
+        val scaled = (seconds * MICROS_PER_SECOND).toLong()
+        val fraction = (scaled % MICROS_PER_SECOND).toString().padStart(FRACTION_DIGITS, '0')
+        return "${scaled / MICROS_PER_SECOND}.$fraction"
+    }
+}
