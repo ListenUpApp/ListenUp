@@ -10,10 +10,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -61,6 +64,14 @@ enum class ListenUpTextFieldVariant {
  * @param variant [ListenUpTextFieldVariant.Standard] (default) or [ListenUpTextFieldVariant.Hero]
  * @param heroContainerColor Tint for the [ListenUpTextFieldVariant.Hero] translucent container.
  *   Ignored by [ListenUpTextFieldVariant.Standard]. Defaults to the theme surface.
+ * @param textStyle Input text style override. Null uses the [variant]'s default style
+ * @param placeholderStyle Placeholder text style (including color) override. Null uses the
+ *   [variant]'s default placeholder rendering
+ * @param colors Field colors override. Null uses the [variant]'s default colors
+ * @param shape Container shape override. Null uses [MaterialTheme.shapes.medium]
+ * @param singleLine Whether the field is restricted to a single line of text
+ * @param trailingContent Free-form trailing slot (e.g. a stateful action button). When non-null it
+ *   wins over [trailingIcon] and [onTrailingClick]
  */
 @Composable
 fun ListenUpTextField(
@@ -80,6 +91,12 @@ fun ListenUpTextField(
     onTrailingClick: (() -> Unit)? = null,
     variant: ListenUpTextFieldVariant = ListenUpTextFieldVariant.Standard,
     heroContainerColor: Color = MaterialTheme.colorScheme.surface,
+    textStyle: TextStyle? = null,
+    placeholderStyle: TextStyle? = null,
+    colors: TextFieldColors? = null,
+    shape: Shape? = null,
+    singleLine: Boolean = true,
+    trailingContent: (@Composable () -> Unit)? = null,
 ) {
     val isHero = variant == ListenUpTextFieldVariant.Hero
     val heroTextStyle =
@@ -97,18 +114,26 @@ fun ListenUpTextField(
         placeholder =
             placeholder?.let {
                 {
-                    if (isHero) {
-                        Text(
-                            text = it,
-                            style = heroTextStyle,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        )
-                    } else {
-                        Text(it)
+                    when {
+                        placeholderStyle != null -> {
+                            Text(text = it, style = placeholderStyle)
+                        }
+
+                        isHero -> {
+                            Text(
+                                text = it,
+                                style = heroTextStyle,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            )
+                        }
+
+                        else -> {
+                            Text(it)
+                        }
                     }
                 }
             },
-        textStyle = if (isHero) heroTextStyle else LocalTextStyle.current,
+        textStyle = textStyle ?: if (isHero) heroTextStyle else LocalTextStyle.current,
         enabled = enabled,
         isError = isError,
         supportingText = supportingText?.let { { Text(it) } },
@@ -117,28 +142,30 @@ fun ListenUpTextField(
         keyboardActions = keyboardActions,
         leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null) } },
         trailingIcon =
-            trailingIcon?.let { icon ->
-                {
-                    if (onTrailingClick != null) {
-                        IconButton(onClick = onTrailingClick) { Icon(icon, contentDescription = null) }
-                    } else {
-                        Icon(icon, contentDescription = null)
+            trailingContent
+                ?: trailingIcon?.let { icon ->
+                    {
+                        if (onTrailingClick != null) {
+                            IconButton(onClick = onTrailingClick) { Icon(icon, contentDescription = null) }
+                        } else {
+                            Icon(icon, contentDescription = null)
+                        }
                     }
-                }
-            },
+                },
         colors =
-            if (isHero) {
-                OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    focusedContainerColor = heroContainerColor.copy(alpha = 0.4f),
-                    unfocusedContainerColor = heroContainerColor.copy(alpha = 0.2f),
-                )
-            } else {
-                OutlinedTextFieldDefaults.colors()
-            },
-        singleLine = true,
-        shape = MaterialTheme.shapes.medium,
+            colors
+                ?: if (isHero) {
+                    OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        focusedContainerColor = heroContainerColor.copy(alpha = 0.4f),
+                        unfocusedContainerColor = heroContainerColor.copy(alpha = 0.2f),
+                    )
+                } else {
+                    OutlinedTextFieldDefaults.colors()
+                },
+        singleLine = singleLine,
+        shape = shape ?: MaterialTheme.shapes.medium,
         modifier = modifier.fillMaxWidth(),
     )
 }

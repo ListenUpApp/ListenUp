@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -180,7 +180,7 @@ fun IdentityHeader(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     // Title - Large editorial style
-                    OutlinedTextField(
+                    ListenUpTextField(
                         value = title,
                         onValueChange = onTitleChange,
                         textStyle =
@@ -190,19 +190,16 @@ fun IdentityHeader(
                                 fontSize = MaterialTheme.typography.headlineSmall.fontSize,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
-                        placeholder = {
-                            Text(
-                                stringResource(Res.string.common_title),
-                                style =
-                                    MaterialTheme.typography.headlineSmall.copy(
-                                        fontFamily = DisplayFontFamily,
-                                        fontWeight = FontWeight.Bold,
-                                    ),
+                        placeholder = stringResource(Res.string.common_title),
+                        placeholderStyle =
+                            MaterialTheme.typography.headlineSmall.copy(
+                                fontFamily = DisplayFontFamily,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-                            )
-                        },
+                            ),
                         colors = heroTextFieldColors(),
                         shape = RoundedCornerShape(12.dp),
+                        singleLine = false,
                         modifier = Modifier.fillMaxWidth(),
                     )
 
@@ -215,22 +212,21 @@ fun IdentityHeader(
                         enter = expandVertically(),
                         exit = shrinkVertically(),
                     ) {
-                        OutlinedTextField(
+                        ListenUpTextField(
                             value = subtitle,
                             onValueChange = onSubtitleChange,
                             textStyle =
                                 MaterialTheme.typography.titleMedium.copy(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 ),
-                            placeholder = {
-                                Text(
-                                    stringResource(Res.string.book_edit_subtitle),
-                                    style = MaterialTheme.typography.titleMedium,
+                            placeholder = stringResource(Res.string.book_edit_subtitle),
+                            placeholderStyle =
+                                MaterialTheme.typography.titleMedium.copy(
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
-                                )
-                            },
+                                ),
                             colors = heroTextFieldColors(),
                             shape = RoundedCornerShape(12.dp),
+                            singleLine = false,
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
@@ -260,22 +256,16 @@ fun IdentityHeader(
 
                     // Sort Title — the title's alphabetization form, kept with the identity fields
                     // so its order matches the flat iOS form (Cover, Title, Subtitle, Sort Title).
-                    OutlinedTextField(
+                    ListenUpTextField(
                         value = sortTitle,
                         onValueChange = onSortTitleChange,
-                        label = {
-                            Text(
-                                stringResource(Res.string.book_edit_sort_title),
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                            )
-                        },
+                        label = stringResource(Res.string.book_edit_sort_title),
                         textStyle =
                             MaterialTheme.typography.bodyLarge.copy(
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                             ),
                         colors = heroTextFieldColors(),
                         shape = RoundedCornerShape(12.dp),
-                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -287,7 +277,7 @@ fun IdentityHeader(
 /**
  * Outlined text-field colors tuned for the `onPrimaryContainer` content of the color-blocked hero:
  * transparent containers (the field sits directly on the primaryContainer surface) with
- * `onPrimaryContainer`-derived text, cursor, and borders.
+ * `onPrimaryContainer`-derived text, cursor, label, and borders.
  */
 @Composable
 private fun heroTextFieldColors() =
@@ -295,6 +285,8 @@ private fun heroTextFieldColors() =
         focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
         unfocusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
         cursorColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        focusedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+        unfocusedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
         focusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
         unfocusedBorderColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.3f),
         focusedContainerColor = Color.Transparent,

@@ -45,7 +45,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -71,6 +71,7 @@ import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpFab
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.features.admin.categories.components.MergeGenreDialog
 import com.calypsan.listenup.client.presentation.admin.AdminCategoriesUiState
@@ -564,11 +565,12 @@ private fun GenreNameDialog(
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }
-                OutlinedTextField(
+                ListenUpTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text(stringResource(Res.string.admin_genre_name)) },
-                    singleLine = true,
+                    label = stringResource(Res.string.admin_genre_name),
+                    // Keep the pre-migration corner radius (the OutlinedTextField default).
+                    shape = OutlinedTextFieldDefaults.shape,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }

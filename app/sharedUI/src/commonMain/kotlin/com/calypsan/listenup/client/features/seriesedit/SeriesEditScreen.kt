@@ -34,7 +34,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -61,6 +60,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextArea
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult
@@ -512,7 +512,7 @@ private fun SeriesIdentityHeader(
                 }
 
                 // Name field - Large editorial style
-                OutlinedTextField(
+                ListenUpTextField(
                     value = name,
                     onValueChange = onNameChange,
                     textStyle =
@@ -522,17 +522,13 @@ private fun SeriesIdentityHeader(
                             fontSize = MaterialTheme.typography.headlineSmall.fontSize,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
                         ),
-                    placeholder = {
-                        Text(
-                            stringResource(Res.string.series_series_name),
-                            style =
-                                MaterialTheme.typography.headlineSmall.copy(
-                                    fontFamily = DisplayFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                ),
+                    placeholder = stringResource(Res.string.series_series_name),
+                    placeholderStyle =
+                        MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = DisplayFontFamily,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
-                        )
-                    },
+                        ),
                     colors =
                         OutlinedTextFieldDefaults.colors(
                             focusedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -544,7 +540,6 @@ private fun SeriesIdentityHeader(
                             unfocusedContainerColor = Color.Transparent,
                         ),
                     shape = RoundedCornerShape(16.dp),
-                    singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
             }
