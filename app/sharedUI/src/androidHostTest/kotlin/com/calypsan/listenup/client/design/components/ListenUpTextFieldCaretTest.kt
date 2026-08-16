@@ -1,11 +1,15 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
@@ -15,8 +19,10 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
@@ -148,8 +154,86 @@ class ListenUpTextFieldCaretTest {
         composeRule.onNodeWithTag(FIELD_TAG).assertTextContains("a".repeat(typed))
         composeRule.onNodeWithTag(FIELD_TAG).assertSelection(TextRange(typed))
     }
+
+    @Test
+    fun `a transform runs inside the component so echoes stay verbatim and the caret holds`() {
+        var vmValue by mutableStateOf("")
+        val emissions = mutableListOf<String>()
+        composeRule.setContent {
+            MaterialTheme {
+                ListenUpTextField(
+                    value = vmValue,
+                    onValueChange = { emissions += it },
+                    label = "Year",
+                    transform = { it.filter(Char::isDigit).take(4) },
+                    modifier = Modifier.testTag(FIELD_TAG),
+                )
+            }
+        }
+
+        // Mixed input: the transform strips the stray letter before the ledger or caller see it.
+        composeRule.onNodeWithTag(FIELD_TAG).performTextInput("19")
+        composeRule.onNodeWithTag(FIELD_TAG).performTextInput("x8")
+        composeRule.onNodeWithTag(FIELD_TAG).performTextInput("4")
+
+        // Only transformed text ever reaches the caller — never the raw keystrokes.
+        composeRule.runOnIdle { emissions shouldBe listOf("19", "198", "1984") }
+
+        // The echoes land late, stale-first: verbatim by construction, so the field must not churn.
+        composeRule.runOnIdle { vmValue = emissions.first() }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { vmValue = emissions.last() }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag(FIELD_TAG).assertTextContains("1984")
+        composeRule.onNodeWithTag(FIELD_TAG).assertSelection(TextRange(4))
+    }
+
+    @Test
+    fun `trailingContent wins over trailingIcon and onTrailingClick`() {
+        composeRule.setContent {
+            MaterialTheme {
+                ListenUpTextField(
+                    value = "",
+                    onValueChange = {},
+                    label = "Search",
+                    trailingIcon = Icons.Default.Search,
+                    onTrailingClick = {},
+                    trailingContent = { Text("custom", modifier = Modifier.testTag(TRAILING_TAG)) },
+                    modifier = Modifier.testTag(FIELD_TAG),
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(TRAILING_TAG, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun `the field defaults to a single line so long text scrolls instead of wrapping`() {
+        composeRule.setContent {
+            MaterialTheme {
+                ListenUpTextField(
+                    value = "",
+                    onValueChange = {},
+                    label = "Author",
+                    modifier = Modifier.testTag(FIELD_TAG),
+                )
+            }
+        }
+
+        // Far wider than the field: a multiline default would soft-wrap this onto several lines.
+        composeRule.onNodeWithTag(FIELD_TAG).performTextInput("word ".repeat(40))
+
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule.onNodeWithTag(FIELD_TAG).performSemanticsAction(SemanticsActions.GetTextLayoutResult) {
+            it(layouts)
+        }
+        layouts.first().lineCount shouldBe 1
+    }
 }
 
 private fun SemanticsNodeInteraction.assertSelection(expected: TextRange): SemanticsNodeInteraction = assert(SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, expected))
 
 private const val FIELD_TAG = "caret-test-field"
+
+private const val TRAILING_TAG = "caret-test-trailing"

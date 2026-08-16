@@ -40,6 +40,9 @@ fun PublishingSection(
                 onValueChange = onPublishYearChange,
                 label = "Year",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                // Restrict inside the component (echo-verbatim contract): the VM stores what it
+                // receives verbatim and re-normalizes once more at the save boundary.
+                transform = { it.filter(Char::isDigit).take(4) },
                 modifier = Modifier.weight(1f),
             )
 

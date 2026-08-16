@@ -16,8 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 
@@ -72,6 +74,15 @@ enum class ListenUpTextFieldVariant {
  * @param singleLine Whether the field is restricted to a single line of text
  * @param trailingContent Free-form trailing slot (e.g. a stateful action button). When non-null it
  *   wins over [trailingIcon] and [onTrailingClick]
+ * @param transform THE sanctioned way to restrict or normalise input (digit-only fields, code
+ *   alphabets, length caps). It runs INSIDE the component, before the echo ledger records
+ *   anything, so the string propagated through [onValueChange] is already transformed and the
+ *   caller's echo stays verbatim — the [OwnedTextFieldState] contract. Callers must NEVER
+ *   transform in their own `onValueChange` lambda or ViewModel handler instead: a transforming
+ *   caller makes every echo read as an external replacement and silently drops in-flight
+ *   keystrokes under latency (see `CodeBoxes`, the precedent this parameter generalises). Must be
+ *   idempotent (`transform(transform(s)) == transform(s)`) so an already-clean value passes
+ *   through unchanged
  */
 @Composable
 fun ListenUpTextField(
@@ -97,6 +108,7 @@ fun ListenUpTextField(
     shape: Shape? = null,
     singleLine: Boolean = true,
     trailingContent: (@Composable () -> Unit)? = null,
+    transform: ((String) -> String)? = null,
 ) {
     val isHero = variant == ListenUpTextFieldVariant.Hero
     val heroTextStyle =
@@ -108,7 +120,13 @@ fun ListenUpTextField(
     OutlinedTextField(
         value = ownedText.fieldValue,
         onValueChange = { newValue ->
-            if (ownedText.edit(newValue)) onValueChange(newValue.text)
+            // Transform before the ledger sees anything: local truth, the ledger entry, and the
+            // propagated string are all the transformed text, so the caller's echo is verbatim.
+            // When the transform rejects the whole edit (text unchanged after cleaning), edit()
+            // reports no text change and the caller never hears about it — same net effect as the
+            // old caller-side filter, without the divergent echo.
+            val accepted = transform?.let { newValue.transformedBy(it) } ?: newValue
+            if (ownedText.edit(accepted)) onValueChange(accepted.text)
         },
         label = label?.let { { Text(it) } },
         placeholder =
@@ -168,4 +186,18 @@ fun ListenUpTextField(
         shape = shape ?: MaterialTheme.shapes.medium,
         modifier = modifier.fillMaxWidth(),
     )
+}
+
+/**
+ * Applies [transform] to this value's text. An identity result returns the value untouched —
+ * clean input must keep the user's caret exactly where the edit put it. A changed result rebuilds
+ * the value with the caret clamped to `min(selection.end, newLength)`: for the common cases (a
+ * rejected character mid-text, a length cap trimming the tail) that lands the caret where the
+ * surviving text ends relative to the edit. Rebuilding discards any IME composition span, which
+ * is acceptable for the restricted alphabets [transform] exists to enforce (see `CodeBoxes`).
+ */
+private fun TextFieldValue.transformedBy(transform: (String) -> String): TextFieldValue {
+    val transformed = transform(text)
+    if (transformed == text) return this
+    return TextFieldValue(transformed, TextRange(minOf(selection.end, transformed.length)))
 }
