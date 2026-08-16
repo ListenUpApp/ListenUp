@@ -15,12 +15,17 @@ import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -69,6 +74,8 @@ data class SeriesEditUiState(
     val bookCount: Int = 0,
     // Merge (server-canonical; firehose delivers result)
     val mergeInProgress: Boolean = false,
+    // Merge-target picker visibility — candidates are computed only while true
+    val mergeDialogVisible: Boolean = false,
     // Merge-target picker query (drives candidate filtering)
     val mergeQuery: String = "",
     // Track if changes have been made
@@ -108,6 +115,12 @@ sealed interface SeriesEditUiEvent {
     data object CancelClicked : SeriesEditUiEvent
 
     data object ErrorDismissed : SeriesEditUiEvent
+
+    /** User opened the merge-target picker; candidate computation starts. */
+    data object MergeDialogOpened : SeriesEditUiEvent
+
+    /** User dismissed the merge-target picker; candidates stop computing and the query clears. */
+    data object MergeDialogDismissed : SeriesEditUiEvent
 
     /** User chose to merge the current series into [targetId]. */
     data class MergeInto(
@@ -171,26 +184,42 @@ class SeriesEditViewModel internal constructor(
      * Candidates for the merge-target picker — all live series except the current
      * one, filtered by [SeriesEditUiState.mergeQuery] (case-insensitive substring).
      * Capped at [MAX_MERGE_CANDIDATES] to keep the dialog snappy.
+     *
+     * Computed only while the picker is visible: hidden emits an empty list without ever
+     * collecting the DAO, and visible re-filters only when the query or the series table
+     * changes — never on unrelated state churn such as typing in the name field, which
+     * used to re-scan the whole table on every keystroke.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val mergeCandidates: StateFlow<List<SeriesCandidate>> =
-        combine(state, seriesDao.observeAll()) { uiState, allSeries ->
-            val currentId = uiState.seriesId
-            val query = uiState.mergeQuery
-            allSeries
-                .asSequence()
-                .filter { it.deletedAt == null }
-                .filter { it.id.value != currentId }
-                .filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
-                .sortedBy { it.name.lowercase() }
-                .take(MAX_MERGE_CANDIDATES)
-                .map { entity ->
-                    SeriesCandidate(
-                        id = entity.id,
-                        displayName = entity.name,
-                        bookCount = 0,
-                    )
-                }.toList()
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
+        state
+            .map { it.mergeDialogVisible }
+            .distinctUntilChanged()
+            .flatMapLatest { pickerVisible ->
+                if (!pickerVisible) {
+                    flowOf(emptyList())
+                } else {
+                    combine(
+                        state.map { it.seriesId to it.mergeQuery }.distinctUntilChanged(),
+                        seriesDao.observeAll(),
+                    ) { (currentId, query), allSeries ->
+                        allSeries
+                            .asSequence()
+                            .filter { it.deletedAt == null }
+                            .filter { it.id.value != currentId }
+                            .filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
+                            .sortedBy { it.name.lowercase() }
+                            .take(MAX_MERGE_CANDIDATES)
+                            .map { entity ->
+                                SeriesCandidate(
+                                    id = entity.id,
+                                    displayName = entity.name,
+                                    bookCount = 0,
+                                )
+                            }.toList()
+                    }
+                }
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), emptyList())
 
     /**
      * Update the merge-target picker's search query. The [mergeCandidates] Flow
@@ -283,6 +312,14 @@ class SeriesEditViewModel internal constructor(
                 state.update { it.copy(error = null) }
             }
 
+            is SeriesEditUiEvent.MergeDialogOpened -> {
+                state.update { it.copy(mergeDialogVisible = true) }
+            }
+
+            is SeriesEditUiEvent.MergeDialogDismissed -> {
+                state.update { it.copy(mergeDialogVisible = false, mergeQuery = "") }
+            }
+
             is SeriesEditUiEvent.MergeInto -> {
                 mergeInto(event.targetId)
             }
@@ -301,7 +338,7 @@ class SeriesEditViewModel internal constructor(
         }
 
         viewModelScope.launch {
-            state.update { it.copy(mergeInProgress = true, error = null) }
+            state.update { it.copy(mergeInProgress = true, mergeDialogVisible = false, error = null) }
 
             when (val result = seriesEditRepository.mergeSeries(SeriesId(sourceId), targetId)) {
                 is AppResult.Success -> {

@@ -3,7 +3,9 @@ package com.calypsan.listenup.client.presentation.seriesedit
 import com.calypsan.listenup.api.result.AppResult
 import app.cash.turbine.test
 import com.calypsan.listenup.client.data.local.db.SeriesDao
+import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.domain.model.Series
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
@@ -23,6 +25,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -76,6 +79,21 @@ class SeriesEditViewModelTest :
                     .SeriesId(id),
             name = name,
             description = description,
+        )
+
+        fun createSeriesEntity(
+            id: String,
+            name: String,
+            deletedAt: Long? = null,
+        ) = SeriesEntity(
+            id =
+                com.calypsan.listenup.core
+                    .SeriesId(id),
+            name = name,
+            description = null,
+            deletedAt = deletedAt,
+            createdAt = Timestamp(0),
+            updatedAt = Timestamp(0),
         )
 
         beforeTest {
@@ -402,6 +420,111 @@ class SeriesEditViewModelTest :
         // editor onto the detail page of something that no longer exists — an empty shell needing a
         // second Back to escape. The survivor is the only destination that means anything, and it is
         // never the entry behind us on the stack.
+        test("merge candidates stay empty and the DAO is never collected while the picker is hidden") {
+            runTest {
+                // Given: a library with series, but the merge picker never opened.
+                val fixture = createFixture()
+                var daoCollections = 0
+                every { fixture.seriesDao.observeAll() } returns
+                    flow {
+                        daoCollections++
+                        emit(listOf(createSeriesEntity(id = "other-1", name = "The Stormlight Archive")))
+                    }
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                // When: the screen collects candidates (it always does), dialog stays closed.
+                viewModel.mergeCandidates.test {
+                    awaitItem() shouldBe emptyList()
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+
+                // Then: the whole-table scan never ran.
+                daoCollections shouldBe 0
+            }
+        }
+
+        test("opening the picker computes candidates; query re-filters; dismissing clears them") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                every { fixture.seriesDao.observeAll() } returns
+                    flowOf(
+                        listOf(
+                            createSeriesEntity(id = "series-1", name = "Self"),
+                            createSeriesEntity(id = "other-2", name = "The Wheel of Time"),
+                            createSeriesEntity(id = "other-1", name = "The Stormlight Archive"),
+                            createSeriesEntity(id = "other-3", name = "The Deleted Saga", deletedAt = 123L),
+                        ),
+                    )
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+
+                viewModel.mergeCandidates.test {
+                    awaitItem() shouldBe emptyList()
+
+                    // When: opening computes all live candidates, sorted, excluding self and deleted.
+                    viewModel.onEvent(SeriesEditUiEvent.MergeDialogOpened)
+                    advanceUntilIdle()
+                    awaitItem().map { it.displayName } shouldBe
+                        listOf("The Stormlight Archive", "The Wheel of Time")
+
+                    // Query re-filters.
+                    viewModel.onMergeQueryChange("wheel")
+                    advanceUntilIdle()
+                    awaitItem().map { it.displayName } shouldBe listOf("The Wheel of Time")
+
+                    // Dismissing clears candidates and resets the query.
+                    viewModel.onEvent(SeriesEditUiEvent.MergeDialogDismissed)
+                    advanceUntilIdle()
+                    awaitItem() shouldBe emptyList()
+                }
+                viewModel.state.value.mergeQuery shouldBe ""
+                viewModel.state.value.mergeDialogVisible shouldBe false
+            }
+        }
+
+        test("confirming a merge closes the picker") {
+            runTest {
+                // Given: the picker is open.
+                val fixture = createFixture()
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.seriesEditRepository.mergeSeries(any(), any()) } returns
+                    AppResult.Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadSeries("series-1")
+                advanceUntilIdle()
+                viewModel.onEvent(SeriesEditUiEvent.MergeDialogOpened)
+                viewModel.state.value.mergeDialogVisible shouldBe true
+
+                // When
+                viewModel.onEvent(
+                    SeriesEditUiEvent.MergeInto(
+                        com.calypsan.listenup.core
+                            .SeriesId("target-1"),
+                    ),
+                )
+                advanceUntilIdle()
+
+                // Then
+                viewModel.state.value.mergeDialogVisible shouldBe false
+            }
+        }
+
         test("a committed merge lands on the surviving series, not back on the deleted one") {
             runTest {
                 val fixture = createFixture()

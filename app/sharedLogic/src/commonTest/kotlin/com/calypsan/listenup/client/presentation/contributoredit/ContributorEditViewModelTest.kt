@@ -27,6 +27,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -106,6 +107,7 @@ class ContributorEditViewModelTest :
         fun createContributorEntity(
             id: String,
             name: String,
+            deletedAt: Long? = null,
         ): ContributorEntity =
             ContributorEntity(
                 id =
@@ -114,6 +116,7 @@ class ContributorEditViewModelTest :
                 name = name,
                 description = null,
                 imagePath = null,
+                deletedAt = deletedAt,
                 createdAt = Timestamp(0),
                 updatedAt = Timestamp(0),
             )
@@ -308,6 +311,187 @@ class ContributorEditViewModelTest :
 
                 viewModel.state.value.stagingImagePath shouldBe null
                 viewModel.state.value.pendingImageData shouldBe null
+            }
+        }
+
+        // ========== Merge candidates ==========
+
+        test("merge candidates stay empty and the DAO is never collected while the picker is hidden") {
+            runTest {
+                // Given: a library with contributors, but the merge picker never opened.
+                val fixture = createFixture()
+                var daoCollections = 0
+                every { fixture.contributorDao.observeAll() } returns
+                    flow {
+                        daoCollections++
+                        emit(listOf(createContributorEntity(id = "other-1", name = "Brandon Sanderson")))
+                    }
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                // When: the screen collects candidates (it always does), dialog stays closed.
+                viewModel.mergeCandidates.test {
+                    awaitItem() shouldBe emptyList()
+                    advanceUntilIdle()
+                    expectNoEvents()
+                }
+
+                // Then: the whole-table scan never ran.
+                daoCollections shouldBe 0
+            }
+        }
+
+        test("opening the picker computes candidates, excluding self and deleted contributors") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(
+                        listOf(
+                            createContributorEntity(id = "contributor-1", name = "Self"),
+                            createContributorEntity(id = "other-2", name = "Terry Pratchett"),
+                            createContributorEntity(id = "other-1", name = "Brandon Sanderson"),
+                            createContributorEntity(id = "other-3", name = "Deleted Author", deletedAt = 123L),
+                        ),
+                    )
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                // When / Then
+                viewModel.mergeCandidates.test {
+                    awaitItem() shouldBe emptyList()
+
+                    viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
+                    advanceUntilIdle()
+
+                    awaitItem().map { it.displayName } shouldBe listOf("Brandon Sanderson", "Terry Pratchett")
+                }
+            }
+        }
+
+        test("typing in the picker's query re-filters candidates") {
+            runTest {
+                // Given: the picker is open over two candidates.
+                val fixture = createFixture()
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(
+                        listOf(
+                            createContributorEntity(id = "other-2", name = "Terry Pratchett"),
+                            createContributorEntity(id = "other-1", name = "Brandon Sanderson"),
+                        ),
+                    )
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.mergeCandidates.test {
+                    awaitItem() shouldBe emptyList()
+                    viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
+                    advanceUntilIdle()
+                    awaitItem().size shouldBe 2
+
+                    // When
+                    viewModel.onMergeQueryChange("terry")
+                    advanceUntilIdle()
+
+                    // Then
+                    awaitItem().map { it.displayName } shouldBe listOf("Terry Pratchett")
+                }
+            }
+        }
+
+        test("dismissing the picker clears candidates and resets the query") {
+            runTest {
+                // Given: the picker is open with a query typed.
+                val fixture = createFixture()
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(listOf(createContributorEntity(id = "other-1", name = "Brandon Sanderson")))
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.mergeCandidates.test {
+                    awaitItem() shouldBe emptyList()
+                    viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
+                    viewModel.onMergeQueryChange("brandon")
+                    advanceUntilIdle()
+                    awaitItem().size shouldBe 1
+
+                    // When
+                    viewModel.onEvent(ContributorEditUiEvent.MergeDialogDismissed)
+                    advanceUntilIdle()
+
+                    // Then
+                    awaitItem() shouldBe emptyList()
+                }
+                viewModel.state.value.mergeQuery shouldBe ""
+                viewModel.state.value.mergeDialogVisible shouldBe false
+            }
+        }
+
+        test("candidates are capped at MAX_MERGE_CANDIDATES") {
+            runTest {
+                // Given: more live contributors than one dialog page.
+                val fixture = createFixture()
+                every { fixture.contributorDao.observeAll() } returns
+                    flowOf(
+                        (1..MAX_MERGE_CANDIDATES + 5).map { index ->
+                            createContributorEntity(id = "other-$index", name = "Author $index")
+                        },
+                    )
+                everySuspend { fixture.contributorRepository.getById("contributor-1") } returns createContributor()
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+
+                viewModel.mergeCandidates.test {
+                    awaitItem() shouldBe emptyList()
+                    viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
+                    advanceUntilIdle()
+
+                    // Then: capped — a full page is the dialog's truncation signal.
+                    awaitItem().size shouldBe MAX_MERGE_CANDIDATES
+                }
+            }
+        }
+
+        test("confirming a merge closes the picker") {
+            runTest {
+                // Given: the picker is open.
+                val fixture = createFixture()
+                everySuspend { fixture.contributorRepository.getById("viewed-1") } returns
+                    createContributor(id = "viewed-1")
+                everySuspend { fixture.contributorEditRepository.mergeContributor(any(), any()) } returns
+                    AppResult.Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("viewed-1")
+                advanceUntilIdle()
+                viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
+                viewModel.state.value.mergeDialogVisible shouldBe true
+
+                // When
+                viewModel.onEvent(
+                    ContributorEditUiEvent.MergeInto(
+                        com.calypsan.listenup.core
+                            .ContributorId("chosen-2"),
+                    ),
+                )
+                advanceUntilIdle()
+
+                // Then
+                viewModel.state.value.mergeDialogVisible shouldBe false
             }
         }
 

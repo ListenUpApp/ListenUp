@@ -130,7 +130,6 @@ fun SeriesEditScreen(
     }
 
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
-    var showMergeDialog by remember { mutableStateOf(false) }
 
     PlatformBackHandler(enabled = state.hasChanges) {
         showUnsavedChangesDialog = true
@@ -174,7 +173,9 @@ fun SeriesEditScreen(
                     SeriesEditContent(
                         state = state,
                         onEvent = viewModel::onEvent,
-                        onMergeClick = { showMergeDialog = true },
+                        // The VM owns the dialog flag so candidate computation can start
+                        // and stop with it.
+                        onMergeClick = { viewModel.onEvent(SeriesEditUiEvent.MergeDialogOpened) },
                         onBackClick = {
                             if (state.hasChanges) {
                                 showUnsavedChangesDialog = true
@@ -205,7 +206,7 @@ fun SeriesEditScreen(
         )
     }
 
-    if (showMergeDialog) {
+    if (state.mergeDialogVisible) {
         SeriesMergeDialog(
             candidates = mergeCandidates,
             // The VM caps the list, so a full page is the signal that more exist behind a search.
@@ -213,11 +214,9 @@ fun SeriesEditScreen(
             query = state.mergeQuery,
             bookCount = state.bookCount,
             onQueryChange = viewModel::onMergeQueryChange,
-            onConfirm = { targetId ->
-                showMergeDialog = false
-                viewModel.onEvent(SeriesEditUiEvent.MergeInto(targetId))
-            },
-            onDismiss = { showMergeDialog = false },
+            // MergeInto closes the dialog VM-side; dismissal also clears the query.
+            onConfirm = { targetId -> viewModel.onEvent(SeriesEditUiEvent.MergeInto(targetId)) },
+            onDismiss = { viewModel.onEvent(SeriesEditUiEvent.MergeDialogDismissed) },
         )
     }
 }
