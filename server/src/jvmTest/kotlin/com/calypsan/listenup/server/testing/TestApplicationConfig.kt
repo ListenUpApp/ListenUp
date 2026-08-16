@@ -70,6 +70,10 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 // don't assert on it and a fixture-write-vs-seed race for those that do.
                 "scanner.watchEnabled" to watchEnabled.toString(),
                 "scan.rescanOnStartup" to rescanOnStartup.toString(),
+                // No boot probe for FFmpeg: it would make every transcoding assertion depend on
+                // whether the host machine happens to have it installed, and it would race a test
+                // that publishes its own TranscoderAvailability. Tests set availability explicitly.
+                "transcode.probeOnStartup" to "false",
             ).apply {
                 if (registrationPolicy != null) put("registration.policy", registrationPolicy)
                 if (libraryPath != null) put("scanner.libraryPath", libraryPath)

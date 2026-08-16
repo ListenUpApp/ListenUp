@@ -26,6 +26,7 @@ import com.calypsan.listenup.api.error.ServerConnectError
 import com.calypsan.listenup.api.error.ShelfError
 import com.calypsan.listenup.api.error.SocialError
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.error.TranscodeError
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.UnknownError
@@ -148,7 +149,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is BookError -> toHttpStatus()
 
-        is CoverError -> toHttpStatus()
+        // CoverError + TranscodeError share one branch (delegating to an exhaustive helper) for
+        // the same reason as the grouped branches above: it keeps this function's cyclomatic
+        // complexity under the project threshold. Both are media the server derives on demand.
+        is CoverError, is TranscodeError -> derivedMediaHttpStatus()
 
         is ContributorError -> toHttpStatus()
 
@@ -332,6 +336,29 @@ private fun BookError.toHttpStatus(): HttpStatusCode =
 private fun CoverError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is CoverError.NotPresent -> HttpStatusCode.NotFound
+    }
+
+/**
+ * Re-dispatches the grouped `CoverError`/`TranscodeError` branch of [toHttpStatus] to each family's
+ * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under the
+ * project threshold; the `else` is unreachable (only called from the grouped branch above).
+ */
+private fun AppError.derivedMediaHttpStatus(): HttpStatusCode =
+    when (this) {
+        is CoverError -> toHttpStatus()
+        is TranscodeError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+private fun TranscodeError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        // Retryable: the admission gate refused now, but a slot frees up.
+        is TranscodeError.TranscoderBusy -> HttpStatusCode.ServiceUnavailable
+
+        // Permanent for this server: there is no encoder, so retrying changes nothing.
+        is TranscodeError.TranscoderUnavailable -> HttpStatusCode.NotImplemented
+
+        is TranscodeError.TranscodeFailed -> HttpStatusCode.InternalServerError
     }
 
 private fun ContributorError.toHttpStatus(): HttpStatusCode =

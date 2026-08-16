@@ -13,6 +13,9 @@ import com.calypsan.listenup.server.mdns.launchMdnsRefreshOnServerInfoChange
 import com.calypsan.listenup.server.scanner.RescanScheduler
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
+import com.calypsan.listenup.server.transcode.TranscodeSessionEngine
+import com.calypsan.listenup.server.transcode.TranscoderAvailability
+import com.calypsan.listenup.server.transcode.TranscoderProvisioner
 import com.calypsan.listenup.server.scheduler.ExpiredPasswordResetCleanupTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
@@ -82,6 +85,17 @@ internal fun Application.startBackgroundTasks(
     // Never fatal to startup.
     scope.launchNeverFatal("interrupted-import resume failed") {
         koinGet<com.calypsan.listenup.server.absimport.InterruptedImportResumer>().resumeAll()
+    }
+
+    // Find FFmpeg once, at boot, and publish the answer. Never fatal: a server with no encoder is a
+    // working server that serves originals — it just cannot rescue a codec the client can't decode,
+    // and TranscoderAvailability starts out saying exactly that.
+    if (environment.config.transcodeProbeOnStartup()) {
+        scope.launchNeverFatal("transcoder probe failed") {
+            val availability = koinGet<TranscoderAvailability>()
+            availability.publish(koinGet<TranscoderProvisioner>().probe())
+            koinGet<TranscodeSessionEngine>().startWatchdog(scope)
+        }
     }
 
     val rescanOnStartup = environment.config.rescanOnStartup()

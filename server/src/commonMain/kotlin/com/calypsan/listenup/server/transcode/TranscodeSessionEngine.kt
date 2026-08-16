@@ -49,9 +49,13 @@ interface TranscodeSpawner {
  * audiobook 99%, and a fresh process per segment would spend more time seeking than encoding. And
  * **the gate admits rather than queues**: over the concurrency cap a caller is told `Busy` at once
  * so it can retry, because a queue on a self-hosted box just converts a busy server into a slow one.
+ *
+ * [ffmpegPath] is a supplier rather than a value because the boot probe that finds FFmpeg is
+ * asynchronous while this object's construction is not: resolving the path per spawn means a probe
+ * that finishes after the engine was built is still honoured.
  */
 class TranscodeSessionEngine(
-    private val ffmpegPath: String,
+    private val ffmpegPath: () -> String,
     private val cache: SegmentCache,
     private val settings: TranscodeSettings,
     private val newSpawner: () -> TranscodeSpawner,
@@ -127,7 +131,7 @@ class TranscodeSessionEngine(
         val spawner = newSpawner()
         spawner.start(
             command(
-                ffmpegPath = ffmpegPath,
+                ffmpegPath = ffmpegPath(),
                 session = session.copy(startSegment = fromSegment),
                 startSeconds = fromSegment * plan.segmentSeconds,
                 plan = plan,

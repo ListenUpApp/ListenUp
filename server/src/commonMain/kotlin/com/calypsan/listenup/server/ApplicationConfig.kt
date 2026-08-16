@@ -180,6 +180,16 @@ internal fun ApplicationConfig.rescanOnStartup(): Boolean =
     propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
 
 /**
+ * Whether to probe for FFmpeg at boot. Defaults to true.
+ *
+ * Tests turn it off so the transcoding surface is deterministic: with the probe running, whether a
+ * route answers depends on whether the *host* happens to have FFmpeg installed, and a test that
+ * publishes its own availability races the probe overwriting it.
+ */
+internal fun ApplicationConfig.transcodeProbeOnStartup(): Boolean =
+    propertyOrNull("transcode.probeOnStartup")?.getString()?.toBoolean() ?: true
+
+/**
  * Reads `scanner.watchEnabled` — gates whether [ScanOrchestrator.onLibraryAdded]
  * mounts real-time file-system watchers. Defaults to `true` (production keeps the
  * live `WatchService`). Tests set it `false` so a fixture write into the library

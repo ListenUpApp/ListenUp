@@ -19,8 +19,20 @@ object HlsPlaylist {
     /** Frame size of every AAC object type this server encodes to (AAC-LC). */
     private const val SAMPLES_PER_FRAME = 1024
 
-    /** The dominant rate in a real library, used when a file has none recorded. */
-    private const val FALLBACK_SAMPLE_RATE = 44_100
+    /**
+     * The dominant rate in a real library, used when a file has none recorded.
+     *
+     * Public because the encoder must be told the *same* rate this playlist's math assumed. If the
+     * route guessed one fallback and the playlist another, every declared `#EXTINF` would describe
+     * a file that was never written.
+     */
+    const val FALLBACK_SAMPLE_RATE = 44_100
+
+    /** `#EXT-X-STREAM-INF` declares BANDWIDTH in bits per second. */
+    private const val BITS_PER_KBIT = 1_000
+
+    /** AAC-LC, the only profile this server encodes to. */
+    private const val AAC_LC_CODEC_TAG = "mp4a.40.2"
 
     /** `#EXTINF` is written to microsecond precision — see [formatSeconds]. */
     private const val MICROS_PER_SECOND = 1_000_000L
@@ -55,6 +67,24 @@ object HlsPlaylist {
 
         return Plan(segmentSeconds, durations)
     }
+
+    /**
+     * Renders the one-variant master playlist pointing at [mediaUrl].
+     *
+     * There is exactly one rendition, so a master is strictly speaking optional — it exists because
+     * some players (Safari most notably) behave better when handed one, and because a second
+     * rendition later becomes an added line here rather than a new shape.
+     */
+    fun renderMaster(
+        mediaUrl: String,
+        bitrateKbps: Int,
+    ): String =
+        buildString {
+            appendLine("#EXTM3U")
+            appendLine("#EXT-X-VERSION:3")
+            appendLine("#EXT-X-STREAM-INF:BANDWIDTH=${bitrateKbps * BITS_PER_KBIT},CODECS=\"$AAC_LC_CODEC_TAG\"")
+            append(mediaUrl)
+        }
 
     /** Renders [plan] as a VOD `.m3u8`, asking [segmentUrl] for each segment's (signed) URL. */
     fun render(

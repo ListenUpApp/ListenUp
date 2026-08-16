@@ -153,7 +153,7 @@ private fun engineWith(
     lateinit var fixture: Fixture
     val engine =
         TranscodeSessionEngine(
-            ffmpegPath = "/usr/bin/ffmpeg",
+            ffmpegPath = { "/usr/bin/ffmpeg" },
             cache = SegmentCache(dir),
             settings = TranscodeSettings(maxConcurrentSessions = maxConcurrent),
             newSpawner = { fake.spawner() },
