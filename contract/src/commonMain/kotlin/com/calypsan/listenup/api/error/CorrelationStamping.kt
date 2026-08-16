@@ -51,7 +51,11 @@ public fun AppError.withCorrelationId(id: String?): AppError =
 
         is BookError -> withCorrelationId(id)
 
-        is CoverError -> withCorrelationId(id)
+        // CoverError + TranscodeError share one branch (delegating to an exhaustive helper) for the
+        // same reason as TagError + MoodError above: it keeps this function's cyclomatic complexity
+        // under the project threshold. They pair naturally — both are media the server derives on
+        // demand, a resized cover and a transcoded stream.
+        is CoverError, is TranscodeError -> derivedMediaWithCorrelationId(id)
 
         is ContributorError -> withCorrelationId(id)
 
@@ -97,6 +101,19 @@ private fun AppError.tagOrMoodWithCorrelationId(id: String?): AppError =
     when (this) {
         is TagError -> withCorrelationId(id)
         is MoodError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
+    }
+
+/**
+ * Re-dispatches the grouped `CoverError`/`TranscodeError` branch of [withCorrelationId] to each
+ * family's own exhaustive `copy`. Split out solely to keep [withCorrelationId]'s cyclomatic
+ * complexity under the project threshold; the `else` is unreachable (only called from the grouped
+ * branch above).
+ */
+private fun AppError.derivedMediaWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is CoverError -> withCorrelationId(id)
+        is TranscodeError -> withCorrelationId(id)
         else -> this // unreachable: only called from the grouped branch above
     }
 
@@ -154,6 +171,13 @@ private fun SyncError.withCorrelationId(id: String?): SyncError =
         is SyncError.UnknownDomain -> copy(correlationId = id)
         is SyncError.TooManyIds -> copy(correlationId = id)
         is SyncError.UnsupportedMatch -> copy(correlationId = id)
+    }
+
+private fun TranscodeError.withCorrelationId(id: String?): TranscodeError =
+    when (this) {
+        is TranscodeError.TranscoderBusy -> copy(correlationId = id)
+        is TranscodeError.TranscoderUnavailable -> copy(correlationId = id)
+        is TranscodeError.TranscodeFailed -> copy(correlationId = id)
     }
 
 private fun DownloadError.withCorrelationId(id: String?): DownloadError =
