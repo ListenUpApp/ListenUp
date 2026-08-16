@@ -47,13 +47,15 @@ object LogSinkRegistry {
     /**
      * Attaches the app's [FileLogSink], replays buffered pre-attach lines into it (they are
      * older, so they go first), then writes the `started` lifecycle marker.
+     *
+     * Drain-publish-drain: the buffer is drained BEFORE the sink reference is published so
+     * concurrent [append]s cannot jump ahead of the replayed history, and drained once more
+     * afterwards to catch lines that raced into the buffer during publication.
      */
     fun attach(sink: FileLogSink) {
+        drainBufferInto(sink)
         sinkRef.value = sink
-        while (true) {
-            val buffered = preAttachBuffer.tryReceive().getOrNull() ?: break
-            sink.submit(buffered)
-        }
+        drainBufferInto(sink)
         sink.submit(
             formatLogLine(
                 epochMillis = Clock.System.now().toEpochMilliseconds(),
@@ -63,5 +65,20 @@ object LogSinkRegistry {
                 message = "app log sink started",
             ),
         )
+    }
+
+    /** Detaches any sink and empties the pre-attach buffer. Test isolation only. */
+    internal fun resetForTests() {
+        sinkRef.value = null
+        while (preAttachBuffer.tryReceive().getOrNull() != null) {
+            // Draining until empty is the whole job.
+        }
+    }
+
+    private fun drainBufferInto(sink: FileLogSink) {
+        while (true) {
+            val buffered = preAttachBuffer.tryReceive().getOrNull() ?: break
+            sink.submit(buffered)
+        }
     }
 }

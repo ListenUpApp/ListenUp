@@ -114,7 +114,7 @@ class FileLogSink(
         }
 
         fun writeLine(line: String) {
-            val bytes = line.encodeToByteArray()
+            val bytes = truncateIfOversized(line.encodeToByteArray())
             if (bytesWritten > 0 && bytesWritten + bytes.size + 1 > maxFileBytes) {
                 rotate()
                 writeLine(lifecycleMarker("log rotated"))
@@ -138,6 +138,20 @@ class FileLogSink(
             out = SystemFileSystem.sink(currentPath).buffered()
             bytesWritten = 0
         }
+    }
+
+    /**
+     * Caps a single line at [MAX_LINE_BYTES] (backing off to a UTF-8 boundary) so one
+     * pathological line cannot defeat the rotation cap's ~2x [maxFileBytes] total bound.
+     */
+    private fun truncateIfOversized(bytes: ByteArray): ByteArray {
+        if (bytes.size <= MAX_LINE_BYTES) return bytes
+        val suffix = TRUNCATION_SUFFIX.encodeToByteArray()
+        var end = MAX_LINE_BYTES - suffix.size
+        while (end > 0 && bytes[end].toInt() and CONTINUATION_MASK == CONTINUATION_MARKER) {
+            end--
+        }
+        return bytes.copyOfRange(0, end) + suffix
     }
 
     private fun lifecycleMarker(message: String): String =
@@ -169,5 +183,14 @@ class FileLogSink(
         internal const val LOGGER_NAME: String = "com.calypsan.listenup.client.core.logging.FileLogSink"
 
         private const val NEWLINE: Byte = '\n'.code.toByte()
+
+        /** Per-line byte cap — a single line can never blow the file-size bound. */
+        private const val MAX_LINE_BYTES: Int = 64 * 1024
+
+        private const val TRUNCATION_SUFFIX: String = "… [truncated]"
+
+        // UTF-8 continuation bytes match 10xxxxxx; used to back off to a char boundary.
+        private const val CONTINUATION_MASK: Int = 0xC0
+        private const val CONTINUATION_MARKER: Int = 0x80
     }
 }

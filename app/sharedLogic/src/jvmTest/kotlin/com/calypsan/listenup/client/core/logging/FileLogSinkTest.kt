@@ -119,6 +119,24 @@ class FileLogSinkTest :
             lines.all { it.matches(Regex("""writer-\d line-\d+ ($payload)""")) }.shouldBeTrue()
         }
 
+        test("truncates a pathological oversized line so the size cap holds") {
+            val dir = tempDir()
+            val sink = FileLogSink(directory = Path(dir.absolutePath), dispatcher = Dispatchers.IO)
+
+            sink.submit("x".repeat(100_000))
+            sink.submit("after")
+            sink.close()
+
+            val lines = dir.currentLog().readLines()
+            lines.size shouldBe 2
+            lines[0].endsWith("… [truncated]").shouldBeTrue()
+            // The truncated line respects the per-line byte cap, so rotation math
+            // (and therefore the ~2x maxFileBytes total bound) stays intact.
+            (lines[0].encodeToByteArray().size <= 64 * 1024).shouldBeTrue()
+            lines[1] shouldBe "after"
+            dir.currentLog().length() shouldBe (lines[0].encodeToByteArray().size + "after".length + 2).toLong()
+        }
+
         test("close is idempotent and submit after close is a silent no-op") {
             val dir = tempDir()
             val sink = FileLogSink(directory = Path(dir.absolutePath), dispatcher = Dispatchers.IO)
