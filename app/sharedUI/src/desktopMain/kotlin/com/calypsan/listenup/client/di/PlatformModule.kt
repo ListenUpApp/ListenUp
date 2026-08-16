@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
 import com.calypsan.listenup.client.features.bookdetail.DesktopBookDetailPlatformActions
+import com.calypsan.listenup.client.features.settings.DesktopSettingsPlatformActions
+import com.calypsan.listenup.client.features.settings.SettingsPlatformActions
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.platform.DesktopAudioTokenProvider
@@ -133,5 +135,10 @@ val platformModule: Module =
         // Book detail platform actions (playback via FFmpeg, downloads stubbed)
         single<BookDetailPlatformActions> {
             DesktopBookDetailPlatformActions(nowPlayingViewModel = get())
+        }
+
+        // Settings platform actions (reveal the on-device log directory)
+        single<SettingsPlatformActions> {
+            DesktopSettingsPlatformActions(storagePaths = get())
         }
     }

@@ -159,6 +159,13 @@ kotlin {
             // Koin Android-specific
             implementation(libs.koin.android)
 
+            // SLF4J Android backend, compile-time only: ListenUpAndroidLogProvider wraps its
+            // ServiceProvider to tee every log line into the on-device FileLogSink. The
+            // runtime dep stays in :app:androidApp — compileOnly keeps slf4j-android off the
+            // androidHostTest classpath, where its static init calls the unmocked
+            // android.util.Log and crashes every host test that touches a logger.
+            compileOnly(libs.slf4j.android)
+
             // Navigation 3 Android-specific (deep linking)
             implementation(libs.androidx.navigation3.ui.android)
 

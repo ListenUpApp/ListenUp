@@ -6917,7 +6917,7 @@
         },
         {
             "uniqueId": "org.slf4j:slf4j-api",
-            "artifactVersion": "2.0.16",
+            "artifactVersion": "2.0.17",
             "name": "SLF4J API Module",
             "description": "The slf4j API",
             "website": "http://www.slf4j.org",
@@ -6933,6 +6933,32 @@
             "scm": {
                 "connection": "scm:git:https://github.com/qos-ch/slf4j.git/slf4j-parent/slf4j-api",
                 "url": "https://github.com/qos-ch/slf4j/slf4j-parent/slf4j-api"
+            },
+            "licenses": [
+                "MIT"
+            ],
+            "funding": [
+                
+            ]
+        },
+        {
+            "uniqueId": "uk.uuid.slf4j:slf4j-android",
+            "artifactVersion": "2.0.17-0",
+            "name": "slf4j-android",
+            "description": "SLF4J binding for the Android logger",
+            "website": "https://github.com/nomis/slf4j-android/wiki",
+            "developers": [
+                {
+                    "name": "Simon Arlott"
+                }
+            ],
+            "organization": {
+                "name": "Simon Arlott"
+            },
+            "scm": {
+                "connection": "scm:git:https://github.com/nomis/slf4j-android.git",
+                "developerConnection": "scm:git:ssh://git@github.com/nomis/slf4j-android.git",
+                "url": "https://github.com/nomis/slf4j-android/"
             },
             "licenses": [
                 "MIT"

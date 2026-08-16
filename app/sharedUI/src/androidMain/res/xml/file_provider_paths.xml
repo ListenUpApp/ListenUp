@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shareable paths for the app FileProvider: only the FileLogSink output directory. -->
+<paths>
+    <files-path
+        name="logs"
+        path="logs/" />
+</paths>
