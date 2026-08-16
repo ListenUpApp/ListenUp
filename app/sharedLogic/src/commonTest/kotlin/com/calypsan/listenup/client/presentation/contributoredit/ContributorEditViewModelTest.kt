@@ -466,9 +466,9 @@ class ContributorEditViewModelTest :
             }
         }
 
-        test("confirming a merge closes the picker") {
+        test("confirming a merge closes the picker and clears the query") {
             runTest {
-                // Given: the picker is open.
+                // Given: the picker is open with a query typed.
                 val fixture = createFixture()
                 everySuspend { fixture.contributorRepository.getById("viewed-1") } returns
                     createContributor(id = "viewed-1")
@@ -479,6 +479,7 @@ class ContributorEditViewModelTest :
                 viewModel.loadContributor("viewed-1")
                 advanceUntilIdle()
                 viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
+                viewModel.onMergeQueryChange("stale")
                 viewModel.state.value.mergeDialogVisible shouldBe true
 
                 // When
@@ -490,8 +491,9 @@ class ContributorEditViewModelTest :
                 )
                 advanceUntilIdle()
 
-                // Then
+                // Then: closed, and no stale pre-filtered query behind the next open.
                 viewModel.state.value.mergeDialogVisible shouldBe false
+                viewModel.state.value.mergeQuery shouldBe ""
             }
         }
 

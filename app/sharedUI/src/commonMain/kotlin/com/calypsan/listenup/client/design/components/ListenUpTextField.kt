@@ -82,7 +82,9 @@ enum class ListenUpTextFieldVariant {
  *   caller makes every echo read as an external replacement and silently drops in-flight
  *   keystrokes under latency (see `CodeBoxes`, the precedent this parameter generalises). Must be
  *   idempotent (`transform(transform(s)) == transform(s)`) so an already-clean value passes
- *   through unchanged
+ *   through unchanged. Scope it to SHORTENING or normalising transforms (filters, length caps,
+ *   case folds): a lengthening auto-format transform (inserting separators, padding) is not
+ *   caret-safe here — the caret clamp only maps positions for text that shrank or stayed put
  */
 @Composable
 fun ListenUpTextField(
@@ -191,10 +193,13 @@ fun ListenUpTextField(
 /**
  * Applies [transform] to this value's text. An identity result returns the value untouched —
  * clean input must keep the user's caret exactly where the edit put it. A changed result rebuilds
- * the value with the caret clamped to `min(selection.end, newLength)`: for the common cases (a
- * rejected character mid-text, a length cap trimming the tail) that lands the caret where the
- * surviving text ends relative to the edit. Rebuilding discards any IME composition span, which
- * is acceptable for the restricted alphabets [transform] exists to enforce (see `CodeBoxes`).
+ * the value with the caret clamped to `min(selection.end, newLength)`: exact when the rejection
+ * happens at the end of the field (appended junk, a length cap trimming the tail), but a
+ * character rejected MID-text leaves the caret one position past the edit point — the clamp
+ * keeps the raw selection index while the text behind it shrank. Exposure is low for the short
+ * restricted alphabets this exists for, and the next keystroke lands where the caret shows.
+ * Rebuilding discards any IME composition span, which is acceptable for the restricted alphabets
+ * [transform] exists to enforce (see `CodeBoxes`).
  */
 private fun TextFieldValue.transformedBy(transform: (String) -> String): TextFieldValue {
     val transformed = transform(text)

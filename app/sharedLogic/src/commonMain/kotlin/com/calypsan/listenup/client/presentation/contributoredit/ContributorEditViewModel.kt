@@ -446,7 +446,11 @@ class ContributorEditViewModel internal constructor(
         }
 
         viewModelScope.launch {
-            state.update { it.copy(mergeInProgress = true, mergeDialogVisible = false, error = null) }
+            // Clear the query along with the flag — a failed merge must not leave a stale
+            // pre-filtered query behind the next open (matches the dismiss path).
+            state.update {
+                it.copy(mergeInProgress = true, mergeDialogVisible = false, mergeQuery = "", error = null)
+            }
 
             when (
                 val result =

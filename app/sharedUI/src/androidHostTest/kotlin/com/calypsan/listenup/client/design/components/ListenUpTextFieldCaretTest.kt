@@ -190,6 +190,31 @@ class ListenUpTextFieldCaretTest {
     }
 
     @Test
+    fun `a fully-rejected edit never invokes the caller`() {
+        var calls = 0
+        composeRule.setContent {
+            MaterialTheme {
+                ListenUpTextField(
+                    value = "",
+                    onValueChange = { calls++ },
+                    label = "Year",
+                    transform = { it.filter(Char::isDigit).take(4) },
+                    modifier = Modifier.testTag(FIELD_TAG),
+                )
+            }
+        }
+
+        // A single rejected character: the transform strips it, edit() reports no text
+        // change, and the caller must hear nothing at all — not even an unchanged echo.
+        composeRule.onNodeWithTag(FIELD_TAG).performTextInput("x")
+        composeRule.runOnIdle { calls shouldBe 0 }
+
+        // Counter-case that keeps the guard honest: an accepted character still fires.
+        composeRule.onNodeWithTag(FIELD_TAG).performTextInput("7")
+        composeRule.runOnIdle { calls shouldBe 1 }
+    }
+
+    @Test
     fun `trailingContent wins over trailingIcon and onTrailingClick`() {
         composeRule.setContent {
             MaterialTheme {
