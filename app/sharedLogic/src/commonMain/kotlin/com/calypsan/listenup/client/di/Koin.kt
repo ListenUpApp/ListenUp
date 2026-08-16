@@ -37,6 +37,7 @@ internal expect val platformDeviceModule: Module
 internal val sharedModules =
     listOf(
         appCoreModule,
+        loggingModule,
         settingsModule,
         networkModule,
         persistenceModule,
