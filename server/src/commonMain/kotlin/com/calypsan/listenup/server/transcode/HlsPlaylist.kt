@@ -74,8 +74,14 @@ object HlsPlaylist {
             append("#EXT-X-ENDLIST")
         }
 
-    /** Six decimal places — enough that per-segment rounding cannot accumulate across 33,000 of them. */
-    private fun formatSeconds(seconds: Double): String {
+    /**
+     * Six decimal places — enough that per-segment rounding cannot accumulate across 33,000 of them.
+     *
+     * Shared with [TranscodeSessionEngine], which must hand FFmpeg the *same* text this playlist
+     * declares: a `-ss` or `-segment_time` that disagrees with an `#EXTINF` is the drift this whole
+     * file exists to prevent, reintroduced one layer down.
+     */
+    internal fun formatSeconds(seconds: Double): String {
         val scaled = (seconds * MICROS_PER_SECOND).toLong()
         val fraction = (scaled % MICROS_PER_SECOND).toString().padStart(FRACTION_DIGITS, '0')
         return "${scaled / MICROS_PER_SECOND}.$fraction"

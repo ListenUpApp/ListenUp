@@ -27,6 +27,19 @@ class SegmentCacheTest :
             deleteRecursively(dir)
         }
 
+        // FFmpeg writes the names; segmentPath looks them up. If the two ever disagree on padding,
+        // every segment 404s, so the pattern is pinned against the path it has to produce.
+        test("the ffmpeg output pattern expands to the same names segmentPath expects") {
+            val dir = tempDir()
+            val cache = SegmentCache(dir)
+
+            val expanded = cache.segmentPattern("b1", "f1").replace("%05d", "00007")
+
+            expanded shouldBe cache.segmentPath("b1", "f1", 7).toString()
+
+            deleteRecursively(dir)
+        }
+
         test("reports a segment absent before it is written and present after") {
             val dir = tempDir()
             val cache = SegmentCache(dir)

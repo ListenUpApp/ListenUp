@@ -37,6 +37,17 @@ class SegmentCache(
         index: Int,
     ): Path = Path(fileDir(bookId, fileId), "seg${index.toString().padStart(INDEX_DIGITS, '0')}.aac")
 
+    /**
+     * FFmpeg `-f segment` output pattern for one file — the printf form of [segmentPath].
+     *
+     * Derived from the same [INDEX_DIGITS] so the names FFmpeg writes and the names
+     * [segmentPath] looks for cannot drift apart.
+     */
+    fun segmentPattern(
+        bookId: String,
+        fileId: String,
+    ): String = Path(fileDir(bookId, fileId), "seg%0${INDEX_DIGITS}d.aac").toString()
+
     /** Creates the directory FFmpeg will write into. */
     suspend fun prepareDir(
         bookId: String,
