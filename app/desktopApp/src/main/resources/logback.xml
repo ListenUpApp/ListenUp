@@ -6,16 +6,12 @@
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${user.home}/.listenup/logs/listenup.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${user.home}/.listenup/logs/listenup.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>7</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
+    <!--
+        File persistence goes through the shared FileLogSink (size-rotated, ~2 MB cap,
+        written to the app data dir's logs/ folder — the same files the Settings
+        "Share logs" action reveals). This appender only forwards; see ListenUpFileAppender.
+    -->
+    <appender name="FILE" class="com.calypsan.listenup.desktop.logging.ListenUpFileAppender"/>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
