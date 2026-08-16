@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.api.result.failureOf
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.client.domain.model.BookEditData
+import com.calypsan.listenup.client.domain.model.BookUpdateRequest
 import com.calypsan.listenup.client.domain.model.BookMetadata
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.ContributorSearchResponse
@@ -21,6 +22,7 @@ import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -307,7 +309,11 @@ class BookEditViewModelTest :
             }
         }
 
-        test("publish year only accepts numeric input") {
+        // The caret-owning text fields require callers to echo the propagated string VERBATIM
+        // (see OwnedTextFieldState): a VM-side transform makes every echo read as an external
+        // replacement, which drops in-flight keystrokes under latency. Digit filtering therefore
+        // moved from the change handler to the save boundary.
+        test("publish year is stored verbatim so the field's echo matches what was typed") {
             runTest {
                 // Given
                 val fixture = createFixture()
@@ -317,11 +323,36 @@ class BookEditViewModelTest :
                 viewModel.loadBook("book-1")
                 advanceUntilIdle()
 
-                // When - try to input invalid characters
+                // When - input includes non-digits
                 viewModel.onEvent(BookEditUiEvent.PublishYearChanged("20ab24cd"))
 
-                // Then - only digits kept, max 4 chars
-                viewModel.state.value.publishYear shouldBe "2024"
+                // Then - stored exactly as typed (echo-verbatim contract)
+                viewModel.state.value.publishYear shouldBe "20ab24cd"
+            }
+        }
+
+        test("publish year is normalized to digits at save time") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val editData = createBookEditData(bookId = "book-1")
+                everySuspend { fixture.loadBookForEditUseCase("book-1") } returns AppResult.Success(editData)
+                var savedRequest: BookUpdateRequest? = null
+                everySuspend { fixture.updateBookUseCase(any(), any()) } calls { args ->
+                    savedRequest = args.arg(0)
+                    AppResult.Success(Unit)
+                }
+                val viewModel = fixture.build()
+                viewModel.loadBook("book-1")
+                advanceUntilIdle()
+
+                // When - save a year typed with stray non-digits
+                viewModel.onEvent(BookEditUiEvent.PublishYearChanged("20ab24cd"))
+                viewModel.onEvent(BookEditUiEvent.Save)
+                advanceUntilIdle()
+
+                // Then - the persisted metadata carries digits only, max 4
+                savedRequest.shouldNotBeNull().metadata.publishYear shouldBe "2024"
             }
         }
 
