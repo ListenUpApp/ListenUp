@@ -153,7 +153,7 @@ class AndroidSecureStorage(
         value: String,
     ) = withContext(Dispatchers.IO) {
         val encrypted = encrypt(value)
-        prefs.edit().putString(key, encrypted).apply()
+        prefs.edit().putString(key, encrypted).commitDurably("save '$key'")
     }
 
     override suspend fun read(key: String): String? =
@@ -185,13 +185,47 @@ class AndroidSecureStorage(
 
     override suspend fun delete(key: String) =
         withContext(Dispatchers.IO) {
-            prefs.edit().remove(key).apply()
+            prefs.edit().remove(key).commitDurably("delete '$key'")
         }
 
     override suspend fun clear() =
         withContext(Dispatchers.IO) {
-            prefs.edit().clear().apply()
+            prefs.edit().clear().commitDurably("clear")
         }
+}
+
+/**
+ * Write the edit through to disk before returning, rather than queueing it.
+ *
+ * [SecureStorage] promises that a completed `save` is stored, and callers depend on exactly that:
+ * [com.calypsan.listenup.client.data.repository.AuthSessionStore] awaits the refresh-token write
+ * before the rotated token is treated as persisted, so that a torn write leaves the *new* refresh
+ * paired with the *old* access token — the recoverable direction. `apply()` breaks that promise: it
+ * commits to the in-memory map and queues the disk write, so the suspend function returns before
+ * the bytes are durable, and `CachingSecureStorage` then serves the value from a process-local
+ * cache that makes the gap invisible. A kill that skips `QueuedWork.waitToFinish()` — crash,
+ * low-memory kill, force-stop — loses the write while every in-process read still looks correct.
+ *
+ * That is not hypothetical: it stranded a user. The client rotated its refresh token, the server
+ * committed the rotation, the process died before the queued write landed, and the retry 26 minutes
+ * later presented the superseded token — which the server read as a replay and answered by revoking
+ * the whole session family.
+ *
+ * `commit()` is synchronous and returns whether the write succeeded. Blocking is safe here because
+ * every caller is already inside `withContext(Dispatchers.IO)`. A `false` return means the bytes did
+ * not reach disk; we log rather than throw, because `save` is also used for non-credential flags
+ * whose callers are not written to handle a failure, and a thrown credential write would be a wider
+ * behavioural change than this fix intends. The log line is the honest signal — with on-device log
+ * persistence it is now actually diagnosable.
+ *
+ * The durability property cannot be unit-tested: distinguishing `apply()` from `commit()` requires
+ * killing the process without flushing queued work, and test SharedPreferences implementations
+ * resolve both synchronously. It rests on the documented Android contract.
+ */
+private fun SharedPreferences.Editor.commitDurably(operation: String) {
+    if (!commit()) {
+        logger.error { "Secure storage $operation did not reach disk — credentials may be stale after a restart" }
+    }
 }
 
 /**
