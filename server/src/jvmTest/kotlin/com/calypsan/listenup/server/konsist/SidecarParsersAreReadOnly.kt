@@ -53,17 +53,16 @@ class SidecarParsersAreReadOnly :
         test("SidecarParser implementations never write to disk") {
             val implementations =
                 Konsist
-                    .scopeFromProduction()
+                    // Module-scoped, not whole-repo: `scopeFromProduction()` parses every module's
+                    // PSI before any filter runs, and whichever spec lands first in a cold forked
+                    // worker pays that full parse inside its own Kotest 120s timeout — fork
+                    // batching (forkEvery) reshuffles who pays whenever test classes are added.
+                    // Scoping to :server keeps the parse bounded regardless of batch order (same
+                    // rationale as CollectionMembershipRoutingRule). The implementation-count
+                    // assertion below keeps the narrowing honest: if the scope is ever too tight,
+                    // the rule fails loudly rather than passing on nothing.
+                    .scopeFromProduction("server")
                     .classes()
-                    // Narrow BEFORE resolving parents. `parents()` is the expensive call — it walks
-                    // the supertype graph per class — and running it over every class in scope made
-                    // this spec exceed Kotest's 120s timeout on any checkout carrying sibling git
-                    // worktrees, whose sources Konsist also scans. Restricting to this module's
-                    // production sources first leaves a handful of classes to resolve. The
-                    // implementation-count assertion below is what keeps this narrowing honest: if
-                    // the filter is ever too tight, the rule fails loudly rather than passing on
-                    // nothing.
-                    .filter { it.path.contains("/server/src/") }
                     .filter { cls ->
                         cls.parents().any { it.name == "SidecarParser" }
                     }
