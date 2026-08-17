@@ -227,8 +227,13 @@ fun authModule(
 
 private const val REFRESH_TOKEN_TTL_DAYS = 30L
 
-/** Default lost-response reuse-grace window in seconds (C4). Overridable via `auth.refreshReuseGraceSeconds`. */
-private const val DEFAULT_REUSE_GRACE_SECONDS = 60L
+/**
+ * Default lost-response reuse-grace window in seconds (C4). Overridable via
+ * `auth.refreshReuseGraceSeconds`. 15 minutes, not seconds: a mobile client that dies between
+ * receiving a rotation response and persisting the new token retries on its next background sync
+ * cadence (~15–30 min) — see [com.calypsan.listenup.server.auth.SessionService].
+ */
+private const val DEFAULT_REUSE_GRACE_SECONDS = 900L
 
 /** Concurrent-Argon2 ceiling (C3): `auth.argon2Parallelism` if set, else [DEFAULT_ARGON2_PARALLELISM]. */
 private fun ApplicationConfig.argon2Parallelism(): Int =

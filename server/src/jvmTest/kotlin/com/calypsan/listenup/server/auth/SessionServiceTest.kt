@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.MutableClock
 import com.calypsan.listenup.server.testing.migratedTestDatabase
@@ -12,10 +13,14 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import kotlin.time.ExperimentalTime
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import org.slf4j.event.Level
 
 class SessionServiceTest :
     FunSpec({
@@ -82,10 +87,29 @@ class SessionServiceTest :
             val issued = svc.createSession(UserId("u-1"))
             val firstRotation = svc.rotate(issued.refreshToken).shouldNotBeNull()
 
-            // Adversary replays the original (now-stale) refresh token WELL beyond the lost-response
+            // Adversary replays the original (now-stale) refresh token beyond the lost-response
             // grace window — an unambiguous reuse attack.
-            mutClock.instant = mutClock.instant + 61.seconds
-            val replay = svc.rotate(issued.refreshToken)
+            mutClock.instant = mutClock.instant + 16.minutes
+            val capture = ListenUpLoggerFactory.installTestCapture()
+            val replay =
+                try {
+                    val result = svc.rotate(issued.refreshToken)
+
+                    // The revocation must be visible in server logs (today's incident required DB
+                    // spelunking to diagnose) — WARN with identifiers only, no token material.
+                    val warn =
+                        capture.events
+                            .firstOrNull { it.level == Level.WARN && it.message.contains("Revoking session family") }
+                            .shouldNotBeNull()
+                    warn.message shouldContain issued.sessionId.value
+                    warn.message shouldContain "u-1"
+                    warn.message shouldContain "16 min"
+                    warn.message shouldNotContain issued.refreshToken.value
+                    warn.message shouldNotContain firstRotation.refreshToken.value
+                    result
+                } finally {
+                    ListenUpLoggerFactory.removeTestCapture()
+                }
             replay shouldBe null
 
             db.sessionsQueries
@@ -108,10 +132,28 @@ class SessionServiceTest :
             val issued = svc.createSession(UserId("u-1"))
             val firstRotation = svc.rotate(issued.refreshToken).shouldNotBeNull()
 
-            // The client never received firstRotation's response and re-presents the ORIGINAL token
-            // a moment later — a lost-response retry, not an attack.
-            mutClock.instant = mutClock.instant + 30.seconds
-            val retry = svc.rotate(issued.refreshToken).shouldNotBeNull()
+            // The client never received (or never persisted) firstRotation's response and re-presents
+            // the ORIGINAL token on its next background sync — a lost-response retry, not an attack.
+            // 14 minutes exercises the mobile reality: process death between rotation and persist
+            // surfaces on the next sync cadence, not within seconds.
+            mutClock.instant = mutClock.instant + 14.minutes
+            val capture = ListenUpLoggerFactory.installTestCapture()
+            val retry =
+                try {
+                    val result = svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+                    // The benign path is visible at INFO so future incidents show up in logs.
+                    val info =
+                        capture.events
+                            .firstOrNull { it.level == Level.INFO && it.message.contains("Grace re-rotation") }
+                            .shouldNotBeNull()
+                    info.message shouldContain issued.sessionId.value
+                    info.message shouldContain "840 s"
+                    info.message shouldNotContain issued.refreshToken.value
+                    result
+                } finally {
+                    ListenUpLoggerFactory.removeTestCapture()
+                }
 
             // It rotates AGAIN — a usable fresh token — rather than family-revoking.
             retry.sessionId shouldBe issued.sessionId
@@ -145,7 +187,7 @@ class SessionServiceTest :
             svc.rotate(issued.refreshToken).shouldNotBeNull()
 
             // The same original token surfacing long after the window is an attack → family revoke.
-            mutClock.instant = mutClock.instant + 61.seconds
+            mutClock.instant = mutClock.instant + 16.minutes
             svc.rotate(issued.refreshToken) shouldBe null
             db.sessionsQueries
                 .selectById(issued.sessionId.value)

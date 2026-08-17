@@ -9,12 +9,16 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
+
+private val logger = loggerFor<SessionService>()
 
 /** Result of creating a new session — the raw refresh token is only returned here. */
 data class IssuedSession(
@@ -51,11 +55,24 @@ class SessionService(
     private val refreshTtl: Duration = DEFAULT_REFRESH_TTL,
     /**
      * Lost-response grace window (C4). A refresh token whose rotation completed on the server but
-     * whose response never reached the client leaves the client holding the pre-rotation token. When
-     * the client retries, the server sees that token in `previous_hash` and would normally read it as
-     * a stolen-token replay and revoke the whole family — a dropped packet forcing a logout. Within
-     * this window of the last rotation we instead treat the retry as benign: rotate again on the same
-     * family and hand back a usable token. Genuine reuse after the window still hard-revokes.
+     * whose response never reached — or was never persisted by — the client leaves the client holding
+     * the pre-rotation token. When the client retries, the server sees that token in `previous_hash`
+     * and would normally read it as a stolen-token replay and revoke the whole family — a dropped
+     * packet or a killed process forcing a logout. Within this window of the last rotation we instead
+     * treat the retry as benign: rotate again on the same family and hand back a usable token.
+     * Genuine reuse after the window still hard-revokes.
+     *
+     * The window is sized for the mobile reality, not an immediate network retry: process death
+     * between receiving the rotation response and persisting the new token surfaces on the NEXT
+     * background sync, ~15–30 minutes later — 60 seconds stranded that phone permanently.
+     *
+     * Theft trade-off: a stolen pre-rotation token stays usable for this window. A thief who replays
+     * it in time captures the session — the grace re-rotation re-anchors `previous_hash` on the
+     * incoming (stolen) token rather than advancing it, so the displaced victim's token then matches
+     * neither the live hash nor `previous_hash` and fails as unknown. The victim being forced to
+     * re-authenticate is the visible signal; the family is NOT auto-revoked in that interleaving, so
+     * containment of the captured session is manual (session list, or a password change via
+     * [revokeAllExcept]).
      */
     private val reuseGracePeriod: Duration = DEFAULT_REUSE_GRACE,
     private val clock: Clock = Clock.System,
@@ -150,6 +167,10 @@ class SessionService(
                 // Re-rotate on the same lineage. previous_hash stays keyed on the incoming token so
                 // the window remains anchored to it; a late replay of the same token past the window
                 // still lands in the revoke branch below.
+                logger.info {
+                    "Grace re-rotation for a lost-response retry: session=${replay.id}, " +
+                        "${(now - replay.last_used_at).milliseconds.inWholeSeconds} s since last rotation"
+                }
                 db.sessionsQueries.rotate(
                     previous_hash = incomingHash,
                     refresh_token_hash = newHash,
@@ -165,6 +186,12 @@ class SessionService(
                 )
             }
 
+            // Identifiers only — never token material or hashes.
+            logger.warn {
+                "Replay of a rotated refresh token outside the grace window. Revoking session family: " +
+                    "session=${replay.id}, family=${replay.family_id}, user=${replay.user_id}, " +
+                    "${(now - replay.last_used_at).milliseconds.inWholeMinutes} min since last rotation"
+            }
             db.sessionsQueries.revokeFamily(revoked_at = now, family_id = replay.family_id)
             null
         }
@@ -274,6 +301,6 @@ class SessionService(
 
     companion object {
         private val DEFAULT_REFRESH_TTL: Duration = 30.days
-        private val DEFAULT_REUSE_GRACE: Duration = 60.seconds
+        private val DEFAULT_REUSE_GRACE: Duration = 15.minutes
     }
 }
