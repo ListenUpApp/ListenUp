@@ -130,6 +130,102 @@ class DefaultBookAvailabilityTest :
             }
         }
 
+        // ========== Partially-downloaded books stay playable offline ==========
+        //
+        // "Never stranded": audio already on this device must play, even with the server down.
+        // Gating on Completed refused to play chapters the listener had already downloaded — the
+        // exact case a self-hosted server going offline mid-download produces.
+
+        test("unreachable + partially downloaded: canPlay=true — the finished files are on disk") {
+            runTest {
+                val availability =
+                    buildAvailability(
+                        downloadStatus =
+                            BookDownloadStatus.InProgress(
+                                bookId = "book-1",
+                                totalFiles = 10,
+                                downloadingFiles = 1,
+                                completedFiles = 4,
+                                totalBytes = 1024L,
+                                downloadedBytes = 400L,
+                            ),
+                        reachability = Reachability.Unreachable,
+                    )
+                availability.observe(testBookId).test {
+                    val state = awaitItem()
+                    state.canPlay shouldBe true
+                    state.canDownload shouldBe false
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("unreachable + download failed with some files complete: canPlay=true") {
+            runTest {
+                val availability =
+                    buildAvailability(
+                        downloadStatus =
+                            BookDownloadStatus.Failed(
+                                bookId = "book-1",
+                                errorMessage = "boom",
+                                partiallyDownloadedFiles = 3,
+                            ),
+                        reachability = Reachability.Unreachable,
+                    )
+                availability.observe(testBookId).test {
+                    val state = awaitItem()
+                    state.canPlay shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("unreachable + paused download with some files complete: canPlay=true") {
+            runTest {
+                val availability =
+                    buildAvailability(
+                        downloadStatus =
+                            BookDownloadStatus.Paused(
+                                bookId = "book-1",
+                                pausedFiles = 6,
+                                completedFiles = 4,
+                                downloadedBytes = 400L,
+                                totalBytes = 1024L,
+                            ),
+                        reachability = Reachability.Unreachable,
+                    )
+                availability.observe(testBookId).test {
+                    val state = awaitItem()
+                    state.canPlay shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("unreachable + queued with nothing finished: canPlay=false — there is no audio yet") {
+            runTest {
+                val availability =
+                    buildAvailability(
+                        downloadStatus =
+                            BookDownloadStatus.InProgress(
+                                bookId = "book-1",
+                                totalFiles = 10,
+                                downloadingFiles = 0,
+                                completedFiles = 0,
+                                totalBytes = 1024L,
+                                downloadedBytes = 0L,
+                            ),
+                        reachability = Reachability.Unreachable,
+                    )
+                availability.observe(testBookId).test {
+                    val state = awaitItem()
+                    state.canPlay shouldBe false
+                    state.showServerWarning shouldBe true
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
         test("no playback platform: canDownload=false") {
             runTest {
                 val availability =

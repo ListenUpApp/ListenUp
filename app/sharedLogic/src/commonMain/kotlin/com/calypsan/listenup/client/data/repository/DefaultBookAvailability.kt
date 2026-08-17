@@ -36,6 +36,21 @@ internal class DefaultBookAvailability(
             localPreferences.wifiOnlyDownloads,
         ) { downloadStatus, reachability, unmetered, wifiOnly ->
             val isFullyDownloaded = downloadStatus is BookDownloadStatus.Completed
+
+            // Whether ANY audio for this book is already on disk. "Never stranded": a listener who
+            // downloaded four chapters must be able to play them with the server switched off.
+            // Gating on `isFullyDownloaded` refused exactly that — the app held the bytes and
+            // declined to play them, which is the failure mode offline-first exists to prevent.
+            // A stopped download is the common way to end up here: a self-hosted server going
+            // offline mid-download leaves finished files beside unfinished ones.
+            val hasDownloadedAudio =
+                when (downloadStatus) {
+                    is BookDownloadStatus.Completed -> true
+                    is BookDownloadStatus.InProgress -> downloadStatus.completedFiles > 0
+                    is BookDownloadStatus.Failed -> downloadStatus.partiallyDownloadedFiles > 0
+                    is BookDownloadStatus.Paused -> downloadStatus.completedFiles > 0
+                    is BookDownloadStatus.NotDownloaded -> false
+                }
             val isQueued =
                 downloadStatus is BookDownloadStatus.InProgress &&
                     downloadStatus.downloadingFiles == 0 &&
@@ -48,7 +63,7 @@ internal class DefaultBookAvailability(
                 // network failure), streaming and downloading cannot succeed — disabling them is
                 // honest, and the signal heals the instant any real traffic proves otherwise.
                 // Unknown stays optimistic: never block on absence of evidence.
-                canPlay = isFullyDownloaded || reachability != Reachability.Unreachable,
+                canPlay = hasDownloadedAudio || reachability != Reachability.Unreachable,
                 canDownload = playbackAvailable && reachability != Reachability.Unreachable,
                 showServerWarning = reachability == Reachability.Unreachable && !isFullyDownloaded,
                 isWaitingForWifi = isQueued && wifiOnly && !unmetered,

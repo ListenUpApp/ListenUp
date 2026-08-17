@@ -54,15 +54,20 @@ class BookDownloadStatusTest :
             status.partiallyDownloadedFiles shouldBe 2
         }
 
-        test("Paused carries paused file count and progress numbers") {
+        test("Paused carries paused file count, completed count, and progress numbers") {
             val status =
                 BookDownloadStatus.Paused(
                     bookId = "book-1",
                     pausedFiles = 3,
+                    completedFiles = 2,
                     downloadedBytes = 100L,
                     totalBytes = 500L,
                 )
             status.pausedFiles shouldBe 3
+            // Completed files are tracked separately from bytes: a stopped download can hold
+            // finished, playable files, and byte totals cannot distinguish those from one
+            // half-written file.
+            status.completedFiles shouldBe 2
             status.downloadedBytes shouldBe 100L
             status.totalBytes shouldBe 500L
         }
