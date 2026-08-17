@@ -269,7 +269,8 @@ internal class SyncEngine(
      * The actual startup sequence, run inside the engine job so it's
      * cancellable as a unit. Order matters and is documented in the class
      * KDoc: queue ownership → catch-up → seed the resume cursor → collectors →
-     * drain scheduling → state observers → firehose connect.
+     * drain scheduling → state observers → firehose connect → digest reconcile →
+     * refreshed-tier prime.
      */
     private suspend fun runStart(currentUserId: String) {
         // Step 1: queue ownership.
@@ -312,6 +313,13 @@ internal class SyncEngine(
         // so the live tail is already in place; reconcileAll() is non-throwing. Behind the shared
         // catch-up guard: its digest repair pages the server and rewrites the cursor store too.
         catchUpMutex.withLock { reconciler.reconcileAll() }
+        // Step 9: prime the refreshed tier. Its domains (preferences, server-info, presence) are
+        // pulled by a server-pushed control, never by catch-up or the digest — so on a cold start,
+        // and on the first start after an app-storage wipe, they had no cached row and no trigger
+        // coming. That is how a user whose synced default speed is 2x got a book at 1x: the player
+        // reads the preferences cache, and nothing had ever filled it. refreshAll() guards each
+        // refetch individually and never throws, so an offline start just leaves the cache empty.
+        refreshedRouter.refreshAll()
         // All steps succeeded — flag the user's setup complete so a subsequent
         // start() for the same user is a no-op. If any step above threw, this
         // line is never reached, the flag stays false, and start() retries.

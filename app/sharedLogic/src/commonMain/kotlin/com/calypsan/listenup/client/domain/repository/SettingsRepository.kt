@@ -6,42 +6,7 @@ import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-
-/**
- * Events emitted when user preferences change.
- * Observed by the sync layer to queue operations without creating circular dependencies.
- */
-sealed interface PreferenceChangeEvent {
-    /**
-     * Default playback speed was changed.
-     */
-    data class PlaybackSpeedChanged(
-        val speed: Float,
-    ) : PreferenceChangeEvent
-
-    /**
-     * Default volume boost was changed.
-     */
-    data class VolumeBoostChanged(
-        val boostDb: Float,
-    ) : PreferenceChangeEvent
-
-    /**
-     * Default skip-forward interval was changed.
-     */
-    data class SkipForwardChanged(
-        val seconds: Int,
-    ) : PreferenceChangeEvent
-
-    /**
-     * Default skip-backward interval was changed.
-     */
-    data class SkipBackwardChanged(
-        val seconds: Int,
-    ) : PreferenceChangeEvent
-}
 
 // region Segregated Interfaces (ISP)
 
@@ -277,10 +242,17 @@ interface LibraryPreferences {
 }
 
 /**
- * Contract for playback preferences.
+ * The player's read-only view of the user's server-synced playback defaults.
  *
- * Used by SettingsViewModel, NowPlayingViewModel, DownloadWorker,
- * and SyncManager for managing playback-related settings.
+ * These are the values a book falls back to when it carries no per-book override — the same
+ * values the Settings screen shows, read from the same store ([UserPreferencesRepository],
+ * backed by Room). There is no device-local copy: a second store meant the player could
+ * disagree with Settings whenever the two drifted (an app-storage wipe, an offline session),
+ * and playing a 2x book at 1x is exactly that drift made audible.
+ *
+ * Reads never touch the network — the Room cache answers, and an uncached account degrades to
+ * the stock constants below rather than blocking or failing. Writes belong to
+ * [UserPreferencesRepository], which owns the optimistic-cache + outbox path.
  */
 interface PlaybackPreferences {
     companion object {
@@ -297,103 +269,54 @@ interface PlaybackPreferences {
         const val DEFAULT_SKIP_BACKWARD_SEC = 10
     }
 
-    /** Flow of preference change events for sync layer. */
-    val preferenceChanges: SharedFlow<PreferenceChangeEvent>
-
     /**
      * Reactively observe the default playback speed.
      *
-     * Emits the current value on first collect, then re-emits whenever
-     * [setDefaultPlaybackSpeed] is called from any caller. Use this in
-     * ViewModels' combine chains so a Settings change propagates to the
-     * now-playing surface without manual coordination.
-     *
-     * EM-R1: rethrows [CancellationException]; non-cancellation failures
-     * during the initial read fall back to [DEFAULT_PLAYBACK_SPEED].
+     * Emits the currently synced value on first collect, then re-emits whenever it changes —
+     * a Settings edit on this device or a cross-device change landing through sync. Use this in
+     * ViewModels' combine chains so the now-playing surface follows without manual coordination.
      */
     fun observeDefaultPlaybackSpeed(): Flow<Float>
 
     /**
-     * Get the default playback speed for new books.
-     * @return Playback speed multiplier (e.g., 1.0, 1.25, 1.5). Default is 1.0.
+     * Get the default playback speed a book with no per-book override plays at.
+     * @return Playback speed multiplier (e.g., 1.0, 1.25, 1.5). [DEFAULT_PLAYBACK_SPEED] when
+     *   nothing is cached for the signed-in user.
      */
     suspend fun getDefaultPlaybackSpeed(): Float
 
     /**
-     * Set the default playback speed for new books.
-     * This is a synced setting - will be pushed to server.
-     */
-    suspend fun setDefaultPlaybackSpeed(speed: Float)
-
-    /**
      * Reactively observe the default volume boost.
      *
-     * Emits the current value on first collect, then re-emits whenever
-     * [setDefaultVolumeBoostDb] is called from any caller. Use this in
-     * ViewModels' combine chains so a Settings change propagates to the
-     * now-playing surface without manual coordination.
-     *
-     * EM-R1: rethrows [CancellationException]; non-cancellation failures
-     * during the initial read fall back to [DEFAULT_VOLUME_BOOST_DB].
+     * Emits the currently synced value on first collect, then re-emits on every change.
      */
     fun observeDefaultVolumeBoostDb(): Flow<Float>
 
     /**
-     * Get the default volume boost for books without a custom boost.
-     * @return Volume boost in decibels (0 means no boost). Default is 0.
+     * Get the default volume boost for books with no per-book override.
+     * @return Volume boost in decibels. [DEFAULT_VOLUME_BOOST_DB] when nothing is cached.
      */
     suspend fun getDefaultVolumeBoostDb(): Float
 
     /**
-     * Set the default volume boost for books without a custom boost.
-     * This is a synced setting - will be pushed to server.
-     */
-    suspend fun setDefaultVolumeBoostDb(boostDb: Float)
-
-    /**
      * Reactively observe the default skip-forward interval (seconds).
      *
-     * Emits the current value on first collect, then re-emits whenever
-     * [setDefaultSkipForwardSec] is called from any caller — so a Settings change
-     * propagates live to the player without manual coordination.
-     *
-     * EM-R1: rethrows [CancellationException]; non-cancellation failures during
-     * the initial read fall back to [DEFAULT_SKIP_FORWARD_SEC].
+     * Emits the currently synced value on first collect, then re-emits on every change.
      */
     fun observeDefaultSkipForwardSec(): Flow<Int>
 
     /**
      * Reactively observe the default skip-backward interval (seconds).
      *
-     * Emits the current value on first collect, then re-emits whenever
-     * [setDefaultSkipBackwardSec] is called from any caller.
-     *
-     * EM-R1: rethrows [CancellationException]; non-cancellation failures during
-     * the initial read fall back to [DEFAULT_SKIP_BACKWARD_SEC].
+     * Emits the currently synced value on first collect, then re-emits on every change.
      */
     fun observeDefaultSkipBackwardSec(): Flow<Int>
 
-    /**
-     * Get the default skip-forward interval in seconds. Default is 30.
-     */
+    /** Get the default skip-forward interval in seconds. [DEFAULT_SKIP_FORWARD_SEC] when uncached. */
     suspend fun getDefaultSkipForwardSec(): Int
 
-    /**
-     * Get the default skip-backward interval in seconds. Default is 10.
-     */
+    /** Get the default skip-backward interval in seconds. [DEFAULT_SKIP_BACKWARD_SEC] when uncached. */
     suspend fun getDefaultSkipBackwardSec(): Int
-
-    /**
-     * Set the default skip-forward interval (seconds). Persisted locally for
-     * reactive reads; server sync is the caller's responsibility.
-     */
-    suspend fun setDefaultSkipForwardSec(seconds: Int)
-
-    /**
-     * Set the default skip-backward interval (seconds). Persisted locally for
-     * reactive reads; server sync is the caller's responsibility.
-     */
-    suspend fun setDefaultSkipBackwardSec(seconds: Int)
 }
 
 /**

@@ -66,7 +66,6 @@ class PlaybackManagerBoostTest :
         fun defaultPlaybackPreferences(): PlaybackPreferences {
             val prefs: PlaybackPreferences = mock()
             everySuspend { prefs.getDefaultPlaybackSpeed() } returns 1.0f
-            everySuspend { prefs.setDefaultPlaybackSpeed(any()) } returns Unit
             everySuspend { prefs.getDefaultVolumeBoostDb() } returns 0.0f
             return prefs
         }

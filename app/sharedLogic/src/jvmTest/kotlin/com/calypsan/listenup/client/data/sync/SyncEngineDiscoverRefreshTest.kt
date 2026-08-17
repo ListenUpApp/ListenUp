@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
+import com.calypsan.listenup.client.data.sync.domains.preferencesDomain
 import com.calypsan.listenup.client.data.sync.domains.presenceDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -30,7 +31,7 @@ import kotlinx.coroutines.withTimeout
 class SyncEngineDiscoverRefreshTest :
     FunSpec({
 
-        test("a reconnect (not the initial connect) pings presence and reconciles") {
+        test("start primes the refreshed tier once, and a reconnect re-fires it") {
             runBlocking {
                 val scope =
                     CoroutineScope(
@@ -39,6 +40,10 @@ class SyncEngineDiscoverRefreshTest :
                 val db = createInMemoryTestDatabase()
                 try {
                     val presencePings = AtomicInteger(0)
+                    // The user's synced playback defaults ride this refetch. Nothing else pulls
+                    // them — not catch-up, not the digest — so if start doesn't prime them, a book
+                    // opened right after a fresh sign-in plays at the stock 1x, not the user's 2x.
+                    val preferenceRefetches = AtomicInteger(0)
                     val catchUp = CountingReconcileCatchUp()
                     val state = SyncEngineState()
                     val sse = FlippingFakeSse(state)
@@ -92,18 +97,26 @@ class SyncEngineDiscoverRefreshTest :
                             // edge re-fire the ping.
                             refreshedRouter =
                                 RefreshedDomainRouter(
-                                    listOf(presenceDomain(ping = { presence.ping() })),
+                                    listOf(
+                                        presenceDomain(ping = { presence.ping() }),
+                                        preferencesDomain(
+                                            refetch = { preferenceRefetches.incrementAndGet() },
+                                        ),
+                                    ),
                                 ),
                         )
 
                     engine.start(currentUserId = "u1")
 
-                    // After start: start's own reconcile re-pulled once (drifted); the initial connect
-                    // was DROPPED so presence was not pinged.
+                    // After start: start's own reconcile re-pulled once (drifted), and start primes
+                    // the refreshed tier — the domains no catch-up or digest covers, which would
+                    // otherwise sit empty on a cold start with no trigger coming.
                     catchUp.fromZeroInvocations.get() shouldBe 1
-                    // Let the reconnect observer settle on (and drop) the initial Connected.
+                    // Let the reconnect observer settle on (and drop) the initial Connected — the
+                    // prime is start's, so the connect edge must not add a second ping.
                     delay(150)
-                    presencePings.get() shouldBe 0
+                    presencePings.get() shouldBe 1
+                    preferenceRefetches.get() shouldBe 1
 
                     // Drive a real reconnect edge: drop, let the observer see Disconnected, then connect.
                     sse.disconnect()
@@ -112,13 +125,14 @@ class SyncEngineDiscoverRefreshTest :
 
                     // The reconnect fires both actions exactly once more.
                     withTimeout(5_000L) {
-                        while (presencePings.get() < 1 ||
+                        while (presencePings.get() < 2 ||
                             catchUp.fromZeroInvocations.get() < 2
                         ) {
                             delay(10)
                         }
                     }
-                    presencePings.get() shouldBe 1
+                    presencePings.get() shouldBe 2
+                    preferenceRefetches.get() shouldBe 2
                     catchUp.fromZeroInvocations.get() shouldBe 2
                 } finally {
                     scope.cancel()

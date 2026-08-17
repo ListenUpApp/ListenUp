@@ -532,7 +532,6 @@ internal val settingsPresentationModule =
         factory {
             SettingsViewModel(
                 libraryPreferences = get(),
-                playbackPreferences = get(),
                 localPreferences = get(),
                 userPreferencesRepository = get(),
                 instanceRepository = get(),
