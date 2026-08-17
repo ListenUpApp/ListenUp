@@ -48,10 +48,18 @@ sealed interface BookDownloadStatus {
         val partiallyDownloadedFiles: Int,
     ) : BookDownloadStatus
 
-    /** User cancelled or system paused the download. */
+    /**
+     * User cancelled or system paused the download.
+     *
+     * @property completedFiles Files that finished before the stop. A paused book is a MIX of
+     * paused/cancelled/completed files, so this can be non-zero — and when it is, those files are
+     * on disk and playable offline. Carried explicitly because byte counts cannot answer that:
+     * a large [downloadedBytes] may be one unfinished file, which plays nothing.
+     */
     data class Paused(
         override val bookId: String,
         val pausedFiles: Int,
+        val completedFiles: Int,
         val downloadedBytes: Long,
         val totalBytes: Long,
     ) : BookDownloadStatus

@@ -249,6 +249,7 @@ internal fun aggregateBookDownloadStatus(
                     relevant.count {
                         it.state == DownloadState.PAUSED || it.state == DownloadState.CANCELLED
                     },
+                completedFiles = completedFiles,
                 downloadedBytes = downloadedBytes,
                 totalBytes = totalBytes,
             )
