@@ -529,6 +529,86 @@ class AppStartupViewModelTest :
             }
         }
 
+        // ========== Lapsed-session Cold Start Tests ==========
+
+        // Regression (2026-08-16 stranding): a COLD START into AuthState.SessionLapsed deadlocked on
+        // an opaque loading screen. The nav layer routes SessionLapsed into the same authenticated
+        // shell as Authenticated (by design — offline library + "Sign in to sync" affordance), and
+        // that shell overlays FullScreenLoadingIndicator while readiness == Checking. But the VM only
+        // ran the library-setup check for Authenticated, so under SessionLapsed checkResolved stayed
+        // false and readiness reported Checking forever — the affordance underneath was unreachable.
+        // The check must run for SessionLapsed too: it resolves from LOCAL data first, so a lapsed
+        // cold start with local content is Ready instantly, no live credentials needed.
+        test("cold start into a lapsed session with a local library resolves Ready") {
+            runTest {
+                // Given - session lapsed (refresh token dead), but the library is cached in Room.
+                // refreshCurrentUser returns null, as it does when the RPC fails on dead credentials.
+                val userRepository = createMockUserRepository()
+                val channel = libraryAdminChannel()
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns createTestUser(isAdmin = false)
+                val authSession = createMockAuthSession(AuthState.SessionLapsed(UserId("user-001")))
+                val syncRepository = createMockSyncRepository(hasLocalLibrary = true)
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, channel, authSession, syncRepository)
+                advanceUntilIdle()
+
+                // Then - the lapsed shell mounts on the offline library; no eternal Checking overlay
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.checkResolved shouldBe true
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
+            }
+        }
+
+        // Complement: a lapsed cold start with NO local content falls through to the network path,
+        // which fails against dead credentials / an unreachable server — the honest, retryable
+        // CheckFailed wall is correct there. What is never acceptable is staying on Checking.
+        test("lapsed cold start with no local library and an unreachable server resolves CheckFailed") {
+            runTest {
+                // Given - session lapsed, nothing cached locally, and the current-user RPC hangs
+                // (unreachable server) so the check must time out and resolve offline.
+                val userRepository = createMockUserRepository()
+                val channel = libraryAdminChannel()
+                everySuspend { userRepository.refreshCurrentUser() } calls { awaitCancellation() }
+                everySuspend { userRepository.getCurrentUser() } returns null
+                val authSession = createMockAuthSession(AuthState.SessionLapsed(UserId("user-001")))
+                val syncRepository = createMockSyncRepository(hasLocalLibrary = false)
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, channel, authSession, syncRepository)
+                advanceUntilIdle()
+
+                // Then - resolved to the retryable error wall, not an eternal spinner
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.checkResolved shouldBe true
+                viewModel.readiness.value shouldBe LibraryReadiness.CheckFailed
+            }
+        }
+
+        // The original guard's purpose still holds: a genuinely unauthenticated state must NOT run
+        // the check — resolving setup state before login caches a null-user answer (see the
+        // "runs on transition to Authenticated" regression above).
+        test("NeedsLogin does not run the check and readiness stays Checking") {
+            runTest {
+                // Given - not logged in at all
+                val userRepository = createMockUserRepository()
+                val channel = libraryAdminChannel()
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns null
+                val authSession = createMockAuthSession(AuthState.NeedsLogin(openRegistration = false))
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, channel, authSession, createMockSyncRepository())
+                advanceUntilIdle()
+
+                // Then - no check ran; the login flow (not the readiness gate) owns this state
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.checkResolved shouldBe false
+                viewModel.readiness.value shouldBe LibraryReadiness.Checking
+            }
+        }
+
         // Offline-first responsiveness: a returning user already has the library in Room, so the app
         // is Ready the instant we can read local state — the splash must NOT wait on any server
         // round-trip. Server work (user refresh, setup-status, delta sync) is background reconciliation

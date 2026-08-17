@@ -191,11 +191,28 @@ class AppStartupViewModel internal constructor(
     private fun observeAuthState() {
         viewModelScope.launch {
             authSession.authState
-                .map { it is AuthState.Authenticated }
+                // SessionLapsed counts as "in the shell": the nav layer routes it into the same
+                // authenticated shell as Authenticated (offline library + "Sign in to sync"
+                // affordance, never a forced wall), and that shell gates on [readiness]. If the
+                // check only ran for Authenticated, a COLD START into a lapsed session would leave
+                // checkResolved false and readiness on Checking forever — an opaque overlay with
+                // the sign-in affordance unreachable underneath. The check resolves from LOCAL
+                // data first (hasLocalLibrary → Ready with zero network), so no live credentials
+                // are needed; with no local content the network path fails against the dead
+                // session and lands on the retryable CheckFailed wall — honest and escapable.
+                // launchBackgroundUserRefresh on the local path is harmless under a lapsed
+                // session: UserRepository.refreshCurrentUser swallows transport failures to null.
+                //
+                // Mapping both states to one boolean before distinctUntilChanged is deliberate:
+                // Authenticated ↔ SessionLapsed transitions are true→true, so a mid-session lapse
+                // (or a re-auth from the lapsed shell) never pointlessly re-runs the check — the
+                // library-setup answer was already resolved from local state, and the CheckFailed
+                // wall keeps its manual retry, which succeeds once credentials are live again.
+                .map { it is AuthState.Authenticated || it is AuthState.SessionLapsed }
                 .distinctUntilChanged()
-                .collect { authenticated ->
-                    if (authenticated) {
-                        logger.info { "AppStartupViewModel: authenticated — running library-setup check" }
+                .collect { inShell ->
+                    if (inShell) {
+                        logger.info { "AppStartupViewModel: authenticated or lapsed — running library-setup check" }
                         state.value = AppStartupState(isChecking = true)
                         runLibrarySetupCheck()
                     } else {
