@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -531,6 +532,85 @@ class ContributorDetailViewModelTest :
                     .roleSections[0]
                     .previewBooks
                     .map { it.title } shouldBe listOf("Book One")
+            }
+        }
+
+        // ========== Absent / Tombstoned Row ==========
+
+        test("an absent or tombstoned row resolves to NotFound instead of loading forever") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("contributor-1")
+                // contributorFlow stays null: the DAO filters tombstones, so a merged-away or
+                // never-present contributor never produces a row.
+                advanceUntilIdle()
+
+                viewModel.state.value shouldBe ContributorDetailUiState.NotFound
+            }
+        }
+
+        test("a cache-miss row arriving during the settle window reaches Ready without flashing NotFound") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                val observed = mutableListOf<ContributorDetailUiState>()
+                backgroundScope.launch { viewModel.state.collect { observed += it } }
+
+                viewModel.loadContributor("contributor-1")
+                // The repository's on-demand RPC fallback emits null first, then the freshly
+                // cached row — advance part-way into the settle window before the row lands.
+                advanceTimeBy(ContributorDetailViewModel.NOT_FOUND_SETTLE_WINDOW / 2)
+                fixture.contributorFlow.value = createContributor(name = "Late Arrival")
+                fixture.rolesFlow.value = emptyList()
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<ContributorDetailUiState.Ready>()
+                state.contributor.name shouldBe "Late Arrival"
+                observed.none { it is ContributorDetailUiState.NotFound } shouldBe true
+            }
+        }
+
+        test("a contributor row reappearing after NotFound recovers to Ready") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("contributor-1")
+                advanceUntilIdle()
+                viewModel.state.value shouldBe ContributorDetailUiState.NotFound
+
+                // A fetch slower than the settle window (or a later sync) delivers the row —
+                // the pipeline is still live, so NotFound must flip to Ready, not stick.
+                fixture.contributorFlow.value = createContributor(name = "Recovered")
+                fixture.rolesFlow.value = emptyList()
+                advanceUntilIdle()
+
+                val state = viewModel.state.value.shouldBeInstanceOf<ContributorDetailUiState.Ready>()
+                state.contributor.name shouldBe "Recovered"
+            }
+        }
+
+        test("a row that tombstones while on screen resolves to NotFound") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("contributor-1")
+                fixture.contributorFlow.value = createContributor()
+                fixture.rolesFlow.value = emptyList()
+                advanceUntilIdle()
+                viewModel.state.value.shouldBeInstanceOf<ContributorDetailUiState.Ready>()
+
+                // A merge elsewhere tombstones this contributor — the live Room flow yields null.
+                fixture.contributorFlow.value = null
+                advanceUntilIdle()
+
+                viewModel.state.value shouldBe ContributorDetailUiState.NotFound
             }
         }
 

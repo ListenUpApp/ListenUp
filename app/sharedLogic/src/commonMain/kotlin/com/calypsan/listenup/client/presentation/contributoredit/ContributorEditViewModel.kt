@@ -187,6 +187,20 @@ sealed interface ContributorEditNavAction {
     data object NavigateBack : ContributorEditNavAction
 
     data object SaveSuccess : ContributorEditNavAction
+
+    /**
+     * A merge committed; land on [contributorId], the contributor that survived it.
+     *
+     * Distinct from [NavigateBack] because a merge can delete the contributor being *viewed*: the
+     * rename-collision path folds the viewed contributor into an existing one, so popping the
+     * editor would drop the reader onto the detail page of a contributor that no longer exists —
+     * an empty shell requiring a second Back to escape. The alias path keeps the viewed
+     * contributor as the survivor, so landing on it is a refresh rather than a move; carrying the
+     * survivor's id in both cases lets every host normalize the stack the same way.
+     */
+    data class NavigateToMerged(
+        val contributorId: ContributorId,
+    ) : ContributorEditNavAction
 }
 
 /**
@@ -406,7 +420,9 @@ class ContributorEditViewModel internal constructor(
             ) {
                 is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
-                    _navActions.trySend(ContributorEditNavAction.NavigateBack)
+                    // The survivor, not back: the viewed contributor survived this merge, but the
+                    // detail page behind the editor was rendered from pre-merge state.
+                    _navActions.trySend(ContributorEditNavAction.NavigateToMerged(ContributorId(viewedId)))
                 }
 
                 is AppResult.Failure -> {
@@ -653,7 +669,7 @@ class ContributorEditViewModel internal constructor(
      * the merge *source* (folded in, soft-deleted, its typed rename discarded) and
      * [ContributorEditUiState.renameCollisionCandidate] is the *target* (survives under its own
      * name — which is what collided with the typed rename in the first place). On success there
-     * is nothing left to show on this page, so we navigate back.
+     * is nothing left to show on this page, so we land on the survivor.
      */
     private fun mergeOnRename() {
         val candidate = state.value.renameCollisionCandidate ?: return
@@ -675,7 +691,8 @@ class ContributorEditViewModel internal constructor(
             ) {
                 is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
-                    _navActions.trySend(ContributorEditNavAction.NavigateBack)
+                    // The survivor, not back: this merge soft-deleted the contributor we were editing.
+                    _navActions.trySend(ContributorEditNavAction.NavigateToMerged(candidate.id))
                 }
 
                 is AppResult.Failure -> {

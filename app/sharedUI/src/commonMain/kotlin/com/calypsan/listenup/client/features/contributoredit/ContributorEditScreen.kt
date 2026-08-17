@@ -69,6 +69,7 @@ import listenup.composeapp.generated.resources.contributor_dates
 import listenup.composeapp.generated.resources.contributor_death_date
 import listenup.composeapp.generated.resources.contributor_enter_a_biography
 import listenup.composeapp.generated.resources.contributor_links
+import listenup.composeapp.generated.resources.contributor_merging
 import listenup.composeapp.generated.resources.contributor_select_birth_date
 import listenup.composeapp.generated.resources.contributor_select_death_date
 import listenup.composeapp.generated.resources.error_unknown
@@ -97,11 +98,15 @@ fun ContributorEditScreen(
     contributorId: String,
     onBackClick: () -> Unit,
     onSaveSuccess: () -> Unit = {},
+    /**
+     * A merge committed; the surviving contributor's id. Separate from [onSaveSuccess] because a
+     * rename-collision merge deletes this contributor — the host must land on the survivor rather
+     * than pop back onto a deleted detail page (an alias merge survives in place and just reloads).
+     */
+    onMergedInto: (String) -> Unit,
     viewModel: ContributorEditViewModel = koinViewModel(),
 ) {
-    LaunchedEffect(contributorId) {
-        viewModel.loadContributor(contributorId)
-    }
+    LaunchedEffect(contributorId) { viewModel.loadContributor(contributorId) }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
     val mergeCandidates by viewModel.mergeCandidates.collectAsStateWithLifecycle()
@@ -111,6 +116,7 @@ fun ContributorEditScreen(
             when (navAction) {
                 is ContributorEditNavAction.NavigateBack -> onBackClick()
                 is ContributorEditNavAction.SaveSuccess -> onSaveSuccess()
+                is ContributorEditNavAction.NavigateToMerged -> onMergedInto(navAction.contributorId.value)
             }
         }
     }
@@ -131,11 +137,7 @@ fun ContributorEditScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             if (!state.isLoading) {
-                SaveFab(
-                    hasChanges = state.hasChanges,
-                    isSaving = state.isSaving,
-                    onSave = { viewModel.onEvent(ContributorEditUiEvent.Save) },
-                )
+                SaveFab(state = state, onSave = { viewModel.onEvent(ContributorEditUiEvent.Save) })
             }
         },
     ) { paddingValues ->
@@ -178,7 +180,9 @@ fun ContributorEditScreen(
                         state = state,
                         colorScheme = colorScheme,
                         onEvent = viewModel::onEvent,
-                        onMergeClick = { showMergeDialog = true },
+                        // Guard: the scrim overlay is visual-only, so the merge affordance
+                        // stays inert while a merge is already in flight.
+                        onMergeClick = { if (!state.mergeInProgress) showMergeDialog = true },
                         onBackClick = {
                             if (state.hasChanges) {
                                 showUnsavedChangesDialog = true
@@ -195,6 +199,10 @@ fun ContributorEditScreen(
                                 .consumeWindowInsets(PaddingValues(bottom = paddingValues.calculateBottomPadding())),
                     )
                 }
+            }
+
+            if (state.mergeInProgress) {
+                MergeProgressOverlay()
             }
         }
     }
@@ -244,17 +252,49 @@ fun ContributorEditScreen(
 
 @Composable
 private fun SaveFab(
-    hasChanges: Boolean,
-    isSaving: Boolean,
+    state: ContributorEditUiState,
     onSave: () -> Unit,
 ) {
+    // A merge is a save-class blocking operation (the RPC can take tens of seconds), so the
+    // FAB reflects it the same way it reflects a save: spinner shown, action disabled.
+    val busy = state.isSaving || state.mergeInProgress
     ListenUpExtendedFab(
         onClick = onSave,
         icon = Icons.Default.Save,
-        text = if (isSaving) "Saving..." else "Save Changes",
-        enabled = hasChanges && !isSaving,
-        isLoading = isSaving,
+        text =
+            when {
+                state.mergeInProgress -> stringResource(Res.string.contributor_merging)
+                state.isSaving -> "Saving..."
+                else -> "Save Changes"
+            },
+        enabled = state.hasChanges && !busy,
+        isLoading = busy,
     )
+}
+
+/**
+ * Blocking merge overlay — mirrors the detail screen's isDeleting scrim. The merge RPC can
+ * take tens of seconds; without this the screen looked idle while it ran.
+ */
+@Composable
+private fun MergeProgressOverlay() {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.3f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            ListenUpLoadingIndicator()
+            Text(
+                text = stringResource(Res.string.contributor_merging),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+        }
+    }
 }
 
 // =============================================================================
