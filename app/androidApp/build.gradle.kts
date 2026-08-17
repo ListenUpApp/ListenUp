@@ -118,7 +118,9 @@ androidComponents {
 
 dependencies {
     implementation(projects.app.sharedUI)
-    // SLF4J Android backend - routes kotlin-logging to Logcat
+    // SLF4J Android backend - routes kotlin-logging to Logcat. The app supplies the runtime
+    // classes; :app:sharedUI compiles against it (compileOnly) for ListenUpAndroidLogProvider,
+    // the tee that mirrors every log line into the on-device FileLogSink.
     implementation(libs.slf4j.android)
 
     // ProfileInstaller — allows the Baseline Profile to be installed at app startup

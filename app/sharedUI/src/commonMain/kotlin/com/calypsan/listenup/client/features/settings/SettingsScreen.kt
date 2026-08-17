@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Replay10
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SortByAlpha
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
@@ -110,6 +111,8 @@ import listenup.composeapp.generated.resources.settings_manage_storage
 import listenup.composeapp.generated.resources.settings_open_source_licenses
 import listenup.composeapp.generated.resources.settings_rewind_a_few_seconds_when
 import listenup.composeapp.generated.resources.settings_server_version
+import listenup.composeapp.generated.resources.settings_share_logs
+import listenup.composeapp.generated.resources.settings_share_logs_subtitle
 import listenup.composeapp.generated.resources.settings_skip_backward
 import listenup.composeapp.generated.resources.settings_skip_forward
 import listenup.composeapp.generated.resources.settings_sleep_timer
@@ -120,6 +123,7 @@ import listenup.composeapp.generated.resources.settings_view_thirdparty_licenses
 import listenup.composeapp.generated.resources.settings_wifi_only_downloads
 import listenup.composeapp.generated.resources.settings_wifi_only_downloads_subtitle
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -218,6 +222,7 @@ fun SettingsScreen(
     showSleepTimer: Boolean = true,
     viewModel: SettingsViewModel = koinViewModel(),
 ) {
+    val platformActions: SettingsPlatformActions = koinInject()
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showSignOutDialog by remember { mutableStateOf(false) }
 
@@ -304,7 +309,11 @@ fun SettingsScreen(
                     StorageSection(onNavigateToStorage = onNavigateToStorage)
                 }
 
-                AboutSection(state = state, onNavigateToLicenses = onNavigateToLicenses)
+                AboutSection(
+                    state = state,
+                    onNavigateToLicenses = onNavigateToLicenses,
+                    onShareLogs = platformActions::shareLogs,
+                )
             }
         }
     }
@@ -591,6 +600,7 @@ private fun StorageSection(onNavigateToStorage: () -> Unit) {
 private fun AboutSection(
     state: SettingsUiState,
     onNavigateToLicenses: (() -> Unit)?,
+    onShareLogs: () -> Unit,
 ) {
     val accent = MaterialTheme.colorScheme.onSurfaceVariant
     SectionGroup(
@@ -623,6 +633,14 @@ private fun AboutSection(
                 showDivider = true,
             )
         }
+        NavigationRow(
+            icon = Icons.Default.Share,
+            accent = accent,
+            title = stringResource(Res.string.settings_share_logs),
+            subtitle = stringResource(Res.string.settings_share_logs_subtitle),
+            onClick = onShareLogs,
+            showDivider = true,
+        )
     }
 }
 

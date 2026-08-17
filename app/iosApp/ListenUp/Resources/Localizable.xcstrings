@@ -12361,6 +12361,26 @@
         }
       }
     },
+    "settings.share_logs": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share logs"
+          }
+        }
+      }
+    },
+    "settings.share_logs_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export recent app logs for troubleshooting"
+          }
+        }
+      }
+    },
     "settings.sign_out_confirm_title": {
       "localizations": {
         "en": {

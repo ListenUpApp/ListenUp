@@ -844,6 +844,8 @@
     "playback": "Playback",
     "rewind_a_few_seconds_when": "Rewind a few seconds when resuming playback",
     "server_version": "Server version",
+    "share_logs": "Share logs",
+    "share_logs_subtitle": "Export recent app logs for troubleshooting",
     "sign_out_confirm_title": "Sign Out",
     "skip_backward": "Skip backward",
     "skip_forward": "Skip forward",

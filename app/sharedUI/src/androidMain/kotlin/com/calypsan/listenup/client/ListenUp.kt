@@ -24,8 +24,12 @@ import com.calypsan.listenup.client.di.androidDownloadModule
 import com.calypsan.listenup.client.di.androidPlaybackModule
 import com.calypsan.listenup.client.di.androidPlaybackPresentationModule
 import com.calypsan.listenup.client.di.androidSharedModules
+import com.calypsan.listenup.client.core.logging.LogSinkRegistry
 import com.calypsan.listenup.client.features.bookdetail.AndroidBookDetailPlatformActions
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
+import com.calypsan.listenup.client.features.settings.AndroidSettingsPlatformActions
+import com.calypsan.listenup.client.features.settings.SettingsPlatformActions
+import com.calypsan.listenup.client.logging.ListenUpAndroidLogProvider
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.localization.SystemStringsHolder
@@ -167,6 +171,9 @@ val androidModule =
                 scope = get(),
             )
         }
+
+        // Settings platform side-effects (share the on-device log files)
+        single<SettingsPlatformActions> { AndroidSettingsPlatformActions(context = androidContext()) }
     }
 
 /**
@@ -325,6 +332,14 @@ class ListenUp :
     Application(),
     SingletonImageLoader.Factory,
     KoinComponent {
+    init {
+        // Select the log-tapping SLF4J provider BEFORE anything can trigger SLF4J's lazy
+        // binding (Application <init> runs ahead of ContentProvider initializers and
+        // onCreate). The tee forwards verbatim to slf4j-android — Logcat output is
+        // unchanged — while mirroring each line into the on-device FileLogSink.
+        System.setProperty("slf4j.provider", ListenUpAndroidLogProvider::class.java.name)
+    }
+
     override fun onCreate() {
         super.onCreate()
 
@@ -380,6 +395,10 @@ class ListenUp :
                     androidPlaybackPresentationModule() + androidDownloadModule + downloadModule,
             )
         }
+
+        // Attach the rotating file sink to the logging tap. From here on, every log line
+        // (plus the pre-attach buffer covering startup) is persisted under files/logs/.
+        LogSinkRegistry.attach(get())
 
         // Verify critical Koin bindings off the first-frame path.
         // Launching on Default keeps DI resolution (including Media3 session init and
