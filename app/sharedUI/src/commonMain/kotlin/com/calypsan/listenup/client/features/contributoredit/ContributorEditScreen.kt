@@ -122,7 +122,6 @@ fun ContributorEditScreen(
     }
 
     var showUnsavedChangesDialog by remember { mutableStateOf(false) }
-    var showMergeDialog by remember { mutableStateOf(false) }
 
     PlatformBackHandler(enabled = state.hasChanges) {
         showUnsavedChangesDialog = true
@@ -181,8 +180,13 @@ fun ContributorEditScreen(
                         colorScheme = colorScheme,
                         onEvent = viewModel::onEvent,
                         // Guard: the scrim overlay is visual-only, so the merge affordance
-                        // stays inert while a merge is already in flight.
-                        onMergeClick = { if (!state.mergeInProgress) showMergeDialog = true },
+                        // stays inert while a merge is already in flight. The VM owns the
+                        // dialog flag so candidate computation can start and stop with it.
+                        onMergeClick = {
+                            if (!state.mergeInProgress) {
+                                viewModel.onEvent(ContributorEditUiEvent.MergeDialogOpened)
+                            }
+                        },
                         onBackClick = {
                             if (state.hasChanges) {
                                 showUnsavedChangesDialog = true
@@ -217,21 +221,16 @@ fun ContributorEditScreen(
         )
     }
 
-    if (showMergeDialog) {
+    if (state.mergeDialogVisible) {
         ContributorMergeDialog(
             candidates = mergeCandidates,
             // The VM caps the list, so a full page is the signal that more exist behind a search.
             truncated = mergeCandidates.size >= MAX_MERGE_CANDIDATES,
             query = state.mergeQuery,
             onQueryChange = viewModel::onMergeQueryChange,
-            onConfirm = { targetId ->
-                showMergeDialog = false
-                viewModel.onEvent(ContributorEditUiEvent.MergeInto(targetId))
-            },
-            onDismiss = {
-                showMergeDialog = false
-                viewModel.onMergeQueryChange("")
-            },
+            // MergeInto closes the dialog VM-side; dismissal also clears the query.
+            onConfirm = { targetId -> viewModel.onEvent(ContributorEditUiEvent.MergeInto(targetId)) },
+            onDismiss = { viewModel.onEvent(ContributorEditUiEvent.MergeDialogDismissed) },
         )
     }
 

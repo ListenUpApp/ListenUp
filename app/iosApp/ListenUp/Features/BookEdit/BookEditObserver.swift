@@ -165,7 +165,13 @@ final class BookEditObserver {
         viewModel.onEvent(event: BookEditUiEventDescriptionChanged(description: value))
     }
     func setPublisher(_ value: String) { viewModel.onEvent(event: BookEditUiEventPublisherChanged(publisher: value)) }
-    func setPublishYear(_ value: String) { viewModel.onEvent(event: BookEditUiEventPublishYearChanged(year: value)) }
+    /// Digits only, max 4 — mirrors the Compose field's `transform`. The shared VM stores year
+    /// input verbatim (echo-verbatim contract), so the restriction lives at each platform's
+    /// field boundary; the binding's `get` reads back the filtered state, rejecting the rest.
+    func setPublishYear(_ value: String) {
+        let filtered = String(value.filter(\.isNumber).prefix(4))
+        viewModel.onEvent(event: BookEditUiEventPublishYearChanged(year: filtered))
+    }
     /// A blank code clears the language selection back to "unset".
     func setLanguage(_ code: String) {
         viewModel.onEvent(event: BookEditUiEventLanguageChanged(code: code.isEmpty ? nil : code))

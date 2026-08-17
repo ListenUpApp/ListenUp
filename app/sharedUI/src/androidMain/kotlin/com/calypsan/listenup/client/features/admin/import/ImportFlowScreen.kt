@@ -40,7 +40,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,6 +64,7 @@ import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.dto.imports.MatchTier
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.StatTile
 import com.calypsan.listenup.client.design.components.StatTileTone
@@ -939,19 +939,14 @@ private fun BookSearchPanel(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
+            ListenUpTextField(
                 value = bookSearch.query,
                 onValueChange = onSearchQueryChange,
-                placeholder = {
-                    Text(
-                        text = stringResource(Res.string.import_book_search_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                },
+                placeholder = stringResource(Res.string.import_book_search_hint),
+                placeholderStyle = MaterialTheme.typography.bodySmall,
                 shape = MaterialTheme.shapes.large,
                 modifier = Modifier.weight(1f),
-                singleLine = true,
-                trailingIcon = {
+                trailingContent = {
                     if (bookSearch.isSearching) {
                         CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     }

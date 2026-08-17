@@ -73,6 +73,10 @@ final class ContributorEditObserver {
     func onCancel() { viewModel.onEvent(event: ContributorEditUiEventCancel.shared) }
     func onDismissError() { viewModel.onEvent(event: ContributorEditUiEventDismissError.shared) }
     func onMergeQueryChange(_ value: String) { viewModel.onMergeQueryChange(query: value) }
+    /// Tells the VM the merge picker is open — candidate computation runs only while it is.
+    func onMergeDialogOpened() { viewModel.onEvent(event: ContributorEditUiEventMergeDialogOpened.shared) }
+    /// Tells the VM the merge picker closed; candidates stop computing and the query clears.
+    func onMergeDialogDismissed() { viewModel.onEvent(event: ContributorEditUiEventMergeDialogDismissed.shared) }
     func onMergeInto(_ targetId: String) {
         viewModel.onEvent(event: ContributorEditUiEventMergeInto(targetId: ContributorId(value: targetId)))
     }

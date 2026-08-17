@@ -17,7 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AutocompleteEmptyResultsHint
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
 import com.calypsan.listenup.client.design.components.ListenUpAutocompleteField
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.model.SeriesSearchResult
 import com.calypsan.listenup.client.presentation.bookedit.EditableSeries
 import org.jetbrains.compose.resources.stringResource
@@ -154,12 +154,10 @@ private fun SeriesChipWithSequence(
                     .height(56.dp),
         )
 
-        OutlinedTextField(
+        ListenUpTextField(
             value = series.sequence ?: "",
             onValueChange = onSequenceChange,
-            label = { Text("#") },
-            singleLine = true,
-            shape = MaterialTheme.shapes.medium,
+            label = "#",
             modifier = Modifier.weight(1f),
         )
     }

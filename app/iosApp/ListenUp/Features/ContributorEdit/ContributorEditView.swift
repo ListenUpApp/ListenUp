@@ -79,7 +79,12 @@ struct ContributorEditView: View {
                             AliasesEditSection(
                                 aliases: observer.aliases,
                                 onUnmerge: { observer.onUnmergeAlias($0) },
-                                onMergeTapped: { showMergeSheet = true }
+                                onMergeTapped: {
+                                    // The VM computes merge candidates only while it believes
+                                    // the picker is open — tell it before presenting the sheet.
+                                    observer.onMergeDialogOpened()
+                                    showMergeSheet = true
+                                }
                             )
                             .fieldCard()
                         }
@@ -118,7 +123,7 @@ struct ContributorEditView: View {
                         candidate.name
                     ))
                 }
-                .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeQueryChange("") }) {
+                .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeDialogDismissed() }) {
                     ContributorMergeSheet(
                         candidates: observer.mergeCandidates,
                         query: observer.mergeQuery,

@@ -25,9 +25,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import com.calypsan.listenup.client.design.components.EmptyState
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -111,12 +112,12 @@ fun ContributorMetadataSearchScreen(
             }
 
             // Search field
-            OutlinedTextField(
+            ListenUpTextField(
                 value = state.query,
                 onValueChange = onQueryChange,
-                label = { Text(stringResource(Res.string.contributor_contributor_name)) },
-                placeholder = { Text(stringResource(Res.string.contributor_author_or_narrator_name)) },
-                trailingIcon = {
+                label = stringResource(Res.string.contributor_contributor_name),
+                placeholder = stringResource(Res.string.contributor_author_or_narrator_name),
+                trailingContent = {
                     IconButton(
                         onClick = onSearch,
                         enabled = !isSearching && state.query.isNotBlank(),
@@ -131,9 +132,10 @@ fun ContributorMetadataSearchScreen(
                         }
                     }
                 },
-                singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                // Keep the pre-migration corner radius (the OutlinedTextField default).
+                shape = OutlinedTextFieldDefaults.shape,
                 modifier = Modifier.fillMaxWidth(),
             )
 

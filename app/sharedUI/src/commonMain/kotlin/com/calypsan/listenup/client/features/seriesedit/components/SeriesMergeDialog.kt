@@ -14,7 +14,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
 import com.calypsan.listenup.core.SeriesId
@@ -104,14 +105,13 @@ fun SeriesMergeDialog(
                     color = MaterialTheme.colorScheme.error,
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedTextField(
+                ListenUpTextField(
                     value = query,
                     onValueChange = onQueryChange,
-                    label = { Text(stringResource(Res.string.common_search)) },
-                    placeholder = {
-                        Text(stringResource(Res.string.series_merge_search_placeholder))
-                    },
-                    singleLine = true,
+                    label = stringResource(Res.string.common_search),
+                    placeholder = stringResource(Res.string.series_merge_search_placeholder),
+                    // Keep the pre-migration corner radius (the OutlinedTextField default).
+                    shape = OutlinedTextFieldDefaults.shape,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 // Above the list, not below it: the list is capped at LIST_MAX_HEIGHT_DP, so a

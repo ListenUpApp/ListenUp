@@ -225,8 +225,12 @@ class BookEditViewModel(
             }
 
             is BookEditUiEvent.PublishYearChanged -> {
-                val filtered = event.year.filter { it.isDigit() }.take(4)
-                state.update { it.copy(publishYear = filtered) }
+                // Stored verbatim: the caret-owning text fields require the echo to match what
+                // was typed (see OwnedTextFieldState's echo-verbatim contract), so no transform
+                // may run between field and state. The field itself restricts input via
+                // ListenUpTextField's transform parameter; the digit filter at the save boundary
+                // in toMetadata() stays as a second line of defense.
+                state.update { it.copy(publishYear = event.year) }
                 updateHasChanges()
             }
 
@@ -509,7 +513,8 @@ class BookEditViewModel(
             sortTitle = sortTitle,
             subtitle = subtitle,
             description = description,
-            publishYear = publishYear,
+            // The field's live value is verbatim (echo-verbatim contract); normalize here, once.
+            publishYear = publishYear.filter { it.isDigit() }.take(4),
             publisher = publisher,
             language = language,
             isbn = isbn,
