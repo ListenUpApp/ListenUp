@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -546,7 +547,6 @@ class AppStartupViewModelTest :
                 val userRepository = createMockUserRepository()
                 val channel = libraryAdminChannel()
                 everySuspend { userRepository.refreshCurrentUser() } returns null
-                everySuspend { userRepository.getCurrentUser() } returns createTestUser(isAdmin = false)
                 val authSession = createMockAuthSession(AuthState.SessionLapsed(UserId("user-001")))
                 val syncRepository = createMockSyncRepository(hasLocalLibrary = true)
 
@@ -561,10 +561,15 @@ class AppStartupViewModelTest :
             }
         }
 
-        // Complement: a lapsed cold start with NO local content falls through to the network path,
-        // which fails against dead credentials / an unreachable server — the honest, retryable
-        // CheckFailed wall is correct there. What is never acceptable is staying on Checking.
-        test("lapsed cold start with no local library and an unreachable server resolves CheckFailed") {
+        // Regression (code review of the 2026-08-16 stranding fix): a lapsed cold start with NO
+        // local content used to fall through to the CheckFailed wall — a fillMaxSize() opaque
+        // surface whose only action is Retry, painted OVER the "Sign in to sync" banner. Retry
+        // re-runs the same check against the same dead credentials and fails identically, so the
+        // wall is the original stranding wearing a different screen. Under a lapsed session the
+        // check must resolve Ready instead: an empty shell with a working sign-in affordance is
+        // strictly more escapable. The non-lapsed sibling above keeps CheckFailed — there the
+        // retry is genuinely useful because the credentials are live and only the server is not.
+        test("lapsed cold start with no local library and an unreachable server resolves Ready, not the retry wall") {
             runTest {
                 // Given - session lapsed, nothing cached locally, and the current-user RPC hangs
                 // (unreachable server) so the check must time out and resolve offline.
@@ -579,10 +584,111 @@ class AppStartupViewModelTest :
                 val viewModel = AppStartupViewModel(userRepository, channel, authSession, syncRepository)
                 advanceUntilIdle()
 
-                // Then - resolved to the retryable error wall, not an eternal spinner
+                // Then - the empty shell mounts with its sign-in banner; no retry-only wall
                 viewModel.state.value.isChecking shouldBe false
                 viewModel.state.value.checkResolved shouldBe true
-                viewModel.readiness.value shouldBe LibraryReadiness.CheckFailed
+                viewModel.state.value.setupCheckFailed shouldBe false
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
+            }
+        }
+
+        // The incident's exact shape: a lapsed session, an admin user still cached in Room, and an
+        // empty local library. The check reaches the admin branch, getSetupStatus fails with the
+        // typed SessionExpired, and the old resolveOfflineOrFail saw hasLocal == false and raised
+        // the retry-only wall. Dead credentials cannot be retried into life, so this must land on
+        // the escapable empty shell instead.
+        test("lapsed cold start with a cached admin and no local library resolves Ready") {
+            runTest {
+                // Given - lapsed session; refreshCurrentUser returns null on the dead session, so the
+                // check falls back to the cached admin and asks the server, which rejects it.
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val channel = libraryAdminChannel(service)
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns createTestUser(isAdmin = true)
+                everySuspend { service.getSetupStatus() } returns AppResult.Failure(AuthError.SessionExpired())
+                val authSession = createMockAuthSession(AuthState.SessionLapsed(UserId("user-001")))
+                val syncRepository = createMockSyncRepository(hasLocalLibrary = false)
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, channel, authSession, syncRepository)
+                advanceUntilIdle()
+
+                // Then - Ready, so the shell + "Sign in to sync" banner render and the user can escape
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.checkResolved shouldBe true
+                viewModel.state.value.setupCheckFailed shouldBe false
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
+            }
+        }
+
+        // The other half of the fix: a Ready resolved under a lapsed session is PROVISIONAL — it was
+        // reached without credentials, so the "does this admin still need the library wizard?"
+        // question was never actually answered. When the user signs in from the lapsed shell the
+        // check must re-run, or an admin whose library was never set up sits in an empty shell with
+        // no wizard forever (the CheckFailed wall's manual retry used to cover this case).
+        test("signing in from a lapsed empty shell re-runs the check and routes the admin to the wizard") {
+            runTest {
+                // Given - lapsed cold start, cached admin, no local library: resolves provisionally Ready
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val channel = libraryAdminChannel(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns null
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns AppResult.Failure(AuthError.SessionExpired())
+                val authState = MutableStateFlow<AuthState>(AuthState.SessionLapsed(UserId("user-001")))
+                val authSession = mock<AuthSession>()
+                every { authSession.authState } returns authState
+
+                val viewModel = AppStartupViewModel(userRepository, channel, authSession, createMockSyncRepository())
+                advanceUntilIdle()
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
+
+                // When - the user signs in from the banner and the server can finally answer
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns AppResult.Success(SetupStatus(needsSetup = true))
+                authState.value = AuthState.Authenticated(UserId("user-001"), SessionId("session-001"))
+                advanceUntilIdle()
+
+                // Then - the provisional answer is replaced by the real one
+                viewModel.state.value.needsLibrarySetup shouldBe true
+                viewModel.readiness.value shouldBe LibraryReadiness.NeedsSetup
+            }
+        }
+
+        // ...but only a PROVISIONAL answer is re-resolved. A mid-session lapse must not re-run the
+        // check: the answer was already resolved with live credentials, and re-running would flash
+        // the opaque readiness overlay over a perfectly good shell. This pins the deliberate
+        // "Authenticated ↔ SessionLapsed does not re-check" design the fix has to preserve.
+        test("a mid-session lapse does NOT re-run the library-setup check") {
+            runTest {
+                // Given - authenticated with a local library: resolves Ready from local state
+                val userRepository = createMockUserRepository()
+                val channel = libraryAdminChannel()
+                everySuspend { userRepository.refreshCurrentUser() } returns createTestUser(isAdmin = false)
+                val sync = createMockSyncRepository(hasLocalLibrary = true)
+                var localLibraryProbes = 0
+                everySuspend { sync.hasLocalLibrary() } calls {
+                    localLibraryProbes++
+                    true
+                }
+                val authState = MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("user-001"), SessionId("session-001")))
+                val authSession = mock<AuthSession>()
+                every { authSession.authState } returns authState
+
+                val viewModel = AppStartupViewModel(userRepository, channel, authSession, sync)
+                advanceUntilIdle()
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
+                val probesAfterFirstCheck = localLibraryProbes
+
+                // When - the session lapses mid-use
+                authState.value = AuthState.SessionLapsed(UserId("user-001"))
+                advanceUntilIdle()
+
+                // Then - no second check ran, and the shell stays mounted
+                localLibraryProbes shouldBe probesAfterFirstCheck
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
             }
         }
 

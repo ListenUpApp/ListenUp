@@ -69,6 +69,7 @@ import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
 import com.calypsan.listenup.client.design.components.latchFootprint
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.model.isInShell
 import com.calypsan.listenup.client.features.connect.ServerSelectScreen
 import com.calypsan.listenup.client.features.connect.ServerSetupScreen
 import com.calypsan.listenup.client.features.invite.JoinScreen
@@ -156,6 +157,17 @@ fun ListenUpNavigation(
     // Route to appropriate screen based on auth state
     // Capture to local val to enable smart casting (delegated properties can't be smart cast)
     val currentAuthState = authState
+
+    // The shell states are defined once, by AuthState.isInShell — SessionLapsed renders the SAME
+    // shell as Authenticated (M2/M3): library, downloads, playback of downloaded content all work.
+    // Sharing one call site keeps the composition — and therefore the back stack — stable across
+    // the lapse/re-auth transition.
+    if (currentAuthState.isInShell) {
+        AuthenticatedNavigation(authSession)
+        return
+    }
+
+    // Pre-shell states, routed exhaustively so a new AuthState variant cannot land here unnoticed.
     when (currentAuthState) {
         AuthState.Initializing -> {
             // Show blank screen while determining auth state
@@ -191,12 +203,9 @@ fun ListenUpNavigation(
             )
         }
 
-        is AuthState.Authenticated, is AuthState.SessionLapsed -> {
-            // SessionLapsed renders the SAME shell (M2/M3): library, downloads, playback of
-            // downloaded content all work. Sharing one branch keeps the composition call site —
-            // and therefore the back stack — stable across the lapse/re-auth transition.
-            AuthenticatedNavigation(authSession)
-        }
+        // Unreachable: isInShell routed these into the shell above and returned. The branches stay
+        // for exhaustiveness, so adding an AuthState variant still has to be routed here explicitly.
+        is AuthState.Authenticated, is AuthState.SessionLapsed -> {}
     }
 }
 

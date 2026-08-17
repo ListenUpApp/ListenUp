@@ -64,3 +64,39 @@ sealed interface AuthState {
         val userId: UserId,
     ) : AuthState
 }
+
+/**
+ * Whether the authenticated shell hosts this state.
+ *
+ * The single definition of that set, read by the navigation router (which shell to compose) and by
+ * the startup readiness check (whether to resolve the library-setup gate at all). It was previously
+ * hand-written at each site, so adding a variant to [AuthState] silently did the wrong thing in the
+ * ones nobody remembered to update.
+ *
+ * [AuthState.SessionLapsed] belongs to the set on purpose: credentials are dead but local data is
+ * intact, so the shell stays mounted with a non-blocking "Sign in to sync" affordance — never a
+ * forced wall. Every other variant is owned by a pre-login flow (server URL, setup, login,
+ * pending approval) or is a transient startup state that has not decided yet.
+ *
+ * Written as an exhaustive `when` deliberately: a new [AuthState] variant must fail this build and
+ * be classified explicitly, rather than defaulting to "not in the shell" wherever it is read.
+ *
+ * Note this is NOT the inverse of the Android Auto browse gate (`browseNeedsSignIn`): browse
+ * deliberately serves the Room mirror during [AuthState.Initializing] / [AuthState.CheckingServer]
+ * rather than flashing a sign-in prompt, whereas those states are emphatically not "in the shell".
+ */
+val AuthState.isInShell: Boolean
+    get() =
+        when (this) {
+            is AuthState.Authenticated,
+            is AuthState.SessionLapsed,
+            -> true
+
+            is AuthState.Initializing,
+            is AuthState.NeedsServerUrl,
+            is AuthState.CheckingServer,
+            is AuthState.NeedsSetup,
+            is AuthState.NeedsLogin,
+            is AuthState.PendingApproval,
+            -> false
+        }
