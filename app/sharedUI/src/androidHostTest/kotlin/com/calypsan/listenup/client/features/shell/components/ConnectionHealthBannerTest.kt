@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.features.shell.components
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi
 import org.junit.Rule
@@ -43,6 +44,27 @@ class ConnectionHealthBannerTest {
             }
         }
         composeRule.onNodeWithText("Signed out").assertIsDisplayed()
+        composeRule.onNodeWithText("Sign in").assertIsDisplayed()
+    }
+
+    /**
+     * The lapse banner is the only sign-in affordance in the authenticated shell. A close button
+     * let the user hide their sole route back to a working session — and because
+     * [ConnectionHealthUi.SessionExpired] is a `data object`, the `remember(state)` that was meant
+     * to restore it never re-keyed, so the dismissal survived until the app was relaunched.
+     */
+    @Test
+    fun sessionExpiredOffersNoDismissAffordance() {
+        composeRule.setContent {
+            MaterialTheme {
+                ConnectionHealthBanner(
+                    state = ConnectionHealthUi.SessionExpired,
+                    onSignIn = {},
+                    onDismiss = {},
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("Dismiss").assertDoesNotExist()
         composeRule.onNodeWithText("Sign in").assertIsDisplayed()
     }
 

@@ -47,8 +47,12 @@ import org.jetbrains.compose.resources.stringResource
  *
  * Hard rules (spec §10): never modal, never blocks navigation/playback/browse; no
  * auto-navigation on state entry — the only navigation is the user tapping Sign in.
- * Dismissal is UI-local and resets when the state next changes (`remember(state)`); the
- * [ConnectionHealthUi.Outdated] case additionally offers a persisted dismissal via [onDismiss].
+ *
+ * **[ConnectionHealthUi.SessionExpired] is not dismissible** — it is the only sign-in affordance in
+ * the authenticated shell, so hiding it strands the user in a session they cannot repair. Only
+ * [ConnectionHealthUi.Outdated] can be dismissed: UI-locally here, plus a persisted dismissal via
+ * [onDismiss]. Note the UI-local `remember(state)` reset only works for states that change identity
+ * — the `data object` states never re-key, which is precisely why the lapse banner must not use it.
  * Visual language follows the book-detail OfflineBanner (color-container pill).
  */
 @Composable
@@ -76,7 +80,13 @@ fun ConnectionHealthBanner(
                 body = stringResource(Res.string.shell_session_lapsed_body),
                 actionLabel = stringResource(Res.string.shell_session_lapsed_sign_in),
                 onAction = onSignIn,
-                onClose = { dismissed = true },
+                // Deliberately NOT dismissible. This banner is the only route to sign-in from the
+                // authenticated shell, so a close button removes the user's sole way back to a
+                // working session. It was also stickier than it looked: [ConnectionHealthUi] is a
+                // `data object` here, so `remember(state)` never re-keyed and one tap hid it for
+                // the life of the composition — surviving every navigation, until the app was
+                // relaunched. The lapse is not transient chrome; it is resolved by signing in.
+                onClose = null,
             )
         }
 
