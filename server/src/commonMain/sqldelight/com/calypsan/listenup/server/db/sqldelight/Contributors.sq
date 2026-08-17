@@ -5,6 +5,7 @@
 --   V18__b2a_substrate.sql       (asin, description, image_path,
 --                                 birth_date, death_date, website)
 --   V53__drop_blurhash_columns.sql (drops the dormant image_blur_hash column)
+--   V61__contributor_merged_into.sql (merged_into)
 --
 -- revision / created_at / updated_at are declared NOT NULL here so the generated
 -- column types are non-null `Long` — every live row carries them (V13 backfills the
@@ -32,7 +33,8 @@ CREATE TABLE contributors (
     image_path      TEXT,
     birth_date      TEXT,
     death_date      TEXT,
-    website         TEXT
+    website         TEXT,
+    merged_into     TEXT
 );
 
 CREATE UNIQUE INDEX idx_contributor_normalized ON contributors(normalized_name);
@@ -63,10 +65,11 @@ selectByNormalizedName:
 SELECT * FROM contributors WHERE normalized_name = :normalized_name;
 
 -- Batch dedup lookup: resolveOrCreateAll resolves a whole scan's contributors in one
--- query. Projects (normalized_name, id, deleted_at) so the caller builds the
--- dedup-key → id map without re-reading every column AND can revive tombstoned hits.
+-- query. Projects (normalized_name, id, deleted_at, merged_into) so the caller builds
+-- the dedup-key → id map without re-reading every column, revives tombstoned hits,
+-- AND follows merge redirects without a per-row re-read.
 selectByNormalizedNames:
-SELECT normalized_name, id, deleted_at FROM contributors WHERE normalized_name IN :normalized_names;
+SELECT normalized_name, id, deleted_at, merged_into FROM contributors WHERE normalized_name IN :normalized_names;
 
 -- Live (non-tombstoned) id strings — OrphanImageCleanupTask uses these to keep
 -- images whose contributor still exists.
@@ -86,12 +89,15 @@ INSERT INTO contributors (
 
 -- normalized_name is the dedup key established at INSERT — never updated (see
 -- ContributorRepository.writePayload). sort_name and the enrichment columns update.
+-- merged_into is cleared unconditionally: every update revives (deleted_at is always
+-- written NULL from writePayload), and a redirect lives only on tombstoned rows.
 update:
 UPDATE contributors
 SET name = :name, sort_name = :sort_name, asin = :asin, description = :description,
     image_path = :image_path, birth_date = :birth_date,
     death_date = :death_date, website = :website, revision = :revision,
-    updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
+    updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id,
+    merged_into = NULL
 WHERE id = :id;
 
 -- ── substrate queries ──────────────────────────────────────────────────────────
@@ -105,6 +111,22 @@ SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;
 
+-- Merge tombstone: tombstones the merged-away loser AND records the merged_into redirect
+-- in ONE statement, so a tombstoned loser can never exist without its redirect. The
+-- redirect is server-only — it is what will keep merges durable across rescans without manufacturing
+-- an alias (aliases are user-curated facts only).
+softDeleteMergedIntoById:
+UPDATE contributors
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id, merged_into = :merged_into
+WHERE id = :id;
+
+-- Chain flattening: rows already redirecting to :from_id re-point at :to_id when
+-- :from_id is itself merged away, so every redirect stays single-hop forever and no
+-- reader ever walks a chain.
+repointMergedInto:
+UPDATE contributors SET merged_into = :to_id WHERE merged_into = :from_id;
+
 selectIdsAboveRevision:
 SELECT id, revision FROM contributors WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
 
@@ -115,6 +137,21 @@ SELECT id, revision FROM contributors WHERE deleted_at IS NULL AND revision <= :
 
 aliasesFor:
 SELECT alias FROM contributor_aliases WHERE contributor_id = :contributor_id;
+
+-- Curated aliases of LIVE contributors: scan-time name resolution consults these so a
+-- pen name credited in file tags resolves to the contributor who claims it instead of
+-- minting a duplicate row. A tombstoned contributor's aliases claim nothing. The table
+-- is small (aliases are user-curated facts only), so normalization happens in Kotlin
+-- (normalizeForDedup), not SQL. The ORDER BY is load-bearing: alias rows are rewritten
+-- delete-then-insert on every contributor upsert, so an unordered scan follows rowid
+-- churn — with first-claim-wins map building, the smallest contributor id must win a
+-- duplicate claim deterministically, not whoever upserted least recently.
+selectLiveAliases:
+SELECT ca.alias, ca.contributor_id
+FROM contributor_aliases ca
+JOIN contributors c ON c.id = ca.contributor_id
+WHERE c.deleted_at IS NULL
+ORDER BY ca.contributor_id, ca.alias;
 
 aliasesForIds:
 SELECT contributor_id, alias FROM contributor_aliases WHERE contributor_id IN :ids;

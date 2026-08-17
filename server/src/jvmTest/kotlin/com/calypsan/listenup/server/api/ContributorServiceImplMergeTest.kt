@@ -13,6 +13,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.db.sqldelight.Contributors
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -177,9 +178,10 @@ class ContributorServiceImplMergeTest :
                     bookRepo.findById(BookId("b2"))!!.revision shouldNotBe initialB2Rev
                     bookRepo.findById(BookId("b3"))!!.revision shouldNotBe initialB3Rev
 
-                    // Target gained source.name as an alias.
+                    // The merge records NO alias — aliases are user-curated facts only;
+                    // merge durability lives in the merged_into redirect.
                     val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
-                    targetAfter.aliases shouldContainExactlyInAnyOrder listOf("Richard Bachman")
+                    targetAfter.aliases.shouldBeEmpty()
 
                     // Source is soft-deleted.
                     val sourceAfter = contributorRepo.findById(sourceId.value).shouldNotBeNull()
@@ -239,8 +241,9 @@ class ContributorServiceImplMergeTest :
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
-                    // Target gained source.name and the non-self-matching source alias only.
-                    targetAfter.aliases shouldContainExactlyInAnyOrder listOf("Richard Bachman", "Maddrax")
+                    // Target gained only the non-self-matching pre-existing source alias —
+                    // never source's own name.
+                    targetAfter.aliases shouldContainExactlyInAnyOrder listOf("Maddrax")
                 }
             }
         }
@@ -264,15 +267,17 @@ class ContributorServiceImplMergeTest :
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
+                    // Only the source's pre-existing (user-curated) aliases transfer —
+                    // its name is never manufactured into one.
                     targetAfter.aliases shouldContainExactlyInAnyOrder
-                        listOf("Source Person", "Source Alias 1", "Source Alias 2")
+                        listOf("Source Alias 1", "Source Alias 2")
                 }
             }
         }
 
-        // ── Alias hygiene: punctuation-variant names skip the noise alias ──────
+        // ── Alias hygiene: source's name never becomes an alias ────────────────
 
-        test("mergeContributors does not alias source's name when it's a punctuation variant of target's") {
+        test("mergeContributors never aliases source's name (punctuation variant)") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
@@ -287,6 +292,28 @@ class ContributorServiceImplMergeTest :
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     // Same normalized name as target — recording it as an alias would be noise.
+                    val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
+                    targetAfter.aliases.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("mergeContributors never aliases source's name (distinct name)") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    // NOT a punctuation/spacing variant — the reported bug: this merge used to
+                    // manufacture a "Richard C. Schwartz PHD" alias on the target.
+                    val sourceId = contributorRepo.resolveOrCreate("Richard C. Schwartz PHD", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Richard C. Schwartz", sortName = null)
+
+                    val result = service.mergeContributors(sourceId, targetId)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
                     val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
                     targetAfter.aliases.shouldBeEmpty()
                 }
@@ -314,6 +341,82 @@ class ContributorServiceImplMergeTest :
                     val targetAfter = contributorRepo.findById(targetId.value).shouldNotBeNull()
                     // The punctuation-variant name itself is skipped, but the genuine alias survives.
                     targetAfter.aliases shouldContainExactlyInAnyOrder listOf("GRRM")
+                }
+            }
+        }
+
+        // ── merged_into redirect ───────────────────────────────────────────────
+
+        test("mergeContributors records merged_into on the tombstoned source row") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("Richard C. Schwartz PHD", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Richard C. Schwartz", sortName = null)
+
+                    val result = service.mergeContributors(sourceId, targetId)
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // The loser row carries both the tombstone and the redirect — the durable,
+                    // server-only mapping scan-time name resolution will follow across rescans.
+                    val sourceRow = contributorRow(db, sourceId.value)
+                    sourceRow.merged_into shouldBe targetId.value
+                    sourceRow.deleted_at shouldNotBe null
+                }
+            }
+        }
+
+        test("reviving a merged-away contributor clears merged_into") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val sourceId = contributorRepo.resolveOrCreate("Source Person", sortName = null)
+                    val targetId = contributorRepo.resolveOrCreate("Target Person", sortName = null)
+                    service.mergeContributors(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // Re-resolving the merged-away name with indirection bypassed revives the
+                    // tombstoned row in place — the same dedup-hit path unmergeCore's
+                    // resolveOrCreate takes. (The default path follows the redirect instead;
+                    // ContributorRepositoryTest pins that.)
+                    val revivedId =
+                        contributorRepo.resolveOrCreate("Source Person", sortName = null, followIndirection = false)
+                    revivedId shouldBe sourceId
+
+                    // A redirect lives only on tombstoned rows: revival must clear it.
+                    val revivedRow = contributorRow(db, sourceId.value)
+                    revivedRow.deleted_at shouldBe null
+                    revivedRow.merged_into shouldBe null
+                }
+            }
+        }
+
+        test("chained merges keep every redirect single-hop") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    val a = contributorRepo.resolveOrCreate("Person A", sortName = null)
+                    val b = contributorRepo.resolveOrCreate("Person B", sortName = null)
+                    val c = contributorRepo.resolveOrCreate("Person C", sortName = null)
+
+                    service.mergeContributors(a, b).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    service.mergeContributors(b, c).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // A→B then B→C flattens A's redirect to C at merge-write time, so no
+                    // reader ever has to walk a chain.
+                    contributorRow(db, a.value).merged_into shouldBe c.value
+                    contributorRow(db, b.value).merged_into shouldBe c.value
                 }
             }
         }
@@ -659,6 +762,17 @@ private suspend fun creditedAsForRole(
             .executeAsList()
             .firstOrNull { it.contributor_id == contributorId && it.role == role }
             ?.credited_as
+    }
+
+/** Raw `contributors` row for [id] — for asserting server-only columns like `merged_into`. */
+private suspend fun contributorRow(
+    db: SqlTestDatabases,
+    id: String,
+): Contributors =
+    withContext(Dispatchers.IO) {
+        db.sql.contributorsQueries
+            .selectById(id)
+            .executeAsOne()
     }
 
 /** Distinct book IDs currently linked to [contributorId] via any junction row. */

@@ -1,19 +1,29 @@
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
+import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.db.sqldelight.Contributors
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.scanner.pipeline.SortKeys
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
+import com.calypsan.listenup.server.sync.FrameCapture
 import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
+import kotlinx.coroutines.currentCoroutineContext
+
+private val log = loggerFor<ContributorRepository>()
 
 /**
  * SQLDelight syncable repository for contributors (Books-B1, SQLDelight cutover).
@@ -200,10 +210,29 @@ class ContributorRepository(
      * Idempotent: a rescan of unchanged books re-resolves existing contributors with no event and
      * no revision bump.
      *
-     * A dedup hit on a TOMBSTONED row (a parent purged by [OrphanParentPurger] after its last
-     * live book was removed) is revived in place — `deleted_at` cleared, revision bumped,
-     * `SyncEvent.Updated` published — so re-ingesting the same name resurrects the parent under
-     * its original id. Live hits remain pure reads: no event, no revision bump.
+     * When [followIndirection] is true (the default — every scan/metadata path), a miss on a
+     * live dedup hit consults two indirections before reviving or creating, in this order:
+     *
+     *  1. A LIVE dedup hit always wins — the common rescan case stays a pure read.
+     *  2. A live contributor claiming the name via a **curated alias** wins next: the pen name
+     *     resolves to its owner instead of minting a duplicate. Aliases are display-shaped
+     *     names, so the match uses the plain-name [normalizeForDedup] — not the sort-name-based
+     *     [contributorDedupKey], which would never line up.
+     *  3. A tombstoned hit carrying a `merged_into` redirect resolves to the redirect target
+     *     (one hop — merges flatten chains at write time), WITHOUT reviving the loser. This is
+     *     what keeps a merge durable across rescans. A dead redirect (target missing or
+     *     tombstoned — impossible under the flatten invariant, but defended) falls through.
+     *  4. A tombstoned hit without a followable redirect (a parent purged by
+     *     [OrphanParentPurger] after its last live book was removed) is revived in place —
+     *     `deleted_at` cleared, revision bumped, `SyncEvent.Updated` published — so re-ingesting
+     *     the same name resurrects the parent under its original id.
+     *  5. No hit → create.
+     *
+     * [followIndirection] = false skips steps 2 and 3: unmerge resolves the alias name it is
+     * splitting out while that alias still sits on the merge target AND while a tombstoned
+     * redirect row for the name may point at that same target — following either would return
+     * the target itself and make the unmerge a no-op. Unmerge wants exactly "revive the
+     * tombstoned row (revival nulls its redirect) or create fresh".
      *
      * The find-miss → create window is a benign race only under SQLite's single-writer model; the
      * single-threaded scan never triggers it.
@@ -211,6 +240,7 @@ class ContributorRepository(
     suspend fun resolveOrCreate(
         name: String,
         sortName: String?,
+        followIndirection: Boolean = true,
     ): ContributorId {
         val derivedSortName = sortName ?: SortKeys.sortName(name, null)
         val normalized = contributorDedupKey(name, derivedSortName)
@@ -220,25 +250,22 @@ class ContributorRepository(
                     .selectByNormalizedName(normalized)
                     .executeAsOneOrNull()
             }
-        if (existing != null) {
-            if (existing.deleted_at != null) reviveTombstonedHit(existing.id)
+        // Live dedup hit first, BEFORE any alias load — the common rescan case stays one SELECT.
+        if (existing != null && existing.deleted_at == null) return ContributorId(existing.id)
+        if (followIndirection) {
+            resolveThroughIndirection(
+                hitId = existing?.id,
+                hitDeletedAt = existing?.deleted_at,
+                hitMergedInto = existing?.merged_into,
+                name = name,
+                aliasOwnerByNameKey = liveAliasOwnersByNameKey(),
+            )?.let { return it }
+        } else if (existing != null) {
+            // Tombstoned here (live returned above): the bypass wants revive-or-create only.
+            reviveTombstonedHit(existing.id)
             return ContributorId(existing.id)
         }
-
-        val id = ContributorId(Uuid.random().toString())
-        upsert(
-            ContributorSyncPayload(
-                id = id.value,
-                name = name,
-                sortName = derivedSortName,
-                revision = 0L,
-                updatedAt = 0L,
-                createdAt = 0L,
-                deletedAt = null,
-            ),
-            clientOpId = null,
-        )
-        return id
+        return createContributor(name, derivedSortName)
     }
 
     /**
@@ -252,16 +279,15 @@ class ContributorRepository(
      *  1. computes each identity's dedup key exactly as [resolveOrCreate] does — `contributorDedupKey(name,
      *     sortName ?: SortKeys.sortName(name, null))` — so the same person buckets identically;
      *  2. SELECTs every existing row whose key is in the unique-key set in **one** query
-     *     ([selectByNormalizedNames], chunked under SQLite's variable limit);
-     *  3. creates the missing keys through the same [resolveOrCreate] (which bumps the domain
-     *     revision and publishes the identical `SyncEvent.Created`), so a brand-new contributor's
-     *     sync semantics are byte-identical to the single-resolution path.
+     *     ([selectByNormalizedNames], chunked under SQLite's variable limit), and loads the
+     *     live-contributor alias list ONCE for the whole batch;
+     *  3. applies the same resolution order as [resolveOrCreate] per key — live hit, curated
+     *     alias claim, `merged_into` redirect, revive, create — so batch and single resolution
+     *     can never disagree on who a name belongs to.
      *
      * @return a `Map<dedupKey, ContributorId>` keyed by [contributorDedupKey] — callers look an
      *   id up by recomputing that key for each book's contributors. Every supplied identity's key
      *   is present in the result.
-     *
-     * Tombstoned hits are revived; see [resolveOrCreate].
      */
     suspend fun resolveOrCreateAll(identities: Collection<Pair<String, String?>>): Map<String, ContributorId> {
         if (identities.isEmpty()) return emptyMap()
@@ -281,27 +307,118 @@ class ContributorRepository(
                     .chunked(SQLITE_IN_CHUNK)
                     .flatMap { chunk -> db.contributorsQueries.selectByNormalizedNames(chunk).executeAsList() }
             }
-        // Revive tombstoned dedup hits before handing their ids back: a purged parent returned by
-        // the dedup lookup must come back live (see reviveTombstonedHit). Rare — only ever after an
-        // orphan purge — so per-id upserts are fine here.
-        for (row in existingRows) {
-            if (row.deleted_at != null) reviveTombstonedHit(row.id)
-        }
-        val existing = existingRows.associate { it.normalized_name to ContributorId(it.id) }
+        val rowsByKey = existingRows.associateBy { it.normalized_name }
+        // Curated aliases of live contributors, loaded ONCE per batch — never per name.
+        val aliasOwners = liveAliasOwnersByNameKey()
 
         val resolved = LinkedHashMap<String, ContributorId>(byKey.size)
         for ((key, identity) in byKey) {
-            val id = existing[key] ?: resolveOrCreate(identity.first, identity.second)
-            resolved[key] = id
+            val (name, derivedSortName) = identity
+            val row = rowsByKey[key]
+            resolved[key] =
+                resolveThroughIndirection(
+                    hitId = row?.id,
+                    hitDeletedAt = row?.deleted_at,
+                    hitMergedInto = row?.merged_into,
+                    name = name,
+                    aliasOwnerByNameKey = aliasOwners,
+                ) ?: createContributor(name, derivedSortName)
         }
         return resolved
+    }
+
+    /**
+     * The shared scan-time resolution order over a dedup-lookup outcome — steps 1-4 of
+     * [resolveOrCreate]'s contract (live hit, curated alias claim, merge redirect, revive).
+     * Returns null when nothing claims the name and the caller must create a fresh row.
+     * Reviving happens ONLY here on the no-followable-redirect branch, so a merged-away
+     * loser whose redirect was followed is never resurrected.
+     */
+    private suspend fun resolveThroughIndirection(
+        hitId: String?,
+        hitDeletedAt: Long?,
+        hitMergedInto: String?,
+        name: String,
+        aliasOwnerByNameKey: Map<String, String>,
+    ): ContributorId? {
+        // 1. Live dedup hit — the common rescan case stays a pure read.
+        if (hitId != null && hitDeletedAt == null) return ContributorId(hitId)
+        // 2. A live contributor claims the name via a curated alias.
+        aliasOwnerByNameKey[normalizeForDedup(name)]?.let { return ContributorId(it) }
+        // 3. Tombstoned hit with a merged_into redirect — follow it one hop, never revive.
+        if (hitMergedInto != null) {
+            liveRedirectTarget(hitMergedInto)?.let { return it }
+        }
+        // 4. Tombstoned hit without a followable redirect — the orphan-purge revive contract.
+        if (hitId != null) {
+            reviveTombstonedHit(hitId)
+            return ContributorId(hitId)
+        }
+        return null
+    }
+
+    /**
+     * Loads every curated alias belonging to a live contributor as a
+     * `normalizeForDedup(alias) → owner id` map. Plain-name keying is deliberate: aliases are
+     * display-shaped ("Robert Galbraith"), so [contributorDedupKey]'s sort-name form would
+     * never match a queried display name. If two live contributors claim the same alias, the
+     * SMALLEST contributor id wins — the query orders by `(contributor_id, alias)` and the
+     * first claim per key is kept, so the winner cannot flip with alias-row rewrite order
+     * between rescans. The table is small — aliases are user-curated facts only — so a full
+     * load per resolution pass is cheap.
+     */
+    private suspend fun liveAliasOwnersByNameKey(): Map<String, String> {
+        val rows = suspendTransaction(db) { db.contributorsQueries.selectLiveAliases().executeAsList() }
+        val byKey = HashMap<String, String>(rows.size)
+        for (row in rows) {
+            val key = normalizeForDedup(row.alias)
+            if (key !in byKey) byKey[key] = row.contributor_id
+        }
+        return byKey
+    }
+
+    /**
+     * Resolves a `merged_into` redirect one hop: the target when its row exists and is live,
+     * else null. Redirects are flattened single-hop at merge time, so a live target is the
+     * invariant case; a null return (defensive) sends the caller down the revive path instead
+     * of stranding the name.
+     */
+    private suspend fun liveRedirectTarget(targetIdStr: String): ContributorId? =
+        suspendTransaction(db) {
+            db.contributorsQueries.selectById(targetIdStr).executeAsOneOrNull()
+        }?.takeIf { it.deleted_at == null }
+            ?.let { ContributorId(it.id) }
+
+    /**
+     * Mints a fresh contributor row through the base `upsert` — bumps the domain revision and
+     * publishes `SyncEvent.Created`, so batch- and single-path creations are byte-identical.
+     */
+    private suspend fun createContributor(
+        name: String,
+        derivedSortName: String,
+    ): ContributorId {
+        val id = ContributorId(Uuid.random().toString())
+        upsert(
+            ContributorSyncPayload(
+                id = id.value,
+                name = name,
+                sortName = derivedSortName,
+                revision = 0L,
+                updatedAt = 0L,
+                createdAt = 0L,
+                deletedAt = null,
+            ),
+            clientOpId = null,
+        )
+        return id
     }
 
     /**
      * Revives a tombstoned dedup hit in place: re-upserts the row's own read-back payload with
      * `deletedAt = null`. The base `upsert` bumps the domain revision and publishes
      * [com.calypsan.listenup.api.sync.SyncEvent.Updated]; [writePayload]'s update branch always
-     * clears `deleted_at`. The id stays stable, so junction rows written against it resolve again —
+     * clears `deleted_at` — and `merged_into` with it, since a redirect lives only on
+     * tombstoned rows. The id stays stable, so junction rows written against it resolve again —
      * the same revive semantics as [BookRepository.reviveById] (clear deleted_at + bump revision +
      * publish Updated), composed from the existing substrate instead of a dedicated query.
      * Enrichment columns survive because the payload is the row's own current content.
@@ -309,6 +426,71 @@ class ContributorRepository(
     private suspend fun reviveTombstonedHit(idStr: String) {
         val payload = findById(idStr) ?: return
         upsert(payload.copy(deletedAt = null), clientOpId = null)
+    }
+
+    /**
+     * Merge-specific tombstone: soft-deletes the merged-away [source] AND records the
+     * server-only `merged_into` redirect to [target] in the same UPDATE statement, so a
+     * tombstoned loser can never exist without the redirect that scan-time name resolution
+     * will follow to keep the merge durable across rescans. The same transaction re-points
+     * any redirect already aiming at [source] to [target], so every redirect stays
+     * single-hop no matter how many merges stack up. Revision bump, timestamping, the
+     * [SyncEvent.Deleted] publication, and the [FirehoseSuppressed]/[FrameCapture] gates all
+     * mirror the base [SqlSyncableRepository.softDelete] exactly — `merged_into` itself never
+     * crosses the wire.
+     */
+    suspend fun softDeleteMergedInto(
+        source: ContributorId,
+        target: ContributorId,
+    ): AppResult<Unit> {
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+        val capture = currentCoroutineContext()[FrameCapture.Key]
+        val result =
+            suspendTransaction(db) {
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                // Flatten chains first: rows redirecting to the source now redirect to the
+                // target, keeping every redirect single-hop forever.
+                db.contributorsQueries.repointMergedInto(to_id = target.value, from_id = source.value)
+                val rowsAffected =
+                    db.contributorsQueries
+                        .softDeleteMergedIntoById(
+                            revision = rev,
+                            updated_at = now,
+                            deleted_at = now,
+                            client_op_id = null,
+                            merged_into = target.value,
+                            id = source.value,
+                        ).value
+                if (rowsAffected == 0L) {
+                    AppResult.Failure(
+                        SyncError.NotFound(
+                            domain = domainName,
+                            entityId = source.value,
+                        ),
+                    )
+                } else {
+                    val event =
+                        SyncEvent.Deleted(
+                            id = source.value,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                        )
+                    if (!suppressed) {
+                        emitAfterCommit(event = event)
+                    } else {
+                        log.debug { "change suppressed (firehose): domain=$domainName id=${source.value}" }
+                    }
+                    AppResult.Success(event)
+                }
+            }
+        // Mirror the firehose emit so a mutation's own deletion reaches the originating device
+        // read-your-writes (see [FrameCapture]) — same shape as the base softDelete.
+        if (capture != null && !suppressed && result is AppResult.Success) {
+            capture.add(toSyncFrame(result.data))
+        }
+        return result.map { }
     }
 
     /** Reads a contributor by raw id outside substrate orchestration — test/diagnostic use. */

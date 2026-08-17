@@ -79,9 +79,11 @@ interface ContributorService {
      *   (preserves per-book credit history — books published as "Robert Galbraith"
      *   stay credited that way even after Galbraith merges into J.K. Rowling).
      * - All affected books are re-upserted with the new contributor reference.
-     * - [target]'s aliases gain source's name + source's existing aliases (deduped
-     *   case-insensitively; target's own name is excluded).
-     * - [source] is soft-deleted.
+     * - [target]'s aliases gain only source's pre-existing (user-curated) aliases
+     *   (deduped case-insensitively; target's own name is excluded). Source's name
+     *   is never added as an alias — aliases are user-curated facts only.
+     * - [source] is soft-deleted, recording a server-internal redirect to [target]
+     *   on the tombstoned row (never surfaced to clients).
      *
      * Returns [com.calypsan.listenup.api.error.ContributorError.MergeSelfTarget] when
      * `source == target`. Returns [com.calypsan.listenup.api.error.ContributorError.NotFound]

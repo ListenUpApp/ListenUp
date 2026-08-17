@@ -403,9 +403,18 @@ tasks.named<Test>("jvmTest") {
     // fails while every test result file reports 0 failures and 0 errors, because nothing failed
     // a test, the worker process died. Grows with the suite; if it recurs, this is the number.
     //
+    // Raised 2g → 4g on 2026-08-15: recurred (heap histogram showed ~1.6 GB of Kotlin PSI from
+    // the Konsist snapshot — it re-parses the whole codebase per forked worker, so the ceiling
+    // scales with SOURCE size, not just spec count — and forkEvery(25) batches classes by
+    // execution order, so adding test classes can shift a Konsist-heavy class into the same
+    // fork as heavyweight testApplication specs; a worker can also wedge in MessageHub.stop
+    // instead of dying when the assertion kills an IPC thread).
+    //
     // Peak footprint stays modest: forkEvery(25) with Gradle's default single fork means one test
-    // JVM at a time, so a CI runner holds the build JVM plus one 2g worker.
-    maxHeapSize = "2g"
+    // JVM at a time, so a CI runner holds the build JVM plus one 4g worker.
+    maxHeapSize = "4g"
+    // A further OOM should hand us the evidence, not another mystery: dumps land under build/.
+    jvmArgs("-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=${layout.buildDirectory.get().asFile}/oom-dumps")
     // Redirect the working directory so any Ktor testApplication classpath-extraction
     // artefacts (META-INF/, io/) land under build/ rather than the project root.
     workingDir =

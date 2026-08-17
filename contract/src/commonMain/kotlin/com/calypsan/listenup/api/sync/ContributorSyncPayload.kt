@@ -39,8 +39,10 @@ data class ContributorSyncPayload(
     /**
      * Alternative display names for this contributor (AKAs / pen names).
      *
-     * Aliases are populated server-side via [com.calypsan.listenup.api.ContributorService.mergeContributors]
-     * — when contributor X is merged into Y, X's canonical name becomes one of Y's aliases.
+     * Aliases are user-curated AKAs: added via the alias panel, or carried over from a
+     * merged contributor's own curated list by
+     * [com.calypsan.listenup.api.ContributorService.mergeContributors] — a merge never
+     * manufactures the merged-away contributor's name into an alias.
      * [com.calypsan.listenup.api.ContributorService.unmergeContributor] removes one.
      *
      * Defaults to `emptyList()` so payloads serialized before Books-C2 decode cleanly.

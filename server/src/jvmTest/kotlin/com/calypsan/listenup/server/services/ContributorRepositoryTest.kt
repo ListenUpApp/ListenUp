@@ -16,6 +16,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -376,6 +377,210 @@ class ContributorRepositoryTest :
                         .selectById(live.value)
                         .executeAsOne()
                         .revision shouldBe liveRevisionBefore
+                }
+            }
+        }
+
+        // ── merge redirects + curated aliases at scan-time resolution ─────────────
+
+        test("resolveOrCreate follows a merge redirect instead of reviving the merged-away loser") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val loser = repo.resolveOrCreate("George R. R. Martin", sortName = null)
+                    val survivor = repo.resolveOrCreate("George R.R. Martin", sortName = null)
+                    repo
+                        .softDeleteMergedInto(loser, survivor)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // The GRRM regression: a rescan re-resolves the merged-away spelling.
+                    val resolved = repo.resolveOrCreate("George R. R. Martin", sortName = null)
+
+                    resolved shouldBe survivor
+                    val loserRow = sql.contributorsQueries.selectById(loser.value).executeAsOne()
+                    loserRow.deleted_at.shouldNotBeNull() // stays tombstoned — NOT revived
+                    loserRow.merged_into shouldBe survivor.value // redirect intact
+                }
+            }
+        }
+
+        test("resolveOrCreateAll follows merge redirects in the batch path") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val loser = repo.resolveOrCreate("George R. R. Martin", sortName = null)
+                    val survivor = repo.resolveOrCreate("George R.R. Martin", sortName = null)
+                    repo
+                        .softDeleteMergedInto(loser, survivor)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val resolved = repo.resolveOrCreateAll(listOf("George R. R. Martin" to null))
+
+                    val key =
+                        contributorDedupKey("George R. R. Martin", SortKeys.sortName("George R. R. Martin", null))
+                    resolved[key] shouldBe survivor
+                    val loserRow = sql.contributorsQueries.selectById(loser.value).executeAsOne()
+                    loserRow.deleted_at.shouldNotBeNull()
+                    loserRow.merged_into shouldBe survivor.value
+                }
+            }
+        }
+
+        test("resolveOrCreate resolves a curated alias of a live contributor without creating a row") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val rowling = repo.resolveOrCreate("J.K. Rowling", sortName = null)
+                    repo.upsert(repo.findById(rowling.value)!!.copy(aliases = listOf("Robert Galbraith")))
+
+                    val resolved = repo.resolveOrCreate("Robert Galbraith", sortName = null)
+
+                    resolved shouldBe rowling
+                    repo.listLiveIds() shouldBe setOf(rowling.value) // nothing was created
+                }
+            }
+        }
+
+        test("alias matching uses plain-name normalization — spacing and case differences still match") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val rowling = repo.resolveOrCreate("J.K. Rowling", sortName = null)
+                    // Curated alias with a double space — normalizeForDedup collapses it.
+                    repo.upsert(repo.findById(rowling.value)!!.copy(aliases = listOf("Robert  Galbraith")))
+
+                    repo.resolveOrCreate("ROBERT GALBRAITH", sortName = null) shouldBe rowling
+                    repo.listLiveIds() shouldBe setOf(rowling.value)
+                }
+            }
+        }
+
+        test("duplicate alias claims resolve to a deterministic winner across re-upserts") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val first = repo.resolveOrCreate("First Claimant", sortName = null)
+                    val second = repo.resolveOrCreate("Second Claimant", sortName = null)
+                    repo.upsert(repo.findById(first.value)!!.copy(aliases = listOf("Shared Pen")))
+                    repo.upsert(repo.findById(second.value)!!.copy(aliases = listOf("Shared Pen")))
+                    // The deterministic rule: the smallest contributor id wins the claim.
+                    val expected = if (first.value < second.value) first else second
+
+                    val before = repo.resolveOrCreate("Shared Pen", sortName = null)
+                    // Re-upserting a claimant rewrites its alias rows (delete-then-insert),
+                    // churning rowids — an unordered alias scan would flip the winner here,
+                    // relinking books nondeterministically between rescans.
+                    repo.upsert(repo.findById(first.value)!!)
+                    val after = repo.resolveOrCreate("Shared Pen", sortName = null)
+
+                    before shouldBe expected
+                    after shouldBe expected
+                }
+            }
+        }
+
+        test("a tombstoned contributor's aliases claim nothing") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val ghost = repo.resolveOrCreate("Ghost Writer", sortName = null)
+                    repo.upsert(repo.findById(ghost.value)!!.copy(aliases = listOf("Haunted Pen")))
+                    repo.softDelete(ghost).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val resolved = repo.resolveOrCreate("Haunted Pen", sortName = null)
+
+                    resolved shouldNotBe ghost // a dead claimant must not capture the name
+                    repo.findById(ghost.value)!!.deletedAt.shouldNotBeNull() // stays tombstoned
+                    repo.listLiveIds() shouldBe setOf(resolved.value) // fresh row minted instead
+                }
+            }
+        }
+
+        test("a live exact-name contributor wins over another live contributor's alias claim") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val realSmith = repo.resolveOrCreate("John Smith", sortName = null)
+                    val claimant = repo.resolveOrCreate("Jane Doe", sortName = null)
+                    repo.upsert(repo.findById(claimant.value)!!.copy(aliases = listOf("John Smith")))
+
+                    repo.resolveOrCreate("John Smith", sortName = null) shouldBe realSmith
+                }
+            }
+        }
+
+        test("a dead redirect (tombstoned target) falls back to reviving the original hit") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val loser = repo.resolveOrCreate("George R. R. Martin", sortName = null)
+                    val survivor = repo.resolveOrCreate("George R.R. Martin", sortName = null)
+                    repo
+                        .softDeleteMergedInto(loser, survivor)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    // Should be impossible given the single-hop + flatten invariants, but the
+                    // defensive fallback must not strand the name: tombstone the target too.
+                    repo.softDelete(survivor).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val resolved = repo.resolveOrCreate("George R. R. Martin", sortName = null)
+
+                    resolved shouldBe loser // revived under its stable id, not re-minted
+                    val loserRow = sql.contributorsQueries.selectById(loser.value).executeAsOne()
+                    loserRow.deleted_at.shouldBeNull()
+                    loserRow.merged_into.shouldBeNull() // revival clears the dead redirect
+                }
+            }
+        }
+
+        test("resolveOrCreateAll resolves aliases, redirects, revivals, and creations in one batch") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val rowling = repo.resolveOrCreate("J.K. Rowling", sortName = null)
+                    repo.upsert(repo.findById(rowling.value)!!.copy(aliases = listOf("Robert Galbraith")))
+                    val loser = repo.resolveOrCreate("George R. R. Martin", sortName = null)
+                    val survivor = repo.resolveOrCreate("George R.R. Martin", sortName = null)
+                    repo
+                        .softDeleteMergedInto(loser, survivor)
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    val purged = repo.resolveOrCreate("Purged Author", sortName = null)
+                    repo.softDelete(purged).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    val resolved =
+                        repo.resolveOrCreateAll(
+                            listOf(
+                                "Robert Galbraith" to null, // curated alias → rowling
+                                "George R. R. Martin" to null, // redirect → survivor
+                                "Purged Author" to null, // plain tombstone → revive
+                                "Brand New Author" to null, // miss → create
+                            ),
+                        )
+
+                    fun keyOf(name: String) = contributorDedupKey(name, SortKeys.sortName(name, null))
+                    resolved[keyOf("Robert Galbraith")] shouldBe rowling
+                    resolved[keyOf("George R. R. Martin")] shouldBe survivor
+                    resolved[keyOf("Purged Author")] shouldBe purged
+                    resolved[keyOf("Brand New Author")].shouldNotBeNull()
+                    // Redirect loser stays tombstoned; purge tombstone revived.
+                    sql.contributorsQueries
+                        .selectById(loser.value)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
+                    sql.contributorsQueries
+                        .selectById(purged.value)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull()
+                    // Exactly one new row minted (Brand New Author) — the alias and redirect
+                    // keys resolved to existing contributors without creating anything.
+                    repo.listLiveIds() shouldBe
+                        setOf(
+                            rowling.value,
+                            survivor.value,
+                            purged.value,
+                            resolved[keyOf("Brand New Author")]!!.value,
+                        )
                 }
             }
         }

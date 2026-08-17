@@ -46,11 +46,12 @@ private val logger = loggerFor<ContributorServiceImpl>()
  * every `book_contributors` row from source to target while capturing the
  * source's display name into the previously-NULL `credited_as` column (books
  * that already had an explicit override keep it), re-upserts each affected book
- * to bump its revision and publish a `book.Updated` event, adds source's name
- * and aliases to target's alias set (case-insensitive dedup, target's own name
- * excluded, and source's name itself excluded when it is merely a punctuation/spacing
- * variant of target's name — see [normalizeContributorName]), and finally soft-deletes
- * the source. Post-commit, the target's
+ * to bump its revision and publish a `book.Updated` event, transfers source's
+ * pre-existing aliases to target's alias set (case-insensitive dedup, target's
+ * own name excluded — source's NAME is never manufactured into an alias, since
+ * aliases are user-curated facts only), and finally soft-deletes the source
+ * while recording the server-only `merged_into` redirect on its row.
+ * Post-commit, the target's
  * affected books reindex `book_search.contributor_names` and the target's
  * `contributor_search.aliases` is refreshed; reindex failures are logged and swallowed.
  *
@@ -222,20 +223,16 @@ internal class ContributorServiceImpl(
             }
         }
 
-        // Build target's new alias set — source.name + source.aliases merged into
-        // target.aliases, case-insensitive dedup, target's own name excluded. When source.name
-        // is merely a punctuation/spacing variant of target.name (the rename-collision-merge
-        // path: "George R. R. Martin" merged into "George R.R. Martin"), recording it as an
-        // alias would be pure noise, so it's skipped — source's OTHER aliases (genuine AKAs)
-        // still transfer.
+        // Build target's new alias set — source's PRE-EXISTING aliases merged into
+        // target.aliases, case-insensitive dedup, target's own name excluded. Source's NAME is
+        // never added: aliases are user-curated facts only (pen names entered via the alias
+        // panel), and merge durability across rescans belongs to the `merged_into` redirect
+        // written below (for scan-time name resolution to follow), not to a manufactured alias.
         val mergedAliases =
             mergeAliasesFor(
                 targetAliases = targetPayload.aliases,
-                sourceName = sourcePayload.name,
                 sourceAliases = sourcePayload.aliases,
                 targetName = targetPayload.name,
-                skipSourceName =
-                    normalizeContributorName(sourcePayload.name) == normalizeContributorName(targetPayload.name),
             )
 
         // Re-upsert target with the new aliases — publishes contributor.Updated(target).
@@ -244,8 +241,9 @@ internal class ContributorServiceImpl(
             is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
         }
 
-        // Soft-delete source — publishes contributor.Deleted(source).
-        return when (val softDeleteResult = contributorRepo.softDelete(source)) {
+        // Soft-delete source and record the merged_into redirect in the same statement —
+        // publishes contributor.Deleted(source).
+        return when (val softDeleteResult = contributorRepo.softDeleteMergedInto(source, target)) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
         }
@@ -282,8 +280,13 @@ internal class ContributorServiceImpl(
         //    a pre-existing live row with the same normalized name is reused rather than
         //    blind-inserted, which would violate the `normalized_name` unique index. Passing
         //    aliasName as both name and sortName keeps the canonical name free of `Last, First`
-        //    reordering, matching the prior blind-insert shape.
-        val newId = contributorRepo.resolveOrCreate(name = aliasName, sortName = aliasName)
+        //    reordering, matching the prior blind-insert shape. followIndirection = false is
+        //    load-bearing: the alias being split out still sits on the target at this point,
+        //    and a tombstoned merge-redirect row for the name (the merge → unmerge loop) points
+        //    at the target too — following either would return the target itself and make the
+        //    unmerge a no-op. This resolve wants exactly "revive the tombstoned row (revival
+        //    nulls its redirect) or create fresh".
+        val newId = contributorRepo.resolveOrCreate(name = aliasName, sortName = aliasName, followIndirection = false)
 
         // 2. Snapshot affected books, then re-link the matching junction rows to newId and clear
         //    credited_as — both over the single SQLDelight connection in one mini-transaction.
@@ -398,30 +401,25 @@ private fun contributorNotFound(id: ContributorId): AppResult.Failure =
 /**
  * Builds the target contributor's new alias set after a merge.
  *
- * Concatenates `targetAliases + sourceName (unless [skipSourceName]) + sourceAliases`, then
- * trims each candidate, lowercases it for the dedup key, drops empties and any candidate
+ * Concatenates `targetAliases + sourceAliases` — the source's pre-existing, user-curated
+ * aliases follow their owner; the source's NAME is deliberately absent (aliases are
+ * user-curated facts only; the merge's durability lives in the `merged_into` redirect).
+ * Trims each candidate, lowercases it for the dedup key, drops empties and any candidate
  * that case-insensitively equals [targetName] (so the target never aliases itself), and
  * keeps the first occurrence's original case.
  *
  * Order: target's existing aliases come first (preserving their positions),
- * then source.name (when included), then source's aliases.
- *
- * @param skipSourceName When true, [sourceName] is excluded from the candidate set — used when
- * source.name is only a punctuation/spacing variant of [targetName], so recording it as an
- * alias would be noise rather than a genuine AKA.
+ * then source's aliases.
  */
 private fun mergeAliasesFor(
     targetAliases: List<String>,
-    sourceName: String,
     sourceAliases: List<String>,
     targetName: String,
-    skipSourceName: Boolean = false,
 ): List<String> {
     val seen = mutableSetOf<String>()
     val out = mutableListOf<String>()
     val excludedKey = targetName.trim().lowercase()
-    val candidates = if (skipSourceName) targetAliases + sourceAliases else targetAliases + sourceName + sourceAliases
-    for (candidate in candidates) {
+    for (candidate in targetAliases + sourceAliases) {
         val trimmed = candidate.trim()
         val key = trimmed.lowercase()
         if (key.isEmpty() || key == excludedKey) continue
@@ -429,21 +427,6 @@ private fun mergeAliasesFor(
     }
     return out
 }
-
-/**
- * Normalizes a contributor name for punctuation/spacing-insensitive comparison — case-insensitive,
- * periods treated as word boundaries, whitespace runs collapsed. This is the server-side twin of
- * the client's `normalizeContributorName` (`app/sharedLogic/.../presentation/contributoredit/
- * ContributorNameNormalization.kt`); the two must be kept in lockstep by hand rather than shared,
- * since sharing a single function across the client/server boundary would require a new
- * contract/commonMain public type for four lines of logic.
- */
-private fun normalizeContributorName(name: String): String =
-    name
-        .lowercase()
-        .replace('.', ' ')
-        .replace(Regex("\\s+"), " ")
-        .trim()
 
 private fun ContributorSyncPayload.applyPatch(patch: ContributorUpdate): ContributorSyncPayload =
     copy(

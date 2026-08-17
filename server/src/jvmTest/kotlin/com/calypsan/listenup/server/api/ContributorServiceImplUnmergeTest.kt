@@ -208,6 +208,56 @@ class ContributorServiceImplUnmergeTest :
             }
         }
 
+        // ── Unmerge after a merge redirect exists for the alias name ───────────
+
+        test("unmergeContributor revives the merged-away row instead of bouncing back to the target") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeUnmergeServiceAndDeps(db)
+                val service = deps.service
+                val contributorRepo = deps.contributorRepo
+                runTest {
+                    // The realistic merge → unmerge loop: "Richard Bachman" exists as his own
+                    // row whose canonical name IS the pen name (exactly what a prior unmerge
+                    // mints), the user curates the pen name as an alias on Stephen King, then
+                    // merges Bachman into King — tombstoning Bachman's row with a merged_into
+                    // redirect to King.
+                    val target = contributorRepo.resolveOrCreate("Stephen King", sortName = null)
+                    val penName = contributorRepo.resolveOrCreate("Richard Bachman", sortName = "Richard Bachman")
+                    contributorRepo
+                        .upsert(
+                            contributorRepo.findById(target.value)!!.copy(aliases = listOf("Richard Bachman")),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    service.mergeContributors(penName, target).shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    sql.contributorsQueries
+                        .selectById(penName.value)
+                        .executeAsOne()
+                        .merged_into shouldBe target.value
+
+                    // Unmerge the curated alias. The internal resolve must NOT follow the alias
+                    // claim (still on the target when it runs) or the redirect (aimed at the
+                    // target) — either would return the target itself and make unmerge a no-op.
+                    val result = service.unmergeContributor(target, "Richard Bachman")
+
+                    val success = result.shouldBeInstanceOf<AppResult.Success<ContributorId>>()
+                    success.data shouldNotBe target
+                    success.data shouldBe penName // the tombstoned row revives under its stable id
+                    contributorRepo
+                        .findById(penName.value)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+                    sql.contributorsQueries
+                        .selectById(penName.value)
+                        .executeAsOne()
+                        .merged_into
+                        .shouldBeNull() // revival cleared the redirect
+                    contributorRepo.findById(target.value)!!.aliases.shouldNotContain("Richard Bachman")
+                }
+            }
+        }
+
         // ── FTS reindex ────────────────────────────────────────────────────────
     })
 
