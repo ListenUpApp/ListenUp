@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import com.calypsan.listenup.core.SecureStorage
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -17,6 +18,8 @@ import org.koin.test.verify.verify
  *  - [AuthSession] — owned by `clientAuthModule`. Injected as `Lazy<AuthSession>`
  *    into [SettingsRepositoryImpl] to break the circular dependency with
  *    [com.calypsan.listenup.client.data.repository.AuthSessionStore].
+ *  - [UserPreferencesRepository] — owned by `libraryModule`. The `PlaybackPreferences`
+ *    binding projects the player's defaults off it, so there is one store for them.
  */
 @OptIn(KoinExperimentalAPI::class)
 class SettingsModuleVerifyTest :
@@ -28,6 +31,7 @@ class SettingsModuleVerifyTest :
                     listOf(
                         SecureStorage::class,
                         AuthSession::class,
+                        UserPreferencesRepository::class,
                     ),
             )
         }

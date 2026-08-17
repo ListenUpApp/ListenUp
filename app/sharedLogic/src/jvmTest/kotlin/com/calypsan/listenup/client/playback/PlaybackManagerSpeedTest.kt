@@ -53,9 +53,10 @@ import kotlinx.coroutines.test.runTest
  * 2. startPlayback with effective speed 1.0f calls audioPlayer.setSpeed(1.0f)
  *    even after the player was previously at non-1.0f speed (was suppressed
  *    by the if (speed != 1.0f) guard at PlaybackManager:385-387).
- * 3. onSpeedChanged writes per-book ONLY; never touches the global default
- *    via playbackPreferences.setDefaultPlaybackSpeed (was double-writing
- *    via scope.launch at PlaybackManager:471, conflating per-book and global).
+ * 3. onSpeedChanged writes the per-book speed (was double-writing the global
+ *    default via scope.launch at PlaybackManager:471, conflating the two).
+ *    The "never touches the global default" half is now structural: the global
+ *    default is the synced store's, and PlaybackPreferences only reads it.
  *
  * If any of these tests regress in the future, the corresponding
  * deletion was likely re-introduced. Investigate before "fixing" the test.
@@ -66,7 +67,6 @@ class PlaybackManagerSpeedTest :
         fun defaultPlaybackPreferences(): PlaybackPreferences {
             val prefs: PlaybackPreferences = mock()
             everySuspend { prefs.getDefaultPlaybackSpeed() } returns 1.0f
-            everySuspend { prefs.setDefaultPlaybackSpeed(any()) } returns Unit
             everySuspend { prefs.getDefaultVolumeBoostDb() } returns 0.0f
             return prefs
         }
@@ -273,32 +273,24 @@ class PlaybackManagerSpeedTest :
         }
 
         // -------------------------------------------------------------------------
-        // Test 3 — onSpeedChanged writes per-book ONLY; global default stays clean
+        // Test 3 — onSpeedChanged writes the per-book speed
         // -------------------------------------------------------------------------
 
-        test("onSpeedChanged does not call playbackPreferences setDefaultPlaybackSpeed") {
+        test("onSpeedChanged writes the per-book custom speed") {
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
-                    val playbackPreferences: PlaybackPreferences = mock()
-                    everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
-                    everySuspend { playbackPreferences.setDefaultPlaybackSpeed(any()) } returns Unit
-                    everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0.0f
-
                     val positionRepository = defaultPositionRepository()
 
                     val (manager, _) =
                         createPlaybackManagerWithScope(
                             db = db,
-                            playbackPreferences = playbackPreferences,
+                            playbackPreferences = defaultPlaybackPreferences(),
                             positionRepository = positionRepository,
                         )
 
                     manager.activateBook(BookId("book-1"))
                     manager.onSpeedChanged(2.0f)
-
-                    // Drain all pending coroutines so any rogue setDefaultPlaybackSpeed call
-                    // has had a chance to run before we assert it didn't.
                     advanceUntilIdle()
 
                     verifySuspend(VerifyMode.exactly(1)) {
@@ -309,7 +301,6 @@ class PlaybackManagerSpeedTest :
                             },
                         )
                     }
-                    verifySuspend(VerifyMode.exactly(0)) { playbackPreferences.setDefaultPlaybackSpeed(any()) }
                 }
             } finally {
                 db.close()

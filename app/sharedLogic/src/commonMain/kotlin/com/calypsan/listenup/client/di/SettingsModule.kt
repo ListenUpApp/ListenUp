@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
+import com.calypsan.listenup.client.data.repository.SyncedPlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LibrarySync
@@ -11,9 +12,11 @@ import org.koin.core.module.Module
 import org.koin.dsl.module
 
 /**
- * Settings domain wiring — [SettingsRepositoryImpl] and its five segregated interface
- * bindings ([ServerConfig], [LibrarySync], [LibraryPreferences], [PlaybackPreferences],
- * [LocalPreferences]). All five are segregated views of the same singleton instance.
+ * Settings domain wiring — [SettingsRepositoryImpl] and its four segregated interface
+ * bindings ([ServerConfig], [LibrarySync], [LibraryPreferences], [LocalPreferences]), all
+ * views of the same singleton instance, plus [PlaybackPreferences], which is a projection of
+ * the server-synced [com.calypsan.listenup.client.domain.repository.UserPreferencesRepository]
+ * rather than of device-local storage.
  */
 internal val settingsModule: Module =
     module {
@@ -26,8 +29,7 @@ internal val settingsModule: Module =
         // constructed and registered in the Koin graph.
 
         // Settings repository — everything *non-auth*: server-URL plumbing, library identity,
-        // library + playback preferences, device-local UI preferences. Emits preference change
-        // events for PreferencesSyncObserver (in clientSyncModule) to consume without circular deps.
+        // library display preferences, device-local UI preferences.
         single {
             val scope = this
             SettingsRepositoryImpl(
@@ -40,6 +42,9 @@ internal val settingsModule: Module =
         single<ServerConfig> { get<SettingsRepositoryImpl>() }
         single<LibrarySync> { get<SettingsRepositoryImpl>() }
         single<LibraryPreferences> { get<SettingsRepositoryImpl>() }
-        single<PlaybackPreferences> { get<SettingsRepositoryImpl>() }
         single<LocalPreferences> { get<SettingsRepositoryImpl>() }
+
+        // The player's defaults are a read-only projection of the server-synced preferences —
+        // one store, so the player can never disagree with what Settings shows.
+        single<PlaybackPreferences> { SyncedPlaybackPreferences(userPreferences = get()) }
     }

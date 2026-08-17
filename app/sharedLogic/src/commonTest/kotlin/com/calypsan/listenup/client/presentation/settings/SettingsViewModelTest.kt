@@ -47,7 +47,6 @@ class SettingsViewModelTest :
 
         class TestFixture {
             val libraryPreferences: LibraryPreferences = mock()
-            val playbackPreferences: PlaybackPreferences = mock()
             val localPreferences: LocalPreferences = mock()
             val userPreferencesRepository: UserPreferencesRepository = mock()
             val instanceRepository: InstanceRepository = mock()
@@ -77,7 +76,6 @@ class SettingsViewModelTest :
             fun build(): SettingsViewModel =
                 SettingsViewModel(
                     libraryPreferences = libraryPreferences,
-                    playbackPreferences = playbackPreferences,
                     localPreferences = localPreferences,
                     userPreferencesRepository = userPreferencesRepository,
                     instanceRepository = instanceRepository,
@@ -96,22 +94,9 @@ class SettingsViewModelTest :
             every { fixture.localPreferences.wifiOnlyDownloads } returns fixture.wifiOnlyFlow
             every { fixture.localPreferences.hapticFeedbackEnabled } returns fixture.hapticFeedbackFlow
 
-            // Default stubs for playback preferences - getters
-            everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns PlaybackPreferences.DEFAULT_PLAYBACK_SPEED
-            everySuspend { fixture.playbackPreferences.getDefaultSkipForwardSec() } returns
-                PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC
-            everySuspend { fixture.playbackPreferences.getDefaultSkipBackwardSec() } returns
-                PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC
-
             // Default stubs for library preferences - getters
             everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns true
             everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns true
-
-            // Default stubs for playback preferences - setters (called when syncing from server)
-            everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(PlaybackPreferences.DEFAULT_PLAYBACK_SPEED) } returns Unit
-            everySuspend { fixture.playbackPreferences.setDefaultVolumeBoostDb(any()) } returns Unit
-            everySuspend { fixture.playbackPreferences.setDefaultSkipForwardSec(any()) } returns Unit
-            everySuspend { fixture.playbackPreferences.setDefaultSkipBackwardSec(any()) } returns Unit
 
             // The VM observes synced preferences reactively; the fixture flow is the source of truth.
             every { fixture.userPreferencesRepository.observePreferences() } returns fixture.syncedPreferencesFlow
@@ -161,7 +146,6 @@ class SettingsViewModelTest :
                 val fixture = createFixture()
                 everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns false
                 everySuspend { fixture.libraryPreferences.getHideSingleBookSeries() } returns false
-                everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.5f) } returns Unit
                 // The synced playback speed now flows from the observed (Room-backed) preferences.
                 fixture.syncedPreferencesFlow.value =
                     fixture.syncedPreferencesFlow.value.copy(defaultPlaybackSpeed = 1.5f)
@@ -208,11 +192,10 @@ class SettingsViewModelTest :
 
         // ========== Playback Speed Tests ==========
 
-        test("setDefaultPlaybackSpeed updates local cache and UI immediately") {
+        test("setDefaultPlaybackSpeed updates the synced store and UI immediately") {
             runTest {
                 // Given
                 val fixture = createFixture()
-                everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.25f) } returns Unit
                 // The repository's optimistic Room write drives the observed flow — simulate it here.
                 everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.25f) } calls {
                     fixture.syncedPreferencesFlow.value =
@@ -226,8 +209,8 @@ class SettingsViewModelTest :
                 viewModel.setDefaultPlaybackSpeed(1.25f)
                 advanceUntilIdle()
 
-                // Then - player store mirrored and the UI reflects the value via the observed flow.
-                verifySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.25f) }
+                // Then - the UI reflects the value via the observed flow, from the single write.
+                verifySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.25f) }
                 viewModel.state.value.defaultPlaybackSpeed shouldBe 1.25f
             }
         }
@@ -236,7 +219,6 @@ class SettingsViewModelTest :
             runTest {
                 // Given
                 val fixture = createFixture()
-                everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(1.5f) } returns Unit
                 everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(1.5f) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
@@ -254,7 +236,6 @@ class SettingsViewModelTest :
             runTest {
                 // Given
                 val fixture = createFixture()
-                everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(2.0f) } returns Unit
                 // Even when the server push fails, the repository's optimistic Room write already
                 // landed — so the observed flow (and thus the UI) keeps the new value.
                 everySuspend { fixture.userPreferencesRepository.setDefaultPlaybackSpeed(2.0f) } calls {
@@ -292,11 +273,10 @@ class SettingsViewModelTest :
             }
         }
 
-        test("setDefaultVolumeBoostDb updates local cache and syncs to server") {
+        test("setDefaultVolumeBoostDb syncs to server through the single synced store") {
             runTest {
                 // Given
                 val fixture = createFixture()
-                everySuspend { fixture.playbackPreferences.setDefaultVolumeBoostDb(9f) } returns Unit
                 everySuspend { fixture.userPreferencesRepository.setDefaultVolumeBoostDb(9f) } returns AppResult.Success(Unit)
                 val viewModel = fixture.build()
                 advanceUntilIdle()
@@ -305,8 +285,7 @@ class SettingsViewModelTest :
                 viewModel.setDefaultVolumeBoostDb(9f)
                 advanceUntilIdle()
 
-                // Then - both the reactive player store and the synced repository were written.
-                verifySuspend { fixture.playbackPreferences.setDefaultVolumeBoostDb(9f) }
+                // Then - one write, to the synced store the player and the screen both read.
                 verifySuspend { fixture.userPreferencesRepository.setDefaultVolumeBoostDb(9f) }
             }
         }

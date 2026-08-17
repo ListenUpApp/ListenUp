@@ -79,7 +79,6 @@ data class SettingsUiState(
  */
 class SettingsViewModel(
     private val libraryPreferences: LibraryPreferences,
-    private val playbackPreferences: PlaybackPreferences,
     private val localPreferences: LocalPreferences,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val instanceRepository: InstanceRepository,
@@ -194,13 +193,6 @@ class SettingsViewModel(
 
         when (val result = userPreferencesRepository.getPreferences()) {
             is AppResult.Success -> {
-                // Mirror into the legacy reactive player store too, so a cross-device skip/speed
-                // change reaches the player (which observes PlaybackPreferences, not the Settings VM).
-                val prefs = result.data
-                playbackPreferences.setDefaultPlaybackSpeed(prefs.defaultPlaybackSpeed)
-                playbackPreferences.setDefaultVolumeBoostDb(prefs.defaultVolumeBoostDb)
-                playbackPreferences.setDefaultSkipForwardSec(prefs.defaultSkipForwardSec)
-                playbackPreferences.setDefaultSkipBackwardSec(prefs.defaultSkipBackwardSec)
                 internalState.update { it.copy(isLoading = false, isSyncing = false) }
             }
 
@@ -219,10 +211,9 @@ class SettingsViewModel(
      */
     fun setDefaultPlaybackSpeed(speed: Float) {
         viewModelScope.launch {
-            // Mirror into the player's reactive store (it observes PlaybackPreferences, not this VM).
-            playbackPreferences.setDefaultPlaybackSpeed(speed)
-            // The repository writes Room optimistically (driving observePreferences() → state) then
-            // pushes to the server — so the UI reflects the change instantly without a second copy here.
+            // The repository writes Room optimistically (driving observePreferences() → state, and the
+            // player's PlaybackPreferences projection with it) then pushes to the server — so the change
+            // reaches every surface instantly, from one write.
             userPreferencesRepository
                 .setDefaultPlaybackSpeed(speed)
                 .onFailure { logger.warn { "Failed to sync default playback speed to server: ${it.message}" } }
@@ -232,7 +223,6 @@ class SettingsViewModel(
     /** Set the default volume boost for books without a custom boost. */
     fun setDefaultVolumeBoostDb(boostDb: Float) {
         viewModelScope.launch {
-            playbackPreferences.setDefaultVolumeBoostDb(boostDb)
             userPreferencesRepository
                 .setDefaultVolumeBoostDb(boostDb)
                 .onFailure { logger.warn { "Failed to sync default volume boost to server: ${it.message}" } }
@@ -245,9 +235,6 @@ class SettingsViewModel(
      */
     fun setDefaultSkipForwardSec(seconds: Int) {
         viewModelScope.launch {
-            // Persist to the player's reactive store (the live source the player observes); the
-            // repository's optimistic Room write drives the Settings UI via observePreferences().
-            playbackPreferences.setDefaultSkipForwardSec(seconds)
             userPreferencesRepository
                 .setDefaultSkipForwardSec(seconds)
                 .onFailure { logger.warn { "Failed to sync default skip-forward to server: ${it.message}" } }
@@ -260,9 +247,6 @@ class SettingsViewModel(
      */
     fun setDefaultSkipBackwardSec(seconds: Int) {
         viewModelScope.launch {
-            // Persist to the player's reactive store (the live source the player observes); the
-            // repository's optimistic Room write drives the Settings UI via observePreferences().
-            playbackPreferences.setDefaultSkipBackwardSec(seconds)
             userPreferencesRepository
                 .setDefaultSkipBackwardSec(seconds)
                 .onFailure { logger.warn { "Failed to sync default skip-backward to server: ${it.message}" } }

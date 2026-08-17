@@ -5,25 +5,18 @@ import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import com.calypsan.listenup.client.domain.repository.PlaybackPreferences as DomainPlaybackPreferences
 import kotlin.time.TimeSource
-import com.calypsan.listenup.client.domain.repository.PreferenceChangeEvent as DomainPreferenceChangeEvent
 
 private val logger = KotlinLogging.logger {}
 
 /**
  * Single source of truth for everything *non-auth* in app configuration:
- * server URL plumbing (local/remote/active), library identity, library +
- * playback preferences, and device-local UI preferences. The authentication
+ * server URL plumbing (local/remote/active), library identity, library display
+ * preferences, and device-local UI preferences. Playback defaults are NOT here —
+ * they are server-synced and live in
+ * [com.calypsan.listenup.client.domain.repository.UserPreferencesRepository]. The authentication
  * slice (tokens, AuthState flow, pending-registration) lives in
  * `AuthSessionStore` — Settings calls into it for the cross-system seams
  * (set/clear server URL must update auth state).
@@ -42,16 +35,9 @@ internal class SettingsRepositoryImpl(
 ) : com.calypsan.listenup.client.domain.repository.ServerConfig,
     com.calypsan.listenup.client.domain.repository.LibrarySync,
     com.calypsan.listenup.client.domain.repository.LibraryPreferences,
-    com.calypsan.listenup.client.domain.repository.PlaybackPreferences,
     com.calypsan.listenup.client.domain.repository.LocalPreferences {
     // Deferred to first suspend-method use; never read at construction time.
     private val authSession by authSession
-
-    // Buffer of 1 ensures emit() doesn't suspend when no collectors are active.
-    // This is appropriate for preference sync since we don't want settings changes
-    // to block waiting for the sync layer.
-    override val preferenceChanges: SharedFlow<DomainPreferenceChangeEvent>
-        field = MutableSharedFlow<DomainPreferenceChangeEvent>(extraBufferCapacity = 1)
 
     // Reactive change-signal for the active URL; authoritative read remains getActiveUrl().
     override val activeUrl: StateFlow<ServerUrl?>
@@ -105,12 +91,6 @@ internal class SettingsRepositoryImpl(
         // Series display preferences
         private const val KEY_HIDE_SINGLE_BOOK_SERIES = "hide_single_book_series"
 
-        // Playback preferences (synced)
-        private const val KEY_DEFAULT_PLAYBACK_SPEED = "default_playback_speed"
-        private const val KEY_DEFAULT_VOLUME_BOOST_DB = "default_volume_boost_db"
-        private const val KEY_DEFAULT_SKIP_FORWARD_SEC = "default_skip_forward_sec"
-        private const val KEY_DEFAULT_SKIP_BACKWARD_SEC = "default_skip_backward_sec"
-
         // Local preferences (device-specific, NOT synced)
         private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_DYNAMIC_COLORS = "dynamic_colors"
@@ -122,12 +102,6 @@ internal class SettingsRepositoryImpl(
         private const val KEY_PEER_SERVER_VERSION = "peer_server_version"
         private const val KEY_PEER_SERVER_API = "peer_server_api"
         private const val KEY_OUTDATED_DISMISSED = "outdated_dismissed"
-
-        // Default values
-        const val DEFAULT_PLAYBACK_SPEED = 1.0f
-        const val DEFAULT_VOLUME_BOOST_DB = 0.0f
-        const val DEFAULT_SKIP_FORWARD_SEC = 30
-        const val DEFAULT_SKIP_BACKWARD_SEC = 10
     }
 
     // Server configuration
@@ -301,124 +275,6 @@ internal class SettingsRepositoryImpl(
 
     override suspend fun setHideSingleBookSeries(hide: Boolean) {
         secureStorage.save(KEY_HIDE_SINGLE_BOOK_SERIES, hide.toString())
-    }
-
-    // Universal playback speed (synced across devices)
-
-    override fun observeDefaultPlaybackSpeed(): Flow<Float> =
-        flow {
-            // Initial emit — best-effort read; fall back to the constant on non-cancellation error.
-            val initial =
-                try {
-                    getDefaultPlaybackSpeed()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Initial getDefaultPlaybackSpeed failed; falling back to default." }
-                    DomainPlaybackPreferences.DEFAULT_PLAYBACK_SPEED
-                }
-            emit(initial)
-
-            // Re-emits driven by setDefaultPlaybackSpeed → preferenceChanges.PlaybackSpeedChanged.
-            preferenceChanges
-                .filterIsInstance<DomainPreferenceChangeEvent.PlaybackSpeedChanged>()
-                .map { it.speed }
-                .collect { emit(it) }
-        }
-
-    override suspend fun getDefaultPlaybackSpeed(): Float =
-        secureStorage.read(KEY_DEFAULT_PLAYBACK_SPEED)?.toFloatOrNull() ?: DEFAULT_PLAYBACK_SPEED
-
-    override suspend fun setDefaultPlaybackSpeed(speed: Float) {
-        secureStorage.save(KEY_DEFAULT_PLAYBACK_SPEED, speed.toString())
-        preferenceChanges.emit(DomainPreferenceChangeEvent.PlaybackSpeedChanged(speed))
-    }
-
-    // Universal volume boost (synced across devices)
-
-    override fun observeDefaultVolumeBoostDb(): Flow<Float> =
-        flow {
-            // Initial emit — best-effort read; fall back to the constant on non-cancellation error.
-            val initial =
-                try {
-                    getDefaultVolumeBoostDb()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Initial getDefaultVolumeBoostDb failed; falling back to default." }
-                    DomainPlaybackPreferences.DEFAULT_VOLUME_BOOST_DB
-                }
-            emit(initial)
-
-            // Re-emits driven by setDefaultVolumeBoostDb → preferenceChanges.VolumeBoostChanged.
-            preferenceChanges
-                .filterIsInstance<DomainPreferenceChangeEvent.VolumeBoostChanged>()
-                .map { it.boostDb }
-                .collect { emit(it) }
-        }
-
-    override suspend fun getDefaultVolumeBoostDb(): Float =
-        secureStorage.read(KEY_DEFAULT_VOLUME_BOOST_DB)?.toFloatOrNull() ?: DEFAULT_VOLUME_BOOST_DB
-
-    override suspend fun setDefaultVolumeBoostDb(boostDb: Float) {
-        secureStorage.save(KEY_DEFAULT_VOLUME_BOOST_DB, boostDb.toString())
-        preferenceChanges.emit(DomainPreferenceChangeEvent.VolumeBoostChanged(boostDb))
-    }
-
-    // Skip intervals (synced across devices; persisted locally for reactive reads)
-
-    override fun observeDefaultSkipForwardSec(): Flow<Int> =
-        flow {
-            val initial =
-                try {
-                    getDefaultSkipForwardSec()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Initial getDefaultSkipForwardSec failed; falling back to default." }
-                    DomainPlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC
-                }
-            emit(initial)
-
-            preferenceChanges
-                .filterIsInstance<DomainPreferenceChangeEvent.SkipForwardChanged>()
-                .map { it.seconds }
-                .collect { emit(it) }
-        }
-
-    override fun observeDefaultSkipBackwardSec(): Flow<Int> =
-        flow {
-            val initial =
-                try {
-                    getDefaultSkipBackwardSec()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.warn(e) { "Initial getDefaultSkipBackwardSec failed; falling back to default." }
-                    DomainPlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC
-                }
-            emit(initial)
-
-            preferenceChanges
-                .filterIsInstance<DomainPreferenceChangeEvent.SkipBackwardChanged>()
-                .map { it.seconds }
-                .collect { emit(it) }
-        }
-
-    override suspend fun getDefaultSkipForwardSec(): Int =
-        secureStorage.read(KEY_DEFAULT_SKIP_FORWARD_SEC)?.toIntOrNull() ?: DEFAULT_SKIP_FORWARD_SEC
-
-    override suspend fun getDefaultSkipBackwardSec(): Int =
-        secureStorage.read(KEY_DEFAULT_SKIP_BACKWARD_SEC)?.toIntOrNull() ?: DEFAULT_SKIP_BACKWARD_SEC
-
-    override suspend fun setDefaultSkipForwardSec(seconds: Int) {
-        secureStorage.save(KEY_DEFAULT_SKIP_FORWARD_SEC, seconds.toString())
-        preferenceChanges.emit(DomainPreferenceChangeEvent.SkipForwardChanged(seconds))
-    }
-
-    override suspend fun setDefaultSkipBackwardSec(seconds: Int) {
-        secureStorage.save(KEY_DEFAULT_SKIP_BACKWARD_SEC, seconds.toString())
-        preferenceChanges.emit(DomainPreferenceChangeEvent.SkipBackwardChanged(seconds))
     }
 
     // Local preferences (device-specific, NOT synced)

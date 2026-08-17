@@ -351,7 +351,6 @@ PlaybackStateProvider
 PlaybackStateWriter
 PlaybackTimeline
 PlaybackUpdate
-PreferenceChangeEvent
 PreparedPlayback
 PreviewLoadState
 ProfileEditRepository
