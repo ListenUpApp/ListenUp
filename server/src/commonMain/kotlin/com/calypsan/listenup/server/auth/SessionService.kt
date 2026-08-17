@@ -58,21 +58,33 @@ class SessionService(
      * whose response never reached — or was never persisted by — the client leaves the client holding
      * the pre-rotation token. When the client retries, the server sees that token in `previous_hash`
      * and would normally read it as a stolen-token replay and revoke the whole family — a dropped
-     * packet or a killed process forcing a logout. Within this window of the last rotation we instead
-     * treat the retry as benign: rotate again on the same family and hand back a usable token.
-     * Genuine reuse after the window still hard-revokes.
+     * packet or a killed process forcing a logout. Within this window of the last NORMAL rotation we
+     * instead treat the retry as benign: rotate again on the same family and hand back a usable token.
+     * Reuse after the window still hard-revokes — the grace branch preserves the replayed row's
+     * `last_used_at` and `expires_at`, so the window drains from the last normal rotation and a
+     * replay chain can neither hold itself open indefinitely nor renew the refresh TTL.
      *
-     * The window is sized for the mobile reality, not an immediate network retry: process death
-     * between receiving the rotation response and persisting the new token surfaces on the NEXT
-     * background sync, ~15–30 minutes later — 60 seconds stranded that phone permanently.
+     * That has a deliberate consequence: a SECOND consecutive lost-response retry falls outside the
+     * window. A client that loses two rotation responses in a row re-authenticates.
+     *
+     * What the window buys is the lost-network-response case plus roughly one background wake — no
+     * more than that, and it is not sized against a guaranteed retry cadence, because none exists:
+     * WorkManager's 15 minutes is a *minimum* period that Doze stretches, iOS `BackgroundSync.swift`
+     * treats its interval as a floor by its own comment, and desktop/web have no scheduler at all, so
+     * their retry is "next app open" — unbounded. A client whose retry lands past the window is the
+     * client's problem to handle gracefully (session lapse → re-auth), not the window's to cover.
      *
      * Theft trade-off: a stolen pre-rotation token stays usable for this window. A thief who replays
      * it in time captures the session — the grace re-rotation re-anchors `previous_hash` on the
      * incoming (stolen) token rather than advancing it, so the displaced victim's token then matches
      * neither the live hash nor `previous_hash` and fails as unknown. The victim being forced to
-     * re-authenticate is the visible signal; the family is NOT auto-revoked in that interleaving, so
-     * containment of the captured session is manual (session list, or a password change via
-     * [revokeAllExcept]).
+     * re-authenticate is the visible signal; the family is NOT auto-revoked in that interleaving.
+     * Containment is coarse: the thief takes over the victim's OWN row — same `id`, same `family_id`,
+     * and `Sessions.sq`'s `rotate` leaves `device_type`/`platform`/`device_name`/`device_model`
+     * untouched — so the compromised session is indistinguishable from the victim's in the session
+     * list, and its fresh `last_used_at` makes it look like the most active device. Revoking the
+     * right row from that list is therefore not possible; only [revokeAll] or a password change
+     * ([revokeAllExcept]) contains it.
      */
     private val reuseGracePeriod: Duration = DEFAULT_REUSE_GRACE,
     private val clock: Clock = Clock.System,
@@ -157,7 +169,15 @@ class SessionService(
                 db.sessionsQueries
                     .selectByPreviousHash(previous_hash = incomingHash)
                     .executeAsOneOrNull()
-                    ?: return@suspendTransaction null // unknown token — nothing to rotate or revoke.
+            if (replay == null) {
+                // Unknown token — nothing to rotate or revoke. Low signal on its own: garbage input
+                // and rows already swept by ExpiredSessionCleanupTask land here too, and there is by
+                // definition no identifier to name. Logged anyway because a cluster of these
+                // adjacent to a grace re-rotation on the same family is the fingerprint of a
+                // displaced legitimate client — the one path that was otherwise silent.
+                logger.info { "Refresh presented an unknown token: no live session and no replay match." }
+                return@suspendTransaction null
+            }
 
             val withinGrace =
                 replay.revoked_at == null &&
@@ -165,8 +185,10 @@ class SessionService(
                     now - replay.last_used_at <= reuseGracePeriod.inWholeMilliseconds
             if (withinGrace) {
                 // Re-rotate on the same lineage. previous_hash stays keyed on the incoming token so
-                // the window remains anchored to it; a late replay of the same token past the window
-                // still lands in the revoke branch below.
+                // the client's retry of that same token keeps working — but last_used_at and
+                // expires_at are carried over unchanged, so the window stays anchored to the last
+                // NORMAL rotation. Writing `now` here would let a token replayed once per window
+                // stay valid forever and push the refresh TTL out on every replay.
                 logger.info {
                     "Grace re-rotation for a lost-response retry: session=${replay.id}, " +
                         "${(now - replay.last_used_at).milliseconds.inWholeSeconds} s since last rotation"
@@ -174,15 +196,15 @@ class SessionService(
                 db.sessionsQueries.rotate(
                     previous_hash = incomingHash,
                     refresh_token_hash = newHash,
-                    last_used_at = now,
-                    expires_at = newExpires,
+                    last_used_at = replay.last_used_at,
+                    expires_at = replay.expires_at,
                     id = replay.id,
                 )
                 return@suspendTransaction RotatedSession(
                     sessionId = SessionId(replay.id),
                     userId = UserId(replay.user_id),
                     refreshToken = RefreshToken(newRaw),
-                    expiresAt = newExpires,
+                    expiresAt = replay.expires_at,
                 )
             }
 
@@ -301,6 +323,17 @@ class SessionService(
 
     companion object {
         private val DEFAULT_REFRESH_TTL: Duration = 30.days
-        private val DEFAULT_REUSE_GRACE: Duration = 15.minutes
+
+        /**
+         * The one source of truth for the lost-response reuse-grace window (C4) — `authModule`
+         * reads this as the fallback for `auth.refreshReuseGraceSeconds` rather than carrying a
+         * second copy, because two constants for one window silently drifted apart once already.
+         *
+         * 30 minutes: a production incident stranded a user whose retry arrived 26.2 minutes after
+         * the rotation (`last_used_at` 23:28:28, `revoked_at` 23:54:40), outside the then-60s
+         * window. This covers that observation with headroom. See [reuseGracePeriod] for what the
+         * window does and does not buy.
+         */
+        internal val DEFAULT_REUSE_GRACE: Duration = 30.minutes
     }
 }

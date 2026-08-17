@@ -395,9 +395,9 @@ class AuthServiceImplTest :
 
                 svc.refreshSession(RefreshRequest(original)).shouldSucceed()
 
-                // Past the lost-response grace window, replaying the original token is an
-                // unambiguous reuse attack → family revoke.
-                mutClock.instant = mutClock.instant + 16.minutes
+                // Past the lost-response grace window (SessionService.DEFAULT_REUSE_GRACE, 30 min),
+                // replaying the original token is an unambiguous reuse attack → family revoke.
+                mutClock.instant = mutClock.instant + 31.minutes
                 val err =
                     svc
                         .refreshSession(RefreshRequest(original))

@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.server.di.refreshReuseGracePeriod
 import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.MutableClock
@@ -15,6 +16,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
+import io.ktor.server.config.MapApplicationConfig
+import kotlin.time.Duration
 import kotlin.time.ExperimentalTime
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -89,7 +92,10 @@ class SessionServiceTest :
 
             // Adversary replays the original (now-stale) refresh token beyond the lost-response
             // grace window — an unambiguous reuse attack.
-            mutClock.instant = mutClock.instant + 16.minutes
+            mutClock.instant = mutClock.instant + 31.minutes
+            // installTestCapture() mutates the JVM-global SLF4J factory and forces DEBUG for every
+            // logger. Safe only because :server:jvmTest runs specs sequentially — under concurrent
+            // specs one test's capture would swallow another's events.
             val capture = ListenUpLoggerFactory.installTestCapture()
             val replay =
                 try {
@@ -103,7 +109,8 @@ class SessionServiceTest :
                             .shouldNotBeNull()
                     warn.message shouldContain issued.sessionId.value
                     warn.message shouldContain "u-1"
-                    warn.message shouldContain "16 min"
+                    // Assert the whole phrase: "16 min" also matched "116 min".
+                    warn.message shouldContain "31 min since last rotation"
                     warn.message shouldNotContain issued.refreshToken.value
                     warn.message shouldNotContain firstRotation.refreshToken.value
                     result
@@ -148,7 +155,7 @@ class SessionServiceTest :
                             .firstOrNull { it.level == Level.INFO && it.message.contains("Grace re-rotation") }
                             .shouldNotBeNull()
                     info.message shouldContain issued.sessionId.value
-                    info.message shouldContain "840 s"
+                    info.message shouldContain "840 s since last rotation"
                     info.message shouldNotContain issued.refreshToken.value
                     result
                 } finally {
@@ -187,12 +194,91 @@ class SessionServiceTest :
             svc.rotate(issued.refreshToken).shouldNotBeNull()
 
             // The same original token surfacing long after the window is an attack → family revoke.
-            mutClock.instant = mutClock.instant + 16.minutes
+            mutClock.instant = mutClock.instant + 31.minutes
             svc.rotate(issued.refreshToken) shouldBe null
             db.sessionsQueries
                 .selectById(issued.sessionId.value)
                 .executeAsOne()
                 .revoked_at shouldNotBe null
+        }
+
+        test("a grace re-rotation does not re-arm the window, and does not extend the refresh TTL") {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc =
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+
+            val issued = svc.createSession(UserId("u-1"))
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+            val afterNormalRotation =
+                db.sessionsQueries.selectById(issued.sessionId.value).executeAsOne()
+
+            // A lost-response retry well inside the window — accepted, as it should be.
+            mutClock.instant = mutClock.instant + 20.minutes
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+
+            // The grace branch must preserve BOTH anchors. If it wrote last_used_at = now the
+            // window would re-arm on every replay (a captured token replayed once per window would
+            // be valid forever); if it wrote a fresh expires_at each replay would renew the 30-day
+            // refresh TTL too.
+            val afterGrace = db.sessionsQueries.selectById(issued.sessionId.value).executeAsOne()
+            afterGrace.last_used_at shouldBe afterNormalRotation.last_used_at
+            afterGrace.expires_at shouldBe afterNormalRotation.expires_at
+
+            // 40 minutes after the last NORMAL rotation, the same original token is outside the
+            // window: the replay chain terminates in a family revoke instead of renewing itself.
+            mutClock.instant = mutClock.instant + 20.minutes
+            svc.rotate(issued.refreshToken) shouldBe null
+            db.sessionsQueries
+                .selectById(issued.sessionId.value)
+                .executeAsOne()
+                .revoked_at shouldNotBe null
+        }
+
+        // Replays the pre-rotation token [elapsed] after the only normal rotation, against the
+        // production default window. Returns true iff the replay was accepted as a grace retry.
+        suspend fun graceAcceptedAfter(elapsed: Duration): Boolean {
+            val db = freshDb()
+            db.seedTestUser("u-1")
+            val mutClock = MutableClock(Instant.parse("2026-05-02T12:00:00Z"))
+            val svc =
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = mutClock)
+
+            val issued = svc.createSession(UserId("u-1"))
+            svc.rotate(issued.refreshToken).shouldNotBeNull()
+            mutClock.instant = mutClock.instant + elapsed
+            val replay = svc.rotate(issued.refreshToken)
+
+            val revoked =
+                db.sessionsQueries
+                    .selectById(issued.sessionId.value)
+                    .executeAsOne()
+                    .revoked_at != null
+            // Accepted ⇔ not revoked: the two outcomes are exclusive, never both or neither.
+            (replay != null) shouldBe !revoked
+            return replay != null
+        }
+
+        test("the grace window is exactly 30 minutes, and its final millisecond is inside it") {
+            // The 14 min / 16 min cases elsewhere in this file are satisfied by ANY window in
+            // [14, 16) — the number itself was untested. These pin it to the millisecond, and pin
+            // the predicate's inclusivity (`<=`, so exactly 30 minutes is still a grace retry).
+            graceAcceptedAfter(30.minutes - 1.milliseconds) shouldBe true
+            graceAcceptedAfter(30.minutes) shouldBe true
+            graceAcceptedAfter(30.minutes + 1.milliseconds) shouldBe false
+        }
+
+        test("the DI-resolved default window IS SessionService's constant, and the override still wins") {
+            // There were two constants for one window — SessionService.DEFAULT_REUSE_GRACE and
+            // AuthModule's own DEFAULT_REUSE_GRACE_SECONDS — and the module's always won, so the
+            // service's copy was dead code free to drift. This pins the single source of truth.
+            MapApplicationConfig().refreshReuseGracePeriod() shouldBe SessionService.DEFAULT_REUSE_GRACE
+            SessionService.DEFAULT_REUSE_GRACE shouldBe 30.minutes
+            // TestApplicationConfig / AuthEndToEndFixture set 0 to pin the family-revoke path
+            // against a real Clock.System — the runtime override must keep working.
+            MapApplicationConfig("auth.refreshReuseGraceSeconds" to "0")
+                .refreshReuseGracePeriod() shouldBe Duration.ZERO
         }
 
         test("revoke marks the session row revoked; revokeAll does the same for every active session") {
