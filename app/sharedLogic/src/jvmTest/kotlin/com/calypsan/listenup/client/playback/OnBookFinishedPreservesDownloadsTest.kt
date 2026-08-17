@@ -58,10 +58,18 @@ class OnBookFinishedPreservesDownloadsTest :
         )
 
         test("onBookFinished preserves COMPLETED downloads and clears only DELETED tombstones") {
-            val db = createInMemoryTestDatabase()
+            // Room must run its queries on the SAME scheduler the test drives. `onBookFinished`
+            // launches into a scope backed by `dispatcher`, and that work then hops into Room —
+            // so with Room on the default `Dispatchers.IO`, `advanceUntilIdle()` drains the test
+            // scheduler and returns while the delete is still in flight on a real thread pool.
+            // The assertions below then read the pre-delete state and the spec fails, but only
+            // when the machine is loaded enough to lose that race — i.e. on CI, intermittently,
+            // on whichever unlucky PR happens to be running. Sharing the dispatcher makes
+            // `advanceUntilIdle()` actually mean "all the work has finished".
+            val dispatcher = StandardTestDispatcher()
+            val db = createInMemoryTestDatabase(dispatcher)
             val dao = db.downloadDao()
             try {
-                val dispatcher = StandardTestDispatcher()
                 runTest(dispatcher) {
                     dao.insertAll(
                         listOf(
