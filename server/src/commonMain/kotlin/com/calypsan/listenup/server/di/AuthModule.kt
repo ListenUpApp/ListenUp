@@ -47,6 +47,7 @@ import org.koin.core.module.Module
 import org.koin.core.scope.Scope
 import org.koin.dsl.module
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
@@ -129,17 +130,12 @@ fun authModule(
         }
 
         single {
-            // Lost-response reuse-grace window (C4). Configurable so an operator can tune it and so
-            // integration tests can pin the family-revoke path with a real Clock.System by setting 0.
-            val graceSeconds =
-                config.propertyOrNull("auth.refreshReuseGraceSeconds")?.getString()?.toLong()
-                    ?: DEFAULT_REUSE_GRACE_SECONDS
             SessionService(
                 db = get<ListenUpDatabase>(),
                 tokenHasher = get(),
                 tokenGenerator = get(),
                 refreshTtl = REFRESH_TOKEN_TTL_DAYS.days,
-                reuseGracePeriod = graceSeconds.seconds,
+                reuseGracePeriod = config.refreshReuseGracePeriod(),
                 clock = get(),
             )
         }
@@ -227,8 +223,18 @@ fun authModule(
 
 private const val REFRESH_TOKEN_TTL_DAYS = 30L
 
-/** Default lost-response reuse-grace window in seconds (C4). Overridable via `auth.refreshReuseGraceSeconds`. */
-private const val DEFAULT_REUSE_GRACE_SECONDS = 60L
+/**
+ * The lost-response reuse-grace window (C4): `auth.refreshReuseGraceSeconds` when the operator sets
+ * one, else [SessionService.DEFAULT_REUSE_GRACE]. Configurable so an operator can tune it and so
+ * integration fixtures can pin the family-revoke path against a real `Clock.System` by setting 0.
+ *
+ * The default deliberately lives on the service and is only *read* here: this file used to carry a
+ * second constant of its own, which always won at runtime and so let the service's copy drift into
+ * a lie.
+ */
+internal fun ApplicationConfig.refreshReuseGracePeriod(): Duration =
+    propertyOrNull("auth.refreshReuseGraceSeconds")?.getString()?.toLong()?.seconds
+        ?: SessionService.DEFAULT_REUSE_GRACE
 
 /** Concurrent-Argon2 ceiling (C3): `auth.argon2Parallelism` if set, else [DEFAULT_ARGON2_PARALLELISM]. */
 private fun ApplicationConfig.argon2Parallelism(): Int =

@@ -11,11 +11,13 @@ import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.domain.model.isInShell
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,6 +69,14 @@ data class AppStartupState(
      * session.
      */
     val populatingDismissed: Boolean = false,
+    /**
+     * True when the resolution was reached WITHOUT live credentials — a lapsed session that could
+     * not ask the server whether an admin still needs the library wizard. The answer is therefore
+     * provisional, and [AppStartupViewModel] re-runs the check the moment the session goes live
+     * again. That re-run is the replacement for the manual retry the old failure wall offered:
+     * dead credentials cannot be retried into life, so the wall was never the escape it looked like.
+     */
+    val resolvedWithoutCredentials: Boolean = false,
 )
 
 /**
@@ -95,6 +105,9 @@ class AppStartupViewModel internal constructor(
 ) : ViewModel() {
     val state: StateFlow<AppStartupState>
         field = MutableStateFlow(AppStartupState())
+
+    /** The in-flight library-setup check, if any; a newer check cancels it. */
+    private var setupCheckJob: Job? = null
 
     /**
      * The single authoritative readiness state the navigation layer consumes via one `when`,
@@ -191,16 +204,49 @@ class AppStartupViewModel internal constructor(
     private fun observeAuthState() {
         viewModelScope.launch {
             authSession.authState
-                .map { it is AuthState.Authenticated }
+                // SessionLapsed counts as "in the shell" ([AuthState.isInShell]): the nav layer
+                // routes it into the same authenticated shell as Authenticated (offline library +
+                // "Sign in to sync" affordance, never a forced wall), and that shell gates on
+                // [readiness]. If the check only ran for Authenticated, a COLD START into a lapsed
+                // session would leave checkResolved false and readiness on Checking forever — an
+                // opaque overlay with the sign-in affordance unreachable underneath. The check
+                // resolves from LOCAL data first (hasLocalLibrary → Ready with zero network), so no
+                // live credentials are needed; with no local content [resolveOfflineOrFail] mounts
+                // the empty shell rather than a retry-only wall. launchBackgroundUserRefresh on the
+                // local path is harmless under a lapsed session: UserRepository.refreshCurrentUser
+                // swallows transport failures to null.
+                //
+                // Collapsing to [ShellPhase] before distinctUntilChanged keeps two deliberate
+                // behaviours: a mid-session lapse never re-runs the check (the answer was already
+                // resolved WITH credentials, and re-running would flash the opaque readiness
+                // overlay over a perfectly good shell), while a re-auth re-runs it only when the
+                // resolved answer was provisional — see [AppStartupState.resolvedWithoutCredentials].
+                .map { it.shellPhase }
                 .distinctUntilChanged()
-                .collect { authenticated ->
-                    if (authenticated) {
-                        logger.info { "AppStartupViewModel: authenticated — running library-setup check" }
-                        state.value = AppStartupState(isChecking = true)
-                        runLibrarySetupCheck()
-                    } else {
-                        logger.debug { "AppStartupViewModel: not authenticated — no library-setup check" }
-                        state.value = AppStartupState(isChecking = false)
+                .collect { phase ->
+                    when (phase) {
+                        ShellPhase.Outside -> {
+                            logger.debug { "AppStartupViewModel: not authenticated — no library-setup check" }
+                            state.value = AppStartupState(isChecking = false)
+                        }
+
+                        ShellPhase.LapsedCredentials -> {
+                            if (state.value.checkResolved) {
+                                logger.debug { "AppStartupViewModel: session lapsed mid-use — keeping the resolved check" }
+                            } else {
+                                logger.info { "AppStartupViewModel: lapsed cold start — running library-setup check" }
+                                runLibrarySetupCheck()
+                            }
+                        }
+
+                        ShellPhase.LiveCredentials -> {
+                            if (state.value.checkResolved && !state.value.resolvedWithoutCredentials) {
+                                logger.debug { "AppStartupViewModel: credentials live and the check already resolved" }
+                            } else {
+                                logger.info { "AppStartupViewModel: authenticated — running library-setup check" }
+                                runLibrarySetupCheck()
+                            }
+                        }
                     }
                 }
         }
@@ -225,7 +271,6 @@ class AppStartupViewModel internal constructor(
         val elapsed = currentEpochMilliseconds() - backgroundedAt
         if (elapsed >= BACKGROUND_THRESHOLD_MS) {
             logger.info { "App was backgrounded for ${elapsed}ms (>= threshold) — re-checking library setup" }
-            state.value = AppStartupState(isChecking = true)
             runLibrarySetupCheck()
         } else {
             logger.debug { "App resumed after ${elapsed}ms — skipping library setup re-check" }
@@ -262,81 +307,92 @@ class AppStartupViewModel internal constructor(
 
     /** Re-run the library-setup check after a transient failure (the retry the nav layer offers). */
     fun retryLibrarySetupCheck() {
-        state.value = AppStartupState(isChecking = true)
         runLibrarySetupCheck()
     }
 
     private fun runLibrarySetupCheck() {
-        viewModelScope.launch {
-            try {
-                // Offline-first: if the library is already in Room, the app is Ready the instant we can
-                // read local state — never block the splash on the network when there is content to show.
-                // Server work (user refresh, setup-status, and the delta sync driven separately by
-                // connectRealtime) is background reconciliation that can only upgrade the experience.
-                if (syncRepository.hasLocalLibrary()) {
-                    markReady()
-                    launchBackgroundUserRefresh()
-                    return@launch
-                }
+        // A newer check supersedes an in-flight one. A re-auth from the lapsed shell can start a
+        // second check while the first is still inside its bounded wait on a dead session, and the
+        // loser must not land its stale answer on top of the winner's.
+        setupCheckJob?.cancel()
+        state.value = AppStartupState(isChecking = true)
+        setupCheckJob =
+            viewModelScope.launch {
+                try {
+                    // Offline-first: if the library is already in Room, the app is Ready the instant we can
+                    // read local state — never block the splash on the network when there is content to show.
+                    // Server work (user refresh, setup-status, and the delta sync driven separately by
+                    // connectRealtime) is background reconciliation that can only upgrade the experience.
+                    if (syncRepository.hasLocalLibrary()) {
+                        markReady()
+                        launchBackgroundUserRefresh()
+                        return@launch
+                    }
 
-                // No local library. A non-admin has nothing to set up, so go straight to the (empty)
-                // shell that incremental sync fills — still no network on the critical path. isAdmin is
-                // read from the locally-cached user; only a not-yet-cached user needs the server for it.
-                val localUser = userRepository.getCurrentUser()
-                if (localUser != null && !localUser.isAdmin) {
-                    markReady()
-                    launchBackgroundUserRefresh()
-                    return@launch
-                }
+                    // No local library. A non-admin has nothing to set up, so go straight to the (empty)
+                    // shell that incremental sync fills — still no network on the critical path. isAdmin is
+                    // read from the locally-cached user; only a not-yet-cached user needs the server for it.
+                    val localUser = userRepository.getCurrentUser()
+                    if (localUser != null && !localUser.isAdmin) {
+                        markReady()
+                        launchBackgroundUserRefresh()
+                        return@launch
+                    }
 
-                // Genuine cold start: no local library and a (possibly) admin user. This is the only case
-                // that must consult the server to decide wizard-vs-shell — and the only case where there
-                // is nothing local to show anyway. Bound it so an unreachable server can't strand the
-                // splash (HttpTimeout doesn't catch a post-upgrade RPC stall on Darwin). withTimeoutOrNull
-                // — not withTimeout — so a timeout returns null and falls through to the offline
-                // resolution rather than throwing a TimeoutCancellationException that the guard re-raises.
-                val completed =
-                    withTimeoutOrNull(SETUP_CHECK_TIMEOUT_MS) {
-                        val user = userRepository.refreshCurrentUser() ?: localUser
-                        logger.info { "AppStartupViewModel: resolved user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
+                    // Genuine cold start: no local library and a (possibly) admin user. This is the only case
+                    // that must consult the server to decide wizard-vs-shell — and the only case where there
+                    // is nothing local to show anyway. Bound it so an unreachable server can't strand the
+                    // splash (HttpTimeout doesn't catch a post-upgrade RPC stall on Darwin). withTimeoutOrNull
+                    // — not withTimeout — so a timeout returns null and falls through to the offline
+                    // resolution rather than throwing a TimeoutCancellationException that the guard re-raises.
+                    val completed =
+                        withTimeoutOrNull(SETUP_CHECK_TIMEOUT_MS) {
+                            val user = userRepository.refreshCurrentUser() ?: localUser
+                            logger.info { "AppStartupViewModel: resolved user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
 
-                        if (user?.isAdmin == true) {
-                            applyAdminSetupCheckResult(
-                                libraryAdminChannel.call(idempotent = true) { it.getSetupStatus() },
-                            )
-                        } else {
-                            logger.info {
-                                "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
-                                    "skipping library-setup check"
+                            if (user?.isAdmin == true) {
+                                applyAdminSetupCheckResult(
+                                    libraryAdminChannel.call(idempotent = true) { it.getSetupStatus() },
+                                )
+                            } else {
+                                logger.info {
+                                    "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
+                                        "skipping library-setup check"
+                                }
+                                markReady()
                             }
-                            markReady()
                         }
-                    }
 
-                if (completed == null) {
-                    logger.warn {
-                        "AppStartupViewModel: setup check did not complete within ${SETUP_CHECK_TIMEOUT_MS}ms " +
-                            "(server unreachable) — resolving offline"
+                    if (completed == null) {
+                        logger.warn {
+                            "AppStartupViewModel: setup check did not complete within ${SETUP_CHECK_TIMEOUT_MS}ms " +
+                                "(server unreachable) — resolving offline"
+                        }
+                        resolveOfflineOrFail()
                     }
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "AppStartupViewModel: setup check failed unexpectedly" }
                     resolveOfflineOrFail()
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.warn(e) { "AppStartupViewModel: setup check failed unexpectedly" }
-                resolveOfflineOrFail()
             }
-        }
     }
 
-    /** Resolve the gate to Ready — library present or nothing to set up — so the shell mounts now. */
-    private fun markReady() {
+    /**
+     * Resolve the gate to Ready — library present or nothing to set up — so the shell mounts now.
+     *
+     * [provisional] marks an answer reached without live credentials; see
+     * [AppStartupState.resolvedWithoutCredentials].
+     */
+    private fun markReady(provisional: Boolean = false) {
         state.value =
             state.value.copy(
                 isChecking = false,
                 needsLibrarySetup = false,
                 setupCheckFailed = false,
                 checkResolved = true,
+                resolvedWithoutCredentials = provisional,
             )
     }
 
@@ -381,19 +437,59 @@ class AppStartupViewModel internal constructor(
     /**
      * Offline-first fallback: when the admin setup check cannot reach the server, open offline
      * if a local library exists. Only surface [AppStartupState.setupCheckFailed] when there is
-     * genuinely no cached library to fall back to (fresh admin, first startup offline).
+     * genuinely no cached library to fall back to AND the credentials are live enough for the
+     * retry it offers to mean something.
+     *
+     * Under a lapsed session the wall is a trap, not an escape: it is an opaque full-screen surface
+     * whose only action re-runs the same check against the same dead credentials, and it paints over
+     * the "Sign in to sync" banner underneath. So a lapsed session resolves Ready instead — an empty
+     * shell with a working sign-in affordance is strictly more escapable, and never-stranded stays a
+     * property of the state machine rather than of whichever screen happens to be on top. The answer
+     * is flagged provisional so signing in re-runs the check.
      */
     private suspend fun resolveOfflineOrFail() {
         // suspendRunCatching (unlike stdlib runCatching) re-throws CancellationException, so a
         // cancelled probe propagates instead of being mistaken for "no local library".
         val hasLocal = suspendRunCatching { syncRepository.hasLocalLibrary() }.getOrDefault { false }
-        if (hasLocal) {
-            logger.info { "library check failed but a local library exists — opening offline" }
-            markReady()
-        } else {
-            logger.warn { "library check failed and no local library — surfacing retryable error" }
-            state.value =
-                state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
+        when {
+            hasLocal -> {
+                logger.info { "library check failed but a local library exists — opening offline" }
+                markReady()
+            }
+
+            authSession.authState.value is AuthState.SessionLapsed -> {
+                logger.info { "library check failed under a lapsed session — mounting the shell with the sign-in affordance" }
+                markReady(provisional = true)
+            }
+
+            else -> {
+                logger.warn { "library check failed and no local library — surfacing retryable error" }
+                state.value =
+                    state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
+            }
         }
     }
 }
+
+/**
+ * How an [AuthState] relates to the authenticated shell, at the granularity the library-setup check
+ * cares about: whether to run at all, and whether live credentials back the answer it produces.
+ */
+private enum class ShellPhase {
+    /** Not in the shell — a pre-login flow owns the screen and there is nothing to check. */
+    Outside,
+
+    /** In the shell, but credentials are dead: the check can only answer from local data. */
+    LapsedCredentials,
+
+    /** In the shell with live credentials: the check can consult the server. */
+    LiveCredentials,
+}
+
+private val AuthState.shellPhase: ShellPhase
+    get() =
+        when {
+            this is AuthState.SessionLapsed -> ShellPhase.LapsedCredentials
+            isInShell -> ShellPhase.LiveCredentials
+            else -> ShellPhase.Outside
+        }
