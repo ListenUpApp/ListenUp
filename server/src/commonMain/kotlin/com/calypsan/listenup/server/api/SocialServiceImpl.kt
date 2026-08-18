@@ -23,10 +23,15 @@ import com.calypsan.listenup.server.sync.PublicProfileRepository
  * a viewer must never learn that someone is listening to / reading a book they cannot
  * access.
  *
- * - [currentlyListening] returns other users' live sessions, keeping only those on books
- *   the caller can access. ROOT/ADMIN (unconstrained access set) see every session.
- *   Sessions whose user has no live `public_profiles` identity are dropped — there is no
- *   one to display.
+ * - [currentlyListening] returns one row per other user: whoever is listening **right now**
+ *   first, then everyone else on the book they most recently played and did not finish. The
+ *   fill exists because on a small server the live set is empty most of the time, and a
+ *   section that silently hides itself is indistinguishable from a broken one. **Both halves
+ *   pass through the same [BookAccessPolicy] access set** — a recent-fill book leaks a private
+ *   library just as badly as a live session would, so a user whose newest unfinished book the
+ *   caller cannot access is dropped entirely rather than shown on some other book. ROOT/ADMIN
+ *   (unconstrained access set) see every row. A user with no live `public_profiles` identity is
+ *   dropped — there is nobody to display.
  * - [bookReadership] returns `NotFound` when the caller cannot access the book — never
  *   revealing the book exists — and otherwise lists its full readership (including the
  *   caller): each reader's current progress (if reading) and their dated finish history.
@@ -47,22 +52,54 @@ internal class SocialServiceImpl(
 ) : SocialService {
     override suspend fun currentlyListening(): AppResult<List<CurrentlyListeningSession>> {
         val caller = resolveCaller() ?: return noPrincipal()
-        val rows = activeSessions.listCurrentlyListening(excludeUserId = caller.userId)
         // accessibleBookIds returns null for ROOT/ADMIN — unconstrained, every book visible.
+        // ONE access set gates BOTH halves: a recent-fill book leaks just as badly as a live one.
         val accessible = bookAccessPolicy.accessibleBookIds(caller.userId, caller.role)
-        val visible = if (accessible == null) rows else rows.filter { it.bookId in accessible }
-        val identities = publicProfiles.identities(visible.map { it.userId }.toSet())
-        return AppResult.Success(
-            visible.mapNotNull { row ->
-                val identity = identities[row.userId] ?: return@mapNotNull null
+
+        fun visible(bookId: String): Boolean = accessible == null || bookId in accessible
+
+        // Live half — whoever has an open session right now, newest session per user.
+        val live =
+            activeSessions
+                .listCurrentlyListening(excludeUserId = caller.userId)
+                .filter { visible(it.bookId) }
+                .groupBy { it.userId }
+                .values
+                .map { perUser -> perUser.maxBy { it.startedAt } }
+                .sortedByDescending { it.startedAt }
+
+        // Recent half — everyone else, on the book they last played and did not finish. A user
+        // already in the live half is skipped so nobody appears twice.
+        val liveUserIds = live.map { it.userId }.toSet()
+        val recent =
+            playbackPositions
+                .mostRecentUnfinishedPerUser(excludeUserId = caller.userId)
+                .filter { it.userId !in liveUserIds && visible(it.bookId) }
+                .sortedByDescending { it.lastPlayedAt }
+
+        // A user with no live public identity is dropped — there is nobody to display.
+        val identities = publicProfiles.identities((live.map { it.userId } + recent.map { it.userId }).toSet())
+
+        fun row(
+            userId: String,
+            bookId: String,
+            lastActiveAtMs: Long,
+            isLive: Boolean,
+        ): CurrentlyListeningSession? =
+            identities[userId]?.let { identity ->
                 CurrentlyListeningSession(
-                    userId = row.userId,
+                    userId = userId,
                     displayName = identity.displayName,
                     avatarType = identity.avatarType,
-                    bookId = row.bookId,
-                    startedAtMs = row.startedAt,
+                    bookId = bookId,
+                    lastActiveAtMs = lastActiveAtMs,
+                    isLive = isLive,
                 )
-            },
+            }
+
+        return AppResult.Success(
+            live.mapNotNull { row(it.userId, it.bookId, it.startedAt, isLive = true) } +
+                recent.mapNotNull { row(it.userId, it.bookId, it.lastPlayedAt, isLive = false) },
         )
     }
 

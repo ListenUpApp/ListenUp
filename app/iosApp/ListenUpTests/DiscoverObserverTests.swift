@@ -220,7 +220,8 @@ struct CurrentlyListeningMappingTests {
     private func session(
         user: String,
         book: String,
-        startedAt: Int64,
+        lastActiveAt: Int64,
+        isLive: Bool = true,
         name: String = "Marcus Lee"
     ) -> CurrentlyListeningUiSession {
         CurrentlyListeningUiSession(
@@ -232,12 +233,13 @@ struct CurrentlyListeningMappingTests {
             coverPath: nil,
             coverHash: nil,
             displayName: name,
-            startedAt: startedAt
+            lastActiveAt: lastActiveAt,
+            isLive: isLive
         )
     }
 
     @Test func rowMapsSessionFields() {
-        let row = CurrentlyListeningRow(from: session(user: "u1", book: "b1", startedAt: 100, name: "Priya Nair"))
+        let row = CurrentlyListeningRow(from: session(user: "u1", book: "b1", lastActiveAt: 100, name: "Priya Nair"))
 
         #expect(row.id == "u1:b1")
         #expect(row.userId == "u1")
@@ -250,9 +252,9 @@ struct CurrentlyListeningMappingTests {
 
     @Test func dedupsToOneRowPerUserKeepingMostRecentBook() {
         let sessions = [
-            session(user: "u1", book: "old", startedAt: 100),
-            session(user: "u1", book: "new", startedAt: 200), // u1's latest
-            session(user: "u2", book: "solo", startedAt: 150)
+            session(user: "u1", book: "old", lastActiveAt: 100),
+            session(user: "u1", book: "new", lastActiveAt: 200), // u1's latest
+            session(user: "u2", book: "solo", lastActiveAt: 150)
         ]
         let rows = DiscoverObserver.currentlyListeningRows(from: sessions)
 
@@ -263,9 +265,9 @@ struct CurrentlyListeningMappingTests {
 
     @Test func sortsSurvivorsMostRecentFirst() {
         let sessions = [
-            session(user: "u1", book: "b1", startedAt: 100),
-            session(user: "u2", book: "b2", startedAt: 300),
-            session(user: "u3", book: "b3", startedAt: 200)
+            session(user: "u1", book: "b1", lastActiveAt: 100),
+            session(user: "u2", book: "b2", lastActiveAt: 300),
+            session(user: "u3", book: "b3", lastActiveAt: 200)
         ]
         let rows = DiscoverObserver.currentlyListeningRows(from: sessions)
 
