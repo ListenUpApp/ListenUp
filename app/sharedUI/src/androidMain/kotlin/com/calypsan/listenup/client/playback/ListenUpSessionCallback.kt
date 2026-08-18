@@ -99,6 +99,7 @@ internal class ListenUpSessionCallback(
     private val transport: PlaybackTransport,
     private val uriPermissionGranter: UriPermissionGranter,
     private val strings: SystemStringsHolder,
+    private val skipIntervals: SkipIntervalsHolder,
 ) : MediaLibrarySession.Callback {
     /** Catalog snapshot for this call. Read per use, so a locale change lands on the next one. */
     private val copy: SystemStrings get() = strings.current
@@ -111,14 +112,18 @@ internal class ListenUpSessionCallback(
             AudiobookNotificationProvider.getCustomCommands() +
                 listOf(CustomActions.cycleSpeedCommand(), CustomActions.seekToBookPositionCommand())
 
-        // Limited to 3 custom actions by Android Auto guidelines.
+        // Limited to 3 custom actions by Android Auto guidelines. The two skip buttons carry the
+        // user's configured intervals in both glyph and label — a car is the surface where a
+        // button that says one number and moves another is least correctable (#1300).
+        val backwardSec = skipIntervals.backwardSec
+        val forwardSec = skipIntervals.forwardSec
         val customLayout =
             listOf(
                 CommandButton
-                    .Builder(CommandButton.ICON_SKIP_BACK_30)
-                    .setDisplayName(copy.carBack30)
+                    .Builder(SkipCommandIcons.backward(backwardSec))
+                    .setDisplayName(copy.carBack.format(backwardSec))
                     .setSessionCommand(
-                        SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30, Bundle.EMPTY),
+                        SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK, Bundle.EMPTY),
                     ).build(),
                 CommandButton
                     .Builder(CommandButton.ICON_UNDEFINED)
@@ -127,10 +132,10 @@ internal class ListenUpSessionCallback(
                     .setSessionCommand(CustomActions.cycleSpeedCommand())
                     .build(),
                 CommandButton
-                    .Builder(CommandButton.ICON_SKIP_FORWARD_30)
-                    .setDisplayName(copy.carForward30)
+                    .Builder(SkipCommandIcons.forward(forwardSec))
+                    .setDisplayName(copy.carForward.format(forwardSec))
                     .setSessionCommand(
-                        SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD_30, Bundle.EMPTY),
+                        SessionCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD, Bundle.EMPTY),
                     ).build(),
             )
 
@@ -844,10 +849,11 @@ internal class ListenUpSessionCallback(
         val timeline = playbackManager.currentTimeline.value
 
         when (customCommand.customAction) {
-            AudiobookNotificationProvider.COMMAND_SKIP_BACK_30 -> {
-                // Get book-relative position, subtract 30s, seek
+            AudiobookNotificationProvider.COMMAND_SKIP_BACK -> {
+                // Get book-relative position, subtract the configured interval, seek.
+                val backwardMs = skipIntervals.backwardMs
                 val currentBookPosition = transport.bookRelativePositionMs()
-                val newPosition = (currentBookPosition - 30_000).coerceAtLeast(0)
+                val newPosition = (currentBookPosition - backwardMs).coerceAtLeast(0)
 
                 // Resolve new position to mediaItemIndex and filePosition
                 if (timeline != null) {
@@ -855,25 +861,26 @@ internal class ListenUpSessionCallback(
                     seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                 } else {
                     // Fallback to simple seek within current file
-                    val newFilePosition = (p.currentPosition - 30_000).coerceAtLeast(0)
+                    val newFilePosition = (p.currentPosition - backwardMs).coerceAtLeast(0)
                     seekAndPublish(p, newFilePosition)
                 }
-                logger.debug { "Skip back 30s: $currentBookPosition -> $newPosition" }
+                logger.debug { "Skip back ${backwardMs}ms: $currentBookPosition -> $newPosition" }
             }
 
-            AudiobookNotificationProvider.COMMAND_SKIP_FORWARD_30 -> {
+            AudiobookNotificationProvider.COMMAND_SKIP_FORWARD -> {
+                val forwardMs = skipIntervals.forwardMs
                 val currentBookPosition = transport.bookRelativePositionMs()
                 val maxPosition = timeline?.totalDurationMs ?: p.duration
-                val newPosition = (currentBookPosition + 30_000).coerceAtMost(maxPosition)
+                val newPosition = (currentBookPosition + forwardMs).coerceAtMost(maxPosition)
 
                 if (timeline != null) {
                     val resolved = timeline.resolve(newPosition)
                     seekAndPublish(p, resolved.mediaItemIndex, resolved.positionInFileMs)
                 } else {
-                    val newFilePosition = (p.currentPosition + 30_000).coerceAtMost(p.duration)
+                    val newFilePosition = (p.currentPosition + forwardMs).coerceAtMost(p.duration)
                     seekAndPublish(p, newFilePosition)
                 }
-                logger.debug { "Skip forward 30s: $currentBookPosition -> $newPosition" }
+                logger.debug { "Skip forward ${forwardMs}ms: $currentBookPosition -> $newPosition" }
             }
 
             AudiobookNotificationProvider.COMMAND_PREV_CHAPTER -> {

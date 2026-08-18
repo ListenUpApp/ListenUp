@@ -67,6 +67,10 @@ fun NowPlayingHost(
     // scrubber + time labels that actually read it — never this host or the player chrome.
     val provideProgress = { progressState.value }
     val firstPdfDocId by viewModel.firstPdfDocId.collectAsStateWithLifecycle()
+    // The user's configured transport skips — they drive the icon and the content description as
+    // well as the seek, so the button can never claim a number the press does not honour.
+    val skipForwardSec by viewModel.skipForwardSec.collectAsStateWithLifecycle()
+    val skipBackwardSec by viewModel.skipBackwardSec.collectAsStateWithLifecycle()
 
     // Consume one-shot navigation events from the ViewModel.
     LaunchedEffect(viewModel) {
@@ -146,6 +150,8 @@ fun NowPlayingHost(
                     onShowAuthorPicker = { viewModel.showContributorPicker(ContributorPickerType.AUTHORS) },
                     onShowNarratorPicker = { viewModel.showContributorPicker(ContributorPickerType.NARRATORS) },
                     onCloseBook = viewModel::closeBook,
+                    skipBackwardSec = skipBackwardSec,
+                    skipForwardSec = skipForwardSec,
                     hasPdf = firstPdfDocId != null,
                     onOpenPdf = viewModel::onOpenCurrentPdf,
                     isTv = isTv,
@@ -165,6 +171,8 @@ fun NowPlayingHost(
                 onSkipForward = { viewModel.skipForward() },
                 onSeek = viewModel::seekWithinChapter,
                 onSpeedClick = viewModel::showSpeedPicker,
+                skipBackwardSec = skipBackwardSec,
+                skipForwardSec = skipForwardSec,
                 modifier = Modifier.align(Alignment.BottomCenter),
                 isPlayPending = screenState.isPlayPending,
             )
@@ -198,6 +206,7 @@ fun NowPlayingHost(
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,
                 onSkipBack = { viewModel.skipBack() },
+                skipBackwardSec = skipBackwardSec,
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)

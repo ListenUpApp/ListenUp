@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -38,11 +36,12 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
+import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
-import listenup.composeapp.generated.resources.player_skip_back_10s
+import listenup.composeapp.generated.resources.player_skip_backward
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -70,6 +69,7 @@ fun NowPlayingBar(
     onTap: () -> Unit,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
+    skipBackwardSec: Int,
     modifier: Modifier = Modifier,
     isPlayPending: Boolean = false,
 ) {
@@ -121,6 +121,7 @@ fun NowPlayingBar(
                     progress = progress,
                     onPlayPause = onPlayPause,
                     onSkipBack = onSkipBack,
+                    skipBackwardSec = skipBackwardSec,
                     isPlayPending = isPlayPending,
                 )
             }
@@ -135,6 +136,7 @@ private fun MiniPlayerContent(
     progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
+    skipBackwardSec: Int,
     isPlayPending: Boolean,
 ) {
     Column {
@@ -186,8 +188,8 @@ private fun MiniPlayerContent(
 
             // Skip-back control (single skip on the phone mini-player)
             Ctrl(
-                icon = Icons.Default.Replay10,
-                contentDescription = stringResource(Res.string.player_skip_back_10s),
+                icon = SkipGlyphs.backward(skipBackwardSec),
+                contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
                 onClick = onSkipBack,
                 size = 40.dp,
                 tint = MaterialTheme.colorScheme.onSurface,

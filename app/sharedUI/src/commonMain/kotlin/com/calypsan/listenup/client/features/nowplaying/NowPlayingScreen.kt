@@ -68,6 +68,8 @@ fun NowPlayingScreen(
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
     onCloseBook: () -> Unit,
+    skipBackwardSec: Int,
+    skipForwardSec: Int,
     hasPdf: Boolean = false,
     onOpenPdf: () -> Unit = {},
     isTv: Boolean = false,
@@ -217,6 +219,8 @@ fun NowPlayingScreen(
                 onShowAuthorPicker = onShowAuthorPicker,
                 onShowNarratorPicker = onShowNarratorPicker,
                 onCloseBook = onCloseBook,
+                skipBackwardSec = skipBackwardSec,
+                skipForwardSec = skipForwardSec,
                 hasPdf = hasPdf,
                 onOpenPdf = onOpenPdf,
             )
@@ -241,6 +245,8 @@ fun NowPlayingScreen(
                 onShowAuthorPicker = onShowAuthorPicker,
                 onShowNarratorPicker = onShowNarratorPicker,
                 onCloseBook = onCloseBook,
+                skipBackwardSec = skipBackwardSec,
+                skipForwardSec = skipForwardSec,
                 hasPdf = hasPdf,
                 onOpenPdf = onOpenPdf,
             )

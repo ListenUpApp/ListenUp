@@ -222,6 +222,37 @@ class NowPlayingViewModel internal constructor(
         )
 
     /**
+     * How far a forward transport skip moves, in seconds — the user's synced Settings value.
+     *
+     * Read by [skipForward] and rendered by the transport controls (icon + content description),
+     * so the button, its label and the seek can never disagree.
+     *
+     * `Eagerly`, not `WhileSubscribed`: this is a *command* input as much as screen state, and
+     * [skipForward] reads `.value` whether or not anything happens to be collecting this
+     * particular flow. Under `WhileSubscribed` an unsubscribed moment would silently serve the
+     * stock 30 — which is precisely the bug this exists to fix. Two Ints off a Room-backed flow
+     * cost nothing to keep hot.
+     */
+    val skipForwardSec: StateFlow<Int> =
+        playbackPreferences
+            .observeDefaultSkipForwardSec()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
+            )
+
+    /** How far a backward transport skip moves, in seconds. See [skipForwardSec] for the sharing rationale. */
+    val skipBackwardSec: StateFlow<Int> =
+        playbackPreferences
+            .observeDefaultSkipBackwardSec()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+            )
+
+    /**
      * Fast-changing playback progress. Split from [screenState] so a position tick
      * re-emits only this — not the whole player state. The seekbar + time labels
      * subscribe here; the player layout subscribes to [screenState].
@@ -531,7 +562,8 @@ class NowPlayingViewModel internal constructor(
         }
     }
 
-    fun skipBack(seconds: Int = 10) {
+    fun skipBack() {
+        val seconds = skipBackwardSec.value
         logger.debug { "skipBack called: seconds=$seconds" }
         val timeline = playbackManager.currentTimeline.value
         if (timeline == null) {
@@ -549,7 +581,8 @@ class NowPlayingViewModel internal constructor(
         playbackManager.updatePosition(newBookPos)
     }
 
-    fun skipForward(seconds: Int = 30) {
+    fun skipForward() {
+        val seconds = skipForwardSec.value
         logger.debug { "skipForward called: seconds=$seconds" }
         val timeline = playbackManager.currentTimeline.value
         if (timeline == null) {

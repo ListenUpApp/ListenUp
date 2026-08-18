@@ -29,18 +29,6 @@ class SystemStringsTest {
         }
 
     @Test
-    fun `skip labels carry the interval rather than a stray placeholder`() =
-        runTest {
-            // player_skip_backward/forward are parameterized ("%1$s seconds") and shared with the
-            // in-app player, so this is the one pair the loader has to fill in itself. An unfilled
-            // placeholder would read as "Skip backward %1$s seconds" on a notification action.
-            val loaded = loadSystemStrings()
-
-            loaded.playerSkipBackward shouldBe "Skip backward 30 seconds"
-            loaded.playerSkipForward shouldBe "Skip forward 30 seconds"
-        }
-
-    @Test
     fun `format strings keep their placeholders for the call site to fill`() =
         runTest {
             // The mirror image: these are formatted at the point of use, so they must arrive with
@@ -50,6 +38,13 @@ class SystemStringsTest {
             loaded.playerChapterOf shouldBe "Chapter %1\$s of %2\$s"
             loaded.playerChapterRemaining shouldBe "%1\$s • %2\$s left"
             loaded.carBookSubtitle shouldBe "%1\$s - %2\$s"
+
+            // The skip labels joined this group in #1300: the seconds are the user's synced
+            // setting, read at render time, so the loader must NOT bake a number in here.
+            loaded.playerSkipBackward shouldBe "Skip backward %1\$s seconds"
+            loaded.playerSkipForward shouldBe "Skip forward %1\$s seconds"
+            loaded.carBack shouldBe "Back %1\$ss"
+            loaded.carForward shouldBe "Forward %1\$ss"
         }
 
     @Test

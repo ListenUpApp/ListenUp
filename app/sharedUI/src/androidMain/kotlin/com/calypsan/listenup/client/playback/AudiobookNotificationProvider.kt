@@ -31,12 +31,13 @@ private const val RES_TYPE_DRAWABLE = "drawable"
  * - Smart chapter title (named chapters vs "Chapter X of Y")
  * - Time remaining in chapter
  * - Chapter skip buttons in expanded view
- * - 30s skip buttons in collapsed view
+ * - Skip buttons in collapsed view, moving by the user's configured intervals ([skipIntervals])
  */
 @OptIn(UnstableApi::class)
 class AudiobookNotificationProvider(
     private val context: Context,
     private val playbackManager: PlaybackManager,
+    private val skipIntervals: SkipIntervalsHolder,
     private val bookTitle: () -> CharSequence? = { null },
     private val strings: SystemStringsHolder = SystemStringsHolder(),
 ) : MediaNotification.Provider {
@@ -46,9 +47,13 @@ class AudiobookNotificationProvider(
 
         private const val MAX_ARTWORK_CACHE = 8
 
-        // Custom commands
-        const val COMMAND_SKIP_BACK_30 = "listenup.SKIP_BACK_30"
-        const val COMMAND_SKIP_FORWARD_30 = "listenup.SKIP_FORWARD_30"
+        // Custom commands. Value-neutral names and action strings: the amount they move is the
+        // user's synced setting (#1300), so a "_30" in the name was a lie the moment the setting
+        // shipped. Nothing outside the app can depend on the literals — a custom session command
+        // is only actionable by a controller we granted it to in `onConnect`, and each controller
+        // receives the command inside the CommandButton it is handed.
+        const val COMMAND_SKIP_BACK = "listenup.SKIP_BACK"
+        const val COMMAND_SKIP_FORWARD = "listenup.SKIP_FORWARD"
         const val COMMAND_PREV_CHAPTER = "listenup.PREV_CHAPTER"
         const val COMMAND_NEXT_CHAPTER = "listenup.NEXT_CHAPTER"
 
@@ -62,8 +67,8 @@ class AudiobookNotificationProvider(
          */
         fun getCustomCommands(): List<SessionCommand> =
             listOf(
-                SessionCommand(COMMAND_SKIP_BACK_30, Bundle.EMPTY),
-                SessionCommand(COMMAND_SKIP_FORWARD_30, Bundle.EMPTY),
+                SessionCommand(COMMAND_SKIP_BACK, Bundle.EMPTY),
+                SessionCommand(COMMAND_SKIP_FORWARD, Bundle.EMPTY),
                 SessionCommand(COMMAND_PREV_CHAPTER, Bundle.EMPTY),
                 SessionCommand(COMMAND_NEXT_CHAPTER, Bundle.EMPTY),
             )
@@ -153,7 +158,7 @@ class AudiobookNotificationProvider(
         }
 
         // Actions: 5 total, compact view shows 3 (indices 1, 2, 3)
-        // [0] Prev Chapter  [1] Skip -30s  [2] Play/Pause  [3] Skip +30s  [4] Next Chapter
+        // [0] Prev Chapter  [1] Skip back  [2] Play/Pause  [3] Skip forward  [4] Next Chapter
         val actions = mutableListOf<NotificationCompat.Action>()
 
         // Previous chapter
@@ -168,14 +173,17 @@ class AudiobookNotificationProvider(
             ),
         )
 
-        // Skip back 30s
+        // Skip back by the configured interval. Both the glyph and the spoken label carry the
+        // real number: a "30" drawn on a button that moves 20 s is the app disagreeing with
+        // itself in the one place the user cannot correct it.
+        val backwardSec = skipIntervals.backwardSec
         actions.add(
             actionFactory.createCustomActionFromCustomCommandButton(
                 mediaSession,
                 CommandButton
-                    .Builder(CommandButton.ICON_REWIND)
-                    .setDisplayName(copy.playerSkipBackward)
-                    .setSessionCommand(SessionCommand(COMMAND_SKIP_BACK_30, Bundle.EMPTY))
+                    .Builder(SkipCommandIcons.backward(backwardSec))
+                    .setDisplayName(copy.playerSkipBackward.format(backwardSec))
+                    .setSessionCommand(SessionCommand(COMMAND_SKIP_BACK, Bundle.EMPTY))
                     .build(),
             ),
         )
@@ -196,14 +204,15 @@ class AudiobookNotificationProvider(
             )
         actions.add(playPauseAction)
 
-        // Skip forward 30s
+        // Skip forward by the configured interval.
+        val forwardSec = skipIntervals.forwardSec
         actions.add(
             actionFactory.createCustomActionFromCustomCommandButton(
                 mediaSession,
                 CommandButton
-                    .Builder(CommandButton.ICON_FAST_FORWARD)
-                    .setDisplayName(copy.playerSkipForward)
-                    .setSessionCommand(SessionCommand(COMMAND_SKIP_FORWARD_30, Bundle.EMPTY))
+                    .Builder(SkipCommandIcons.forward(forwardSec))
+                    .setDisplayName(copy.playerSkipForward.format(forwardSec))
+                    .setSessionCommand(SessionCommand(COMMAND_SKIP_FORWARD, Bundle.EMPTY))
                     .build(),
             ),
         )
@@ -223,7 +232,7 @@ class AudiobookNotificationProvider(
         actions.forEach { builder.addAction(it) }
 
         // MediaStyle is required for notification to appear in notification shade
-        // Compact view shows actions at indices 1, 2, 3 (Skip -30s, Play/Pause, Skip +30s)
+        // Compact view shows actions at indices 1, 2, 3 (Skip back, Play/Pause, Skip forward)
         builder.setStyle(
             MediaStyleNotificationHelper
                 .MediaStyle(mediaSession)

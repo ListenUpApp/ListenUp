@@ -51,6 +51,7 @@ import com.calypsan.listenup.client.playback.PlaybackErrorHandler
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
+import com.calypsan.listenup.client.playback.SkipIntervalsHolder
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.UriPermissionGranter
 import com.calypsan.listenup.client.playback.ContextUriPermissionGranter
@@ -270,6 +271,10 @@ val playbackModule =
         // The system-surface string snapshot (#1246). One instance, so `PlaybackService`'s
         // single refresh reaches the Koin-built browse tree and its own collaborators alike.
         single { SystemStringsHolder() }
+
+        // The user's configured skip intervals (#1300). One instance, so the ExoPlayer wrapper,
+        // the session callback and the notification all move by the same number.
+        single { SkipIntervalsHolder(preferences = get()) }
 
         // Browse tree provider for Android Auto
         single {

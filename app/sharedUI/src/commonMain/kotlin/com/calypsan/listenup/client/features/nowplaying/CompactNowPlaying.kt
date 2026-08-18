@@ -83,6 +83,8 @@ private val COMPACT_FIT_MIN_HEIGHT = 640.dp
  * @param onShowAuthorPicker Called when the folded author line or "Go to Author…" overflow item is tapped.
  * @param onShowNarratorPicker Called when the folded narrator line or "Go to Narrator…" overflow item is tapped.
  * @param onCloseBook Called when "Close Book" is selected from the overflow menu.
+ * @param skipBackwardSec The user's configured backward skip, in seconds.
+ * @param skipForwardSec The user's configured forward skip, in seconds.
  * @param modifier Optional layout modifier applied to the root [BoxWithConstraints].
  */
 @Suppress("LongParameterList", "LongMethod")
@@ -107,6 +109,8 @@ fun CompactNowPlaying(
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
     onCloseBook: () -> Unit,
+    skipBackwardSec: Int,
+    skipForwardSec: Int,
     hasPdf: Boolean = false,
     onOpenPdf: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -248,6 +252,8 @@ fun CompactNowPlaying(
                 onSkipForward = onSkipForward,
                 onPreviousChapter = onPreviousChapter,
                 onNextChapter = onNextChapter,
+                skipBackwardSec = skipBackwardSec,
+                skipForwardSec = skipForwardSec,
                 fabSize = 88.dp,
                 modifier = Modifier.fillMaxWidth(),
             )

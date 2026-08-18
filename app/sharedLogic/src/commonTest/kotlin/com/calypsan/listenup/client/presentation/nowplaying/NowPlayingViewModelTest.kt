@@ -93,6 +93,12 @@ class NowPlayingViewModelTest :
                 // Required by NowPlayingViewModel's surfaceMetadataFlow combine pipeline.
                 every { playbackPreferences.observeDefaultVolumeBoostDb() } returns flowOf(0f)
                 everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0f
+                // Default: the stock skip intervals. NowPlayingViewModel collects these eagerly,
+                // so they must answer for every fixture, not just the skip tests.
+                every { playbackPreferences.observeDefaultSkipForwardSec() } returns
+                    flowOf(PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC)
+                every { playbackPreferences.observeDefaultSkipBackwardSec() } returns
+                    flowOf(PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC)
                 // Default: bookRepository.getBookListItem returns null (no metadata).
                 // bookFlow tolerates null; pure mapToNowPlayingState handles it.
                 everySuspend { bookRepository.getBookListItem(any()) } returns null
@@ -578,7 +584,7 @@ class NowPlayingViewModelTest :
                 fixture.fakePm.playbackSpeedFlow.value = 1.5f
 
                 val vm = fixture.newVm()
-                vm.skipForward(30)
+                vm.skipForward()
                 advanceUntilIdle()
 
                 // 100_000 + (30 × 1.5 × 1000) = 145_000
@@ -590,7 +596,7 @@ class NowPlayingViewModelTest :
                 // now reset to total - 5000 to exercise the clamp.
                 fixture.fakePm.currentPositionMsFlow.value = 1_800_000L - 5_000L
                 fixture.fakePm.updatedPositions.clear()
-                vm.skipForward(30)
+                vm.skipForward()
                 advanceUntilIdle()
                 fixture.fakePm.updatedPositions shouldBe listOf(1_800_000L)
             }
@@ -605,7 +611,7 @@ class NowPlayingViewModelTest :
                 fixture.fakePm.playbackSpeedFlow.value = 1.5f
 
                 val vm = fixture.newVm()
-                vm.skipBack(10)
+                vm.skipBack()
                 advanceUntilIdle()
 
                 // 100_000 - (10 × 1.5 × 1000) = 85_000
@@ -615,7 +621,7 @@ class NowPlayingViewModelTest :
                 // Edge: at 5000ms, 10s skip clamps to 0.
                 fixture.fakePm.currentPositionMsFlow.value = 5_000L
                 fixture.fakePm.updatedPositions.clear()
-                vm.skipBack(10)
+                vm.skipBack()
                 advanceUntilIdle()
                 fixture.fakePm.updatedPositions shouldBe listOf(0L)
             }
