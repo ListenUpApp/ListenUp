@@ -1,3 +1,4 @@
+import com.calypsan.listenup.gradle.CommittedContent
 import com.calypsan.listenup.gradle.LocalizationArtifacts
 import com.calypsan.listenup.gradle.LocalizationGenerator
 import com.calypsan.listenup.gradle.SwiftStringKeys
@@ -72,16 +73,30 @@ tasks.register("verifyStrings") {
     val projectRoot = rootDir
 
     doLast {
-        val drift =
-            LocalizationArtifacts
-                .render(sourceDir, androidParent, catalogFile)
-                .filter { (file, content) -> !file.exists() || file.readText() != content }
+        // Compare against COMMITTED content, never the working tree: `generateStrings` rewrites these
+        // exact files and can run in the same build (verifyLocal, or any compose-resources task pulling
+        // it in), so a working-tree read can catch a file mid-`writeText` and report phantom drift.
+        // Git objects are immutable, so a committed baseline cannot be torn. See CommittedContent.
+        // Git runs here in `doLast`, never at configuration time, so the configuration cache is unaffected.
+        val committed = CommittedContent.of(projectRoot)
+        if (committed == null) {
+            // Building from a source tarball (or without git) is legitimate — degrade to the working
+            // tree rather than failing the build, accepting the race only where git can't answer.
+            logger.warn("verifyStrings: no git baseline available — comparing the working tree instead of HEAD.")
+        }
+        val baseline: (File) -> String? =
+            committed?.let { source -> { file: File -> source.read(file) } }
+                ?: { file: File -> if (file.exists()) file.readText() else null }
+
+        val rendered = LocalizationArtifacts.render(sourceDir, androidParent, catalogFile)
+        val drift = LocalizationArtifacts.drift(rendered, baseline)
         if (drift.isNotEmpty()) {
-            val offenders = drift.keys.joinToString("\n") { " - ${it.relativeTo(projectRoot)}" }
+            val offenders = drift.joinToString("\n") { " - ${it.relativeTo(projectRoot)}" }
             throw GradleException(
                 "Localization artifacts are out of sync with the shared JSON source:\n" +
                     offenders +
-                    "\nRun ./gradlew :app:sharedUI:generateStrings and commit the result.",
+                    "\nRun ./gradlew :app:sharedUI:generateStrings and commit the result " +
+                    "(the gate compares against HEAD, so regenerating without committing still fails).",
             )
         }
     }
