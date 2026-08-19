@@ -40,4 +40,21 @@ object LocalizationArtifacts {
             put(xcstringsOut, LocalizationGenerator.xcstrings(byCode, sourceLanguage = "en"))
         }
     }
+
+    /**
+     * The artifacts in [rendered] whose [baseline] content does not match what the JSON source renders.
+     *
+     * @param rendered the output of [render] — each artifact mapped to the content it should contain.
+     * @param baseline the content to compare against, or null when the artifact has no baseline at all
+     *   (never committed) — which counts as drift, so a brand-new artifact is reported rather than skipped.
+     * @return the drifting files, in stable path order.
+     */
+    fun drift(
+        rendered: Map<File, String>,
+        baseline: (File) -> String?,
+    ): List<File> =
+        rendered
+            .filter { (file, content) -> baseline(file) != content }
+            .keys
+            .sortedBy { it.invariantSeparatorsPath }
 }

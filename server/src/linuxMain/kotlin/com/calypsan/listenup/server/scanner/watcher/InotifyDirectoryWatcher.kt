@@ -30,6 +30,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.newSingleThreadContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import platform.linux.IN_CREATE
@@ -62,6 +64,9 @@ private val WATCH_MASK: UInt = (IN_CREATE or IN_MODIFY or IN_DELETE or IN_MOVED_
 
 /** Read buffer for a batch of `inotify_event`s. Comfortably holds many events per `read`. */
 private const val EVENT_BUFFER_BYTES = 64 * 1024
+
+/** How long [InotifyDirectoryWatcher.close] waits for the poll loop before forcing it out via fd closure. */
+private val SHUTDOWN_JOIN_TIMEOUT = 5.seconds
 
 /**
  * Kotlin/Native [LowLevelDirectoryWatcher] over Linux **inotify** — the native peer of the JVM
@@ -238,11 +243,17 @@ internal class InotifyDirectoryWatcher(
         counter[0] = 1
         val woke = counter.usePinned { write(shutdownFd, it.addressOf(0), counter.size.convert()) }
         if (woke < 0) {
-            logger.warn {
-                "eventfd shutdown write failed (errno=$errno) — relying on Job cancellation to stop the watcher"
-            }
+            logger.warn { "eventfd shutdown write failed (errno=$errno) — falling back to fd closure" }
         }
-        loop?.cancelAndJoin()
+        // BOUNDED join. The loop blocks in `poll(..., -1)`, and a blocking syscall is not a
+        // cancellation point — so if the eventfd wake above failed, cancelling the Job cannot stop
+        // that thread and a bare `cancelAndJoin()` would wait forever, taking server shutdown with
+        // it. (An earlier comment here claimed Job cancellation was the fallback; it never could be.)
+        // The real fallback is below: closing the fds makes `poll` return POLLNVAL, so the loop
+        // unwinds on its own rather than being waited on.
+        if (withTimeoutOrNull(SHUTDOWN_JOIN_TIMEOUT) { loop?.cancelAndJoin() } == null) {
+            logger.warn { "inotify loop did not exit within $SHUTDOWN_JOIN_TIMEOUT — closing fds to force it out" }
+        }
         close(inotifyFd)
         close(shutdownFd)
         watcherThread.close()

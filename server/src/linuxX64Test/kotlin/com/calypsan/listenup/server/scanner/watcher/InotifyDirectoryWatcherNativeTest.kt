@@ -61,6 +61,25 @@ class InotifyDirectoryWatcherNativeTest :
                 SystemFileSystem.delete(dir, mustExist = false)
             }
         }
+
+        // `close()` used to `cancelAndJoin()` the poll loop with no ceiling. The loop blocks in
+        // `poll(..., -1)`, and a blocking syscall is not a cancellation point — so whenever the
+        // eventfd wake failed, that join could never return and server shutdown would hang on it.
+        // The bound is what makes closing a watcher a terminating operation rather than a hope.
+        test("close returns promptly on a watching watcher — shutdown is bounded, never a hope") {
+            val dir = Path("lu-inotify-close-${Random.nextInt(1, Int.MAX_VALUE).toString(HEX_RADIX)}")
+            SystemFileSystem.createDirectories(dir)
+            val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+            val watcher = InotifyDirectoryWatcher(scope)
+            try {
+                watcher.add(dir.toString())
+                delay(SUBSCRIBE_DELAY) // let the poll loop actually reach its blocking poll()
+                withTimeout(CLOSE_DEADLINE) { watcher.close() }
+            } finally {
+                scope.cancel()
+                SystemFileSystem.delete(dir, mustExist = false)
+            }
+        }
     })
 
 private suspend fun Channel<DirectoryWatchEvent>.await(
@@ -76,3 +95,6 @@ private const val HEX_RADIX = 16
 private const val WATCHED_FILE_NAME = "book.mp3"
 private val SUBSCRIBE_DELAY = 300.milliseconds
 private val AWAIT_TIMEOUT = 5.seconds
+
+/** Generous vs the 5s internal join bound, so this fails on an UNBOUNDED close, not a slow one. */
+private val CLOSE_DEADLINE = 20.seconds

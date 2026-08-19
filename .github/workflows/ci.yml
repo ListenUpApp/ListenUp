@@ -437,13 +437,34 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-konan-
 
+      # Bounded and retried because an unbounded apt IS a 30-minute outage: on 2026-08-19 the
+      # Azure mirror stopped answering, apt fell back to archive.ubuntu.com, stalled mid-fetch,
+      # and burned the WHOLE job timeout without ever reaching Gradle. Three short attempts fail
+      # in ~6 minutes with a readable reason instead of one silent half-hour, and a transient
+      # mirror blip heals on attempt 2 rather than reporting a red build to a green branch.
       - name: Install native link dependencies (libargon2 + libsqlite3 + libcurl)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libargon2-dev libsqlite3-dev libcurl4-openssl-dev
+        timeout-minutes: 6
+        run: |
+          for attempt in 1 2 3; do
+            if sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+                 libargon2-dev libsqlite3-dev libcurl4-openssl-dev; then
+              exit 0
+            fi
+            echo "::warning::apt attempt $attempt failed; retrying in $((attempt * 10))s"
+            sleep $((attempt * 10))
+          done
+          echo "::error::apt failed after 3 attempts — package mirrors unreachable"
+          exit 1
 
       - name: Compile :server linuxX64
+        timeout-minutes: 15
         run: ./gradlew :server:compileKotlinLinuxX64 --no-daemon
 
+      # Step-scoped so a wedged test.kexe is attributed to the TEST, not to "the job timed out"
+      # — the job ceiling can't tell you which phase hung. Green runs of this lane take 1m50s to
+      # 5m37s, so 10m is >2x the slowest observed pass and still fails 3x faster than the job.
       - name: Run :server linuxX64 tests
+        timeout-minutes: 10
         run: ./gradlew :server:linuxX64Test --no-daemon
 
   build-android:
