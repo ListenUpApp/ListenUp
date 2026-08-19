@@ -123,8 +123,9 @@ private suspend fun ApplicationCall.serveSegment(
     val index = parameters["index"]?.toIntOrNull()?.takeIf { it >= 0 } ?: return respond(HttpStatusCode.BadRequest)
 
     // Already encoded: serve it and never wake the encoder. This is the common case once a listener
-    // is a few segments in, and it is what makes re-listening free.
-    if (cache.has(target.bookId, target.fileId, index)) {
+    // is a few segments in, and it is what makes re-listening free. Completeness, not mere
+    // existence — a segment FFmpeg is still writing exists, and serving it truncates the audio.
+    if (cache.isComplete(target.bookId, target.fileId, index)) {
         return respondSeekable(cache.segmentPath(target.bookId, target.fileId, index), AAC)
     }
 
@@ -202,7 +203,7 @@ private suspend fun ApplicationCall.respondTranscoderUnavailable() =
     respondAppResult<Unit>(AppResult.Failure(TranscodeError.TranscoderUnavailable()))
 
 /**
- * Waits for the encoder to write segment [index], up to [SEGMENT_WAIT_MILLIS].
+ * Waits for the encoder to *finish* segment [index], up to [SEGMENT_WAIT_MILLIS].
  *
  * Polling a directory is not elegant, but it is honest about what is being waited on: FFmpeg's
  * segment muxer gives no completion signal, and the alternative — watching the filesystem — buys
@@ -216,9 +217,9 @@ private suspend fun awaitSegment(
 ): Boolean {
     var waited = 0L
     while (waited < SEGMENT_WAIT_MILLIS) {
-        if (cache.has(bookId, fileId, index)) return true
+        if (cache.isComplete(bookId, fileId, index)) return true
         delay(SEGMENT_POLL_MILLIS)
         waited += SEGMENT_POLL_MILLIS
     }
-    return cache.has(bookId, fileId, index)
+    return cache.isComplete(bookId, fileId, index)
 }

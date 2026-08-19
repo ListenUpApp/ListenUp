@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.testing.FfmpegTestSupport
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
@@ -35,6 +36,15 @@ import io.ktor.server.testing.testApplication
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
 
+/** 25s at 44.1 kHz is three frame-aligned segments — short to encode, long enough to have a tail. */
+private const val BOOK_SECONDS = 25
+
+/** `ceil(10 * 44100 / 1024)` — one whole segment, as [com.calypsan.listenup.server.transcode.HlsPlaylist] plans it. */
+private const val FRAMES_PER_SEGMENT = 431
+
+private val TEST_JWT_SECRET = "x".repeat(32) // must match the value in useIsolatedTestConfig
+private val TEST_SIGNING_KEY = AudioUrlSigner.deriveSigningKey(TEST_JWT_SECRET)
+
 /**
  * Integration tests for the signed HLS surface.
  *
@@ -43,13 +53,12 @@ import java.nio.file.Files
  * in isolation.
  *
  * ⛔ **Availability is published by the test, never probed.** `useIsolatedTestConfig` turns the boot
- * probe off, so these assertions do not depend on whether the machine running them has FFmpeg. No
- * test here spawns an encoder: the segment case pre-writes the file the encoder would have produced,
- * which is also the path a re-listening user takes.
+ * probe off, so these assertions do not depend on whether the machine running them has FFmpeg.
+ *
+ * Most cases here pre-write the segment the encoder would have produced — the path a re-listening
+ * user takes, and the one that needs no encoder at all. The single cold-cache case is the exception
+ * and drives a real FFmpeg end to end; it skips where there is none.
  */
-private val TEST_JWT_SECRET = "x".repeat(32) // must match the value in useIsolatedTestConfig
-private val TEST_SIGNING_KEY = AudioUrlSigner.deriveSigningKey(TEST_JWT_SECRET)
-
 class HlsRoutesTest :
     FunSpec({
 
@@ -116,6 +125,13 @@ class HlsRoutesTest :
                         .of(cache.segmentPath("b1", "af1", 0).toString()),
                     segmentBytes,
                 )
+                // The encoder's own record that it finished this one — without it the segment is
+                // treated as still being written, which is the point of SegmentCache.isComplete.
+                Files.write(
+                    java.nio.file.Path
+                        .of(cache.runListPath("b1", "af1", 0).toString()),
+                    "seg00000.aac\n".toByteArray(),
+                )
 
                 val response = client.get("/api/v1/hls/b1/af1/seg/0.aac?$query")
 
@@ -123,6 +139,29 @@ class HlsRoutesTest :
                 response.bodyAsBytes().toList() shouldBe segmentBytes.toList()
             }
         }
+
+        // First play, cold cache — the exact path a browser takes, with nothing faked between the
+        // signed request and the bytes. Everything else in this file pre-writes its segments, so
+        // without this nothing proved a cache MISS actually wakes the encoder and answers.
+        //
+        // The response is measured, not merely counted. It is also the regression test for serving
+        // a segment FFmpeg is still writing: against the old existence check this case came back
+        // with so little of the segment that ffprobe could not read one frame from it.
+        test("a cold request encodes on demand and returns a whole, aligned segment")
+            .config(enabled = FfmpegTestSupport.isAvailable) {
+                withHlsFixture(encoder = FfmpegTestSupport.ffmpeg) { client, query ->
+                    val response = client.get("/api/v1/hls/b1/af1/seg/0.aac?$query")
+
+                    response.status shouldBe HttpStatusCode.OK
+                    val served = Files.createTempFile("listenup-served-", ".aac")
+                    try {
+                        Files.write(served, response.bodyAsBytes())
+                        FfmpegTestSupport.frameCount(served.toString()) shouldBe FRAMES_PER_SEGMENT
+                    } finally {
+                        Files.deleteIfExists(served)
+                    }
+                }
+            }
 
         // A server with no encoder must say so, not hand out a playlist whose segments can never
         // be produced. 501 rather than 503: retrying changes nothing until an operator acts.
@@ -143,6 +182,7 @@ class HlsRoutesTest :
  */
 private suspend fun withHlsFixture(
     available: Boolean = true,
+    encoder: String? = null,
     block: suspend ApplicationTestBuilder.(HttpClient, String) -> Unit,
 ) {
     val libraryRoot = Files.createTempDirectory("listenup-hls-")
@@ -162,7 +202,12 @@ private suspend fun withHlsFixture(
             seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
 
             val bookDir = Files.createDirectories(libraryRoot.resolve("books/b1"))
-            Files.write(bookDir.resolve("01.m4b"), ByteArray(256) { it.toByte() })
+            if (encoder == null) {
+                Files.write(bookDir.resolve("01.m4b"), ByteArray(256) { it.toByte() })
+            } else {
+                // A real encode needs real audio, at the rate and length the payload below declares.
+                FfmpegTestSupport.generateSine(bookDir.resolve("01.m4b"), BOOK_SECONDS)
+            }
 
             val repo by application.inject<BookRepository>()
             repo.upsert(hlsFixture())
@@ -178,8 +223,9 @@ private suspend fun withHlsFixture(
             val availability by application.inject<TranscoderAvailability>()
             availability.publish(
                 if (available) {
-                    // A path that does not exist is fine: no test here spawns an encoder.
-                    TranscoderStatus.Available(path = "/nonexistent/ffmpeg", version = "test")
+                    // A path that does not exist is fine for every test that pre-writes its
+                    // segments; only the first-play test needs a real binary here.
+                    TranscoderStatus.Available(path = encoder ?: "/nonexistent/ffmpeg", version = "test")
                 } else {
                     TranscoderStatus.Unavailable("no encoder in this test")
                 },
@@ -210,7 +256,7 @@ private fun hlsFixture(): BookSyncPayload =
         asin = null,
         abridged = false,
         explicit = false,
-        totalDuration = 25_000L,
+        totalDuration = BOOK_SECONDS * 1000L,
         cover = null,
         rootRelPath = "books/b1",
         inode = null,
@@ -227,7 +273,7 @@ private fun hlsFixture(): BookSyncPayload =
                     codec = "aac",
                     // 25s at 44.1 kHz is three frame-aligned segments — small enough to assert on
                     // whole, long enough that the final short segment exists.
-                    duration = 25_000L,
+                    duration = BOOK_SECONDS * 1000L,
                     size = 256L,
                     codecProfile = "xhe",
                     sampleRate = 44_100,
@@ -235,7 +281,7 @@ private fun hlsFixture(): BookSyncPayload =
             ),
         chapters =
             listOf(
-                BookChapterPayload(id = "ch-b1", title = "Prologue", duration = 25_000L, startTime = 0L),
+                BookChapterPayload(id = "ch-b1", title = "Prologue", duration = BOOK_SECONDS * 1000L, startTime = 0L),
             ),
         revision = 0L,
         updatedAt = 0L,

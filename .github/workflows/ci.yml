@@ -213,6 +213,18 @@ jobs:
       - name: Compile shared modules for JS
         run: ./gradlew :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs --no-daemon
 
+      # The transcoder's drift gate (TranscodeIntegrationTest) measures segments a real encoder
+      # actually wrote — a mis-declared segment length silently corrupts every position a listener
+      # saves, and no fake can catch it. The spec SKIPS when ffmpeg is absent so a developer without
+      # one is not blocked, which makes the version check below the anti-fake-green: if the install
+      # ever stops landing, the job fails here instead of the gate quietly opting out.
+      - name: Install FFmpeg (transcoder drift gate)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
       # emulator) — included here so Compose-UI test rot can't land unnoticed.

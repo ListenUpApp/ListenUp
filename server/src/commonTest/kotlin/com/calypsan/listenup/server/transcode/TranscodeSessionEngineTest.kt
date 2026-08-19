@@ -43,6 +43,21 @@ class TranscodeSessionEngineTest :
             fixture.cleanUp()
         }
 
+        // FFmpeg reports a segment finished by appending to a list file. If two runs shared one
+        // list, the second would truncate the first's record and every segment the earlier run
+        // completed would look unfinished forever.
+        test("each run writes its own completion list, so a respawn cannot erase the last one") {
+            val fake = FakeSpawner()
+            val fixture = engineWith(fake)
+
+            fixture.engine.ensureRunning(SESSION, fromSegment = 0)
+            fixture.engine.ensureRunning(SESSION, fromSegment = 500)
+
+            val lists = fake.commands.map { it[it.indexOf("-segment_list") + 1] }
+            lists.toSet().size shouldBe 2
+            fixture.cleanUp()
+        }
+
         // A real seek, backwards or far ahead, has to abandon and restart.
         test("an out-of-window seek kills and respawns at the new timestamp") {
             val fake = FakeSpawner()

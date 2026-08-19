@@ -136,6 +136,7 @@ class TranscodeSessionEngine(
                 startSeconds = fromSegment * plan.segmentSeconds,
                 plan = plan,
                 outputPattern = cache.segmentPattern(session.bookId, session.fileId),
+                runListPath = cache.runListPath(session.bookId, session.fileId, fromSegment).toString(),
                 bitrateKbps = settings.bitrateKbps,
             ),
         )
@@ -190,6 +191,7 @@ private fun command(
     startSeconds: Double,
     plan: HlsPlaylist.Plan,
     outputPattern: String,
+    runListPath: String,
     bitrateKbps: Int,
 ): List<String> =
     listOf(
@@ -223,5 +225,15 @@ private fun command(
         HlsPlaylist.formatSeconds(plan.segmentSeconds),
         "-segment_start_number",
         session.startSegment.toString(),
+        // The muxer's own completion signal. A segment file exists from the moment it is opened, so
+        // this list — appended to as each segment is CLOSED — is the only thing that can tell a
+        // waiting request that the last segment of this run is whole. `+live` flushes per entry
+        // rather than at exit, which is what makes it useful while the encode is still running.
+        "-segment_list",
+        runListPath,
+        "-segment_list_type",
+        "flat",
+        "-segment_list_flags",
+        "+live",
         outputPattern,
     )
