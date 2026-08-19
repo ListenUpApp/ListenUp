@@ -53,7 +53,10 @@ object TranscodeCommand {
             // Demux and seek only. `-c:a copy` moves the original frames without ever handing them
             // to the decoder that cannot read them, which is why the seek stays cheap on a long book.
             listOf(ffmpegPath) + BASE + seekAndOpen(session, startSeconds) +
-                listOf("-c:a", "copy", "-f", "matroska", "-"),
+                // `pipe:` rather than a bare `-`: the minimal FFmpeg this image builds resolves the
+                // explicit protocol name, while `-` needs a mapping that a `--disable-everything`
+                // build does not carry ("Protocol not found. Did you mean file:fd:?").
+                listOf("-c:a", "copy", "-f", "matroska", "pipe:"),
             // Matroska is the only intermediate that survives this: `-f latm` refuses USAC outright
             // ("Muxing MPEG-4 AOT 42 in LATM is not supported"), and fragmented MP4 over a pipe
             // fails in qtdemux because its moof size is unknowable on a non-seekable stream.
@@ -114,7 +117,7 @@ object TranscodeCommand {
             "-ac",
             session.channels.toString(),
             "-i",
-            "-",
+            "pipe:",
         )
 
     private fun encodeArgs(

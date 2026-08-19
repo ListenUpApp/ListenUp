@@ -31,11 +31,13 @@ class TranscodeCommandTest :
             // Stage 1 seeks and demuxes only — `-c:a copy` never invokes the broken decoder.
             stages!![0].shouldContainInOrder("-c:a", "copy")
             stages[0].shouldContainInOrder("-f", "matroska")
-            stages[0].last() shouldBe "-"
+            stages[0].last() shouldBe "pipe:"
             // Stage 2 is the only place the audio is actually decoded.
             stages[1].joinToString(" ") shouldContain "fdkaacdec"
             // Stage 3 re-encodes from raw PCM and does the segmenting.
             stages[2].shouldContainInOrder("-f", "s16le")
+            // Explicit protocol, not a bare "-": a --disable-everything FFmpeg cannot resolve the latter.
+            stages[2].shouldContainInOrder("-i", "pipe:")
             stages[2].last() shouldBe OUTPUT_PATTERN
         }
 
