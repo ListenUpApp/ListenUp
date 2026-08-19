@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.dto.imports.ImportSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.testinfra.StripSocketTimeout
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
@@ -123,6 +124,10 @@ class ImportRpcE2ETest :
                     // client with auto-bearer; here we supply a pre-authed test client instead.
                     val authedRestClient =
                         createClient {
+                            // See StripSocketTimeout: production upload() sets a socket timeout, and the
+                            // test engine's watchdog for it races the upload completing. Without this the
+                            // spec fails ~half the time with a spurious NetworkUnavailable.
+                            install(StripSocketTimeout)
                             install(ContentNegotiation) { json(contractJson) }
                             install(Auth) {
                                 bearer {
