@@ -3698,7 +3698,7 @@
         },
         {
             "uniqueId": "com.mikepenz:multiplatform-markdown-renderer-android",
-            "artifactVersion": "0.43.0",
+            "artifactVersion": "0.44.0",
             "name": "Multiplatform Markdown Renderer",
             "description": "Kotlin Multiplatform Markdown Renderer. (Android, Desktop, ...) powered by Compose Multiplatform",
             "website": "https://github.com/mikepenz/multiplatform-markdown-renderer",
@@ -3721,7 +3721,7 @@
         },
         {
             "uniqueId": "com.mikepenz:multiplatform-markdown-renderer-m3-android",
-            "artifactVersion": "0.43.0",
+            "artifactVersion": "0.44.0",
             "name": "Multiplatform Markdown Renderer - Material 3",
             "description": "Kotlin Multiplatform Markdown Renderer. (Android, Desktop, ...) powered by Compose Multiplatform",
             "website": "https://github.com/mikepenz/multiplatform-markdown-renderer",
@@ -4458,7 +4458,7 @@
         },
         {
             "uniqueId": "org.bytedeco:ffmpeg",
-            "artifactVersion": "8.0.1-1.5.13",
+            "artifactVersion": "8.1.2-1.5.14",
             "name": "JavaCPP Presets for FFmpeg",
             "description": "The missing bridge between Java and native C++ libraries",
             "website": "http://bytedeco.org/javacpp-presets/ffmpeg/",
@@ -4508,7 +4508,7 @@
         },
         {
             "uniqueId": "org.bytedeco:javacpp",
-            "artifactVersion": "1.5.13",
+            "artifactVersion": "1.5.14",
             "name": "JavaCPP",
             "description": "The missing bridge between Java and native C++",
             "website": "http://bytedeco.org/javacpp/",
@@ -4533,7 +4533,7 @@
         },
         {
             "uniqueId": "org.bytedeco:javacv",
-            "artifactVersion": "1.5.13",
+            "artifactVersion": "1.5.14",
             "name": "JavaCV",
             "description": "Java interface to OpenCV, FFmpeg, and more",
             "website": "http://bytedeco.org/javacv/",
@@ -4558,7 +4558,7 @@
         },
         {
             "uniqueId": "org.bytedeco:leptonica",
-            "artifactVersion": "1.87.0-1.5.13",
+            "artifactVersion": "1.87.0-1.5.14",
             "name": "JavaCPP Presets for Leptonica",
             "description": "The missing bridge between Java and native C++ libraries",
             "website": "http://bytedeco.org/javacpp-presets/leptonica/",
@@ -4708,7 +4708,7 @@
         },
         {
             "uniqueId": "org.bytedeco:openblas",
-            "artifactVersion": "0.3.31-1.5.13",
+            "artifactVersion": "0.3.34-1.5.14",
             "name": "JavaCPP Presets for OpenBLAS",
             "description": "The missing bridge between Java and native C++ libraries",
             "website": "http://bytedeco.org/javacpp-presets/openblas/",
@@ -4733,7 +4733,7 @@
         },
         {
             "uniqueId": "org.bytedeco:opencv",
-            "artifactVersion": "4.13.0-1.5.13",
+            "artifactVersion": "4.14.0-1.5.14",
             "name": "JavaCPP Presets for OpenCV",
             "description": "The missing bridge between Java and native C++ libraries",
             "website": "http://bytedeco.org/javacpp-presets/opencv/",
@@ -4758,7 +4758,7 @@
         },
         {
             "uniqueId": "org.bytedeco:tesseract",
-            "artifactVersion": "5.5.2-1.5.13",
+            "artifactVersion": "5.5.3-1.5.14",
             "name": "JavaCPP Presets for Tesseract",
             "description": "The missing bridge between Java and native C++ libraries",
             "website": "http://bytedeco.org/javacpp-presets/tesseract/",
@@ -6040,7 +6040,7 @@
         },
         {
             "uniqueId": "org.jetbrains.kotlinx:kotlinx-collections-immutable-jvm",
-            "artifactVersion": "0.5.0",
+            "artifactVersion": "0.5.1",
             "name": "kotlinx-collections-immutable",
             "description": "Kotlin Immutable Collections multiplatform library",
             "website": "https://github.com/Kotlin/kotlinx.collections.immutable",
@@ -6705,7 +6705,7 @@
         },
         {
             "uniqueId": "org.jetbrains:markdown-jvm",
-            "artifactVersion": "0.7.5",
+            "artifactVersion": "0.7.9",
             "name": "markdown",
             "description": "Markdown parser in Kotlin",
             "website": "https://github.com/JetBrains/markdown",
