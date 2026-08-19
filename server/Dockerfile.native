@@ -156,6 +156,55 @@ RUN gst-launch-1.0 -q fakesrc num-buffers=0 ! fdkaacdec ! fakesink \
     && ffmpeg -hide_banner -demuxers 2>/dev/null | grep -qE '^ *D +mov,' \
     && ffmpeg -hide_banner -protocols 2>/dev/null | grep -qx '  pipe'
 
+# ── Third-party licence obligations ───────────────────────────────────────────────────────────
+# ⛔ NOT OPTIONAL, and not satisfiable by a link. The Fraunhofer FDK licence requires, for binary
+# redistribution: "You must retain the complete text of this software license in the documentation
+# and/or other materials provided with redistributions of the FDK AAC Codec ... in binary form. You
+# must make available free of charge copies of the complete source code of the FDK AAC Codec ... to
+# recipients of copies in binary form."
+#
+# It also grants NO patent licence — AAC patent claims are licensed separately (Via Licensing).
+#
+# FFmpeg and GStreamer ship here as LGPL programs and carry their own notice obligations, so their
+# licence texts travel with them too. ListenUp itself is AGPL-3.0 and is unaffected: none of these
+# are linked into the server, which spawns them as separate programs over OS pipes.
+RUN set -eu; mkdir -p /stage/licenses; \
+    cp /usr/share/doc/libfdk-aac2/copyright     /stage/licenses/fdk-aac.LICENSE.txt; \
+    cp /usr/share/doc/libgstreamer1.0-0/copyright /stage/licenses/gstreamer.LICENSE.txt; \
+    cp "/ffmpeg-${FFMPEG_VERSION}/COPYING.LGPLv2.1" /stage/licenses/ffmpeg.LICENSE.txt; \
+    FDK_VERSION="$(dpkg-query -W -f='${Version}' libfdk-aac2)"; \
+    GST_RUNTIME="$(dpkg-query -W -f='${Version}' libgstreamer1.0-0)"; \
+    { \
+      echo "Third-party components redistributed in this image"; \
+      echo "================================================="; \
+      echo; \
+      echo "ListenUp itself is AGPL-3.0. The components below are separate programs, invoked by the"; \
+      echo "server over OS pipes and never linked into it. Each is redistributed under its own"; \
+      echo "licence, the full text of which is in this directory."; \
+      echo; \
+      echo "1. Fraunhofer FDK AAC Codec Library  (libfdk-aac2 ${FDK_VERSION})"; \
+      echo "   Licence : fdk-aac.LICENSE.txt"; \
+      echo "   Source  : https://sources.debian.org/src/fdk-aac/  (Debian source package)"; \
+      echo "             https://github.com/mstorsjo/fdk-aac      (upstream)"; \
+      echo "   NOTE    : This licence grants NO patent rights. AAC patent claims are licensed"; \
+      echo "             separately; see https://www.via-la.com/ ."; \
+      echo "   Used ONLY to decode xHE-AAC (USAC), which FFmpeg cannot decode correctly."; \
+      echo; \
+      echo "2. FFmpeg ${FFMPEG_VERSION}  (built from source, LGPL v2.1+)"; \
+      echo "   Licence : ffmpeg.LICENSE.txt"; \
+      echo "   Source  : https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"; \
+      echo "   Built with --disable-everything and no GPL or nonfree component; the exact"; \
+      echo "   ./configure line is in server/Dockerfile.native in the ListenUp repository."; \
+      echo; \
+      echo "3. GStreamer ${GST_RUNTIME} and the gst-plugins-bad fdkaac plugin ${GST_VERSION}  (LGPL)"; \
+      echo "   Licence : gstreamer.LICENSE.txt"; \
+      echo "   Source  : https://gstreamer.freedesktop.org/src/"; \
+      echo "   The fdkaac plugin is built from unmodified upstream source; see the Dockerfile."; \
+      echo; \
+      echo "None of these components has been modified."; \
+    } > /stage/licenses/README.txt; \
+    ls -l /stage/licenses
+
 # Only the plugins the pipeline actually loads. Named explicitly rather than copying the whole plugin
 # directory: every extra .so is another closure to stage and another late failure.
 RUN set -eu; P=/usr/lib/x86_64-linux-gnu/gstreamer-1.0; mkdir -p /stage/plugins /stage/libs; \
@@ -195,6 +244,8 @@ COPY --from=libs --chown=65532:65532 /data /data
 COPY --from=media /stage/libs/    /usr/lib/x86_64-linux-gnu/
 COPY --from=media /stage/plugins/ /opt/gst-plugins/
 COPY --from=media /stage/gst-launch-1.0 /stage/ffmpeg /usr/local/bin/
+# Licence texts and the written source offer travel with the binaries they cover.
+COPY --from=media /stage/licenses/ /usr/share/licenses/listenup-media/
 ENV GST_PLUGIN_SYSTEM_PATH=/opt/gst-plugins \
     GST_PLUGIN_PATH=/opt/gst-plugins \
     GST_REGISTRY=/tmp/gst-registry.bin \
