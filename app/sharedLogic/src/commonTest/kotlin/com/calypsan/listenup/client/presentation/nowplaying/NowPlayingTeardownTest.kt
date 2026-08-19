@@ -92,6 +92,11 @@ class NowPlayingTeardownTest :
             every { playbackPreferences.observeDefaultPlaybackSpeed() } returns flowOf(1.0f)
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
             every { playbackPreferences.observeDefaultVolumeBoostDb() } returns flowOf(0f)
+            // NowPlayingViewModel collects the skip intervals eagerly, so they must answer here too.
+            every { playbackPreferences.observeDefaultSkipForwardSec() } returns
+                flowOf(PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC)
+            every { playbackPreferences.observeDefaultSkipBackwardSec() } returns
+                flowOf(PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC)
             everySuspend { playbackPreferences.getDefaultVolumeBoostDb() } returns 0f
             every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
             return NowPlayingViewModel(

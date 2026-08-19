@@ -5,6 +5,8 @@ import androidx.media3.common.util.UnstableApi
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import dev.mokkery.mock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.junit.Before
@@ -45,6 +47,9 @@ class AudiobookNotificationProviderTest {
             AudiobookNotificationProvider(
                 context = context,
                 playbackManager = StubPlaybackManager(),
+                // These tests only exercise the pure subtitle/duration helpers, so the holder
+                // never leaves its stock intervals — nothing here calls `follow`.
+                skipIntervals = SkipIntervalsHolder(mock<PlaybackPreferences>()),
             )
     }
 

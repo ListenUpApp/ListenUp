@@ -1205,8 +1205,6 @@
     "until_end_of_chapter_detail": "Playback will pause when this chapter ends",
     "fading_out": "Fading out…",
     "cover_a11y": "Book cover",
-    "skip_back_10s": "Skip back 10 seconds",
-    "skip_forward_30s": "Skip forward 30 seconds",
     "expand": "Expand",
     "previous_chapter": "Previous chapter",
     "next_chapter": "Next chapter",
@@ -1243,8 +1241,8 @@
     "book_subtitle": "%1$s - %2$s",
     "sign_in_action": "Sign in to ListenUp",
     "sign_in_message": "Sign in to ListenUp on your phone.",
-    "back_30": "Back 30s",
-    "forward_30": "Forward 30s"
+    "back_seconds": "Back %1$ss",
+    "forward_seconds": "Forward %1$ss"
   },
   "library_setup": {
     "choose_audiobook_folders": "Choose your audiobook folders",

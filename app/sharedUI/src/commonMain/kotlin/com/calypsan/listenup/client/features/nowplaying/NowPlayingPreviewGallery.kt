@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.playback.NowPlayingChapter
@@ -176,6 +177,8 @@ fun NowPlayingPreviewGallery() {
                     onShowAuthorPicker = {},
                     onShowNarratorPicker = {},
                     onCloseBook = {},
+                    skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+                    skipForwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
                 )
             }
 
@@ -224,6 +227,8 @@ private fun CompactSection() {
             onShowAuthorPicker = {},
             onShowNarratorPicker = {},
             onCloseBook = {},
+            skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+            skipForwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
         )
     }
 }
@@ -252,6 +257,8 @@ private fun WideSection() {
             onShowAuthorPicker = {},
             onShowNarratorPicker = {},
             onCloseBook = {},
+            skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+            skipForwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
         )
     }
 }
@@ -266,6 +273,7 @@ private fun MiniPlayerPhoneSection() {
         onTap = {},
         onPlayPause = {},
         onSkipBack = {},
+        skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     )
 
@@ -277,6 +285,7 @@ private fun MiniPlayerPhoneSection() {
         onTap = {},
         onPlayPause = {},
         onSkipBack = {},
+        skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     )
 }
@@ -295,6 +304,8 @@ private fun MiniPlayerDesktopSection() {
             onSkipForward = {},
             onSeek = {},
             onSpeedClick = {},
+            skipBackwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+            skipForwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
         )
     }
 }

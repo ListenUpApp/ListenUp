@@ -1,13 +1,13 @@
 package com.calypsan.listenup.client.localization
 
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.car_back_30
+import listenup.composeapp.generated.resources.car_back_seconds
 import listenup.composeapp.generated.resources.car_book_subtitle
 import listenup.composeapp.generated.resources.car_by_author
 import listenup.composeapp.generated.resources.car_by_series
 import listenup.composeapp.generated.resources.car_continue_listening
 import listenup.composeapp.generated.resources.car_downloaded
-import listenup.composeapp.generated.resources.car_forward_30
+import listenup.composeapp.generated.resources.car_forward_seconds
 import listenup.composeapp.generated.resources.car_library
 import listenup.composeapp.generated.resources.car_sign_in_action
 import listenup.composeapp.generated.resources.car_sign_in_message
@@ -27,9 +27,6 @@ import listenup.composeapp.generated.resources.player_skip_forward
 import listenup.composeapp.generated.resources.player_speed
 import listenup.composeapp.generated.resources.player_unknown_book
 import org.jetbrains.compose.resources.getString
-
-/** Seconds each transport skip covers — the number rendered into the skip labels. */
-private const val SKIP_SECONDS = "30"
 
 /**
  * The strings ListenUp hands to the platform — Android Auto browse nodes, the media notification's
@@ -68,17 +65,26 @@ data class SystemStrings(
     val carSignInAction: String,
     /** Auto: the message shown when browse is walled off pending sign-in. */
     val carSignInMessage: String,
-    /** Auto: the compact custom-layout label for skipping back. */
-    val carBack30: String,
-    /** Auto: the compact custom-layout label for skipping forward. */
-    val carForward30: String,
+    /**
+     * Auto: the compact custom-layout label for skipping back, `%1$s` the configured seconds.
+     *
+     * A format string, not finished copy: the number is the user's synced setting, which can
+     * change while a car is connected. `String.format` it at the render site.
+     */
+    val carBack: String,
+    /** Auto: the compact custom-layout label for skipping forward, `%1$s` the configured seconds. */
+    val carForward: String,
     /** Notification action: previous chapter. */
     val playerPreviousChapter: String,
     /** Notification action: next chapter. */
     val playerNextChapter: String,
-    /** Notification action: skip backwards by [SKIP_SECONDS]. */
+    /**
+     * Notification action: skip backwards, `%1$s` the configured seconds.
+     *
+     * A format string for the same reason as [carBack] — the number belongs to the user.
+     */
     val playerSkipBackward: String,
-    /** Notification action: skip forwards by [SKIP_SECONDS]. */
+    /** Notification action: skip forwards, `%1$s` the configured seconds. */
     val playerSkipForward: String,
     /** Notification action: resume. */
     val playerPlay: String,
@@ -119,12 +125,12 @@ data class SystemStrings(
                 carBookSubtitle = "%1\$s - %2\$s",
                 carSignInAction = "Sign in to ListenUp",
                 carSignInMessage = "Sign in to ListenUp on your phone.",
-                carBack30 = "Back 30s",
-                carForward30 = "Forward 30s",
+                carBack = "Back %1\$ss",
+                carForward = "Forward %1\$ss",
                 playerPreviousChapter = "Previous chapter",
                 playerNextChapter = "Next chapter",
-                playerSkipBackward = "Skip backward $SKIP_SECONDS seconds",
-                playerSkipForward = "Skip forward $SKIP_SECONDS seconds",
+                playerSkipBackward = "Skip backward %1\$s seconds",
+                playerSkipForward = "Skip forward %1\$s seconds",
                 playerPlay = "Play",
                 playerPause = "Pause",
                 playerSpeed = "Speed",
@@ -157,12 +163,14 @@ suspend fun loadSystemStrings(): SystemStrings =
         carBookSubtitle = getString(Res.string.car_book_subtitle),
         carSignInAction = getString(Res.string.car_sign_in_action),
         carSignInMessage = getString(Res.string.car_sign_in_message),
-        carBack30 = getString(Res.string.car_back_30),
-        carForward30 = getString(Res.string.car_forward_30),
+        carBack = getString(Res.string.car_back_seconds),
+        carForward = getString(Res.string.car_forward_seconds),
         playerPreviousChapter = getString(Res.string.player_previous_chapter),
         playerNextChapter = getString(Res.string.player_next_chapter),
-        playerSkipBackward = getString(Res.string.player_skip_backward, SKIP_SECONDS),
-        playerSkipForward = getString(Res.string.player_skip_forward, SKIP_SECONDS),
+        // Deliberately NOT resolved with an argument: the seconds are read at render time from
+        // the live setting, so the catalog value is carried through as a format string.
+        playerSkipBackward = getString(Res.string.player_skip_backward),
+        playerSkipForward = getString(Res.string.player_skip_forward),
         playerPlay = getString(Res.string.player_play),
         playerPause = getString(Res.string.player_pause),
         playerSpeed = getString(Res.string.player_speed),

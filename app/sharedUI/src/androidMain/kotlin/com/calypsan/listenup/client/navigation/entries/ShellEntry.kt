@@ -78,6 +78,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                     nowPlayingViewModel
                         .progress
                         .collectAsStateWithLifecycle()
+                val skipBackwardSec by nowPlayingViewModel.skipBackwardSec.collectAsStateWithLifecycle()
                 NowPlayingBar(
                     state = nowPlayingScreenState.state,
                     progress = { nowPlayingProgressState.value },
@@ -85,6 +86,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                     onTap = nowPlayingViewModel::expand,
                     onPlayPause = nowPlayingViewModel::playPause,
                     onSkipBack = { nowPlayingViewModel.skipBack() },
+                    skipBackwardSec = skipBackwardSec,
                 )
             },
             onBookClick = { bookId ->

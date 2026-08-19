@@ -443,13 +443,13 @@ One beautiful library.</string>
     <string name="browse_facet_total_label">Total</string>
     <string name="browse_facet_unavailable_mood">Mood unavailable</string>
     <string name="browse_facet_unavailable_tag">Tag unavailable</string>
-    <string name="car_back_30">Back 30s</string>
+    <string name="car_back_seconds">Back %1$ss</string>
     <string name="car_book_subtitle">%1$s - %2$s</string>
     <string name="car_by_author">By Author</string>
     <string name="car_by_series">By Series</string>
     <string name="car_continue_listening">Continue Listening</string>
     <string name="car_downloaded">Downloaded</string>
-    <string name="car_forward_30">Forward 30s</string>
+    <string name="car_forward_seconds">Forward %1$ss</string>
     <string name="car_library">Library</string>
     <string name="car_sign_in_action">Sign in to ListenUp</string>
     <string name="car_sign_in_message">Sign in to ListenUp on your phone.</string>
@@ -1088,10 +1088,8 @@ One beautiful library.</string>
     <string name="player_previous_chapter">Previous chapter</string>
     <string name="player_refusal_title">Couldn't start playback</string>
     <string name="player_reset_to_default">Reset to default (%1$s)</string>
-    <string name="player_skip_back_10s">Skip back 10 seconds</string>
     <string name="player_skip_backward">Skip backward %1$s seconds</string>
     <string name="player_skip_forward">Skip forward %1$s seconds</string>
-    <string name="player_skip_forward_30s">Skip forward 30 seconds</string>
     <string name="player_sleep">Sleep</string>
     <string name="player_sleep_timer">Sleep timer</string>
     <string name="player_speed">Speed</string>

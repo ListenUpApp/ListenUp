@@ -24,6 +24,7 @@ import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
 import com.calypsan.listenup.client.localization.SystemStringsHolder
@@ -78,7 +79,7 @@ class ListenUpSessionCallbackTest {
     // the stale value and undid the notification's skip.
 
     @Test
-    fun `skip forward 30 publishes the landing position`() {
+    fun `skip forward publishes the landing position`() {
         val player = FakeExoPlayer()
         val published = mutableListOf<Pair<Int, Long>>()
         val callback =
@@ -89,7 +90,7 @@ class ListenUpSessionCallbackTest {
                 publishedPositions = published,
             )
 
-        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD_30)
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD)
 
         // 120_000 + 30_000 = 150_000 book-relative → 30_000 into the third 60_000 ms file.
         // The published pair must match the seek exactly, or the in-app position disagrees
@@ -98,7 +99,7 @@ class ListenUpSessionCallbackTest {
     }
 
     @Test
-    fun `skip back 30 publishes the landing position`() {
+    fun `skip back publishes the landing position`() {
         val player = FakeExoPlayer()
         val published = mutableListOf<Pair<Int, Long>>()
         val callback =
@@ -109,9 +110,11 @@ class ListenUpSessionCallbackTest {
                 publishedPositions = published,
             )
 
-        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30)
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK)
 
-        published shouldBe listOf(1 to 30_000L)
+        // 120_000 − 10_000 (the stock back interval) = 110_000 book-relative → 50_000 into
+        // the second 60_000 ms file.
+        published shouldBe listOf(1 to 50_000L)
     }
 
     @Test
@@ -145,38 +148,38 @@ class ListenUpSessionCallbackTest {
                 publishedPositions = published,
             )
 
-        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30)
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK)
 
-        // The only branch that legitimately seeks file-relatively: 45_000 − 30_000 within the
+        // The only branch that legitimately seeks file-relatively: 45_000 − 10_000 within the
         // current item, so the published index must be the item the player is already on.
-        player.fileRelativeSeekCalls shouldBe listOf(15_000L)
-        published shouldBe listOf(1 to 15_000L)
+        player.fileRelativeSeekCalls shouldBe listOf(35_000L)
+        published shouldBe listOf(1 to 35_000L)
     }
 
     // ── Skip back ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `skip back 30 resolves the book-relative target through the timeline`() {
+    fun `skip back resolves the book-relative target through the timeline`() {
         val player = FakeExoPlayer()
         val callback = callbackWith(player = player, bookPositionMs = 120_000L, timeline = threeFileTimeline())
 
-        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30)
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK)
 
-        // 120_000 − 30_000 = 90_000 book-relative, which lands 30_000 into the second
+        // 120_000 − 10_000 = 110_000 book-relative, which lands 50_000 into the second
         // 60_000 ms file. Both halves of the pair matter: an index-only or offset-only
         // regression is still a wrong seek.
-        player.seekCalls shouldBe listOf(1 to 30_000L)
+        player.seekCalls shouldBe listOf(1 to 50_000L)
         player.fileRelativeSeekCalls.shouldBeEmpty()
     }
 
     @Test
-    fun `skip back 30 clamps at the start of the book`() {
+    fun `skip back clamps at the start of the book`() {
         val player = FakeExoPlayer()
-        val callback = callbackWith(player = player, bookPositionMs = 10_000L, timeline = threeFileTimeline())
+        val callback = callbackWith(player = player, bookPositionMs = 5_000L, timeline = threeFileTimeline())
 
-        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30)
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK)
 
-        // 10_000 − 30_000 would be −20_000. Clamped to 0, which resolves to the very
+        // 5_000 − 10_000 would be −5_000. Clamped to 0, which resolves to the very
         // start of the first file rather than a negative offset ExoPlayer would reject.
         player.seekCalls shouldBe listOf(0 to 0L)
     }
@@ -184,11 +187,11 @@ class ListenUpSessionCallbackTest {
     // ── Skip forward ──────────────────────────────────────────────────────────
 
     @Test
-    fun `skip forward 30 clamps at the total duration of the book`() {
+    fun `skip forward clamps at the total duration of the book`() {
         val player = FakeExoPlayer()
         val callback = callbackWith(player = player, bookPositionMs = 170_000L, timeline = threeFileTimeline())
 
-        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD_30)
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD)
 
         // 170_000 + 30_000 = 200_000, past the 180_000 ms end. Clamped to totalDurationMs,
         // which resolve() maps to the end of the final file — never a fourth index.
@@ -201,30 +204,89 @@ class ListenUpSessionCallbackTest {
         player.fileRelativeSeekCalls.shouldBeEmpty()
     }
 
+    // ── The configured skip intervals (#1300) ─────────────────────────────────
+    //
+    // These commands are the notification's and Android Auto's skip buttons. They were nailed to
+    // 30 s in BOTH directions, so a listener who set 45/20 in Settings got 30/30 from every
+    // system surface — and the phone notification disagreed with the in-app buttons on the same
+    // screen. 45 and 20 are used below precisely because neither is a stock default: a test
+    // written around 30/10 would pass on exactly the defect it exists to catch.
+
+    @Test
+    fun `skip forward moves by the configured interval, not a hardcoded 30 seconds`() {
+        val player = FakeExoPlayer()
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 120_000L,
+                timeline = threeFileTimeline(),
+                skipIntervals = intervals(forwardSec = 45, backwardSec = 20),
+            )
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD)
+
+        // 120_000 + 45_000 = 165_000 book-relative → 45_000 into the third 60_000 ms file.
+        player.seekCalls shouldBe listOf(2 to 45_000L)
+    }
+
+    @Test
+    fun `skip back moves by the configured interval, not a hardcoded 30 seconds`() {
+        val player = FakeExoPlayer()
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 120_000L,
+                timeline = threeFileTimeline(),
+                skipIntervals = intervals(forwardSec = 45, backwardSec = 20),
+            )
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK)
+
+        // 120_000 − 20_000 = 100_000 book-relative → 40_000 into the second file. The old code
+        // subtracted 30_000 here, which is neither the configured value nor the in-app one.
+        player.seekCalls shouldBe listOf(1 to 40_000L)
+    }
+
+    @Test
+    fun `a skip taken with no timeline also uses the configured interval`() {
+        val player = FakeExoPlayer(stubbedPosition = 40_000L, stubbedDuration = 200_000L)
+        val callback =
+            callbackWith(
+                player = player,
+                bookPositionMs = 160_000L,
+                timeline = null,
+                skipIntervals = intervals(forwardSec = 45, backwardSec = 20),
+            )
+
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD)
+
+        player.fileRelativeSeekCalls shouldBe listOf(85_000L)
+    }
+
     // ── The timeline == null fallback ─────────────────────────────────────────
 
     @Test
-    fun `skip back 30 without a timeline seeks FILE-relatively, not book-relatively`() {
+    fun `skip back without a timeline seeks FILE-relatively, not book-relatively`() {
         // The fake reports a file position of 40_000 while sitting at 160_000 in the book.
         // With no timeline there is nothing to translate between them, so the only correct
         // answer is the file-relative one.
         val player = FakeExoPlayer(stubbedPosition = 40_000L)
         val callback = callbackWith(player = player, bookPositionMs = 160_000L, timeline = null)
 
-        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30)
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK)
 
-        // 40_000 − 30_000 = 10_000, file-relative. Had the fallback reached for the book
-        // position instead, this would be 130_000 — a seek far past the end of the file.
-        player.fileRelativeSeekCalls shouldBe listOf(10_000L)
+        // 40_000 − 10_000 = 30_000, file-relative. Had the fallback reached for the book
+        // position instead, this would be 150_000 — a seek far past the end of the file.
+        player.fileRelativeSeekCalls shouldBe listOf(30_000L)
         player.seekCalls.shouldBeEmpty()
     }
 
     @Test
-    fun `skip forward 30 without a timeline clamps to the file duration`() {
+    fun `skip forward without a timeline clamps to the file duration`() {
         val player = FakeExoPlayer(stubbedPosition = 40_000L, stubbedDuration = 50_000L)
         val callback = callbackWith(player = player, bookPositionMs = 160_000L, timeline = null)
 
-        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD_30)
+        callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_FORWARD)
 
         // 40_000 + 30_000 = 70_000, past the file's 50_000 ms end, so it clamps to the
         // file duration — the file's end, not the book's.
@@ -273,7 +335,7 @@ class ListenUpSessionCallbackTest {
         // ready — the callback must refuse rather than fall back to some other player.
         val callback = callbackWith(player = null, bookPositionMs = 120_000L, timeline = threeFileTimeline())
 
-        val result = callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK_30)
+        val result = callback.invokeCustomCommand(AudiobookNotificationProvider.COMMAND_SKIP_BACK)
 
         result.resultCode shouldBe SessionResult.RESULT_ERROR_UNKNOWN
         player.seekCalls.shouldBeEmpty()
@@ -443,6 +505,7 @@ class ListenUpSessionCallbackTest {
             transport = FakePlaybackTransport(null, 0L),
             uriPermissionGranter = FakeUriPermissionGranter(),
             strings = SystemStringsHolder(),
+            skipIntervals = stockIntervals(),
         )
     }
 
@@ -575,6 +638,7 @@ class ListenUpSessionCallbackTest {
         chapters: List<Chapter> = emptyList(),
         publishedPositions: MutableList<Pair<Int, Long>> = mutableListOf(),
         uriPermissionGranter: UriPermissionGranter = FakeUriPermissionGranter(),
+        skipIntervals: SkipIntervalsHolder = stockIntervals(),
     ): ListenUpSessionCallback {
         val playbackManager = mock<PlaybackManager>()
         every { playbackManager.chapters } returns MutableStateFlow(chapters)
@@ -594,7 +658,32 @@ class ListenUpSessionCallbackTest {
             transport = FakePlaybackTransport(player, bookPositionMs),
             uriPermissionGranter = uriPermissionGranter,
             strings = SystemStringsHolder(),
+            skipIntervals = skipIntervals,
         )
+    }
+
+    /** The stock 30 s forward / 10 s back, for the cases whose subject is not the interval. */
+    private fun stockIntervals(): SkipIntervalsHolder =
+        intervals(
+            forwardSec = PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC,
+            backwardSec = PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC,
+        )
+
+    /**
+     * A [SkipIntervalsHolder] already following fixed values.
+     *
+     * `Dispatchers.Unconfined` so a `MutableStateFlow`'s replayed value lands synchronously on
+     * `follow` — the holder is fully populated by the time the callback is built, with no
+     * scheduler in the way of the assertions.
+     */
+    private fun intervals(
+        forwardSec: Int,
+        backwardSec: Int,
+    ): SkipIntervalsHolder {
+        val preferences = mock<PlaybackPreferences>()
+        every { preferences.observeDefaultSkipForwardSec() } returns MutableStateFlow(forwardSec)
+        every { preferences.observeDefaultSkipBackwardSec() } returns MutableStateFlow(backwardSec)
+        return SkipIntervalsHolder(preferences).apply { follow(CoroutineScope(Dispatchers.Unconfined)) }
     }
 
     /**

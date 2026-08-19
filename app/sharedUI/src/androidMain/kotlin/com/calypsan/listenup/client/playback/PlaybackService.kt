@@ -181,6 +181,7 @@ class PlaybackService :
     private val castPreparer: CastPreparer by inject()
     private val uriPermissionGranter: UriPermissionGranter by inject()
     private val systemStrings: SystemStringsHolder by inject()
+    private val skipIntervals: SkipIntervalsHolder by inject()
 
     // Current book ID is read from PlaybackManager (single source of truth)
     private val currentBookId: BookId?
@@ -234,11 +235,6 @@ class PlaybackService :
         // UI-rate position poll interval — matches MediaControllerHolder's former poll cadence
         // (see startPositionUpdates' KDoc for why this now lives here instead).
         private const val POSITION_UI_UPDATE_INTERVAL = 250L
-
-        // ExoPlayer's COMMAND_SEEK_BACK/SEEK_FORWARD increments — matches the in-app
-        // 10s-back/30s-forward skip amounts (see initializePlayer's comment for why).
-        private const val SEEK_BACK_INCREMENT_MS = 10_000L
-        private const val SEEK_FORWARD_INCREMENT_MS = 30_000L
     }
 
     override fun onCreate() {
@@ -246,6 +242,7 @@ class PlaybackService :
         logger.info { "PlaybackService created" }
 
         refreshSystemStrings()
+        followSkipIntervals()
         initializePlayer()
         initializeMediaSession()
         initializeCast()
@@ -332,12 +329,10 @@ class PlaybackService :
                     true,
                 ).setHandleAudioBecomingNoisy(true) // Pause when headphones unplugged
                 .setWakeMode(C.WAKE_MODE_LOCAL) // Keep CPU awake during playback
-                // Match the in-app 10s-back/30s-forward skip amounts (NowPlayingViewModel's
-                // defaults) rather than Media3's 5s/15s defaults, so head units/watches that
-                // render COMMAND_SEEK_BACK/SEEK_FORWARD (car steering-wheel buttons, Wear tiles)
-                // skip by the same amount the in-app buttons do.
-                .setSeekBackIncrementMs(SEEK_BACK_INCREMENT_MS)
-                .setSeekForwardIncrementMs(SEEK_FORWARD_INCREMENT_MS)
+                // No setSeek{Back,Forward}IncrementMs here on purpose: those are builder-only,
+                // so honouring a Settings change through them would mean rebuilding the player
+                // mid-sentence. SkipIntervalPlayer (installed in initializeMediaSession) reads
+                // the live value per press instead — see its KDoc.
                 // Backstop for a stall the socket-read timeout can't see — see StallRecovery.kt.
                 // Media3's own default is ten minutes, which strands the listener.
                 .setStuckBufferingDetectionTimeoutMs(STUCK_BUFFERING_TIMEOUT_MS)
@@ -372,6 +367,13 @@ class PlaybackService :
                 return
             }
 
+        // Skip increments first, chapter window on top: the chapter wrapper routes
+        // COMMAND_SEEK_BACK/SEEK_FORWARD straight down (they are not chapter-relative), which is
+        // exactly where the configured-interval wrapper needs to sit. Not held as a field —
+        // it owns nothing to release, and [activeTransportPlayer] must keep handing out the raw
+        // player, whose coordinates every position calculation in this service speaks.
+        val skipAware = SkipIntervalPlayer(activePlayer, { skipIntervals.forwardMs }, { skipIntervals.backwardMs })
+
         // System surfaces (Auto, notification, lock screen, Bluetooth) get the chapter-scoped
         // presentation wrapper, never the raw local player — see ChapterWindowPlayer's class KDoc.
         // In-app UI still reads PlaybackManager directly for its state (now fed by this service's
@@ -382,7 +384,7 @@ class PlaybackService :
         // session unmodified.
         val wrapper =
             ChapterWindowPlayer(
-                player = activePlayer,
+                player = skipAware,
                 chaptersProvider = { playbackManager.chapters.value },
                 timelineProvider = { playbackManager.currentTimeline.value },
             )
@@ -404,6 +406,7 @@ class PlaybackService :
                     transport = this,
                     uriPermissionGranter = uriPermissionGranter,
                     strings = systemStrings,
+                    skipIntervals = skipIntervals,
                 ),
             )
         if (sessionIntent != null) {
@@ -420,6 +423,7 @@ class PlaybackService :
             AudiobookNotificationProvider(
                 context = this,
                 playbackManager = playbackManager,
+                skipIntervals = skipIntervals,
                 // Read off the transport player, never the session player: the session is
                 // presented by ChapterWindowPlayer, whose title is the current chapter.
                 bookTitle = { activeTransportPlayer()?.mediaMetadata?.title },
@@ -467,6 +471,17 @@ class PlaybackService :
      */
     private fun refreshSystemStrings() {
         serviceScope.launch { systemStrings.refresh() }
+    }
+
+    /**
+     * Start tracking the user's configured skip intervals.
+     *
+     * Before [initializePlayer], so the first press a car can possibly issue already reads a
+     * real value rather than the stock fallback. The read is Room-only, so this stays correct
+     * with no server and no session.
+     */
+    private fun followSkipIntervals() {
+        skipIntervals.follow(serviceScope)
     }
 
     /**

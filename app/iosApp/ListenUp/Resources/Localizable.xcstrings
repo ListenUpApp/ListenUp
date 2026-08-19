@@ -4421,12 +4421,12 @@
         }
       }
     },
-    "car.back_30": {
+    "car.back_seconds": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Back 30s"
+            "value": "Back %1$@s"
           }
         }
       }
@@ -4481,12 +4481,12 @@
         }
       }
     },
-    "car.forward_30": {
+    "car.forward_seconds": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Forward 30s"
+            "value": "Forward %1$@s"
           }
         }
       }
@@ -10871,16 +10871,6 @@
         }
       }
     },
-    "player.skip_back_10s": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skip back 10 seconds"
-          }
-        }
-      }
-    },
     "player.skip_backward": {
       "localizations": {
         "en": {
@@ -10897,16 +10887,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Skip forward %1$@ seconds"
-          }
-        }
-      }
-    },
-    "player.skip_forward_30s": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skip forward 30 seconds"
           }
         }
       }

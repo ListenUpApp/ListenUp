@@ -19,9 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.OpenInFull
-import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,6 +36,7 @@ import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.features.nowplaying.components.Ctrl
 import com.calypsan.listenup.client.features.nowplaying.components.LabelPill
 import com.calypsan.listenup.client.features.nowplaying.components.PlayPauseFab
+import com.calypsan.listenup.client.features.nowplaying.components.SkipGlyphs
 import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
@@ -45,8 +44,8 @@ import kotlin.time.Duration.Companion.milliseconds
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.player_cover_a11y
 import listenup.composeapp.generated.resources.player_expand
-import listenup.composeapp.generated.resources.player_skip_back_10s
-import listenup.composeapp.generated.resources.player_skip_forward_30s
+import listenup.composeapp.generated.resources.player_skip_backward
+import listenup.composeapp.generated.resources.player_skip_forward
 import org.jetbrains.compose.resources.stringResource
 
 /** Height of the single-row docked mini-player bar (medium/expanded width, TV). */
@@ -58,7 +57,7 @@ internal val DockedNowPlayingBarHeight = 72.dp
  * A full-width single-row bar ([DockedNowPlayingBarHeight] tall, [surfaceContainerLow] background,
  * large rounded corners), everything on one line, vertically centred:
  * - 48dp cover + book title / chapter info (bounded so the scrubber gets the flexible width)
- * - transport controls: replay-10 / play-pause FAB / forward-30
+ * - transport controls: skip back / play-pause FAB / skip forward
  * - inline seekable [WavySeekBar] with elapsed and remaining time labels (fills remaining width)
  * - speed pill + expand button
  *
@@ -79,6 +78,8 @@ fun DockedNowPlayingBar(
     onSkipForward: () -> Unit,
     onSeek: (Float) -> Unit,
     onSpeedClick: () -> Unit,
+    skipBackwardSec: Int,
+    skipForwardSec: Int,
     modifier: Modifier = Modifier,
     isPlayPending: Boolean = false,
 ) {
@@ -133,6 +134,8 @@ fun DockedNowPlayingBar(
                     onSeek = onSeek,
                     onSpeedClick = onSpeedClick,
                     onExpand = onTap,
+                    skipBackwardSec = skipBackwardSec,
+                    skipForwardSec = skipForwardSec,
                     isPlayPending = isPlayPending,
                 )
             }
@@ -150,6 +153,8 @@ private fun ActiveDockedContent(
     onSeek: (Float) -> Unit,
     onSpeedClick: () -> Unit,
     onExpand: () -> Unit,
+    skipBackwardSec: Int,
+    skipForwardSec: Int,
     isPlayPending: Boolean,
 ) {
     Row(
@@ -199,8 +204,8 @@ private fun ActiveDockedContent(
 
         // Transport.
         Ctrl(
-            icon = Icons.Default.Replay10,
-            contentDescription = stringResource(Res.string.player_skip_back_10s),
+            icon = SkipGlyphs.backward(skipBackwardSec),
+            contentDescription = stringResource(Res.string.player_skip_backward, skipBackwardSec),
             onClick = onSkipBack,
             size = 40.dp,
         )
@@ -214,8 +219,8 @@ private fun ActiveDockedContent(
             shadowElevation = 0.dp,
         )
         Ctrl(
-            icon = Icons.Default.Forward30,
-            contentDescription = stringResource(Res.string.player_skip_forward_30s),
+            icon = SkipGlyphs.forward(skipForwardSec),
+            contentDescription = stringResource(Res.string.player_skip_forward, skipForwardSec),
             onClick = onSkipForward,
             size = 40.dp,
         )

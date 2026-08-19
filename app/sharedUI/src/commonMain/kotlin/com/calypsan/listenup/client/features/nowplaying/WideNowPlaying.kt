@@ -76,8 +76,8 @@ private val CONTROLS_MAX_WIDTH = 520.dp
  * @param onCollapse Called when the collapse button is tapped.
  * @param onPlayPause Called when the play/pause FAB is tapped.
  * @param onSeek Called with a 0f–1f fractional position when the user seeks.
- * @param onSkipBack Called when replay-10 is tapped.
- * @param onSkipForward Called when forward-30 is tapped.
+ * @param onSkipBack Called when skip-back is tapped.
+ * @param onSkipForward Called when skip-forward is tapped.
  * @param onPreviousChapter Called when skip-previous is tapped.
  * @param onNextChapter Called when skip-next is tapped.
  * @param onSpeedClick Called when the speed pill is tapped.
@@ -90,6 +90,8 @@ private val CONTROLS_MAX_WIDTH = 520.dp
  * @param onShowAuthorPicker Called when the folded author line or "Go to Author…" is tapped.
  * @param onShowNarratorPicker Called when the folded narrator line or "Go to Narrator…" is tapped.
  * @param onCloseBook Called when "Close Book" is selected from the overflow menu.
+ * @param skipBackwardSec The user's configured backward skip, in seconds.
+ * @param skipForwardSec The user's configured forward skip, in seconds.
  * @param modifier Optional layout modifier applied to the root [Surface].
  */
 @Suppress("LongParameterList", "LongMethod")
@@ -114,6 +116,8 @@ fun WideNowPlaying(
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
     onCloseBook: () -> Unit,
+    skipBackwardSec: Int,
+    skipForwardSec: Int,
     hasPdf: Boolean = false,
     onOpenPdf: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -263,6 +267,8 @@ fun WideNowPlaying(
                             onSkipForward = onSkipForward,
                             onPreviousChapter = onPreviousChapter,
                             onNextChapter = onNextChapter,
+                            skipBackwardSec = skipBackwardSec,
+                            skipForwardSec = skipForwardSec,
                             fabSize = 96.dp,
                             modifier = Modifier.fillMaxWidth(),
                         )
