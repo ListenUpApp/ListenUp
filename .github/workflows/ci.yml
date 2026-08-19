@@ -219,11 +219,32 @@ jobs:
       # one is not blocked, which makes the version check below the anti-fake-green: if the install
       # ever stops landing, the job fails here instead of the gate quietly opting out.
       - name: Install FFmpeg (transcoder drift gate)
+        # ⛔ Bounded and retried, because apt on the hosted runners hangs rather than fails. One such
+        # hang ate this job's entire 45-minute budget (2026-08-19) and took the whole gate with it;
+        # the same day it stalled the linuxX64 job for 30 minutes and cleared on a re-run. `timeout`
+        # per attempt turns a hang into a failed attempt the loop can actually retry, and the step
+        # timeout is the backstop so the worst case costs minutes rather than the run.
+        timeout-minutes: 8
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends ffmpeg
-          ffmpeg -version | head -1
-          ffprobe -version | head -1
+          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
+            echo "ffmpeg already present on the runner"
+            ffmpeg -version | head -1
+            exit 0
+          fi
+          for attempt in 1 2 3; do
+            if timeout 120 sudo apt-get update \
+               && timeout 240 sudo apt-get install -y --no-install-recommends ffmpeg; then
+              ffmpeg -version | head -1
+              ffprobe -version | head -1
+              exit 0
+            fi
+            echo "::warning::apt attempt $attempt failed or hung; retrying"
+            sleep 15
+          done
+          # Deliberately fatal. The drift gate SKIPS without ffmpeg, so letting this pass would turn
+          # the one test that measures real encoder output into a silent no-op.
+          echo "::error::could not install ffmpeg — the transcoder drift gate would silently skip"
+          exit 1
 
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
