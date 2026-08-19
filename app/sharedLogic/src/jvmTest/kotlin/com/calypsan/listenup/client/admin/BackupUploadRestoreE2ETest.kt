@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.testinfra.StripSocketTimeout
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
@@ -118,6 +119,10 @@ class BackupUploadRestoreE2ETest :
 
                     val authedRestClient =
                         createClient {
+                            // See StripSocketTimeout: production uploadBackup() sets a socket timeout, and
+                            // the test engine's watchdog for it races the upload completing. Without this
+                            // the spec fails ~half the time with a spurious NetworkUnavailable.
+                            install(StripSocketTimeout)
                             install(ContentNegotiation) { json(contractJson) }
                             install(Auth) {
                                 bearer {
