@@ -24,12 +24,12 @@ class ProcessTranscodeSpawner(
     private val scope: CoroutineScope,
     private val runner: ProcessRunner = ProcessRunner(),
 ) : TranscodeSpawner {
-    override suspend fun start(command: List<String>) {
+    override suspend fun start(commands: List<List<String>>) {
         scope.launch {
             // FFmpeg writes progress and warnings to stderr; only the tail matters, and only when
             // something went wrong, so it goes to debug rather than being accumulated in memory.
-            val exit = runner.run(command) { line -> log.debug { line } }
-            if (exit != 0) log.warn { "ffmpeg exited $exit for ${command.firstOrNull()}" }
+            val exit = runner.runPipeline(commands) { line -> log.debug { line } }
+            if (exit != 0) log.warn { "transcode pipeline exited $exit: ${commands.map { it.firstOrNull() }}" }
         }
         runner.awaitStarted()
     }

@@ -34,6 +34,7 @@ sealed interface TranscoderStatus {
  */
 class TranscoderProvisioner(
     private val candidatePaths: () -> List<String> = ::defaultCandidates,
+    private val decoderCandidatePaths: () -> List<String> = ::defaultDecoderCandidates,
     private val runProcess: suspend (List<String>, (String) -> Unit) -> Int,
 ) {
     /**
@@ -67,7 +68,46 @@ class TranscoderProvisioner(
         }
         return TranscoderStatus.Unavailable("no working ffmpeg found — transcoding is off")
     }
+
+    /**
+     * Finds the external FDK decoder, or null when there is none.
+     *
+     * Needed because FFmpeg cannot correctly decode xHE-AAC — it drops what it cannot parse and
+     * exits 0 — so those sources are decoded by Fraunhofer FDK through GStreamer instead. A server
+     * without it still transcodes everything else; it just refuses xHE rather than mangling it.
+     *
+     * The probe builds a pipeline containing the element and feeds it nothing (`num-buffers=0`):
+     * exit 0 means the element exists, and a missing element exits 1. Cheap, and it needs no second
+     * binary in the image — verified against the distroless runtime, where the plugin registry is
+     * built on first use.
+     */
+    suspend fun probeDecoder(): String? {
+        for (path in decoderCandidatePaths()) {
+            val exit = runProcess(decoderProbeCommand(path)) { }
+            if (exit == MISSING_BINARY_EXIT_CODE || exit == SPAWN_FAILED_EXIT_CODE) continue
+            if (exit != 0) {
+                log.warn { "$path has no fdkaacdec element (exit $exit) — xHE-AAC cannot be transcoded" }
+                continue
+            }
+            log.info { "external decoder available: $path (fdkaacdec)" }
+            return path
+        }
+        log.info { "no FDK decoder found — xHE-AAC sources will not be transcoded" }
+        return null
+    }
 }
+
+/** Instantiates `fdkaacdec` and feeds it nothing; exit 0 proves the element exists. */
+internal fun decoderProbeCommand(path: String): List<String> =
+    listOf(path, "-q", "fakesrc", "num-buffers=0", "!", "fdkaacdec", "!", "fakesink")
+
+/** `$LISTENUP_GST_LAUNCH`, then the image's own copy, then `PATH` — mirrors [defaultCandidates]. */
+internal fun defaultDecoderCandidates(): List<String> =
+    listOfNotNull(
+        readEnv("LISTENUP_GST_LAUNCH"),
+        "/usr/local/bin/gst-launch-1.0",
+        "gst-launch-1.0",
+    )
 
 /**
  * Asks ffmpeg to encode a tenth of a second of silence to AAC and throw it away.

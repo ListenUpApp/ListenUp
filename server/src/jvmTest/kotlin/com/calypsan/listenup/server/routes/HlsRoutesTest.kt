@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.testing.FfmpegTestSupport
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
+import com.calypsan.listenup.server.transcode.AdtsFixtures
 import com.calypsan.listenup.server.transcode.SegmentCache
 import com.calypsan.listenup.server.transcode.TranscoderAvailability
 import com.calypsan.listenup.server.transcode.TranscoderStatus
@@ -118,7 +119,8 @@ class HlsRoutesTest :
         test("a segment already in cache is served without starting an encode") {
             withHlsFixture { client, query ->
                 val cache by application.inject<SegmentCache>()
-                val segmentBytes = ByteArray(64) { it.toByte() }
+                // Exactly what the playlist promises for a whole segment; the serve path verifies it.
+                val segmentBytes = AdtsFixtures.stream(FRAMES_PER_SEGMENT)
                 cache.prepareDir("b1", "af1")
                 Files.write(
                     java.nio.file.Path
@@ -163,6 +165,41 @@ class HlsRoutesTest :
                 }
             }
 
+        // ⛔ The regression test for the worst failure this arc can have. FFmpeg's own xHE-AAC
+        // decoder drops roughly a quarter of the audio and exits 0, so a server without the FDK
+        // decoder must REFUSE these rather than serve a book with a fifth of it silently missing.
+        // 501, not 503: retrying changes nothing until an operator installs a decoder.
+        test("an xHE-AAC source with no FDK decoder is refused rather than quietly mangled")
+            .config(enabled = FfmpegTestSupport.isAvailable) {
+                withHlsFixture(encoder = FfmpegTestSupport.ffmpeg, codecProfile = "xhe") { client, query ->
+                    client.get("/api/v1/hls/b1/af1/seg/0.aac?$query").status shouldBe
+                        HttpStatusCode.NotImplemented
+                }
+            }
+
+        // ⛔ The guard that makes a lossy transcode impossible to serve quietly. An encoder that
+        // exits 0 having written a short segment is exactly the xHE-AAC failure mode, and counting
+        // frames is the only check that sees it.
+        test("a segment holding fewer frames than the playlist promised is refused, not served") {
+            withHlsFixture { client, query ->
+                val cache by application.inject<SegmentCache>()
+                cache.prepareDir("b1", "af1")
+                Files.write(
+                    java.nio.file.Path
+                        .of(cache.segmentPath("b1", "af1", 0).toString()),
+                    AdtsFixtures.stream(FRAMES_PER_SEGMENT - 40),
+                )
+                Files.write(
+                    java.nio.file.Path
+                        .of(cache.runListPath("b1", "af1", 0).toString()),
+                    "seg00000.aac\n".toByteArray(),
+                )
+
+                client.get("/api/v1/hls/b1/af1/seg/0.aac?$query").status shouldBe
+                    HttpStatusCode.InternalServerError
+            }
+        }
+
         // A server with no encoder must say so, not hand out a playlist whose segments can never
         // be produced. 501 rather than 503: retrying changes nothing until an operator acts.
         test("with no encoder available the playlist is refused as unavailable") {
@@ -183,6 +220,7 @@ class HlsRoutesTest :
 private suspend fun withHlsFixture(
     available: Boolean = true,
     encoder: String? = null,
+    codecProfile: String = "lc",
     block: suspend ApplicationTestBuilder.(HttpClient, String) -> Unit,
 ) {
     val libraryRoot = Files.createTempDirectory("listenup-hls-")
@@ -210,7 +248,7 @@ private suspend fun withHlsFixture(
             }
 
             val repo by application.inject<BookRepository>()
-            repo.upsert(hlsFixture())
+            repo.upsert(hlsFixture(codecProfile))
 
             // Reachable the simplest pure-union way: a collection user1 owns.
             val sql by application.inject<ListenUpDatabase>()
@@ -240,7 +278,7 @@ private suspend fun withHlsFixture(
     }
 }
 
-private fun hlsFixture(): BookSyncPayload =
+private fun hlsFixture(codecProfile: String = "lc"): BookSyncPayload =
     BookSyncPayload(
         id = "b1",
         libraryId = LibraryId("test-library"),
@@ -275,7 +313,7 @@ private fun hlsFixture(): BookSyncPayload =
                     // whole, long enough that the final short segment exists.
                     duration = BOOK_SECONDS * 1000L,
                     size = 256L,
-                    codecProfile = "xhe",
+                    codecProfile = codecProfile,
                     sampleRate = 44_100,
                 ),
             ),

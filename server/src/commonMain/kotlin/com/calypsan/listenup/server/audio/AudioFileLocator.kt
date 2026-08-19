@@ -30,6 +30,8 @@ data class TranscodeSourceInfo(
     val sampleRate: Int?,
     val codec: String,
     val codecProfile: String?,
+    /** Channel count, or null when unrecorded — raw PCM between pipeline stages needs it exact. */
+    val channels: Int?,
 )
 
 /**
@@ -95,6 +97,7 @@ class AudioFileLocator(
                         sampleRate = it.sampleRate?.toInt(),
                         codec = it.codec,
                         codecProfile = it.codecProfile,
+                        channels = it.channels?.toInt(),
                     )
                 }
         }

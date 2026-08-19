@@ -18,6 +18,12 @@ data class TranscodeSession(
     val durationMs: Long,
     /** Segment index this encoder run started at — FFmpeg numbers its output from here. */
     val startSegment: Int = 0,
+    /** Container codec (`book_audio_files.codec`), e.g. `aac`, `mp3` — picks the decoder path. */
+    val codec: String = "aac",
+    /** AAC object type (`codecProfile`), e.g. `lc`, `xhe`; null when unknown. */
+    val codecProfile: String? = null,
+    /** Channel count. Raw PCM between pipeline stages carries no header, so this must be right. */
+    val channels: Int = TranscodeCommand.FALLBACK_CHANNELS,
 )
 
 /** Whether a segment request got an encoder. */
@@ -27,6 +33,15 @@ sealed interface SessionAdmission {
 
     /** The concurrency gate is full. The caller answers a retryable `TranscoderBusy`. */
     data object Busy : SessionAdmission
+
+    /**
+     * This source needs a decoder the server does not have, so no encoder was started.
+     *
+     * Refusing beats encoding: FFmpeg's own xHE-AAC decoder drops roughly a quarter of the audio
+     * and still exits 0, so "transcode it anyway" would hand the listener a book with a fifth of it
+     * silently missing and a seek bar that lies about it.
+     */
+    data object Unsupported : SessionAdmission
 }
 
 /**
@@ -37,7 +52,7 @@ sealed interface SessionAdmission {
  * at exit would stall every listener until their whole book had been encoded.
  */
 interface TranscodeSpawner {
-    suspend fun start(command: List<String>)
+    suspend fun start(commands: List<List<String>>)
 
     fun stop()
 }
@@ -56,6 +71,7 @@ interface TranscodeSpawner {
  */
 class TranscodeSessionEngine(
     private val ffmpegPath: () -> String,
+    private val decoderPath: () -> String? = { null },
     private val cache: SegmentCache,
     private val settings: TranscodeSettings,
     private val newSpawner: () -> TranscodeSpawner,
@@ -89,7 +105,7 @@ class TranscodeSessionEngine(
             }
             if (running.size >= settings.maxConcurrentSessions) return@withLock SessionAdmission.Busy
 
-            running[key] = spawn(session, fromSegment)
+            running[key] = spawn(session, fromSegment) ?: return@withLock SessionAdmission.Unsupported
             SessionAdmission.Admitted
         }
 
@@ -125,21 +141,22 @@ class TranscodeSessionEngine(
     private suspend fun spawn(
         session: TranscodeSession,
         fromSegment: Int,
-    ): RunningSession {
+    ): RunningSession? {
         val plan = HlsPlaylist.plan(session.durationMs, session.sampleRate, settings.targetSegmentSeconds)
-        cache.prepareDir(session.bookId, session.fileId)
-        val spawner = newSpawner()
-        spawner.start(
-            command(
+        val commands =
+            TranscodeCommand.forSession(
                 ffmpegPath = ffmpegPath(),
+                decoderPath = decoderPath(),
                 session = session.copy(startSegment = fromSegment),
                 startSeconds = fromSegment * plan.segmentSeconds,
                 plan = plan,
                 outputPattern = cache.segmentPattern(session.bookId, session.fileId),
                 runListPath = cache.runListPath(session.bookId, session.fileId, fromSegment).toString(),
                 bitrateKbps = settings.bitrateKbps,
-            ),
-        )
+            ) ?: return null
+        cache.prepareDir(session.bookId, session.fileId)
+        val spawner = newSpawner()
+        spawner.start(commands)
         return RunningSession(fromSegment, spawner, elapsedMillis())
     }
 
@@ -179,61 +196,3 @@ private fun monotonicMillis(): () -> Long {
     val origin = TimeSource.Monotonic.markNow()
     return { origin.elapsedNow().inWholeMilliseconds }
 }
-
-/**
- * The FFmpeg invocation for one encoder run.
- *
- * Kept as a pure function so the engine's tests can assert on the exact argv without a process.
- */
-private fun command(
-    ffmpegPath: String,
-    session: TranscodeSession,
-    startSeconds: Double,
-    plan: HlsPlaylist.Plan,
-    outputPattern: String,
-    runListPath: String,
-    bitrateKbps: Int,
-): List<String> =
-    listOf(
-        ffmpegPath,
-        "-nostdin",
-        "-hide_banner",
-        "-loglevel",
-        "warning",
-        // -ss BEFORE -i seeks by index rather than decoding to the point: the difference between
-        // starting a 90-hour book's last chapter in a second and in a minute.
-        "-ss",
-        HlsPlaylist.formatSeconds(startSeconds),
-        "-i",
-        session.sourcePath,
-        "-vn",
-        "-map",
-        "0:a:0",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "${bitrateKbps}k",
-        // ⛔ Never resample: HlsPlaylist's frame math is computed from the SOURCE rate, and an
-        // output at a different rate makes every declared EXTINF describe a file we did not write.
-        "-ar",
-        session.sampleRate.toString(),
-        "-f",
-        "segment",
-        "-segment_format",
-        "adts",
-        "-segment_time",
-        HlsPlaylist.formatSeconds(plan.segmentSeconds),
-        "-segment_start_number",
-        session.startSegment.toString(),
-        // The muxer's own completion signal. A segment file exists from the moment it is opened, so
-        // this list — appended to as each segment is CLOSED — is the only thing that can tell a
-        // waiting request that the last segment of this run is whole. `+live` flushes per entry
-        // rather than at exit, which is what makes it useful while the encode is still running.
-        "-segment_list",
-        runListPath,
-        "-segment_list_type",
-        "flat",
-        "-segment_list_flags",
-        "+live",
-        outputPattern,
-    )

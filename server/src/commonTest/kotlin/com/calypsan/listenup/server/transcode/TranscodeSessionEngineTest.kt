@@ -135,13 +135,16 @@ private val SESSION =
 
 /** Records what the engine would have run instead of spawning anything. */
 private class FakeSpawner {
-    val commands = mutableListOf<List<String>>()
+    val pipelines = mutableListOf<List<List<String>>>()
     var killed = 0
+
+    /** The first stage of each run — for a source FFmpeg can decode, that is the whole pipeline. */
+    val commands: List<List<String>> get() = pipelines.map { it.first() }
 
     fun spawner(): TranscodeSpawner =
         object : TranscodeSpawner {
-            override suspend fun start(command: List<String>) {
-                commands += command
+            override suspend fun start(commands: List<List<String>>) {
+                pipelines += commands
             }
 
             override fun stop() {

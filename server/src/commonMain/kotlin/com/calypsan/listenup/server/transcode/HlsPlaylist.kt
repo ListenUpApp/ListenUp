@@ -44,7 +44,26 @@ object HlsPlaylist {
     data class Plan(
         val segmentSeconds: Double,
         val segmentDurations: List<Double>,
-    )
+        /** The source rate the segment maths was computed from — never resampled on the way out. */
+        val sampleRate: Int,
+        /** Frames in every segment but the last. Exactly what a whole segment must contain. */
+        val framesPerSegment: Int,
+    ) {
+        /**
+         * How many AAC frames segment [index] must actually hold to match what this playlist
+         * promised a player. Used to verify encoder output before it is served — see [AdtsFrames].
+         *
+         * Whole segments are exact: measured against real FFmpeg, every one is precisely
+         * [framesPerSegment]. Only the final segment gets slack, and only one frame of it, because
+         * the encoder pads its last frame out to a whole 1024 samples.
+         */
+        fun expectedFrames(index: Int): IntRange {
+            if (index !in segmentDurations.indices) return IntRange.EMPTY
+            if (index < segmentDurations.lastIndex) return framesPerSegment..framesPerSegment
+            val tail = ceil(segmentDurations.last() * sampleRate / SAMPLES_PER_FRAME).toInt()
+            return tail..(tail + 1)
+        }
+    }
 
     /**
      * Segments [durationMs] of audio at [sampleRate] into frame-aligned chunks of about
@@ -65,7 +84,7 @@ object HlsPlaylist {
         val durations = MutableList(whole) { segmentSeconds }
         if (remainder > 0.0) durations += remainder
 
-        return Plan(segmentSeconds, durations)
+        return Plan(segmentSeconds, durations, rate, framesPerSegment)
     }
 
     /**

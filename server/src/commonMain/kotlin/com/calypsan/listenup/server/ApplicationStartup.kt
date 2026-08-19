@@ -93,7 +93,10 @@ internal fun Application.startBackgroundTasks(
     if (environment.config.transcodeProbeOnStartup()) {
         scope.launchNeverFatal("transcoder probe failed") {
             val availability = koinGet<TranscoderAvailability>()
-            availability.publish(koinGet<TranscoderProvisioner>().probe())
+            val provisioner = koinGet<TranscoderProvisioner>()
+            // Two independent questions: can this server encode at all, and can it decode the
+            // sources FFmpeg gets wrong. A server may well answer yes to the first and no to the second.
+            availability.publish(provisioner.probe(), provisioner.probeDecoder())
             koinGet<TranscodeSessionEngine>().startWatchdog(scope)
         }
     }

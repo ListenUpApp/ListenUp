@@ -236,6 +236,9 @@ private fun Module.transcodeBindings(
             // Read per spawn, never captured: the boot probe is asynchronous and may land after this
             // singleton is built. The routes refuse before reaching here when it is absent.
             ffmpegPath = { availability.path.orEmpty() },
+            // Same reasoning, and separately absent: a server can have a working encoder and no FDK
+            // decoder, in which case xHE-AAC sources are refused rather than silently mangled.
+            decoderPath = { availability.decoderPath },
             cache = get(),
             settings = get(),
             // One child per encoder run, on the application scope so an encode outlives the request

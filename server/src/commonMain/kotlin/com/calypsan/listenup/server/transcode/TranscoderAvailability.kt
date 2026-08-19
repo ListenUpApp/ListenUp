@@ -17,10 +17,27 @@ class TranscoderAvailability {
     @Volatile
     private var status: TranscoderStatus = TranscoderStatus.Unavailable("the encoder probe has not finished")
 
+    @Volatile
+    private var decoder: String? = null
+
     /** Records the probe's outcome. Called once at startup. */
-    fun publish(probed: TranscoderStatus) {
+    fun publish(
+        probed: TranscoderStatus,
+        probedDecoder: String? = null,
+    ) {
         status = probed
+        decoder = probedDecoder
     }
+
+    /**
+     * Path to the external FDK decoder, or null when there is none.
+     *
+     * Separate from [path] because it answers a different question: FFmpeg encodes everything, but
+     * it cannot correctly *decode* xHE-AAC, and a server with an encoder but no FDK decoder must
+     * refuse those sources rather than transcode them into silently truncated audio.
+     */
+    val decoderPath: String?
+        get() = decoder
 
     /** The verified FFmpeg path, or null when no usable encoder was found. */
     val path: String?

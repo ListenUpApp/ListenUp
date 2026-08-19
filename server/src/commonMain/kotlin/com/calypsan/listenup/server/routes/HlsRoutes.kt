@@ -6,10 +6,14 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.UserRoleLookup
+import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.io.respondSeekable
+import com.calypsan.listenup.server.transcode.AdtsFrames
 import com.calypsan.listenup.server.transcode.HlsPlaylist
 import com.calypsan.listenup.server.transcode.SegmentCache
 import com.calypsan.listenup.server.transcode.SessionAdmission
+import com.calypsan.listenup.server.transcode.TranscodeCommand
 import com.calypsan.listenup.server.transcode.TranscodeSession
 import com.calypsan.listenup.server.transcode.TranscodeSessionEngine
 import com.calypsan.listenup.server.transcode.TranscodeSettings
@@ -22,6 +26,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 
 /** `application/vnd.apple.mpegurl` — the type every HLS player expects for an `.m3u8`. */
@@ -121,17 +126,17 @@ private suspend fun ApplicationCall.serveSegment(
     val target = authorizeHls(signer, roleLookup, accessPolicy) ?: return
     if (!canTranscode(settings, availability)) return respondTranscoderUnavailable()
     val index = parameters["index"]?.toIntOrNull()?.takeIf { it >= 0 } ?: return respond(HttpStatusCode.BadRequest)
+    val info = locator.transcodeInfo(target.bookId, target.fileId) ?: return respond(HttpStatusCode.NotFound)
+    val plan = HlsPlaylist.plan(info.durationMs, info.sampleRate, settings.targetSegmentSeconds)
 
     // Already encoded: serve it and never wake the encoder. This is the common case once a listener
     // is a few segments in, and it is what makes re-listening free. Completeness, not mere
     // existence — a segment FFmpeg is still writing exists, and serving it truncates the audio.
     if (cache.isComplete(target.bookId, target.fileId, index)) {
-        return respondSeekable(cache.segmentPath(target.bookId, target.fileId, index), AAC)
+        return respondVerifiedSegment(cache, target, index, plan)
     }
 
     val location = locator.locate(target.bookId, target.fileId) ?: return respond(HttpStatusCode.NotFound)
-    val info = locator.transcodeInfo(target.bookId, target.fileId) ?: return respond(HttpStatusCode.NotFound)
-
     val session =
         TranscodeSession(
             bookId = target.bookId,
@@ -139,15 +144,30 @@ private suspend fun ApplicationCall.serveSegment(
             sourcePath = location.path.toString(),
             sampleRate = info.sampleRate ?: HlsPlaylist.FALLBACK_SAMPLE_RATE,
             durationMs = info.durationMs,
+            codec = info.codec,
+            codecProfile = info.codecProfile,
+            channels = info.channels ?: TranscodeCommand.FALLBACK_CHANNELS,
         )
     when (engine.ensureRunning(session, index)) {
         SessionAdmission.Busy -> {
             respondAppResult<Unit>(AppResult.Failure(TranscodeError.TranscoderBusy()))
         }
 
+        // No decoder this source can be trusted to, so nothing was started. Encoding it anyway
+        // would serve audio with a fifth of the book silently missing.
+        SessionAdmission.Unsupported -> {
+            respondAppResult<Unit>(
+                AppResult.Failure(
+                    TranscodeError.TranscoderUnavailable(
+                        debugInfo = "no FDK decoder for ${info.codec}/${info.codecProfile}",
+                    ),
+                ),
+            )
+        }
+
         SessionAdmission.Admitted -> {
             if (awaitSegment(cache, target.bookId, target.fileId, index)) {
-                respondSeekable(cache.segmentPath(target.bookId, target.fileId, index), AAC)
+                respondVerifiedSegment(cache, target, index, plan)
             } else {
                 // The encoder was admitted but the bytes never arrived inside the window. The player
                 // retries the same URL, which is why this is not a hard failure.
@@ -155,6 +175,37 @@ private suspend fun ApplicationCall.serveSegment(
             }
         }
     }
+}
+
+/**
+ * Serves a segment only if it holds the number of AAC frames the playlist promised for it.
+ *
+ * ⛔ **An encoder exiting 0 is not proof it worked.** FFmpeg handed an xHE-AAC source it cannot
+ * fully decode drops the packets it cannot parse, writes short segments, and reports success —
+ * measured at a median 23% of the audio missing across a real library. Counting frames is the only
+ * check that catches that, and it catches every other cause of a short segment for free: a killed
+ * encoder, a truncated write, a full disk.
+ */
+private suspend fun ApplicationCall.respondVerifiedSegment(
+    cache: SegmentCache,
+    target: HlsTarget,
+    index: Int,
+    plan: HlsPlaylist.Plan,
+) {
+    val path = cache.segmentPath(target.bookId, target.fileId, index)
+    val frames = withContext(fileIoDispatcher) { AdtsFrames.countFrames(path.readBytes()) }
+    val expected = plan.expectedFrames(index)
+    if (frames == null || frames !in expected) {
+        return respondAppResult<Unit>(
+            AppResult.Failure(
+                TranscodeError.TranscodeFailed(
+                    debugInfo =
+                        "segment $index of ${target.bookId}/${target.fileId} holds $frames frames, expected $expected",
+                ),
+            ),
+        )
+    }
+    respondSeekable(path, AAC)
 }
 
 /** The `(bookId, fileId)` a verified request is for. */
