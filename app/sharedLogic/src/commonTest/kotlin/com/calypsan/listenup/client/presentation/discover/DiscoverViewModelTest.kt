@@ -65,13 +65,15 @@ class DiscoverViewModelTest :
             sessionId: String = "active-1",
             userId: String = OTHER_USER_ID,
             bookId: String = "book-1",
+            lastActiveAtMs: Long = 0L,
+            isLive: Boolean = true,
         ): ActiveSession =
             ActiveSession(
                 sessionId = sessionId,
                 userId = userId,
                 bookId = bookId,
-                startedAtMs = 0L,
-                updatedAtMs = 0L,
+                lastActiveAtMs = lastActiveAtMs,
+                isLive = isLive,
                 user =
                     ActiveSession.SessionUser(
                         displayName = "Reader",
@@ -202,6 +204,32 @@ class DiscoverViewModelTest :
                 val ready = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
                 ready.sessions.size shouldBe 1
                 ready.sessions.first().sessionId shouldBe "s-1"
+            }
+        }
+
+        test("currentlyListeningState carries the live flag and last-active timestamp to the UI model") {
+            runTest {
+                // Given — one person listening now, one shown on the book they last played.
+                val fixture = createFixture()
+                fixture.activeSessionsFlow.value =
+                    listOf(
+                        createActiveSession(sessionId = "s-live", userId = "u-live", isLive = true, lastActiveAtMs = 7_000L),
+                        createActiveSession(sessionId = "s-recent", userId = "u-recent", isLive = false, lastActiveAtMs = 3_000L),
+                    )
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.currentlyListeningState) }
+                advanceUntilIdle()
+
+                // Then — the section renders "Listening now" vs a relative time off these two fields,
+                // so dropping either here collapses the two row kinds into one indistinguishable card.
+                val ready = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Ready>()
+                val live = ready.sessions.first { it.userId == "u-live" }
+                val recent = ready.sessions.first { it.userId == "u-recent" }
+                live.isLive shouldBe true
+                live.lastActiveAt shouldBe 7_000L
+                recent.isLive shouldBe false
+                recent.lastActiveAt shouldBe 3_000L
             }
         }
 

@@ -29,6 +29,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -45,13 +46,15 @@ class ActiveSessionRepositoryImplTest :
             bookId: String,
             displayName: String = "User",
             avatarType: String = "auto",
-            startedAtMs: Long = 1_000L,
+            lastActiveAtMs: Long = 1_000L,
+            isLive: Boolean = true,
         ) = CurrentlyListeningSession(
             userId = userId,
             displayName = displayName,
             avatarType = avatarType,
             bookId = bookId,
-            startedAtMs = startedAtMs,
+            lastActiveAtMs = lastActiveAtMs,
+            isLive = isLive,
         )
 
         fun bookDaoReturning(vararg summaries: BookSummary): BookDao {
@@ -254,6 +257,71 @@ class ActiveSessionRepositoryImplTest :
             }
         }
 
+        test("carries the live flag and last-active timestamp from the wire through the cache") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns
+                            AppResult.Success(
+                                listOf(
+                                    session(userId = "u2", bookId = "bookA", isLive = true, lastActiveAtMs = 7_000L),
+                                    session(userId = "u3", bookId = "bookA", isLive = false, lastActiveAtMs = 3_000L),
+                                ),
+                            )
+                    }
+                val bookDao =
+                    bookDaoReturning(
+                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
+                    )
+
+                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
+                    .observeActiveSessions("u1")
+                    .test {
+                        val sessions = awaitNonEmpty()
+                        val live = sessions.first { it.userId == "u2" }
+                        val recent = sessions.first { it.userId == "u3" }
+                        live.isLive shouldBe true
+                        live.lastActiveAtMs shouldBe 7_000L
+                        // The recent half is what makes the section render at all on a quiet server;
+                        // if its flag or timestamp is dropped here the UI cannot tell the two apart.
+                        recent.isLive shouldBe false
+                        recent.lastActiveAtMs shouldBe 3_000L
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("reads live rows ahead of recent ones, newest first within each group") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns
+                            AppResult.Success(
+                                listOf(
+                                    // Deliberately shuffled, and the recent rows carry the LARGER
+                                    // timestamps — liveness has to win over raw recency.
+                                    session(userId = "recent-older", bookId = "bookA", isLive = false, lastActiveAtMs = 80_000L),
+                                    session(userId = "live-older", bookId = "bookA", isLive = true, lastActiveAtMs = 100L),
+                                    session(userId = "recent-newer", bookId = "bookA", isLive = false, lastActiveAtMs = 90_000L),
+                                    session(userId = "live-newer", bookId = "bookA", isLive = true, lastActiveAtMs = 200L),
+                                ),
+                            )
+                    }
+                val bookDao =
+                    bookDaoReturning(
+                        BookSummary(id = "bookA", title = "A", coverHash = null, authorName = null),
+                    )
+
+                repo(RpcChannel.forTest(service), bookDao, FakeCachedActiveSessionDao())
+                    .observeActiveSessions("u1")
+                    .test {
+                        awaitNonEmpty().map { it.userId } shouldBe
+                            listOf("live-newer", "live-older", "recent-newer", "recent-older")
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
         test("an empty cache with a failing RPC emits empty gracefully") {
             runTest {
                 val service =
@@ -272,11 +340,16 @@ class ActiveSessionRepositoryImplTest :
         }
     })
 
-/** In-memory [CachedActiveSessionDao] for commonTest — a single [MutableStateFlow] mirror. */
+/**
+ * In-memory [CachedActiveSessionDao] for commonTest — a single [MutableStateFlow] mirror.
+ *
+ * [observeAll] applies the real DAO's `ORDER BY isLive DESC, lastActiveAtMs DESC` so a fake read
+ * cannot pass an ordering the SQL would fail.
+ */
 private class FakeCachedActiveSessionDao : CachedActiveSessionDao {
     private val flow = MutableStateFlow<List<CachedActiveSessionEntity>>(emptyList())
 
-    override fun observeAll(): Flow<List<CachedActiveSessionEntity>> = flow
+    override fun observeAll(): Flow<List<CachedActiveSessionEntity>> = flow.map { rows -> rows.sortedWith(readOrder) }
 
     override suspend fun upsertAll(rows: List<CachedActiveSessionEntity>) {
         flow.value = flow.value.filter { c -> rows.none { it.userId == c.userId } } + rows
@@ -289,6 +362,13 @@ private class FakeCachedActiveSessionDao : CachedActiveSessionDao {
     // Match the real DAO's @Transaction: one atomic replacement, not a delete-then-insert flicker.
     override suspend fun replaceAll(rows: List<CachedActiveSessionEntity>) {
         flow.value = rows
+    }
+
+    private companion object {
+        /** Mirrors the real DAO's `ORDER BY isLive DESC, lastActiveAtMs DESC`. */
+        val readOrder =
+            compareByDescending<CachedActiveSessionEntity> { it.isLive }
+                .thenByDescending { it.lastActiveAtMs }
     }
 }
 

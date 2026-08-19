@@ -35,6 +35,7 @@ import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import app.cash.sqldelight.db.SqlDriver
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -110,19 +111,21 @@ class SocialServiceTest :
             sql.booksQueries.updateTotalDuration(total_duration = totalDuration, id = bookId)
         }
 
-        /** Inserts an in-progress (unfinished) playback position row directly. */
+        /** Inserts a playback position row directly (in-progress unless [finished]). */
         fun ListenUpDatabase.seedInProgressPosition(
             userId: String,
             bookId: String,
             positionMs: Long,
+            lastPlayedAt: Long = 1L,
+            finished: Boolean = false,
         ) {
             playbackPositionsQueries.insert(
                 id = "$userId-$bookId",
                 user_id = userId,
                 book_id = bookId,
                 position_ms = positionMs,
-                last_played_at = 1L,
-                finished = 0L,
+                last_played_at = lastPlayedAt,
+                finished = if (finished) 1L else 0L,
                 playback_speed = 1.0,
                 volume_boost_db = 0.0,
                 measured_gain_db = null,
@@ -132,6 +135,22 @@ class SocialServiceTest :
                 updated_at = 1L,
                 deleted_at = null,
                 client_op_id = null,
+            )
+        }
+
+        /** Inserts a live `active_sessions` presence row with an explicit [startedAt] (ordering fixture). */
+        fun ListenUpDatabase.seedLiveSession(
+            userId: String,
+            bookId: String,
+            startedAt: Long,
+        ) {
+            activeSessionsQueries.insert(
+                session_id = "$userId-$bookId-session",
+                user_id = userId,
+                book_id = bookId,
+                started_at = startedAt,
+                created_at = startedAt,
+                updated_at = startedAt,
             )
         }
 
@@ -482,6 +501,202 @@ class SocialServiceTest :
                     val result = makeService(sql, driver, noPrincipal()).bookReadership(BookId("book-a"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<SocialError.NotFound>()
+                }
+            }
+        }
+
+        // ── 5: the recent-listen fill beneath the live sessions ──────────────────────
+
+        test("currentlyListening fills non-live users with their most recently played unfinished book") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("bob")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-old")
+                sql.seedTestBook("book-new")
+                sql.seedTestBook("book-done")
+                sql.seedPublicProfile("bob", displayName = "Bob")
+                runTest {
+                    listOf("book-old", "book-new", "book-done").forEach {
+                        makeBookAccessible(sql, driver, bookId = it, viewer = "viewer")
+                    }
+                    // Bob is not listening now. His newest UNFINISHED book is book-new; book-done is
+                    // newer still but finished, so it must not be what the fill shows.
+                    sql.seedInProgressPosition("bob", "book-old", positionMs = 10L, lastPlayedAt = 100L)
+                    sql.seedInProgressPosition("bob", "book-new", positionMs = 10L, lastPlayedAt = 500L)
+                    sql.seedInProgressPosition("bob", "book-done", positionMs = 10L, lastPlayedAt = 900L, finished = true)
+
+                    val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
+
+                    result shouldHaveSize 1
+                    result.first().userId shouldBe "bob"
+                    result.first().bookId shouldBe "book-new"
+                    result.first().isLive shouldBe false
+                    result.first().lastActiveAtMs shouldBe 500L
+                }
+            }
+        }
+
+        test("currentlyListening excludes the caller from the recent fill too") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    sql.seedInProgressPosition("viewer", "book-a", positionMs = 10L, lastPlayedAt = 500L)
+
+                    val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
+
+                    // A user must never see themselves in this section — live or recent.
+                    result.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("currentlyListening never lists a live user a second time as a recent row") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-live")
+                sql.seedTestBook("book-recent")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-live", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-recent", viewer = "viewer")
+                    sql.seedLiveSession("alice", "book-live", startedAt = 10L)
+                    // A more recent position on a different book must NOT produce a second alice row.
+                    sql.seedInProgressPosition("alice", "book-recent", positionMs = 10L, lastPlayedAt = 9_000L)
+
+                    val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
+
+                    result shouldHaveSize 1
+                    result.first().userId shouldBe "alice"
+                    result.first().bookId shouldBe "book-live"
+                    result.first().isLive shouldBe true
+                }
+            }
+        }
+
+        // ── 6 (CROWN JEWEL ACL): the recent fill is ACL-filtered exactly like the live rows ──
+
+        test("currentlyListening omits a recent row whose book the caller cannot access") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("bob")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("public-book")
+                sql.seedTestBook("private-book")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("bob", displayName = "Bob")
+                runTest {
+                    makeBookInaccessible(sql, driver, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    makeBookAccessible(sql, driver, bookId = "public-book", viewer = "viewer")
+                    // Alice's most recent unfinished book is one the viewer cannot access; Bob's is fine.
+                    sql.seedInProgressPosition("alice", "private-book", positionMs = 10L, lastPlayedAt = 900L)
+                    sql.seedInProgressPosition("bob", "public-book", positionMs = 10L, lastPlayedAt = 500L)
+
+                    val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
+
+                    // Crown jewel: alice is dropped entirely rather than leaking the private book.
+                    result shouldHaveSize 1
+                    result.first().userId shouldBe "bob"
+                    result.none { it.bookId == "private-book" } shouldBe true
+                }
+            }
+        }
+
+        test("ROOT sees recent rows on books no member collection reaches") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("root")
+                sql.seedTestBook("private-book")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookInaccessible(sql, driver, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    sql.seedInProgressPosition("alice", "private-book", positionMs = 10L, lastPlayedAt = 900L)
+
+                    // accessibleBookIds returns null for ROOT — unconstrained, so the fill is unfiltered.
+                    val result =
+                        makeService(sql, driver, principalFor("root", role = UserRole.ROOT))
+                            .currentlyListening()
+                            .value()
+
+                    result shouldHaveSize 1
+                    result.first().bookId shouldBe "private-book"
+                    result.first().isLive shouldBe false
+                }
+            }
+        }
+
+        // ── 7: ordering — live first (startedAt desc), then recent (lastPlayedAt desc) ──
+
+        test("currentlyListening orders live sessions first, then the recent fill") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                listOf("alice", "carol", "bob", "dave", "viewer").forEach { sql.seedTestUser(it) }
+                listOf("b-alice", "b-carol", "b-bob", "b-dave").forEach { sql.seedTestBook(it) }
+                listOf("alice", "carol", "bob", "dave").forEach { sql.seedPublicProfile(it, displayName = it) }
+                runTest {
+                    listOf("b-alice", "b-carol", "b-bob", "b-dave").forEach {
+                        makeBookAccessible(sql, driver, bookId = it, viewer = "viewer")
+                    }
+                    // Two live listeners; carol started more recently than alice.
+                    sql.seedLiveSession("alice", "b-alice", startedAt = 100L)
+                    sql.seedLiveSession("carol", "b-carol", startedAt = 200L)
+                    // Two non-live users whose last-played timestamps DWARF the live ones — proof
+                    // the split is by liveness first, not by raw timestamp.
+                    sql.seedInProgressPosition("bob", "b-bob", positionMs = 10L, lastPlayedAt = 90_000L)
+                    sql.seedInProgressPosition("dave", "b-dave", positionMs = 10L, lastPlayedAt = 80_000L)
+
+                    val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
+
+                    result.map { it.userId } shouldBe listOf("carol", "alice", "bob", "dave")
+                    result.map { it.isLive } shouldBe listOf(true, true, false, false)
+                }
+            }
+        }
+
+        test("currentlyListening collapses a user's multiple live sessions to their newest") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-early")
+                sql.seedTestBook("book-late")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-early", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-late", viewer = "viewer")
+                    sql.seedLiveSession("alice", "book-early", startedAt = 100L)
+                    sql.seedLiveSession("alice", "book-late", startedAt = 200L)
+
+                    val result = makeService(sql, driver, principalFor("viewer")).currentlyListening().value()
+
+                    // One row per user: the section shows each person once, on their newest book.
+                    result shouldHaveSize 1
+                    result.first().bookId shouldBe "book-late"
+                    result.first().lastActiveAtMs shouldBe 200L
+                }
+            }
+        }
+
+        test("currentlyListening drops a recent-fill user with no public identity") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("ghost")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
+                    // No seedPublicProfile("ghost") — there is nobody to display.
+                    sql.seedInProgressPosition("ghost", "book-a", positionMs = 10L, lastPlayedAt = 500L)
+
+                    makeService(sql, driver, principalFor("viewer")).currentlyListening().value().shouldBeEmpty()
                 }
             }
         }

@@ -15,9 +15,10 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v4** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
- * [MIGRATION_2_3] `books.normalizationGainDb` tag-fallback column, and the [MIGRATION_3_4] per-user
- * permission flags (`admin_user_roster.canEdit`, `users.canEdit`/`canShare`).
+ * Schema is at **v5** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
+ * [MIGRATION_2_3] `books.normalizationGainDb` tag-fallback column, the [MIGRATION_3_4] per-user
+ * permission flags (`admin_user_roster.canEdit`, `users.canEdit`/`canShare`), and the
+ * [MIGRATION_4_5] presence-cache columns (`cached_active_sessions.lastActiveAtMs`/`isLive`).
  * **v1** was the squashed starting point: the pre-1.0 chain (old v1 → v2 → v3) was squashed to a
  * single starting point alongside the Room 2.8.4 → Room 3 migration, while the app was still
  * pre-production and no install base held a database worth preserving. Everything those migrations
@@ -38,7 +39,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * schema-version bump MUST ship a hand-written [androidx.room3.migration.Migration]** (register it on
  * all three builders) that preserves the outbox and other pending rows; the guard
  * `DatabaseMigrationPolicyTest` fails the build if the destructive fallback is ever re-added. The
- * `@Database.exportSchema` on-disk JSON (`schemas/…/4.json`) is the authoritative baseline.
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/5.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -79,7 +80,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 @ColumnTypeConverters(

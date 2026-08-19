@@ -39,7 +39,9 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  *
  * Discovery data comes from a mix of local Room and RPC:
  * - What others are listening to: the ACL-filtered [com.calypsan.listenup.api.SocialService.currentlyListening]
- *   RPC, re-fetched on each presence nudge + firehose reconnect (via [ActiveSessionRepository])
+ *   RPC, re-fetched on each presence nudge + firehose reconnect (via [ActiveSessionRepository]).
+ *   Live listeners first, then each other person's most recently played book — the section stays
+ *   useful on a server where nobody happens to be listening this minute
  * - Discover something new: random unstarted books from books table
  * - Recently added: newest books from books table
  * - Shelves from other users: fetched on demand via [ShelfRepository.discoverShelves] RPC
@@ -93,7 +95,9 @@ class DiscoverViewModel(
             )
 
     /**
-     * Convert ActiveSession domain model to UI model.
+     * Convert ActiveSession domain model to UI model. [ActiveSession.isLive] and
+     * [ActiveSession.lastActiveAtMs] carry through untouched: the section renders "Listening now"
+     * or a relative time off exactly those two, and the order they arrive in is already correct.
      */
     private fun ActiveSession.toUiModel(): CurrentlyListeningUiSession =
         CurrentlyListeningUiSession(
@@ -105,7 +109,8 @@ class DiscoverViewModel(
             coverPath = book.coverPath,
             coverHash = book.coverHash,
             displayName = user.displayName,
-            startedAt = startedAtMs,
+            lastActiveAt = lastActiveAtMs,
+            isLive = isLive,
         )
 
     // === Discover Books State (Random Unstarted from Room) ===
@@ -320,7 +325,7 @@ sealed interface CurrentlyListeningUiState {
     /** Pre-first-emission placeholder. */
     data object Loading : CurrentlyListeningUiState
 
-    /** Active sessions loaded from Room. */
+    /** The roster loaded from Room: live listeners first, then the recent-listen fill. */
     data class Ready(
         val sessions: List<CurrentlyListeningUiSession>,
     ) : CurrentlyListeningUiState {
@@ -379,8 +384,22 @@ sealed interface RecentlyAddedUiState {
 // === UI Model Types ===
 
 /**
- * Active session for "What Others Are Listening To".
- * Represents a single user listening to a single book.
+ * One row of "What Others Are Listening To": one other person, on one book.
+ *
+ * [isLive] says which kind of row it is — someone listening right now, or someone shown on the book
+ * they most recently played — and [lastActiveAt] is the single timestamp either kind carries. The
+ * card renders "Listening now" for the former and a relative time for the latter.
+ *
+ * @property sessionId Stable identity for this row
+ * @property userId The other user
+ * @property bookId The book shown for them
+ * @property bookTitle Title, enriched from the local library
+ * @property authorName Author, enriched from the local library
+ * @property coverPath Local cover file path, when the cover is cached
+ * @property coverHash Cover version hash, for cache busting
+ * @property displayName Their public display name
+ * @property lastActiveAt Epoch-ms they were last active on [bookId]
+ * @property isLive True when they are listening right now
  */
 data class CurrentlyListeningUiSession(
     val sessionId: String,
@@ -391,7 +410,8 @@ data class CurrentlyListeningUiSession(
     val coverPath: String?,
     val coverHash: String?,
     val displayName: String,
-    val startedAt: Long,
+    val lastActiveAt: Long,
+    val isLive: Boolean,
 )
 
 /**

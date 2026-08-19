@@ -6941,6 +6941,16 @@
         }
       }
     },
+    "discover.listening_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening now"
+          }
+        }
+      }
+    },
     "discover.loading_leaderboard": {
       "localizations": {
         "en": {

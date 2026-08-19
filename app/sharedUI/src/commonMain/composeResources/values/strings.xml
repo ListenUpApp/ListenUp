@@ -695,6 +695,7 @@ One beautiful library.</string>
     <string name="discover_leaderboard_period_week">Week</string>
     <string name="discover_leaderboard_show_all">Show all %1$d</string>
     <string name="discover_leaderboard_show_less">Show less</string>
+    <string name="discover_listening_now">Listening now</string>
     <string name="discover_loading_leaderboard">Loading leaderboard...</string>
     <string name="discover_new_for_you">New for You</string>
     <string name="discover_no_activity_yet_start_listening">No activity yet. Start listening to see what your community is reading!</string>

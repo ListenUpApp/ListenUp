@@ -30,10 +30,12 @@ import kotlin.time.ExperimentalTime
 private val logger = KotlinLogging.logger {}
 
 /**
- * Offline-first active-session ("What Others Are Listening To") repository. Room's
- * `cached_active_sessions` mirror is the single read source, so the presence surface renders the
- * last-known roster (possibly stale) when offline or on a transient RPC failure — Never-Stranded, no
- * blank flash. A background refresh re-fetches the ACL-filtered
+ * Offline-first "What Others Are Listening To" repository. Room's `cached_active_sessions` mirror is
+ * the single read source, so the section renders the last-known roster (possibly stale) when offline
+ * or on a transient RPC failure — Never-Stranded, no blank flash. The roster carries live listeners
+ * first and then each other person's most recently played book; the split and the ordering are the
+ * server's decision, mirrored by the DAO's `ORDER BY isLive DESC, lastActiveAtMs DESC` so a cached
+ * read and a fresh one agree. A background refresh re-fetches the ACL-filtered
  * [com.calypsan.listenup.api.SocialService] `currentlyListening` RPC on first subscribe and on every
  * [PresenceRefreshSignal] ping, replacing the cache wholesale; on failure the cache is left untouched.
  *
@@ -106,8 +108,8 @@ internal class ActiveSessionRepositoryImpl(
             sessionId = "$userId:$bookId",
             userId = userId,
             bookId = bookId,
-            startedAtMs = startedAtMs,
-            updatedAtMs = startedAtMs,
+            lastActiveAtMs = lastActiveAtMs,
+            isLive = isLive,
             user =
                 ActiveSession.SessionUser(
                     displayName = displayName,
@@ -133,6 +135,7 @@ private fun CurrentlyListeningSession.toEntity(observedAt: Long): CachedActiveSe
         displayName = displayName,
         avatarType = avatarType,
         bookId = bookId,
-        startedAtMs = startedAtMs,
+        lastActiveAtMs = lastActiveAtMs,
+        isLive = isLive,
         observedAt = observedAt,
     )

@@ -532,6 +532,27 @@ class PlaybackPositionRepository(
                 .map { it.toSyncPayload() }
         }
 
+    /**
+     * One [RecentListen] per user other than [excludeUserId] — the book they most recently played
+     * and have not finished, newest first. The recent half of the "What Others Are Listening To"
+     * section, shown beneath whoever is listening right now.
+     *
+     * Viewer-agnostic by design: it names every user's newest in-progress book regardless of who is
+     * asking, so **the caller must ACL-filter the returned [RecentListen.bookId]s** exactly as it
+     * filters live presence rows. [com.calypsan.listenup.server.api.SocialServiceImpl] is the only
+     * caller and does precisely that.
+     */
+    suspend fun mostRecentUnfinishedPerUser(excludeUserId: String): List<RecentListen> =
+        suspendTransaction(db) {
+            db.playbackPositionsQueries
+                .selectMostRecentUnfinishedPerUserExcluding(excludeUserId) { userId, bookId, lastPlayedAt ->
+                    // MAX() is typed nullable by SQLDelight (it is null over an empty set), but a
+                    // GROUP BY only emits a row where at least one NOT NULL value exists — so the
+                    // elvis is a type-system formality, not a real 0.
+                    RecentListen(userId = userId, bookId = bookId, lastPlayedAt = lastPlayedAt ?: 0L)
+                }.executeAsList()
+        }
+
     /** (userId, positionMs) for every user with an in-progress (unfinished, positionMs>0) position on [bookId]. */
     suspend fun listInProgressForBook(bookId: String): List<Pair<String, Long>> =
         suspendTransaction(db) {
@@ -595,3 +616,17 @@ class PlaybackPositionRepository(
         private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
     }
 }
+
+/**
+ * One user's most-recently-played unfinished book — the presence section's recent-fill row before
+ * identity is joined and the viewer's ACL is applied.
+ *
+ * @property userId The user this row is about.
+ * @property bookId Their newest started-but-unfinished book. **Not yet ACL-filtered.**
+ * @property lastPlayedAt Epoch-ms they last played [bookId].
+ */
+data class RecentListen(
+    val userId: String,
+    val bookId: String,
+    val lastPlayedAt: Long,
+)

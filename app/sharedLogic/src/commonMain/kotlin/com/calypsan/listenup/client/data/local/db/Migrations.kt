@@ -67,3 +67,35 @@ internal val MIGRATION_3_4 =
             connection.executeDdl("ALTER TABLE users ADD COLUMN canShare INTEGER NOT NULL DEFAULT 1")
         }
     }
+
+/**
+ * v4 → v5: the presence cache learns to hold non-live rows.
+ *
+ * "What Others Are Listening To" used to render live sessions only and hide itself when nobody was
+ * listening — which, on a server with a handful of people, is nearly always. A silently absent
+ * section is indistinguishable from a broken one, so it now fills with each other person's most
+ * recently played book. `cached_active_sessions` therefore stops being a live-sessions table:
+ * `startedAtMs` becomes [lastActiveAtMs][com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity.lastActiveAtMs]
+ * (a session start for a live row, a `lastPlayedAt` for a recent one) and an `isLive` discriminator
+ * joins it.
+ *
+ * Both statements are non-destructive `ALTER TABLE`s, per the migration policy in [ListenUpDatabase].
+ * This table is only a cache, but it shares a database — and a single migration list — with the
+ * unsynced outbox, so a destructive shortcut here would take real writes with it.
+ *
+ * `DEFAULT 1` is deliberate: every row already cached was written from a live session, because that
+ * is all this table could hold. `1` preserves each existing row's meaning exactly, where `0` would
+ * relabel everyone as "last seen a while ago" for the moment before the next presence ping replaces
+ * the roster wholesale — a brief confident lie in place of a brief absence.
+ */
+internal val MIGRATION_4_5 =
+    object : Migration(4, 5) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "ALTER TABLE cached_active_sessions RENAME COLUMN startedAtMs TO lastActiveAtMs",
+            )
+            connection.executeDdl(
+                "ALTER TABLE cached_active_sessions ADD COLUMN isLive INTEGER NOT NULL DEFAULT 1",
+            )
+        }
+    }
