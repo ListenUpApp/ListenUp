@@ -487,6 +487,16 @@ tasks.named<Test>("jvmTest") {
 tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeTest>().configureEach {
     val nativeTestTmpDir = layout.buildDirectory.dir("native-test-tmp/$name").get().asFile
     environment("TMPDIR", nativeTestTmpDir.absolutePath)
+    // The ONLY lane that names its tests as they start, because it is the only one where a hang
+    // is otherwise anonymous. On 2026-08-19 this task produced a single "> Task :server:linuxX64Test"
+    // line and then 25 silent minutes until the job ceiling killed an orphaned test.kexe — nothing
+    // in the log said which spec was wedged, so there was nothing to investigate. `started` makes the
+    // last line before a stall the culprit's own name. Deliberately not `passed`: a per-test success
+    // line would double the log on every green run to buy nothing a failure line doesn't already say.
+    testLogging {
+        events("started", "skipped", "failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
     doFirst {
         nativeTestTmpDir.deleteRecursively()
         nativeTestTmpDir.mkdirs()
