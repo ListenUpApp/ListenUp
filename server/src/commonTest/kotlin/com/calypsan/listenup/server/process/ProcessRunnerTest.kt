@@ -21,6 +21,18 @@ import kotlin.time.Duration.Companion.seconds
 
 private const val FLOOD_LINES = 2000
 
+/**
+ * Budget for the pipeline lifecycle tests.
+ *
+ * Deliberately generous, and not a papered-over flake: these assert that a kill or a cancellation
+ * *does* end the call, not that it does so within a particular wall-clock slice. The work is
+ * scheduled onto `fileIoDispatcher` (`Dispatchers.IO`), which the full server suite saturates with
+ * concurrent `testApplication` instances — so a tight budget measures the scheduler's queue depth
+ * rather than the thing under test. It failed exactly that way on CI at 10s while passing in
+ * isolation, including pinned to two cores.
+ */
+private val PIPELINE_LIFECYCLE_BUDGET = 45.seconds
+
 /** Reports the child's own open descriptors, one per line, without needing `ls` to exist. */
 private const val LIST_OWN_FDS = "for f in /proc/self/fd/*; do echo \$f 1>&2; done"
 
@@ -264,7 +276,7 @@ class ProcessRunnerTest :
         test("kill terminates every stage of a pipeline") {
             val runner = ProcessRunner()
             val result =
-                withTimeoutOrNull(10.seconds) {
+                withTimeoutOrNull(PIPELINE_LIFECYCLE_BUDGET) {
                     coroutineScope {
                         val run =
                             async {
@@ -287,7 +299,7 @@ class ProcessRunnerTest :
         test("cancelling a pipeline kills every stage rather than leaving them running") {
             val runner = ProcessRunner()
             val survived =
-                withTimeoutOrNull(10.seconds) {
+                withTimeoutOrNull(PIPELINE_LIFECYCLE_BUDGET) {
                     coroutineScope {
                         val run =
                             launch {

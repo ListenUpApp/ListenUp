@@ -11,6 +11,9 @@ import java.io.InputStreamReader
 
 private val log = loggerFor<ProcessRunner>()
 
+/** How long to wait for a stage's stderr to finish draining once every child has exited. */
+private const val READER_DRAIN_MILLIS = 2_000L
+
 actual class ProcessRunner {
     private val started = CompletableDeferred<Unit>()
     private val lock = SynchronizedObject()
@@ -40,7 +43,14 @@ actual class ProcessRunner {
     actual fun kill() {
         synchronized(lock) {
             killRequested = true
-            processes.forEach { it.destroyForcibly() }
+            // ⛔ Descendants first. `destroyForcibly()` reaches only the direct child, so a shell
+            // that forked rather than exec'd leaves a grandchild holding the stderr pipe open — and
+            // the reader threads would then never see EOF, hanging the call that was supposed to be
+            // ended by this kill.
+            processes.forEach { stage ->
+                stage.descendants().forEach { descendant -> descendant.destroyForcibly() }
+                stage.destroyForcibly()
+            }
         }
     }
 
@@ -125,8 +135,13 @@ actual class ProcessRunner {
                     start()
                 }
             }
-        readers.forEach { it.join() }
-        return spawned.map { it.waitFor() }.firstOrNull { it != 0 } ?: 0
+        // Exit first, then drain. The readers have been running since before this line, so waiting
+        // here cannot deadlock on a full stderr pipe; and joining them only AFTER every child is
+        // gone means a stray descendant holding a pipe open costs a bounded wait instead of
+        // hanging forever. They are daemon threads, so abandoning one is safe.
+        val codes = spawned.map { it.waitFor() }
+        readers.forEach { it.join(READER_DRAIN_MILLIS) }
+        return codes.firstOrNull { it != 0 } ?: 0
     }
 
     /** Takes ownership of [spawned], honouring a [kill] that arrived while it was being started. */
