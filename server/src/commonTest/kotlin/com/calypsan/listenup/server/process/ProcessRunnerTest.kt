@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.process
 
+import com.calypsan.listenup.server.io.readText
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.ints.shouldBeLessThanOrEqual
@@ -14,6 +15,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.files.SystemTemporaryDirectory
+import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
 private const val FLOOD_LINES = 2000
@@ -189,6 +192,121 @@ class ProcessRunnerTest :
         // unlocked version too. The child here is nowhere near being reaped, and the real race
         // (kill concurrent with `waitpid`, microseconds wide) cannot be provoked deterministically;
         // that fix is argued structurally in `kill`/`reap` instead of tested.
+        // ── Pipelines ───────────────────────────────────────────────────────────────────────
+        // Transcoding xHE-AAC needs three processes chained together (FFmpeg demuxes and seeks,
+        // GStreamer decodes with Fraunhofer FDK, FFmpeg encodes and segments) because FFmpeg's own
+        // USAC decoder silently drops about a quarter of the audio. No shell is involved: these are
+        // OS pipes between children this process spawns directly.
+
+        test("a two-stage pipeline feeds the first stage's stdout into the second's stdin") {
+            val sink = tempPath("pipeline-through")
+            val code =
+                ProcessRunner().runPipeline(
+                    listOf(
+                        listOf("/bin/sh", "-c", "echo hello-from-stage-one"),
+                        listOf("/bin/sh", "-c", "cat > $sink"),
+                    ),
+                )
+
+            code shouldBe 0
+            sink.readText().trim() shouldBe "hello-from-stage-one"
+            SystemFileSystem.delete(sink, mustExist = false)
+        }
+
+        test("a three-stage pipeline carries data end to end") {
+            val sink = tempPath("pipeline-three")
+            val code =
+                ProcessRunner().runPipeline(
+                    listOf(
+                        listOf("/bin/sh", "-c", "echo abc"),
+                        listOf("/bin/sh", "-c", "tr a-z A-Z"),
+                        listOf("/bin/sh", "-c", "cat > $sink"),
+                    ),
+                )
+
+            code shouldBe 0
+            sink.readText().trim() shouldBe "ABC"
+            SystemFileSystem.delete(sink, mustExist = false)
+        }
+
+        // ⛔ Pipefail, deliberately. A shell pipeline reports only its LAST stage, which is exactly
+        // how a broken decoder in the middle would ship silently as a success.
+        test("a failing stage is reported even when the last stage succeeds") {
+            val code =
+                ProcessRunner().runPipeline(
+                    listOf(
+                        listOf("/bin/sh", "-c", "exit 3"),
+                        listOf("/bin/sh", "-c", "cat > /dev/null"),
+                    ),
+                )
+
+            code shouldBe 3
+        }
+
+        test("stderr from every stage reaches the sink") {
+            val lines = mutableListOf<String>()
+            ProcessRunner().runPipeline(
+                listOf(
+                    listOf("/bin/sh", "-c", "echo from-stage-one 1>&2"),
+                    listOf("/bin/sh", "-c", "echo from-stage-two 1>&2; cat > /dev/null"),
+                ),
+            ) { lines += it }
+
+            val all = lines.joinToString("\n")
+            all shouldContain "from-stage-one"
+            all shouldContain "from-stage-two"
+        }
+
+        test("a pipeline of one behaves exactly like a plain run") {
+            ProcessRunner().runPipeline(listOf(listOf("/bin/sh", "-c", "exit 9"))) shouldBe 9
+        }
+
+        test("kill terminates every stage of a pipeline") {
+            val runner = ProcessRunner()
+            val result =
+                withTimeoutOrNull(10.seconds) {
+                    coroutineScope {
+                        val run =
+                            async {
+                                runner.runPipeline(
+                                    listOf(
+                                        listOf("/bin/sh", "-c", "sleep 60"),
+                                        listOf("/bin/sh", "-c", "sleep 60"),
+                                    ),
+                                )
+                            }
+                        runner.awaitStarted()
+                        runner.kill()
+                        run.await()
+                    }
+                }
+
+            result.shouldNotBeNull()
+        }
+
+        test("cancelling a pipeline kills every stage rather than leaving them running") {
+            val runner = ProcessRunner()
+            val survived =
+                withTimeoutOrNull(10.seconds) {
+                    coroutineScope {
+                        val run =
+                            launch {
+                                runner.runPipeline(
+                                    listOf(
+                                        listOf("/bin/sh", "-c", "sleep 60"),
+                                        listOf("/bin/sh", "-c", "sleep 60"),
+                                    ),
+                                )
+                            }
+                        runner.awaitStarted()
+                        run.cancelAndJoin()
+                        true
+                    }
+                }
+
+            survived.shouldNotBeNull()
+        }
+
         test("kill from several coroutines at once is safe") {
             val runner = ProcessRunner()
             val result =
@@ -203,3 +321,6 @@ class ProcessRunnerTest :
             result.shouldNotBeNull()
         }
     })
+
+/** A unique throwaway path for a test that needs a stage to write somewhere observable. */
+private fun tempPath(prefix: String): Path = Path(SystemTemporaryDirectory, "$prefix-${Random.nextLong().toString(16)}")

@@ -84,6 +84,28 @@ expect class ProcessRunner() {
         onStderr: (String) -> Unit = {},
     ): Int
 
+    /**
+     * Runs [commands] as a pipeline — each stage's stdout becomes the next stage's stdin — and
+     * returns the **first non-zero** exit code, or 0 when every stage succeeded.
+     *
+     * ⛔ **Pipefail semantics, deliberately.** A shell pipeline reports only its last stage, which
+     * is precisely how a broken stage in the middle ships as a success. Transcoding learned this the
+     * hard way: FFmpeg's xHE-AAC decoder drops about a quarter of the audio and still exits 0.
+     *
+     * **No shell is involved.** These are OS pipes between children this process spawns directly,
+     * so the "no shell in a distroless image" rule the class docs describe still holds. The pipeline
+     * exists because decoding xHE-AAC needs FFmpeg to demux and seek, Fraunhofer FDK to decode, and
+     * FFmpeg again to encode and segment — and chunking those into separate runs breaks segment
+     * alignment, because each chunk's re-encode adds its own priming.
+     *
+     * stderr from **every** stage is forwarded to [onStderr]; [kill] and cancellation terminate
+     * every stage, not just one.
+     */
+    suspend fun runPipeline(
+        commands: List<List<String>>,
+        onStderr: (String) -> Unit = {},
+    ): Int
+
     /** Suspends until the child has actually been spawned. Test seam; also used by the engine's gate. */
     suspend fun awaitStarted()
 

@@ -15,8 +15,8 @@ actual class ProcessRunner {
     private val started = CompletableDeferred<Unit>()
     private val lock = SynchronizedObject()
 
-    /** Guarded by [lock] — see [kill] for why the adoption of a fresh child is a critical section. */
-    private var process: Process? = null
+    /** Guarded by [lock] — see [kill] for why the adoption of fresh children is a critical section. */
+    private var processes: List<Process> = emptyList()
 
     /** Guarded by [lock]. Records a [kill] that arrived before there was a child to kill. */
     private var killRequested = false
@@ -28,6 +28,11 @@ actual class ProcessRunner {
         onStderr: (String) -> Unit,
     ): Int = runKillingChildOnCancellation(killChild = ::kill) { runToCompletion(command, onStderr) }
 
+    actual suspend fun runPipeline(
+        commands: List<List<String>>,
+        onStderr: (String) -> Unit,
+    ): Int = runKillingChildOnCancellation(killChild = ::kill) { pipelineToCompletion(commands, onStderr) }
+
     actual suspend fun awaitStarted() {
         started.await()
     }
@@ -35,7 +40,7 @@ actual class ProcessRunner {
     actual fun kill() {
         synchronized(lock) {
             killRequested = true
-            process?.destroyForcibly()
+            processes.forEach { it.destroyForcibly() }
         }
     }
 
@@ -70,7 +75,7 @@ actual class ProcessRunner {
         // ("overwrite? [y/n]") would sit there waiting for an answer that never comes.
         process.outputStream.close()
 
-        adopt(process)
+        adopt(listOf(process))
         started.complete(Unit)
 
         BufferedReader(InputStreamReader(process.errorStream)).use { reader ->
@@ -79,14 +84,59 @@ actual class ProcessRunner {
         return process.waitFor()
     }
 
+    private fun pipelineToCompletion(
+        commands: List<List<String>>,
+        onStderr: (String) -> Unit,
+    ): Int {
+        require(commands.isNotEmpty()) { "a pipeline needs at least one stage" }
+        // Every stage is resolved before any is spawned: a pipeline that starts and then discovers
+        // its third binary is missing has already begun writing, which is worse than not starting.
+        if (commands.any { resolveExecutable(it.first()) == null }) {
+            started.complete(Unit)
+            return MISSING_BINARY_EXIT_CODE
+        }
+
+        val builders = commands.map { ProcessBuilder(it).redirectErrorStream(false) }
+        // Only the LAST stage's stdout is discarded; the others are the pipes startPipeline wires up.
+        builders.last().redirectOutput(ProcessBuilder.Redirect.DISCARD)
+        val spawned =
+            try {
+                ProcessBuilder.startPipeline(builders)
+            } catch (failure: IOException) {
+                log.error(failure) { "Spawning the pipeline ${commands.map { it.first() }} failed" }
+                started.complete(Unit)
+                return SPAWN_FAILED_EXIT_CODE
+            }
+        spawned.first().outputStream.close()
+        adopt(spawned)
+        started.complete(Unit)
+
+        // One reader per stage: a stage whose stderr nobody drains blocks as soon as its pipe fills,
+        // which would deadlock the whole chain. onStderr is serialized because these are real threads.
+        val emitLock = SynchronizedObject()
+        val readers =
+            spawned.map { stage ->
+                Thread {
+                    BufferedReader(InputStreamReader(stage.errorStream)).use { reader ->
+                        reader.lineSequence().forEach { line -> synchronized(emitLock) { onStderr(line) } }
+                    }
+                }.apply {
+                    isDaemon = true
+                    start()
+                }
+            }
+        readers.forEach { it.join() }
+        return spawned.map { it.waitFor() }.firstOrNull { it != 0 } ?: 0
+    }
+
     /** Takes ownership of [spawned], honouring a [kill] that arrived while it was being started. */
-    private fun adopt(spawned: Process) {
+    private fun adopt(spawned: List<Process>) {
         val alreadyKilled =
             synchronized(lock) {
-                process = spawned
+                processes = spawned
                 killRequested
             }
-        if (alreadyKilled) spawned.destroyForcibly()
+        if (alreadyKilled) spawned.forEach { it.destroyForcibly() }
     }
 
     /**

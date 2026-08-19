@@ -107,10 +107,11 @@ actual class ProcessRunner {
     private val lock = SynchronizedObject()
 
     /**
-     * The running child's pid, or 0. Guarded by [lock], and cleared *before* `waitpid` rather than
-     * after — see [kill] and [reap], where that ordering is the whole pid-reuse defence.
+     * The running children's pids, empty when none. Guarded by [lock], and cleared *before*
+     * `waitpid` rather than after — see [kill] and [reap], where that ordering is the whole
+     * pid-reuse defence. A plain [run] holds exactly one; a [runPipeline] holds one per stage.
      */
-    private var childPid = 0
+    private var childPids: List<Int> = emptyList()
 
     /** Guarded by [lock]. Records a [kill] that arrived before there was a child to kill. */
     private var killRequested = false
@@ -120,7 +121,12 @@ actual class ProcessRunner {
     actual suspend fun run(
         command: List<String>,
         onStderr: (String) -> Unit,
-    ): Int = runKillingChildOnCancellation(killChild = ::kill) { runToCompletion(command, onStderr) }
+    ): Int = runPipeline(listOf(command), onStderr)
+
+    actual suspend fun runPipeline(
+        commands: List<List<String>>,
+        onStderr: (String) -> Unit,
+    ): Int = runKillingChildOnCancellation(killChild = ::kill) { runToCompletion(commands, onStderr) }
 
     actual suspend fun awaitStarted() {
         started.await()
@@ -133,82 +139,175 @@ actual class ProcessRunner {
             // lets the kernel recycle a pid, and [reap] clears `childPid` under this same lock
             // before it waits — so a pid still visible here is one the kernel has not been allowed
             // to hand to anybody else yet.
-            if (childPid != 0) posixKill(childPid, SIGKILL)
+            childPids.forEach { posixKill(it, SIGKILL) }
         }
     }
 
     private fun runToCompletion(
-        command: List<String>,
+        commands: List<List<String>>,
         onStderr: (String) -> Unit,
     ): Int {
-        val spawned = spawn(command)
+        require(commands.isNotEmpty()) { "a pipeline needs at least one stage" }
+        val spawned = spawn(commands)
         if (spawned !is Spawn.Started) {
             started.complete(Unit)
             return if (spawned is Spawn.BinaryNotFound) MISSING_BINARY_EXIT_CODE else SPAWN_FAILED_EXIT_CODE
         }
-        adopt(spawned.pid)
+        adopt(spawned.pids)
         started.complete(Unit)
 
+        // Every stage shares one stderr pipe, so this returns only once the last of them has closed
+        // its end — which is exactly when there is nothing left to read from any of them.
         readStderr(spawned.stderrReadFd, onStderr)
-        return reap(spawned.pid)
+        return reap(spawned.pids)
     }
 
-    /** Takes ownership of [pid], honouring a [kill] that arrived while the child was being started. */
-    private fun adopt(pid: Int) {
+    /** Takes ownership of [pids], honouring a [kill] that arrived while they were being started. */
+    private fun adopt(pids: List<Int>) {
         synchronized(lock) {
-            childPid = pid
-            if (killRequested) posixKill(pid, SIGKILL)
+            childPids = pids
+            if (killRequested) pids.forEach { posixKill(it, SIGKILL) }
         }
     }
 
-    private fun spawn(command: List<String>): Spawn {
-        val executablePath = resolveExecutable(command.first()) ?: return Spawn.BinaryNotFound
+    /**
+     * Forks one child per stage, wiring stage *i*'s stdout to stage *i+1*'s stdin through an OS
+     * pipe. No shell: the pipes are created here and handed to the children directly.
+     *
+     * ⛔ **Every allocation happens before the first `fork`.** The argv arrays, the resolved paths
+     * and all descriptors are built up front, because a forked child may call only async-signal-safe
+     * functions — and allocating in one would run the caller's whole stack twice.
+     *
+     * All stages share a single stderr pipe. One reader then drains the lot, and it reaches EOF
+     * exactly when the last stage has closed its end.
+     */
+    private fun spawn(commands: List<List<String>>): Spawn {
+        val executables = commands.map { resolveExecutable(it.first()) ?: return Spawn.BinaryNotFound }
         return memScoped {
-            val fds = allocArray<IntVar>(2)
-            if (pipe(fds) != 0) {
-                log.error { "pipe() failed (errno $errno) spawning ${command.first()}" }
+            val stderrFds = allocArray<IntVar>(2)
+            if (pipe(stderrFds) != 0) {
+                log.error { "pipe() failed (errno $errno) spawning ${commands.first().first()}" }
                 return@memScoped Spawn.Failed
             }
-            val readFd = fds[0]
-            val writeFd = fds[1]
+            val stderrRead = stderrFds[0]
+            val stderrWrite = stderrFds[1]
 
             // Opened in the parent: `open` takes a path, and marshalling a Kotlin String into a C
             // string allocates — the one thing the forked child must never do.
             val devNullFd = open("/dev/null", O_RDWR)
             if (devNullFd < 0) {
-                log.error { "open(/dev/null) failed (errno $errno) spawning ${command.first()}" }
-                close(readFd)
-                close(writeFd)
+                log.error { "open(/dev/null) failed (errno $errno) spawning ${commands.first().first()}" }
+                close(stderrRead)
+                close(stderrWrite)
                 return@memScoped Spawn.Failed
             }
 
-            val child =
-                ChildPlan(
-                    argv = argv(command),
-                    executablePath = executablePath.cstr.getPointer(this),
-                    stderrWriteFd = writeFd,
-                    devNullFd = devNullFd,
-                    highestFd = highestFd(),
-                )
+            val joins = openJoinPipes(commands.size - 1)
+            if (joins.opened < joins.count) {
+                closeAll(stderrRead, stderrWrite, devNullFd, joins.readEnds, joins.writeEnds, joins.opened)
+                return@memScoped Spawn.Failed
+            }
+
+            val plans =
+                commands.mapIndexed { index, command ->
+                    ChildPlan(
+                        argv = argv(command),
+                        executablePath = executables[index].cstr.getPointer(this),
+                        stdinFd = if (index == 0) devNullFd else joins.readEnds[index - 1],
+                        stdoutFd = if (index == commands.lastIndex) devNullFd else joins.writeEnds[index],
+                        stderrWriteFd = stderrWrite,
+                        highestFd = highestFd(),
+                    )
+                }
+
+            val pids = forkStages(plans)
+            if (pids == null) {
+                closeAll(stderrRead, stderrWrite, devNullFd, joins.readEnds, joins.writeEnds, joins.opened)
+                return@memScoped Spawn.Failed
+            }
+
+            // The parent keeps only the stderr read end. Holding a write end open would stop the
+            // downstream stage ever seeing EOF, and the pipeline would hang forever.
+            close(stderrWrite)
+            close(devNullFd)
+            for (i in 0 until joins.count) {
+                close(joins.readEnds[i])
+                close(joins.writeEnds[i])
+            }
+            Spawn.Started(pids, stderrRead)
+        }
+    }
+
+    /** The [count] pipes joining consecutive stages, and how many were actually opened. */
+    private class JoinPipes(
+        val readEnds: IntArray,
+        val writeEnds: IntArray,
+        val count: Int,
+        val opened: Int,
+    )
+
+    /**
+     * Opens one pipe per join. Stops at the first failure rather than unwinding here, so the caller
+     * closes exactly what was opened — [JoinPipes.opened] is that count.
+     */
+    private fun MemScope.openJoinPipes(count: Int): JoinPipes {
+        val readEnds = IntArray(count)
+        val writeEnds = IntArray(count)
+        var opened = 0
+        while (opened < count) {
+            val fds = allocArray<IntVar>(2)
+            if (pipe(fds) != 0) {
+                log.error { "pipe() failed (errno $errno) joining pipeline stage $opened" }
+                break
+            }
+            readEnds[opened] = fds[0]
+            writeEnds[opened] = fds[1]
+            opened++
+        }
+        return JoinPipes(readEnds, writeEnds, count, opened)
+    }
+
+    /**
+     * Forks one child per plan, or null if any fork fails — in which case the stages already
+     * running are killed and reaped first, since orphaning them would leave pipe ends held open.
+     */
+    private fun forkStages(plans: List<ChildPlan>): List<Int>? {
+        val pids = mutableListOf<Int>()
+        for (plan in plans) {
             when (val pid = fork()) {
                 -1 -> {
-                    log.error { "fork() failed (errno $errno) spawning ${command.first()}" }
-                    close(readFd)
-                    close(writeFd)
-                    close(devNullFd)
-                    Spawn.Failed
+                    log.error { "fork() failed (errno $errno) spawning a pipeline stage" }
+                    pids.forEach { posixKill(it, SIGKILL) }
+                    pids.forEach { reapOne(it) }
+                    return null
                 }
 
                 0 -> {
-                    becomeChild(child)
+                    becomeChild(plan)
                 }
 
                 else -> {
-                    close(writeFd)
-                    close(devNullFd)
-                    Spawn.Started(pid, readFd)
+                    pids += pid
                 }
             }
+        }
+        return pids
+    }
+
+    private fun closeAll(
+        stderrRead: Int,
+        stderrWrite: Int,
+        devNullFd: Int,
+        readEnds: IntArray,
+        writeEnds: IntArray,
+        opened: Int,
+    ) {
+        close(stderrRead)
+        close(stderrWrite)
+        close(devNullFd)
+        for (i in 0 until opened) {
+            close(readEnds[i])
+            close(writeEnds[i])
         }
     }
 
@@ -217,12 +316,12 @@ actual class ProcessRunner {
      * Every value it touches was built before the fork, so it allocates nothing.
      */
     private fun becomeChild(plan: ChildPlan): Nothing {
+        dup2(plan.stdinFd, STDIN_FILENO)
+        dup2(plan.stdoutFd, STDOUT_FILENO)
         dup2(plan.stderrWriteFd, STDERR_FILENO)
-        dup2(plan.devNullFd, STDIN_FILENO)
-        dup2(plan.devNullFd, STDOUT_FILENO)
         // Runs *after* the dup2s, which is the whole ordering constraint: the sweep closes the
-        // originals it just copied down — the pipe's two ends and /dev/null — along with every
-        // socket and file the server had open. Stdin, stdout and stderr survive it.
+        // originals it just copied down — every pipe end and /dev/null — along with every socket
+        // and file the server had open. Stdin, stdout and stderr survive it.
         lu_close_fds_from(FIRST_INHERITABLE_FD, plan.highestFd)
         execv(plan.executablePath, plan.argv)
         // ⚠️ Known parity gap with the JVM actual, and an unavoidable one. Reaching this line means
@@ -292,11 +391,20 @@ actual class ProcessRunner {
         close(fd)
     }
 
-    private fun reap(pid: Int): Int {
-        // Cleared *before* the wait, under the lock: `waitpid` is what frees the pid for reuse, so
-        // no `kill` may hold it across that moment. A kill arriving from here on finds 0 and does
-        // nothing — correct, because stderr reaching EOF already means the child is gone.
-        synchronized(lock) { childPid = 0 }
+    /**
+     * Waits for every stage and returns the **first non-zero** exit code — pipefail, not the
+     * shell's last-stage-only answer. See the expect declaration for why that difference matters.
+     */
+    private fun reap(pids: List<Int>): Int {
+        synchronized(lock) { childPids = emptyList() }
+        return pids.map { reapOne(it) }.firstOrNull { it != 0 } ?: 0
+    }
+
+    private fun reapOne(pid: Int): Int {
+        // The pid list was cleared *before* this wait, under the lock: `waitpid` is what frees a
+        // pid for reuse, so no `kill` may hold one across that moment. A kill arriving from here on
+        // finds an empty list and does nothing — correct, because stderr reaching EOF already means
+        // every child is gone.
         return memScoped {
             val statusVar = alloc<IntVar>()
             while (waitpid(pid, statusVar.ptr, 0) < 0 && errno == EINTR) {
@@ -318,14 +426,15 @@ actual class ProcessRunner {
     private class ChildPlan(
         val argv: CPointer<CPointerVar<ByteVar>>,
         val executablePath: CPointer<ByteVar>,
+        val stdinFd: Int,
+        val stdoutFd: Int,
         val stderrWriteFd: Int,
-        val devNullFd: Int,
         val highestFd: UInt,
     )
 
     private sealed interface Spawn {
         class Started(
-            val pid: Int,
+            val pids: List<Int>,
             val stderrReadFd: Int,
         ) : Spawn
 
