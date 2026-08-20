@@ -167,10 +167,6 @@ class PushNotificationRenderer(
 
     /**
      * THE per-type action seam. Registration approvals carry Approve/Deny; everything else is
-     * tap-only. The Campfire arc adds its "Join" deep-link here rather than at a call site.
-     */
-    /**
-     * THE per-type action seam. Registration approvals carry Approve/Deny; everything else is
      * tap-only. The Campfire arc adds its "Join" deep-link here rather than at a call site — an
      * `if` while exactly one type has actions, a `when` the moment a second does.
      */
