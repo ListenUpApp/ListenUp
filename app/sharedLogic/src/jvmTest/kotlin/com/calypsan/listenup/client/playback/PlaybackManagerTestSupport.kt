@@ -70,7 +70,10 @@ fun testPlaybackPrepareRepository(
     bookId: String = "book-1",
 ): PlaybackPrepareRepository =
     object : PlaybackPrepareRepository {
-        override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> =
+        override suspend fun prepare(
+            bookId: BookId,
+            forceTranscode: Boolean,
+        ): AppResult<ContractPreparedPlayback> =
             AppResult.Success(
                 ContractPreparedPlayback(
                     bookId = bookId.value,

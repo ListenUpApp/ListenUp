@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
@@ -17,8 +18,12 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 internal class PlaybackPrepareRepositoryImpl(
     private val channel: RpcChannel<PlaybackService>,
+    private val codecCapabilities: Set<CodecCapability>,
 ) : PlaybackPrepareRepository {
-    override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> = channel.call { it.prepare(bookId) }
+    override suspend fun prepare(
+        bookId: BookId,
+        forceTranscode: Boolean,
+    ): AppResult<PreparedPlayback> = channel.call { it.prepare(bookId, codecCapabilities, forceTranscode) }
 
     /**
      * Bounded SHORT and never retried, because this call sits between a listener tapping play and

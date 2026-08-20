@@ -863,7 +863,10 @@ private class FakePlaybackService(
 private class FakePlaybackPrepareRepository(
     private val service: PlaybackService,
 ) : PlaybackPrepareRepository {
-    override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> = service.prepare(bookId)
+    override suspend fun prepare(
+        bookId: BookId,
+        forceTranscode: Boolean,
+    ): AppResult<ContractPreparedPlayback> = service.prepare(bookId, forceTranscode = forceTranscode)
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = service.getPosition(bookId)
 }
