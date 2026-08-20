@@ -409,6 +409,28 @@ class PlaybackService :
                     skipIntervals = skipIntervals,
                 ),
             )
+        // ⛔ The other half of the Auto sign-in fix, and the half that is easy to miss because the
+        // code reads fine without it. Android Auto is a *legacy* MediaBrowserCompat client, so an
+        // error LibraryResult from onGetChildren is flattened to `sendResult(null)` before it
+        // leaves Media3 — the typed SessionError's message, its sign-in label and its PendingIntent
+        // are all discarded on that channel (MediaLibraryServiceLegacyStub.createMediaItemsTo-
+        // BrowserItemsAsyncFunction). The head unit is simply told the request failed.
+        //
+        // They survive by a side channel instead: for legacy browsers only, Media3 replicates
+        // ERROR_SESSION_AUTHENTICATION_EXPIRED into the platform PlaybackStateCompat
+        // (MediaLibrarySessionImpl.maybeUpdateLegacyErrorState). But the default mode is
+        // NON_FATAL, which merges the extras into an otherwise ordinary state — and with nothing
+        // playing that state is STATE_NONE. Auto's sign-in template keys off STATE_ERROR, which
+        // only the FATAL branch produces. So the default is a wall that renders as nothing at all.
+        //
+        // onGetLibraryRoot is exempt from replication by design (it is part of a legacy browser's
+        // connection handshake), which is why the root must stay ungated and this must be set:
+        // the two are complementary, not alternatives. The state self-clears on the next
+        // successful library result, which is exactly what observeSignInForBrowseRefresh's
+        // notifyChildrenChanged provokes.
+        builder.setLibraryErrorReplicationMode(
+            MediaLibrarySession.LIBRARY_ERROR_REPLICATION_MODE_FATAL,
+        )
         if (sessionIntent != null) {
             builder.setSessionActivity(sessionIntent)
         }
