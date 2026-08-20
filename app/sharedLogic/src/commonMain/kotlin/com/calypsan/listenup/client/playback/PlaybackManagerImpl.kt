@@ -286,6 +286,7 @@ internal class PlaybackManagerImpl(
             timeline.files.map { file ->
                 AudioSegment(
                     url = file.streamingUrl,
+                    hlsUrl = file.hlsUrl,
                     localPath = file.localPath,
                     durationMs = file.durationMs,
                     offsetMs = file.startOffsetMs,
