@@ -212,6 +212,10 @@ internal class HtmlAudioPlayer : AudioPlayer {
         element.volume = volume.coerceIn(0f, 1f).toDouble()
     }
 
+    /** Reads back what [setVolume] wrote — the read half of that seam, for tests to observe. */
+    internal val volume: Double
+        get() = element.volume
+
     /**
      * Return to the resting state: nothing loaded, nothing playing, every published value zeroed.
      *

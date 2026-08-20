@@ -43,4 +43,19 @@ class DownloadErrorTest :
             err.bookTitle shouldBe "Dune"
             err.message.isNotBlank() shouldBe true
         }
+
+        test("NotSupported has stable code and is NOT retryable") {
+            // Unlike DownloadFailed: a platform with no download backend (browser, desktop) will
+            // never succeed no matter how many times retry middleware re-fires the call.
+            val err: AppError = DownloadError.NotSupported()
+            err.message.isNotBlank() shouldBe true
+            err.code shouldBe "DOWNLOAD_NOT_SUPPORTED"
+            err.isRetryable shouldBe false
+        }
+
+        test("NotSupported carries the bookTitle payload") {
+            val err = DownloadError.NotSupported(bookTitle = "Dune")
+            err.bookTitle shouldBe "Dune"
+            err.message.isNotBlank() shouldBe true
+        }
     })

@@ -185,6 +185,7 @@ private fun DownloadError.withCorrelationId(id: String?): DownloadError =
         is DownloadError.DownloadFailed -> copy(correlationId = id)
         is DownloadError.InsufficientStorage -> copy(correlationId = id)
         is DownloadError.DeleteFailed -> copy(correlationId = id)
+        is DownloadError.NotSupported -> copy(correlationId = id)
     }
 
 private fun ImportError.withCorrelationId(id: String?): ImportError =

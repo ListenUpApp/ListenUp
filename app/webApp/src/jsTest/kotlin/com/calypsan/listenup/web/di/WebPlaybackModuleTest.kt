@@ -4,8 +4,10 @@ import com.calypsan.listenup.client.di.jsSharedModules
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.web.createSqliteWorker
+import com.calypsan.listenup.web.playback.HtmlAudioPlayer
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.qualifier.named
@@ -44,6 +46,20 @@ class WebPlaybackModuleTest :
             try {
                 koin.get<AudioPlayer>()
                 koin.get<PlaybackController>()
+            } finally {
+                stopKoin()
+            }
+        }
+
+        test("AudioPlayer and HtmlAudioPlayer resolve to the identical singleton") {
+            // Pins the shape WebPlaybackModule's KDoc calls load-bearing: `single<AudioPlayer> {
+            // HtmlAudioPlayer() }` would compile and pass every other test here while quietly
+            // constructing a SECOND `<audio>` element — one the transport bar drives, a different,
+            // silent one PlaybackManager actually plays through. No other assertion in this file
+            // would catch that regression.
+            val koin = startKoin { modules(jsSharedModules() + webPlaybackModule) }.koin
+            try {
+                koin.get<AudioPlayer>() shouldBeSameInstanceAs koin.get<HtmlAudioPlayer>()
             } finally {
                 stopKoin()
             }
