@@ -46,8 +46,8 @@ private val previewNarrators =
 // Multiple series + an independent subtitle (the Mistborn case the design demos).
 private val previewSeries =
     listOf(
-        BookSeries(seriesId = "s1", seriesName = "Mistborn", sequence = "1"),
-        BookSeries(seriesId = "s2", seriesName = "The Cosmere", sequence = "3"),
+        BookSeries(seriesId = "s1", seriesName = "Mistborn", sequence = 1.0),
+        BookSeries(seriesId = "s2", seriesName = "The Cosmere", sequence = 3.0),
     )
 
 @Composable

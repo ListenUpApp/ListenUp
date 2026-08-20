@@ -128,7 +128,7 @@ class BookWithContributorsMapperTest :
                 BookSeriesCrossRef(
                     bookId = bookId,
                     seriesId = seriesId,
-                    sequence = "1",
+                    sequence = 1.0,
                 ),
             )
 

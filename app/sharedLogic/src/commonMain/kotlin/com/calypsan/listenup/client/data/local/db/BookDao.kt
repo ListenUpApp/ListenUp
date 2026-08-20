@@ -591,5 +591,5 @@ internal data class DiscoveryBookWithSeries(
     val coverDownloadedAt: Timestamp?,
     val createdAt: Timestamp,
     val authorName: String?,
-    val sequence: String?,
+    val sequence: Double?,
 )

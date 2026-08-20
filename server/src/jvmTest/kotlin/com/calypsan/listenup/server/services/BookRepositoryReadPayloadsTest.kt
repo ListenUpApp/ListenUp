@@ -89,7 +89,7 @@ class BookRepositoryReadPayloadsTest :
                             sql.bookSeriesMembershipsQueries.insert(
                                 book_id = bookId,
                                 series_id = "s-$bookId",
-                                sequence = "1",
+                                sequence = 1.0,
                                 ordinal = 0L,
                             )
                             (0..2).forEach { ci ->

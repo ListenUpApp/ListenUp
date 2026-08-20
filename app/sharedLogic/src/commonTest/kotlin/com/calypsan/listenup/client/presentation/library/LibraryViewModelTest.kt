@@ -77,7 +77,7 @@ class LibraryViewModelTest :
             publishYear: Int? = 2023,
             seriesName: String? = null,
             seriesId: String? = null,
-            seriesSequence: String? = null,
+            seriesSequence: Double? = null,
             addedAt: Timestamp = Timestamp(1000L),
         ): BookListItem {
             val seriesList =
@@ -680,10 +680,10 @@ class LibraryViewModelTest :
                 // Given
                 val books =
                     listOf(
-                        createTestBook(id = "1", title = "Book A", seriesId = "alpha", seriesName = "Alpha Series", seriesSequence = "2"),
-                        createTestBook(id = "2", title = "Book B", seriesId = "alpha", seriesName = "Alpha Series", seriesSequence = "1"),
+                        createTestBook(id = "1", title = "Book A", seriesId = "alpha", seriesName = "Alpha Series", seriesSequence = 2.0),
+                        createTestBook(id = "2", title = "Book B", seriesId = "alpha", seriesName = "Alpha Series", seriesSequence = 1.0),
                         createTestBook(id = "3", title = "Standalone", seriesName = null, seriesSequence = null),
-                        createTestBook(id = "4", title = "Book C", seriesId = "beta", seriesName = "Beta Series", seriesSequence = "1"),
+                        createTestBook(id = "4", title = "Book C", seriesId = "beta", seriesName = "Beta Series", seriesSequence = 1.0),
                     )
                 val fixture = createFixture()
                 every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
@@ -707,9 +707,9 @@ class LibraryViewModelTest :
                 // Given
                 val books =
                     listOf(
-                        createTestBook(id = "1", title = "Book 2", seriesName = "Series", seriesSequence = "2"),
-                        createTestBook(id = "2", title = "Book 1.5", seriesName = "Series", seriesSequence = "1.5"),
-                        createTestBook(id = "3", title = "Book 1", seriesName = "Series", seriesSequence = "1"),
+                        createTestBook(id = "1", title = "Book 2", seriesName = "Series", seriesSequence = 2.0),
+                        createTestBook(id = "2", title = "Book 1.5", seriesName = "Series", seriesSequence = 1.5),
+                        createTestBook(id = "3", title = "Book 1", seriesName = "Series", seriesSequence = 1.0),
                     )
                 val fixture = createFixture()
                 every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
@@ -1123,16 +1123,16 @@ class LibraryViewModelTest :
                 // Given - 3-book series with 1 finished book
                 val books =
                     listOf(
-                        createTestBook(id = "b1", seriesId = "s1", seriesName = "Test Series", seriesSequence = "1"),
-                        createTestBook(id = "b2", seriesId = "s1", seriesName = "Test Series", seriesSequence = "2"),
-                        createTestBook(id = "b3", seriesId = "s1", seriesName = "Test Series", seriesSequence = "3"),
+                        createTestBook(id = "b1", seriesId = "s1", seriesName = "Test Series", seriesSequence = 1.0),
+                        createTestBook(id = "b2", seriesId = "s1", seriesName = "Test Series", seriesSequence = 2.0),
+                        createTestBook(id = "b3", seriesId = "s1", seriesName = "Test Series", seriesSequence = 3.0),
                     )
                 val seriesList =
                     listOf(
                         SeriesWithBooks(
                             series = createTestSeries(id = "s1"),
                             books = books,
-                            bookSequences = mapOf("b1" to "1", "b2" to "2", "b3" to "3"),
+                            bookSequences = mapOf("b1" to 1.0, "b2" to 2.0, "b3" to 3.0),
                         ),
                     )
                 val positions =

@@ -121,7 +121,7 @@ private suspend fun randomUnstartedLinkBookToSeries(
     bookSeriesDao: BookSeriesDao,
     bookId: String,
     seriesId: String,
-    sequence: String?,
+    sequence: Double?,
 ) {
     bookSeriesDao.insertAll(
         listOf(
@@ -145,6 +145,6 @@ private suspend fun randomUnstartedSeedThreeBooks(
     randomUnstartedSeedBook(bookDao, id = "mid-series")
 
     randomUnstartedSeedSeries(seriesDao, id = "s1", name = "Test Series")
-    randomUnstartedLinkBookToSeries(bookSeriesDao, bookId = "first-in-series", seriesId = "s1", sequence = "1")
-    randomUnstartedLinkBookToSeries(bookSeriesDao, bookId = "mid-series", seriesId = "s1", sequence = "3")
+    randomUnstartedLinkBookToSeries(bookSeriesDao, bookId = "first-in-series", seriesId = "s1", sequence = 1.0)
+    randomUnstartedLinkBookToSeries(bookSeriesDao, bookId = "mid-series", seriesId = "s1", sequence = 3.0)
 }

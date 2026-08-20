@@ -800,8 +800,8 @@ class SeriesRepositoryImplTest :
                         books = listOf(book1, book2),
                         bookSequences =
                             listOf(
-                                BookSeriesCrossRef(BookId("book-1"), SeriesId("series-1"), "1"),
-                                BookSeriesCrossRef(BookId("book-2"), SeriesId("series-1"), "2"),
+                                BookSeriesCrossRef(BookId("book-1"), SeriesId("series-1"), 1.0),
+                                BookSeriesCrossRef(BookId("book-2"), SeriesId("series-1"), 2.0),
                             ),
                     )
 
@@ -819,8 +819,8 @@ class SeriesRepositoryImplTest :
                 result[0].books.size shouldBe 2
                 result[0].books[0].id.value shouldBe "book-1"
                 result[0].books[0].title shouldBe "Way of Kings"
-                result[0].bookSequences["book-1"] shouldBe "1"
-                result[0].bookSequences["book-2"] shouldBe "2"
+                result[0].bookSequences["book-1"] shouldBe 1.0
+                result[0].bookSequences["book-2"] shouldBe 2.0
             }
         }
 
@@ -880,8 +880,8 @@ class SeriesRepositoryImplTest :
                         books = listOf(book1, book2),
                         bookSequences =
                             listOf(
-                                BookSeriesCrossRef(BookId("book-1"), SeriesId("series-1"), "1"),
-                                BookSeriesCrossRef(BookId("book-2"), SeriesId("series-1"), "2"),
+                                BookSeriesCrossRef(BookId("book-1"), SeriesId("series-1"), 1.0),
+                                BookSeriesCrossRef(BookId("book-2"), SeriesId("series-1"), 2.0),
                             ),
                     )
 
@@ -899,8 +899,8 @@ class SeriesRepositoryImplTest :
                 result.books.size shouldBe 2
                 result.books[0].id.value shouldBe "book-1"
                 result.books[1].id.value shouldBe "book-2"
-                result.bookSequences["book-1"] shouldBe "1"
-                result.bookSequences["book-2"] shouldBe "2"
+                result.bookSequences["book-1"] shouldBe 1.0
+                result.bookSequences["book-2"] shouldBe 2.0
             }
         }
 

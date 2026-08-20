@@ -83,8 +83,8 @@ class SeriesServiceImplTest :
                 val bookRepo = deps.bookRepo
                 runTest {
                     val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
-                    bookRepo.upsert(bookFixtureWithSeries("b1", "The Way of Kings", seriesId, "1"))
-                    bookRepo.upsert(bookFixtureWithSeries("b2", "Words of Radiance", seriesId, "2", rootRelPath = "WoR"))
+                    bookRepo.upsert(bookFixtureWithSeries("b1", "The Way of Kings", seriesId, 1.0))
+                    bookRepo.upsert(bookFixtureWithSeries("b2", "Words of Radiance", seriesId, 2.0, rootRelPath = "WoR"))
 
                     val result = service.listBooksBySeries(seriesId)
 
@@ -161,7 +161,7 @@ class SeriesServiceImplTest :
                     val otherSeriesId = seriesRepo.resolveOrCreate("Mistborn")
                     // b1 is in both series; b2 is only in the target series.
                     bookRepo.upsert(bookFixtureWithTwoSeries("b1", "The Way of Kings", targetSeriesId, otherSeriesId))
-                    bookRepo.upsert(bookFixtureWithSeries("b2", "Words of Radiance", targetSeriesId, "2", rootRelPath = "WoR"))
+                    bookRepo.upsert(bookFixtureWithSeries("b2", "Words of Radiance", targetSeriesId, 2.0, rootRelPath = "WoR"))
                     val initialB1 = bookRepo.findById(BookId("b1"))!!
                     val initialB2 = bookRepo.findById(BookId("b2"))!!
 
@@ -322,7 +322,7 @@ private fun bookFixtureWithSeries(
     id: String,
     title: String,
     seriesId: SeriesId,
-    sequence: String,
+    sequence: Double,
     rootRelPath: String = "Sanderson/$title",
 ): BookSyncPayload =
     BookSyncPayload(
@@ -383,18 +383,18 @@ private fun bookFixtureWithTwoSeries(
     firstSeriesId: SeriesId,
     secondSeriesId: SeriesId,
 ): BookSyncPayload =
-    bookFixtureWithSeries(id, title, firstSeriesId, "1").copy(
+    bookFixtureWithSeries(id, title, firstSeriesId, 1.0).copy(
         series =
             listOf(
                 BookSeriesPayload(
                     id = firstSeriesId.value,
                     name = "The Stormlight Archive",
-                    sequence = "1",
+                    sequence = 1.0,
                 ),
                 BookSeriesPayload(
                     id = secondSeriesId.value,
                     name = "Mistborn",
-                    sequence = "1",
+                    sequence = 1.0,
                 ),
             ),
     )

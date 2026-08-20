@@ -108,7 +108,7 @@ class ContributorDetailViewModelTest :
                             updatedAt = Timestamp(1704067200000L),
                         )
                     },
-                bookSequences = bookIds.mapIndexed { i, bookId -> bookId to "${i + 1}" }.toMap(),
+                bookSequences = bookIds.mapIndexed { i, bookId -> bookId to (i + 1).toDouble() }.toMap(),
             )
 
         fun createContributor(

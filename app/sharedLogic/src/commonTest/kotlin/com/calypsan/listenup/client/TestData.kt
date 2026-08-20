@@ -48,7 +48,7 @@ object TestData {
         tags: List<Tag> = emptyList(),
         seriesId: String? = null,
         seriesName: String? = null,
-        seriesSequence: String? = null,
+        seriesSequence: Double? = null,
         publishYear: Int? = 1925,
         publisher: String? = null,
         language: String? = null,
@@ -111,7 +111,7 @@ object TestData {
         description: String? = "A story of decadence and excess in the Jazz Age.",
         seriesId: String? = null,
         seriesName: String? = null,
-        seriesSequence: String? = null,
+        seriesSequence: Double? = null,
         publishYear: Int? = 1925,
         publisher: String? = null,
         language: String? = null,
@@ -280,7 +280,7 @@ object TestData {
         title: String = "The Fellowship of the Ring",
         seriesId: String = "series-1",
         seriesName: String = "The Lord of the Rings",
-        seriesSequence: String = "1",
+        seriesSequence: Double = 1.0,
     ): BookDetail =
         bookDetail(
             id = id,

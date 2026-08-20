@@ -54,8 +54,8 @@ class DiscoverSeriesAwareTest :
                 seedBook(db, "first")
                 seedBook(db, "mid")
                 seedSeries(db, "s1", "Series One")
-                linkSeries(db, "first", "s1", "1")
-                linkSeries(db, "mid", "s1", "3")
+                linkSeries(db, "first", "s1", 1.0)
+                linkSeries(db, "mid", "s1", 3.0)
 
                 val ids = repo.observeRandomUnstartedBooks(limit = 10).first().map { it.id }
                 ids.shouldContainExactlyInAnyOrder("standalone", "first")
@@ -67,8 +67,8 @@ class DiscoverSeriesAwareTest :
                 seedBook(db, "multi")
                 seedSeries(db, "s1", "Series One")
                 seedSeries(db, "s2", "Series Two")
-                linkSeries(db, "multi", "s1", "4") // mid in s1
-                linkSeries(db, "multi", "s2", "1") // first in s2
+                linkSeries(db, "multi", "s1", 4.0) // mid in s1
+                linkSeries(db, "multi", "s2", 1.0) // first in s2
 
                 val ids = repo.observeRandomUnstartedBooks(limit = 10).first().map { it.id }
                 ids.shouldContainExactlyInAnyOrder("multi")
@@ -184,7 +184,7 @@ private suspend fun linkSeries(
     db: ListenUpDatabase,
     bookId: String,
     seriesId: String,
-    sequence: String,
+    sequence: Double,
 ) {
     db.bookSeriesDao().insertAll(
         listOf(

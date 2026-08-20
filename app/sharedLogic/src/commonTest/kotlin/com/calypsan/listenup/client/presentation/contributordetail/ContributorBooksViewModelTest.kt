@@ -194,13 +194,13 @@ class ContributorBooksViewModelTest :
                     createBook(
                         id = "book-1",
                         title = "The Dark Tower",
-                        series = listOf(BookSeries(seriesId = "dark-tower-series", seriesName = "Dark Tower", sequence = "1")),
+                        series = listOf(BookSeries(seriesId = "dark-tower-series", seriesName = "Dark Tower", sequence = 1.0)),
                     )
                 val book2 =
                     createBook(
                         id = "book-2",
                         title = "The Drawing of the Three",
-                        series = listOf(BookSeries(seriesId = "dark-tower-series", seriesName = "Dark Tower", sequence = "2")),
+                        series = listOf(BookSeries(seriesId = "dark-tower-series", seriesName = "Dark Tower", sequence = 2.0)),
                     )
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
@@ -258,19 +258,19 @@ class ContributorBooksViewModelTest :
                     createBook(
                         id = "book-1",
                         title = "Book One",
-                        series = listOf(BookSeries(seriesId = "test-series", seriesName = "Series", sequence = "2")),
+                        series = listOf(BookSeries(seriesId = "test-series", seriesName = "Series", sequence = 2.0)),
                     )
                 val book2 =
                     createBook(
                         id = "book-2",
                         title = "Book Two",
-                        series = listOf(BookSeries(seriesId = "test-series", seriesName = "Series", sequence = "1")),
+                        series = listOf(BookSeries(seriesId = "test-series", seriesName = "Series", sequence = 1.0)),
                     )
                 val book3 =
                     createBook(
                         id = "book-3",
                         title = "Book Three",
-                        series = listOf(BookSeries(seriesId = "test-series", seriesName = "Series", sequence = "1.5")),
+                        series = listOf(BookSeries(seriesId = "test-series", seriesName = "Series", sequence = 1.5)),
                     )
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }

@@ -268,7 +268,7 @@ class AnalyzedBookMapperTest :
 
             mapper.buildSeries(analyzed) shouldBe
                 listOf(
-                    BookSeriesPayload(id = "", name = "Stormlight Archive", sequence = "1"),
+                    BookSeriesPayload(id = "", name = "Stormlight Archive", sequence = 1.0),
                 )
         }
 

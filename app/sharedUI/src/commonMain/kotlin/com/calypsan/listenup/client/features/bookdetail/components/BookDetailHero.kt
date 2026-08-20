@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -622,7 +623,7 @@ private fun SeriesChip(
             color = contentColor,
         )
         val sequence = membership.sequence
-        if (!sequence.isNullOrBlank()) {
+        if (sequence != null) {
             Box(
                 modifier =
                     Modifier

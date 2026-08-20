@@ -158,7 +158,7 @@ class FieldProvenanceOnRescanTest :
                         current.copy(
                             series =
                                 listOf(
-                                    BookSeriesPayload(id = curatedId.value, name = "The Stormlight Archive", sequence = "1"),
+                                    BookSeriesPayload(id = curatedId.value, name = "The Stormlight Archive", sequence = 1.0),
                                 ),
                             fieldProvenance = userMap(BookField.SERIES),
                         ),

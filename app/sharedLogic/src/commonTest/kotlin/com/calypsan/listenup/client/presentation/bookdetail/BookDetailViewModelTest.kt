@@ -262,7 +262,7 @@ class BookDetailViewModelTest :
                         subtitle = "The Stormlight Archive, Book 1",
                         seriesId = "series-1",
                         seriesName = "The Stormlight Archive",
-                        seriesSequence = "1",
+                        seriesSequence = 1.0,
                     )
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
                 everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
@@ -292,7 +292,7 @@ class BookDetailViewModelTest :
                     TestData.bookDetail(
                         subtitle = "A Novel of Discovery",
                         seriesName = "The Stormlight Archive",
-                        seriesSequence = "1",
+                        seriesSequence = 1.0,
                     )
                 every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(book)
                 everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()

@@ -106,7 +106,7 @@ private data class SortedContent(
 private data class BookSeriesSortKey(
     val book: BookListItem,
     val seriesName: String,
-    val sequence: Float,
+    val sequence: Double,
     val title: String,
 )
 
@@ -585,13 +585,13 @@ class LibraryViewModel(
                 // private class — can't use a local data class here without a JVM name collision
                 // across the when-branches).
                 val nullSeriesName = if (isAsc) "￿" else ""
-                val nullSequence = if (isAsc) Float.MAX_VALUE else 0f
+                val nullSequence = if (isAsc) Double.MAX_VALUE else 0.0
                 val keyed =
                     books.map {
                         BookSeriesSortKey(
                             book = it,
                             seriesName = it.seriesName?.lowercase() ?: nullSeriesName,
-                            sequence = it.seriesSequence?.toFloatOrNull() ?: nullSequence,
+                            sequence = it.seriesSequence ?: nullSequence,
                             title = it.title.lowercase(),
                         )
                     }

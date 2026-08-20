@@ -248,7 +248,7 @@ class LoadBookForEditUseCaseTest :
                         title = "The Fellowship of the Ring",
                         seriesId = "lotr-series",
                         seriesName = "The Lord of the Rings",
-                        seriesSequence = "1",
+                        seriesSequence = 1.0,
                     )
                 val fixture = createFixture()
                 everySuspend { fixture.bookRepository.getBookDetail("book-1") } returns book
@@ -594,7 +594,7 @@ class LoadBookForEditUseCaseTest :
                         abridged = false,
                         seriesId = "stormlight",
                         seriesName = "The Stormlight Archive",
-                        seriesSequence = "1",
+                        seriesSequence = 1.0,
                         allContributors = listOf(author, narrator),
                         coverPath = "/covers/way-of-kings.jpg",
                     )

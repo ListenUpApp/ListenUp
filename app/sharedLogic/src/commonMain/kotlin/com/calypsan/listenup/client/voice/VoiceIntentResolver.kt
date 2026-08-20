@@ -190,7 +190,8 @@ class VoiceIntentResolver(
                             ?.sequence
                     book to sequence
                 }.sortedBy { (_, sequence) ->
-                    sequence?.toFloatOrNull() ?: Float.MAX_VALUE
+                    // Unnumbered books sort last — unplaced, not first.
+                    sequence ?: Double.MAX_VALUE
                 }
 
         val targetBookId =
@@ -220,7 +221,11 @@ class VoiceIntentResolver(
                     // Find book by sequence number
                     booksWithSequence
                         .find { (_, sequence) ->
-                            sequence == navigation.sequence
+                            // The spoken sequence stays a String — it is raw speech, and "book
+                            // one point five" has to survive as text before it means anything.
+                            // Compare as numbers so "2" matches 2.0 rather than missing it on
+                            // spelling, which is what a string equality here used to do.
+                            sequence != null && sequence == navigation.sequence.toDoubleOrNull()
                         }?.first
                         ?.id
                         ?.value
@@ -260,5 +265,5 @@ class VoiceIntentResolver(
 private data class SeriesContext(
     val seriesId: String,
     val currentBookId: String,
-    val currentSequence: String?,
+    val currentSequence: Double?,
 )

@@ -67,7 +67,7 @@ class SeriesMergeE2ETest :
                         title = "The Gunslinger",
                         seriesId = sourceId.value,
                         seriesName = SOURCE_SERIES_NAME,
-                        sequence = "1",
+                        sequence = 1.0,
                     ),
                 )
                 serverBookRepository.upsert(
@@ -76,7 +76,7 @@ class SeriesMergeE2ETest :
                         title = "The Drawing of the Three",
                         seriesId = sourceId.value,
                         seriesName = SOURCE_SERIES_NAME,
-                        sequence = "2",
+                        sequence = 2.0,
                     ),
                 )
 
@@ -164,7 +164,7 @@ private fun bookFixtureInSeries(
     title: String,
     seriesId: String,
     seriesName: String,
-    sequence: String?,
+    sequence: Double?,
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,

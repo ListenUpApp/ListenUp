@@ -80,7 +80,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 @ColumnTypeConverters(

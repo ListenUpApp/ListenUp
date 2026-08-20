@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
+import com.calypsan.listenup.server.services.parseSeriesSequence
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
@@ -271,7 +272,10 @@ internal class BookMetadataApplier(
     private suspend fun List<MetadataSeriesRef>.resolveSeries(): List<BookSeriesPayload> =
         map { entry ->
             val id = seriesRepository.resolveOrCreate(entry.title)
-            BookSeriesPayload(id = id.value, name = entry.title, sequence = entry.sequence)
+            // Provider text ("1", "1.5", "Book Zero") becomes a number here, at the persist
+            // boundary — see parseSeriesSequence, which is shared with the scanner path so a
+            // match-apply and a rescan cannot disagree about what a label means.
+            BookSeriesPayload(id = id.value, name = entry.title, sequence = parseSeriesSequence(entry.sequence))
         }
 
     /**

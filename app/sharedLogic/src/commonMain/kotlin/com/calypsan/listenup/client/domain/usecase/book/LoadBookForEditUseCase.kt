@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.domain.usecase.book
 
+import com.calypsan.listenup.client.core.formatSeriesSequence
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.domain.model.BookDetail
@@ -194,7 +195,8 @@ open class LoadBookForEditUseCase(
             EditableSeries(
                 id = s.seriesId,
                 name = s.seriesName,
-                sequence = s.sequence,
+                // Stored as a number, edited as text — see EditableSeries.sequence.
+                sequence = s.sequence?.let(::formatSeriesSequence),
             )
         }
 

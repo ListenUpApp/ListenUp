@@ -289,7 +289,11 @@ internal class BookServiceImpl(
                 BookSeriesPayload(
                     id = resolvedId,
                     name = input.name,
-                    sequence = input.position?.toString(),
+                    // No conversion left to do: the input has always been a Double and the payload
+                    // is one now. The `?.toString()` that used to sit here rendered a number as
+                    // text purely so the column could hold it, and every reader cast it straight
+                    // back — a round trip that could only lose precision, never add anything.
+                    sequence = input.position,
                 )
             }
         // Record USER provenance for SERIES so a later rescan preserves this edit (the merge in

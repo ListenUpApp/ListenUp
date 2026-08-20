@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -21,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AutocompleteEmptyResultsHint
 import com.calypsan.listenup.client.design.components.AutocompleteResultItem
@@ -158,7 +160,44 @@ private fun SeriesChipWithSequence(
             value = series.sequence ?: "",
             onValueChange = onSequenceChange,
             label = "#",
+            // Decimal, not Number: half-numbered entries ("1.5") are ordinary in book series, and a
+            // plain number pad hides the separator they need. Number is right for the publish year
+            // in PublishingSection, which genuinely has no fractional part — this field was simply
+            // never given a type, so it opened the full alphabetic keyboard for a number.
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            // The keyboard is a hint, not a constraint — a hardware keyboard, a paste, or a
+            // switched IME can still deliver letters. The transform is what actually holds the
+            // shape, and it runs inside the field's own text ledger so a rejected character never
+            // reaches the caller and never moves the caret.
+            transform = ::keepDecimalCharacters,
             modifier = Modifier.weight(1f),
         )
     }
+}
+
+/**
+ * Keeps [raw] to the shape of a series position: digits, and at most one decimal point.
+ *
+ * Deliberately permissive about *incomplete* input. `"1."` is not a number and never will be on its
+ * own, but it is what every user types on the way to `"1.5"`, so it has to survive — which is also
+ * why [com.calypsan.listenup.client.domain.model.EditableSeries] holds text rather than a `Double`
+ * while the screen is open. Rejecting a keystroke here only ever removes a character the value
+ * could not have contained; it never rewrites what the user already has.
+ */
+internal fun keepDecimalCharacters(raw: String): String {
+    val builder = StringBuilder(raw.length)
+    var seenPoint = false
+    for (char in raw) {
+        when {
+            char.isDigit() -> {
+                builder.append(char)
+            }
+
+            char == '.' && !seenPoint -> {
+                seenPoint = true
+                builder.append(char)
+            }
+        }
+    }
+    return builder.toString()
 }

@@ -179,7 +179,7 @@ private fun bookSyncPayloadFull(): BookSyncPayload =
                 BookSeriesPayload(
                     id = "series-1",
                     name = "The Stormlight Archive",
-                    sequence = "2",
+                    sequence = 2.0,
                 ),
             ),
         audioFiles =

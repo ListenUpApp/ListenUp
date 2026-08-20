@@ -95,7 +95,7 @@ class SeriesEditRepositoryOfflineTest :
                 )
                 // book_series carries FK constraints to books + series, so both parents must exist.
                 db.seedSeriesTestBook(BookId("b1"))
-                db.bookSeriesDao().insert(BookSeriesCrossRef(bookId = BookId("b1"), seriesId = seriesId, sequence = "1"))
+                db.bookSeriesDao().insert(BookSeriesCrossRef(bookId = BookId("b1"), seriesId = seriesId, sequence = 1.0))
 
                 val queue =
                     PendingOperationQueue(
