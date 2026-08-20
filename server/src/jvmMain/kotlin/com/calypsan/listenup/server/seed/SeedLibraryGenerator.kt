@@ -99,11 +99,17 @@ object SeedLibraryGenerator {
     ) {
         val extension = target.fileName.toString().substringAfterLast('.')
         val codec =
-            when (extension) {
-                "m4b" -> "aac"
-                "mp3" -> "libmp3lame"
-                else -> error("Unsupported audio extension: .$extension")
-            }
+            track.codecOverride
+                ?: when (extension) {
+                    "m4b" -> "aac"
+                    "mp3" -> "libmp3lame"
+                    else -> error("Unsupported audio extension: .$extension")
+                }
+
+        // E-AC-3 in an .m4b needs the muxer named explicitly: the extension alone selects `ipod`,
+        // which refuses the codec outright ("Could not find tag for codec eac3 in stream #0").
+        // `-f mp4` produces the same container with a real `ec-3` sample entry.
+        val muxerArgs = if (codec == "eac3") listOf("-f", "mp4") else emptyList()
         val firstAuthor = book.authors.firstOrNull() ?: ""
         val metadataArgs =
             listOf(
@@ -137,7 +143,7 @@ object SeedLibraryGenerator {
                         codec,
                         "-b:a",
                         "32k",
-                    ) + metadataArgs + listOf(target.toAbsolutePath().toString()),
+                    ) + metadataArgs + muxerArgs + listOf(target.toAbsolutePath().toString()),
                 )
             } finally {
                 Files.deleteIfExists(ffmetaFile)
@@ -154,7 +160,7 @@ object SeedLibraryGenerator {
                     codec,
                     "-b:a",
                     "32k",
-                ) + metadataArgs + listOf(target.toAbsolutePath().toString()),
+                ) + metadataArgs + muxerArgs + listOf(target.toAbsolutePath().toString()),
             )
         }
     }
