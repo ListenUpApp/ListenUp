@@ -140,7 +140,14 @@ internal class ListenUpSessionCallback(
             )
 
         val trust = session.classifyController(controller)
-        logger.debug { "onConnect from ${controller.packageName} classified as $trust" }
+        // controllerVersion is logged because the whole signed-out Auto design rests on it being
+        // LEGACY_CONTROLLER_VERSION: Media3 replicates a browse error into the platform playback
+        // state for legacy browsers ONLY. If a head unit ever connects as a Media3 controller
+        // instead, the sign-in wall silently stops being replicated and nothing else says so.
+        logger.debug {
+            "onConnect from ${controller.packageName} classified as $trust " +
+                "(controllerVersion=${controller.controllerVersion})"
+        }
         if (mayAccessCoverArt(trust)) {
             grantCoverArtAccess(controller.packageName)
         }
