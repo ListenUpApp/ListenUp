@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
@@ -43,7 +44,7 @@ fun main() {
     // so it is the browser application's contribution to an otherwise shared graph.
     val koin =
         startKoin {
-            modules(jsSharedModules() + module { single<Worker> { createSqliteWorker() } })
+            modules(jsSharedModules() + webPlaybackModule + module { single<Worker> { createSqliteWorker() } })
         }.koin
 
     // The server URL must be seeded before the composition mounts, or a ViewModel's first RPC
