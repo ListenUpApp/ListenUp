@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.api
 
+import com.calypsan.listenup.api.sync.parseSeriesSequence
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.MetadataApplySelection
 import com.calypsan.listenup.api.dto.MetadataBook
@@ -25,7 +26,6 @@ import com.calypsan.listenup.server.metadata.spi.MetadataProviderId
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
-import com.calypsan.listenup.server.services.parseSeriesSequence
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException

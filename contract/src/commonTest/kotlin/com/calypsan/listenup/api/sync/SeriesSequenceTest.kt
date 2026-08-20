@@ -1,4 +1,4 @@
-package com.calypsan.listenup.server.services
+package com.calypsan.listenup.api.sync
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe

@@ -111,6 +111,7 @@ data class BookContributorPayload(
 data class BookSeriesPayload(
     val id: String,
     val name: String,
+    @Serializable(with = SeriesSequenceSerializer::class)
     val sequence: Double?,
 )
 
