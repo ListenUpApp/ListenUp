@@ -168,6 +168,7 @@ class PlaybackPreparerHlsTest :
         // Both files NOT downloaded → prepare() is called (the only path that can ever carry hls).
         fun streamingDownloadService(): DownloadService {
             val downloadService: DownloadService = mock()
+            every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(any()) } returns null
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns
@@ -178,6 +179,7 @@ class PlaybackPreparerHlsTest :
         // Every file has a local path → prepare() is skipped entirely (offline-first).
         fun downloadedDownloadService(): DownloadService {
             val downloadService: DownloadService = mock()
+            every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-hls-1.mp3"
             everySuspend { downloadService.getLocalPath(audioFile2) } returns "/local/af-prep-hls-2.mp3"
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
@@ -276,6 +278,7 @@ class PlaybackPreparerHlsTest :
                     FakeHlsPlaybackService(prepareResult = AppResult.Failure(InternalError(debugInfo = "offline")))
 
                 val downloadService: DownloadService = mock()
+                every { downloadService.supportsDownloads } returns true
                 everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-hls-1.mp3"
                 everySuspend { downloadService.getLocalPath(audioFile2) } returns null // missing
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false

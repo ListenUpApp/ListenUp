@@ -593,8 +593,12 @@ class PlaybackPreparer internal constructor(
         bookId: BookId,
         timeline: PlaybackTimeline,
     ) {
-        if (!deviceContext.supportsDownloads) {
-            logger.info { "Device does not support downloads, streaming only" }
+        // Two independent gates: form factor (should THIS KIND of device download at all —
+        // TV/Auto/Xr never should) and backend capability (CAN the DownloadService actually
+        // finish one). A coarse-pointer mobile browser answers yes to the first and no to the
+        // second — see DownloadService.supportsDownloads — so neither alone is sufficient.
+        if (!deviceContext.supportsDownloads || !downloadService.supportsDownloads) {
+            logger.info { "Device/backend does not support downloads, streaming only" }
         } else if (!timeline.isFullyDownloaded && !downloadService.wasExplicitlyDeleted(bookId)) {
             logger.info { "Book not fully downloaded, triggering background download" }
             scope.launch { logBackgroundDownloadFailure(bookId) }

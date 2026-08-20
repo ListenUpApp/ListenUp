@@ -8,9 +8,9 @@ import com.calypsan.listenup.client.features.settings.DesktopSettingsPlatformAct
 import com.calypsan.listenup.client.features.settings.SettingsPlatformActions
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
+import com.calypsan.listenup.client.download.NoDownloadsService
 import com.calypsan.listenup.client.platform.DesktopAudioTokenProvider
 import com.calypsan.listenup.client.platform.StubBackgroundSyncScheduler
-import com.calypsan.listenup.client.platform.StubDownloadService
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.client.playback.AudioTokenProvider
@@ -44,7 +44,7 @@ import java.util.UUID
 val platformModule: Module =
     module {
         // Platform capability flag: Desktop does not support download and playback
-        // (StubDownloadService + no-op controller), so BookAvailability gates those paths off.
+        // (NoDownloadsService + no-op controller), so BookAvailability gates those paths off.
         single(qualifier = named("playbackAvailable")) { false }
 
         // Application-scoped coroutine scope for background operations
@@ -93,7 +93,7 @@ val platformModule: Module =
         }
 
         // Download service (stub)
-        single<DownloadService> { StubDownloadService() }
+        single<DownloadService> { NoDownloadsService() }
 
         // DownloadEnqueuer seam (Desktop no-op) is bound in `:app:sharedLogic`'s
         // `desktopDownloadModule` so the now-`internal` `DownloadEntity` need not be public.

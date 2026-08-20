@@ -10,8 +10,8 @@ import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceInfoProvider
-import com.calypsan.listenup.client.download.BrowserDownloadService
 import com.calypsan.listenup.client.download.DownloadService
+import com.calypsan.listenup.client.download.NoDownloadsService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.PlaybackManager
@@ -21,9 +21,11 @@ import com.calypsan.listenup.client.playback.ProgressTracker
 import kotlinx.browser.window
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import org.koin.dsl.onClose
 
 private const val PLAYBACK_SCOPE = "playbackScope"
 
@@ -41,9 +43,10 @@ private const val PLAYBACK_SCOPE = "playbackScope"
  *   because [PlaybackManagerImpl] is `internal` to this module, the same reason
  *   `desktopPlaybackModule` (`PlaybackModule.jvm.kt`) lives beside `PlaybackManagerImpl` instead
  *   of in `:app:sharedUI`. [CachedAudioTokenProvider] is the same commonMain class iOS binds —
- *   nothing about token caching is browser-specific. [BrowserDownloadService] is a stub: offline
- *   audio in a browser is undesigned (see `DownloadFileManager`), so [PlaybackManagerImpl] gets a
- *   `DownloadService` that always reports nothing downloaded, matching desktop's own stub.
+ *   nothing about token caching is browser-specific. [NoDownloadsService] is the same stub
+ *   Desktop's `PlatformModule` binds — offline audio in a browser is undesigned (see
+ *   `DownloadFileManager`), so [PlaybackManagerImpl] gets a [DownloadService] that always reports
+ *   nothing downloaded and refuses `supportsDownloads`.
  * - [DeviceInfoProvider] — every other platform binds this (see `iosPlaybackModule`, Android's
  *   `ListenUp.kt`, desktop's `PlatformModule.kt`); the browser had no binding at all, which is
  *   what actually broke sign-in, setup, and registration on the web — all three route through a
@@ -60,11 +63,16 @@ internal val browserPlaybackModule: Module =
 
         // Playback-scoped coroutine scope, same shape as iOS's: the appCoroutineExceptionHandler
         // keeps an uncaught failure in a fire-and-forget playback launch from taking the tab down.
+        // Cancelled on close — an improvement over the desktop/iOS precedent, neither of which
+        // does this, because a browser tab's Koin graph is stopped and restarted far more often
+        // (each spec in this test suite is one cycle) than a process exits. Without this,
+        // stopKoin() would leave CachedAudioTokenProvider's refresh loop running against a server
+        // that no longer exists for the rest of the page's life.
         single(qualifier = named(PLAYBACK_SCOPE)) {
             CoroutineScope(SupervisorJob() + IODispatcher + appCoroutineExceptionHandler)
-        }
+        } onClose { it?.cancel() }
 
-        single<DownloadService> { BrowserDownloadService() }
+        single<DownloadService> { NoDownloadsService() }
 
         // Audio token provider — shared core; no browser-specific surface needed.
         single<AudioTokenProvider> {

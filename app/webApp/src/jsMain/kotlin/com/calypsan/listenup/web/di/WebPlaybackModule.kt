@@ -7,6 +7,7 @@ import com.calypsan.listenup.web.playback.WebPlaybackController
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import org.koin.dsl.onClose
 
 /**
  * The browser app shell's playback bindings — the seam `browserPlaybackModule`
@@ -23,11 +24,21 @@ import org.koin.dsl.module
  * fetching that same singleton — not a second `single<AudioPlayer> { HtmlAudioPlayer() }`, which
  * would construct a second `<audio>` element nothing plays through. [WebPlaybackController] needs
  * the concrete type (for [HtmlAudioPlayer.setVolume], which is not part of the shared [AudioPlayer]
- * interface); anything reading [AudioPlayer] gets the identical instance.
+ * interface); anything reading [AudioPlayer] gets the identical instance — pinned by
+ * `WebPlaybackModuleTest`'s same-instance assertion, since a future edit that "simplifies" this to
+ * a single `single<AudioPlayer> { HtmlAudioPlayer() }` would compile clean and pass every OTHER
+ * test while quietly splitting the transport bar and [WebPlaybackController] onto two different,
+ * one-of-them-silent `<audio>` elements.
+ *
+ * `onClose { it?.releasePlayer() }` matters for the same reason `browserPlaybackModule`'s
+ * playback-scoped `CoroutineScope` cancels on close: a browser tab's Koin graph starts and stops
+ * far more often than a native process exits (once per spec in this test suite), and without it
+ * every `stopKoin()` would leave a detached `<audio>` element with live DOM listeners on the
+ * shared test page.
  */
 internal val webPlaybackModule: Module =
     module {
-        single { HtmlAudioPlayer() }
+        single { HtmlAudioPlayer() } onClose { it?.releasePlayer() }
         single<AudioPlayer> { get<HtmlAudioPlayer>() }
 
         single<PlaybackController> {
