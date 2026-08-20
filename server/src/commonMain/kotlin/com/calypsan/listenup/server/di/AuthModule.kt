@@ -91,6 +91,7 @@ private fun org.koin.core.module.Module.adminUserServiceSingle() {
 fun authModule(
     config: ApplicationConfig,
     pushRelayUrl: String,
+    pushSenderToken: String? = null,
 ): Module {
     val secrets = resolveServerSecrets(config)
     return module {
@@ -151,7 +152,7 @@ fun authModule(
 
         single { ServerSettingsRepository(sql = get(), default = config.registrationPolicy()) }
 
-        single { PushConfig(relayUrl = pushRelayUrl) }
+        single { PushConfig(relayUrl = pushRelayUrl, senderToken = pushSenderToken) }
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 

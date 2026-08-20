@@ -31,6 +31,7 @@ fun Application.module() {
     val metadataPrecedence = resolveMetadataPrecedence()
     val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
     val pushRelayUrl = resolvePushRelayUrl()
+    val pushSenderToken = resolvePushSenderToken()
 
     installDependencies(
         seedProfile,
@@ -40,6 +41,7 @@ fun Application.module() {
         embeddedCoverCacheSize,
         environment.config.watchEnabled(),
         pushRelayUrl,
+        pushSenderToken,
     )
 
     backfillPublicProfiles()
