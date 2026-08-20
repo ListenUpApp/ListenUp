@@ -197,6 +197,22 @@ internal class HtmlAudioPlayer : AudioPlayer {
     }
 
     /**
+     * Sets the underlying `<audio>` element's output volume (0.0 silent – 1.0 normal).
+     *
+     * Not part of [AudioPlayer] — Desktop's `FfmpegAudioPlayer` exposes no volume control at all,
+     * so adding it there would be a no-op forced onto every other platform. `HTMLMediaElement`
+     * carries a real `volume` property, so [WebPlaybackController] reaches this narrow method
+     * directly instead of pretending the shared interface can do the job.
+     *
+     * Coerced into range: the element's `volume` setter throws `IndexSizeError` outside [0, 1],
+     * and a sleep-timer fade-out computing a value a hair past either end must not crash playback
+     * over a rounding error.
+     */
+    internal fun setVolume(volume: Float) {
+        element.volume = volume.coerceIn(0f, 1f).toDouble()
+    }
+
+    /**
      * Return to the resting state: nothing loaded, nothing playing, every published value zeroed.
      *
      * Not terminal — [load] revives the instance — so a DI graph is free to hold one of these as a
