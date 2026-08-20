@@ -72,7 +72,7 @@ class SeriesParsingIngestE2ETest :
                     val saved = bookRepo.findById(BookId("dup-series-book")).shouldNotBeNull()
                     saved.series.size shouldBe 1
                     saved.series.single().name shouldBe "Cosmere"
-                    saved.series.single().sequence shouldBe "1"
+                    saved.series.single().sequence shouldBe 1.0
                 }
             }
         }
@@ -116,8 +116,8 @@ class SeriesParsingIngestE2ETest :
                     val saved = bookRepo.findById(BookId("multi-series-book")).shouldNotBeNull()
                     val byName = saved.series.associateBy { it.name }
                     byName.keys shouldBe setOf("Cosmere", "Stormlight")
-                    byName.getValue("Cosmere").sequence shouldBe "3"
-                    byName.getValue("Stormlight").sequence shouldBe "4"
+                    byName.getValue("Cosmere").sequence shouldBe 3.0
+                    byName.getValue("Stormlight").sequence shouldBe 4.0
                 }
             }
         }

@@ -98,7 +98,7 @@ class ContributorBooksViewModel(
                         seriesName = seriesName,
                         books =
                             seriesBooks.sortedBy {
-                                it.seriesSequence?.toFloatOrNull() ?: Float.MAX_VALUE
+                                it.seriesSequence ?: Double.MAX_VALUE
                             },
                     )
                 }.sortedBy { it.seriesName }

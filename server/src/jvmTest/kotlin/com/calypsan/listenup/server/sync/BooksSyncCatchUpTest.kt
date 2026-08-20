@@ -227,7 +227,7 @@ private fun bookSyncFixture(
             } ?: emptyList(),
         series =
             seriesId?.let {
-                listOf(BookSeriesPayload(id = it, name = "Stormlight Archive", sequence = "1"))
+                listOf(BookSeriesPayload(id = it, name = "Stormlight Archive", sequence = 1.0))
             } ?: emptyList(),
         audioFiles =
             listOf(

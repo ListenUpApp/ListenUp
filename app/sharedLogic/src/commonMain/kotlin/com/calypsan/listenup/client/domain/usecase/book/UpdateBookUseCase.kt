@@ -187,6 +187,13 @@ open class UpdateBookUseCase(
                 BookSeriesInput(
                     id = editable.id?.let { SeriesId(it) },
                     name = editable.name,
+                    // The one parse of what the user typed. This same call used to be a
+                    // silent data-loss bug: the field was loaded straight from a free-form stored
+                    // string, so opening a book whose sequence was "1-3" and saving ANY edit ran
+                    // that label through here, got null, and wiped it with no error. The stored
+                    // value is a number now and the field is loaded by formatting it, so the text
+                    // arriving here can only be something this parses — or something the user
+                    // typed over it, which is theirs to correct.
                     position = editable.sequence?.toDoubleOrNull(),
                 )
             }

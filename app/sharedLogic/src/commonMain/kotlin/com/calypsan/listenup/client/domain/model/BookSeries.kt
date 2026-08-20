@@ -6,5 +6,5 @@ package com.calypsan.listenup.client.domain.model
 data class BookSeries(
     val seriesId: String,
     val seriesName: String,
-    val sequence: String? = null, // e.g., "1", "1.5"
+    val sequence: Double? = null, // e.g. 1.0, 1.5; null when unnumbered
 )

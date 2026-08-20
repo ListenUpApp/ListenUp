@@ -92,15 +92,27 @@ data class BookContributorPayload(
 /**
  * Series membership for a book — at most one row per series per book.
  *
- * `sequence` is a free-form string ("1", "1.5", "Book Zero") because Audible
- * and Goodreads disagree on numbering conventions.
+ * [sequence] is a number, not the free-form string it used to be. Every consumer already treated it
+ * as one — the write side takes a `Double?` ([com.calypsan.listenup.api.dto.BookSeriesInput.position]),
+ * and the client parsed the string back to a float to sort the library, to answer voice queries, and
+ * to save an edit. A string that is cast at every use is not a string; it is a number wearing a
+ * costume, and the costume cost real correctness: the client ordered series lexicographically, so
+ * book 10 sorted before book 2, and saving an edit ran the value through `toDoubleOrNull()`, silently
+ * discarding anything that did not parse.
+ *
+ * Free-form text still exists — it just lives at the ingest edge, where it belongs.
+ * [com.calypsan.listenup.domain.embeddedmeta.SeriesEntry] and
+ * [com.calypsan.listenup.api.dto.scanner.SeriesEntry] stay `String?` because they carry what a file's
+ * tags or a metadata provider literally said. That text is parsed to a number exactly once, when the
+ * membership is persisted. Half-numbered entries ("1.5") are why this is `Double` and not `Int`.
  */
 @Serializable
 @SerialName("BookSeriesPayload")
 data class BookSeriesPayload(
     val id: String,
     val name: String,
-    val sequence: String?,
+    @Serializable(with = SeriesSequenceSerializer::class)
+    val sequence: Double?,
 )
 
 /**

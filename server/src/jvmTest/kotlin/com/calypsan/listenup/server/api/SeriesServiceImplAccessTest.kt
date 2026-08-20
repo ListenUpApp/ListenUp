@@ -139,7 +139,7 @@ private fun seriesBookFixture(
     bookPayloadFixture(
         id = id,
         title = title,
-        series = listOf(BookSeriesPayload(id = seriesId.value, name = "The Stormlight Archive", sequence = "1")),
+        series = listOf(BookSeriesPayload(id = seriesId.value, name = "The Stormlight Archive", sequence = 1.0)),
     )
 
 private fun principalFor(

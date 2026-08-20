@@ -114,7 +114,9 @@ final class SeriesDetailObserver {
             seriesAuthors = r.seriesAuthors.map { SeriesAuthor(id: $0.id, name: $0.name) }
             coverPath = r.coverPath
             totalDuration = r.formatTotalDuration()
-            books = r.books.map { BookRow($0, sequence: $0.series.first?.sequence) }
+            // The model holds a number; BookRow shows text. Formatted here, at the display
+            // edge, exactly as the Compose side does.
+            books = r.books.map { BookRow($0, sequence: SeriesSequenceFormatting.label($0.series.first?.sequence)) }
             bookProgress = mapBookProgress(r.bookProgress)
             finishedBookIds = Set(r.finishedBookIds.map { String(describing: $0) })
             finishedCount = Int(r.finishedCount)

@@ -99,3 +99,56 @@ internal val MIGRATION_4_5 =
             )
         }
     }
+
+/**
+ * Schema 6 — `book_series.sequence` becomes a number.
+ *
+ * It was TEXT, and `BookDao`'s `ORDER BY bs.sequence ASC` therefore sorted it as text: book 10 came
+ * before book 2, in every series list, on every client. The column is a mirror of the server's, so
+ * the conversion here has to match `V62__series_sequence_numeric.sql` exactly — same guard, same
+ * leading-numeric-prefix rule — or a device would disagree with its own server about where a book
+ * sits until the next full resync.
+ *
+ * A bare CAST is not enough: SQLite turns `'Prequel'` into `0.0`, filing an unnumbered volume ahead
+ * of book 1 forever. Anything not starting with a digit becomes NULL instead — a wrong number is
+ * worse than no number. Values that do start with a digit convert on CAST's leading-prefix rule, so
+ * an omnibus `'1-3'` files at book 1.
+ *
+ * SQLite cannot retype a column, so the table is rebuilt with its keys and indices intact.
+ */
+internal val MIGRATION_5_6 =
+    object : Migration(5, 6) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            // The doomed copy is renamed aside and the new table created under the real name —
+            // and the DROP precedes the index creation, because both indices follow the old table
+            // through its rename and would collide on name otherwise.
+            connection.executeDdl("ALTER TABLE book_series RENAME TO book_series_old")
+            connection.executeDdl(
+                """
+                CREATE TABLE book_series (
+                    bookId TEXT NOT NULL,
+                    seriesId TEXT NOT NULL,
+                    sequence REAL,
+                    PRIMARY KEY (bookId, seriesId),
+                    FOREIGN KEY (bookId) REFERENCES books(id) ON UPDATE NO ACTION ON DELETE CASCADE,
+                    FOREIGN KEY (seriesId) REFERENCES series(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            connection.executeDdl(
+                """
+                INSERT INTO book_series (bookId, seriesId, sequence)
+                SELECT bookId, seriesId,
+                       CASE
+                           WHEN sequence IS NULL OR TRIM(sequence) = '' THEN NULL
+                           WHEN TRIM(sequence) GLOB '[0-9]*' THEN CAST(TRIM(sequence) AS REAL)
+                           ELSE NULL
+                       END
+                FROM book_series_old
+                """.trimIndent(),
+            )
+            connection.executeDdl("DROP TABLE book_series_old")
+            connection.executeDdl("CREATE INDEX index_book_series_bookId ON book_series(bookId)")
+            connection.executeDdl("CREATE INDEX index_book_series_seriesId ON book_series(seriesId)")
+        }
+    }

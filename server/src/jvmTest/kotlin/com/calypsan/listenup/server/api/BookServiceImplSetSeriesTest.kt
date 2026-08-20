@@ -90,10 +90,10 @@ class BookServiceImplSetSeriesTest :
                     updated.series shouldHaveSize 2
                     updated.series[0].id shouldBe s1.value
                     updated.series[0].name shouldBe "The Stormlight Archive"
-                    updated.series[0].sequence shouldBe "1.0"
+                    updated.series[0].sequence shouldBe 1.0
                     updated.series[1].id shouldBe s2.value
                     updated.series[1].name shouldBe "The Cosmere"
-                    updated.series[1].sequence shouldBe "2.0"
+                    updated.series[1].sequence shouldBe 2.0
                 }
             }
         }
@@ -150,7 +150,7 @@ class BookServiceImplSetSeriesTest :
                     val updated = repo.findById(BookId("b1"))!!
                     updated.series shouldHaveSize 2
                     updated.series[1].name shouldBe "A Brand New Saga"
-                    updated.series[1].sequence shouldBe "2.0"
+                    updated.series[1].sequence shouldBe 2.0
                 }
             }
         }
@@ -193,7 +193,7 @@ class BookServiceImplSetSeriesTest :
                         bookFixture(id = "b1", title = "The Way of Kings").copy(
                             series =
                                 listOf(
-                                    BookSeriesPayload(id = s1.value, name = "The Stormlight Archive", sequence = "1"),
+                                    BookSeriesPayload(id = s1.value, name = "The Stormlight Archive", sequence = 1.0),
                                     BookSeriesPayload(id = s2.value, name = "The Cosmere", sequence = null),
                                 ),
                         ),
@@ -358,10 +358,10 @@ class BookServiceImplSetSeriesTest :
                     val updated = repo.findById(BookId("b1"))!!
                     updated.series shouldHaveSize 2
                     updated.series[0].name shouldBe "Mistborn"
-                    updated.series[0].sequence shouldBe "1.0"
+                    updated.series[0].sequence shouldBe 1.0
                     updated.series[1].id shouldBe existing.value
                     updated.series[1].name shouldBe "The Cosmere"
-                    updated.series[1].sequence shouldBe "3.0"
+                    updated.series[1].sequence shouldBe 3.0
                 }
             }
         }

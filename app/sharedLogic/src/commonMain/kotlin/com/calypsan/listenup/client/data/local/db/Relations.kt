@@ -68,7 +68,9 @@ internal data class BookContributorCrossRef(
  *
  * @property bookId Foreign key to the book
  * @property seriesId Foreign key to the series
- * @property sequence Position in this series (e.g., "1", "1.5", "Book Zero")
+ * @property sequence Position in this series (e.g. 1.0, 1.5), or null when unnumbered. A number
+ *   rather than a label since schema 6: the ORDER BY over this column sorted text, so book 10
+ *   came before book 2.
  */
 @Entity(
     tableName = "book_series",
@@ -95,7 +97,7 @@ internal data class BookContributorCrossRef(
 internal data class BookSeriesCrossRef(
     val bookId: BookId,
     val seriesId: SeriesId,
-    val sequence: String? = null,
+    val sequence: Double? = null,
 )
 
 /**

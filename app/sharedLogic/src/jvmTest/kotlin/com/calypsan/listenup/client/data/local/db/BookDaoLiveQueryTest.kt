@@ -101,8 +101,8 @@ class BookDaoLiveQueryTest :
                     seedBook(bookDao, "b1")
                     seedBook(bookDao, "b2")
                     liveQuerySeedSeries(seriesDao, "s1")
-                    liveQueryLinkBookToSeries(bookSeriesDao, bookId = "b1", seriesId = "s1", sequence = "1")
-                    liveQueryLinkBookToSeries(bookSeriesDao, bookId = "b2", seriesId = "s1", sequence = "2")
+                    liveQueryLinkBookToSeries(bookSeriesDao, bookId = "b1", seriesId = "s1", sequence = 1.0)
+                    liveQueryLinkBookToSeries(bookSeriesDao, bookId = "b2", seriesId = "s1", sequence = 2.0)
                     bookDao.softDelete(BookId("b2"), deletedAt = 999L, revision = 1L)
 
                     bookDao.observeBySeriesIdWithContributors("s1").test {
@@ -217,7 +217,7 @@ private suspend fun liveQueryLinkBookToSeries(
     bookSeriesDao: BookSeriesDao,
     bookId: String,
     seriesId: String,
-    sequence: String?,
+    sequence: Double?,
 ) {
     bookSeriesDao.insertAll(
         listOf(

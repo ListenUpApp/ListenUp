@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.services
 
+import com.calypsan.listenup.api.sync.parseSeriesSequence
 import com.calypsan.listenup.api.dto.ContributorRole
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
@@ -163,7 +164,10 @@ class AnalyzedBookMapper(
      */
     fun buildSeries(analyzed: AnalyzedBook): List<BookSeriesPayload> =
         analyzed.series.map { entry ->
-            BookSeriesPayload(id = "", name = entry.name, sequence = entry.sequence)
+            // Scanned tag text becomes a number here, at the persist boundary. AnalyzedBook keeps
+            // the String it read off disk; parseSeriesSequence (shared with the metadata-apply
+            // path) is the single place that decides what it means.
+            BookSeriesPayload(id = "", name = entry.name, sequence = parseSeriesSequence(entry.sequence))
         }
 
     /**

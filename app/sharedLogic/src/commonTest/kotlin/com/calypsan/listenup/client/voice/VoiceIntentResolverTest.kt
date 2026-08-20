@@ -144,13 +144,13 @@ class VoiceIntentResolverTest :
                     testBook(
                         id = "book1",
                         title = "The Fellowship of the Ring",
-                        series = listOf(testBookSeries("series1", "Lord of the Rings", "1")),
+                        series = listOf(testBookSeries("series1", "Lord of the Rings", 1.0)),
                     )
                 val book2 =
                     testBook(
                         id = "book2",
                         title = "The Two Towers",
-                        series = listOf(testBookSeries("series1", "Lord of the Rings", "2")),
+                        series = listOf(testBookSeries("series1", "Lord of the Rings", 2.0)),
                     )
 
                 bookRepository.addBook(book1)
@@ -174,13 +174,13 @@ class VoiceIntentResolverTest :
                     testBook(
                         id = "book1",
                         title = "The Final Empire",
-                        series = listOf(testBookSeries("series1", "Mistborn", "1")),
+                        series = listOf(testBookSeries("series1", "Mistborn", 1.0)),
                     )
                 val book2 =
                     testBook(
                         id = "book2",
                         title = "The Well of Ascension",
-                        series = listOf(testBookSeries("series1", "Mistborn", "2")),
+                        series = listOf(testBookSeries("series1", "Mistborn", 2.0)),
                     )
 
                 bookRepository.addBook(book1)
@@ -218,13 +218,13 @@ class VoiceIntentResolverTest :
                     testBook(
                         id = "book1",
                         title = "Philosopher's Stone",
-                        series = listOf(testBookSeries("series1", "Harry Potter", "1")),
+                        series = listOf(testBookSeries("series1", "Harry Potter", 1.0)),
                     )
                 val book3 =
                     testBook(
                         id = "book3",
                         title = "Prisoner of Azkaban",
-                        series = listOf(testBookSeries("series1", "Harry Potter", "3")),
+                        series = listOf(testBookSeries("series1", "Harry Potter", 3.0)),
                     )
 
                 bookRepository.addBook(book1)
@@ -352,13 +352,13 @@ class VoiceIntentResolverTest :
                     testBook(
                         id = "book1",
                         title = "Book One",
-                        series = listOf(testBookSeries("series1", "Duology", "1")),
+                        series = listOf(testBookSeries("series1", "Duology", 1.0)),
                     )
                 val book2 =
                     testBook(
                         id = "book2",
                         title = "Book Two",
-                        series = listOf(testBookSeries("series1", "Duology", "2")),
+                        series = listOf(testBookSeries("series1", "Duology", 2.0)),
                     )
 
                 bookRepository.addBook(book1)
@@ -388,7 +388,7 @@ class VoiceIntentResolverTest :
                     testBook(
                         id = "book1",
                         title = "Book One",
-                        series = listOf(testBookSeries("series1", "Trilogy", "1")),
+                        series = listOf(testBookSeries("series1", "Trilogy", 1.0)),
                     )
 
                 bookRepository.addBook(book1)

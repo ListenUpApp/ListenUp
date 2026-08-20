@@ -96,7 +96,7 @@ class SeriesDetailViewModelTest :
         fun createBook(
             id: String = "book-1",
             title: String = "Test Book",
-            seriesSequence: String? = "1",
+            seriesSequence: Double? = 1.0,
             seriesId: String = "series-1",
             seriesName: String = "Test Series",
         ): BookListItem =
@@ -118,7 +118,7 @@ class SeriesDetailViewModelTest :
         fun createSeriesWithBooks(
             series: Series,
             books: List<BookListItem>,
-            bookSequences: Map<String, String?> = emptyMap(),
+            bookSequences: Map<String, Double?> = emptyMap(),
         ): SeriesWithBooks =
             SeriesWithBooks(
                 series = series,
@@ -162,7 +162,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book),
-                        bookSequences = mapOf("book-1" to "1"),
+                        bookSequences = mapOf("book-1" to 1.0),
                     )
                 advanceUntilIdle()
 
@@ -193,9 +193,9 @@ class SeriesDetailViewModelTest :
             runTest {
                 val fixture = createFixture()
                 val series = createSeries()
-                val book1 = createBook(id = "book-1", title = "Book One", seriesSequence = "1")
-                val book2 = createBook(id = "book-2", title = "Book Two", seriesSequence = "2")
-                val book3 = createBook(id = "book-3", title = "Book Three", seriesSequence = "1.5")
+                val book1 = createBook(id = "book-1", title = "Book One", seriesSequence = 1.0)
+                val book2 = createBook(id = "book-2", title = "Book Two", seriesSequence = 2.0)
+                val book3 = createBook(id = "book-3", title = "Book Three", seriesSequence = 1.5)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 
@@ -204,7 +204,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book2, book3, book1),
-                        bookSequences = mapOf("book-1" to "1", "book-2" to "2", "book-3" to "1.5"),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0, "book-3" to 1.5),
                     )
                 advanceUntilIdle()
 
@@ -220,7 +220,7 @@ class SeriesDetailViewModelTest :
             runTest {
                 val fixture = createFixture()
                 val series = createSeries()
-                val book1 = createBook(id = "book-1", title = "Numbered Book", seriesSequence = "1")
+                val book1 = createBook(id = "book-1", title = "Numbered Book", seriesSequence = 1.0)
                 val book2 = createBook(id = "book-2", title = "Unnumbered Book", seriesSequence = null)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
@@ -230,7 +230,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book2, book1),
-                        bookSequences = mapOf("book-1" to "1", "book-2" to null),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to null),
                     )
                 advanceUntilIdle()
 
@@ -380,7 +380,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book),
-                        bookSequences = mapOf("book-1" to "1"),
+                        bookSequences = mapOf("book-1" to 1.0),
                     )
                 advanceUntilIdle()
 
@@ -400,10 +400,10 @@ class SeriesDetailViewModelTest :
                 // drop the duplicate Jordan entry — not collapse to just the first book's author.
                 val jordan = BookContributor(id = "a-jordan", name = "Robert Jordan", roles = listOf("Author"))
                 val sanderson = BookContributor(id = "a-sanderson", name = "Brandon Sanderson", roles = listOf("Author"))
-                val book1 = createBook(id = "book-1", seriesSequence = "1").copy(authors = listOf(jordan))
-                val book2 = createBook(id = "book-2", seriesSequence = "2").copy(authors = listOf(jordan))
+                val book1 = createBook(id = "book-1", seriesSequence = 1.0).copy(authors = listOf(jordan))
+                val book2 = createBook(id = "book-2", seriesSequence = 2.0).copy(authors = listOf(jordan))
                 val book3 =
-                    createBook(id = "book-3", seriesSequence = "3").copy(authors = listOf(jordan, sanderson))
+                    createBook(id = "book-3", seriesSequence = 3.0).copy(authors = listOf(jordan, sanderson))
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 
@@ -412,7 +412,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book1, book2, book3),
-                        bookSequences = mapOf("book-1" to "1", "book-2" to "2", "book-3" to "3"),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0, "book-3" to 3.0),
                     )
                 advanceUntilIdle()
 
@@ -425,9 +425,9 @@ class SeriesDetailViewModelTest :
             runTest {
                 val fixture = createFixture()
                 val series = createSeries()
-                val book1 = createBook(id = "book-1", title = "One", seriesSequence = "1")
-                val book2 = createBook(id = "book-2", title = "Two", seriesSequence = "2")
-                val book3 = createBook(id = "book-3", title = "Three", seriesSequence = "3")
+                val book1 = createBook(id = "book-1", title = "One", seriesSequence = 1.0)
+                val book2 = createBook(id = "book-2", title = "Two", seriesSequence = 2.0)
+                val book3 = createBook(id = "book-3", title = "Three", seriesSequence = 3.0)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 
@@ -442,7 +442,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book1, book2, book3),
-                        bookSequences = mapOf("book-1" to "1", "book-2" to "2", "book-3" to "3"),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0, "book-3" to 3.0),
                     )
                 advanceUntilIdle()
 
@@ -459,9 +459,9 @@ class SeriesDetailViewModelTest :
             runTest {
                 val fixture = createFixture()
                 val series = createSeries()
-                val book1 = createBook(id = "book-1", seriesSequence = "1")
-                val book2 = createBook(id = "book-2", seriesSequence = "2")
-                val book3 = createBook(id = "book-3", seriesSequence = "3")
+                val book1 = createBook(id = "book-1", seriesSequence = 1.0)
+                val book2 = createBook(id = "book-2", seriesSequence = 2.0)
+                val book3 = createBook(id = "book-3", seriesSequence = 3.0)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 
@@ -475,7 +475,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book1, book2, book3),
-                        bookSequences = mapOf("book-1" to "1", "book-2" to "2", "book-3" to "3"),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0, "book-3" to 3.0),
                     )
                 advanceUntilIdle()
 
@@ -488,8 +488,8 @@ class SeriesDetailViewModelTest :
             runTest {
                 val fixture = createFixture()
                 val series = createSeries()
-                val book1 = createBook(id = "book-1", seriesSequence = "1")
-                val book2 = createBook(id = "book-2", seriesSequence = "2")
+                val book1 = createBook(id = "book-1", seriesSequence = 1.0)
+                val book2 = createBook(id = "book-2", seriesSequence = 2.0)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 
@@ -500,7 +500,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book1, book2),
-                        bookSequences = mapOf("book-1" to "1", "book-2" to "2"),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0),
                     )
                 advanceUntilIdle()
 
@@ -513,8 +513,8 @@ class SeriesDetailViewModelTest :
             runTest {
                 val fixture = createFixture()
                 val series = createSeries()
-                val book1 = createBook(id = "book-1", seriesSequence = "1")
-                val book2 = createBook(id = "book-2", seriesSequence = "2")
+                val book1 = createBook(id = "book-1", seriesSequence = 1.0)
+                val book2 = createBook(id = "book-2", seriesSequence = 2.0)
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 
@@ -528,7 +528,7 @@ class SeriesDetailViewModelTest :
                     createSeriesWithBooks(
                         series = series,
                         books = listOf(book1, book2),
-                        bookSequences = mapOf("book-1" to "1", "book-2" to "2"),
+                        bookSequences = mapOf("book-1" to 1.0, "book-2" to 2.0),
                     )
                 advanceUntilIdle()
 
@@ -556,7 +556,7 @@ class SeriesDetailViewModelTest :
 
                 viewModel.loadSeries("s1")
                 fixture.seriesFlow.value =
-                    createSeriesWithBooks(series, listOf(book), mapOf("b1" to "1"))
+                    createSeriesWithBooks(series, listOf(book), mapOf("b1" to 1.0))
                 advanceUntilIdle()
 
                 val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()

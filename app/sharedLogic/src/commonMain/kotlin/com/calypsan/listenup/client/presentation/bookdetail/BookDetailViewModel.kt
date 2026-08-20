@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.presentation.bookdetail
 
+import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.error.AppError
@@ -305,7 +306,11 @@ class BookDetailViewModel(
         // number) — checked against every membership now that a book can be in several series.
         val displaySubtitle =
             detail.subtitle?.takeUnless { subtitle ->
-                detail.series.any { isSubtitleRedundant(subtitle, it.seriesName, it.sequence) }
+                detail.series.any {
+                    // isSubtitleRedundant is a text heuristic and still takes text; the number is
+                    // formatted for it here rather than the function learning about Doubles.
+                    isSubtitleRedundant(subtitle, it.seriesName, it.sequence?.let(::formatSeriesSequence))
+                }
             }
 
         val progress =

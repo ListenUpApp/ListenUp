@@ -249,7 +249,7 @@ fun testBook(
     narratorName: String = "Test Narrator",
     seriesId: String? = null,
     seriesName: String? = null,
-    seriesSequence: String? = null,
+    seriesSequence: Double? = null,
     series: List<com.calypsan.listenup.client.domain.model.BookSeries> = emptyList(),
     duration: Long = 3_600_000, // 1 hour
 ): BookListItem {
@@ -290,7 +290,7 @@ fun testBook(
 fun testBookSeries(
     seriesId: String,
     seriesName: String,
-    sequence: String? = null,
+    sequence: Double? = null,
 ) = com.calypsan.listenup.client.domain.model.BookSeries(
     seriesId = seriesId,
     seriesName = seriesName,

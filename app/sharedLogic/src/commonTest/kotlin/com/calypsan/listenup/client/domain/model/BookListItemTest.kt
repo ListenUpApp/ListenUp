@@ -93,22 +93,20 @@ class BookListItemTest :
         // ========== Series Title Tests ==========
 
         test("fullSeriesTitle returns name and sequence when both present") {
-            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Mistborn", sequence = "1")))
+            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Mistborn", sequence = 1.0)))
             book.fullSeriesTitle shouldBe "Mistborn #1"
         }
 
         test("fullSeriesTitle handles decimal sequence numbers") {
-            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Stormlight Archive", sequence = "2.5")))
+            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Stormlight Archive", sequence = 2.5)))
             book.fullSeriesTitle shouldBe "Stormlight Archive #2.5"
         }
 
+        // Absorbs the deleted "sequence is blank" case: a blank sequence was only expressible
+        // while this was a String. As a Double the absent value has exactly one spelling — null —
+        // so the two tests are now the same test, and the illegal state cannot be constructed.
         test("fullSeriesTitle returns only name when sequence is null") {
             val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Wheel of Time", sequence = null)))
-            book.fullSeriesTitle shouldBe "Wheel of Time"
-        }
-
-        test("fullSeriesTitle returns only name when sequence is blank") {
-            val book = createTestBook(series = listOf(BookSeries(seriesId = "series-1", seriesName = "Wheel of Time", sequence = "  ")))
             book.fullSeriesTitle shouldBe "Wheel of Time"
         }
 

@@ -44,8 +44,10 @@ import kotlin.uuid.Uuid
  *  - a **new-by-name** contributor or series ([BookContributorInput.id] / [BookSeriesInput.id] null)
  *    can't be linked optimistically (no id to key the junction), so it surfaces only once the op
  *    drains and the echo lands; existing contributors/series link immediately.
- *  - a series' [BookSeriesInput.position] is rendered to the junction's `sequence` string with a
- *    best-effort format; the echo overwrites it with the server's canonical string.
+ *  - a series' [BookSeriesInput.position] is written to the junction verbatim. It used to be
+ *    rendered to a string with a best-effort format that the echo then overwrote with the server's
+ *    canonical spelling — both sides are the same number now, so there is nothing to approximate
+ *    and nothing for the echo to correct.
  * The `books`-keyed in-flight shield defers the echo while the op is queued, so these approximations
  * are transient display only — the echo is always the final word.
  */
@@ -144,7 +146,7 @@ internal class BookMutationLocalApply(
                 BookSeriesCrossRef(
                     bookId = bookId,
                     seriesId = seriesId,
-                    sequence = input.position?.let(::formatSequence),
+                    sequence = input.position,
                 ),
             )
         }
@@ -273,10 +275,6 @@ internal class BookMutationLocalApply(
         )
     }
 }
-
-/** Render a series [position] to the junction's `sequence` string, dropping a trailing `.0`. */
-private fun formatSequence(position: Double): String =
-    if (position % 1.0 == 0.0) position.toLong().toString() else position.toString()
 
 /**
  * The scalar [BookField]s this patch edits — a non-null scalar means the user set it.

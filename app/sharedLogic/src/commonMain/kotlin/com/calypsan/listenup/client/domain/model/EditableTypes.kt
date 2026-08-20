@@ -32,7 +32,18 @@ data class EditableContributor(
 data class EditableSeries(
     val id: String? = null, // null for newly added series
     val name: String,
-    val sequence: String? = null, // e.g., "1", "1.5"
+    /**
+     * The sequence AS TYPED, not as stored.
+     *
+     * Text, deliberately, while [BookSeries.sequence] is a `Double`: this is the edit screen's
+     * in-flight value, and a half-typed "1." is not a number yet. Parsing on every keystroke would
+     * round-trip that through null and back to "", and the text field treats a value it did not
+     * emit as an external replacement — so the field would clear itself the moment the user pressed
+     * the decimal point, making "1.5" impossible to type.
+     *
+     * It is parsed to a number once, on save, in `UpdateBookUseCase`.
+     */
+    val sequence: String? = null,
 )
 
 /**

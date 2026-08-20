@@ -44,8 +44,8 @@ class BookDaoRecentlyAddedTest :
                     recentlyAddedSeedBook(bookDao, id = "mid-series", createdAt = 1_000L)
 
                     recentlyAddedSeedSeries(seriesDao, id = "s1", name = "Test Series")
-                    recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "first-in-series", seriesId = "s1", sequence = "1")
-                    recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "mid-series", seriesId = "s1", sequence = "3")
+                    recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "first-in-series", seriesId = "s1", sequence = 1.0)
+                    recentlyAddedLinkBookToSeries(bookSeriesDao, bookId = "mid-series", seriesId = "s1", sequence = 3.0)
 
                     bookDao.observeRecentlyAddedWithAuthor(limit = 10).test {
                         val emitted = awaitItem().map { it.id.value }
@@ -107,7 +107,7 @@ private suspend fun recentlyAddedLinkBookToSeries(
     bookSeriesDao: BookSeriesDao,
     bookId: String,
     seriesId: String,
-    sequence: String?,
+    sequence: Double?,
 ) {
     bookSeriesDao.insertAll(
         listOf(

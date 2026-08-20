@@ -1,5 +1,7 @@
 -- book_series_memberships junction: links a book to a series with an optional
--- sequence label (e.g. "1", "1.5"). Column set matches V6__books_series.sql.
+-- numeric sequence (e.g. 1, 1.5). REAL, not TEXT: every consumer already cast it
+-- to a number, and while it was TEXT the client's `ORDER BY sequence` sorted it
+-- lexicographically, putting book 10 before book 2. See V62.
 -- Composite PK (book_id, series_id) — a book belongs to a given series at most
 -- once; `ordinal` preserves series-position order across upserts.
 --
@@ -13,7 +15,7 @@
 CREATE TABLE book_series_memberships (
     book_id   TEXT    NOT NULL,
     series_id TEXT    NOT NULL,
-    sequence  TEXT,
+    sequence  REAL,
     ordinal   INTEGER NOT NULL,
     PRIMARY KEY (book_id, series_id)
 );

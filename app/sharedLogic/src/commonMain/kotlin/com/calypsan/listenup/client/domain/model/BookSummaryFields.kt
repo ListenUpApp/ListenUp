@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.domain.model
 
 import com.calypsan.listenup.client.core.DurationFormatter
+import com.calypsan.listenup.client.core.formatSeriesSequence
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -25,7 +26,7 @@ interface BookSummaryFields {
 
     val seriesId: String? get() = series.firstOrNull()?.seriesId
     val seriesName: String? get() = series.firstOrNull()?.seriesName
-    val seriesSequence: String? get() = series.firstOrNull()?.sequence
+    val seriesSequence: Double? get() = series.firstOrNull()?.sequence
 
     val hasCover: Boolean get() = coverPath != null
 
@@ -34,7 +35,9 @@ interface BookSummaryFields {
             val firstSeries = series.firstOrNull() ?: return null
             val name = firstSeries.seriesName
             val seq = firstSeries.sequence
-            return if (seq != null && seq.isNotBlank()) "$name #$seq" else name
+            // formatSeriesSequence, not string interpolation: a whole number prints as "1.0",
+            // and "Mistborn #1.0" is not how a series title is written.
+            return if (seq != null) "$name #${formatSeriesSequence(seq)}" else name
         }
 
     val authorNames: String get() = authors.joinToString(", ") { it.name }

@@ -73,8 +73,8 @@ private val mockAuthors =
 
 private val mockSeries =
     listOf(
-        BookSeries(seriesId = "ser-stormlight", seriesName = "The Stormlight Archive", sequence = "1"),
-        BookSeries(seriesId = "ser-cosmere", seriesName = "The Cosmere", sequence = "1"),
+        BookSeries(seriesId = "ser-stormlight", seriesName = "The Stormlight Archive", sequence = 1.0),
+        BookSeries(seriesId = "ser-cosmere", seriesName = "The Cosmere", sequence = 1.0),
     )
 
 // A full narrator cast (4) so the gallery shows the hero fold ("{lead}, N other narrators"),

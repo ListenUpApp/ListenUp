@@ -185,8 +185,8 @@ class SeriesServiceImplMergeTest :
                             "b1",
                             "Leviathan Wakes",
                             listOf(
-                                BookSeriesPayload(id = sourceId.value, name = "The Expanse", sequence = "1"),
-                                BookSeriesPayload(id = targetId.value, name = "Expanse Series", sequence = "1"),
+                                BookSeriesPayload(id = sourceId.value, name = "The Expanse", sequence = 1.0),
+                                BookSeriesPayload(id = targetId.value, name = "Expanse Series", sequence = 1.0),
                             ),
                         ),
                     )
@@ -215,8 +215,8 @@ class SeriesServiceImplMergeTest :
                             "book-a",
                             "Book A",
                             listOf(
-                                BookSeriesPayload(id = sourceId.value, name = "Source Series", sequence = "1"),
-                                BookSeriesPayload(id = targetId.value, name = "Target Series", sequence = "1"),
+                                BookSeriesPayload(id = sourceId.value, name = "Source Series", sequence = 1.0),
+                                BookSeriesPayload(id = targetId.value, name = "Target Series", sequence = 1.0),
                             ),
                             rootRelPath = "books/book-a",
                         ),
@@ -279,7 +279,7 @@ private fun bookFixtureForSeriesMerge(
     id: String,
     title: String,
     seriesId: SeriesId,
-    sequence: String = "1",
+    sequence: Double = 1.0,
     rootRelPath: String = "books/$id",
 ): BookSyncPayload =
     BookSyncPayload(

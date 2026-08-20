@@ -68,7 +68,7 @@ class BookRepositoryUpsertTest :
                                     contributor("c1", "Brandon Sanderson", "author"),
                                     contributor("c2", "Michael Kramer", "narrator"),
                                 ),
-                            series = listOf(series("s1", "Stormlight Archive", "1")),
+                            series = listOf(series("s1", "Stormlight Archive", 1.0)),
                             chapters =
                                 listOf(
                                     chapter("ch1", "Prologue", 1_200_000L, 0L),
@@ -120,7 +120,7 @@ class BookRepositoryUpsertTest :
                                     contributor("c1", "Brandon Sanderson", "author"),
                                     contributor("c2", "Michael Kramer", "narrator"),
                                 ),
-                            series = listOf(series("s1", "Stormlight Archive", "1")),
+                            series = listOf(series("s1", "Stormlight Archive", 1.0)),
                             chapters =
                                 listOf(
                                     chapter("ch1", "Prologue", 1_000L, 0L),
@@ -138,7 +138,7 @@ class BookRepositoryUpsertTest :
                             id = "b1",
                             title = "Way of Kings",
                             contributors = listOf(contributor("c1", "Brandon Sanderson", "author")),
-                            series = listOf(series("s1", "Stormlight Archive", "1")),
+                            series = listOf(series("s1", "Stormlight Archive", 1.0)),
                             chapters =
                                 listOf(
                                     chapter("nch1", "Prologue", 1_000L, 0L),
@@ -265,8 +265,8 @@ class BookRepositoryUpsertTest :
                             // Same series id twice — distinctBy collapses to one membership.
                             series =
                                 listOf(
-                                    series("s1", "Stormlight Archive", "1"),
-                                    series("s1", "Stormlight Archive", "2"),
+                                    series("s1", "Stormlight Archive", 1.0),
+                                    series("s1", "Stormlight Archive", 2.0),
                                 ),
                             // Multiple audio files — read-back must preserve insertion order via ordinal.
                             audioFiles =
@@ -285,7 +285,7 @@ class BookRepositoryUpsertTest :
                     saved.contributors[0].id shouldBe "c1"
                     saved.series.size shouldBe 1
                     saved.series[0].id shouldBe "s1"
-                    saved.series[0].sequence shouldBe "1"
+                    saved.series[0].sequence shouldBe 1.0
                     saved.audioFiles.map { it.id } shouldBe listOf("af1", "af2", "af3")
 
                     // Re-read through the read path to confirm ordinal order is persisted, not just
@@ -476,7 +476,7 @@ private fun contributor(
 private fun series(
     id: String,
     name: String,
-    sequence: String?,
+    sequence: Double?,
 ): BookSeriesPayload =
     BookSeriesPayload(
         id = id,

@@ -228,7 +228,7 @@ private data class BookSnapshot(
     val title: String,
     val subtitle: String?,
     val contributors: List<Pair<String, String>>,
-    val series: List<Pair<String, String?>>,
+    val series: List<Pair<String, Double?>>,
     val genreNames: List<String>,
     val chapterTitles: List<String>,
     val audioFilenames: List<String>,

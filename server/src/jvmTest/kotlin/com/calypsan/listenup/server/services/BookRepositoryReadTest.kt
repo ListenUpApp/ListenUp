@@ -129,7 +129,7 @@ class BookRepositoryReadTest :
                         sql.bookSeriesMembershipsQueries.insert(
                             book_id = "b1",
                             series_id = "s1",
-                            sequence = "1",
+                            sequence = 1.0,
                             ordinal = 0L,
                         )
                         sql.bookChaptersQueries.insert(
@@ -186,7 +186,7 @@ class BookRepositoryReadTest :
 
                     payload.series.size shouldBe 1
                     payload.series[0].id shouldBe "s1"
-                    payload.series[0].sequence shouldBe "1"
+                    payload.series[0].sequence shouldBe 1.0
 
                     payload.chapters.size shouldBe 2
                     payload.chapters.map { it.title } shouldContainExactly listOf("Prologue", "Chapter 1")
