@@ -337,11 +337,16 @@ private fun MutableList<SeedBook>.addTranscodeFixtureBook() {
             authors = listOf(AUTHOR_WREN_HALLOWAY),
             narrators = listOf(NARRATOR_MARLOWE_FINCH),
             series = null,
-            // 20 seconds, not the usual 5: the browser proof seeks to 10s and then asserts that
-            // decoding continues past it. A 5-second book leaves no room after the seek.
+            // 20 seconds: the browser proof seeks to 10s and then asserts that decoding continues
+            // past it. A shorter book leaves no room after the seek.
             tracks =
                 listOf(
-                    SeedTrack(fileName = "01.m4b", durationSeconds = 20, trackNumber = 1, codecOverride = "eac3"),
+                    SeedTrack(
+                        fileName = TRACK_SINGLE_M4B,
+                        durationSeconds = 20,
+                        trackNumber = 1,
+                        codecOverride = "eac3",
+                    ),
                 ),
             chapters = emptyList(),
             sidecar = SeedSidecar.NONE,

@@ -9,8 +9,8 @@ class SeedLibraryDescriptorTest :
     FunSpec({
         val books = SeedLibraryDescriptor.BOOKS
 
-        test("the library has 10-12 books") {
-            (books.size in 10..12) shouldBe true
+        test("the library has exactly 11 books") {
+            books.size shouldBe 11
         }
 
         test("every book has a unique folder path and at least one audio track") {
