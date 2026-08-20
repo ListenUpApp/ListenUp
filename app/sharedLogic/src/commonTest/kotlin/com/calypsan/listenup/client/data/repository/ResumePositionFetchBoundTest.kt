@@ -44,7 +44,8 @@ class ResumePositionFetchBoundTest :
         test("getPosition is bounded well under a second and never retries") {
             runTest {
                 val dispatch = RecordingDispatch<PlaybackService>(NoOpPlaybackService)
-                val repo = PlaybackPrepareRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+                val repo =
+                    PlaybackPrepareRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed), codecCapabilities = emptySet())
 
                 repo.getPosition(BookId("book-1"))
 
@@ -61,7 +62,8 @@ class ResumePositionFetchBoundTest :
         test("prepare keeps the full default bound — its result is required, not optional") {
             runTest {
                 val dispatch = RecordingDispatch<PlaybackService>(NoOpPlaybackService)
-                val repo = PlaybackPrepareRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+                val repo =
+                    PlaybackPrepareRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed), codecCapabilities = emptySet())
 
                 repo.prepare(BookId("book-1"))
 

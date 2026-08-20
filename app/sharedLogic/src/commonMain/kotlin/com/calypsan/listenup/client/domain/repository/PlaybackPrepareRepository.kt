@@ -18,8 +18,20 @@ import com.calypsan.listenup.core.BookId
  * passes through untouched.
  */
 interface PlaybackPrepareRepository {
-    /** Signed stream URLs for [bookId] plus the caller's resume position — one round-trip. */
-    suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback>
+    /**
+     * Signed stream URLs for [bookId] plus the caller's resume position — one round-trip.
+     *
+     * The device's decodable codecs are NOT a parameter: they are a property of the device, so the
+     * implementation carries them and every caller declares them by construction. See
+     * [com.calypsan.listenup.client.playback.platformCodecCapabilities].
+     *
+     * @param forceTranscode ask the server for a transcoded stream even when this device could
+     *   decode the original — the manual escape hatch in the Never-Stranded ledger.
+     */
+    suspend fun prepare(
+        bookId: BookId,
+        forceTranscode: Boolean = false,
+    ): AppResult<PreparedPlayback>
 
     /**
      * The server-authoritative resume position for [bookId], or null if the server has none.
