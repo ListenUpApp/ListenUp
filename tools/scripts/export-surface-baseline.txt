@@ -358,6 +358,7 @@ ProfileEditRepository
 ProfileRecentBook
 ProfileShelfSummary
 PushRegistrar
+PushRepository
 PushTokenProvider
 Reachability
 Reader
@@ -434,6 +435,7 @@ ServerUrl
 ServerWithStatus
 SessionId
 SessionState
+SettingsEvent
 SettingsUiState
 SettingsViewModel
 SetupErrorType

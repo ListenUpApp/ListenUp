@@ -12501,6 +12501,36 @@
         }
       }
     },
+    "settings.test_notification": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send a test notification"
+          }
+        }
+      }
+    },
+    "settings.test_notification_sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test notification sent — check your notifications."
+          }
+        }
+      }
+    },
+    "settings.test_notification_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check that push notifications reach this device"
+          }
+        }
+      }
+    },
     "settings.theme_automatic": {
       "localizations": {
         "en": {

@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.features.settings
 
+import com.calypsan.listenup.client.presentation.settings.SettingsEvent
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -112,6 +117,9 @@ import listenup.composeapp.generated.resources.settings_open_source_licenses
 import listenup.composeapp.generated.resources.settings_rewind_a_few_seconds_when
 import listenup.composeapp.generated.resources.settings_server_version
 import listenup.composeapp.generated.resources.settings_share_logs
+import listenup.composeapp.generated.resources.settings_test_notification
+import listenup.composeapp.generated.resources.settings_test_notification_sent
+import listenup.composeapp.generated.resources.settings_test_notification_subtitle
 import listenup.composeapp.generated.resources.settings_share_logs_subtitle
 import listenup.composeapp.generated.resources.settings_skip_backward
 import listenup.composeapp.generated.resources.settings_skip_forward
@@ -251,7 +259,21 @@ fun SettingsScreen(
         )
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val testNotificationSentMessage = stringResource(Res.string.settings_test_notification_sent)
+    LaunchedEffect(Unit) {
+        // One-shot events, consumed exactly once — a StateFlow here would replay the confirmation
+        // on every recomposition. Failures already reach the global snackbar via the ErrorBus, so
+        // only the success needs saying locally.
+        viewModel.events.collect { event ->
+            if (event is SettingsEvent.TestNotificationSent) {
+                snackbarHostState.showSnackbar(testNotificationSentMessage)
+            }
+        }
+    }
+
     ListenUpScaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(Res.string.common_settings)) },
@@ -313,6 +335,7 @@ fun SettingsScreen(
                     state = state,
                     onNavigateToLicenses = onNavigateToLicenses,
                     onShareLogs = platformActions::shareLogs,
+                    onSendTestNotification = viewModel::sendTestNotification,
                 )
             }
         }
@@ -601,6 +624,7 @@ private fun AboutSection(
     state: SettingsUiState,
     onNavigateToLicenses: (() -> Unit)?,
     onShareLogs: () -> Unit,
+    onSendTestNotification: () -> Unit,
 ) {
     val accent = MaterialTheme.colorScheme.onSurfaceVariant
     SectionGroup(
@@ -639,6 +663,16 @@ private fun AboutSection(
             title = stringResource(Res.string.settings_share_logs),
             subtitle = stringResource(Res.string.settings_share_logs_subtitle),
             onClick = onShareLogs,
+            showDivider = true,
+        )
+        // Beside Share logs deliberately: both answer "is this thing actually working?", which is
+        // the only question a user has when a notification never arrived.
+        NavigationRow(
+            icon = Icons.Default.NotificationsActive,
+            accent = accent,
+            title = stringResource(Res.string.settings_test_notification),
+            subtitle = stringResource(Res.string.settings_test_notification_subtitle),
+            onClick = onSendTestNotification,
             showDivider = true,
         )
     }

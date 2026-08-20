@@ -1,5 +1,11 @@
 package com.calypsan.listenup.client.presentation.settings
 
+import com.calypsan.listenup.core.error.ErrorBus
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.Channel
+import com.calypsan.listenup.client.domain.repository.PushRepository
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
 import androidx.lifecycle.ViewModel
@@ -84,8 +90,18 @@ class SettingsViewModel(
     private val instanceRepository: InstanceRepository,
     private val serverConfig: ServerConfig,
     private val logoutUseCase: LogoutUseCase,
+    private val pushRepository: PushRepository,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     // Internal mutable state for settings that aren't reactive StateFlows
+    private val testNotificationEvents = Channel<SettingsEvent>(Channel.BUFFERED)
+
+    /**
+     * One-shot outcomes the screen shows once (the test-notification result). A [Channel] per the
+     * one-shot-events rule — a `StateFlow` would replay the toast on every recomposition.
+     */
+    val events: Flow<SettingsEvent> = testNotificationEvents.receiveAsFlow()
+
     private val internalState = MutableStateFlow(SettingsUiState())
 
     /**
@@ -365,4 +381,45 @@ class SettingsViewModel(
     }
 
     // endregion
+
+    /**
+     * Asks the server to push a notification back to this device — the end-to-end proof.
+     *
+     * Every other push in the app is a side effect of something else happening, so until this
+     * existed there was no way to tell a broken relay, a stale token, a disabled server toggle and
+     * a revoked OS permission apart: each one simply meant "no notification ever arrived". The
+     * contract has described this button since push landed (`PushPayload.TestNotification` — "sent
+     * by the Settings test button") and no platform ever had one.
+     *
+     * Reports only that the send was ACCEPTED. Whether a notification actually appears depends on
+     * the relay, the OS and the permission — which is the whole point: the user compares "sent" on
+     * screen with what their notification shade does, and the gap between them is the diagnosis.
+     */
+    fun sendTestNotification() {
+        viewModelScope.launch {
+            val event =
+                when (val result = pushRepository.sendTestNotification()) {
+                    is AppResult.Success -> {
+                        SettingsEvent.TestNotificationSent
+                    }
+
+                    is AppResult.Failure -> {
+                        errorBus.emit(result.error)
+                        SettingsEvent.TestNotificationFailed(result.error)
+                    }
+                }
+            testNotificationEvents.send(event)
+        }
+    }
+}
+
+/** One-shot outcomes from the Settings screen. */
+sealed interface SettingsEvent {
+    /** The server accepted the test push. Whether it ARRIVES is what the user is checking. */
+    data object TestNotificationSent : SettingsEvent
+
+    /** The server refused it — push disabled, no token registered, or the relay is unreachable. */
+    data class TestNotificationFailed(
+        val error: AppError,
+    ) : SettingsEvent
 }

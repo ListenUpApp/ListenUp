@@ -1251,6 +1251,9 @@ One beautiful library.</string>
     <string name="settings_speed_used_for_new_books">Speed used for new books</string>
     <string name="settings_storage_available">%1$s available</string>
     <string name="settings_storage_size_files">%1$s · %2$d files</string>
+    <string name="settings_test_notification">Send a test notification</string>
+    <string name="settings_test_notification_sent">Test notification sent — check your notifications.</string>
+    <string name="settings_test_notification_subtitle">Check that push notifications reach this device</string>
     <string name="settings_theme_automatic">Automatic</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_light">Light</string>
