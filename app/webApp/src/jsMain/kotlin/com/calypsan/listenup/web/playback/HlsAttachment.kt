@@ -16,7 +16,7 @@ import org.w3c.dom.HTMLMediaElement
  * gave way to Vite, so it would be dead metadata asserting something untrue.
  */
 @JsModule("hls.js")
-external class Hls {
+internal external class Hls {
     /** Point the instance at an `.m3u8` playlist. Loading starts once media is attached. */
     fun loadSource(url: String)
 
@@ -44,7 +44,7 @@ external class Hls {
 }
 
 /** The payload hls.js hands to a `"hlsError"` listener. */
-external interface HlsErrorEvent {
+internal external interface HlsErrorEvent {
     /** Broad category, e.g. `networkError`, `mediaError`. */
     val type: String
 
@@ -62,9 +62,10 @@ private const val HLS_ERROR_EVENT = "hlsError"
  * The lifetime of one attachment. An abandoned [Hls] instance keeps its buffers, timers and
  * network loop alive; one per segment across a forty-hour book is a leak that surfaces as a
  * hung tab rather than as any visible error. So every segment change and every teardown calls
- * [destroy].
+ * [destroy] — including [HtmlAudioPlayer.reportHlsError], because a fatal error stops hls.js
+ * without releasing anything it holds.
  */
-class HlsHandle internal constructor(
+internal class HlsHandle(
     private val hls: Hls?,
 ) {
     /** Release the underlying hls.js instance, if this attachment made one. */
@@ -91,7 +92,7 @@ private const val HLS_MIME = "application/vnd.apple.mpegurl"
  * @throws IllegalStateException when the browser has neither native HLS nor MSE — a state the
  *   caller must surface, because nothing else can make this segment audible.
  */
-fun attachHls(
+internal fun attachHls(
     element: HTMLMediaElement,
     url: String,
     onFatalError: (String) -> Unit,
