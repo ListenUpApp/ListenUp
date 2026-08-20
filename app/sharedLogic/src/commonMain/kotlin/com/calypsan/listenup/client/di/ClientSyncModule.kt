@@ -149,7 +149,7 @@ internal val clientSyncModule =
                 channel = rpcChannel<PlaybackService>(),
                 // Asked once at graph construction: the answer is a device property and does not
                 // change within a session. Android queries MediaCodecList, the browser asks
-                // canPlayType, the JVM answers "all" — no platform matrix lives here.
+                // canPlayType, the JVM answers "all".
                 codecCapabilities = platformCodecCapabilities(),
             )
         }
