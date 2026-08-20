@@ -27,6 +27,8 @@ import kotlinx.coroutines.test.runTest
 class PushRelaySenderCredentialTest :
     FunSpec({
 
+        val emptyPayload = contractJson.parseToJsonElement("{}")
+
         fun clientFor(
             engine: MockEngine,
             senderToken: String?,
@@ -49,7 +51,8 @@ class PushRelaySenderCredentialTest :
         test("a configured credential is sent as a bearer token") {
             runTest {
                 val seen = mutableListOf<String?>()
-                clientFor(okEngine(seen), senderToken = "s3cret").send(tokens = emptyList(), payloadJson = contractJson.parseToJsonElement("{}"), collapseKey = null)
+                clientFor(okEngine(seen), senderToken = "s3cret")
+                    .send(tokens = emptyList(), payloadJson = emptyPayload, collapseKey = null)
 
                 seen.single() shouldBe "Bearer s3cret"
             }
@@ -61,7 +64,8 @@ class PushRelaySenderCredentialTest :
         test("no credential configured sends no header at all") {
             runTest {
                 val seen = mutableListOf<String?>()
-                clientFor(okEngine(seen), senderToken = null).send(tokens = emptyList(), payloadJson = contractJson.parseToJsonElement("{}"), collapseKey = null)
+                clientFor(okEngine(seen), senderToken = null)
+                    .send(tokens = emptyList(), payloadJson = emptyPayload, collapseKey = null)
 
                 seen.single().shouldBeNull()
             }
@@ -70,7 +74,8 @@ class PushRelaySenderCredentialTest :
         test("a blank credential is treated as absent, not sent empty") {
             runTest {
                 val seen = mutableListOf<String?>()
-                clientFor(okEngine(seen), senderToken = "   ").send(tokens = emptyList(), payloadJson = contractJson.parseToJsonElement("{}"), collapseKey = null)
+                clientFor(okEngine(seen), senderToken = "   ")
+                    .send(tokens = emptyList(), payloadJson = emptyPayload, collapseKey = null)
 
                 seen.single().shouldBeNull()
             }
