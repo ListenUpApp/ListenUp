@@ -64,10 +64,14 @@ fun defaultPositionRepository(): PlaybackPositionRepository {
  * Builds a [PlaybackPrepareRepository] stub that returns a [ContractPreparedPlayback] with signed
  * streaming URLs for [audioFileIds]. Suitable for tests that exercise the streaming path but do not
  * need to assert on the specific signed-URL content.
+ *
+ * [hlsUrls] optionally maps a subset of [audioFileIds] to a relative HLS playlist path, modelling
+ * the server deciding that file needs a transcode; files absent from the map get none.
  */
 fun testPlaybackPrepareRepository(
     vararg audioFileIds: String,
     bookId: String = "book-1",
+    hlsUrls: Map<String, String> = emptyMap(),
 ): PlaybackPrepareRepository =
     object : PlaybackPrepareRepository {
         override suspend fun prepare(
@@ -86,6 +90,7 @@ fun testPlaybackPrepareRepository(
                                 format = "m4b",
                                 durationMs = 1_800_000L,
                                 sizeBytes = 45_000_000L,
+                                hlsUrl = hlsUrls[fileId],
                             )
                         },
                     resumePosition = null,

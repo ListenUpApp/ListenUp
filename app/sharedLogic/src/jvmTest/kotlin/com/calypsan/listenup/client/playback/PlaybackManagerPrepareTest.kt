@@ -10,12 +10,14 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
+import com.calypsan.listenup.client.test.fake.FakePlayer
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -35,7 +37,9 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -49,6 +53,7 @@ import kotlinx.coroutines.test.runTest
  * test. The acceptance test for actual playback is a manual checkpoint on a
  * real device before push.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class PlaybackManagerPrepareTest :
     FunSpec({
         suspend fun seedBookAndAudioFiles(db: ListenUpDatabase) {
@@ -82,7 +87,11 @@ class PlaybackManagerPrepareTest :
             )
         }
 
-        fun createPlaybackManager(db: ListenUpDatabase): PlaybackManager {
+        fun createPlaybackManager(
+            db: ListenUpDatabase,
+            scope: CoroutineScope = CoroutineScope(Job()),
+            prepareRepository: PlaybackPrepareRepository = testPlaybackPrepareRepository("af-0", "af-1", "af-2"),
+        ): PlaybackManager {
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
 
@@ -120,15 +129,15 @@ class PlaybackManagerPrepareTest :
                     PlaybackProgressReporter(
                         progressTracker,
                         recorder = null,
-                        scope = CoroutineScope(Job()),
+                        scope = scope,
                         localPreferences = localPreferences,
                     ),
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                prepareRepository = testPlaybackPrepareRepository("af-0", "af-1", "af-2"),
+                prepareRepository = prepareRepository,
                 channel = RpcChannel.forTest(mock<BookService>()),
-                scope = CoroutineScope(Job()),
+                scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
                 localPreferences = localPreferences,
                 playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
@@ -150,6 +159,50 @@ class PlaybackManagerPrepareTest :
                     result.timeline.files[0].audioFileId shouldBe "af-0"
                     result.timeline.files[1].audioFileId shouldBe "af-1"
                     result.timeline.files[2].audioFileId shouldBe "af-2"
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("startPlayback carries each file's hlsUrl into its AudioSegment — the last hop before the player") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    seedBookAndAudioFiles(db)
+
+                    val managerScope = CoroutineScope(coroutineContext + Job())
+                    val sut =
+                        createPlaybackManager(
+                            db,
+                            scope = managerScope,
+                            prepareRepository =
+                                testPlaybackPrepareRepository(
+                                    "af-0",
+                                    "af-1",
+                                    "af-2",
+                                    hlsUrls = mapOf("af-0" to "/api/v1/hls/book-1/af-0/master.m3u8?sig=z"),
+                                ),
+                        )
+                    val player = FakePlayer()
+
+                    val prepareResult = sut.prepareForPlayback(BookId("book-1"))
+                    checkNotNull(prepareResult) { "prepareForPlayback must succeed" }
+                    sut.activateBook(BookId("book-1"))
+
+                    sut.startPlayback(player = player, resumePositionMs = 0L, resumeSpeed = 1.0f)
+                    advanceUntilIdle()
+
+                    val loaded = player.calls.filterIsInstance<FakePlayer.Call.Load>().single()
+                    // af-0 needed a transcode — its segment carries the server-prefixed HLS url.
+                    loaded.segments[0].hlsUrl shouldBe "https://example.test/api/v1/hls/book-1/af-0/master.m3u8?sig=z"
+                    // af-1 and af-2 did not — a refactor dropping the hlsUrl = file.hlsUrl hop in
+                    // PlaybackManagerImpl.startPlayback would leave these null too, silently, which is
+                    // exactly why af-0 above must be non-null.
+                    loaded.segments[1].hlsUrl shouldBe null
+                    loaded.segments[2].hlsUrl shouldBe null
+
+                    managerScope.coroutineContext[Job]?.cancel()
                 }
             } finally {
                 db.close()

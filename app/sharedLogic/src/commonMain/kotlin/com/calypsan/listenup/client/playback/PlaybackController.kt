@@ -90,6 +90,10 @@ expect interface PlaybackController {
  * (used by Android's Media3 [androidx.media3.common.MediaMetadata] for Android
  * Auto, lock screen, notification). Desktop and Apple actuals ignore the
  * metadata fields when constructing their internal [AudioSegment].
+ *
+ * Deliberately carries no `hlsUrl` — [setMediaQueue] is the Android-shaped queue-replace lane,
+ * not the HLS one. The HLS-carrying lane is [PlaybackController.startPlayback] →
+ * [PlaybackManager.startPlayback], which builds [AudioSegment]s straight from the timeline.
  */
 data class PlaybackMediaItem(
     val mediaId: String,
