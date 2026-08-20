@@ -7,7 +7,9 @@ import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.diagnostics.JobReasonLogger
+import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
+import com.calypsan.listenup.client.push.RegistrationDecisionWorker
 
 /**
  * WorkerFactory for injecting dependencies into all ListenUp workers.
@@ -18,6 +20,7 @@ import com.calypsan.listenup.client.domain.repository.DownloadRepository
  *
  * Handles creation of:
  * - [DownloadWorker] — offline audiobook downloads
+ * - [RegistrationDecisionWorker] — Approve/Deny taken from a registration notification
  */
 class ListenUpWorkerFactory(
     private val downloadRepository: Lazy<DownloadRepository>,
@@ -26,6 +29,9 @@ class ListenUpWorkerFactory(
     // onboarding completes (i.e. before serverConfig.getActiveUrl() returns non-null).
     private val audioFileDownloader: Lazy<AudioFileDownloader>,
     private val errorBus: Lazy<ErrorBus>,
+    // Approve/Deny straight from a registration notification (#1068). Lazy like its siblings so
+    // constructing the factory never resolves the admin graph.
+    private val adminRepository: Lazy<AdminRepository>,
 ) : WorkerFactory() {
     override fun createWorker(
         appContext: Context,
@@ -38,6 +44,9 @@ class ListenUpWorkerFactory(
                 workSpecId = workerParameters.id.toString(),
                 correlationId = workerParameters.id.toString(),
             )
+        }
+        if (workerClassName == RegistrationDecisionWorker::class.java.name) {
+            return RegistrationDecisionWorker(appContext, workerParameters, adminRepository.value)
         }
         return if (workerClassName == DownloadWorker::class.java.name) {
             // AudioFileDownloader owns the HTTP transport in :app:sharedLogic; it resolves the (cached)

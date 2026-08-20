@@ -112,6 +112,15 @@
                 android:resource="@xml/file_provider_paths" />
         </provider>
 
+        <!--
+            Approve/Deny from a registration notification (#1068). NOT exported: these intents come
+            from our own PendingIntent and nowhere else. Exported, any app on the device could
+            approve server access by broadcasting an intent.
+        -->
+        <receiver
+            android:name="com.calypsan.listenup.client.push.PushActionReceiver"
+            android:exported="false" />
+
         <service
             android:name="com.calypsan.listenup.client.push.ListenUpMessagingService"
             android:exported="false">

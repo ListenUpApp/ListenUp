@@ -69,6 +69,7 @@ class ListenUpWorkerFactoryRoutingTest {
             fileManager = lazy { error("fileManager should not be accessed") },
             audioFileDownloader = lazy { error("audioFileDownloader should not be accessed") },
             errorBus = lazy { error("errorBus should not be accessed") },
+            adminRepository = lazy { error("adminRepository should not be accessed") },
         )
 
     /**

@@ -1130,6 +1130,8 @@ One beautiful library.</string>
     <string name="push_campfire_invite_title_unknown">You have an invite to listen together</string>
     <string name="push_generic_body">Something happened on your server.</string>
     <string name="push_generic_title">ListenUp</string>
+    <string name="push_registration_action_approve">Approve</string>
+    <string name="push_registration_action_deny">Deny</string>
     <string name="push_registration_approved_body">Your registration was approved — sign in to start listening.</string>
     <string name="push_registration_approved_title">You're in!</string>
     <string name="push_registration_denied_body">Your registration was declined.</string>

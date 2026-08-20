@@ -1388,6 +1388,8 @@
     "registration_denied_body": "Your registration was declined.",
     "registration_request_title": "Someone wants to join",
     "registration_request_body": "%1$s is waiting for you to approve access.",
-    "registration_request_body_unknown": "A new request is waiting for your approval."
+    "registration_request_body_unknown": "A new request is waiting for your approval.",
+    "registration_action_approve": "Approve",
+    "registration_action_deny": "Deny"
   }
 }

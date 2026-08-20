@@ -11291,6 +11291,26 @@
         }
       }
     },
+    "push.registration_action_approve": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve"
+          }
+        }
+      }
+    },
+    "push.registration_action_deny": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deny"
+          }
+        }
+      }
+    },
     "push.registration_approved_body": {
       "localizations": {
         "en": {

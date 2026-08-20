@@ -383,6 +383,7 @@ class ListenUp :
                 fileManager = lazy { get() },
                 audioFileDownloader = lazy { get() },
                 errorBus = lazy { get() },
+                adminRepository = lazy { get() },
             )
 
         val workManagerConfig =
