@@ -292,6 +292,12 @@ internal class HtmlAudioPlayer : AudioPlayer {
 
     private fun onPlayRejected(reason: Throwable) {
         if (released) return
+        // The element gets the first and better word. Per the HTML spec, play() rejects with
+        // NotSupportedError only when `element.error` is already MEDIA_ERR_SRC_NOT_SUPPORTED, so
+        // this handler would otherwise overwrite a specific diagnosis ("could not decode the
+        // audio") with a generic restatement of it — and mark a permanently broken source
+        // retryable, which PlaybackManagerImpl turns into a Retry button that can only loop.
+        if (state.value is PlaybackState.Error) return
         val name = reason.asDynamic().name as? String ?: ""
         val message = playRefusalMessage(name) ?: return
         resumeOnReady = false
@@ -356,7 +362,16 @@ internal class HtmlAudioPlayer : AudioPlayer {
         // will destroy this instance — a fatal error is neither a segment change nor a teardown —
         // so without this it runs until the tab closes.
         releaseHls()
-        state.value = PlaybackState.Error(message = "Playback error. $detail", isRecoverable = true)
+        state.value =
+            PlaybackState.Error(
+                message = "Playback error. $detail",
+                // Not retryable, because this player offers no way to retry. Destroying the
+                // instance above makes hls.js detach the media, which strips `src` and reloads the
+                // element, so a later play() waits on a promise that never settles. Flipping this
+                // to true needs a re-attach path to exist first — advertising recovery that is not
+                // implemented is the same lie as reporting a spinner.
+                isRecoverable = false,
+            )
     }
 
     private fun reportElementError() {

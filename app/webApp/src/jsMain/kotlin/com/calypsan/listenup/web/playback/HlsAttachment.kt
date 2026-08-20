@@ -68,6 +68,15 @@ private const val HLS_ERROR_EVENT = "hlsError"
 internal class HlsHandle(
     private val hls: Hls?,
 ) {
+    /**
+     * Whether hls.js is driving this attachment, rather than the browser's own HLS decoder.
+     *
+     * Exposed so a spec can assert which branch was taken. Without it, [attachHls] silently
+     * choosing native on a browser that cannot decode HLS looks exactly like a working attachment
+     * until playback fails several layers downstream — which is precisely how it shipped once.
+     */
+    val usesHlsJs: Boolean get() = hls != null
+
     /** Release the underlying hls.js instance, if this attachment made one. */
     fun destroy() {
         hls?.destroy()
@@ -77,19 +86,29 @@ internal class HlsHandle(
 private const val HLS_MIME = "application/vnd.apple.mpegurl"
 
 /**
- * Point [element] at an HLS playlist, natively where the browser can and through hls.js where
- * it cannot.
+ * Point [element] at an HLS playlist, through hls.js wherever the browser can run it.
  *
- * **Native first.** Safari decodes HLS in a bare element; using `src` there keeps playback on
- * the platform decoder instead of pushing every segment through MSE in JavaScript.
+ * **hls.js first, native only as the fallback** — the reverse of the obvious ordering, for a
+ * reason worth stating plainly: `canPlayType` cannot be used to detect native HLS. Chromium
+ * answers `"maybe"` for `application/vnd.apple.mpegurl` and cannot decode HLS at all (verified in
+ * this lane's Chromium 151, which answers `"probably"` for AAC in the same breath, so it is
+ * discriminating — just not usefully). An earlier version of this function trusted any non-empty
+ * answer, and the effect was that Chrome and Firefox — every browser this transcode path exists
+ * to serve — took the native branch and hls.js was dead code.
  *
- * The probe accepts any non-empty `canPlayType` answer, `"maybe"` included — deliberately
- * unlike `PlatformCodecCapabilities.js.kt`, which demands `"probably"`. There, a wrong "yes"
- * strands a listener in silence hours into a book. Here, a wrong "yes" fails loudly at attach
- * time, on the element's own `error` event, seconds after the tap.
+ * So the branch hinges on [Hls.isSupported], which asks whether Media Source Extensions exist.
+ * That is a capability check with no ambiguity, and it lands correctly everywhere that matters:
+ *
+ * - **Chrome, Firefox, Edge** — MSE present, so hls.js drives. This is the requirement.
+ * - **Safari on iPhone** — historically no MSE, so [Hls.isSupported] is false and the native
+ *   branch takes over, which is right: that platform decodes HLS itself.
+ * - **Safari on macOS** — MSE present, so hls.js drives even though the platform decoder could
+ *   have. That is a knowing trade. Keeping macOS Safari on its native decoder would mean
+ *   branching on `canPlayType` again, and no Safari was available to establish what it answers;
+ *   a design that is merely suboptimal on Safari beats one that is broken on Chrome.
  *
  * @param onFatalError invoked when hls.js gives up; the argument is a diagnostic string.
- * @throws IllegalStateException when the browser has neither native HLS nor MSE — a state the
+ * @throws IllegalStateException when the browser has neither MSE nor native HLS — a state the
  *   caller must surface, because nothing else can make this segment audible.
  */
 internal fun attachHls(
@@ -97,16 +116,18 @@ internal fun attachHls(
     url: String,
     onFatalError: (String) -> Unit,
 ): HlsHandle {
-    if (element.canPlayType(HLS_MIME).toString().isNotEmpty()) {
-        element.src = url
-        return HlsHandle(hls = null)
+    if (Hls.isSupported()) {
+        val hls = Hls()
+        hls.on(HLS_ERROR_EVENT) { _, data ->
+            if (data.fatal) onFatalError("${data.type}: ${data.details}")
+        }
+        hls.loadSource(url)
+        hls.attachMedia(element)
+        return HlsHandle(hls)
     }
-    check(Hls.isSupported()) { "This browser supports neither native HLS nor MSE." }
-    val hls = Hls()
-    hls.on(HLS_ERROR_EVENT) { _, data ->
-        if (data.fatal) onFatalError("${data.type}: ${data.details}")
+    check(element.canPlayType(HLS_MIME).toString().isNotEmpty()) {
+        "This browser supports neither MSE nor native HLS."
     }
-    hls.loadSource(url)
-    hls.attachMedia(element)
-    return HlsHandle(hls)
+    element.src = url
+    return HlsHandle(hls = null)
 }
