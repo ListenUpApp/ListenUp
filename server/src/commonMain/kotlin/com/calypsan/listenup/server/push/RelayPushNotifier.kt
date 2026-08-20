@@ -127,6 +127,11 @@ class RelayPushNotifier(
 
             // One notification per decided registration: a re-decide replaces, never stacks.
             is PushPayload.RegistrationDecision -> "registration_decision:${payload.userId}"
+
+            // One per WAITING registrant, not one per admin — the key is the pending user, and
+            // every admin's device collapses on the same one. A second push about the same person
+            // (a retry, or a re-registration) replaces the first rather than stacking.
+            is PushPayload.RegistrationApproval -> "registration_approval:${payload.userId}"
         }
 
     private companion object {

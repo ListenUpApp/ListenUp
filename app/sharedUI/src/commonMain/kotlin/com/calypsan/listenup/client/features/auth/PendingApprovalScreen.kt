@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.features.permission.rememberPostNotificationsPermission
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.features.auth.components.AuthBadge
 import com.calypsan.listenup.client.features.auth.components.AuthScaffold
@@ -81,7 +82,12 @@ fun PendingApprovalScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val notifyPromise by viewModel.notifyPromise.collectAsStateWithLifecycle()
+    val watchRegistered by viewModel.notifyPromise.collectAsStateWithLifecycle()
+    // Asked HERE, pre-auth, not just at the post-auth AppShell entry point — a registrant waiting
+    // on approval has never been authed, so the shell's request has never run for them. Without
+    // this the push arrived and was silently dropped, and the line below was a promise the OS was
+    // never going to let us keep. iOS has always prompted here (PendingApprovalView.activate()).
+    val canShowNotifications = rememberPostNotificationsPermission()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state) {
@@ -99,7 +105,10 @@ fun PendingApprovalScreen(
         PendingApprovalContent(
             state = state,
             email = viewModel.email,
-            notifyPromise = notifyPromise,
+            // BOTH halves, not just the watch token: the server will send it (watchRegistered)
+            // AND this device will actually display it (canShowNotifications). Either alone is a
+            // half-truth, and the half that was missing is the one that made the promise false.
+            notifyPromise = watchRegistered && canShowNotifications,
             onCheckStatus = viewModel::checkStatus,
             onSignIn = {
                 viewModel.acknowledgeApproval()
@@ -160,9 +169,9 @@ internal fun PendingApprovalContent(
         } else {
             RegistrationTimeline(email)
             AutoCheckRow()
-            // Shown only once this device actually holds a registration watch (#1068) — the
-            // line was removed historically because no notification existed; it returns only
-            // when it is true (see PendingApprovalViewModel.notifyPromise).
+            // Shown only when the notification will genuinely arrive: a live registration watch
+            // (#1068) AND permission to display it. The line was removed historically because no
+            // notification existed; it returns only when it is true, in both senses.
             if (notifyPromise) {
                 Text(
                     text = stringResource(Res.string.auth_pending_notify_line),

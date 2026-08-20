@@ -32,6 +32,25 @@ class PushPayloadContractTest :
             contractJson.decodeFromString(PushPayload.serializer(), json) shouldBe original
         }
 
+        test("RegistrationApproval round-trips") {
+            val original: PushPayload = PushPayload.RegistrationApproval(userId = "user-7")
+            val json = contractJson.encodeToString(PushPayload.serializer(), original)
+            contractJson.decodeFromString(PushPayload.serializer(), json) shouldBe original
+        }
+
+        // The IDs-only rule is a privacy boundary, not a style preference: the relay is
+        // third-party infrastructure, so a display name in the payload would leak the identity of
+        // everyone requesting access to a private server. The admin's client already has the name
+        // in its synced roster.
+        test("RegistrationApproval carries no display data") {
+            val json =
+                contractJson.encodeToString(
+                    PushPayload.serializer(),
+                    PushPayload.RegistrationApproval(userId = "user-7"),
+                )
+            json shouldBe """{"type":"registration_approval","userId":"user-7"}"""
+        }
+
         test("discriminators are wire-stable") {
             contractJson.encodeToString(
                 PushPayload.serializer(),
@@ -45,6 +64,10 @@ class PushPayloadContractTest :
                 PushPayload.serializer(),
                 PushPayload.RegistrationDecision("u", approved = false),
             ) shouldContain "\"registration_decision\""
+            contractJson.encodeToString(
+                PushPayload.serializer(),
+                PushPayload.RegistrationApproval("u"),
+            ) shouldContain "\"registration_approval\""
         }
 
         test("unknown discriminator fails decode (pins the client generic-branch contract)") {

@@ -17,6 +17,9 @@ import listenup.composeapp.generated.resources.push_registration_approved_body
 import listenup.composeapp.generated.resources.push_registration_approved_title
 import listenup.composeapp.generated.resources.push_registration_denied_body
 import listenup.composeapp.generated.resources.push_registration_denied_title
+import listenup.composeapp.generated.resources.push_registration_request_body
+import listenup.composeapp.generated.resources.push_registration_request_body_unknown
+import listenup.composeapp.generated.resources.push_registration_request_title
 import listenup.composeapp.generated.resources.push_generic_title
 import listenup.composeapp.generated.resources.push_test_body
 import listenup.composeapp.generated.resources.push_test_title
@@ -45,6 +48,7 @@ class PushNotificationRenderer(
     private val context: Context,
     private val bookTitleLookup: suspend (String) -> String?,
     private val inviterNameLookup: suspend (String) -> String?,
+    private val pendingUserNameLookup: suspend (String) -> String?,
 ) {
     private val smallIcon: Int by lazy {
         context.resources
@@ -89,6 +93,21 @@ class PushNotificationRenderer(
                             body = getString(Res.string.push_registration_denied_body),
                         )
                     }
+                }
+
+                is PushPayload.RegistrationApproval -> {
+                    // Enriched, unlike RegistrationDecision: the recipient here is an ADMIN, and
+                    // an admin's client already mirrors the pending user in its synced roster. The
+                    // name is resolved locally precisely so it never has to cross the relay — a
+                    // push naming everyone who requests access to a private server would leak
+                    // exactly what a self-hosted install exists to keep private.
+                    val name = runCatching { pendingUserNameLookup(payload.userId) }.getOrNull()
+                    NotificationContent(
+                        title = getString(Res.string.push_registration_request_title),
+                        body =
+                            name?.let { getString(Res.string.push_registration_request_body, it) }
+                                ?: getString(Res.string.push_registration_request_body_unknown),
+                    )
                 }
 
                 null -> {

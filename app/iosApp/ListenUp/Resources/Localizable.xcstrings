@@ -11331,6 +11331,36 @@
         }
       }
     },
+    "push.registration_request_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is waiting for you to approve access."
+          }
+        }
+      }
+    },
+    "push.registration_request_body_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A new request is waiting for your approval."
+          }
+        }
+      }
+    },
+    "push.registration_request_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone wants to join"
+          }
+        }
+      }
+    },
     "push.test_body": {
       "localizations": {
         "en": {

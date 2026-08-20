@@ -3,12 +3,10 @@ package com.calypsan.listenup.client.features.permission
 import androidx.compose.runtime.Composable
 
 /**
- * Desktop actual for [RequestPostNotificationsPermission].
+ * Desktop actual for [rememberPostNotificationsPermission].
  *
- * The [android.Manifest.permission.POST_NOTIFICATIONS] concept does not apply to
- * JVM desktop targets. This composable is intentionally a no-op.
+ * There is no runtime permission model on JVM desktop, so nothing is requested and the answer is
+ * unconditionally `true` — a caller gating a promise on this can make it honestly here.
  */
 @Composable
-actual fun RequestPostNotificationsPermission() {
-    // No permission model on desktop — nothing to do.
-}
+actual fun rememberPostNotificationsPermission(): Boolean = true

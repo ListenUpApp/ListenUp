@@ -1134,6 +1134,9 @@ One beautiful library.</string>
     <string name="push_registration_approved_title">You're in!</string>
     <string name="push_registration_denied_body">Your registration was declined.</string>
     <string name="push_registration_denied_title">Registration update</string>
+    <string name="push_registration_request_body">%1$s is waiting for you to approve access.</string>
+    <string name="push_registration_request_body_unknown">A new request is waiting for your approval.</string>
+    <string name="push_registration_request_title">Someone wants to join</string>
     <string name="push_test_body">Push notifications are working.</string>
     <string name="push_test_title">Test notification</string>
     <string name="scan_building_subtitle">Building your library.</string>

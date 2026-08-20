@@ -3,17 +3,22 @@ package com.calypsan.listenup.client.features.permission
 import androidx.compose.runtime.Composable
 
 /**
- * Composable that requests [android.Manifest.permission.POST_NOTIFICATIONS] exactly
- * once per session and has no further effect.
+ * Requests notification permission once per session and reports whether this device can actually
+ * show a notification right now.
  *
- * - **Android (API 33+):** Launches the system permission dialog via
- *   [androidx.activity.compose.rememberLauncherForActivityResult]. The permission
- *   was introduced with Android 13 (TIRAMISU / API 33) and is required for the
- *   playback media notification to appear. Playback itself is unaffected by a denial.
- * - **Desktop:** No dialog is shown — the permission concept does not apply to
- *   JVM desktop; this composable is a no-op.
+ * Returns state rather than `Unit` because callers need to know the answer, not just that the
+ * question was asked. `PendingApprovalScreen` is the case that forced it: it told a waiting
+ * registrant "we'll notify you when you're approved" on the strength of having registered a push
+ * watch token — but a token registers without any permission, so on Android 13+ the promise was
+ * made to everyone and kept for nobody. The push arrived and `notify()` was a silent no-op. A
+ * screen can only promise what the OS will let it deliver, so it has to ask the OS.
  *
- * The composable does not block navigation or require a grant; it is fire-and-forget.
+ * - **Android (API 33+):** launches the system dialog via `rememberLauncherForActivityResult` and
+ *   returns the live grant state, updating when the dialog resolves. minSdk is 33, so
+ *   `POST_NOTIFICATIONS` is always a runtime grant — never implicitly held.
+ * - **Desktop:** no permission model; always `true`.
+ *
+ * Fire-and-forget: never blocks navigation, never requires a grant.
  */
 @Composable
-expect fun RequestPostNotificationsPermission()
+expect fun rememberPostNotificationsPermission(): Boolean

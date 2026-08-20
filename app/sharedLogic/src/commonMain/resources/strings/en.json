@@ -1385,6 +1385,9 @@
     "registration_approved_title": "You're in!",
     "registration_approved_body": "Your registration was approved — sign in to start listening.",
     "registration_denied_title": "Registration update",
-    "registration_denied_body": "Your registration was declined."
+    "registration_denied_body": "Your registration was declined.",
+    "registration_request_title": "Someone wants to join",
+    "registration_request_body": "%1$s is waiting for you to approve access.",
+    "registration_request_body_unknown": "A new request is waiting for your approval."
   }
 }
