@@ -169,7 +169,7 @@ data class TimelineFileInput(
      * Signed HLS master playlist, set only when the server decided this client needs a transcode.
      * Null is the overwhelmingly common answer. [streamingUrl] stays populated whenever HLS is —
      * it is the Never-Stranded fallback, which is why the server mints it unconditionally. A
-     * downloaded file's [localPath] wins over both; see [FileSegment.hlsUrl].
+     * downloaded file's [localPath] wins over both.
      */
     val hlsUrl: String? = null,
 )

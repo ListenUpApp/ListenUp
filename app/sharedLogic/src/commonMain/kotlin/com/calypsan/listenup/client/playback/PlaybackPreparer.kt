@@ -652,9 +652,13 @@ private data class TimelineBuildResult(
 
 /**
  * [PlaybackPreparer.buildTimeline]'s per-file URL maps from one `prepare()` call. Both default
- * empty — [direct] is empty on the fully-downloaded and prepare-failed branches (where each
- * file's [TimelineFileInput.localPath] carries playback instead), and [hls] is empty whenever
- * no file in the response needed a transcode.
+ * empty — [direct] is empty on the fully-downloaded and prepare-failed branches, and [hls] is
+ * empty whenever no file in the response needed a transcode.
+ *
+ * On the fully-downloaded branch every file's [TimelineFileInput.localPath] carries playback. On
+ * the prepare-failed branch only the downloaded files do: a missing file ends up with neither a
+ * local path nor a URL, which is the honest gap the never-stranded fallback deliberately leaves
+ * rather than papering over with a URL that would fail anyway.
  */
 private data class PreparedUrls(
     val direct: Map<String, String> = emptyMap(),
