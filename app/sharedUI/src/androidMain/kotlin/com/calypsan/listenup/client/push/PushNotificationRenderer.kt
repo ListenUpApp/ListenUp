@@ -157,8 +157,11 @@ class PushNotificationRenderer(
                 .apply { actionsFor(payload).forEach(::addAction) }
                 .build()
 
-        // POST_NOTIFICATIONS may be denied (Android 13+): notify() is then a silent no-op — acceptable,
-        // the in-app SSE-fed surface still carries the same event.
+        // POST_NOTIFICATIONS may still be denied, and notify() is then a silent no-op. That is
+        // survivable rather than acceptable: the same event is reachable from the synced admin
+        // roster and the pending-approval status stream, so nothing is lost — only slower to
+        // notice. What is NOT survivable is claiming otherwise, which is why PendingApprovalScreen
+        // now gates its "we'll notify you" line on the real permission state.
         NotificationManagerCompat.from(context).notify(notificationId(payload), notification)
     }
 
@@ -166,26 +169,27 @@ class PushNotificationRenderer(
      * THE per-type action seam. Registration approvals carry Approve/Deny; everything else is
      * tap-only. The Campfire arc adds its "Join" deep-link here rather than at a call site.
      */
+    /**
+     * THE per-type action seam. Registration approvals carry Approve/Deny; everything else is
+     * tap-only. The Campfire arc adds its "Join" deep-link here rather than at a call site — an
+     * `if` while exactly one type has actions, a `when` the moment a second does.
+     */
     private suspend fun actionsFor(payload: PushPayload?): List<NotificationCompat.Action> =
-        when (payload) {
-            is PushPayload.RegistrationApproval -> {
-                listOf(
-                    decisionAction(
-                        payload.userId,
-                        approve = true,
-                        label = getString(Res.string.push_registration_action_approve),
-                    ),
-                    decisionAction(
-                        payload.userId,
-                        approve = false,
-                        label = getString(Res.string.push_registration_action_deny),
-                    ),
-                )
-            }
-
-            else -> {
-                emptyList()
-            }
+        if (payload is PushPayload.RegistrationApproval) {
+            listOf(
+                decisionAction(
+                    payload.userId,
+                    approve = true,
+                    label = getString(Res.string.push_registration_action_approve),
+                ),
+                decisionAction(
+                    payload.userId,
+                    approve = false,
+                    label = getString(Res.string.push_registration_action_deny),
+                ),
+            )
+        } else {
+            emptyList()
         }
 
     /**
