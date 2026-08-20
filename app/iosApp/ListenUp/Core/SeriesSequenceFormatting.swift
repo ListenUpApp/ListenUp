@@ -12,6 +12,10 @@ import Foundation
 /// `SeriesSequenceTest`, so the two cannot drift silently.
 enum SeriesSequenceFormatting {
     /// Formats [sequence] for display, or `nil` when the book has no position in the series.
+    ///
+    /// Takes a plain `Double?`, not a `KotlinDouble?`: Swift Export bridges the shared
+    /// `BookSeries.sequence` straight to `Double?`, so no unwrapping is needed and this file
+    /// stays pure Foundation — testable without the framework.
     static func label(_ sequence: Double?) -> String? {
         guard let sequence else { return nil }
         // `truncatingRemainder` rather than `Int(sequence)`: a position is small, but converting to
@@ -21,10 +25,5 @@ enum SeriesSequenceFormatting {
             return String(Int64(sequence))
         }
         return String(sequence)
-    }
-
-    /// Bridging overload for the `KotlinDouble?` that Kotlin's `Double?` arrives as.
-    static func label(_ sequence: KotlinDouble?) -> String? {
-        label(sequence?.doubleValue)
     }
 }
