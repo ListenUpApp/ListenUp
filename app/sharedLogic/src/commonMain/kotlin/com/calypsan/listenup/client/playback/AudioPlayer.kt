@@ -48,12 +48,19 @@ interface AudioPlayer {
  * Represents a single audio file segment in the playback timeline.
  *
  * @property url Streaming URL for this segment (with auth via token provider)
+ * @property hlsUrl Signed HLS playlist for this segment, preferred over [url] when set
  * @property localPath Local file path if downloaded (preferred over streaming)
  * @property durationMs Duration of this segment in milliseconds
  * @property offsetMs Where this segment starts in the book timeline
  */
 data class AudioSegment(
     val url: String,
+    /**
+     * Signed HLS playlist for this segment, or null. A player that can consume HLS should prefer
+     * it over [url] when set — its presence means the server was told this device cannot decode
+     * the original. [url] remains valid as the fallback.
+     */
+    val hlsUrl: String? = null,
     val localPath: String?,
     val durationMs: Long,
     val offsetMs: Long,

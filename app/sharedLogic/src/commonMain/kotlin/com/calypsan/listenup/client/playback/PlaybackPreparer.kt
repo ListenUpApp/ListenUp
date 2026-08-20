@@ -467,9 +467,9 @@ class PlaybackPreparer internal constructor(
         val downloadedCount = localPaths.values.count { it != null }
         val missingCount = localPaths.size - downloadedCount
 
-        val signedUrls: Map<String, String> =
+        val preparedUrls: PreparedUrls =
             if (missingCount == 0) {
-                emptyMap() // fully downloaded — never touch the server (offline-first)
+                PreparedUrls(emptyMap(), emptyMap()) // fully downloaded — never touch the server (offline-first)
             } else {
                 // Some files are missing → we need signed streaming URLs for them. prepare() returns
                 // per-file URLs for the whole book; localPath still wins in playbackUri, so downloaded
@@ -481,7 +481,13 @@ class PlaybackPreparer internal constructor(
                 when (val result = prepareRepository.prepare(bookId)) {
                     is AppResult.Success -> {
                         serverResumePosition = result.data.resumePosition
-                        result.data.audioFiles.associate { it.fileId to serverUrl + it.url }
+                        PreparedUrls(
+                            direct = result.data.audioFiles.associate { it.fileId to serverUrl + it.url },
+                            hls =
+                                result.data.audioFiles
+                                    .mapNotNull { file -> file.hlsUrl?.let { file.fileId to serverUrl + it } }
+                                    .toMap(),
+                        )
                     }
 
                     is AppResult.Failure -> {
@@ -499,7 +505,7 @@ class PlaybackPreparer internal constructor(
                             "prepare() failed for ${bookId.value} (${result.error.code}); playing $downloadedCount " +
                                 "downloaded file(s) offline, $missingCount unavailable until reconnect."
                         }
-                        emptyMap()
+                        PreparedUrls(emptyMap(), emptyMap())
                     }
                 }
             }
@@ -516,7 +522,8 @@ class PlaybackPreparer internal constructor(
                             durationMs = file.duration,
                             size = file.size,
                             localPath = localPaths[file.id],
-                            streamingUrl = signedUrls[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
+                            streamingUrl = preparedUrls.direct[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
+                            hlsUrl = preparedUrls.hls[file.id],
                         )
                     },
             )
@@ -642,6 +649,9 @@ private data class TimelineBuildResult(
     val timeline: PlaybackTimeline,
     val serverResumePosition: PlaybackPositionSyncPayload?,
 )
+
+/** Signed URLs for one book: the direct byte URL always, the HLS playlist only when transcoding. */
+private data class PreparedUrls(val direct: Map<String, String>, val hls: Map<String, String>)
 
 /**
  * The resume point resolved across the local Room row and the server-authoritative
