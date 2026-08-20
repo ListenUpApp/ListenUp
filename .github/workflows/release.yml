@@ -1,8 +1,11 @@
 # ListenUp Client — Release Pipeline
 #
 # Manual, per-platform release. Version comes from the VERSION file; the optional
-# `version` input bumps it (commits + tags). Android → Play internal/draft,
+# `version` input bumps it (commits + tags). Android → Play internal,
 # iOS → TestFlight, server → GHCR.
+#
+# Every lane stops one step short of the public: promotion to Play production and
+# submission to App Store review are both deliberate, manual acts.
 
 name: Release
 
@@ -117,14 +120,38 @@ jobs:
       - name: Verify @Rpc surface survived R8
         run: tools/scripts/verify-r8-rpc-surface.sh app/androidApp/build/outputs/apk/release/androidApp-release.apk
 
-      - name: Upload to Google Play (internal, draft)
+      # `completed`, not `draft`. A draft is created in Play Console and rolled out to nobody —
+      # not even internal testers — until someone opens the Console and starts the rollout by
+      # hand. That made Android the only lane whose output went nowhere on its own (iOS reaches
+      # TestFlight, the server reaches GHCR), and it is not a hypothetical cost: the Android Auto
+      # fix in v0.8.7 sat undelivered behind this while Google re-reviewed v0.8.6 (version code
+      # 2790) and rejected it a second time for the very bug that had already been fixed.
+      # `completed` on the internal track is the true analogue of TestFlight — delivered to a
+      # small closed group, with promotion to production still deliberate and manual.
+      - name: Upload to Google Play (internal)
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.calypsan.listenup.client
           releaseFiles: app/androidApp/build/outputs/bundle/release/*.aab
           track: internal
-          status: draft
+          status: completed
+
+      # Says the quiet part out loud. Reaching the internal track is NOT the same as reaching a
+      # policy reviewer: Play reviews what is submitted to production, so a fix that stops at
+      # internal is invisible to review no matter how many times it is released. The step that
+      # was missed for three consecutive releases is the one this prints.
+      - name: Note what still needs a human
+        run: |
+          {
+            echo "### Android → Play internal track ✅"
+            echo
+            echo "Version code: \`$(git rev-list --count HEAD)\` · version: \`${{ needs.set-version.outputs.version }}\`"
+            echo
+            echo "**Still manual, and still required for a policy review:** promote this release"
+            echo "to **production** in Play Console. A build that stops at the internal track is"
+            echo "never reviewed, and any older production build remains the one Google re-reviews."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload artifacts for GitHub Release
         uses: actions/upload-artifact@v7
