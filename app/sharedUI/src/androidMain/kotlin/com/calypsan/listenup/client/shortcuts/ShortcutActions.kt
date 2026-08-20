@@ -30,6 +30,15 @@ object ShortcutActions {
     const val RESUME = "com.calypsan.listenup.action.RESUME"
 
     /**
+     * A tapped push notification, dispatched by [EXTRA_PUSH_TYPE].
+     *
+     * Lives here rather than in the push package because [com.calypsan.listenup.client.MainActivity]
+     * dispatches it through the same `when (intent.action)` as the shortcut actions — one entry
+     * point, one dispatch, no second mechanism to keep in step.
+     */
+    const val PUSH_TAP = "com.calypsan.listenup.action.PUSH_TAP"
+
+    /**
      * Play a specific book.
      *
      * Used by dynamic shortcuts for recently played books.
@@ -115,4 +124,14 @@ object ShortcutActions {
      * Android allows 4 dynamic shortcuts total.
      */
     const val MAX_BOOK_SHORTCUTS = 4
+
+    /**
+     * The tapped payload's STABLE wire discriminator (`registration_approval`, …) — the value of
+     * its `@SerialName`, not `simpleName`, which R8 is free to rename and which would silently
+     * stop matching in a release build while working perfectly in debug.
+     */
+    const val EXTRA_PUSH_TYPE = "push_type"
+
+    /** The subject of the tapped notification, when its type has one (e.g. the pending user). */
+    const val EXTRA_PUSH_SUBJECT_ID = "push_subject_id"
 }

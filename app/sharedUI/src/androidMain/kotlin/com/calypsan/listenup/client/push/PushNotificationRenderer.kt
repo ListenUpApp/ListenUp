@@ -7,7 +7,12 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.client.MainActivity
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.notifications.NotificationChannels
+import com.calypsan.listenup.client.shortcuts.ShortcutActions
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.push_campfire_invite_body
 import listenup.composeapp.generated.resources.push_campfire_invite_title
@@ -26,7 +31,6 @@ import listenup.composeapp.generated.resources.push_test_title
 import org.jetbrains.compose.resources.getString
 
 private const val RES_TYPE_DRAWABLE = "drawable"
-private const val EXTRA_PUSH_TYPE = "push_type"
 
 /** Title + body of a rendered local notification, pre-enrichment. */
 private data class NotificationContent(
@@ -123,8 +127,17 @@ class PushNotificationRenderer(
                 context,
                 payload.hashCode(),
                 Intent(context, MainActivity::class.java).apply {
+                    // An explicit action, so MainActivity dispatches this through the same
+                    // `when (intent.action)` as every shortcut rather than sniffing extras.
+                    action = ShortcutActions.PUSH_TAP
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    payload?.let { putExtra(EXTRA_PUSH_TYPE, it::class.simpleName) }
+                    // The STABLE wire discriminator, not simpleName: R8 renames classes in a
+                    // release build, so a simpleName match would work in debug and quietly stop
+                    // matching in the build users actually run.
+                    payload?.let { putExtra(ShortcutActions.EXTRA_PUSH_TYPE, it.wireType()) }
+                    (payload as? PushPayload.RegistrationApproval)?.let {
+                        putExtra(ShortcutActions.EXTRA_PUSH_SUBJECT_ID, it.userId)
+                    }
                     // Campfire deep-link target lands with the Campfire arc; the single seam
                     // for per-type actions/routing is actionsFor() + this intent.
                 },
@@ -154,6 +167,20 @@ class PushNotificationRenderer(
      * scattered across call sites — [ignored] is the future dispatch key.
      */
     private fun actionsFor(ignored: PushPayload?): List<NotificationCompat.Action> = emptyList()
+
+    /**
+     * The payload's stable `@SerialName`, read off its own serializer rather than restated here —
+     * a second hand-maintained copy of the discriminator is a copy that drifts.
+     */
+    private fun PushPayload.wireType(): String =
+        contractJson.encodeToString(PushPayload.serializer(), this).let { encoded ->
+            Json
+                .parseToJsonElement(encoded)
+                .jsonObject["type"]
+                ?.jsonPrimitive
+                ?.content
+                .orEmpty()
+        }
 
     private fun notificationId(payload: PushPayload?): Int =
         if (payload is PushPayload.CampfireInvite) payload.campfireId.hashCode() else payload.hashCode()

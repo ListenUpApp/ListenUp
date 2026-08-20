@@ -31,8 +31,7 @@ actual fun rememberPostNotificationsPermission(): Boolean {
     val context = LocalContext.current
     val permission = Manifest.permission.POST_NOTIFICATIONS
 
-    fun currentlyGranted() =
-        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    fun currentlyGranted() = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
     var granted by remember { mutableStateOf(currentlyGranted()) }
     // Survives configuration changes so a rotation mid-dialog does not prompt twice.
