@@ -13,6 +13,16 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.process.ProcessRunner
+import com.calypsan.listenup.server.transcode.ProcessTranscodeSpawner
+import com.calypsan.listenup.server.transcode.SegmentCache
+import com.calypsan.listenup.server.transcode.TranscodePolicy
+import com.calypsan.listenup.server.transcode.TranscodeSessionEngine
+import com.calypsan.listenup.server.transcode.TranscodeSettings
+import com.calypsan.listenup.server.transcode.TranscoderAvailability
+import com.calypsan.listenup.server.transcode.TranscoderProvisioner
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.io.files.Path
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
 import com.calypsan.listenup.server.services.ActiveSessionRepository
@@ -72,9 +82,14 @@ import org.koin.dsl.module
  * Exposed as a **function** rather than a top-level `val` so each Koin container receives a fresh
  * [Module], preventing cross-container contamination in tests.
  */
-fun playbackModule(): Module =
+fun playbackModule(
+    homeDir: Path,
+    applicationScope: CoroutineScope,
+): Module =
     module {
         single { AudioFileLocator(get()) }
+
+        transcodeBindings(homeDir, applicationScope)
         single {
             AudioUrlSigner(
                 signingKey = AudioUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
@@ -153,6 +168,9 @@ fun playbackModule(): Module =
                 listeningEventRepository = get(),
                 userStatsRepository = get(),
                 accessPolicy = get(),
+                transcodePolicy = get(),
+                transcodeSettings = get(),
+                transcoderAvailability = get(),
                 principal =
                     PrincipalProvider {
                         error(
@@ -195,3 +213,37 @@ fun playbackModule(): Module =
  */
 private fun unscopedSocialPlaceholder(): PrincipalProvider =
     PrincipalProvider { error("Unscoped SocialService — call copyWith(PrincipalProvider) at the route") }
+
+/**
+ * The transcoding slice of [playbackModule], split out to keep that function within its length
+ * budget — same reason [com.calypsan.listenup.server.di.booksModule] splits its cover bindings out.
+ *
+ * ⚠️ The segment cache lives in its own `$LISTENUP_HOME/transcode` root, **not** under `covers/` or
+ * anywhere `BackupArchive` walks: transcoded audio is derivable bytes and must never inflate a backup.
+ */
+private fun Module.transcodeBindings(
+    homeDir: Path,
+    applicationScope: CoroutineScope,
+) {
+    single { TranscodeSettings() }
+    single { TranscodePolicy() }
+    single { TranscoderAvailability() }
+    single { SegmentCache(Path(homeDir, "transcode")) }
+    single { TranscoderProvisioner(runProcess = { command, sink -> ProcessRunner().run(command, sink) }) }
+    single {
+        val availability = get<TranscoderAvailability>()
+        TranscodeSessionEngine(
+            // Read per spawn, never captured: the boot probe is asynchronous and may land after this
+            // singleton is built. The routes refuse before reaching here when it is absent.
+            ffmpegPath = { availability.path.orEmpty() },
+            // Same reasoning, and separately absent: a server can have a working encoder and no FDK
+            // decoder, in which case xHE-AAC sources are refused rather than silently mangled.
+            decoderPath = { availability.decoderPath },
+            cache = get(),
+            settings = get(),
+            // One child per encoder run, on the application scope so an encode outlives the request
+            // that started it — which is exactly what chasing the playhead requires.
+            newSpawner = { ProcessTranscodeSpawner(applicationScope) },
+        )
+    }
+}

@@ -1,0 +1,56 @@
+name: apt-install
+description: >-
+  Install Debian packages under a mirror and timeout policy that makes apt fail fast
+  instead of hanging. Call with no packages to apply the policy alone, for steps that
+  shell out to apt themselves (e.g. `playwright install --with-deps`).
+
+inputs:
+  packages:
+    description: Space-separated packages to install. Empty applies the policy and installs nothing.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # GitHub's hosted runners pin apt to azure.archive.ubuntu.com. On 2026-08-19 that mirror
+    # black-holed connections rather than refusing them, so `apt-get update` STALLED instead of
+    # failing — and a stall is far more expensive than an error, because every retry and timeout
+    # above it is measured in whole minutes. It took out three jobs in one afternoon: linuxX64
+    # (6m step cap), JVM (45m job cap) and web (30m job cap, inside Playwright's own apt call).
+    # Pointing at the canonical archive removes the black hole; the Acquire deadlines bound
+    # whatever else goes slow, so a retry has something to heal rather than a budget already spent.
+    - name: Apply apt mirror and timeout policy
+      shell: bash
+      run: |
+        set -euo pipefail
+        for source_file in /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list; do
+          if [ -f "$source_file" ]; then
+            sudo sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' "$source_file"
+          fi
+        done
+        sudo tee /etc/apt/apt.conf.d/99listenup-fail-fast >/dev/null <<'CONF'
+        Acquire::http::Timeout "20";
+        Acquire::https::Timeout "20";
+        Acquire::Retries "2";
+        CONF
+
+    # `timeout` per attempt is the point of this loop: without it a single hang consumes the whole
+    # step budget and the retries never run at all, which is exactly how the 2026-08-19 linuxX64
+    # failure got past an earlier version of this guard.
+    - name: Install packages
+      if: inputs.packages != ''
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+      run: |
+        for attempt in 1 2 3; do
+          if timeout 90 sudo apt-get update \
+             && timeout 210 sudo apt-get install -y --no-install-recommends $PACKAGES; then
+            exit 0
+          fi
+          echo "::warning::apt attempt $attempt failed or hung; retrying in $((attempt * 10))s"
+          sleep $((attempt * 10))
+        done
+        echo "::error::apt could not install '$PACKAGES' after 3 attempts — mirrors unreachable"
+        exit 1

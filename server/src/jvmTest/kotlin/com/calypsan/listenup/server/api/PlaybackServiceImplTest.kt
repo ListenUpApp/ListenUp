@@ -21,6 +21,11 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.server.audio.AudioFileLocator
+import com.calypsan.listenup.api.dto.CodecCapability
+import com.calypsan.listenup.server.transcode.TranscodePolicy
+import com.calypsan.listenup.server.transcode.TranscodeSettings
+import com.calypsan.listenup.server.transcode.TranscoderAvailability
+import com.calypsan.listenup.server.transcode.TranscoderStatus
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.api.dto.auth.SessionId
@@ -57,132 +62,13 @@ import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 class PlaybackServiceImplTest :
     FunSpec({
-
-        data class TestDeps(
-            val bookRepo: BookRepository,
-            val positionRepo: PlaybackPositionRepository,
-            val signer: AudioUrlSigner,
-            val coverSigner: CoverUrlSigner,
-            val eventRepo: ListeningEventRepository,
-            val statsRepo: UserStatsRepository,
-            val accessPolicy: BookAccessPolicy,
-            val collectionRepo: CollectionRepository,
-            val collectionBookRepo: CollectionBookRepository,
-            val grantRepo: CollectionGrantRepository,
-        )
-
-        fun buildDeps(
-            sql: ListenUpDatabase,
-            driver: SqlDriver,
-        ): TestDeps {
-            val bus = ChangeBus()
-            val registry = SyncRegistry()
-            val bookRepo =
-                BookRepository(
-                    db = sql,
-                    driver = driver,
-                    bus = bus,
-                    registry = registry,
-                    contributorRepository = ContributorRepository(sql, bus, registry),
-                    seriesRepository = SeriesRepository(sql, bus, registry),
-                    genreRepository = GenreRepository(sql, bus, registry),
-                )
-            val positionRepo = PlaybackPositionRepository(db = sql, bus = bus, registry = SyncRegistry())
-            val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
-            val coverSigner = CoverUrlSigner(CoverUrlSigner.deriveSigningKey("x".repeat(32)))
-            val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-            val statsRecorder = buildStatsRecorderForTest(sql, driver, statsRepo)
-            val eventRepo =
-                ListeningEventRepository(
-                    db = sql,
-                    bus = ChangeBus(),
-                    registry = SyncRegistry(),
-                    statsRecorder = statsRecorder,
-                )
-            return TestDeps(
-                bookRepo = bookRepo,
-                positionRepo = positionRepo,
-                signer = signer,
-                coverSigner = coverSigner,
-                eventRepo = eventRepo,
-                statsRepo = statsRepo,
-                accessPolicy = BookAccessPolicy(sql, driver),
-                collectionRepo =
-                    CollectionRepository(
-                        db = sql,
-                        bus = bus,
-                        registry = registry,
-                        driver = driver,
-                    ),
-                collectionBookRepo =
-                    CollectionBookRepository(
-                        db = sql,
-                        bus = bus,
-                        registry = registry,
-                        driver = driver,
-                    ),
-                grantRepo =
-                    CollectionGrantRepository(
-                        db = sql,
-                        bus = bus,
-                        registry = registry,
-                        driver = driver,
-                    ),
-            )
-        }
-
-        fun principal(
-            userId: String = "u1",
-            role: UserRole = UserRole.MEMBER,
-        ): PrincipalProvider =
-            PrincipalProvider {
-                UserPrincipal(
-                    userId = UserId(userId),
-                    sessionId = SessionId("session-$userId"),
-                    role = role,
-                )
-            }
-
-        fun TestDeps.service(
-            sql: ListenUpDatabase,
-            userId: String = "u1",
-            role: UserRole = UserRole.MEMBER,
-        ): PlaybackServiceImpl =
-            PlaybackServiceImpl(
-                bookRepository = bookRepo,
-                audioFileLocator = AudioFileLocator(sql),
-                audioUrlSigner = signer,
-                coverUrlSigner = coverSigner,
-                playbackPositionRepository = positionRepo,
-                listeningEventRepository = eventRepo,
-                userStatsRepository = statsRepo,
-                accessPolicy = accessPolicy,
-                principal = principal(userId, role),
-                sql = sql,
-            )
-
-        /**
-         * Makes [bookId] visible to each (already-seeded) member in [userIds] the pure-union way:
-         * drops the book into the per-library `ALL_BOOKS` substrate and grants each a live read
-         * grant on it — exactly how production exposes a public book. The users must already exist
-         * (`seedTestUser`): the grant's `principal_id` is a FK into `users`.
-         */
-        suspend fun TestDeps.makeReachable(
-            bookId: String,
-            vararg userIds: String,
-        ) {
-            collectionRepo.upsert(playbackCollection("all-books", owner = "system"))
-            collectionBookRepo.upsert(playbackMembership("all-books", bookId))
-            for (uid in userIds) {
-                grantRepo.upsert(playbackShare("grant-$bookId-$uid", "all-books", uid))
-            }
-        }
 
         test("prepare returns PreparedPlayback with audio files ordered by index for an unplayed book") {
             withSqlDatabase {
@@ -773,7 +659,7 @@ class PlaybackServiceImplTest :
  * Constructs a [StatsRecorder] over [sql] / [statsRepo] for `PlaybackServiceImplTest.buildDeps`.
  * Extracted to a top-level function to keep the class within detekt's LargeClass size budget.
  */
-private fun buildStatsRecorderForTest(
+internal fun buildStatsRecorderForTest(
     sql: ListenUpDatabase,
     driver: SqlDriver,
     statsRepo: UserStatsRepository,
@@ -790,7 +676,7 @@ private fun buildStatsRecorderForTest(
         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
     )
 
-private fun bookWithThreeFiles(bookId: String): BookSyncPayload =
+internal fun bookWithThreeFiles(bookId: String): BookSyncPayload =
     BookSyncPayload(
         id = bookId,
         libraryId = LibraryId("test-library"),
@@ -829,7 +715,7 @@ private fun bookWithThreeFiles(bookId: String): BookSyncPayload =
         deletedAt = null,
     )
 
-private fun playbackCollection(
+internal fun playbackCollection(
     id: String,
     owner: String,
     isInbox: Boolean = false,
@@ -844,7 +730,7 @@ private fun playbackCollection(
         updatedAt = 0L,
     )
 
-private fun playbackMembership(
+internal fun playbackMembership(
     collectionId: String,
     bookId: String,
 ): CollectionBookSyncPayload =
@@ -856,7 +742,7 @@ private fun playbackMembership(
         revision = 0L,
     )
 
-private fun playbackShare(
+internal fun playbackShare(
     id: String,
     collectionId: String,
     userId: String,

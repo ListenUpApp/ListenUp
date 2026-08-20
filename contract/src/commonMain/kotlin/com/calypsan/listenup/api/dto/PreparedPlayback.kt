@@ -14,6 +14,12 @@ data class PreparedAudioFile(
     val format: String,
     val durationMs: Long,
     val sizeBytes: Long,
+    /**
+     * Signed HLS master playlist for this file, present only when the server decided this client
+     * needs a transcode. When set, play this instead of [url] — [url] stays valid and is what a
+     * client falls back to if HLS fails.
+     */
+    val hlsUrl: String? = null,
 )
 
 /**
@@ -28,6 +34,12 @@ data class PreparedPlayback(
     val resumePosition: PlaybackPositionSyncPayload?,
     /** Server-relative, signature-authed cover URL a Cast receiver can fetch (no header). Null when not minted. */
     val coverUrl: String? = null,
+    /**
+     * True when this file would have been transcoded but the server has no working encoder. The
+     * client still receives direct-play URLs; this lets it explain a failure to decode instead of
+     * appearing broken.
+     */
+    val transcodeUnavailable: Boolean = false,
 )
 
 /**

@@ -33,6 +33,13 @@ SELECT * FROM book_audio_files WHERE book_id IN :ids ORDER BY ordinal;
 selectFileForBook:
 SELECT filename, format, size FROM book_audio_files WHERE book_id = :book_id AND id = :id LIMIT 1;
 
+-- The audio-stream facts transcoding needs for one file: `duration` (milliseconds) sizes the
+-- synthesized HLS playlist, `sampleRate` drives its frame-aligned segment math, and the codec pair
+-- is what TranscodePolicy decides on. Kept separate from selectFileForBook so the direct-play
+-- streaming path keeps reading only the three columns it actually uses.
+selectTranscodeInfoForBook:
+SELECT duration, sampleRate, codec, codecProfile, channels FROM book_audio_files WHERE book_id = :book_id AND id = :id LIMIT 1;
+
 -- Primary audio file filename (lowest ordinal) for a book — ManagedCoverFiles uses this
 -- to resolve the embedded-cover audio file path for serve-time artwork extraction.
 selectPrimaryFilenameForBook:

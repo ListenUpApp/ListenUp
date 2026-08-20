@@ -93,7 +93,7 @@ internal fun Application.installDependencies(
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
         modules += metadataModule(homeDir)
-        modules += playbackModule()
+        modules += playbackModule(homeDir, applicationScope)
         modules += libraryModule()
         modules += embeddedmetaModule
         modules += syncModule()

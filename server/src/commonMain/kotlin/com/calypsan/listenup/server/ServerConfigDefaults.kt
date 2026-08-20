@@ -44,5 +44,6 @@ internal val SERVER_CONFIG_DEFAULTS: List<ServerConfigDefault> =
         ServerConfigDefault("seed.profile", "", "LISTENUP_SEED_PROFILE"),
         ServerConfigDefault("server.dataDirLock", "true", "LISTENUP_DATA_DIR_LOCK"),
         ServerConfigDefault("scan.rescanOnStartup", "true", "LISTENUP_SCAN_RESCAN_ON_STARTUP"),
+        ServerConfigDefault("transcode.probeOnStartup", "true", "LISTENUP_TRANSCODE_PROBE_ON_STARTUP"),
         ServerConfigDefault("scan.periodicRescanInterval", "6h", "LISTENUP_SCAN_PERIODIC_RESCAN_INTERVAL"),
     )

@@ -144,8 +144,15 @@ jobs:
       # Playwright brings its own Chromium rather than reusing a system browser: karma's
       # equivalent step was a long-running source of CHROME_BIN drift, and a pinned download
       # removes the variable entirely.
+      # `--with-deps` shells out to apt itself, so it inherits the same black-holed mirror that
+      # stalled this step for the job's full 30 minutes on 2026-08-19. The policy is all this job
+      # needs — there are no packages to install here, only apt's behaviour to make sane.
+      - name: Apply apt mirror and timeout policy
+        uses: ./.github/actions/apt-install
+
       - name: Install Playwright Chromium
         working-directory: app/webApp/web
+        timeout-minutes: 12
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run Kotest specs in Chromium
@@ -212,6 +219,36 @@ jobs:
       # neither of which the metadata compile can see. Compile only — no jsTest lane is wired.
       - name: Compile shared modules for JS
         run: ./gradlew :contract:compileKotlinJs :app:sharedLogic:compileKotlinJs --no-daemon
+
+      # The transcoder's drift gate (TranscodeIntegrationTest) measures segments a real encoder
+      # actually wrote — a mis-declared segment length silently corrupts every position a listener
+      # saves, and no fake can catch it. The spec SKIPS when ffmpeg is absent so a developer without
+      # one is not blocked, which makes the version check below the anti-fake-green: if the install
+      # ever stops landing, the job fails here instead of the gate quietly opting out.
+      - name: Probe for a preinstalled FFmpeg
+        id: ffmpeg-probe
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install FFmpeg (transcoder drift gate)
+        if: steps.ffmpeg-probe.outputs.present != 'true'
+        timeout-minutes: 16
+        uses: ./.github/actions/apt-install
+        with:
+          packages: ffmpeg
+
+      # Deliberately fatal, and deliberately OUTSIDE the conditional install above. The drift gate
+      # SKIPS when ffmpeg is absent so a developer without one is not blocked — which means a
+      # missing binary would turn the one test that measures real encoder output into a silent
+      # no-op. This is the step that refuses to let that pass quietly.
+      - name: Verify FFmpeg is usable (anti-fake-green)
+        run: |
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
 
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :app:sharedLogic), and the server. :app:sharedUI host tests are Robolectric (JVM, no
@@ -437,24 +474,14 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      # Bounded and retried because an unbounded apt IS a 30-minute outage: on 2026-08-19 the
-      # Azure mirror stopped answering, apt fell back to archive.ubuntu.com, stalled mid-fetch,
-      # and burned the WHOLE job timeout without ever reaching Gradle. Three short attempts fail
-      # in ~6 minutes with a readable reason instead of one silent half-hour, and a transient
-      # mirror blip heals on attempt 2 rather than reporting a red build to a green branch.
+      # The cap is 16m rather than 6m because a cap BELOW one attempt's worst case is not a guard,
+      # it is a guillotine: at 6m the 2026-08-19 mirror hang killed the step mid-attempt-1 and the
+      # retries this loop exists for never ran at all. The ceiling must clear all three attempts.
       - name: Install native link dependencies (libargon2 + libsqlite3 + libcurl)
-        timeout-minutes: 6
-        run: |
-          for attempt in 1 2 3; do
-            if sudo apt-get update && sudo apt-get install -y --no-install-recommends \
-                 libargon2-dev libsqlite3-dev libcurl4-openssl-dev; then
-              exit 0
-            fi
-            echo "::warning::apt attempt $attempt failed; retrying in $((attempt * 10))s"
-            sleep $((attempt * 10))
-          done
-          echo "::error::apt failed after 3 attempts — package mirrors unreachable"
-          exit 1
+        timeout-minutes: 16
+        uses: ./.github/actions/apt-install
+        with:
+          packages: libargon2-dev libsqlite3-dev libcurl4-openssl-dev
 
       - name: Compile :server linuxX64
         timeout-minutes: 15

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
@@ -21,6 +22,10 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.UserStatsRepository
+import com.calypsan.listenup.server.transcode.TranscodeDecision
+import com.calypsan.listenup.server.transcode.TranscodePolicy
+import com.calypsan.listenup.server.transcode.TranscodeSettings
+import com.calypsan.listenup.server.transcode.TranscoderAvailability
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.http.encodeURLParameter
@@ -52,37 +57,83 @@ internal class PlaybackServiceImpl(
     private val accessPolicy: BookAccessPolicy,
     private val principal: PrincipalProvider,
     private val sql: ListenUpDatabase,
+    private val transcodePolicy: TranscodePolicy,
+    private val transcodeSettings: TranscodeSettings,
+    private val transcoderAvailability: TranscoderAvailability,
     private val clock: Clock = Clock.System,
 ) : PlaybackService {
-
-    override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> {
-        val p = principal.current()
-            ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
-        val book = bookRepository.findById(bookId)
-            ?: return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = bookId.value))
+    override suspend fun prepare(
+        bookId: BookId,
+        capabilities: Set<CodecCapability>?,
+        forceTranscode: Boolean,
+    ): AppResult<PreparedPlayback> {
+        val p =
+            principal.current()
+                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        val book =
+            bookRepository.findById(bookId)
+                ?: return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = bookId.value))
         if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
             // Report a denied book as absent — never leak its existence, metadata, or chapters.
             return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = bookId.value))
         }
         val userId = p.userId.value
 
-        val audioFiles = book.audioFiles
-            .sortedBy { it.index }
-            .map { file ->
-                val query = audioUrlSigner.signedQuery(
-                    userId = userId,
-                    bookId = bookId.value,
-                    fileId = file.id,
-                )
+        // Whether this server could transcode at all, asked once rather than per file.
+        val canTranscode = transcodeSettings.enabled && transcoderAvailability.isAvailable
+
+        val decisions =
+            book.audioFiles
+                .sortedBy { it.index }
+                .map { file ->
+                    file to
+                        transcodePolicy.decide(
+                            codec = file.codec,
+                            profile = file.codecProfile,
+                            capabilities = capabilities,
+                            force = forceTranscode,
+                            available = canTranscode,
+                        )
+                }
+
+        val audioFiles =
+            decisions.map { (file, decision) ->
+                val query =
+                    audioUrlSigner.signedQuery(
+                        userId = userId,
+                        bookId = bookId.value,
+                        fileId = file.id,
+                    )
+                val encodedBook = bookId.value.encodeURLParameter()
+                val encodedFile = file.id.encodeURLParameter()
                 PreparedAudioFile(
                     fileId = file.id,
                     index = file.index,
-                    url = "/api/v1/audio/${bookId.value.encodeURLParameter()}/${file.id.encodeURLParameter()}?$query",
+                    // The direct URL is minted unconditionally, even when transcoding: it is the
+                    // Never-Stranded fallback a client can fall back to if HLS playback fails.
+                    url = "/api/v1/audio/$encodedBook/$encodedFile?$query",
                     format = file.format,
                     durationMs = file.duration,
                     sizeBytes = file.size,
+                    hlsUrl =
+                        when (decision) {
+                            TranscodeDecision.Transcode -> {
+                                "/api/v1/hls/$encodedBook/$encodedFile/master.m3u8?$query"
+                            }
+
+                            TranscodeDecision.DirectPlay,
+                            TranscodeDecision.DirectPlayTranscoderUnavailable,
+                            -> {
+                                null
+                            }
+                        },
                 )
             }
+
+        // True when at least one file needs an encoder this server does not have. The client still
+        // gets a playable direct URL — it is told honestly that it may not be able to decode it.
+        val transcodeUnavailable =
+            decisions.any { (_, decision) -> decision == TranscodeDecision.DirectPlayTranscoderUnavailable }
 
         val resumePosition = playbackPositionRepository.getPosition(userId, bookId.value)
         // Always mint — the route resolves covers lazily (embedded covers aren't persisted), so
@@ -97,13 +148,15 @@ internal class PlaybackServiceImpl(
                 audioFiles = audioFiles,
                 resumePosition = resumePosition,
                 coverUrl = coverUrl,
+                transcodeUnavailable = transcodeUnavailable,
             ),
         )
     }
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> {
-        val p = principal.current()
-            ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        val p =
+            principal.current()
+                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
         if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
             return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = bookId.value))
         }
@@ -111,8 +164,9 @@ internal class PlaybackServiceImpl(
     }
 
     override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> {
-        val p = principal.current()
-            ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        val p =
+            principal.current()
+                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
         if (!accessPolicy.canAccess(p.userId.value, p.role, request.bookId)) {
             return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = request.bookId))
         }
@@ -130,34 +184,39 @@ internal class PlaybackServiceImpl(
     }
 
     override suspend fun getStats(): AppResult<UserStatsSyncPayload?> {
-        val userId = principal.current()?.userId?.value
-            ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+        val userId =
+            principal.current()?.userId?.value
+                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
         return AppResult.Success(userStatsRepository.getForUser(userId))
     }
 
-    override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> {
-        val p = principal.current()
-            ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
+    override suspend fun recordListeningEvent(
+        request: RecordListeningEventRequest,
+    ): AppResult<ListeningEventSyncPayload> {
+        val p =
+            principal.current()
+                ?: return AppResult.Failure(SyncError.NotFound(domain = "principal", entityId = "none"))
         if (!accessPolicy.canAccess(p.userId.value, p.role, request.bookId)) {
             return AppResult.Failure(SyncError.NotFound(domain = "book", entityId = request.bookId))
         }
         val userId = p.userId.value
         val now = clock.now().toEpochMilliseconds()
-        val payload = ListeningEventSyncPayload(
-            id = request.id,
-            bookId = request.bookId,
-            startPositionMs = request.startPositionMs,
-            endPositionMs = request.endPositionMs,
-            startedAt = request.startedAt,
-            endedAt = request.endedAt,
-            playbackSpeed = request.playbackSpeed,
-            tz = request.tz,
-            deviceLabel = request.deviceLabel,
-            revision = 0L,
-            updatedAt = now,
-            createdAt = now,
-            deletedAt = null,
-        )
+        val payload =
+            ListeningEventSyncPayload(
+                id = request.id,
+                bookId = request.bookId,
+                startPositionMs = request.startPositionMs,
+                endPositionMs = request.endPositionMs,
+                startedAt = request.startedAt,
+                endedAt = request.endedAt,
+                playbackSpeed = request.playbackSpeed,
+                tz = request.tz,
+                deviceLabel = request.deviceLabel,
+                revision = 0L,
+                updatedAt = now,
+                createdAt = now,
+                deletedAt = null,
+            )
         val result = listeningEventRepository.upsert(payload, clientOpId = null, userId = userId)
         // Best-effort: keep the user's home timezone current as they travel. Only the live
         // path (here) updates it — imports carry tz="UTC" and must never overwrite the real tz.
@@ -184,6 +243,9 @@ internal class PlaybackServiceImpl(
             accessPolicy = accessPolicy,
             principal = principal,
             sql = sql,
+            transcodePolicy = transcodePolicy,
+            transcodeSettings = transcodeSettings,
+            transcoderAvailability = transcoderAvailability,
             clock = clock,
         )
 }

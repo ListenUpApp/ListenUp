@@ -78,7 +78,7 @@ live_surface() {
   ' "$SHARED" \
     | grep -E '^public typealias [A-Za-z_][A-Za-z0-9_]* =' \
     | sed -E 's/^public typealias ([A-Za-z_][A-Za-z0-9_]*) =.*/\1/' \
-    | sort -u
+    | LC_ALL=C sort -u
 }
 
 SURFACE="$(live_surface)"
@@ -118,8 +118,13 @@ if [[ ! -f "$BASELINE" ]]; then
   exit 1
 fi
 
-additions="$(comm -13 "$BASELINE" <(printf '%s\n' "$SURFACE"))"
-removals="$(comm -23 "$BASELINE" <(printf '%s\n' "$SURFACE"))"
+# ⛔ LC_ALL=C on BOTH the sort above and the comm here, and it is load-bearing. `comm` assumes its
+# two inputs are ordered under the SAME collation; when they are not it silently emits nonsense.
+# A baseline generated under en_US against a surface sorted under C reported 22 names as
+# simultaneously added AND removed, burying the single real change (CodecCapability) in noise.
+# Pinning C makes the ordering byte-wise and identical wherever the gate runs.
+additions="$(LC_ALL=C comm -13 "$BASELINE" <(printf '%s\n' "$SURFACE"))"
+removals="$(LC_ALL=C comm -23 "$BASELINE" <(printf '%s\n' "$SURFACE"))"
 
 drift=0
 if [[ -n "$additions" ]]; then

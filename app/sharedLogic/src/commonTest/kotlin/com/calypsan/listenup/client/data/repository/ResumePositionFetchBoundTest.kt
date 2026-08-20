@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
@@ -95,7 +96,11 @@ private class RecordingDispatch<S : Any>(
 
 /** Minimal [PlaybackService] stand-in — the tests assert on dispatch policy, not on payloads. */
 private object NoOpPlaybackService : PlaybackService {
-    override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> = AppResult.Success(PreparedPlayback(bookId = bookId.value, audioFiles = emptyList(), resumePosition = null))
+    override suspend fun prepare(
+        bookId: BookId,
+        capabilities: Set<CodecCapability>?,
+        forceTranscode: Boolean,
+    ): AppResult<PreparedPlayback> = AppResult.Success(PreparedPlayback(bookId = bookId.value, audioFiles = emptyList(), resumePosition = null))
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = AppResult.Success(null)
 

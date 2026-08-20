@@ -1,5 +1,6 @@
 package com.calypsan.listenup.api
 
+import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
@@ -25,8 +26,17 @@ interface PlaybackService {
     /**
      * Signed stream URLs for [bookId] plus the caller's resume position — one
      * call, everything the player needs.
+     *
+     * @param capabilities codecs this client can decode. **Null means direct-play everything** —
+     *   the legacy contract, unchanged.
+     * @param forceTranscode ask for a transcoded stream even when the client could decode the
+     *   original. The manual escape hatch in the Never-Stranded ledger.
      */
-    suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback>
+    suspend fun prepare(
+        bookId: BookId,
+        capabilities: Set<CodecCapability>? = null,
+        forceTranscode: Boolean = false,
+    ): AppResult<PreparedPlayback>
 
     /**
      * The caller's playback position for [bookId], or null — the never-stranded

@@ -18,6 +18,23 @@ data class AudioFileLocation(
 )
 
 /**
+ * What transcoding needs to know about one source file, beyond where it lives.
+ *
+ * [sampleRate] is nullable because a real library has files with none recorded (257 of 1,455 rows
+ * in the reference library). `HlsPlaylist` falls back rather than failing — but the fallback is a
+ * *guess*, and encoding must still never resample, or the declared timeline stops describing the
+ * bytes actually written.
+ */
+data class TranscodeSourceInfo(
+    val durationMs: Long,
+    val sampleRate: Int?,
+    val codec: String,
+    val codecProfile: String?,
+    /** Channel count, or null when unrecorded — raw PCM between pipeline stages needs it exact. */
+    val channels: Int?,
+)
+
+/**
  * Resolves `(bookId, fileId)` to an on-disk audio file location.
  *
  * The `book_audio_files` table stores no absolute path; the absolute path is
@@ -60,5 +77,28 @@ class AudioFileLocator(
                 format = fileRow.format,
                 sizeBytes = fileRow.size,
             )
+        }
+
+    /**
+     * Returns the [TranscodeSourceInfo] for the given `(bookId, fileId)` pair, or null when the
+     * audio file row is absent. The caller treats null as 404, exactly as [locate] does.
+     */
+    suspend fun transcodeInfo(
+        bookId: String,
+        fileId: String,
+    ): TranscodeSourceInfo? =
+        suspendTransaction(sql) {
+            sql.bookAudioFilesQueries
+                .selectTranscodeInfoForBook(book_id = bookId, id = fileId)
+                .executeAsOneOrNull()
+                ?.let {
+                    TranscodeSourceInfo(
+                        durationMs = it.duration,
+                        sampleRate = it.sampleRate?.toInt(),
+                        codec = it.codec,
+                        codecProfile = it.codecProfile,
+                        channels = it.channels?.toInt(),
+                    )
+                }
         }
 }

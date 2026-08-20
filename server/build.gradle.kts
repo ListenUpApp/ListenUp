@@ -45,6 +45,9 @@ kotlin {
                 create("sqlite3") {
                     defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
                 }
+                create("rawexec") {
+                    defFile(project.file("src/nativeInterop/cinterop/rawexec.def"))
+                }
             }
         }
         // The native server executable (`server.kexe`). Entry point is the linuxX64Main `main()`,
@@ -66,7 +69,7 @@ kotlin {
         // -L dir is harmless — the linker ignores it.
         binaries.all { linkerOpts("-L/usr/lib", "-L/usr/lib/x86_64-linux-gnu") }
     }
-    // arm64 native server (Raspberry Pi / AWS Graviton self-host). Same two cinterops, same
+    // arm64 native server (Raspberry Pi / AWS Graviton self-host). Same three cinterops, same
     // entry point, same arch-agnostic actuals (shared via linuxMain). Cross-COMPILES from x86_64
     // (K/N auto-fetches the aarch64 toolchain + sysroot); the executable LINK needs aarch64
     // libsqlite3/libargon2 and runs on an arm64 runner in CI, not on this x86_64 dev box.
@@ -78,6 +81,9 @@ kotlin {
                 }
                 create("sqlite3") {
                     defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
+                }
+                create("rawexec") {
+                    defFile(project.file("src/nativeInterop/cinterop/rawexec.def"))
                 }
             }
         }

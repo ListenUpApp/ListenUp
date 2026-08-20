@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.dto.CodecCapability
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback as ContractPreparedPlayback
@@ -829,7 +830,11 @@ private class FakePlaybackService(
     var getPositionCallCount = 0
         private set
 
-    override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> {
+    override suspend fun prepare(
+        bookId: BookId,
+        capabilities: Set<CodecCapability>?,
+        forceTranscode: Boolean,
+    ): AppResult<ContractPreparedPlayback> {
         prepareCallCount++
         prepareThrows?.let { throw it }
         return prepareResult

@@ -47,6 +47,7 @@ import com.calypsan.listenup.server.routes.bookBlobWriteRoutes
 import com.calypsan.listenup.server.routes.contributorRoutes
 import com.calypsan.listenup.server.routes.coverCastRoutes
 import com.calypsan.listenup.server.routes.healthRoutes
+import com.calypsan.listenup.server.routes.hlsRoutes
 import com.calypsan.listenup.server.routes.webAppRoutes
 import com.calypsan.listenup.server.routes.importRoutes
 import com.calypsan.listenup.server.routes.metadataImageRoutes
@@ -56,6 +57,10 @@ import com.calypsan.listenup.server.routes.seriesRoutes
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.transcode.SegmentCache
+import com.calypsan.listenup.server.transcode.TranscodeSessionEngine
+import com.calypsan.listenup.server.transcode.TranscodeSettings
+import com.calypsan.listenup.server.transcode.TranscoderAvailability
 import io.ktor.server.application.Application
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
@@ -110,6 +115,10 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val publicProfileMaintainer by inject<PublicProfileMaintainer>()
     val sql by inject<ListenUpDatabase>()
     val audioRoleLookup by inject<UserRoleLookup>()
+    val transcodeEngine by inject<TranscodeSessionEngine>()
+    val segmentCache by inject<SegmentCache>()
+    val transcodeSettings by inject<TranscodeSettings>()
+    val transcoderAvailability by inject<TranscoderAvailability>()
     val sessionService by inject<SessionService>()
     val rpcServices = rpcServiceBundle()
 
@@ -133,6 +142,19 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             avatarImageRoutes(avatarImageStore)
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
+        // ⛔ A SIBLING of the authenticate blocks, exactly like audioRoutes above: the HMAC
+        // signature IS the auth. hls.js and <audio> cannot set headers on a media URL, and a
+        // cookie here would be a CSRF surface.
+        hlsRoutes(
+            audioFileLocator,
+            audioUrlSigner,
+            audioRoleLookup,
+            bookAccessPolicy,
+            transcodeEngine,
+            segmentCache,
+            transcodeSettings,
+            transcoderAvailability,
+        )
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
         // Mounted last: its catch-all falls back to the web shell, so it must not shadow the
         // RPC mounts or the blob endpoints above.
