@@ -14,6 +14,9 @@ importers:
       '@sqlite.org/sqlite-wasm':
         specifier: 3.50.1-build1
         version: 3.50.1-build1
+      hls.js:
+        specifier: ^1.7.1
+        version: 1.7.1
       ws:
         specifier: ^8.21.3
         version: 8.21.3
@@ -365,6 +368,9 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  hls.js@1.7.1:
+    resolution: {integrity: sha512-DlzIkeBAS9IIQ432k3BUf3HlwbsR0+trB1i2lDdN2gUkNkrehFurh0/48M5c1/EjlDkdGng1gwZIpwyPxvdZ/g==}
+
   nanoid@3.3.17:
     resolution: {integrity: sha512-xQLf0A3HOMlgHq0n247/LRuAOYmB7dXJ/DvAxGvsSBij45XtBSmQycu+F8ODbHwns/XyFZagyL1+J0Offw1E0g==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -663,6 +669,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  hls.js@1.7.1: {}
 
   nanoid@3.3.17: {}
 
