@@ -109,6 +109,15 @@ expect class ProcessRunner() {
     /** Suspends until the child has actually been spawned. Test seam; also used by the engine's gate. */
     suspend fun awaitStarted()
 
-    /** Terminates the child if one is running. Idempotent, and safe to call from any thread. */
+    /**
+     * Terminates the child **and every process it has spawned**, if one is running. Idempotent, and
+     * safe to call from any thread.
+     *
+     * The descendants are not a nicety: a child that forks rather than exec's leaves a grandchild
+     * holding the shared stderr pipe, and a pipe that never reaches EOF hangs the very call this was
+     * meant to end. The JVM actual walks `Process.descendants()`; the native one signals a process
+     * group. Both exist to keep the promise [run] and [runPipeline] make — when they return or
+     * throw, nothing this class started is still alive.
+     */
     fun kill()
 }

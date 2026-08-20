@@ -43,6 +43,7 @@ import platform.posix.kill as posixKill
 import platform.posix.open
 import platform.posix.pipe
 import platform.posix.read
+import platform.posix.setpgid
 import platform.posix.sysconf
 import platform.posix.waitpid
 import rawexec.execv
@@ -139,7 +140,7 @@ actual class ProcessRunner {
             // lets the kernel recycle a pid, and [reap] clears `childPid` under this same lock
             // before it waits — so a pid still visible here is one the kernel has not been allowed
             // to hand to anybody else yet.
-            childPids.forEach { posixKill(it, SIGKILL) }
+            childPids.forEach { killTree(it) }
         }
     }
 
@@ -166,7 +167,7 @@ actual class ProcessRunner {
     private fun adopt(pids: List<Int>) {
         synchronized(lock) {
             childPids = pids
-            if (killRequested) pids.forEach { posixKill(it, SIGKILL) }
+            if (killRequested) pids.forEach { killTree(it) }
         }
     }
 
@@ -277,7 +278,7 @@ actual class ProcessRunner {
             when (val pid = fork()) {
                 -1 -> {
                     log.error { "fork() failed (errno $errno) spawning a pipeline stage" }
-                    pids.forEach { posixKill(it, SIGKILL) }
+                    pids.forEach { killTree(it) }
                     pids.forEach { reapOne(it) }
                     return null
                 }
@@ -288,6 +289,11 @@ actual class ProcessRunner {
 
                 else -> {
                     pids += pid
+                    // Raced deliberately with the child's own `setpgid`: whichever runs first wins
+                    // and the loser gets a harmless EACCES/ESRCH. Doing it in BOTH places is the
+                    // POSIX idiom, because either one alone leaves a window in which the group does
+                    // not exist yet and a [kill] arriving in it would find nothing to signal.
+                    setpgid(pid, pid)
                 }
             }
         }
@@ -316,6 +322,10 @@ actual class ProcessRunner {
      * Every value it touches was built before the fork, so it allocates nothing.
      */
     private fun becomeChild(plan: ChildPlan): Nothing {
+        // Async-signal-safe (POSIX 1003.1-2017 Table 2-4), and first because everything below this
+        // line is the child committing to `execv`: it is what makes [killTree] able to reach the
+        // grandchildren this stage may go on to fork.
+        setpgid(0, 0)
         dup2(plan.stdinFd, STDIN_FILENO)
         dup2(plan.stdoutFd, STDOUT_FILENO)
         dup2(plan.stderrWriteFd, STDERR_FILENO)
@@ -389,6 +399,27 @@ actual class ProcessRunner {
         }
         if (pending.isNotEmpty()) onStderr(pending.toString())
         close(fd)
+    }
+
+    /**
+     * SIGKILLs [pid] *and every descendant of it*, by signalling the process group the child made
+     * itself the leader of in [becomeChild].
+     *
+     * ⛔ Signalling the pid alone is not enough, and CI is where that showed. `/bin/sh` is dash on
+     * Debian and Ubuntu, and dash FORKS its command rather than exec'ing it the way bash does — so
+     * the process actually holding the shared stderr pipe is a grandchild whose pid this class
+     * never learns. Kill only the direct child and the pipe stays open, [readStderr] never reaches
+     * EOF, and the call this kill was meant to end blocks until the grandchild exits by itself. The
+     * JVM actual solves the identical problem with `Process.descendants()`; on POSIX the process
+     * group is that primitive.
+     *
+     * Both signals are sent, deliberately. The group only exists once a `setpgid` has run, and a
+     * kill can arrive before that — the direct signal covers exactly that window. `ESRCH` from
+     * either is the ordinary answer for a child that is already gone, so neither is checked.
+     */
+    private fun killTree(pid: Int) {
+        posixKill(-pid, SIGKILL)
+        posixKill(pid, SIGKILL)
     }
 
     /**

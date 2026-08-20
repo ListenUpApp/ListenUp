@@ -10,6 +10,7 @@ import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -32,6 +33,32 @@ private const val FLOOD_LINES = 2000
  * isolation, including pinned to two cores.
  */
 private val PIPELINE_LIFECYCLE_BUDGET = 45.seconds
+
+/**
+ * A pipeline stage that deliberately keeps its work in a *grandchild*: the shell forks `sleep` and
+ * waits on it rather than exec'ing it, so the process the runner knows about is not the process
+ * holding the pipe.
+ *
+ * ⛔ Not a contrived shape — this is what CI was running all along. `/bin/sh` is dash on Debian and
+ * Ubuntu, and dash FORKS for `sh -c "cmd"` where bash exec's it, so every stage on the Linux runner
+ * already had a grandchild while every stage on a bash developer box had none. That is why these
+ * two specs passed locally and hung for the full 60s on CI: killing only the direct child leaves
+ * the grandchild holding the shared stderr pipe open, so the reader never sees EOF and the call
+ * that the kill was supposed to end waits for the sleep to finish by itself.
+ *
+ * Writing the fork explicitly turns a race against the shell's implementation into a fixed
+ * property, and pins the actual promise: when these calls return, the whole tree is dead.
+ *
+ * ⛔ The marker on stderr is what makes it deterministic, and it is not optional. `awaitStarted()`
+ * resolves as soon as the stage has been *forked* — which can be before the shell has even exec'd,
+ * let alone forked its own child. Killing there beats the grandchild into existence and the spec
+ * passes without proving anything, which is exactly how this hole reached CI: on a bash box the
+ * kill won that race every time, and on the Linux runner it lost it. Waiting for one marker per
+ * stage means the grandchild demonstrably exists before anything tries to kill it.
+ */
+private const val FORK_MARKER = "forked"
+
+private val FORKING_STAGE = listOf("/bin/sh", "-c", "sleep 60 & echo $FORK_MARKER >&2; wait")
 
 /** Reports the child's own open descriptors, one per line, without needing `ls` to exist. */
 private const val LIST_OWN_FDS = "for f in /proc/self/fd/*; do echo \$f 1>&2; done"
@@ -275,19 +302,18 @@ class ProcessRunnerTest :
 
         test("kill terminates every stage of a pipeline") {
             val runner = ProcessRunner()
+            val forked = Channel<Unit>(Channel.UNLIMITED)
             val result =
                 withTimeoutOrNull(PIPELINE_LIFECYCLE_BUDGET) {
                     coroutineScope {
                         val run =
                             async {
-                                runner.runPipeline(
-                                    listOf(
-                                        listOf("/bin/sh", "-c", "sleep 60"),
-                                        listOf("/bin/sh", "-c", "sleep 60"),
-                                    ),
-                                )
+                                runner.runPipeline(listOf(FORKING_STAGE, FORKING_STAGE)) { line ->
+                                    if (line == FORK_MARKER) forked.trySend(Unit)
+                                }
                             }
                         runner.awaitStarted()
+                        repeat(2) { forked.receive() }
                         runner.kill()
                         run.await()
                     }
@@ -298,19 +324,18 @@ class ProcessRunnerTest :
 
         test("cancelling a pipeline kills every stage rather than leaving them running") {
             val runner = ProcessRunner()
+            val forked = Channel<Unit>(Channel.UNLIMITED)
             val survived =
                 withTimeoutOrNull(PIPELINE_LIFECYCLE_BUDGET) {
                     coroutineScope {
                         val run =
                             launch {
-                                runner.runPipeline(
-                                    listOf(
-                                        listOf("/bin/sh", "-c", "sleep 60"),
-                                        listOf("/bin/sh", "-c", "sleep 60"),
-                                    ),
-                                )
+                                runner.runPipeline(listOf(FORKING_STAGE, FORKING_STAGE)) { line ->
+                                    if (line == FORK_MARKER) forked.trySend(Unit)
+                                }
                             }
                         runner.awaitStarted()
+                        repeat(2) { forked.receive() }
                         run.cancelAndJoin()
                         true
                     }
