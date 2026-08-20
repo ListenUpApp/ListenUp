@@ -103,4 +103,50 @@ class PlaybackTimelineTest :
             resolved.mediaItemIndex shouldBe 3
             resolved.positionInFileMs shouldBe 123_456L
         }
+
+        // --------------------------------------------------------------------
+        // HLS carriage: hlsUrl travels TimelineFileInput → FileSegment unchanged,
+        // and never displaces playbackUri's localPath ?: streamingUrl precedence.
+        // --------------------------------------------------------------------
+
+        fun fileWith(
+            streamingUrl: String,
+            hlsUrl: String?,
+        ): TimelineFileInput =
+            TimelineFileInput(
+                audioFileId = "af-1",
+                filename = "01.m4b",
+                format = "m4b",
+                durationMs = 1_000L,
+                size = 10L,
+                localPath = null,
+                streamingUrl = streamingUrl,
+                hlsUrl = hlsUrl,
+            )
+
+        test("a file's HLS url survives into its timeline segment") {
+            val timeline =
+                PlaybackTimeline.build(
+                    bookId = BookId("book-1"),
+                    files =
+                        listOf(
+                            fileWith(
+                                streamingUrl = "https://host/api/v1/audio/book-1/af-1?sig=x",
+                                hlsUrl = "https://host/api/v1/hls/book-1/af-1/master.m3u8?sig=x",
+                            ),
+                        ),
+                )
+
+            timeline.files.single().hlsUrl shouldBe "https://host/api/v1/hls/book-1/af-1/master.m3u8?sig=x"
+        }
+
+        test("playbackUri is unchanged by HLS — the direct url stays the never-stranded fallback") {
+            val timeline =
+                PlaybackTimeline.build(
+                    bookId = BookId("book-1"),
+                    files = listOf(fileWith(streamingUrl = "https://host/direct", hlsUrl = "https://host/hls.m3u8")),
+                )
+
+            timeline.files.single().playbackUri shouldBe "https://host/direct"
+        }
     })

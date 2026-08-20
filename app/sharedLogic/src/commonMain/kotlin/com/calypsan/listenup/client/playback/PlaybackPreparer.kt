@@ -469,7 +469,7 @@ class PlaybackPreparer internal constructor(
 
         val preparedUrls: PreparedUrls =
             if (missingCount == 0) {
-                PreparedUrls(emptyMap(), emptyMap()) // fully downloaded — never touch the server (offline-first)
+                PreparedUrls() // fully downloaded — never touch the server (offline-first)
             } else {
                 // Some files are missing → we need signed streaming URLs for them. prepare() returns
                 // per-file URLs for the whole book; localPath still wins in playbackUri, so downloaded
@@ -505,7 +505,7 @@ class PlaybackPreparer internal constructor(
                             "prepare() failed for ${bookId.value} (${result.error.code}); playing $downloadedCount " +
                                 "downloaded file(s) offline, $missingCount unavailable until reconnect."
                         }
-                        PreparedUrls(emptyMap(), emptyMap())
+                        PreparedUrls()
                     }
                 }
             }
@@ -650,8 +650,16 @@ private data class TimelineBuildResult(
     val serverResumePosition: PlaybackPositionSyncPayload?,
 )
 
-/** Signed URLs for one book: the direct byte URL always, the HLS playlist only when transcoding. */
-private data class PreparedUrls(val direct: Map<String, String>, val hls: Map<String, String>)
+/**
+ * [PlaybackPreparer.buildTimeline]'s per-file URL maps from one `prepare()` call. Both default
+ * empty — [direct] is empty on the fully-downloaded and prepare-failed branches (where each
+ * file's [TimelineFileInput.localPath] carries playback instead), and [hls] is empty whenever
+ * no file in the response needed a transcode.
+ */
+private data class PreparedUrls(
+    val direct: Map<String, String> = emptyMap(),
+    val hls: Map<String, String> = emptyMap(),
+)
 
 /**
  * The resume point resolved across the local Room row and the server-authoritative
