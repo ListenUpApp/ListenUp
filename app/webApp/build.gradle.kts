@@ -67,6 +67,12 @@ kotlin {
             // resolves `new URL("sqlite-wasm-worker/worker.js", import.meta.url)` into a
             // separate worker chunk. Pattern from danysantiago/room-web-demo.
             implementation(npm("sqlite-wasm-worker", layout.projectDirectory.dir("worker").asFile))
+            // hls.js is declared TWICE on purpose — here and in web/package.json — because the two
+            // browser lanes resolve bare specifiers through different node_modules: KGP's yarn tree
+            // feeds webpack/karma, web/node_modules feeds Vite. Drop either and that lane dies with
+            // "Can't resolve 'hls.js'". The version is pinned exactly rather than caret-ranged so
+            // the two trees cannot drift onto different builds of the decoder.
+            implementation(npm("hls.js", "1.7.1"))
         }
         jsTest.dependencies {
             implementation(libs.kotest.framework.engine)

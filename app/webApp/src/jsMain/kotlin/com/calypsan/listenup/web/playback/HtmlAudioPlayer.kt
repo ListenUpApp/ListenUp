@@ -94,7 +94,11 @@ class HtmlAudioPlayer : AudioPlayer {
     private var hlsHandle: HlsHandle? = null
     private var speed: Float = 1.0f
 
-    /** Set on attach, applied once the element knows enough to accept a `currentTime`. */
+    /**
+     * Where inside the current segment playback is meant to be, re-asserted once the element has
+     * metadata. Written by [seekWithinSegment] and by nothing else — a position that reaches the
+     * element without passing through here is a position [applyPendingOffset] will overwrite.
+     */
     private var pendingOffsetMs: Long? = null
 
     /** Whether the element was mid-playback when the current attachment started. */
@@ -106,6 +110,9 @@ class HtmlAudioPlayer : AudioPlayer {
         element.preload = "auto"
         element.addEventListener("loadedmetadata", { applyPendingOffset() })
         element.addEventListener("timeupdate", { publishPosition() })
+        // A seek while paused produces no `timeupdate`, so without this the reported position
+        // would be the one that was *asked* for rather than the one the element actually took.
+        element.addEventListener("seeked", { publishPosition() })
         element.addEventListener("playing", { state.value = PlaybackState.Playing })
         element.addEventListener("waiting", { state.value = PlaybackState.Buffering })
         element.addEventListener("pause", { onPaused() })
@@ -143,7 +150,7 @@ class HtmlAudioPlayer : AudioPlayer {
         if (seek.index != currentIndex) {
             attach(index = seek.index, offsetInSegmentMs = seek.offsetInSegmentMs)
         } else {
-            element.currentTime = seek.offsetInSegmentMs / MS_PER_SECOND
+            seekWithinSegment(seek.offsetInSegmentMs)
         }
     }
 
@@ -171,7 +178,6 @@ class HtmlAudioPlayer : AudioPlayer {
     ) {
         releaseHls()
         currentIndex = index
-        pendingOffsetMs = offsetInSegmentMs
         state.value = PlaybackState.Buffering
         when (val source = sourceFor(segments[index])) {
             is SegmentSource.Direct -> {
@@ -188,6 +194,27 @@ class HtmlAudioPlayer : AudioPlayer {
             }
         }
         element.playbackRate = speed.toDouble()
+        seekWithinSegment(offsetInSegmentMs)
+    }
+
+    /**
+     * The one path by which a within-segment position reaches the element.
+     *
+     * It both writes the position and records it. The write lands even before metadata arrives —
+     * the HTML spec routes a `currentTime` set at `HAVE_NOTHING` into the element's *default
+     * playback start position*, and Chromium honours it — but that is the spec for a plain `src`
+     * load, and the HLS path hands start-position control to hls.js instead. Recording the intent
+     * costs one field and makes [applyPendingOffset] re-assert it once the element is ready, so
+     * neither path has to be trusted on its own.
+     *
+     * Recording it on *every* seek, not just on attach, is the load-bearing part: a same-segment
+     * seek that left the recorded offset stale would be silently undone the moment
+     * `loadedmetadata` fired. That is the shape of a resume — `load()` then `seekTo()` — for every
+     * single-file `.m4b`, which is to say for most audiobooks.
+     */
+    private fun seekWithinSegment(offsetInSegmentMs: Long) {
+        pendingOffsetMs = offsetInSegmentMs
+        element.currentTime = offsetInSegmentMs / MS_PER_SECOND
     }
 
     private fun releaseHls() {
