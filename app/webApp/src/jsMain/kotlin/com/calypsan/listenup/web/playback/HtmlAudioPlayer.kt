@@ -8,15 +8,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.w3c.dom.HTMLAudioElement
 import org.w3c.dom.MediaError
+import kotlin.js.Promise
 
 /** Where a book-relative position lands: which segment, and how far into it. */
-data class SegmentSeek(
+internal data class SegmentSeek(
     val index: Int,
     val offsetInSegmentMs: Long,
 )
 
 /** What a segment should be played from, and by which mechanism. */
-sealed interface SegmentSource {
+internal sealed interface SegmentSource {
     /** An HLS playlist — needs hls.js, or Safari's native support. */
     data class Hls(
         val url: String,
@@ -35,7 +36,7 @@ sealed interface SegmentSource {
  * scrubber released at the last pixel, and an exception on the play path is the worst possible
  * answer to "the listener dragged slightly too far".
  */
-fun resolveSegment(
+internal fun resolveSegment(
     segments: List<AudioSegment>,
     bookPositionMs: Long,
 ): SegmentSeek {
@@ -60,8 +61,23 @@ fun resolveSegment(
  * browser's `DownloadFileManager` throws on purpose, because offline audio in a browser is
  * undesigned — so a local-path branch here would be dead code pretending to be a feature.
  */
-fun sourceFor(segment: AudioSegment): SegmentSource =
+internal fun sourceFor(segment: AudioSegment): SegmentSource =
     segment.hlsUrl?.let { SegmentSource.Hls(it) } ?: SegmentSource.Direct(segment.url)
+
+/**
+ * The user-facing message for a rejected `play()`, or null when the rejection is benign.
+ *
+ * `AbortError` is the ordinary consequence of re-pointing the element while a play is pending —
+ * exactly what a segment advance does — so surfacing it would paint an error over correct
+ * playback. Every other rejection means the audio did not start, and silence the listener cannot
+ * explain is the failure this player exists to prevent.
+ */
+internal fun playRefusalMessage(errorName: String): String? =
+    when (errorName) {
+        "AbortError" -> null
+        "NotAllowedError" -> "Playback needs a tap to start. This browser blocks audio nobody asked for."
+        else -> "Playback error. The browser refused to start audio ($errorName)."
+    }
 
 private const val MS_PER_SECOND = 1000.0
 
@@ -69,11 +85,14 @@ private const val MS_PER_SECOND = 1000.0
  * The browser's [AudioPlayer]: one `HTMLAudioElement`, re-pointed at each segment in turn, with
  * hls.js standing in wherever the element cannot decode the file itself.
  *
- * State is read off the element's own events rather than inferred from the calls made into it.
- * A player that reports `Playing` because `play()` was called, while the browser silently
- * refused, is exactly the lie this codebase exists to avoid.
+ * Wherever the element can answer for itself, it does: `playing`, `pause`, `waiting`, `ended`,
+ * `canplay` and `error` drive [state], so the player reports what the browser actually did rather
+ * than what it was asked to do. The calls in — [load] and [attach] — only ever publish
+ * `Buffering`, an admission of not-knowing-yet that one of those events then resolves. Every such
+ * optimistic write needs an event that will correct it; one without is how a book ends up
+ * spinning forever.
  */
-class HtmlAudioPlayer : AudioPlayer {
+internal class HtmlAudioPlayer : AudioPlayer {
     override val state: StateFlow<PlaybackState>
         field = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
 
@@ -96,32 +115,42 @@ class HtmlAudioPlayer : AudioPlayer {
 
     /**
      * Where inside the current segment playback is meant to be, re-asserted once the element has
-     * metadata. Written by [seekWithinSegment] and by nothing else — a position that reaches the
-     * element without passing through here is a position [applyPendingOffset] will overwrite.
+     * metadata. [seekWithinSegment] is the only thing that sets it to a position; only
+     * [applyPendingOffset] clears it, once it has been applied.
      */
     private var pendingOffsetMs: Long? = null
 
     /** Whether the element was mid-playback when the current attachment started. */
     private var resumeOnReady: Boolean = false
 
+    /**
+     * Set by [releasePlayer] to stop late events reporting errors about a book nobody is listening
+     * to any more, and cleared by [load]. Release is a return to the resting state, not a terminal
+     * one — see [releasePlayer].
+     */
     private var released: Boolean = false
 
     init {
         element.preload = "auto"
         element.addEventListener("loadedmetadata", { applyPendingOffset() })
+        element.addEventListener("canplay", { onReady() })
         element.addEventListener("timeupdate", { publishPosition() })
         // A seek while paused produces no `timeupdate`, so without this the reported position
         // would be the one that was *asked* for rather than the one the element actually took.
         element.addEventListener("seeked", { publishPosition() })
         element.addEventListener("playing", { state.value = PlaybackState.Playing })
-        element.addEventListener("waiting", { state.value = PlaybackState.Buffering })
+        element.addEventListener("waiting", { onWaiting() })
         element.addEventListener("pause", { onPaused() })
         element.addEventListener("ended", { onSegmentEnded() })
         element.addEventListener("error", { reportElementError() })
     }
 
     override suspend fun load(segments: List<AudioSegment>) {
+        released = false
         if (segments.isEmpty()) {
+            // Forget the previous book as well as refusing this one: leaving its segments in place
+            // would let a later play() or seekTo() operate on content the caller has replaced.
+            forgetContent()
             state.value = PlaybackState.Error(message = "Playback error. No audio segments were provided.")
             return
         }
@@ -134,8 +163,13 @@ class HtmlAudioPlayer : AudioPlayer {
 
     override fun play() {
         if (segments.isEmpty()) return
+        // Playing a finished book restarts it, which is what a bare media element does for a
+        // single file — the spec seeks to the start when the position is already the end. Without
+        // this, a multi-segment book would restart at its LAST segment, because `currentIndex` is
+        // still parked there.
+        if (state.value == PlaybackState.Ended) seekTo(0)
         resumeOnReady = true
-        element.play()
+        startPlayback()
     }
 
     override fun pause() {
@@ -147,6 +181,9 @@ class HtmlAudioPlayer : AudioPlayer {
         if (segments.isEmpty()) return
         val seek = resolveSegment(segments, positionMs)
         this.positionMs.value = segments[seek.index].offsetMs + seek.offsetInSegmentMs
+        // Seeking out of a finished book un-finishes it. Leaving `Ended` standing would show a
+        // transport bar reading "finished" with the scrubber back at the beginning.
+        if (state.value == PlaybackState.Ended) state.value = PlaybackState.Paused
         if (seek.index != currentIndex) {
             attach(index = seek.index, offsetInSegmentMs = seek.offsetInSegmentMs)
         } else {
@@ -159,16 +196,40 @@ class HtmlAudioPlayer : AudioPlayer {
         element.playbackRate = speed.toDouble()
     }
 
+    /**
+     * Return to the resting state: nothing loaded, nothing playing, every published value zeroed.
+     *
+     * Not terminal — [load] revives the instance — so a DI graph is free to hold one of these as a
+     * singleton and release it at the end of each listening session.
+     */
     override fun releasePlayer() {
         released = true
+        forgetContent()
+        state.value = PlaybackState.Idle
+    }
+
+    /** Detach whatever is loaded and zero everything that described it. Leaves [state] to the caller. */
+    private fun forgetContent() {
         resumeOnReady = false
+        pendingOffsetMs = null
         releaseHls()
         element.pause()
-        // `src = ""` would resolve against the document URL and fire a spurious error; removing
-        // the attribute and re-loading is the spec's own "forget the current media" path.
+        // `src = ""` would resolve against the document URL and fire a spurious error; removing the
+        // attribute and re-loading is the spec's own "forget the current media" path.
+        //
+        // `load()` is also what makes the caller's next state assignment stick. The media element
+        // load algorithm empties the element's queued event tasks, so the `pause` dispatched a line
+        // above is discarded instead of arriving later and flipping the state back to `Paused`.
+        // Dropping this call would silently reintroduce that race — `released` does not cover it,
+        // because `onPaused` never consults it.
         element.removeAttribute("src")
         element.load()
-        state.value = PlaybackState.Idle
+        segments = emptyList()
+        currentIndex = 0
+        speed = 1.0f
+        element.playbackRate = 1.0
+        positionMs.value = 0L
+        durationMs.value = 0L
     }
 
     /** Point the element at [index], to be positioned at [offsetInSegmentMs] once it is ready. */
@@ -217,6 +278,26 @@ class HtmlAudioPlayer : AudioPlayer {
         element.currentTime = offsetInSegmentMs / MS_PER_SECOND
     }
 
+    /**
+     * `element.play()` is typed `Unit` by the Kotlin DOM bindings, but the method really returns a
+     * Promise — and that Promise rejects when an autoplay policy refuses the request. Left alone it
+     * becomes an unhandled rejection in the console and nothing else, so the listener gets a
+     * spinner that never resolves instead of a reason. iOS Safari refuses far more readily than
+     * Chrome, and [applyPendingOffset] calls this from a media event, well outside any tap.
+     */
+    private fun startPlayback() {
+        val started = element.play().unsafeCast<Promise<Unit>?>() ?: return
+        started.catch { reason -> onPlayRejected(reason) }
+    }
+
+    private fun onPlayRejected(reason: Throwable) {
+        if (released) return
+        val name = reason.asDynamic().name as? String ?: ""
+        val message = playRefusalMessage(name) ?: return
+        resumeOnReady = false
+        state.value = PlaybackState.Error(message = message, isRecoverable = true)
+    }
+
     private fun releaseHls() {
         hlsHandle?.destroy()
         hlsHandle = null
@@ -227,12 +308,29 @@ class HtmlAudioPlayer : AudioPlayer {
             pendingOffsetMs = null
             element.currentTime = offset / MS_PER_SECOND
         }
-        if (resumeOnReady) element.play()
+        if (resumeOnReady) startPlayback()
+    }
+
+    /**
+     * Becoming playable carries no state-bearing event of its own — an element that was never
+     * playing is not sent a `pause` — so a book that was loaded and not played would sit on the
+     * `Buffering` that [attach] published, forever.
+     */
+    private fun onReady() {
+        if (!resumeOnReady && state.value == PlaybackState.Buffering) {
+            state.value = PlaybackState.Paused
+        }
     }
 
     private fun publishPosition() {
         val segment = segments.getOrNull(currentIndex) ?: return
         positionMs.value = segment.offsetMs + (element.currentTime * MS_PER_SECOND).toLong()
+    }
+
+    private fun onWaiting() {
+        // A buffer draining after a fatal hls.js error must not be dressed up as ordinary
+        // buffering: that swaps a real diagnosis for a spinner nothing will ever clear.
+        if (state.value !is PlaybackState.Error) state.value = PlaybackState.Buffering
     }
 
     private fun onPaused() {
@@ -254,6 +352,10 @@ class HtmlAudioPlayer : AudioPlayer {
 
     private fun reportHlsError(detail: String) {
         if (released) return
+        // Fatal means hls.js has stopped; its buffers, timers and retry loop have not. Nothing else
+        // will destroy this instance — a fatal error is neither a segment change nor a teardown —
+        // so without this it runs until the tab closes.
+        releaseHls()
         state.value = PlaybackState.Error(message = "Playback error. $detail", isRecoverable = true)
     }
 
