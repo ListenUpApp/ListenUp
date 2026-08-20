@@ -38,9 +38,13 @@ class HtmlAudioPlayerLifecycleTest :
             player.play()
             player.awaitState(PlaybackState.Ended)
 
-            // Reaching Ended at a book-relative position past the first segment is the proof that
-            // segment two was attached and played, rather than the book stopping at the seam.
-            player.positionMs.value.shouldBeBetween(FIRST_SEGMENT_MS, BOOK_DURATION_MS + TOLERANCE_MS)
+            // Must land at the END of the book, not merely at-or-past the seam. A book that stops
+            // at the seam also reaches Ended — at exactly FIRST_SEGMENT_MS — so a lower bound of
+            // FIRST_SEGMENT_MS is satisfied by the very bug this spec exists to catch.
+            player.positionMs.value.shouldBeBetween(
+                BOOK_DURATION_MS - TOLERANCE_MS,
+                BOOK_DURATION_MS + TOLERANCE_MS,
+            )
             player.durationMs.value shouldBe BOOK_DURATION_MS
 
             player.releasePlayer()
@@ -84,8 +88,11 @@ class HtmlAudioPlayerLifecycleTest :
             // autoplay so the specs above can run at all, so no play() in this suite is ever
             // refused. What is testable — and what the bug actually was — is the decision made
             // about a rejection once it arrives, so that is asserted directly rather than staged.
+            //
+            // NotSupportedError is deliberately not asserted here. It only ever arrives alongside
+            // an element error that HtmlAudioPlayer has already reported more precisely, so
+            // onPlayRejected drops it rather than restating it; see the guard there.
             playRefusalMessage("NotAllowedError").shouldNotBeNull()
-            playRefusalMessage("NotSupportedError").shouldNotBeNull()
 
             // A segment advance re-points the element while a play is pending, which rejects with
             // AbortError every time. Reporting that would paint an error over correct playback —
