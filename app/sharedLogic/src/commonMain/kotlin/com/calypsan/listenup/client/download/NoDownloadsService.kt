@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.flowOf
  * is not a transient failure worth retrying, it is a platform that will never be able to download,
  * no matter how many times it's asked — see [supportsDownloads].
  */
-class NoDownloadsService : DownloadService {
+internal class NoDownloadsService : DownloadService {
     override val supportsDownloads: Boolean = false
 
     override suspend fun getLocalPath(audioFileId: String): String? = null

@@ -101,6 +101,8 @@ class AppleDownloadService internal constructor(
     private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
     private val errorBus: ErrorBus,
 ) : DownloadService {
+    override val supportsDownloads: Boolean = true
+
     /**
      * Delegate handles download progress and completion.
      * Must be held as a strong reference (ObjC weak delegate pattern).

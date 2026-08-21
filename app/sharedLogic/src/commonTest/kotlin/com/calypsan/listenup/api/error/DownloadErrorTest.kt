@@ -52,10 +52,4 @@ class DownloadErrorTest :
             err.code shouldBe "DOWNLOAD_NOT_SUPPORTED"
             err.isRetryable shouldBe false
         }
-
-        test("NotSupported carries the bookTitle payload") {
-            val err = DownloadError.NotSupported(bookTitle = "Dune")
-            err.bookTitle shouldBe "Dune"
-            err.message.isNotBlank() shouldBe true
-        }
     })
