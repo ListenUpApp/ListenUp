@@ -4,6 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import com.calypsan.listenup.web.motion.CoverSurface
+import com.calypsan.listenup.web.motion.flyHeroInto
+import com.calypsan.listenup.web.motion.recordHeroOrigin
 import androidx.compose.runtime.setValue
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
@@ -31,11 +34,23 @@ fun Cover(
     size: Int = DEFAULT_COVER_SIZE,
     radius: Int = DEFAULT_COVER_RADIUS,
     heroName: String? = null,
+    heroBookId: String? = null,
 ) {
     var failed by remember(imageUrl) { mutableStateOf(false) }
     val showImage = imageUrl != null && !failed
 
     Div(attrs = {
+        // The arrival half of the cover's flight. `ref` fires when this node is attached, which is
+        // exactly when its final geometry is known and the origin recorded at click time can be
+        // animated from. See [flyHeroInto] for why this is a FLIP rather than a View Transition.
+        if (heroBookId != null) {
+            ref { element ->
+                flyHeroInto(heroBookId, CoverSurface.HERO, element)
+                // Recorded as this hero leaves, so the grid tile it returns to can fly back from
+                // here. Read on the way out because a rect measured after removal is zero.
+                onDispose { recordHeroOrigin(heroBookId, CoverSurface.HERO, element) }
+            }
+        }
         style {
             property("width", "${size}px")
             property("height", "${size}px")

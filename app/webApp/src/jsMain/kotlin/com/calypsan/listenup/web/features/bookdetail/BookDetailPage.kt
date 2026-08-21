@@ -162,6 +162,7 @@ private fun SharedHeader(
             size = COVER_SIZE,
             radius = COVER_RADIUS,
             heroName = HERO_COVER,
+            heroBookId = id,
         )
         Div(attrs = { classes("bd-tblock") }) {
             if (ready == null) {

@@ -702,32 +702,10 @@ body { margin: 0; }
 .lib-spacer { grid-column: 1 / -1; overflow-anchor: none; }
 .lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
 
-/* ---- view transitions ----
-   The page crossfade. Deliberately short: a route change should feel like the page settled, not
-   like it performed. The old page leaves slightly faster than the new one arrives so the two do
-   not both sit at half opacity in the middle, which reads as a flicker rather than a fade. */
-/* ⛔ The page beneath the transition must be opaque, or a crossfade shows straight through to it.
-   Both root snapshots dip below full opacity while they overlap, and with a transparent root the
-   thing visible in the gap is the browser's own white canvas — a flash of white on every
-   navigation. Painting the root in the app's own paper removes the gap's contents rather than the
-   gap. */
+/* ---- page background ----
+   Painted on the root because the shell's own surface does not cover the whole canvas during a
+   navigation; without it the gap reads as a flash of white. */
 :root { background: var(--paper); }
-
-::view-transition-old(root) { animation-duration: 130ms; animation-timing-function: ease-in; }
-::view-transition-new(root) { animation-duration: 220ms; animation-timing-function: ease-out; }
-
-/* The shared cover. Longer than the page fade because it is travelling a real distance — a morph
-   that finishes as fast as a crossfade reads as a jump rather than a flight. */
-::view-transition-group(book-cover) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
-}
-/* ⛔ Do NOT set `animation: none` on `::view-transition-old(book-cover)` / `-new(...)`. It looks
-   like a tidy optimisation — the two covers are the same square at two sizes, so crossfading them
-   seems redundant — and it silently empties the flight. The group's box still morphs (confirmed via
-   `document.getAnimations()`: `-ua-view-transition-group-anim-book-cover` runs for its full 300ms),
-   but the images inside it are no longer driven, so nothing visible travels. The browser's default
-   pairing is what makes the morph something you can see. */
 
 /* A card that is entering or leaving the grid. Matches `lib-card-in`'s vocabulary so a book that
    arrives during a transition and one that arrives outside it move the same way. */

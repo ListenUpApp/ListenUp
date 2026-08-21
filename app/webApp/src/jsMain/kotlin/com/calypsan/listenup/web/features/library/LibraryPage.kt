@@ -13,9 +13,10 @@ import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
 import com.calypsan.listenup.web.design.coverUrl
-import kotlinx.browser.document
+import com.calypsan.listenup.web.motion.CoverSurface
+import com.calypsan.listenup.web.motion.flyHeroInto
+import com.calypsan.listenup.web.motion.recordHeroOrigin
 import org.w3c.dom.Element
-import com.calypsan.listenup.web.features.bookdetail.HERO_COVER
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
@@ -140,51 +141,37 @@ internal fun BookCard(
     Div(attrs = {
         classes("lib-card")
         onClick { event ->
-            // Named here, imperatively, and NOT via [isHero]. The transition's "old" snapshot is
-            // taken in the same tick as this click, so a name routed through state would not have
-            // reached the DOM yet — measured, the snapshot saw no named element at all and the
-            // cover had nothing to fly from. [isHero] still matters: it is what re-applies the name
-            // on the way BACK, where Compose has a whole render to do it in.
-            // Cleared from whatever held it first. The name is applied two ways — imperatively
-            // here, and through [isHero] when Compose re-renders the grid on the way back — so
-            // after one round trip the previous tile is still carrying it. Naming a second element
-            // without clearing the first puts two `book-cover`s in one snapshot, and a
-            // `view-transition-name` must be unique or the browser drops the transition entirely.
-            document.querySelectorAll(".lib-cover").let { nodes ->
-                for (index in 0 until nodes.length) {
-                    nodes
-                        .item(index)
-                        ?.asDynamic()
-                        ?.style
-                        ?.viewTransitionName = ""
-                }
-            }
+            // Where this cover is *right now*, so the detail page's hero can fly in from here.
+            // Recorded at click time because by the time that hero mounts, this element is gone —
+            // the grid has unmounted and a rect read from a detached node is zero.
             (event.currentTarget as? Element)
                 ?.querySelector(".lib-cover")
-                ?.asDynamic()
-                ?.style
-                ?.viewTransitionName = HERO_COVER
+                ?.let { recordHeroOrigin(book.id.value, CoverSurface.GRID, it) }
             onOpen()
         }
     }) {
-        // Exactly one tile in the grid is ever the hero — the one the reader last opened — because
-        // a `view-transition-name` must be unique at any instant. Naming it here and the detail
-        // page's hero the same is the whole trick: the browser interpolates between the two boxes
-        // rather than crossfading the pages, so the cover flies into place and back out again.
-        val hero: (org.jetbrains.compose.web.attributes.AttrsScope<*>) -> Unit = { scope ->
-            if (isHero) scope.style { property("view-transition-name", HERO_COVER) }
+        // The return leg of the flight: this is the tile the reader last opened, so when it mounts
+        // it flies in from wherever the detail hero was standing. The outbound leg is recorded in
+        // the click handler above; the two are symmetric.
+        val flyBack: (org.jetbrains.compose.web.attributes.AttrsScope<*>) -> Unit = { scope ->
+            if (isHero) {
+                scope.ref { element ->
+                    flyHeroInto(book.id.value, CoverSurface.GRID, element)
+                    onDispose { }
+                }
+            }
         }
         if (coverFailed) {
             Div(attrs = {
                 classes("lib-cover", "lib-cover-fallback")
-                hero(this)
+                flyBack(this)
             }) { Text(book.title) }
         } else {
             Img(
                 src = coverUrl(book.id.value, book.coverHash, GRID_RUNG),
                 attrs = {
                     classes("lib-cover")
-                    hero(this)
+                    flyBack(this)
                     alt(book.title)
                     // Which rung a display needs is the browser's call, not ours — it knows the
                     // device pixel ratio and we do not. Stating both lets a 1x screen take 300px

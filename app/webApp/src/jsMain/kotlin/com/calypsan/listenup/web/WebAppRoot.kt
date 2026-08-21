@@ -21,7 +21,6 @@ import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.motion.withViewTransition
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
 import com.calypsan.listenup.web.shell.AccountMenu
@@ -98,7 +97,7 @@ fun WebAppRoot(
                 onSelectTab = { tab ->
                     // Animated: switching a pane is a page-level change. The selection change
                     // below deliberately is not — see Router.replace.
-                    router.replace(Route(route.segments, route.query + ("tab" to tab)), animate = true)
+                    router.replace(Route(route.segments, route.query + ("tab" to tab)))
                 },
                 onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
                 bookId = bookId,
@@ -184,68 +183,26 @@ private fun libraryState(openLibrary: OpenLibrary): LibrarySession {
 }
 
 /**
- * The library list, with each change applied inside a View Transition so books that arrive, leave
- * or move do so visibly rather than by snapping.
+ * The library list, mirrored into local state.
  *
- * Renders from a mirror of the session's state rather than the flow directly, because the
- * transition has to *own* the moment the change lands — `startViewTransition` snapshots before its
- * callback and after it settles, so the write has to happen inside. Collecting straight into
- * composition would apply the change before anything could photograph the old grid.
+ * ⛔ **This used to wrap each change in a View Transition, and that has been removed** — not tuned,
+ * removed. The browser's shared-element API needs the DOM change to happen inside its update
+ * callback, and **Compose HTML cannot render in there**: the browser suppresses rendering while the
+ * callback is outstanding, and Compose's scheduler needs a frame. Measured, the destination had
+ * still not rendered **361 ms** into the callback, so every transition captured an identical before
+ * and after — it animated nothing while holding the old page frozen for the settle, which is what
+ * read as a lurch and a flash on every navigation.
  *
- * The first value is not animated: `shown` starts equal to it, so the identity check below skips
- * the initial load. A whole library fading in on first paint would be motion nobody asked for, and
- * `lib-card-in` already covers arrivals.
- *
- * ⛔ Scoped to `.lib-card` for a measured reason — naming all 1,204 cards took **12.2 s** to reach
- * `ready`, against **41 ms** for the ~28 in the viewport. See [withViewTransition].
+ * The cover's flight between the grid and the book survives, because it does not depend on that
+ * callback at all — see `HeroFlight`.
  */
 @Composable
 private fun animatedLibrary(session: LibrarySession): LibraryUiState {
     val upstream = session.state.collectAsState().value
     var shown by remember { mutableStateOf(upstream) }
-    LaunchedEffect(upstream) {
-        if (shown === upstream) return@LaunchedEffect
-        if (worthAnimating(shown, upstream)) {
-            withViewTransition(scopeSelector = ".lib-card", prefix = "bk") { shown = upstream }
-        } else {
-            shown = upstream
-        }
-    }
+    LaunchedEffect(upstream) { shown = upstream }
     return shown
 }
-
-/**
- * Whether this list change is small enough to be worth animating.
- *
- * ⛔ **Measured, not assumed.** Against the 1,204-book library, a sort change costs **2,525 ms** of
- * recomposition on its own; wrapping it in a transition took **4,651 ms**, because the transition
- * waits for that recomposition and holds the *old* grid on screen throughout. So a wholesale
- * reorder animated is strictly worse than one that does not: twice as slow, and frozen rather than
- * progressive.
- *
- * A book arriving or leaving during sync is the opposite — a handful of cards change, the diff is
- * cheap, and the movement is the thing that was asked for. So the gate is the size of the
- * difference, not the kind of it.
- *
- * The 2.5 s reorder is a real cost that predates any of this and deserves its own fix; until then,
- * not animating it is the honest answer rather than a workaround.
- */
-private fun worthAnimating(
-    before: LibraryUiState,
-    after: LibraryUiState,
-): Boolean {
-    // Only Loaded carries books; a transition out of Loading is the first paint, which
-    // `lib-card-in` already owns.
-    val had = (before as? LibraryUiState.Loaded)?.books ?: return false
-    val has = (after as? LibraryUiState.Loaded)?.books ?: return false
-    val hadIds = had.mapTo(HashSet()) { it.id.value }
-    val hasIds = has.mapTo(HashSet()) { it.id.value }
-    val changed = hadIds.count { it !in hasIds } + hasIds.count { it !in hadIds }
-    return changed in 1..MAX_ANIMATED_CHANGE
-}
-
-/** Above this many books arriving or leaving at once, the reorder cost dominates — see [worthAnimating]. */
-private const val MAX_ANIMATED_CHANGE = 24
 
 /**
  * Stands in for the pages that arrive next (Book Detail first). Honest about being unbuilt
