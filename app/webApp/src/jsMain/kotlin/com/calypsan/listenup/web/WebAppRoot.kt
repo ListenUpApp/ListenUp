@@ -57,6 +57,13 @@ fun WebAppRoot(
     onSignOut: () -> Unit = {},
 ) {
     var collapsed by remember { mutableStateOf(false) }
+
+    // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
+    // flight works in both directions: out to the detail hero, and back to the same tile on return.
+    // The library's scrollport is the shell's, which does not unmount on a route change, so coming
+    // back lands at the same offset and the tile is usually still on screen. When it is not — the
+    // grid is virtualised — there is simply nothing to fly to and the pages crossfade instead.
+    var heroBookId by remember { mutableStateOf<String?>(null) }
     val playback = playbackState(openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
@@ -110,7 +117,11 @@ fun WebAppRoot(
             LibraryPage(
                 state = animatedLibrary(librarySession),
                 onEvent = librarySession.onEvent,
-                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+                onOpenBook = { id ->
+                    heroBookId = id
+                    router.navigate(Route(listOf(BOOK_KEY, id)))
+                },
+                heroBookId = heroBookId,
             )
         } else {
             PagePlaceholder(active)

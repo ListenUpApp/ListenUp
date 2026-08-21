@@ -706,8 +706,26 @@ body { margin: 0; }
    The page crossfade. Deliberately short: a route change should feel like the page settled, not
    like it performed. The old page leaves slightly faster than the new one arrives so the two do
    not both sit at half opacity in the middle, which reads as a flicker rather than a fade. */
+/* ⛔ The page beneath the transition must be opaque, or a crossfade shows straight through to it.
+   Both root snapshots dip below full opacity while they overlap, and with a transparent root the
+   thing visible in the gap is the browser's own white canvas — a flash of white on every
+   navigation. Painting the root in the app's own paper removes the gap's contents rather than the
+   gap. */
+:root { background: var(--paper); }
+
 ::view-transition-old(root) { animation-duration: 130ms; animation-timing-function: ease-in; }
 ::view-transition-new(root) { animation-duration: 220ms; animation-timing-function: ease-out; }
+
+/* The shared cover. Longer than the page fade because it is travelling a real distance — a morph
+   that finishes as fast as a crossfade reads as a jump rather than a flight. */
+::view-transition-group(book-cover) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+/* The two covers are the same square at different sizes, so crossfading them mid-flight only muddies
+   the morph. Holding both opaque lets the geometry do the work. */
+::view-transition-old(book-cover),
+::view-transition-new(book-cover) { animation: none; mix-blend-mode: normal; }
 
 /* A card that is entering or leaving the grid. Matches `lib-card-in`'s vocabulary so a book that
    arrives during a transition and one that arrives outside it move the same way. */

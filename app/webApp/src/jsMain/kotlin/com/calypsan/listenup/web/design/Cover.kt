@@ -30,6 +30,7 @@ fun Cover(
     imageUrl: String? = null,
     size: Int = DEFAULT_COVER_SIZE,
     radius: Int = DEFAULT_COVER_RADIUS,
+    heroName: String? = null,
 ) {
     var failed by remember(imageUrl) { mutableStateOf(false) }
     val showImage = imageUrl != null && !failed
@@ -42,6 +43,12 @@ fun Cover(
             property("overflow", "hidden")
             property("flex-shrink", "0")
             property("position", "relative")
+            // The shared-element handle. When the grid tile the reader tapped carries the same
+            // name, the browser interpolates between the two boxes instead of crossfading the
+            // pages — the cover appears to fly from the grid into this hero, Flutter-Hero style.
+            // ⛔ A `view-transition-name` must be unique at any instant, which is why only ONE
+            // grid tile is ever named: see `HERO_COVER` in the library grid.
+            heroName?.let { property("view-transition-name", it) }
             if (!showImage) property("background", gradientFor(title))
         }
     }) {

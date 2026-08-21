@@ -63,6 +63,7 @@ internal fun VirtualBookGrid(
     letterOf: (BookListItem) -> Char?,
     progressOf: (BookListItem) -> Float,
     onOpenBook: (String) -> Unit,
+    heroBookId: String? = null,
 ) {
     var metrics by remember { mutableStateOf(Metrics(columns = 0, rowHeight = 0.0, headerHeight = 0.0)) }
     var scrollTop by remember { mutableStateOf(0.0) }
@@ -88,7 +89,7 @@ internal fun VirtualBookGrid(
     // answer there: slower, but complete. Falling back to a *slice* would silently drop books and
     // their letter headers, which is what an earlier version of this did and what two specs caught.
     if (document.querySelector(SCROLLPORT) == null) {
-        FlatGrid(books, letterOf, progressOf, onOpenBook)
+        FlatGrid(books, letterOf, progressOf, onOpenBook, heroBookId)
         return
     }
 
@@ -96,7 +97,7 @@ internal fun VirtualBookGrid(
     // measure. Deliberately not the whole library — mounting 1,204 cards even once is the cost
     // this exists to avoid.
     if (!metrics.known) {
-        FlatGrid(books.take(FIRST_PAINT_ROWS * ASSUMED_COLUMNS), letterOf, progressOf, onOpenBook)
+        FlatGrid(books.take(FIRST_PAINT_ROWS * ASSUMED_COLUMNS), letterOf, progressOf, onOpenBook, heroBookId)
         return
     }
 
@@ -116,7 +117,12 @@ internal fun VirtualBookGrid(
 
                 is GridRow.Books -> {
                     row.items.forEach { book ->
-                        BookCard(book = book, progress = progressOf(book), onOpen = { onOpenBook(book.id.value) })
+                        BookCard(
+                            book = book,
+                            progress = progressOf(book),
+                            onOpen = { onOpenBook(book.id.value) },
+                            isHero = book.id.value == heroBookId,
+                        )
                     }
                 }
             }
@@ -132,6 +138,7 @@ private fun FlatGrid(
     letterOf: (BookListItem) -> Char?,
     progressOf: (BookListItem) -> Float,
     onOpenBook: (String) -> Unit,
+    heroBookId: String?,
 ) {
     Div(attrs = { classes("lib-grid") }) {
         var letter: Char? = null
@@ -141,7 +148,12 @@ private fun FlatGrid(
                 letter = next
                 Div(attrs = { classes("lib-section") }) { Text(next.toString()) }
             }
-            BookCard(book = book, progress = progressOf(book), onOpen = { onOpenBook(book.id.value) })
+            BookCard(
+                book = book,
+                progress = progressOf(book),
+                onOpen = { onOpenBook(book.id.value) },
+                isHero = book.id.value == heroBookId,
+            )
         }
     }
 }

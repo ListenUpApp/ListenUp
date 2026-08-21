@@ -136,6 +136,7 @@ private fun BookHeader(
             imageUrl = coverUrl(state.book.id.value, state.book.coverHash, COVER_RUNG),
             size = COVER_SIZE,
             radius = COVER_RADIUS,
+            heroName = HERO_COVER,
         )
         Div(attrs = { classes("bd-tblock") }) {
             H1(attrs = { classes("bd-t") }) { Text(state.book.title) }
@@ -283,6 +284,9 @@ internal fun PaneHint(text: String) {
 }
 
 private const val PERCENT = 100
+
+/** Shared with the library grid's tapped tile, so the cover flies between the two. */
+const val HERO_COVER = "book-cover"
 
 private const val COVER_SIZE = 180
 
