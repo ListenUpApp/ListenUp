@@ -296,6 +296,33 @@ internal class HtmlAudioPlayer : AudioPlayer {
         get() = element.paused
 
     /**
+     * Whether hls.js is driving the current segment, rather than the browser's own HLS decoder.
+     *
+     * [HlsHandle.usesHlsJs] answers this for one attachment; this is the same answer for the
+     * attachment *this player* actually made. Worth reaching for, because the two can only be
+     * proved together: a regression to a `canPlayType`-first branch inside [attachHls] would leave
+     * a Chromium book attached natively — which it cannot decode — and every position, duration and
+     * state assertion would still be reporting on an element that is silently doing nothing.
+     */
+    internal val usesHlsJs: Boolean
+        get() = hlsHandle?.usesHlsJs == true
+
+    /**
+     * Bytes of audio the element has decoded since the current source was attached.
+     *
+     * The only observation that distinguishes playback from the appearance of it: `currentTime`
+     * advances on a media element producing silence, so a spec that watches the clock alone goes
+     * green over a book nobody could hear. `webkitAudioDecodedByteCount` is non-standard and
+     * Chromium-only; a browser without it reports 0 here, which makes a "decoding happened"
+     * assertion fail rather than pass vacuously.
+     */
+    internal val decodedAudioBytes: Long
+        get() {
+            val counter = element.asDynamic().webkitAudioDecodedByteCount
+            return if (jsTypeOf(counter) == "number") counter.unsafeCast<Double>().toLong() else 0L
+        }
+
+    /**
      * Return to the resting state: nothing loaded, nothing playing, every published value zeroed.
      *
      * Not terminal — [load] revives the instance — so a DI graph is free to hold one of these as a
