@@ -34,6 +34,14 @@ internal enum class CoverSurface {
     HERO,
 }
 
+/**
+ * The detail page's hero cover, while it is mounted. There is only ever one.
+ *
+ * Held so its position can be read on the way *out* of the page — see
+ * [captureHeroOriginBeforeRouteChange] for why disposal is too late to read it.
+ */
+private var mountedHero: Pair<String, Element>? = null
+
 /** Where a cover was, on which surface, at the moment it was last seen. */
 private data class Origin(
     val bookId: String,
@@ -126,6 +134,45 @@ private fun fly(
     options.duration = FLIGHT_MS
     options.easing = FLIGHT_EASING
     element.asDynamic().animate(keyframes, options)
+}
+
+/** Remembers the mounted detail hero, so its position can be read before the page goes away. */
+internal fun trackHero(
+    bookId: String,
+    element: Element,
+) {
+    mountedHero = bookId to element
+}
+
+/** Forgets [element] as the hero, if it still is one. */
+internal fun releaseHero(element: Element) {
+    if (mountedHero?.second === element) mountedHero = null
+}
+
+/**
+ * Records where the detail hero is right now, so the grid tile it returns to can fly back from it.
+ *
+ * ⛔ **Called on route change, NOT from the hero's `onDispose`.** Compose detaches the node during
+ * `applyChanges` and dispatches remember-observers afterwards, so by the time an `onDispose` block
+ * runs the element is out of the document and `getBoundingClientRect()` is all zeros — the width
+ * guard in [recordHeroOrigin] then bailed and no origin was ever recorded. Measured: the outbound
+ * flight called `Element.animate` once, the return leg called it zero times.
+ *
+ * Reading it here is safe because Compose renders on a later frame than the route change, so the
+ * page being left is still laid out when this runs — for a breadcrumb click and a Back alike.
+ */
+internal fun captureHeroOriginBeforeRouteChange() {
+    val hero = mountedHero
+    if (hero == null) {
+        // Leaving a page that has no hero — so any hero origin still pending belongs to a page
+        // two navigations ago and must not fly. Book → Settings → Library would otherwise have
+        // sailed the cover in from where the detail hero used to be, on a journey nobody made.
+        // A GRID origin survives: the library records one on the click that starts the outbound
+        // flight, and this runs on the very navigation that click triggers.
+        if (origin?.surface == CoverSurface.HERO) origin = null
+        return
+    }
+    recordHeroOrigin(hero.first, CoverSurface.HERO, hero.second)
 }
 
 /** Motion here is decoration; a reader who asked for less of it gets the cover already in place. */

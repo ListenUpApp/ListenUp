@@ -6,7 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import com.calypsan.listenup.web.motion.CoverSurface
 import com.calypsan.listenup.web.motion.flyHeroInto
-import com.calypsan.listenup.web.motion.recordHeroOrigin
+import com.calypsan.listenup.web.motion.releaseHero
+import com.calypsan.listenup.web.motion.trackHero
 import androidx.compose.runtime.setValue
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
@@ -46,9 +47,10 @@ fun Cover(
         if (heroBookId != null) {
             ref { element ->
                 flyHeroInto(heroBookId, CoverSurface.HERO, element)
-                // Recorded as this hero leaves, so the grid tile it returns to can fly back from
-                // here. Read on the way out because a rect measured after removal is zero.
-                onDispose { recordHeroOrigin(heroBookId, CoverSurface.HERO, element) }
+                // Tracked, not measured: the return leg's origin is read at route-change time, while
+                // this node is still laid out. See [captureHeroOriginBeforeRouteChange].
+                trackHero(heroBookId, element)
+                onDispose { releaseHero(element) }
             }
         }
         style {

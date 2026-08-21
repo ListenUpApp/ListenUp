@@ -13,6 +13,7 @@ import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
+import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -56,7 +57,7 @@ fun main() {
         seedServerUrlIfNeeded(koin)
         connectSyncWhenAuthenticated(koin, this)
 
-        val router = Router()
+        val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
         renderComposable(root = mount) {
             AuthGate(
                 authGraph = graphAuth(koin),

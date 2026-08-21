@@ -522,7 +522,12 @@ body { margin: 0; }
 }
 
 /* ---- book detail (Workbench layout, Paper voice) ---- */
-.bd { padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+/* ⛔ `width:100%` is load-bearing, not belt-and-braces. `margin:0 auto` is an auto margin on
+   a flex item's cross axis, and that DISABLES the parent's `align-items:stretch` — so without
+   an explicit width this block is shrink-to-fit. It measured 366px while the book was loading
+   and 1160px once the panes rendered, which jumped the whole page sideways on arrival and
+   handed the cover's flight a destination that moved out from under it mid-animation. */
+.bd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
 .bd-head { display:flex; gap:26px; align-items:flex-end; }
 .bd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
 .bd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
