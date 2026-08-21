@@ -38,7 +38,10 @@ interface TagService {
      * Book counts are computed via `LEFT JOIN COUNT(*)` on read — no
      * denormalization column; drift is impossible by construction.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
+     * // landed and the MUTATIONS on this service are gated — these reads are not.
+     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
+     * // seam does, so this can surface books in collections the caller cannot reach.
      */
     suspend fun listTags(): AppResult<List<TagSummary>>
 
@@ -49,7 +52,10 @@ interface TagService {
      * Slug lookups are case-insensitive by construction because slugs are
      * normalized to lowercase at creation time.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
+     * // landed and the MUTATIONS on this service are gated — these reads are not.
+     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
+     * // seam does, so this can surface books in collections the caller cannot reach.
      */
     suspend fun getTagBySlug(slug: String): AppResult<TagSummary?>
 
@@ -62,7 +68,10 @@ interface TagService {
      * Callers hydrate book detail from Room for IDs already cached and call
      * `BookService.getBook` for any cache misses.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
+     * // landed and the MUTATIONS on this service are gated — these reads are not.
+     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
+     * // seam does, so this can surface books in collections the caller cannot reach.
      */
     suspend fun listBooksForTag(
         tagId: TagId,
@@ -77,14 +86,20 @@ interface TagService {
      * [com.calypsan.listenup.api.error.TagError.BookNotFound] when no book
      * with the given id exists on the server.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
+     * // landed and the MUTATIONS on this service are gated — these reads are not.
+     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
+     * // seam does, so this can surface books in collections the caller cannot reach.
      */
     suspend fun listTagsForBook(bookId: BookId): AppResult<List<Tag>>
 
     /**
      * Aggregate book count + total length for [tagId] over live books.
      *
-     * // TODO: gate by user permissions when Multi-user lands
+     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
+     * // landed and the MUTATIONS on this service are gated — these reads are not.
+     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
+     * // seam does, so this can surface books in collections the caller cannot reach.
      */
     suspend fun getTagStats(tagId: TagId): AppResult<FacetStats>
 
@@ -110,8 +125,6 @@ interface TagService {
      *
      * On success the server emits sync events for the new or updated tag and
      * junction row so connected clients' Room databases update reactively.
-     *
-     * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun addTagToBook(
         bookId: BookId,
@@ -130,8 +143,6 @@ interface TagService {
      * when no tag with [tagId] exists.
      *
      * On success the server emits a sync event for the tombstoned junction row.
-     *
-     * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun removeTagFromBook(
         bookId: BookId,
@@ -157,8 +168,6 @@ interface TagService {
      * On success the server emits a sync event for the updated tag row. The
      * `tag_search` FTS5 virtual table is updated automatically via the
      * `tags_au` trigger.
-     *
-     * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun renameTag(
         tagId: TagId,
@@ -179,8 +188,6 @@ interface TagService {
      * with the given id exists.
      *
      * On success the server emits sync events for all tombstoned rows.
-     *
-     * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun deleteTag(tagId: TagId): AppResult<Unit>
 }

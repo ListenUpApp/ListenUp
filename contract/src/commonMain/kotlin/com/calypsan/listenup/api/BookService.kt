@@ -20,8 +20,6 @@ import kotlinx.rpc.annotations.Rpc
  *   payload back to all connected clients.
  *
  * REST mirrors are defined in `BookResources`.
- *
- * // TODO: gate mutations by user permissions when Multi-user lands
  */
 @Rpc
 interface BookService {
@@ -92,8 +90,6 @@ interface BookService {
      * Returns [com.calypsan.listenup.api.error.BookError.NotFound] when no book
      * exists. Server-side guard limits inputs to 200; overflow surfaces as
      * [com.calypsan.listenup.api.error.BookError.InvalidInput].
-     *
-     * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun setBookGenres(
         id: BookId,
