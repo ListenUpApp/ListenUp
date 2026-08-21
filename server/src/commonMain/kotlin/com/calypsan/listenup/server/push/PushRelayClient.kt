@@ -3,9 +3,11 @@ package com.calypsan.listenup.server.push
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.header
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.serialization.SerialName
@@ -59,19 +61,47 @@ class PushRelayClient(
         payloadJson: JsonElement,
         collapseKey: String?,
     ): RelayResponse =
-        http
-            .post("$relayUrl/v1/send") {
+        sendChecked(tokens, payloadJson, collapseKey)
+
+    private suspend fun sendChecked(
+        tokens: List<RelayToken>,
+        payloadJson: JsonElement,
+        collapseKey: String?,
+    ): RelayResponse {
+        val response =
+            http
+                .post("$relayUrl/v1/send") {
                 contentType(ContentType.Application.Json)
                 // Bearer, per the relay's PROTOCOL.md. Omitted entirely when unset rather than
                 // sent empty: the relay rejects a PRESENT-but-wrong credential, so an empty string
                 // would turn a working push into a 401 — worse than sending nothing.
                 senderToken?.takeIf { it.isNotBlank() }?.let { header(HttpHeaders.Authorization, "Bearer $it") }
-                setBody(
-                    buildJsonObject {
-                        put("tokens", Json.encodeToJsonElement(ListSerializer(RelayToken.serializer()), tokens))
-                        put("payload", payloadJson)
-                        collapseKey?.let { put("collapseKey", JsonPrimitive(it)) }
-                    },
-                )
-            }.body()
+                    setBody(
+                        buildJsonObject {
+                            put("tokens", Json.encodeToJsonElement(ListSerializer(RelayToken.serializer()), tokens))
+                            put("payload", payloadJson)
+                            collapseKey?.let { put("collapseKey", JsonPrimitive(it)) }
+                        },
+                    )
+                }
+        // Checked explicitly rather than left to `body()`. This client does not set
+        // expectSuccess, so a 401 would otherwise fail while DESERIALIZING the relay's
+        // `{"error": ...}` as a RelayResponse — surfacing as an anonymous serialization
+        // exception that reads exactly like a network blip. A rejected credential is a
+        // configuration fault an operator must act on; it deserves to say so.
+        if (response.status == HttpStatusCode.Unauthorized) {
+            throw RelaySenderCredentialRejected()
+        }
+        return response.body()
+    }
 }
+
+/**
+ * The relay refused this server's sender credential (HTTP 401).
+ *
+ * Distinct from a transport failure because the remedy is completely different: no amount of
+ * retrying fixes it, and every push will fail identically until an operator sets a correct
+ * `LISTENUP_PUSH_SENDER_TOKEN`. Push swallows its own failures by design, so without a distinct
+ * type this would be an invisible, permanent outage.
+ */
+class RelaySenderCredentialRejected : Exception("Relay rejected the sender credential")

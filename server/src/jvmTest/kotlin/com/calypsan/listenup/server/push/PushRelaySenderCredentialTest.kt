@@ -10,6 +10,8 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -80,4 +82,47 @@ class PushRelaySenderCredentialTest :
                 seen.single().shouldBeNull()
             }
         }
+        // ⛔ The failure mode this whole credential exists to avoid becoming invisible. Push
+        // swallows its own errors by design, so a refused credential would otherwise be a
+        // permanent, silent outage: no notification ever arrives and nothing anywhere says why.
+        test("a refused credential surfaces as a distinct, actionable failure") {
+            runTest {
+                val engine =
+                    MockEngine {
+                        respond(
+                            content = """{"error":"invalid sender credential"}""",
+                            status = HttpStatusCode.Unauthorized,
+                            headers = headersOf("Content-Type", ContentType.Application.Json.toString()),
+                        )
+                    }
+
+                shouldThrow<RelaySenderCredentialRejected> {
+                    clientFor(engine, senderToken = "wrong")
+                        .send(tokens = emptyList(), payloadJson = emptyPayload, collapseKey = null)
+                }
+            }
+        }
+
+        // A 5xx must NOT be mistaken for a credential problem — it is transient and retryable, and
+        // telling an operator to fix their token would send them chasing the wrong thing.
+        test("a server error is not reported as a credential problem") {
+            runTest {
+                val engine =
+                    MockEngine {
+                        respond(
+                            content = "upstream exploded",
+                            status = HttpStatusCode.InternalServerError,
+                            headers = headersOf("Content-Type", ContentType.Text.Plain.toString()),
+                        )
+                    }
+
+                val thrown =
+                    shouldThrowAny {
+                        clientFor(engine, senderToken = "s3cret")
+                            .send(tokens = emptyList(), payloadJson = emptyPayload, collapseKey = null)
+                    }
+                (thrown is RelaySenderCredentialRejected) shouldBe false
+            }
+        }
+
     })

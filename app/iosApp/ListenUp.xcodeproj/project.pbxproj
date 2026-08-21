@@ -13,10 +13,22 @@
 		F42CD9A82FBF664E008B9D90 /* ListenUpActivityKit in Frameworks */ = {isa = PBXBuildFile; productRef = F42CD9A72FBF664E008B9D90 /* ListenUpActivityKit */; };
 		F4A6DB422F3EC7F200F9C38D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F4A6DB412F3EC7F200F9C38D /* WidgetKit.framework */; };
 		F4A6DB442F3EC7F200F9C38D /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F4A6DB432F3EC7F200F9C38D /* SwiftUI.framework */; };
+		F4C0DE000000000000000004 /* ListenUpNotificationService.appex in Embed Foundation Extensions */ = {
+			isa = PBXBuildFile;
+			fileRef = F4C0DE000000000000000002 /* ListenUpNotificationService.appex */;
+			settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); };
+		};
 		F4A6DB552F3EC7F200F9C38D /* ListenUpWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F4A6DB3F2F3EC7F200F9C38D /* ListenUpWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		F4C0DE000000000000000006 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BE39FFB3155C6847EF0CFA5D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F4C0DE000000000000000003;
+			remoteInfo = ListenUpNotificationService;
+		};
 		1FC182189D1B49E1BF6EBFD8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = BE39FFB3155C6847EF0CFA5D /* Project object */;
@@ -41,6 +53,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				F4A6DB552F3EC7F200F9C38D /* ListenUpWidgetsExtension.appex in Embed Foundation Extensions */,
+				F4C0DE000000000000000004 /* ListenUpNotificationService.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -51,6 +64,13 @@
 		8E6E37047B9E4CE1B6B36533 /* ListenUpTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ListenUpTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E757F5D28662E4BCC0992649 /* ListenUp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ListenUp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F42CD9A92FBF666E008B9D90 /* ListenUpWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ListenUpWidgetsExtension.entitlements; sourceTree = "<group>"; };
+		F4C0DE000000000000000002 /* ListenUpNotificationService.appex */ = {
+			isa = PBXFileReference;
+			explicitFileType = "wrapper.app-extension";
+			includeInIndex = 0;
+			path = ListenUpNotificationService.appex;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 		F4A6DB3F2F3EC7F200F9C38D /* ListenUpWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ListenUpWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		F4A6DB412F3EC7F200F9C38D /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		F4A6DB432F3EC7F200F9C38D /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -85,6 +105,11 @@
 				2CD8B17B8CD93251BAA9E461 /* Exceptions for "ListenUp" folder in "ListenUp" target */,
 			);
 			path = ListenUp;
+			sourceTree = "<group>";
+		};
+		F4C0DE000000000000000001 /* ListenUpNotificationService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ListenUpNotificationService;
 			sourceTree = "<group>";
 		};
 		D6FB2F3845C34DB4A3FCAD45 /* ListenUpTests */ = {
@@ -141,6 +166,7 @@
 				C8EF4017F06459C992EEE7AF /* ListenUp */,
 				D6FB2F3845C34DB4A3FCAD45 /* ListenUpTests */,
 				F4A6DB452F3EC7F200F9C38D /* ListenUpWidgets */,
+				F4C0DE000000000000000001 /* ListenUpNotificationService */,
 				F4A6DB402F3EC7F200F9C38D /* Frameworks */,
 				EEAD733FF191DDE1E49EE100 /* Products */,
 			);
@@ -152,6 +178,7 @@
 				E757F5D28662E4BCC0992649 /* ListenUp.app */,
 				8E6E37047B9E4CE1B6B36533 /* ListenUpTests.xctest */,
 				F4A6DB3F2F3EC7F200F9C38D /* ListenUpWidgetsExtension.appex */,
+				F4C0DE000000000000000002 /* ListenUpNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -206,6 +233,7 @@
 			);
 			dependencies = (
 				F4A6DB542F3EC7F200F9C38D /* PBXTargetDependency */,
+				F4C0DE000000000000000005 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				C8EF4017F06459C992EEE7AF /* ListenUp */,
@@ -219,6 +247,28 @@
 			productName = ListenUp;
 			productReference = E757F5D28662E4BCC0992649 /* ListenUp.app */;
 			productType = "com.apple.product-type.application";
+		};
+		F4C0DE000000000000000003 /* ListenUpNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F4C0DE000000000000000007 /* Build configuration list for PBXNativeTarget "ListenUpNotificationService" */;
+			buildPhases = (
+				F4C0DE00000000000000000A /* Sources */,
+				F4C0DE00000000000000000B /* Frameworks */,
+				F4C0DE00000000000000000C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				F4C0DE000000000000000001 /* ListenUpNotificationService */,
+			);
+			name = ListenUpNotificationService;
+			packageProductDependencies = (
+			);
+			productName = ListenUpNotificationService;
+			productReference = F4C0DE000000000000000002 /* ListenUpNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		F4A6DB3E2F3EC7F200F9C38D /* ListenUpWidgetsExtension */ = {
 			isa = PBXNativeTarget;
@@ -286,6 +336,7 @@
 				7BAAD05E534B00C963664416 /* ListenUp */,
 				71B3A3B2BCCD4F9EB2617E6C /* ListenUpTests */,
 				F4A6DB3E2F3EC7F200F9C38D /* ListenUpWidgetsExtension */,
+				F4C0DE000000000000000003 /* ListenUpNotificationService */,
 			);
 		};
 /* End PBXProject section */
@@ -371,6 +422,27 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F4C0DE00000000000000000A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F4C0DE00000000000000000B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F4C0DE00000000000000000C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F4A6DB3B2F3EC7F200F9C38D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -386,6 +458,11 @@
 			target = 7BAAD05E534B00C963664416 /* ListenUp */;
 			targetProxy = 1FC182189D1B49E1BF6EBFD8 /* PBXContainerItemProxy */;
 		};
+		F4C0DE000000000000000005 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F4C0DE000000000000000003 /* ListenUpNotificationService */;
+			targetProxy = F4C0DE000000000000000006 /* PBXContainerItemProxy */;
+		};
 		F4A6DB542F3EC7F200F9C38D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F4A6DB3E2F3EC7F200F9C38D /* ListenUpWidgetsExtension */;
@@ -394,6 +471,62 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		F4C0DE000000000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ListenUpNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ListenUpNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.calypsan.listenup.client.ios.notificationservice;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F4C0DE000000000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ListenUpNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = ListenUpNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.calypsan.listenup.client.ios.notificationservice;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		0B1F6494EE16460C9F8332E6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -690,6 +823,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		F4C0DE000000000000000007 /* Build configuration list for PBXNativeTarget "ListenUpNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F4C0DE000000000000000008 /* Debug */,
+				F4C0DE000000000000000009 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		7DCD8BFD274341658930A83F /* Build configuration list for PBXNativeTarget "ListenUpTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
