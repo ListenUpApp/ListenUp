@@ -749,8 +749,10 @@ class BookRepository(
      * [upsertInOpenTransaction] aggregate write with its [PreparedBook.extras] (cover, system-collection
      * membership, genre ids) mirrored onto the transaction thread.
      *
-     * Per-book containment: a thrown book rolls back its savepoint (its afterCommit hooks discarded) and
-     * is logged + dropped from the result, never aborting the chunk. An [OutOfMemoryError] aborts the
+     * Per-book containment: a thrown book rolls back its savepoint, is logged + dropped from the result,
+     * and has its reserved firehose events discarded ([ChangeBus.discardReservedSince]) — SQLDelight
+     * transfers a rolled-back child's afterCommit hooks to the parent rather than discarding them, so
+     * without that call the failed book would still be announced. It never aborts the chunk. An [OutOfMemoryError] aborts the
      * batch via [PersistAbortedByOom], carrying the partial counts [oomPartial] computes from this
      * chunk's already-committed successes and the books that failed up to the OOM point.
      */
@@ -763,6 +765,8 @@ class BookRepository(
         var failedInChunk = 0
         suspendTransaction<Unit>(db) {
             for (book in chunk) {
+                // Everything this book's savepoint reserves, so a failure can drop exactly those.
+                val publishMark = bus.mark()
                 try {
                     db.transactionWithResult {
                         if (book.skip) {
@@ -783,8 +787,13 @@ class BookRepository(
                     failedInChunk++
                     throw PersistAbortedByOom(oomPartial(succeeded.toList(), failedInChunk), e)
                 } catch (e: Throwable) {
-                    // Per-book savepoint rollback: this book's nested transaction rolled back (its
-                    // afterCommit hooks discarded), the rest of the chunk is unaffected.
+                    // Per-book savepoint rollback: this book's nested transaction rolled back and the
+                    // rest of the chunk is unaffected — but SQLDelight hands a rolled-back child's
+                    // afterCommit hooks UP to the enclosing transaction, which runs them on ITS commit.
+                    // Without this the book's already-reserved events (notably the system-collection
+                    // membership written before its children) would be announced for rows that were
+                    // rolled away. Only this catch knows the savepoint died, so it drops them here.
+                    bus.discardReservedSince(publishMark)
                     failedInChunk++
                     log.warn(e) { "Book persist threw: ${book.payload.rootRelPath} — continuing" }
                 }
