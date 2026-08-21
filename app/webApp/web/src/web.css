@@ -722,10 +722,12 @@ body { margin: 0; }
   animation-duration: 300ms;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
-/* The two covers are the same square at different sizes, so crossfading them mid-flight only muddies
-   the morph. Holding both opaque lets the geometry do the work. */
-::view-transition-old(book-cover),
-::view-transition-new(book-cover) { animation: none; mix-blend-mode: normal; }
+/* ⛔ Do NOT set `animation: none` on `::view-transition-old(book-cover)` / `-new(...)`. It looks
+   like a tidy optimisation — the two covers are the same square at two sizes, so crossfading them
+   seems redundant — and it silently empties the flight. The group's box still morphs (confirmed via
+   `document.getAnimations()`: `-ua-view-transition-group-anim-book-cover` runs for its full 300ms),
+   but the images inside it are no longer driven, so nothing visible travels. The browser's default
+   pairing is what makes the morph something you can see. */
 
 /* A card that is entering or leaving the grid. Matches `lib-card-in`'s vocabulary so a book that
    arrives during a transition and one that arrives outside it move the same way. */
