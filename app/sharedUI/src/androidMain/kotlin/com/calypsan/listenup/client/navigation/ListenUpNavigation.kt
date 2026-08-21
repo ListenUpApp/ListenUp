@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.navigation
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -54,6 +56,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
+import com.calypsan.listenup.client.design.transitions.LocalHeroTransitionScope
 import com.calypsan.listenup.client.share.ShareResolution
 import com.calypsan.listenup.client.share.ShareTarget
 import com.calypsan.listenup.client.share.ShareTargetResolver
@@ -317,6 +320,12 @@ private fun SetupCheckFailedScreen(onRetry: () -> Unit) {
         }
     }
 }
+
+/** Push: the incoming screen slides in from the right as the outgoing one leaves to the left. */
+private val ForwardSlide = slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
+
+/** Pop (and predictive-back): the mirror image of [ForwardSlide]. */
+private val BackSlide = slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
 
 /**
  * Server setup navigation - shown when no server URL is configured.
@@ -591,6 +600,7 @@ private suspend fun handleShortcutAction(
  * When user logs out, SettingsRepository clears auth tokens,
  * triggering automatic switch to UnauthenticatedNavigation.
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun AuthenticatedNavigation(
     authSession: AuthSession,
@@ -716,48 +726,50 @@ private fun AuthenticatedNavigation(
             LocalDeviceContext provides koinInject<DeviceContext>(),
         ) {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-                NavDisplay(
-                    backStack = backStack,
-                    entryDecorators =
-                        listOf(
-                            rememberSaveableStateHolderNavEntryDecorator(),
-                            rememberViewModelStoreNavEntryDecorator(),
-                        ),
-                    // Only handle back if we're not at root - let system handle back-to-home
-                    onBack = {
-                        if (backStack.size > 1) {
-                            backStack.removeAt(backStack.lastIndex)
-                        }
-                        // When size == 1, don't pop - allows system back-to-home animation
-                    },
-                    // Global slide transitions for all navigation
-                    transitionSpec = {
-                        slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
-                    },
-                    popTransitionSpec = {
-                        slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
-                    },
-                    predictivePopTransitionSpec = {
-                        slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
-                    },
-                    entryProvider =
-                        authenticatedNavEntries(
+                // Hero transitions: the layout must enclose BOTH halves of every shared pair, so it
+                // wraps NavDisplay only. AuthenticatedNavOverlays stays outside deliberately — the
+                // now-playing bar is not an entry, and a cover flying past it should pass under it.
+                SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+                    CompositionLocalProvider(LocalHeroTransitionScope provides this) {
+                        NavDisplay(
                             backStack = backStack,
-                            // Deferred reads: the entry content reads these inside the Shell composable so
-                            // tab/readiness changes recompose it (NavDisplay won't re-invoke the builder).
-                            currentShellDestination = { currentShellDestination },
-                            onShellDestinationChange = { currentShellDestination = it },
-                            nowPlayingViewModel = nowPlayingViewModel,
-                            readiness = { readiness },
-                            onSignOut = onSignOut,
-                            startupViewModel = startupViewModel,
-                            scope = scope,
-                            syncRepository = syncRepository,
-                            serverConfig = serverConfig,
-                            profileRefreshKey = profileRefreshKey,
-                            onProfileRefreshed = { profileRefreshKey++ },
-                        ),
-                )
+                            sharedTransitionScope = this@SharedTransitionLayout,
+                            entryDecorators =
+                                listOf(
+                                    rememberSaveableStateHolderNavEntryDecorator(),
+                                    rememberViewModelStoreNavEntryDecorator(),
+                                ),
+                            // Only handle back if we're not at root - let system handle back-to-home
+                            onBack = {
+                                if (backStack.size > 1) {
+                                    backStack.removeAt(backStack.lastIndex)
+                                }
+                                // When size == 1, don't pop - allows system back-to-home animation
+                            },
+                            // Global slide transitions for all navigation
+                            transitionSpec = { ForwardSlide },
+                            popTransitionSpec = { BackSlide },
+                            predictivePopTransitionSpec = { BackSlide },
+                            entryProvider =
+                                authenticatedNavEntries(
+                                    backStack = backStack,
+                                    // Deferred reads: the entry content reads these inside the Shell composable so
+                                    // tab/readiness changes recompose it (NavDisplay won't re-invoke the builder).
+                                    currentShellDestination = { currentShellDestination },
+                                    onShellDestinationChange = { currentShellDestination = it },
+                                    nowPlayingViewModel = nowPlayingViewModel,
+                                    readiness = { readiness },
+                                    onSignOut = onSignOut,
+                                    startupViewModel = startupViewModel,
+                                    scope = scope,
+                                    syncRepository = syncRepository,
+                                    serverConfig = serverConfig,
+                                    profileRefreshKey = profileRefreshKey,
+                                    onProfileRefreshed = { profileRefreshKey++ },
+                                ),
+                        )
+                    }
+                }
 
                 AuthenticatedNavOverlays(
                     backStack = backStack,

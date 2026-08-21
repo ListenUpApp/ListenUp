@@ -75,6 +75,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.features.library.BookCard
@@ -929,6 +930,7 @@ private fun ElevatedAvatar(
                 imagePath = imagePath,
                 contentDescription = stringResource(Res.string.contributor_name_profile_image, name),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                heroKey = contributorHeroKey(contributorId),
                 modifier = Modifier.fillMaxSize(),
                 onState = { state ->
                     if (state is coil3.compose.AsyncImagePainter.State.Success) {

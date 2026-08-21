@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
+import com.calypsan.listenup.client.design.transitions.contributorHeroKey
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -226,6 +227,7 @@ internal fun ContributorCard(
                                 contributor.name,
                             ),
                         contentScale = ContentScale.Crop,
+                        heroKey = contributorHeroKey(contributor.id.value),
                         modifier = Modifier.fillMaxSize(),
                         onState = { state ->
                             if (state is coil3.compose.AsyncImagePainter.State.Success) {

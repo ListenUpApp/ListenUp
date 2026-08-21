@@ -5,6 +5,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
+import com.calypsan.listenup.client.design.transitions.HeroEntry
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
 import com.calypsan.listenup.client.navigation.BookDetail
@@ -25,42 +26,44 @@ import org.koin.compose.viewmodel.koinViewModel
 /** Book navigation entries. */
 internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavKey>) {
     entry<BookDetail> { args ->
-        com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
-            bookId = args.bookId,
-            onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
-            },
-            onEditClick = { bookId ->
-                backStack.add(BookEdit(bookId))
-            },
-            onMetadataSearchClick = { bookId ->
-                backStack.add(MetadataSearch(bookId))
-            },
-            onSeriesClick = { seriesId ->
-                backStack.add(SeriesDetail(seriesId))
-            },
-            onContributorClick = { contributorId ->
-                backStack.add(ContributorDetail(contributorId))
-            },
-            onGenreClick = { genreId ->
-                backStack.add(GenreDestination(genreId = genreId))
-            },
-            onTagClick = { tagId, tagName ->
-                backStack.add(BrowseFacet(kind = FacetKind.Tag, facetId = tagId, facetName = tagName))
-            },
-            onMoodClick = { moodId, moodName ->
-                backStack.add(BrowseFacet(kind = FacetKind.Mood, facetId = moodId, facetName = moodName))
-            },
-            onUserProfileClick = { userId ->
-                backStack.add(UserProfile(userId))
-            },
-            onSeeAllReaders = { id ->
-                backStack.add(BookReaders(id))
-            },
-            onOpenDocumentViewer = { localPath ->
-                backStack.add(DocumentViewer(localPath))
-            },
-        )
+        HeroEntry {
+            com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
+                bookId = args.bookId,
+                onBackClick = {
+                    backStack.removeAt(backStack.lastIndex)
+                },
+                onEditClick = { bookId ->
+                    backStack.add(BookEdit(bookId))
+                },
+                onMetadataSearchClick = { bookId ->
+                    backStack.add(MetadataSearch(bookId))
+                },
+                onSeriesClick = { seriesId ->
+                    backStack.add(SeriesDetail(seriesId))
+                },
+                onContributorClick = { contributorId ->
+                    backStack.add(ContributorDetail(contributorId))
+                },
+                onGenreClick = { genreId ->
+                    backStack.add(GenreDestination(genreId = genreId))
+                },
+                onTagClick = { tagId, tagName ->
+                    backStack.add(BrowseFacet(kind = FacetKind.Tag, facetId = tagId, facetName = tagName))
+                },
+                onMoodClick = { moodId, moodName ->
+                    backStack.add(BrowseFacet(kind = FacetKind.Mood, facetId = moodId, facetName = moodName))
+                },
+                onUserProfileClick = { userId ->
+                    backStack.add(UserProfile(userId))
+                },
+                onSeeAllReaders = { id ->
+                    backStack.add(BookReaders(id))
+                },
+                onOpenDocumentViewer = { localPath ->
+                    backStack.add(DocumentViewer(localPath))
+                },
+            )
+        }
     }
     entry<DocumentViewer> { args ->
         DocumentViewerScreen(
