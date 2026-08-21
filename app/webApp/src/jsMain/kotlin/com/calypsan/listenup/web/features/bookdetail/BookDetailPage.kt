@@ -62,16 +62,20 @@ fun BookDetailPage(
 
         when (state) {
             is BookDetailUiState.Loading -> {
-                // The cover renders BEFORE the book does, from the id in the URL — a cover URL
-                // needs nothing else. Two reasons, and the second is the load-bearing one:
+                // The loading state is the book's own header, not a spinner. Two reasons:
                 //
-                // 1. The reader tapped a cover; showing it immediately is the honest response,
-                //    with the text filling in around it.
-                // 2. The shared-element flight has to have somewhere to land. A View Transition
-                //    photographs the destination the moment its callback settles — measured, that
-                //    was 56 ms in, with this page still showing a spinner and NO element carrying
-                //    the hero name. The browser had nothing to fly to, so it crossfaded a nearly
-                //    blank page instead, which is what read as a flash of white.
+                // 1. The cover is knowable from the URL alone — a cover URL needs only the id — so
+                //    the thing the reader tapped can be on screen immediately, with the text
+                //    filling in around it.
+                // 2. The shared-element flight has to land in the RIGHT PLACE. Frozen mid-flight,
+                //    an earlier version showed the cover morphing to a *centred* position and then
+                //    jumping left when the real content replaced the spinner. The hero only lands
+                //    correctly if this state lays the header out exactly as [BookHeader] does —
+                //    same `bd-head` flex row, same empty `bd-tblock` taking the remaining width.
+                //
+                // The empty text block is deliberately empty rather than a fake title: reserving
+                // the space is what positions the cover, and inventing text would be a lie that
+                // lasts a few hundred milliseconds.
                 bookId?.let {
                     Div(attrs = { classes("bd-head") }) {
                         Cover(
@@ -81,9 +85,17 @@ fun BookDetailPage(
                             radius = COVER_RADIUS,
                             heroName = HERO_COVER,
                         )
+                        // The loading word goes HERE, where the title will be, rather than in a
+                        // centred block below. `BookDetailTest` pins that this state says it is
+                        // loading rather than showing an empty shell — a silent skeleton is
+                        // indistinguishable from a book with no metadata, which is the failure that
+                        // spec exists to prevent. Saying so *in the header's own shape* keeps both
+                        // promises: the page is honest, and the cover still lands where it belongs.
+                        Div(attrs = { classes("bd-tblock") }) {
+                            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+                        }
                     }
                 }
-                EmptyState(WebIcon.Clock, "Loading", "Reading this book from your library.")
             }
 
             is BookDetailUiState.Error -> {
