@@ -71,21 +71,12 @@ private fun LoadedLibrary(
         return
     }
 
-    Div(attrs = { classes("lib-grid") }) {
-        var currentLetter: Char? = null
-        state.books.forEach { book ->
-            val letter = book.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles)
-            if (letter != null && letter != currentLetter) {
-                currentLetter = letter
-                Div(attrs = { classes("lib-section") }) { Text(letter.toString()) }
-            }
-            BookCard(
-                book = book,
-                progress = state.bookProgress[book.id] ?: 0f,
-                onOpen = { onOpenBook(book.id.value) },
-            )
-        }
-    }
+    VirtualBookGrid(
+        books = state.books,
+        letterOf = { it.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles) },
+        progressOf = { state.bookProgress[it.id] ?: 0f },
+        onOpenBook = onOpenBook,
+    )
 }
 
 /**
@@ -129,7 +120,7 @@ private fun EmptyLibrary(isBuilding: Boolean) {
 }
 
 @Composable
-private fun BookCard(
+internal fun BookCard(
     book: BookListItem,
     progress: Float,
     onOpen: () -> Unit,
@@ -164,12 +155,17 @@ private fun BookCard(
             )
         }
         Div(attrs = { classes("lib-title") }) { Text(book.title) }
-        val authorLine = book.authors.joinToString(", ") { it.name }
-        if (authorLine.isNotEmpty()) {
-            Div(attrs = { classes("lib-author") }) { Text(authorLine) }
-        }
-        if (progress > 0f) {
-            Div(attrs = { classes("lib-progress") }) {
+        // Rendered even when empty, and likewise the progress rail below: the grid is virtualised,
+        // and that only works because every card is exactly the same height. A card that dropped
+        // its author line would be shorter than its neighbours and the row arithmetic would drift.
+        Div(attrs = { classes("lib-author") }) { Text(book.authors.joinToString(", ") { it.name }) }
+        run {
+            Div(attrs = {
+                classes("lib-progress")
+                // Holds its row so every card is the same height, but shows nothing until there is
+                // progress to show — a rail on an unstarted book would claim the reader had begun it.
+                if (progress <= 0f) classes("is-empty")
+            }) {
                 Div(attrs = {
                     classes("lib-progress-fill")
                     style { width((progress * PERCENT).percent) }

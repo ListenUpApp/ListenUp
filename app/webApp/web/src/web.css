@@ -664,9 +664,28 @@ body { margin: 0; }
   color: var(--ink-2); font-size: 0.8rem; font-weight: 600; line-height: 1.25;
   overflow: hidden;
 }
-.lib-title { font-size: 0.9rem; line-height: 1.2; }
-.lib-author { font-size: 0.8rem; line-height: 1.2; color: var(--ink-2); }
+/* Title, author and progress all reserve their space whether or not they have content, so every
+   card is exactly the same height. That is what lets the grid be virtualised: row offsets are
+   arithmetic rather than measurement, and a row's height does not depend on which books are in it.
+   Measured before this rule, card heights were 257 / 274 / 285 depending on how many lines the
+   title and author wrapped to — a 28px spread that made exact row maths impossible. */
+.lib-title {
+  font-size: 0.9rem; line-height: 1.2;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  height: calc(0.9rem * 1.2 * 2);
+}
+.lib-author {
+  font-size: 0.8rem; line-height: 1.2; color: var(--ink-2);
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  height: calc(0.8rem * 1.2);
+}
 .lib-progress { height: 3px; border-radius: 2px; overflow: hidden; background: var(--luw-border, #333); }
+/* `visibility`, not `display`, so the rail still occupies its row — the grid is virtualised and
+   depends on every card being exactly the same height. */
+.lib-progress.is-empty { visibility: hidden; }
+
+/* Spans the grid so the rows above and below the rendered window keep the scrollbar honest. */
+.lib-spacer { grid-column: 1 / -1; }
 .lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
 
 /* ---- view transitions ----
