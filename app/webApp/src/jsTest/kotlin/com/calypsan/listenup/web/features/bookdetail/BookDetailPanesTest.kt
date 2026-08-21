@@ -12,6 +12,7 @@ import kotlinx.browser.window
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLElement
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
 /**
  * The Files pane and the states with no book.
@@ -40,7 +41,7 @@ class BookDetailPanesTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { WebAppRoot(router, source, fakeLibrary()) }
+            renderComposable(root = host) { WebAppRoot(router, source, fakeLibrary(), fixedPlayback()) }
             return host to router
         }
 

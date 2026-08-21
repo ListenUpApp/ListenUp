@@ -3,8 +3,10 @@ package com.calypsan.listenup.web.features.nowplaying
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -50,9 +52,14 @@ fun graphPlayback(koin: Koin): OpenPlayback =
     }
 
 /**
- * A session over a state that never changes — the shape specs use in place of the graph, and the
- * default every surface takes so a spec about something else is not forced to wire up a player.
- * `null` is the honest default: nothing is playing, so no bar is drawn.
+ * A session over a state that never changes — the shape specs pass in place of the graph, so a
+ * spec about navigation or layout is not forced to wire up a decoder. `null` draws no bar.
+ *
+ * Deliberately NOT a default value on [com.calypsan.listenup.web.WebAppRoot]'s parameter. Its
+ * `onPlayBook` is inert, and Book Detail's Play button is gated on the book's own `canPlay` rather
+ * than on whether playback is wired — so a production call site that forgot the argument would
+ * render a real, dead Play button and compile clean. Making every caller name its source turns
+ * that into a compile error.
  */
 fun fixedPlayback(state: TransportState? = null): OpenPlayback =
     { PlaybackSession(MutableStateFlow(state), {}, {}, {}, {}) }
@@ -82,7 +89,11 @@ internal class LivePlayback(
     private val playbackManager: PlaybackManager,
     private val playbackController: PlaybackController,
     private val audioPlayer: HtmlAudioPlayer,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
+    // appCoroutineExceptionHandler, not a bare scope: [playBook] deliberately lets a failed
+    // prepare propagate rather than swallowing it, so without a handler the only report of "your
+    // book did not start" would be an unhandled rejection in the console.
+    private val scope: CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Main + appCoroutineExceptionHandler),
 ) {
     /**
      * The playing book's title, taken from the prepare that started it.
@@ -124,8 +135,31 @@ internal class LivePlayback(
      * graph), so its shape is followed here rather than borrowed.
      *
      * Everything before the `launch` runs in the click's own task, which is the whole point: the
-     * [HtmlAudioPlayer.primeForPlayback] on the fourth line is the `play()` this lane was missing,
+     * [HtmlAudioPlayer.primeForPlayback] on the fifth line is the `play()` this lane was missing,
      * and it happens while the browser still considers the user to have asked for audio.
+     *
+     * ## Withdrawing a prime that never lands
+     *
+     * A prime is a standing instruction to the player: *the next thing you load, play*. It is not
+     * scoped to this call, and [HtmlAudioPlayer] is a Koin singleton that outlives every session —
+     * so a prepare that fails, throws, or is cancelled must take the instruction back, or the next
+     * book to reach `load()` for any reason at all starts playing on the strength of a tap that
+     * went nowhere. The `finally` does that for every exit that did not reach
+     * [PlaybackController.startPlayback], cancellation included.
+     *
+     * Both halves of the `finally` are guarded by the same ownership check for the same reason
+     * `NowPlayingViewModel.playBook` guards its own: when a tap for a *different* book supersedes
+     * this one, the cancelled job's `finally` runs *after* the new job has primed and marked. An
+     * unguarded withdrawal there would cancel the new book's intent and leave it silent — trading
+     * this bug for a subtler copy of it.
+     *
+     * [CoroutineStart.UNDISPATCHED] is what makes that `finally` reachable at all. A coroutine
+     * cancelled before its first dispatch never enters its `try`, so a plain `launch` here loses
+     * the withdrawal for the narrowest and most likely cancellation of all — [close] called in the
+     * same tick as the tap, which is what a sign-out mid-prepare looks like. Starting undispatched
+     * runs the body in the click's own task up to the prepare's first suspension, so the `try` is
+     * always entered and cancellation always unwinds through it. (It also puts the RPC's first
+     * leg inside the gesture, which is in the spirit of the rest of this method.)
      */
     fun playBook(bookId: BookId) {
         if (playbackManager.preparingBookId.value == bookId) return
@@ -133,14 +167,17 @@ internal class LivePlayback(
         playbackManager.markPreparing(bookId)
         playbackManager.clearError()
         audioPlayer.primeForPlayback()
+        // The bar must not keep naming the book the prime just unloaded: its position and duration
+        // are already zeroed, so leaving the old title standing would report a real book parked at
+        // 0:00. Null hides the bar until the new title arrives, which is the truth of the moment —
+        // nothing is loaded.
+        title.value = null
         preparingJob =
-            scope.launch {
+            scope.launch(start = CoroutineStart.UNDISPATCHED) {
+                var reachedPlayback = false
                 try {
                     val result = playbackManager.prepareForPlayback(bookId)
                     if (result == null) {
-                        // Withdraw the primed intent, or the next book to load — for any reason —
-                        // would start playing on the strength of a tap that failed.
-                        audioPlayer.pause()
                         playbackManager.reportError(
                             "Couldn't start this book. Check your connection and try again.",
                             isRecoverable = true,
@@ -150,8 +187,10 @@ internal class LivePlayback(
                     title.value = result.bookTitle
                     playbackManager.activateBook(bookId)
                     playbackController.startPlayback(result)
+                    reachedPlayback = true
                 } finally {
                     if (playbackManager.preparingBookId.value == bookId) {
+                        if (!reachedPlayback) audioPlayer.pause()
                         playbackManager.clearPreparing()
                     }
                 }

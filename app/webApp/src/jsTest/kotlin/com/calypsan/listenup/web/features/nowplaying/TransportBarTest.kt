@@ -11,6 +11,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.browser.document
 import kotlinx.coroutines.flow.first
@@ -180,7 +181,10 @@ class TransportBarTest :
             URL.revokeObjectURL(segment.url)
         }
 
-        test("a bar with a state still renders its title") {
+        test("the bar renders elapsed on the left of the scrubber and total on the right") {
+            // The two labels are deliberately different values, and asserted in order. Counting
+            // them proves nothing: swapping `positionMs` and `durationMs` at the call site renders
+            // two labels too, and would tell every listener their book was nearly over.
             val host =
                 mount {
                     TransportBar(
@@ -197,6 +201,83 @@ class TransportBarTest :
                 }
 
             host.querySelector(".tport-t")!!.textContent shouldBe "Dune"
-            host.querySelectorAll(".tport-time").length shouldBe 2
+            val times = host.querySelectorAll(".tport-time")
+            times.length shouldBe 2
+            times.item(0)!!.textContent shouldBe formatElapsed(UNDER_AN_HOUR_MS)
+            times.item(1)!!.textContent shouldBe formatElapsed(LONG_BOOK_MS)
+            // …and not the same string, or the assertions above would survive a swap.
+            formatElapsed(UNDER_AN_HOUR_MS) shouldNotBe formatElapsed(LONG_BOOK_MS)
+        }
+
+        test("a prepare that throws withdraws the primed intent") {
+            // A prime is a standing instruction on a singleton player. Left set, it makes the NEXT
+            // book to load start playing on the strength of a tap that went nowhere — and
+            // `HtmlAudioPlayerLifecycleTest`'s "settles on Paused" cannot catch it, because that
+            // spec builds a fresh player whose flag was never set.
+            val player = HtmlAudioPlayer()
+            val doomed = silentSegment(AUDIO_SEGMENT_MS)
+            val manager = fakePlaybackManager(doomed, title = "Dune", prepare = PrepareOutcome.THROWS)
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+
+            playback.playBook(BookId("book-1"))
+            // The window closing is the `finally` having run — deterministic, unlike a delay.
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.preparingBookId.first { it == null } }
+
+            val unrelated = silentSegment(AUDIO_SEGMENT_MS)
+            player.load(listOf(unrelated))
+
+            player.awaitState(PlaybackState.Paused)
+
+            playback.close()
+            player.releasePlayer()
+            URL.revokeObjectURL(doomed.url)
+            URL.revokeObjectURL(unrelated.url)
+        }
+
+        test("closing the session mid-prepare withdraws the primed intent") {
+            // Sign-out and any auth-state flip unmount the shell, which closes the session while a
+            // prepare may still be in flight. Cancellation unwinds through the same `finally`.
+            val player = HtmlAudioPlayer()
+            val pending = silentSegment(AUDIO_SEGMENT_MS)
+            val manager = fakePlaybackManager(pending, title = "Dune", prepare = PrepareOutcome.NEVER_RETURNS)
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+
+            playback.playBook(BookId("book-1"))
+            playback.close()
+            withTimeout(PLAYING_TIMEOUT_MS) { manager.preparingBookId.first { it == null } }
+
+            val unrelated = silentSegment(AUDIO_SEGMENT_MS)
+            player.load(listOf(unrelated))
+
+            player.awaitState(PlaybackState.Paused)
+
+            player.releasePlayer()
+            URL.revokeObjectURL(pending.url)
+            URL.revokeObjectURL(unrelated.url)
+        }
+
+        test("priming for a new book stops the bar naming the old one at zero") {
+            // primeForPlayback drops the loaded content, so position and duration are already zero.
+            // Keeping the previous title beside them would report a real book parked at 0:00 for
+            // the whole round-trip.
+            val player = HtmlAudioPlayer()
+            val segment = silentSegment(AUDIO_SEGMENT_MS)
+            val manager = fakePlaybackManager(segment, title = "Dune")
+            val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
+
+            playback.playBook(BookId("book-1"))
+            withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
+
+            val stalled = fakePlaybackManager(segment, title = "Dune", prepare = PrepareOutcome.NEVER_RETURNS)
+            val second = LivePlayback(stalled, WebPlaybackController(player, stalled), player)
+            stalled.activateBook(BookId("book-1"))
+            second.playBook(BookId("book-2"))
+
+            second.state.value shouldBe null
+
+            second.close()
+            playback.close()
+            player.releasePlayer()
+            URL.revokeObjectURL(segment.url)
         }
     })

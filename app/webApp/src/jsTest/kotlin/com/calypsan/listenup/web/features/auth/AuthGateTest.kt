@@ -16,6 +16,7 @@ import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
 /**
  * Routers created by [mountGate], disposed together after the spec.
@@ -36,6 +37,7 @@ private fun mountGate(graph: FakeAuthGraph): HTMLElement {
             router = router,
             openBookDetail = fixedBookDetail(readyBook()),
             openLibrary = fakeLibrary(),
+            openPlayback = fixedPlayback(),
         )
     }
     return host

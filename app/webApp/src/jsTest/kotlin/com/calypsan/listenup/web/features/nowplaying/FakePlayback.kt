@@ -10,6 +10,7 @@ import com.calypsan.listenup.core.BookId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,11 +29,23 @@ import kotlinx.coroutines.launch
 internal fun fakePlaybackManager(
     segment: AudioSegment,
     title: String,
-): PlaybackManager = FakePlaybackManager(segment, title)
+    prepare: PrepareOutcome = PrepareOutcome.SUCCEEDS,
+): PlaybackManager = FakePlaybackManager(segment, title, prepare)
+
+/**
+ * How a fake prepare ends. The two failing shapes are the ones a prime has to survive: a prepare
+ * that blows up, and one that is still in flight when the session is closed.
+ */
+internal enum class PrepareOutcome {
+    SUCCEEDS,
+    THROWS,
+    NEVER_RETURNS,
+}
 
 private class FakePlaybackManager(
     private val segment: AudioSegment,
     private val title: String,
+    private val prepare: PrepareOutcome,
 ) : PlaybackManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -103,6 +116,15 @@ private class FakePlaybackManager(
     }
 
     override suspend fun prepareForPlayback(bookId: BookId): PlaybackManager.PrepareResult {
+        when (prepare) {
+            PrepareOutcome.SUCCEEDS -> Unit
+
+            PrepareOutcome.THROWS -> error("prepare failed")
+
+            // Suspends until the caller's scope is cancelled — the shape of a real RPC that is
+            // still in flight when the shell unmounts.
+            PrepareOutcome.NEVER_RETURNS -> awaitCancellation()
+        }
         val timeline =
             PlaybackTimeline(
                 bookId = bookId,

@@ -16,7 +16,6 @@ import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
-import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.Route
@@ -42,17 +41,16 @@ import org.jetbrains.compose.web.dom.Text
  * and applying it in both places would nest `.luw` inside `.luw`.
  *
  * [openPlayback] is scoped to the shell rather than to a route: what is playing outlives the page
- * the listener happened to start it from. It defaults to a session with nothing playing so a spec
- * about navigation is not made to wire up a decoder — and since a null state draws no bar, the
- * default is invisible rather than misleading.
+ * the listener happened to start it from. It has no default on purpose — see [fixedPlayback], which
+ * is what a spec passes instead.
  */
 @Composable
 fun WebAppRoot(
     router: Router,
     openBookDetail: OpenBookDetail,
     openLibrary: OpenLibrary,
+    openPlayback: OpenPlayback,
     onSignOut: () -> Unit = {},
-    openPlayback: OpenPlayback = fixedPlayback(),
 ) {
     var collapsed by remember { mutableStateOf(false) }
     val playback = playbackState(openPlayback)

@@ -124,8 +124,15 @@ internal class HtmlAudioPlayer : AudioPlayer {
      * Whether the listener has asked for audio — re-asserted every time the element becomes ready.
      *
      * Deliberately survives [load]: [primeForPlayback] sets it during the click that asked for a
-     * book, and the segments it asked for do not arrive until an RPC round-trip later. Only
-     * [pause] and [releasePlayer] withdraw it.
+     * book, and the segments it asked for do not arrive until an RPC round-trip later.
+     *
+     * That makes it a *standing instruction* rather than per-call state — set here, consumed by
+     * some later [load] — and this player cannot tell on its own whether the instruction is still
+     * wanted. Nothing clears it but [pause] and [releasePlayer], so **whoever primes owns
+     * withdrawing it on every path that does not reach playback**. `LivePlayback.playBook`'s
+     * `finally` is that owner, and it is the only caller of [primeForPlayback]; a second caller
+     * arriving without the same discipline would leave a stale instruction on this singleton for
+     * the life of the tab. `TransportBarTest` pins the throw and cancellation cases.
      */
     private var resumeOnReady: Boolean = false
 
@@ -163,10 +170,15 @@ internal class HtmlAudioPlayer : AudioPlayer {
         this.segments = segments
         durationMs.value = segments.sumOf { it.durationMs }
         positionMs.value = 0
-        // `resumeOnReady` is deliberately NOT cleared here. A load either follows a
-        // [primeForPlayback] — in which case clearing it would throw away the tap this player
-        // exists to honour, and the book would sit silently on Paused — or follows nothing, in
-        // which case it is already false. See [resumeOnReady].
+        // `resumeOnReady` is deliberately NOT cleared here: a load that follows a
+        // [primeForPlayback] is the whole point of priming, and clearing the flag would throw away
+        // the tap and leave the book sitting silently on Paused.
+        //
+        // What this does NOT guarantee is that an unprimed load finds the flag false — that holds
+        // only because the one caller of [primeForPlayback] withdraws on every failing path (see
+        // [resumeOnReady]). `WebPlaybackController.setMediaQueue` reaches this method with no prime
+        // at all and would auto-play a stale instruction; it has no web caller today, which is a
+        // convention rather than a guarantee.
         attach(index = 0, offsetInSegmentMs = 0)
     }
 
