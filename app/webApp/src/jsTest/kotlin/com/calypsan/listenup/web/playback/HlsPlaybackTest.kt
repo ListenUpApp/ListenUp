@@ -20,6 +20,7 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.longs.shouldBeLessThan
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -51,7 +52,13 @@ import kotlin.time.Duration.Companion.seconds
  *    from the outside until the audio is missing. [HtmlAudioPlayer.usesHlsJs] is that seam.
  *  - **Bytes were actually decoded.** `currentTime` advances on an element producing silence, which
  *    is exactly how this class of gate goes green over work it never did. `webkitAudioDecodedByteCount`
- *    is the observation that cannot be faked by a clock.
+ *    is the observation that cannot be faked by a clock. Sampled twice — once across the opening
+ *    stretch, once across the seek — because a single sample spanning both is paid for entirely by
+ *    the first and says nothing about the second.
+ *  - **A seek reached the element.** Proved by a *rewind*, not by the forward seek: the player
+ *    publishes a seek target optimistically, and a book that simply keeps playing arrives past a
+ *    forward target on its own — so neither the target nor anything above it can tell a landed seek
+ *    from a recorded intent. See [REWIND_TARGET_MS] for the window that can.
  *
  * The direct-play counterpart runs the identical arc over a book the browser *can* decode, and
  * asserts no HLS url was minted at all. Together the two localise a failure: if only the E-AC-3
@@ -107,16 +114,32 @@ class HlsPlaybackTest :
                 withClue("state=${player.state.value}") {
                     advanced shouldBeGreaterThanOrEqual ADVANCE_TARGET_MS
                 }
-
-                player.seekTo(SEEK_TARGET_MS)
-                val sought = player.awaitPositionAtLeast(SEEK_TARGET_MS)
-                withClue("state=${player.state.value}") {
-                    sought shouldBeGreaterThanOrEqual SEEK_TARGET_MS
+                val decodedAtAdvance = player.decodedAudioBytes
+                withClue("a media element advances its clock while producing silence; bytes do not") {
+                    decodedAtAdvance shouldBeGreaterThan decodedBefore
                 }
 
-                val decodedAfter = player.decodedAudioBytes
-                withClue("a media element advances its clock while producing silence; bytes do not") {
-                    decodedAfter shouldBeGreaterThan decodedBefore
+                player.seekTo(SEEK_TARGET_MS)
+                val sought = player.awaitPositionAtLeast(PAST_SEEK_TARGET_MS)
+                withClue("state=${player.state.value}") {
+                    sought shouldBeGreaterThanOrEqual PAST_SEEK_TARGET_MS
+                }
+                // A SECOND byte sample, not a re-read of the first: growth measured from before
+                // `play()` is already fully paid for by the 0→2s stretch above, so the entire
+                // second half of this spec could be severed and the assertion would still hold.
+                // Measured from the advance, it is the fixture's second HLS segment — which only
+                // exists once the server transcodes it — that has to load and decode.
+                val decodedPastSeek = player.decodedAudioBytes
+                withClue("reaching ${PAST_SEEK_TARGET_MS}ms needs a segment the first one does not contain") {
+                    decodedPastSeek shouldBeGreaterThan decodedAtAdvance
+                }
+
+                // The rewind is what proves a seek reaches the element at all — see REWIND_TARGET_MS.
+                player.seekTo(REWIND_TARGET_MS)
+                val resumed = player.awaitPositionIn(REWIND_CONFIRM_MS until SEEK_TARGET_MS)
+                withClue("state=${player.state.value}") {
+                    resumed shouldBeGreaterThanOrEqual REWIND_CONFIRM_MS
+                    resumed shouldBeLessThan SEEK_TARGET_MS
                 }
                 player.pause()
             }
@@ -172,6 +195,42 @@ private const val ADVANCE_TARGET_MS = 2_000L
 
 /** Inside the E-AC-3 fixture's second HLS segment, so the seek forces a fresh transcode. */
 private const val SEEK_TARGET_MS = 10_000L
+
+/**
+ * Waited out past [SEEK_TARGET_MS] rather than to it, because `HtmlAudioPlayer.seekTo` publishes
+ * the target position *optimistically* — before it touches the element at all — so `positionMs`
+ * already holds [SEEK_TARGET_MS] the instant the call returns. Only the element's own clock,
+ * arriving through `publishPosition()`, can carry the flow past what was asked for.
+ *
+ * ⚠️ That makes this a real observation of *playback*, and still **not** a proof that the seek
+ * landed: the fixture keeps playing, so a completely severed `seekTo` reaches this position too —
+ * it just takes eight more seconds of audio to get there. Distinguishing the two needs
+ * [REWIND_TARGET_MS]. The fixture's 20 seconds are what leave room for both.
+ */
+private const val PAST_SEEK_TARGET_MS = SEEK_TARGET_MS + ADVANCE_TARGET_MS
+
+/**
+ * Where the spec seeks BACKWARD to, and the only assertion here that a seek reached the element.
+ *
+ * A forward seek cannot be told from ordinary playback without a wall clock — both end up past the
+ * target, one sooner than the other — and the optimistic write means the target itself is already
+ * reported before anything happens. A rewind has neither problem, because it asks for a position
+ * playback has *left behind*:
+ *
+ *  - the optimistic write reports exactly [REWIND_TARGET_MS] and can never exceed it;
+ *  - an element that never received the seek keeps reporting from beyond [PAST_SEEK_TARGET_MS];
+ *  - only an element that actually rewound climbs back out through [REWIND_CONFIRM_MS].
+ *
+ * So a position inside `[REWIND_CONFIRM_MS, SEEK_TARGET_MS)` is reachable by exactly one of the
+ * three, and it arrives about a second after the rewind rather than after another eight of audio.
+ *
+ * Verified by severing `seekTo`'s dispatch entirely: the earlier forward-only version of this spec
+ * passed regardless, and this one fails.
+ */
+private const val REWIND_TARGET_MS = 2_000L
+
+/** One second of real playback past [REWIND_TARGET_MS] — above the optimistic write, far below the seek. */
+private const val REWIND_CONFIRM_MS = REWIND_TARGET_MS + 1_000L
 
 private val AUTH_TIMEOUT = 20.seconds
 
@@ -284,10 +343,27 @@ private suspend fun KoinApplication.awaitBookId(title: String): BookId {
  * browser refused, or a fatal hls.js teardown, should read as a failed assertion naming the state,
  * not as a timeout naming nothing.
  */
-private suspend fun HtmlAudioPlayer.awaitPositionAtLeast(atLeastMs: Long): Long {
+private suspend fun HtmlAudioPlayer.awaitPositionAtLeast(atLeastMs: Long): Long = awaitPositionMatching { it >= atLeastMs }
+
+/**
+ * Wait until the book-relative position falls inside [window], then report where it actually is.
+ *
+ * A two-sided window rather than a floor, because the failure being ruled out is an element that
+ * never received a seek and is therefore reporting from *beyond* it — see [REWIND_TARGET_MS].
+ */
+private suspend fun HtmlAudioPlayer.awaitPositionIn(window: LongRange): Long = awaitPositionMatching { it in window }
+
+/**
+ * The shared wait: settle when [predicate] accepts the published position, or when the player
+ * reports an error.
+ *
+ * Returning early on [PlaybackState.Error] rather than sitting out the whole budget is the
+ * difference between a failure that names the codec the browser refused and one that names nothing.
+ */
+private suspend fun HtmlAudioPlayer.awaitPositionMatching(predicate: (Long) -> Boolean): Long {
     withTimeoutOrNull(PLAYBACK_TIMEOUT) {
         combine(positionMs, state) { position, playbackState ->
-            position >= atLeastMs || playbackState is PlaybackState.Error
+            predicate(position) || playbackState is PlaybackState.Error
         }.first { it }
     }
     return positionMs.value
