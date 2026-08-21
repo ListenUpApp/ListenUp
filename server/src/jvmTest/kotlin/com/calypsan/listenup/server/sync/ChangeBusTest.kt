@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
@@ -117,4 +119,108 @@ class ChangeBusTest :
                 }
             }
         }
+
+        // The publish sequencer. A committed write's afterCommit hook runs *after* the COMMIT that
+        // frees SQLite's write lock, so the next writer can take its revision and reach the bus
+        // while the earlier hook is still queued. These two pin the reserve/release contract that
+        // keeps that reordering off the live tail.
+        test("a slot released out of turn waits behind its predecessor") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                val first = bus.reserve(repo = repo, event = tagCreated(id = "a", revision = 1L))
+                val second = bus.reserve(repo = repo, event = tagCreated(id = "b", revision = 2L))
+
+                // Revision 2 commits first — nothing may reach subscribers until revision 1 does.
+                bus.release(second)
+                bus.subscribe().replayCache.shouldBeEmpty()
+
+                bus.release(first)
+                bus.subscribe().replayCache.map { it.event.revision } shouldBe listOf(1L, 2L)
+            }
+        }
+
+        test("a rolled-back slot releases the writes queued behind it") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                val rolledBack = bus.reserve(repo = repo, event = tagCreated(id = "a", revision = 1L))
+                val committed = bus.reserve(repo = repo, event = tagCreated(id = "b", revision = 2L))
+
+                bus.release(committed)
+                bus.subscribe().replayCache.shouldBeEmpty()
+
+                // The head write never commits. Its slot still has to resolve, or revision 2 — and
+                // every write after it — would queue forever behind a slot that never comes.
+                bus.discard(rolledBack)
+                bus.subscribe().replayCache.map { it.event.id } shouldBe listOf("b")
+            }
+        }
+
+        test("a rolled-back savepoint inside a committing transaction does not wedge the bus") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                // The per-book savepoint shape BookRepository uses: a child rolls back while its
+                // enclosing transaction goes on to commit. SQLDelight hands BOTH of a child's hook
+                // lists up to the enclosing transaction, so the slot reserved inside the doomed
+                // savepoint is resolved by whichever list the parent ends up running — but if that
+                // stopped holding, the slot would strand and every later write would queue behind it.
+                sql.transaction {
+                    runCatching {
+                        sql.transaction {
+                            emitInPublishOrder(bus = bus, repo = repo, event = tagCreated("ghost", 1L))
+                            error("savepoint fails after reserving its slot")
+                        }
+                    }
+                    sql.transaction {
+                        emitInPublishOrder(bus = bus, repo = repo, event = tagCreated("sibling", 2L))
+                    }
+                }
+
+                // The point of the test: whatever became of the doomed savepoint's slot, the bus is
+                // still live — a later write reaches subscribers rather than queueing behind it.
+                runTest {
+                    repo.upsert(Tag(id = "after", name = "after", slug = "after", revision = 0, updatedAt = 0))
+                }
+                bus.subscribe().replayCache.map { it.event.id } shouldContain "after"
+            }
+        }
+
+        test("a transaction that rolls back after reserving its slot does not wedge the bus") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                // A write that fails *after* registering its emit — a constraint that only bites at
+                // COMMIT, or a later row in a bulk chunk. (The unique-slug rollback in
+                // FirehosePublishAfterCommitTest throws inside writePayload, before the slot is ever
+                // reserved, so it does not cover this path.) The slot must be resolved by the
+                // rollback hook, or the next write queues behind it forever.
+                runCatching {
+                    sql.transaction {
+                        emitInPublishOrder(bus = bus, repo = repo, event = tagCreated("doomed", 1L))
+                        error("write fails after reserving its slot")
+                    }
+                }
+
+                runTest {
+                    repo.upsert(Tag(id = "after", name = "after", slug = "after", revision = 0, updatedAt = 0))
+                }
+                bus.subscribe().replayCache.map { it.event.id } shouldContain "after"
+            }
+        }
+
     })
+
+
+/** A `tags` [SyncEvent.Created] carrying [revision], for driving the bus's sequencer directly. */
+private fun tagCreated(
+    id: String,
+    revision: Long,
+): SyncEvent.Created<Tag> =
+    SyncEvent.Created(
+        id = id,
+        revision = revision,
+        occurredAt = 0L,
+        payload = Tag(id = id, name = id, slug = id, revision = revision, updatedAt = 0),
+    )
