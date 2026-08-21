@@ -53,6 +53,7 @@ enum class WebIcon(
     Mail("M3 6h18v12H3z M3 6.5l9 6.5 9-6.5"),
     Merge("M6 4v6a4 4 0 0 0 4 4h8 M14 10l4 4-4 4"),
     PanelLeft("M4 5h16v14H4z M9.5 5v14"),
+    Pause("M8 5h3.2v14H8z M12.8 5H16v14h-3.2z", solid = true),
     Pencil("M4 20h4L20 8l-4-4L4 16z M14.5 5.5l4 4"),
     Play("M8 5l11 7-11 7z", solid = true),
     Search("M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M20 20l-3.6-3.6"),

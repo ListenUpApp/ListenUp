@@ -13,6 +13,11 @@ import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.LibrarySession
 import com.calypsan.listenup.web.features.library.OpenLibrary
+import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
+import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
+import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -35,6 +40,11 @@ import org.jetbrains.compose.web.dom.Text
  * [com.calypsan.listenup.web.design.WebAppSurface] is applied by
  * [com.calypsan.listenup.web.features.auth.AuthGate], not here — every auth branch needs it too,
  * and applying it in both places would nest `.luw` inside `.luw`.
+ *
+ * [openPlayback] is scoped to the shell rather than to a route: what is playing outlives the page
+ * the listener happened to start it from. It defaults to a session with nothing playing so a spec
+ * about navigation is not made to wire up a decoder — and since a null state draws no bar, the
+ * default is invisible rather than misleading.
  */
 @Composable
 fun WebAppRoot(
@@ -42,8 +52,10 @@ fun WebAppRoot(
     openBookDetail: OpenBookDetail,
     openLibrary: OpenLibrary,
     onSignOut: () -> Unit = {},
+    openPlayback: OpenPlayback = fixedPlayback(),
 ) {
     var collapsed by remember { mutableStateOf(false) }
+    val playback = playbackState(openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
     // A book lives in the library, so the deep link keeps Library lit in the sidebar.
@@ -82,6 +94,7 @@ fun WebAppRoot(
                         }
                     router.replace(Route(route.segments, query))
                 },
+                onPlay = { playback.onPlayBook(BookId(bookId)) },
             )
         } else if (active == LIBRARY_KEY) {
             val session = libraryState(openLibrary)
@@ -93,7 +106,28 @@ fun WebAppRoot(
         } else {
             PagePlaceholder(active)
         }
+
+        // Last inside the content region, so it sits under whatever page is showing and stays put
+        // as the reader moves between them.
+        TransportBar(
+            state = playback.state.collectAsState().value,
+            onPlayPause = playback.onPlayPause,
+            onSeek = playback.onSeek,
+        )
     }
+}
+
+/**
+ * Opens the playback session for as long as the shell is mounted, and closes it when it is not.
+ *
+ * `remember` with no key on purpose: this session is the shell's, not a route's, so a navigation
+ * must not tear the player down mid-sentence.
+ */
+@Composable
+private fun playbackState(openPlayback: OpenPlayback): PlaybackSession {
+    val session = remember { openPlayback() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session
 }
 
 /**

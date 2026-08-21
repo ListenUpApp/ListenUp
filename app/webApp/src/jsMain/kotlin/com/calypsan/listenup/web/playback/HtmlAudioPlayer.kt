@@ -120,7 +120,13 @@ internal class HtmlAudioPlayer : AudioPlayer {
      */
     private var pendingOffsetMs: Long? = null
 
-    /** Whether the element was mid-playback when the current attachment started. */
+    /**
+     * Whether the listener has asked for audio — re-asserted every time the element becomes ready.
+     *
+     * Deliberately survives [load]: [primeForPlayback] sets it during the click that asked for a
+     * book, and the segments it asked for do not arrive until an RPC round-trip later. Only
+     * [pause] and [releasePlayer] withdraw it.
+     */
     private var resumeOnReady: Boolean = false
 
     /**
@@ -157,8 +163,39 @@ internal class HtmlAudioPlayer : AudioPlayer {
         this.segments = segments
         durationMs.value = segments.sumOf { it.durationMs }
         positionMs.value = 0
-        resumeOnReady = false
+        // `resumeOnReady` is deliberately NOT cleared here. A load either follows a
+        // [primeForPlayback] — in which case clearing it would throw away the tap this player
+        // exists to honour, and the book would sit silently on Paused — or follows nothing, in
+        // which case it is already false. See [resumeOnReady].
         attach(index = 0, offsetInSegmentMs = 0)
+    }
+
+    /**
+     * Spend the user's activation now, before the prepare that will supply the audio.
+     *
+     * A browser grants permission to make noise at the moment of a tap, not for the rest of the
+     * session. Starting a book from cold is an RPC round-trip first, and a `play()` issued after
+     * it resolves is several suspension points from the tap that caused it — which Chrome's
+     * *sticky* activation forgives and iOS Safari's *transient* activation does not. So the
+     * element is played here, empty, purely to consume the activation while it is still live; the
+     * intent recorded in [resumeOnReady] is what turns into real audio once [load] and the
+     * element's own `loadedmetadata` bring the book within reach (see [applyPendingOffset]).
+     *
+     * Whatever was loaded is dropped first. The listener asked for a *different* book, and letting
+     * the previous one blurt out a moment of audio before being replaced would be a worse answer
+     * than stopping it immediately.
+     *
+     * [PlaybackState.Buffering] is published rather than left stale for the same reason [attach]
+     * publishes it: the honest report between "you asked" and "it is playing" is that the book is
+     * on its way. A prepare that fails withdraws the intent via [pause] and reports the failure —
+     * see `LivePlayback.playBook`.
+     */
+    internal fun primeForPlayback() {
+        released = false
+        forgetContent()
+        resumeOnReady = true
+        state.value = PlaybackState.Buffering
+        startPlayback()
     }
 
     override fun play() {
