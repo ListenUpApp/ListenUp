@@ -172,6 +172,39 @@ internal interface BookMoodDao {
     fun observeForMood(moodId: String): Flow<List<BookMoodEntity>>
 
     /**
+     * Live (non-tombstoned) junction sync ids — the access-gate's local truth set.
+     *
+     * Junction rows carry `(bookId, moodId)`, so an ungated one tells a member the id of a book
+     * they cannot see and how it is classified. The gate prunes rows the server stops sending.
+     */
+    @Query("SELECT syncId FROM book_moods WHERE deletedAt IS NULL")
+    suspend fun liveIds(): List<String>
+
+    /**
+     * Live junction sync ids whose `bookId` is one of [bookIds] — the scoped
+     * `AccessDeltaPolicy.Targeted` candidate set.
+     *
+     * A real column predicate, not a string-split of the id: the wire id is opaque
+     * (SERVER-SYNC-04) and encodes neither side of the pair.
+     */
+    @Query("SELECT syncId FROM book_moods WHERE bookId IN (:bookIds) AND deletedAt IS NULL")
+    suspend fun liveSyncIdsForBooks(bookIds: List<String>): List<String>
+
+    /**
+     * Tombstone the given live junction rows by opaque wire sync id — the chunked access-change
+     * prune. Local-only eviction: the existing `revision` is preserved, since this is not a server
+     * tombstone.
+     */
+    @Query(
+        "UPDATE book_moods SET deletedAt = :now " +
+            "WHERE deletedAt IS NULL AND syncId IN (:ids)",
+    )
+    suspend fun tombstoneByIds(
+        ids: List<String>,
+        now: Long,
+    )
+
+    /**
      * Delete all junction rows (used in tests and full re-sync scenarios).
      */
     @Query("DELETE FROM book_moods")

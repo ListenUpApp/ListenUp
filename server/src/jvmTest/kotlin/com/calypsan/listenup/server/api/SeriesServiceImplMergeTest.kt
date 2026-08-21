@@ -262,7 +262,7 @@ private fun makeMergeSeriesServiceAndDeps(dbs: SqlTestDatabases): MergeSeriesSer
             genreRepository = GenreRepository(db = dbs.sql, bus = bus, registry = syncRegistry),
         )
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry, driver = dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,

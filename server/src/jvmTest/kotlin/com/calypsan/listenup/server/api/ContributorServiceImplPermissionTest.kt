@@ -109,7 +109,7 @@ private fun makeContributorPermService(db: SqlTestDatabases): ContributorPermDep
             genreRepository = GenreRepository(db.sql, bus, registry),
         )
     val tagRepo = TagRepository(db = db.sql, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry, driver = db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,

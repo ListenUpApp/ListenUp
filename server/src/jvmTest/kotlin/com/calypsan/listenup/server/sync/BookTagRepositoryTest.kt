@@ -44,7 +44,7 @@ class BookTagRepositoryTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag(id = "tag1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
@@ -82,7 +82,7 @@ class BookTagRepositoryTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag(id = "tag1", name = "Fantasy", slug = "fantasy", revision = 0, updatedAt = 0))
@@ -106,7 +106,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))
@@ -134,7 +134,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))
@@ -159,7 +159,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))
@@ -182,7 +182,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))
@@ -209,7 +209,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     val result = bookTagRepo.softDelete("bookX", "tagX")
@@ -228,7 +228,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))
@@ -254,7 +254,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))
@@ -287,7 +287,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))
@@ -313,7 +313,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Fantasy", "fantasy", 0, 0))
@@ -340,7 +340,7 @@ class BookTagRepositoryTest :
                 // distinct, ordered instants.
                 val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, clock = clock)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, clock = clock, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("manual", "Manual", "manual", 0, 0))
@@ -376,7 +376,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))
@@ -401,7 +401,7 @@ class BookTagRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag("t1", "Sci-Fi", "sci-fi", 0, 0))

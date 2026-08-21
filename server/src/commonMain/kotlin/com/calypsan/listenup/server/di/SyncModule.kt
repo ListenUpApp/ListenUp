@@ -61,9 +61,13 @@ fun syncModule(): Module =
         // Tag + BookTag + Mood + BookMood are SQLDelight conversions (the cutover template):
         // they resolve [ListenUpDatabase], not the Exposed [Database] the other repos use.
         single(createdAtStart = true) { TagRepository(get<ListenUpDatabase>(), get(), get()) }
-        single(createdAtStart = true) { BookTagRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(
+            createdAtStart = true,
+        ) { BookTagRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>()) }
         single(createdAtStart = true) { MoodRepository(get<ListenUpDatabase>(), get(), get()) }
-        single(createdAtStart = true) { BookMoodRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(
+            createdAtStart = true,
+        ) { BookMoodRepository(get<ListenUpDatabase>(), get(), get(), driver = get<SqlDriver>()) }
         // Orphan-purge collaborator, co-located with the tag/mood/junction repos it reads: when a
         // book removal leaves a parent (contributor/series/genre/tag/mood) with zero live children,
         // BookRepository.softDelete captures the parents, then this tombstones the orphaned ones.

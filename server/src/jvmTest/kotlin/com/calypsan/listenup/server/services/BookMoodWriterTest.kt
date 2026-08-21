@@ -27,7 +27,7 @@ class BookMoodWriterTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepository = MoodRepository(sql, bus, registry)
-                val bookMoodRepository = BookMoodRepository(sql, bus, registry)
+                val bookMoodRepository = BookMoodRepository(sql, bus, registry, driver = driver)
                 val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
 
                 runTest {
@@ -50,7 +50,7 @@ class BookMoodWriterTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepository = MoodRepository(sql, bus, registry)
-                val bookMoodRepository = BookMoodRepository(sql, bus, registry)
+                val bookMoodRepository = BookMoodRepository(sql, bus, registry, driver = driver)
                 val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
 
                 runTest {
@@ -71,7 +71,7 @@ class BookMoodWriterTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepository = MoodRepository(sql, bus, registry)
-                val bookMoodRepository = BookMoodRepository(sql, bus, registry)
+                val bookMoodRepository = BookMoodRepository(sql, bus, registry, driver = driver)
                 val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
 
                 runTest {
@@ -91,7 +91,7 @@ class BookMoodWriterTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepository = MoodRepository(sql, bus, registry)
-                val bookMoodRepository = BookMoodRepository(sql, bus, registry)
+                val bookMoodRepository = BookMoodRepository(sql, bus, registry, driver = driver)
                 val writer = BookMoodWriter(Clock.System, moodRepository, bookMoodRepository)
 
                 runTest {

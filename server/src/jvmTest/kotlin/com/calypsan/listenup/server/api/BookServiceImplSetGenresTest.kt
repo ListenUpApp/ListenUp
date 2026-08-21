@@ -52,7 +52,7 @@ class BookServiceImplSetGenresTest :
             val contributorRepo = ContributorRepository(db.sql, bus, registry)
             val seriesRepo = SeriesRepository(db.sql, bus, registry)
             val genreRepo = GenreRepository(db.sql, bus, registry, fixedClock)
-            val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry)
+            val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry, driver = db.driver)
             val bookRepo =
                 BookRepository(
                     db = db.sql,

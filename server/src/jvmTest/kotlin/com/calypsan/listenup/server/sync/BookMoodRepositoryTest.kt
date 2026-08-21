@@ -45,7 +45,7 @@ class BookMoodRepositoryTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood(id = "m1", name = "Tense", slug = "tense", revision = 0, updatedAt = 0))
@@ -83,7 +83,7 @@ class BookMoodRepositoryTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood(id = "m1", name = "Cozy", slug = "cozy", revision = 0, updatedAt = 0))
@@ -107,7 +107,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
@@ -136,7 +136,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
@@ -198,7 +198,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
@@ -227,7 +227,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     val result = bookMoodRepo.softDelete("bookX", "moodX")
@@ -246,7 +246,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
@@ -272,7 +272,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
@@ -304,7 +304,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
@@ -330,7 +330,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Cozy", "cozy", 0, 0))
@@ -354,7 +354,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))
@@ -378,7 +378,7 @@ class BookMoodRepositoryTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood("m1", "Tense", "tense", 0, 0))

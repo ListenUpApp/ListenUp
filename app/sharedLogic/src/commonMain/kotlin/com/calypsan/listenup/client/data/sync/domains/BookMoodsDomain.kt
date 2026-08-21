@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync.domains
 
+import com.calypsan.listenup.client.data.sync.TargetedFetch
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookMoodEntity
@@ -39,6 +40,31 @@ internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoo
         deletes = DeleteSemantics.SoftDelete { id, deletedAt, _ -> apply.tombstoneById(id, deletedAt) },
         digest = fullDigest(database.bookMoodDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.BookMoods),
+        // The junction row is `(bookId, moodId)` — the same pair `minimizeTombstone` strips from
+        // tombstones, because a member who never had access to the book would otherwise learn the
+        // association from the tombstone alone. Until the server filtered this domain the LIVE row
+        // leaked that pair first, so the gate here is the client half of closing that: rows whose
+        // book leaves the caller's scope are pruned locally rather than lingering in Room.
+        accessGate =
+            AccessGate(
+                liveIds = database.bookMoodDao()::liveIds,
+                tombstoneByIds = database.bookMoodDao()::tombstoneByIds,
+                delta =
+                    AccessDeltaPolicy.Targeted(
+                        // After the books gate: a junction is only decidable once the book that
+                        // gates it has been reconciled.
+                        order = 5,
+                        axis = ScopeAxis.Books,
+                        fetchFor = { TargetedFetch.ByBookIds(it) },
+                        // Chunked under the bind-variable ceiling — a scope can name more books
+                        // than SQLite will bind in one statement.
+                        candidatesFor = { bookIds ->
+                            bookIds
+                                .chunked(SQLITE_IN_CHUNK)
+                                .flatMapTo(mutableSetOf()) { database.bookMoodDao().liveSyncIdsForBooks(it) }
+                        },
+                    ),
+            ),
     )
 }
 

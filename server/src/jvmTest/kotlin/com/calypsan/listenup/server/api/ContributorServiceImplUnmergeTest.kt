@@ -290,7 +290,7 @@ private fun makeUnmergeServiceAndDeps(db: SqlTestDatabases): UnmergeServiceDeps 
             genreRepository = GenreRepository(db.sql, bus, syncRegistry),
         )
     val tagRepo = TagRepository(db = db.sql, bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry, driver = db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,

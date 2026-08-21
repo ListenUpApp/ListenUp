@@ -330,7 +330,7 @@ private fun taggedFixture(
 ): TaggedFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
     val repo =
         BookRepository(
             db = sql,

@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.sync.BookTagSyncPayload
+import com.calypsan.listenup.api.sync.BookMoodSyncPayload
 import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
@@ -32,6 +34,14 @@ internal const val COLLECTION_BOOKS_DOMAIN = "collection_books"
 // topology), which members must never see. Unlike the per-row book/collection gates, this
 // is whole-domain by role — members hold no folder rows at all, so there is nothing for them
 // to reconcile and tombstones need not pass through.
+
+/**
+ * Book↔tag / book↔mood junction rows. Access-gated: a row is `(bookId, tagId)`, so an ungated one
+ * tells a member the id of a book they cannot see and how it is classified.
+ */
+internal const val BOOK_TAGS_DOMAIN = "book_tags"
+internal const val BOOK_MOODS_DOMAIN = "book_moods"
+
 internal const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
 
 // Admin-only domain: a row carries a user's email/role/status, which non-admins must never
@@ -58,6 +68,7 @@ internal suspend fun firehoseGateReason(
         isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
         isActivityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "activity"
         isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
+        isBookJunctionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "bookJunction"
         isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
         isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
         else -> null
@@ -111,6 +122,45 @@ private suspend fun isActivityEventHidden(
     val bookId = activityBookIdOf(busEvent.event) ?: return false
     return !bookAccessPolicy().canAccess(userId, role, bookId)
 }
+
+/**
+ * Whether a live `book_tags`/`book_moods` junction event must be withheld from `(userId, role)`.
+ *
+ * Mirrors [isActivityEventHidden]: ROOT/ADMIN and Deleted tombstones always pass — a tombstone
+ * strands no secret, and its payload is minimized to strip the pair anyway. Content events gate on
+ * the payload's `bookId`, never the row id (which is opaque and encodes neither side of the pair).
+ */
+private suspend fun isBookJunctionEventHidden(
+    busEvent: BusEvent<*>,
+    userId: String,
+    role: UserRole,
+    bookAccessPolicy: () -> BookAccessPolicy,
+): Boolean {
+    val domain = busEvent.repo.domainName
+    if (domain != BOOK_TAGS_DOMAIN && domain != BOOK_MOODS_DOMAIN) return false
+    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (busEvent.event is SyncEvent.Deleted) return false
+    val bookId = junctionBookIdOf(busEvent.event) ?: return false
+    return !bookAccessPolicy().canAccess(userId, role, bookId)
+}
+
+/**
+ * The `bookId` on a junction content [event]. The repo↔event type binding guarantees the payload
+ * is the matching junction type by construction.
+ */
+private fun junctionBookIdOf(event: SyncEvent<*>): String? =
+    when (event) {
+        is SyncEvent.Created<*> -> junctionPayloadBookId(event.payload)
+        is SyncEvent.Updated<*> -> junctionPayloadBookId(event.payload)
+        is SyncEvent.Deleted -> null
+    }
+
+private fun junctionPayloadBookId(payload: Any?): String? =
+    when (payload) {
+        is BookTagSyncPayload -> payload.bookId
+        is BookMoodSyncPayload -> payload.bookId
+        else -> null
+    }
 
 /**
  * The `bookId` carried by a content [event] on the `activities` domain, or `null` when the row is

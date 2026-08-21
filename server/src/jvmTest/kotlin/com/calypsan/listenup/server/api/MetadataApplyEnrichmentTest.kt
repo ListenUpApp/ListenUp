@@ -254,9 +254,9 @@ private fun enrichmentCtx(dbs: SqlTestDatabases): EnrichmentCtx {
     val genreRepo = GenreRepository(dbs.sql, bus, registry)
     val bookRepo = BookRepository(dbs.sql, bus, registry, dbs.driver, contributorRepo, seriesRepo, genreRepo)
     val moodRepo = MoodRepository(dbs.sql, bus, registry)
-    val bookMoodRepo = BookMoodRepository(dbs.sql, bus, registry)
+    val bookMoodRepo = BookMoodRepository(dbs.sql, bus, registry, driver = dbs.driver)
     val tagRepo = TagRepository(dbs.sql, bus, registry)
-    val bookTagRepo = BookTagRepository(dbs.sql, bus, registry)
+    val bookTagRepo = BookTagRepository(dbs.sql, bus, registry, driver = dbs.driver)
     val metadataService =
         MetadataService(
             audible = EnrichStubAudibleApi(enrichBook()),

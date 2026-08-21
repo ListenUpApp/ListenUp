@@ -105,7 +105,7 @@ private fun makeService(dbs: SqlTestDatabases): PermServiceDeps {
             genreRepository = GenreRepository(db = dbs.sql, bus = bus, registry = registry),
         )
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry, driver = dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,

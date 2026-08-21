@@ -27,7 +27,7 @@ class BookTagWriterTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepository = TagRepository(sql, bus, registry)
-                val bookTagRepository = BookTagRepository(sql, bus, registry)
+                val bookTagRepository = BookTagRepository(sql, bus, registry, driver = driver)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -50,7 +50,7 @@ class BookTagWriterTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepository = TagRepository(sql, bus, registry)
-                val bookTagRepository = BookTagRepository(sql, bus, registry)
+                val bookTagRepository = BookTagRepository(sql, bus, registry, driver = driver)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -71,7 +71,7 @@ class BookTagWriterTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepository = TagRepository(sql, bus, registry)
-                val bookTagRepository = BookTagRepository(sql, bus, registry)
+                val bookTagRepository = BookTagRepository(sql, bus, registry, driver = driver)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -91,7 +91,7 @@ class BookTagWriterTest :
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepository = TagRepository(sql, bus, registry)
-                val bookTagRepository = BookTagRepository(sql, bus, registry)
+                val bookTagRepository = BookTagRepository(sql, bus, registry, driver = driver)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {

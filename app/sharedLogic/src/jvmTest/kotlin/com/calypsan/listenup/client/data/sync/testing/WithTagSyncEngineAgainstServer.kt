@@ -155,7 +155,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
         )
 
         val tagRepo = TagRepository(serverSqlDb, bus, syncRegistry)
-        val bookTagRepo = BookTagRepository(serverSqlDb, bus, syncRegistry)
+        val bookTagRepo = BookTagRepository(serverSqlDb, bus, syncRegistry, driver = serverDriver)
         // Real in-process TagService so the client tags outbox sender exercises the genuine
         // server rename/delete path — including its non-retryable rejections (TagError.InvalidName /
         // NameTooLong / NotFound) that drive the DRIFT-1 dead-letter.

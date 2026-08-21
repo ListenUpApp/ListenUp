@@ -171,7 +171,7 @@ private fun withCoverFixture(
                             coverImageStore = coverStore,
                             imageHome = Path(tempDir.toString()),
                         ),
-                    enrichmentDeps = testEnrichmentDeps(db.sql, bus, registry),
+                    enrichmentDeps = testEnrichmentDeps(db.sql, db.driver, bus, registry),
                     permissionPolicy = UserPermissionPolicy(db.sql),
                     sqlDb = db.sql,
                     genreRepository = genreRepo,

@@ -167,7 +167,7 @@ class MatchApplySelectionTest :
                 ladderSource = { _, _ -> ladders },
                 // Fresh bus/registry for the (independent, unasserted) mood/tag writer domains;
                 // empty product-tag source keeps enrichment a no-op for this selection-focused suite.
-                enrichmentDeps = testEnrichmentDeps(dbs.sql, ChangeBus(), SyncRegistry()),
+                enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, ChangeBus(), SyncRegistry()),
             )
         }
 

@@ -53,7 +53,7 @@ class GenreServiceImplReadCreateTest :
             val genreRepo = GenreRepository(sql, bus, registry, fixedClock)
             val contributorRepo = ContributorRepository(sql, bus, registry)
             val seriesRepo = SeriesRepository(sql, bus, registry)
-            val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+            val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
             val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
             val bookRepo =
                 BookRepository(

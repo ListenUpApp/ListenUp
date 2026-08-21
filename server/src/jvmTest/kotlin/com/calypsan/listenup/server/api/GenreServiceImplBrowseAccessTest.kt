@@ -56,7 +56,7 @@ class GenreServiceImplBrowseAccessTest :
                     seriesRepository = seriesRepo,
                     genreRepository = genreRepo,
                 )
-            val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+            val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
             val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
             val service =
                 GenreServiceImpl(

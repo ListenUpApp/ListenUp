@@ -38,7 +38,7 @@ class BookRepositorySoftDeleteCascadeTest :
                     val bus = ChangeBus()
                     val syncRegistry = SyncRegistry()
                     val tagRepo = TagRepository(db = sql, bus = bus, registry = syncRegistry)
-                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = syncRegistry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
 
                     val bookRepo =
                         BookRepository(
@@ -94,7 +94,7 @@ class BookRepositorySoftDeleteCascadeTest :
                     val bus = ChangeBus()
                     val syncRegistry = SyncRegistry()
                     val moodRepo = MoodRepository(db = sql, bus = bus, registry = syncRegistry)
-                    val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = syncRegistry)
+                    val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
                     val collectionBookRepo =
                         CollectionBookRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
 
@@ -153,7 +153,7 @@ class BookRepositorySoftDeleteCascadeTest :
                     val bus = ChangeBus()
                     val syncRegistry = SyncRegistry()
                     val moodRepo = MoodRepository(db = sql, bus = bus, registry = syncRegistry)
-                    val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = syncRegistry)
+                    val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
                     val collectionBookRepo =
                         CollectionBookRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
 

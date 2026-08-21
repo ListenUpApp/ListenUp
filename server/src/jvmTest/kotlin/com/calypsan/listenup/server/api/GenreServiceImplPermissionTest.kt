@@ -96,7 +96,7 @@ private fun makeGenrePermService(
             genreRepository = genreRepo,
         )
     val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
     return GenreServiceImpl(
         genreRepository = genreRepo,
         bookRepository = bookRepo,

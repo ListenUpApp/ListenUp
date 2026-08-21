@@ -379,7 +379,7 @@ class MetadataLookupServiceImplTest :
                                 GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),
                             sqlDb = sql,
                             ladderSource = { _, _ -> emptyList() },
-                            enrichmentDeps = testEnrichmentDeps(sql, bus, syncRegistry),
+                            enrichmentDeps = testEnrichmentDeps(sql, driver, bus, syncRegistry),
                         )
                     val coverSelection =
                         MetadataApplySelection(
@@ -547,7 +547,7 @@ private fun makeService(
                     CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
-        enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, syncRegistry),
+        enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, bus, syncRegistry),
         permissionPolicy = UserPermissionPolicy(dbs.sql),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,

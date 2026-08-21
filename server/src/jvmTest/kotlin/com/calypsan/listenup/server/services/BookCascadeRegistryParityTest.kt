@@ -81,8 +81,8 @@ class BookCascadeRegistryParityTest :
                     val registry = SyncRegistry()
                     val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
                     val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                    val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
                     val collectionBookRepo =
                         CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
