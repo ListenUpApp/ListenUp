@@ -40,7 +40,14 @@ class TagServiceImplTest :
             val registry = SyncRegistry()
             val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
             val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
-            return TagServiceImpl(tagRepo, bookTagRepo, dbs.sql, fixedClock, principal = rootPrincipal())
+            return TagServiceImpl(
+                tagRepository = tagRepo,
+                bookTagRepository = bookTagRepo,
+                sql = dbs.sql,
+                accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
+                clock = fixedClock,
+                principal = rootPrincipal(),
+            )
         }
 
         // ── listTags ─────────────────────────────────────────────────────────

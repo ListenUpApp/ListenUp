@@ -21,11 +21,15 @@ import kotlinx.rpc.annotations.Rpc
  * - **Mutation** — [addTagToBook], [removeTagFromBook], [renameTag],
  *   [deleteTag] mutate server state and should be called once per user intent.
  *
- * The `book_tags` junction is a global cross-user association (curator model).
- * Per-user ACL enforcement is deferred to the Multi-user phase.
+ * The `book_tags` junction is a global cross-user association (curator model) — one shared
+ * vocabulary, curated by anyone with `canEdit`. Visibility is a separate axis from curation:
  *
- * REST mirrors are defined in `TagResources`
- * and `BookTagsResources`.
+ * - **Mutations** are gated on the per-user `canEdit` flag. ROOT/ADMIN pass implicitly.
+ * - **Reads that touch books** are scoped to the caller through `BookAccessPolicy`, the single
+ *   definition of book visibility. A book the caller cannot reach is never enumerated, and asking
+ *   about one directly fails with the same `BookNotFound` an absent book produces — a denial that
+ *   said "forbidden" would itself confirm the book exists.
+
  */
 @Rpc
 interface TagService {
@@ -38,10 +42,9 @@ interface TagService {
      * Book counts are computed via `LEFT JOIN COUNT(*)` on read — no
      * denormalization column; drift is impossible by construction.
      *
-     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
-     * // landed and the MUTATIONS on this service are gated — these reads are not.
-     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
-     * // seam does, so this can surface books in collections the caller cannot reach.
+     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
+     * definition of book visibility, so this never surfaces a book in a collection the caller
+     * cannot reach. ROOT/ADMIN see everything.
      */
     suspend fun listTags(): AppResult<List<TagSummary>>
 
@@ -52,10 +55,9 @@ interface TagService {
      * Slug lookups are case-insensitive by construction because slugs are
      * normalized to lowercase at creation time.
      *
-     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
-     * // landed and the MUTATIONS on this service are gated — these reads are not.
-     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
-     * // seam does, so this can surface books in collections the caller cannot reach.
+     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
+     * definition of book visibility, so this never surfaces a book in a collection the caller
+     * cannot reach. ROOT/ADMIN see everything.
      */
     suspend fun getTagBySlug(slug: String): AppResult<TagSummary?>
 
@@ -68,10 +70,9 @@ interface TagService {
      * Callers hydrate book detail from Room for IDs already cached and call
      * `BookService.getBook` for any cache misses.
      *
-     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
-     * // landed and the MUTATIONS on this service are gated — these reads are not.
-     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
-     * // seam does, so this can surface books in collections the caller cannot reach.
+     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
+     * definition of book visibility, so this never surfaces a book in a collection the caller
+     * cannot reach. ROOT/ADMIN see everything.
      */
     suspend fun listBooksForTag(
         tagId: TagId,
@@ -86,20 +87,18 @@ interface TagService {
      * [com.calypsan.listenup.api.error.TagError.BookNotFound] when no book
      * with the given id exists on the server.
      *
-     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
-     * // landed and the MUTATIONS on this service are gated — these reads are not.
-     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
-     * // seam does, so this can surface books in collections the caller cannot reach.
+     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
+     * definition of book visibility, so this never surfaces a book in a collection the caller
+     * cannot reach. ROOT/ADMIN see everything.
      */
     suspend fun listTagsForBook(bookId: BookId): AppResult<List<Tag>>
 
     /**
      * Aggregate book count + total length for [tagId] over live books.
      *
-     * // TODO(#tag-read-access): scope this read to the caller's visible books. Multi-user HAS
-     * // landed and the MUTATIONS on this service are gated — these reads are not.
-     * // TagServiceImpl never derives from BookAccessPolicy, which every other book-scoped
-     * // seam does, so this can surface books in collections the caller cannot reach.
+     * Book-scoped to the caller: results are filtered through `BookAccessPolicy`, the single
+     * definition of book visibility, so this never surfaces a book in a collection the caller
+     * cannot reach. ROOT/ADMIN see everything.
      */
     suspend fun getTagStats(tagId: TagId): AppResult<FacetStats>
 

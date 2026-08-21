@@ -35,12 +35,22 @@ class MoodServiceImplTest :
 
         val fixedClock = FixedClock(Instant.fromEpochMilliseconds(1_700_000_000_000L))
 
-        fun makeService(sql: ListenUpDatabase): MoodServiceImpl {
+        fun makeService(
+            sql: ListenUpDatabase,
+            driver: app.cash.sqldelight.db.SqlDriver,
+        ): MoodServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
             val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
-            return MoodServiceImpl(moodRepo, bookMoodRepo, sql, fixedClock, principal = rootPrincipal())
+            return MoodServiceImpl(
+                moodRepository = moodRepo,
+                bookMoodRepository = bookMoodRepo,
+                sql = sql,
+                accessPolicy = BookAccessPolicy(sql, driver),
+                clock = fixedClock,
+                principal = rootPrincipal(),
+            )
         }
 
         // ── listMoods ────────────────────────────────────────────────────────
@@ -48,7 +58,7 @@ class MoodServiceImplTest :
         test("listMoods returns empty list when no moods exist") {
             withSqlDatabase {
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.listMoods()
                     result shouldBe AppResult.Success(emptyList())
                 }
@@ -61,7 +71,7 @@ class MoodServiceImplTest :
                 sql.seedTestBook("book1")
                 sql.seedTestBook("book2")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     service.addMoodToBook(BookId("book1"), "Feel-Good")
                     service.addMoodToBook(BookId("book2"), "Feel-Good")
 
@@ -79,7 +89,7 @@ class MoodServiceImplTest :
         test("getMoodBySlug returns null for nonexistent slug") {
             withSqlDatabase {
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.getMoodBySlug("nonexistent")
                     result shouldBe AppResult.Success(null)
                 }
@@ -91,7 +101,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     service.addMoodToBook(BookId("book1"), "Feel-Good")
 
                     val result = service.getMoodBySlug("feel-good")
@@ -110,7 +120,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     service.addMoodToBook(BookId("book1"), "Feel-Good")
                     val result = service.getMoodStats(MoodId("no-such-mood"))
                     result shouldBe AppResult.Success(FacetStats.EMPTY)
@@ -126,7 +136,7 @@ class MoodServiceImplTest :
                 sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
                 sql.booksQueries.updateTotalDuration(total_duration = 2_000L, id = "book2")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val addResult = service.addMoodToBook(BookId("book1"), "Feel-Good")
                     require(addResult is AppResult.Success)
                     val moodId = MoodId(addResult.data.id)
@@ -144,7 +154,7 @@ class MoodServiceImplTest :
                 sql.seedTestBook("book1")
                 sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val addResult = service.addMoodToBook(BookId("book1"), "Feel-Good")
                     require(addResult is AppResult.Success)
                     val moodId = MoodId(addResult.data.id)
@@ -162,7 +172,7 @@ class MoodServiceImplTest :
                 sql.seedTestBook("book1")
                 sql.booksQueries.updateTotalDuration(total_duration = 1_000L, id = "book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val addResult = service.addMoodToBook(BookId("book1"), "Feel-Good")
                     require(addResult is AppResult.Success)
                     val moodId = MoodId(addResult.data.id)
@@ -188,7 +198,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.addMoodToBook(BookId("book1"), "Tense")
 
                     require(result is AppResult.Success)
@@ -201,7 +211,7 @@ class MoodServiceImplTest :
         test("addMoodToBook rejects nonexistent book with BookNotFound") {
             withSqlDatabase {
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.addMoodToBook(BookId("no-such-book"), "Tense")
 
                     require(result is AppResult.Failure)
@@ -215,7 +225,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.addMoodToBook(BookId("book1"), "")
 
                     require(result is AppResult.Failure)
@@ -229,7 +239,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     service.addMoodToBook(BookId("book1"), "Feel-Good")
                     service.addMoodToBook(BookId("book1"), "Feel-Good")
 
@@ -246,7 +256,7 @@ class MoodServiceImplTest :
                 sql.seedTestBook("book1")
                 sql.seedTestBook("book2")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val r1 = service.addMoodToBook(BookId("book1"), "Feel-Good")
                     val r2 = service.addMoodToBook(BookId("book2"), "feel-good")
 
@@ -265,7 +275,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val addResult = service.addMoodToBook(BookId("book1"), "Feel-Good")
                     require(addResult is AppResult.Success)
                     val moodId = MoodId(addResult.data.id)
@@ -287,7 +297,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val addResult = service.addMoodToBook(BookId("book1"), "Feel-Good")
                     require(addResult is AppResult.Success)
                     val moodId = MoodId(addResult.data.id)
@@ -304,7 +314,7 @@ class MoodServiceImplTest :
         test("renameMood returns NotFound for missing mood") {
             withSqlDatabase {
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.renameMood(MoodId("no-such-mood"), "New Name")
 
                     require(result is AppResult.Failure)
@@ -321,7 +331,7 @@ class MoodServiceImplTest :
                 sql.seedTestBook("book1")
                 sql.seedTestBook("book2")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     service.addMoodToBook(BookId("book1"), "Feel-Good")
                     service.addMoodToBook(BookId("book2"), "Feel-Good")
 
@@ -352,7 +362,7 @@ class MoodServiceImplTest :
         test("deleteMood returns NotFound for missing mood") {
             withSqlDatabase {
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.deleteMood(MoodId("no-such-mood"))
 
                     require(result is AppResult.Failure)
@@ -366,7 +376,7 @@ class MoodServiceImplTest :
         test("listMoodsForBook returns BookNotFound for missing book") {
             withSqlDatabase {
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.listMoodsForBook(BookId("no-such-book"))
 
                     require(result is AppResult.Failure)
@@ -380,7 +390,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     val result = service.listMoodsForBook(BookId("book1"))
 
                     result shouldBe AppResult.Success(emptyList())
@@ -395,7 +405,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     service.addMoodToBook(BookId("book1"), "Feel-Good")
                     service.addMoodToBook(BookId("book1"), "Tense")
                     service.addMoodToBook(BookId("book1"), "Hopeful")
@@ -415,7 +425,7 @@ class MoodServiceImplTest :
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book1")
                 runTest {
-                    val service = makeService(sql)
+                    val service = makeService(sql, driver)
                     service.addMoodToBook(BookId("book1"), "Feel-Good")
                     val tense = service.addMoodToBook(BookId("book1"), "Tense")
                     require(tense is AppResult.Success)

@@ -46,13 +46,35 @@ internal class TagServiceImpl(
     private val tagRepository: TagRepository,
     private val bookTagRepository: BookTagRepository,
     private val sql: ListenUpDatabase,
+    /**
+     * Book-level visibility, the same seam [BookServiceImpl] and [GenreServiceImpl] use.
+     *
+     * Required, not defaulted: tag reads enumerate and describe BOOKS, so a construction site that
+     * forgot to wire this would silently serve every book on the server to every member. That is
+     * exactly the drift [BookAccessPolicy]'s KDoc warns about — it is the single definition of the
+     * rule precisely so no seam re-derives it, and tag reads had been re-deriving it as
+     * "whatever is in the junction table".
+     */
+    private val accessPolicy: BookAccessPolicy,
     private val clock: Clock = Clock.System,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : TagService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): TagServiceImpl =
-        TagServiceImpl(tagRepository, bookTagRepository, sql, clock, permissionPolicy, principal)
+        TagServiceImpl(tagRepository, bookTagRepository, sql, accessPolicy, clock, permissionPolicy, principal)
+
+    /**
+     * The caller's reachable book-id set, or null when the caller is ROOT/ADMIN (unfiltered).
+     *
+     * Mirrors [GenreServiceImpl]'s helper exactly, including the fail-closed branch: an absent
+     * principal — a wiring bug, since every RPC caller is scoped via [copyWith] — collapses to the
+     * empty set rather than falling open.
+     */
+    private suspend fun accessibleBookIdFilter(): Set<String>? {
+        val p = principal.current() ?: return emptySet()
+        return accessPolicy.accessibleBookIds(p.userId.value, p.role)
+    }
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -102,12 +124,24 @@ internal class TagServiceImpl(
         limit: Int,
     ): AppResult<List<BookId>> {
         val safeLimit = limit.coerceIn(MIN_LIMIT, MAX_LIMIT)
+        val accessible = accessibleBookIdFilter()
         val junctions = bookTagRepository.findAllForTag(tagId.value)
-        return AppResult.Success(junctions.take(safeLimit).map { BookId(it.bookId) })
+        // Filter BEFORE take. Filtering after would silently return short pages — a member whose
+        // first `limit` junction rows all point at hidden books would get an empty page while
+        // accessible books sat just past the cut.
+        val visible = junctions.map { it.bookId }.filter { accessible == null || it in accessible }
+        return AppResult.Success(visible.take(safeLimit).map { BookId(it) })
     }
 
     override suspend fun listTagsForBook(bookId: BookId): AppResult<List<Tag>> {
         if (!bookExists(bookId.value)) {
+            return AppResult.Failure(TagError.BookNotFound())
+        }
+        // The SAME failure an absent book produces, deliberately. BookServiceImpl.getBook makes the
+        // same choice: a book the caller cannot reach must not be distinguishable from one that
+        // does not exist, or the denial itself confirms the book is there.
+        val p = principal.current() ?: return AppResult.Failure(TagError.BookNotFound())
+        if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
             return AppResult.Failure(TagError.BookNotFound())
         }
         val junctions = bookTagRepository.findAllForBook(bookId.value)
@@ -253,11 +287,13 @@ fun createTagService(
     tagRepository: TagRepository,
     bookTagRepository: BookTagRepository,
     sqlDb: ListenUpDatabase,
+    driver: app.cash.sqldelight.db.SqlDriver,
 ): TagService =
     TagServiceImpl(
         tagRepository = tagRepository,
         bookTagRepository = bookTagRepository,
         sql = sqlDb,
+        accessPolicy = BookAccessPolicy(sqlDb, driver),
     )
 
 /**

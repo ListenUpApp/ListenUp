@@ -22,8 +22,14 @@ import kotlinx.rpc.annotations.Rpc
  * - **Mutation** — [addMoodToBook], [removeMoodFromBook], [renameMood],
  *   [deleteMood] mutate server state and should be called once per user intent.
  *
- * The `book_moods` junction is a global cross-user association (curator model).
- * Per-user ACL enforcement is deferred to the Multi-user phase.
+ * The `book_moods` junction is a global cross-user association (curator model) — one shared
+ * vocabulary, curated by anyone with `canEdit`. Visibility is a separate axis from curation:
+ *
+ * - **Mutations** are gated on the per-user `canEdit` flag. ROOT/ADMIN pass implicitly.
+ * - **Reads that touch books** are scoped to the caller through `BookAccessPolicy`, the single
+ *   definition of book visibility. A book the caller cannot reach is never enumerated, and asking
+ *   about one directly fails with the same `BookNotFound` an absent book produces — a denial that
+ *   said "forbidden" would itself confirm the book exists.
  */
 @Rpc
 interface MoodService {
