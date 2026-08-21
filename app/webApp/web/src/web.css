@@ -668,3 +668,24 @@ body { margin: 0; }
 .lib-author { font-size: 0.8rem; line-height: 1.2; color: var(--ink-2); }
 .lib-progress { height: 3px; border-radius: 2px; overflow: hidden; background: var(--luw-border, #333); }
 .lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
+
+/* ---- view transitions ----
+   The page crossfade. Deliberately short: a route change should feel like the page settled, not
+   like it performed. The old page leaves slightly faster than the new one arrives so the two do
+   not both sit at half opacity in the middle, which reads as a flicker rather than a fade. */
+::view-transition-old(root) { animation-duration: 130ms; animation-timing-function: ease-in; }
+::view-transition-new(root) { animation-duration: 220ms; animation-timing-function: ease-out; }
+
+/* A card that is entering or leaving the grid. Matches `lib-card-in`'s vocabulary so a book that
+   arrives during a transition and one that arrives outside it move the same way. */
+::view-transition-old(.lib-card),
+::view-transition-new(.lib-card) { animation-duration: 240ms; }
+
+/* Motion here is decoration. `prefers-reduced-motion` is already honoured in Kotlin — the helper
+   skips the transition entirely — but a stylesheet rule costs nothing and covers any transition
+   started by a path that forgets to ask. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}

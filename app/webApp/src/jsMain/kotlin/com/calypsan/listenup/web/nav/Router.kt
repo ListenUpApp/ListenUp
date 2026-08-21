@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.nav
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.calypsan.listenup.web.motion.withViewTransition
 import kotlinx.browser.window
 import org.w3c.dom.events.Event
 
@@ -60,7 +61,7 @@ class Route(
  * Back leaves the page rather than unwinding every filter click.
  */
 class Router {
-    private val onPopstate: (Event) -> Unit = { current = locationRoute() }
+    private val onPopstate: (Event) -> Unit = { withViewTransition { current = locationRoute() } }
 
     /** The route the window currently shows; observable from composition. */
     var current: Route by mutableStateOf(locationRoute())
@@ -70,16 +71,26 @@ class Router {
         window.addEventListener("popstate", onPopstate)
     }
 
-    /** Pushes [route] onto history and makes it current. */
+    /** Pushes [route] onto history and makes it current, crossfading between the two pages. */
     fun navigate(route: Route) {
         window.history.pushState(null, "", route.toUrl())
-        current = route
+        withViewTransition { current = route }
     }
 
-    /** Replaces the current history entry with [route]. */
-    fun replace(route: Route) {
+    /**
+     * Replaces the current history entry with [route].
+     *
+     * @param animate whether to crossfade. **Off by default, deliberately**: this method carries
+     *   both page-level changes worth animating (switching a pane) and high-frequency ones that are
+     *   not (every chapter click rewrites `sel=`). Animating the latter would make selecting a run
+     *   of chapters strobe. Callers opt in for the former.
+     */
+    fun replace(
+        route: Route,
+        animate: Boolean = false,
+    ) {
         window.history.replaceState(null, "", route.toUrl())
-        current = route
+        if (animate) withViewTransition { current = route } else current = route
     }
 
     /** Detaches the popstate listener; the router stops following history. */
