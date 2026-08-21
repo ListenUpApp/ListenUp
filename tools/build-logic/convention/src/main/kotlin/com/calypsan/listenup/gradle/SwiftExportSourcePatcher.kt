@@ -336,7 +336,7 @@ object SwiftExportSourcePatcher {
      */
     internal val expectedSealedSubtypeCounts: Map<String, Int> =
         mapOf(
-            "com.calypsan.listenup.client.data.repository.ShortcutAction" to 6,
+            "com.calypsan.listenup.client.data.repository.ShortcutAction" to 7,
             "com.calypsan.listenup.client.domain.chapter.DriftResult" to 1,
             "com.calypsan.listenup.client.domain.imagepicker.ImagePickerResult" to 3,
             "com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod" to 4,
@@ -433,6 +433,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.seriesedit.SeriesEditNavAction" to 1,
             "com.calypsan.listenup.client.presentation.seriesedit.SeriesEditUiEvent" to 8,
             "com.calypsan.listenup.client.presentation.settings.DevicesUiState" to 3,
+            "com.calypsan.listenup.client.presentation.settings.SettingsEvent" to 2,
             "com.calypsan.listenup.client.presentation.setup.LibrarySetupNavAction" to 1,
             "com.calypsan.listenup.client.presentation.shelf.CreateEditShelfNavAction" to 1,
             "com.calypsan.listenup.client.presentation.shelf.CreateEditShelfUiState" to 5,

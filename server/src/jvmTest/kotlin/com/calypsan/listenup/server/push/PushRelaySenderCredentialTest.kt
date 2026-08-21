@@ -124,5 +124,4 @@ class PushRelaySenderCredentialTest :
                 (thrown is RelaySenderCredentialRejected) shouldBe false
             }
         }
-
     })

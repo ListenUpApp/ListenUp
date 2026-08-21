@@ -60,8 +60,7 @@ class PushRelayClient(
         tokens: List<RelayToken>,
         payloadJson: JsonElement,
         collapseKey: String?,
-    ): RelayResponse =
-        sendChecked(tokens, payloadJson, collapseKey)
+    ): RelayResponse = sendChecked(tokens, payloadJson, collapseKey)
 
     private suspend fun sendChecked(
         tokens: List<RelayToken>,
@@ -71,11 +70,11 @@ class PushRelayClient(
         val response =
             http
                 .post("$relayUrl/v1/send") {
-                contentType(ContentType.Application.Json)
-                // Bearer, per the relay's PROTOCOL.md. Omitted entirely when unset rather than
-                // sent empty: the relay rejects a PRESENT-but-wrong credential, so an empty string
-                // would turn a working push into a 401 — worse than sending nothing.
-                senderToken?.takeIf { it.isNotBlank() }?.let { header(HttpHeaders.Authorization, "Bearer $it") }
+                    contentType(ContentType.Application.Json)
+                    // Bearer, per the relay's PROTOCOL.md. Omitted entirely when unset rather than
+                    // sent empty: the relay rejects a PRESENT-but-wrong credential, so an empty string
+                    // would turn a working push into a 401 — worse than sending nothing.
+                    senderToken?.takeIf { it.isNotBlank() }?.let { header(HttpHeaders.Authorization, "Bearer $it") }
                     setBody(
                         buildJsonObject {
                             put("tokens", Json.encodeToJsonElement(ListSerializer(RelayToken.serializer()), tokens))
