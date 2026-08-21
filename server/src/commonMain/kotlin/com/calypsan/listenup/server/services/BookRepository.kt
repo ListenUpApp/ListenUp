@@ -29,6 +29,7 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FrameCapture
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
+import com.calypsan.listenup.server.sync.emitInPublishOrder
 import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
@@ -1627,11 +1628,13 @@ class BookRepository(
                     ),
             )
         // Defer the collection_books emit to the outermost transaction's after-commit, in publish
-        // order. A nested transaction transfers its afterCommit hooks to the enclosing one, so this
-        // fires once, after the book + membership rows are durably committed — the engine-native
-        // equivalent of the base's deferEmit, but routed through the collection_books repo.
+        // order. A nested transaction transfers its hooks to the enclosing one, so this fires once,
+        // after the book + membership rows are durably committed — the engine-native equivalent of
+        // the base's deferEmit, but routed through the collection_books repo. The publish slot is
+        // reserved here, while the revision bump above still holds the write lock, so this frame
+        // cannot overtake an earlier writer's.
         db.transaction {
-            afterCommit { bus.emit(repo = repo, event = event, userId = null) }
+            emitInPublishOrder(bus = bus, repo = repo, event = event, userId = null)
         }
     }
 

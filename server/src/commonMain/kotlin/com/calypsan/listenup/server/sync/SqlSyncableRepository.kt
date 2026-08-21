@@ -392,23 +392,27 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      *    emit), and only after SQLDelight has issued the JDBC `COMMIT`, so the
      *    firehose's delivery-time `BookAccessPolicy.canAccess` read never races an
      *    uncommitted row;
-     *  - hooks run in **insertion (FIFO) order**, which is publish order, which is
-     *    revision order — so multiple writes in one transaction emit in revision order;
+     *  - hooks run in **insertion (FIFO) order**, so multiple writes in one transaction
+     *    emit in revision order;
      *  - in a **nested** transaction, SQLDelight transfers a child's commit hooks to
      *    the enclosing transaction, so they flush once at the outermost commit, still
      *    in insertion order — one flush per outermost transaction.
      *
-     * The emit itself goes through [ChangeBus.emit] (immediate, no further deferral),
-     * because by the time the hook fires we are already past commit. The
-     * [FirehoseSuppressed] gate is applied by the caller (the `!suppressed` check in
+     * Hook order alone does **not** order writes against *other* transactions, though —
+     * the COMMIT that runs the hook is the same COMMIT that frees SQLite's write lock, so
+     * the next writer can take its revision and publish while this hook is still queued.
+     * [emitInPublishOrder] closes that window by reserving the publish slot here, inside
+     * the transaction, and emitting from it after commit.
+     *
+     * The [FirehoseSuppressed] gate is applied by the caller (the `!suppressed` check in
      * [upsert] / [softDelete]) before this is ever reached, so a suppressed write
-     * registers no hook and emits nothing.
+     * reserves no slot and emits nothing.
      */
     private fun TransactionCallbacks.deferEmit(
         event: SyncEvent<T>,
         userId: String?,
     ) {
-        afterCommit { bus.emit(repo = this@SqlSyncableRepository, event = event, userId = userId) }
+        emitInPublishOrder(bus = bus, repo = this@SqlSyncableRepository, event = event, userId = userId)
     }
 
     /**

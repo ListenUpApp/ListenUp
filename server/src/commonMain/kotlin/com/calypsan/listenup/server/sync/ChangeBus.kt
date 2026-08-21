@@ -3,6 +3,12 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -12,6 +18,34 @@ import kotlinx.coroutines.flow.asSharedFlow
 private val log = loggerFor<ChangeBus>()
 
 private const val LIVE_TAIL_BUFFER = 256
+
+/**
+ * How many out-of-turn publish slots the sequencer holds before it abandons its stalled head.
+ *
+ * Only slots that resolved *early* are held, and a slot can only be reserved once its predecessor's
+ * transaction has committed (the revision bump holds SQLite's write lock until then), so the real
+ * depth is the number of writers inside the post-commit window — single digits. Reaching this bound
+ * means a slot was stranded, not that the server is busy.
+ *
+ * This is the burst trigger; [STALLED_SLOT_TIMEOUT] is the one that matters on a quiet server.
+ */
+private const val MAX_HELD_SLOTS = 256
+
+/**
+ * How long the sequencer waits on an unresolved head before abandoning it.
+ *
+ * The count bound alone is the wrong trigger for a self-hosted server with one active user: strand
+ * the head there and the firehose stays silent until 256 *more* writes arrive, which can be days.
+ * Silence hurts most exactly where the counter moves slowest, so elapsed time is the primary
+ * trigger and the count is the burst backstop.
+ *
+ * 30s is three orders of magnitude above the gap this queue actually exists to cover — the window
+ * between a COMMIT and its own post-commit hook, which is microseconds — so it cannot fire on a
+ * merely slow write, while still healing well inside the span of one user's attention. It is
+ * evaluated lazily on the next [resolve], so a stranded slot costs at most one further write's
+ * latency rather than a background timer.
+ */
+private val STALLED_SLOT_TIMEOUT = 30.seconds
 
 /**
  * Type-bound bus entry. The source repository travels alongside the event so
@@ -48,6 +82,23 @@ data class ControlFrame(
 )
 
 /**
+ * A reserved position in the live tail's publish order.
+ *
+ * Handed out by [ChangeBus.reserve] from **inside** the writing transaction — immediately after
+ * that transaction bumped the global revision counter, so it still holds SQLite's write lock and
+ * no other writer can have taken a revision in between. Reservation order is therefore revision
+ * order, by construction.
+ *
+ * The slot is resolved exactly once, after the transaction ends: [ChangeBus.release] on commit,
+ * [ChangeBus.discard] on rollback. Until then it holds its place, and any later slot that resolves
+ * first waits behind it.
+ */
+class PublishSlot internal constructor(
+    internal val sequence: Long,
+    internal val entry: BusEvent<*>,
+)
+
+/**
  * In-memory pub/sub for [BusEvent]s. Single bus per process, registered as a
  * Koin singleton with `createdAtStart()` so domain repositories' init blocks
  * can publish during application bootstrap.
@@ -62,7 +113,10 @@ data class ControlFrame(
  * so it always reflects the actual buffer floor, including after DROP_OLDEST
  * evictions.
  */
-class ChangeBus {
+class ChangeBus(
+    private val timeSource: TimeSource = TimeSource.Monotonic,
+    private val stalledSlotTimeout: Duration = STALLED_SLOT_TIMEOUT,
+) {
     private val flow =
         MutableSharedFlow<BusEvent<*>>(
             replay = LIVE_TAIL_BUFFER,
@@ -82,6 +136,21 @@ class ChangeBus {
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )
 
+    // Publish-order sequencer (see [reserve]). `nextReservedSequence` numbers slots as writers take
+    // them under SQLite's write lock; `nextSequenceToPublish` is the head of the queue, and
+    // `resolvedSlots` holds slots that finished out of turn until their predecessors catch up. The
+    // map stays tiny — a slot can only be reserved after its predecessor's transaction committed,
+    // so at most a handful of post-commit hooks are ever in flight at once.
+    private val orderLock = SynchronizedObject()
+    private var nextReservedSequence = 0L
+    private var nextSequenceToPublish = 0L
+    private val resolvedSlots = mutableMapOf<Long, BusEvent<*>?>()
+
+    // When each still-unresolved slot was reserved, so a stalled head can be aged out by
+    // [STALLED_SLOT_TIMEOUT]. Entries are dropped as their slot resolves (or is abandoned), so this
+    // holds only what is genuinely in flight.
+    private val reservedAt = mutableMapOf<Long, TimeMark>()
+
     /**
      * Publishes [event] onto the bus, paired with the source [repo] so consumers
      * can encode the payload through the repo's own serializer. The `<T>` binding
@@ -98,26 +167,120 @@ class ChangeBus {
     }
 
     /**
-     * Emits [event] (paired with [repo]) onto the live tail **immediately**, with no
-     * commit deferral. Use this only from a caller that is already past its storage
-     * commit — specifically [SqlSyncableRepository]'s `afterCommit { }` hook, which fires
-     * after the SQLDelight transaction's JDBC commit, in publish order.
+     * Reserves this write's position in the live tail, ahead of its own commit.
      *
-     * The SQLDelight base does its own deferral (registering this call as an `afterCommit`
-     * hook) so the firehose's delivery-time access checks never race an uncommitted write,
-     * and the bus emits straight away once reached. `tryEmit` (not `emit`) matches [publish]:
-     * with `replay = LIVE_TAIL_BUFFER` + `DROP_OLDEST` it always succeeds and never suspends
-     * the post-commit callback.
+     * A committed write cannot simply emit from its `afterCommit` hook and expect the arrival
+     * order to match revision order. SQLite serializes the revision bump under the write lock,
+     * but that lock is released by the COMMIT itself — so between one writer's COMMIT and its
+     * `afterCommit` hook actually running, a later writer can take the next revision, commit, and
+     * emit first. Revision 6 then lands ahead of revision 5, and a client that assigns its resume
+     * cursor from the arriving frame skips 5 for good.
+     *
+     * Reserving here closes that window: the slot is taken while the write lock is still held, so
+     * slots are numbered in revision order, and [release] only ever emits from the head of that
+     * queue. Callers pair this with [release]/[discard] through
+     * [emitInPublishOrder][com.calypsan.listenup.server.sync.emitInPublishOrder] rather than by
+     * hand — that seam is the only supported way onto the post-commit path.
      */
-    fun <T : Any> emit(
+    fun <T : Any> reserve(
         repo: SyncableRepo<T>,
         event: SyncEvent<T>,
         userId: String? = null,
-    ) {
-        log.debug {
-            "change emitted post-commit: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}"
+    ): PublishSlot =
+        synchronized(orderLock) {
+            val sequence = nextReservedSequence++
+            reservedAt[sequence] = timeSource.markNow()
+            PublishSlot(sequence = sequence, entry = BusEvent(repo, event, userId))
         }
-        flow.tryEmit(BusEvent(repo, event, userId))
+
+    /**
+     * Publishes the write behind [slot], once its transaction has committed.
+     *
+     * The slot's event is emitted only when every earlier slot has resolved, so the live tail
+     * stays in revision order however the post-commit hooks are scheduled. A slot that resolves
+     * out of turn is held until its predecessors drain, then flushed with them — inside the lock,
+     * so two threads draining concurrently cannot interleave their emits.
+     *
+     * `tryEmit` (not `emit`) matches [publish]: with `replay = LIVE_TAIL_BUFFER` + `DROP_OLDEST`
+     * it always succeeds and never suspends the post-commit callback.
+     */
+    fun release(slot: PublishSlot) {
+        log.debug {
+            val event = slot.entry.event
+            "change emitted post-commit: domain=${slot.entry.repo.domainName} " +
+                "event=${event::class.simpleName} id=${event.id}"
+        }
+        resolve(slot.sequence, slot.entry)
+    }
+
+    /**
+     * Drops [slot] without publishing, once its transaction has rolled back.
+     *
+     * The rolled-back write's revision is burned and its row never existed, so there is nothing to
+     * announce — but the slot still has to be resolved, or every later write would queue behind it
+     * forever. This is the `afterRollback` half of the pair [release] completes on commit.
+     */
+    fun discard(slot: PublishSlot) {
+        log.debug { "change discarded (rolled back): domain=${slot.entry.repo.domainName} id=${slot.entry.event.id}" }
+        resolve(slot.sequence, entry = null)
+    }
+
+    /**
+     * Marks [sequence] resolved — carrying [entry] to publish, or null when it rolled back — and
+     * drains every now-contiguous slot from the head of the queue.
+     */
+    private fun resolve(
+        sequence: Long,
+        entry: BusEvent<*>?,
+    ) = synchronized(orderLock) {
+        resolvedSlots[sequence] = entry
+        reservedAt.remove(sequence)
+        abandonStalledHeadIfNeeded()
+        while (resolvedSlots.containsKey(nextSequenceToPublish)) {
+            resolvedSlots.remove(nextSequenceToPublish)?.let { flow.tryEmit(it) }
+            reservedAt.remove(nextSequenceToPublish)
+            nextSequenceToPublish++
+        }
+    }
+
+    /**
+     * Liveness valve: gives up on a head slot that is never going to resolve.
+     *
+     * SQLDelight resolves a slot exactly once through the hooks [emitInPublishOrder] registers —
+     * but it invokes post-commit hooks with a bare `forEach`, so a hook that throws skips the rest
+     * of the list, and it calls `endTransaction()` from inside a `finally` whose result is
+     * discarded if the COMMIT itself throws, in which case no hook list runs at all. Either path
+     * strands a slot. Before this queue existed those paths caused *reordering*; with a queue in
+     * front of them they would instead cause *silence* — the entire firehose, every domain, every
+     * user, for the life of the process. That is a strictly worse failure than the one the queue
+     * repairs, which is what makes this valve load-bearing rather than defensive padding.
+     *
+     * Fires on elapsed time or held count, whichever comes first, and only ever abandons the run of
+     * unresolved slots below the lowest slot that *has* resolved — one jump, not one-at-a-time. If
+     * the slot after the drained run is also unresolved the queue simply re-blocks there, and that
+     * new head is aged independently on a later [resolve]: at most one abandonment per call, never
+     * a cascade that drains the whole queue in one pass, and no spin (the drain loop is bounded by
+     * the map, removing an entry per iteration).
+     */
+    private fun abandonStalledHeadIfNeeded() {
+        if (resolvedSlots.isEmpty() || resolvedSlots.containsKey(nextSequenceToPublish)) return
+        val heldFor = reservedAt[nextSequenceToPublish]?.elapsedNow()
+        val timedOut = heldFor != null && heldFor >= stalledSlotTimeout
+        if (!timedOut && resolvedSlots.size <= MAX_HELD_SLOTS) return
+
+        val abandoned = nextSequenceToPublish
+        val resumeAt = resolvedSlots.keys.min()
+        // A silent self-healing valve hides the defect it compensates for — this must be greppable.
+        log.warn {
+            "publish slot $abandoned never resolved (held ${heldFor ?: "unknown"}, " +
+                "${resolvedSlots.size} writes queued behind it); abandoning slots $abandoned..${resumeAt - 1}"
+        }
+        var skipped = abandoned
+        while (skipped < resumeAt) {
+            reservedAt.remove(skipped)
+            skipped++
+        }
+        nextSequenceToPublish = resumeAt
     }
 
     fun subscribe(): SharedFlow<BusEvent<*>> = flow.asSharedFlow()
