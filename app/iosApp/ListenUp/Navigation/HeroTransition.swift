@@ -12,7 +12,7 @@ import SwiftUI
 extension EnvironmentValues {
     /// The namespace pairing a list cell with the detail page it zooms into. Provided by
     /// `MainTabView`; `nil` anywhere outside it, which degrades to a plain push.
-    @Entry var heroNamespace: Namespace.ID? = nil
+    @Entry var heroNamespace: Namespace.ID?
 }
 
 /// The hero identity for a book's cover art.
