@@ -44,9 +44,26 @@ internal fun withViewTransition(
     val transition =
         document.asDynamic().startViewTransition({
             Promise<Unit> { resolve, _ ->
-                window.requestAnimationFrame {
-                    window.requestAnimationFrame { resolve(Unit) }
+                // Two frames is when Compose has normally flushed — but a `requestAnimationFrame`
+                // queues BEHIND the recomposition, so on an expensive page "two frames" is however
+                // long that takes. Leaving the 1,204-book grid, that measured **4,064 ms**, held as
+                // a frozen snapshot of the page the reader just left.
+                //
+                // ⛔ A transition must never cost more than not having one. The timeout is the
+                // ceiling on that: past it the transition proceeds regardless, and the worst case
+                // is that it animates nothing and the change lands plainly — exactly the behaviour
+                // of a browser without the API.
+                var settled = false
+                val settle = {
+                    if (!settled) {
+                        settled = true
+                        resolve(Unit)
+                    }
                 }
+                window.requestAnimationFrame {
+                    window.requestAnimationFrame { settle() }
+                }
+                window.setTimeout({ settle() }, MAX_WAIT_MS)
             }
         })
     // Cleared only once the transition is over — NOT in a `finally` around the call above, which
@@ -92,6 +109,9 @@ private fun viewTransitionsUsable(): Boolean {
     if (!(hasApi as Boolean)) return false
     return !window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
+
+/** Ceiling on how long a transition may wait for the DOM to settle — see the note in the callback. */
+private const val MAX_WAIT_MS = 200
 
 /** How far outside the viewport still counts as worth animating, in CSS pixels. */
 private const val MARGIN_PX = 200
