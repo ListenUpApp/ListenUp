@@ -41,6 +41,9 @@ internal enum class PrepareOutcome {
     SUCCEEDS,
     THROWS,
     NEVER_RETURNS,
+
+    /** The first book starts; every book after it has an RPC still in flight. */
+    STALLS_AFTER_FIRST,
 }
 
 private class FakePlaybackManager(
@@ -48,6 +51,8 @@ private class FakePlaybackManager(
     private val title: String,
     private val prepare: PrepareOutcome,
 ) : PlaybackManager {
+    private var prepareCount = 0
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override val currentBookId = MutableStateFlow<BookId?>(null)
@@ -123,8 +128,11 @@ private class FakePlaybackManager(
         // A spec asserting on state "while the prepare is in flight" would then silently read the
         // finished state instead, which is how the no-restart spec passed with its own fix deleted.
         yield()
+        prepareCount++
         when (prepare) {
             PrepareOutcome.SUCCEEDS -> Unit
+
+            PrepareOutcome.STALLS_AFTER_FIRST -> if (prepareCount > 1) awaitCancellation()
 
             PrepareOutcome.THROWS -> error("prepare failed")
 

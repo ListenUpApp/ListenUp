@@ -295,22 +295,22 @@ class TransportBarTest :
             // the whole round-trip.
             val player = HtmlAudioPlayer()
             val segment = silentSegment(AUDIO_SEGMENT_MS)
-            val manager = fakePlaybackManager(segment, title = "Dune")
+            //
+            // ONE session across both books, deliberately. A second LivePlayback would start with
+            // its title already null, and the assertion below would hold whether or not `playBook`
+            // ever cleared anything — proof of nothing.
+            val manager = fakePlaybackManager(segment, title = "Dune", prepare = PrepareOutcome.STALLS_AFTER_FIRST)
             val playback = LivePlayback(manager, WebPlaybackController(player, manager), player)
 
             playback.playBook(BookId("book-1"))
             withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it != null } }
 
-            val stalled = fakePlaybackManager(segment, title = "Dune", prepare = PrepareOutcome.NEVER_RETURNS)
-            val second = LivePlayback(stalled, WebPlaybackController(player, stalled), player)
-            stalled.activateBook(BookId("book-1"))
-            second.playBook(BookId("book-2"))
+            // The second book's prepare is still in flight, which is the whole window under test.
+            playback.playBook(BookId("book-2"))
 
-            second.state.value shouldBe null
+            withTimeout(PLAYING_TIMEOUT_MS) { playback.state.first { it == null } }
 
-            second.close()
             playback.close()
-            player.releasePlayer()
             URL.revokeObjectURL(segment.url)
         }
 
