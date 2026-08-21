@@ -21,8 +21,6 @@ import kotlinx.rpc.annotations.Rpc
  * External Audible/iTunes metadata lookups live on [MetadataLookupService] —
  * separate service because local reads (fast, no external calls) and external
  * lookups (slow, rate-limited, fallible) have different transport semantics.
- *
- * // TODO: gate mutations by user permissions when Multi-user lands
  */
 @Rpc
 interface ContributorService {
@@ -91,8 +89,6 @@ interface ContributorService {
      *
      * On success the server emits one `book.Updated` per affected book, plus
      * `contributor.Updated(target)` and `contributor.Deleted(source)`.
-     *
-     * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun mergeContributors(
         source: ContributorId,
@@ -115,8 +111,6 @@ interface ContributorService {
      * Zero-book edge case: if no `book_contributors` rows match the alias-creditedAs
      * combination, the new contributor is still created (with no linked books) and the
      * alias is removed from the target.
-     *
-     * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun unmergeContributor(
         contributorId: ContributorId,

@@ -25,8 +25,6 @@ import kotlinx.rpc.annotations.Rpc
  *
  * Single-entity reads return [GenreSyncPayload] directly — the substrate-sync wire shape is the
  * canonical wire type for a genre, mirroring the [ContributorService.getContributor] precedent.
- *
- * // TODO: gate mutations by user permissions when Multi-user lands
  */
 @Rpc
 interface GenreService {

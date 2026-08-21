@@ -21,8 +21,6 @@ import kotlinx.rpc.annotations.Rpc
  * External metadata lookups live on [MetadataLookupService] — separate service
  * because local reads (fast, no external calls) and external lookups (slow,
  * rate-limited, fallible) have different transport semantics.
- *
- * // TODO: gate mutations by user permissions when Multi-user lands
  */
 @Rpc
 interface SeriesService {
@@ -83,8 +81,6 @@ interface SeriesService {
      *
      * Unlike contributor merge, series merge has no `credited_as` equivalent — the
      * canonical name change is the intended semantic ("these were always the same series").
-     *
-     * // TODO: gate by user permissions when Multi-user lands
      */
     suspend fun mergeSeries(
         source: SeriesId,

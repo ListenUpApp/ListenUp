@@ -48,13 +48,28 @@ internal class MoodServiceImpl(
     private val moodRepository: MoodRepository,
     private val bookMoodRepository: BookMoodRepository,
     private val sql: ListenUpDatabase,
+    /**
+     * Book-level visibility — see [TagServiceImpl]'s identical parameter. Required, not defaulted:
+     * mood reads enumerate and describe BOOKS, so a construction site that forgot to wire this
+     * would serve every book on the server to every member.
+     */
+    private val accessPolicy: BookAccessPolicy,
     private val clock: Clock = Clock.System,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : MoodService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): MoodServiceImpl =
-        MoodServiceImpl(moodRepository, bookMoodRepository, sql, clock, permissionPolicy, principal)
+        MoodServiceImpl(moodRepository, bookMoodRepository, sql, accessPolicy, clock, permissionPolicy, principal)
+
+    /**
+     * The caller's reachable book-id set, or null for ROOT/ADMIN. Mirrors [TagServiceImpl]'s
+     * helper, including the fail-closed empty set for an absent principal.
+     */
+    private suspend fun accessibleBookIdFilter(): Set<String>? {
+        val p = principal.current() ?: return emptySet()
+        return accessPolicy.accessibleBookIds(p.userId.value, p.role)
+    }
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -103,12 +118,21 @@ internal class MoodServiceImpl(
         limit: Int,
     ): AppResult<List<BookId>> {
         val safeLimit = limit.coerceIn(MIN_LIMIT, MAX_LIMIT)
+        val accessible = accessibleBookIdFilter()
         val junctions = bookMoodRepository.findAllForMood(moodId.value)
-        return AppResult.Success(junctions.take(safeLimit).map { BookId(it.bookId) })
+        // Filter BEFORE take — see TagServiceImpl.listBooksForTag for why the order matters.
+        val visible = junctions.map { it.bookId }.filter { accessible == null || it in accessible }
+        return AppResult.Success(visible.take(safeLimit).map { BookId(it) })
     }
 
     override suspend fun listMoodsForBook(bookId: BookId): AppResult<List<Mood>> {
         if (!bookExists(bookId.value)) {
+            return AppResult.Failure(MoodError.BookNotFound())
+        }
+        // The SAME failure an absent book produces — a denied book must not be distinguishable
+        // from one that does not exist.
+        val p = principal.current() ?: return AppResult.Failure(MoodError.BookNotFound())
+        if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
             return AppResult.Failure(MoodError.BookNotFound())
         }
         val junctions = bookMoodRepository.findAllForBook(bookId.value)

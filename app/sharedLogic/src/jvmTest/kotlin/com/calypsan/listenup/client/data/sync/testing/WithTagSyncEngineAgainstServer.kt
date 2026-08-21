@@ -159,7 +159,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
         // Real in-process TagService so the client tags outbox sender exercises the genuine
         // server rename/delete path — including its non-retryable rejections (TagError.InvalidName /
         // NameTooLong / NotFound) that drive the DRIFT-1 dead-letter.
-        val tagService = createTagService(tagRepo, bookTagRepo, serverSqlDb)
+        val tagService = createTagService(tagRepo, bookTagRepo, serverSqlDb, serverDriver)
         val rootPrincipal = UserPrincipal(UserId("u1"), SessionId("test-session-u1"), UserRole.ROOT)
 
         application {
