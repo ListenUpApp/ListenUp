@@ -101,6 +101,7 @@ fun WebAppRoot(
                     router.replace(Route(route.segments, route.query + ("tab" to tab)), animate = true)
                 },
                 onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+                bookId = bookId,
                 selection = parseSelection(route.query["sel"]),
                 onSelectionChange = { selection ->
                     val query =

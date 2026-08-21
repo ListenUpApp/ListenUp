@@ -53,6 +53,7 @@ fun BookDetailPage(
     onPlay: () -> Unit,
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
+    bookId: String? = null,
 ) {
     Div(attrs = { classes("bd") }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that
@@ -61,6 +62,27 @@ fun BookDetailPage(
 
         when (state) {
             is BookDetailUiState.Loading -> {
+                // The cover renders BEFORE the book does, from the id in the URL — a cover URL
+                // needs nothing else. Two reasons, and the second is the load-bearing one:
+                //
+                // 1. The reader tapped a cover; showing it immediately is the honest response,
+                //    with the text filling in around it.
+                // 2. The shared-element flight has to have somewhere to land. A View Transition
+                //    photographs the destination the moment its callback settles — measured, that
+                //    was 56 ms in, with this page still showing a spinner and NO element carrying
+                //    the hero name. The browser had nothing to fly to, so it crossfaded a nearly
+                //    blank page instead, which is what read as a flash of white.
+                bookId?.let {
+                    Div(attrs = { classes("bd-head") }) {
+                        Cover(
+                            title = "",
+                            imageUrl = coverUrl(it, null, COVER_RUNG),
+                            size = COVER_SIZE,
+                            radius = COVER_RADIUS,
+                            heroName = HERO_COVER,
+                        )
+                    }
+                }
                 EmptyState(WebIcon.Clock, "Loading", "Reading this book from your library.")
             }
 
