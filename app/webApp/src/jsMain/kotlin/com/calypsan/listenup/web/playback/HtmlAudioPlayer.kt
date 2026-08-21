@@ -130,19 +130,28 @@ internal class HtmlAudioPlayer : AudioPlayer {
      * some later [load] — and this player cannot tell on its own whether the instruction is still
      * wanted.
      *
-     * Only two things SET it: [play], where the audio is already loaded and starts in the same
-     * call, and [primeForPlayback], where it outlives the call by an RPC round-trip. So
-     * [primeForPlayback] is the only way it can go stale, and **whoever primes owns withdrawing it
-     * on every path that does not reach playback**. `LivePlayback.playBook`'s `finally` is that
-     * owner and the only caller; a second caller arriving without the same discipline would leave
-     * a stale instruction on this singleton for the life of the tab. `TransportBarTest` pins the
-     * throw and cancellation cases.
+     * Two things SET it: [play], where the audio is already loaded and normally starts in the same
+     * call, and [primeForPlayback], where it outlives the call by an RPC round-trip.
      *
-     * Several things CLEAR it, and every one of them marks a point where the listener's request is
-     * genuinely over: [pause] and [releasePlayer], [forgetContent] (so [primeForPlayback] itself
-     * and a `load(emptyList())` do too), [onPlayRejected] when the browser refuses, and
-     * [onSegmentEnded] at the end of the last segment. None of them can strand it set, which is
-     * why the ownership rule above is stated over the setters.
+     * **Both can leave it set with nothing playing**, so neither is safe on its own:
+     *  - [primeForPlayback] strands it whenever the prepare it was betting on never lands.
+     *    `LivePlayback.playBook`'s `finally` owns withdrawing it on every such path and is the only
+     *    caller; `TransportBarTest` pins the throw and cancellation cases.
+     *  - [play] strands it when the element errors: `reportElementError` publishes
+     *    [PlaybackState.Error] without clearing, and the play promise's own [onPlayRejected] then
+     *    returns early on that existing error, before it reaches its clear.
+     *
+     * The second case has no consequence today only because every web [load] arrives via
+     * `LivePlayback.playBook`, which primes first — and priming clears through [forgetContent].
+     * That coupling is a convention, not a guarantee, and nothing asserts it.
+     *
+     * Clearing happens in [pause], [forgetContent] (so [releasePlayer], [primeForPlayback] and a
+     * `load(emptyList())` all clear too), [onPlayRejected] when it does not return early, and
+     * [onSegmentEnded] at the end of the last segment.
+     *
+     * This has been documented wrongly four times, each author enumerating a different subset of
+     * five clear paths. The durable fix is to stop carrying the intent as player state and pass it
+     * into [load] instead — see the branch's follow-up notes — rather than to restate this.
      */
     private var resumeOnReady: Boolean = false
 
