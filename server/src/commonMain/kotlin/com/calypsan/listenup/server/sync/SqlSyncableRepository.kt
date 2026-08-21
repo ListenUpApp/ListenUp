@@ -331,8 +331,10 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      *
      * **Must run inside the caller's open transaction** — typically each row inside its own nested
      * `transactionWithResult { }` savepoint so a single malformed row rolls back in isolation while
-     * the rest of the chunk commits (SQLDelight transfers a committed nested txn's afterCommit hooks
-     * to the enclosing one and discards a rolled-back one's, so a failed row emits nothing).
+     * the rest of the chunk commits. Note SQLDelight transfers a nested transaction's afterCommit hooks
+     * to the enclosing one whether the child committed or rolled back, so a rolled-back row does NOT
+     * stop emitting on its own — the containment site must drop its reserved events explicitly via
+     * [ChangeBus.discardReservedSince] (see `BookRepository.writeChunk`).
      */
     protected fun TransactionWithReturn<*>.upsertInOpenTransaction(
         value: T,

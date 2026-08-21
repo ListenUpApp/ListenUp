@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.longs.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
@@ -156,6 +157,34 @@ class ChangeBusTest :
                 // every write after it — would queue forever behind a slot that never comes.
                 bus.discard(rolledBack)
                 bus.subscribe().replayCache.map { it.event.id } shouldBe listOf("b")
+            }
+        }
+
+        test("a rolled-back savepoint does not announce the write it had already reserved") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                // BookRepository.writeChunk's shape, and the reason this matters: writePayload
+                // reserves the system-collection membership event BEFORE it writes the book's
+                // children, so a child that throws rolls the row away with an event already queued.
+                // SQLDelight hands the dead savepoint's afterCommit hook up to the parent, which runs
+                // it on ITS commit — announcing a row that never existed. Only the catch knows.
+                sql.transaction {
+                    val mark = bus.mark()
+                    runCatching {
+                        sql.transaction {
+                            emitInPublishOrder(bus = bus, repo = repo, event = tagCreated("ghost", 1L))
+                            error("child row fails after the event was reserved")
+                        }
+                    }.onFailure { bus.discardReservedSince(mark) }
+                    sql.transaction {
+                        emitInPublishOrder(bus = bus, repo = repo, event = tagCreated("sibling", 2L))
+                    }
+                }
+
+                val ids = bus.subscribe().replayCache.map { it.event.id }
+                ids shouldNotContain "ghost"
+                ids shouldContain "sibling"
             }
         }
 

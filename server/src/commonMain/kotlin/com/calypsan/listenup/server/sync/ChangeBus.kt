@@ -96,7 +96,19 @@ data class ControlFrame(
 class PublishSlot internal constructor(
     internal val sequence: Long,
     internal val entry: BusEvent<*>,
-)
+) {
+    /**
+     * Whether this slot has already been resolved, guarded by `ChangeBus.orderLock`.
+     *
+     * A slot must resolve exactly once. It can be offered twice: [ChangeBus.discardReservedSince]
+     * drops the slots of a rolled-back savepoint, and SQLDelight then hands that savepoint's
+     * `afterCommit` hook up to the enclosing transaction, which runs it anyway on the parent's
+     * commit. The second offer has to be ignored — re-inserting a sequence the queue has already
+     * drained past would strand it below the head forever and can drag the valve's resume point
+     * backwards.
+     */
+    internal var resolved: Boolean = false
+}
 
 /**
  * In-memory pub/sub for [BusEvent]s. Single bus per process, registered as a
@@ -146,6 +158,10 @@ class ChangeBus(
     private var nextSequenceToPublish = 0L
     private val resolvedSlots = mutableMapOf<Long, BusEvent<*>?>()
 
+    // Reserved-but-unresolved slots, so [discardReservedSince] can drop exactly the ones a
+    // rolled-back savepoint took. Entries leave as their slot resolves or is abandoned.
+    private val outstanding = mutableMapOf<Long, PublishSlot>()
+
     // When each still-unresolved slot was reserved, so a stalled head can be aged out by
     // [STALLED_SLOT_TIMEOUT]. Entries are dropped as their slot resolves (or is abandoned), so this
     // holds only what is genuinely in flight.
@@ -191,6 +207,7 @@ class ChangeBus(
             val sequence = nextReservedSequence++
             reservedAt[sequence] = timeSource.markNow()
             PublishSlot(sequence = sequence, entry = BusEvent(repo, event, userId))
+                .also { outstanding[sequence] = it }
         }
 
     /**
@@ -210,7 +227,7 @@ class ChangeBus(
             "change emitted post-commit: domain=${slot.entry.repo.domainName} " +
                 "event=${event::class.simpleName} id=${event.id}"
         }
-        resolve(slot.sequence, slot.entry)
+        resolveOnce(slot, slot.entry)
     }
 
     /**
@@ -222,19 +239,64 @@ class ChangeBus(
      */
     fun discard(slot: PublishSlot) {
         log.debug { "change discarded (rolled back): domain=${slot.entry.repo.domainName} id=${slot.entry.event.id}" }
-        resolve(slot.sequence, entry = null)
+        resolveOnce(slot, entry = null)
     }
+
+    /**
+     * The publish-order position the next [reserve] will take — the caller's "everything from here"
+     * marker, paired with [discardReservedSince].
+     */
+    fun mark(): Long = synchronized(orderLock) { nextReservedSequence }
+
+    /**
+     * Drops every still-unresolved slot reserved at or after [mark], without publishing any of them.
+     *
+     * This is what a **rolled-back savepoint** needs, and SQLDelight cannot provide it. A nested
+     * transaction hands BOTH its hook lists to its parent unconditionally (`postTransactionCleanup`,
+     * nested branch), so a savepoint that rolls back inside a parent that goes on to commit still has
+     * its `afterCommit` hook run — announcing a write whose row was rolled away. Only the site that
+     * caught the failure knows the savepoint died, so it tells the bus here; the later transferred
+     * `release` is ignored because the slot is already resolved.
+     *
+     * Safe against a range because slots are reserved under SQLite's write lock, held for the whole
+     * enclosing transaction: no other writer can have taken a slot in between, so everything at or
+     * after [mark] belongs to the caller.
+     */
+    fun discardReservedSince(mark: Long) =
+        synchronized(orderLock) {
+            outstanding.values
+                .filter { it.sequence >= mark && !it.resolved }
+                .sortedBy { it.sequence }
+                .forEach { slot ->
+                    log.debug {
+                        "change discarded (savepoint rolled back): " +
+                            "domain=${slot.entry.repo.domainName} id=${slot.entry.event.id}"
+                    }
+                    resolveLocked(slot, entry = null)
+                }
+        }
 
     /**
      * Marks [sequence] resolved — carrying [entry] to publish, or null when it rolled back — and
      * drains every now-contiguous slot from the head of the queue.
      */
-    private fun resolve(
-        sequence: Long,
+    private fun resolveOnce(
+        slot: PublishSlot,
         entry: BusEvent<*>?,
     ) = synchronized(orderLock) {
-        resolvedSlots[sequence] = entry
-        reservedAt.remove(sequence)
+        if (slot.resolved) return@synchronized
+        resolveLocked(slot, entry)
+    }
+
+    /** [resolveOnce]'s body, for callers that already hold [orderLock] and have checked the flag. */
+    private fun resolveLocked(
+        slot: PublishSlot,
+        entry: BusEvent<*>?,
+    ) {
+        slot.resolved = true
+        outstanding.remove(slot.sequence)
+        resolvedSlots[slot.sequence] = entry
+        reservedAt.remove(slot.sequence)
         abandonStalledHeadIfNeeded()
         while (resolvedSlots.containsKey(nextSequenceToPublish)) {
             resolvedSlots.remove(nextSequenceToPublish)?.let { flow.tryEmit(it) }
@@ -278,6 +340,9 @@ class ChangeBus(
         var skipped = abandoned
         while (skipped < resumeAt) {
             reservedAt.remove(skipped)
+            // Retire the slot too, so a late `release` for an abandoned sequence is ignored rather
+            // than re-inserting it below the head where nothing would ever drain it.
+            outstanding.remove(skipped)?.resolved = true
             skipped++
         }
         nextSequenceToPublish = resumeAt
