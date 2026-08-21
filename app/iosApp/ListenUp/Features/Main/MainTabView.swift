@@ -16,6 +16,10 @@ struct MainTabView: View {
     @State private var playerCoordinator: PlayerCoordinator?
     @State private var bookLinkError: BookLinkError?
 
+    /// Pairs a list cell with the detail page it zooms into. One namespace for the whole shell so
+    /// a hero works from any tab and any list that opens a book, contributor, or series.
+    @Namespace private var heroNamespace
+
     /// Per-tab navigation paths so the player overlay can push a destination onto the
     /// *active* tab's stack (and so each tab keeps its own independent history).
     @State private var paths: [Tab: NavigationPath] = [
@@ -127,6 +131,7 @@ struct MainTabView: View {
         // sheets they present inherit it — lets the Cast & Credits sheet push a contributor onto
         // THIS tab's main stack (a full page) instead of navigating inside the sheet.
         .environment(\.navigateToContributor, pushContributor)
+        .environment(\.heroNamespace, heroNamespace)
     }
 
     /// Reads the tab content's live bottom safe-area inset (home indicator + floating
@@ -251,12 +256,15 @@ private extension View {
         self
             .pushedDestination(for: BookDestination.self) { destination in
                 BookDetailView(bookId: destination.id)
+                    .heroDestination(bookCoverHeroID(destination.id))
             }
             .pushedDestination(for: SeriesDestination.self) { destination in
                 SeriesDetailView(seriesId: destination.id)
+                    .heroDestination(seriesHeroID(destination.id))
             }
             .pushedDestination(for: ContributorDestination.self) { destination in
                 ContributorDetailView(contributorId: destination.id)
+                    .heroDestination(contributorHeroID(destination.id))
             }
             .pushedDestination(for: ContributorBooksDestination.self) { destination in
                 ContributorBooksView(

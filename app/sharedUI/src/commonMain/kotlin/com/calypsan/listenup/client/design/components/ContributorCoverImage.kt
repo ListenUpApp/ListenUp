@@ -13,6 +13,7 @@ import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.IODispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -47,6 +48,7 @@ fun ContributorCoverImage(
     imagePath: String?,
     contentDescription: String?,
     modifier: Modifier = Modifier,
+    heroKey: Any? = null,
     stagingImagePath: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
@@ -59,7 +61,7 @@ fun ContributorCoverImage(
         AsyncImage(
             model = ImageRequest.Builder(context).data(stagingImagePath).build(),
             contentDescription = contentDescription,
-            modifier = modifier,
+            modifier = modifier.heroElement(heroKey),
             contentScale = contentScale,
             onState = onState,
         )
@@ -140,7 +142,7 @@ fun ContributorCoverImage(
         AsyncImage(
             model = it,
             contentDescription = contentDescription,
-            modifier = modifier,
+            modifier = modifier.heroElement(heroKey),
             contentScale = contentScale,
             onState = onState,
         )

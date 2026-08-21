@@ -18,6 +18,7 @@ import coil3.network.httpHeaders
 import coil3.request.ImageRequest
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageRepository
+import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.util.bookCoverCacheKey
 import com.calypsan.listenup.core.BookId
@@ -38,6 +39,10 @@ private val logger = KotlinLogging.logger {}
  * When no cover can be resolved (or it fails to load) and [title] is provided, the gradient
  * [BookCoverFallback] is shown instead of a blank surface. When [title] is null the behavior is
  * unchanged: the cover renders, or nothing does.
+ *
+ * Passing a [heroKey] enrols the cover in a shared-element transition with the matching cover on
+ * the destination screen; see `bookCoverHeroKey`. It is inert outside the navigation graph, which
+ * is why the now-playing bar and search overlay can keep calling this unchanged.
  */
 @Composable
 fun BookCoverImage(
@@ -48,6 +53,7 @@ fun BookCoverImage(
     author: String? = null,
     modifier: Modifier = Modifier,
     coverHash: String? = null,
+    heroKey: Any? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
 ) {
@@ -55,7 +61,7 @@ fun BookCoverImage(
 
     var showFallback by remember(bookId, coverPath) { mutableStateOf(false) }
 
-    Box(modifier = modifier) {
+    Box(modifier = modifier.heroElement(heroKey)) {
         // Bottom layer: gradient placeholder when there's no image to show or it failed to load.
         if (title != null && (imageRequest == null || showFallback)) {
             BookCoverFallback(

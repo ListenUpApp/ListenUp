@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.navigation.entries
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.calypsan.listenup.client.design.transitions.HeroEntry
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.ContributorBooks
 import com.calypsan.listenup.client.navigation.ContributorDetail
@@ -13,24 +14,26 @@ import com.calypsan.listenup.client.navigation.ContributorMetadataSearch
 /** Contributor navigation entries. */
 internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackStack<NavKey>) {
     entry<ContributorDetail> { args ->
-        com.calypsan.listenup.client.features.contributordetail.ContributorDetailScreen(
-            contributorId = args.contributorId,
-            onBackClick = {
-                backStack.removeAt(backStack.lastIndex)
-            },
-            onBookClick = { bookId ->
-                backStack.add(BookDetail(bookId))
-            },
-            onEditClick = { contributorId ->
-                backStack.add(ContributorEdit(contributorId))
-            },
-            onViewAllClick = { contributorId, role ->
-                backStack.add(ContributorBooks(contributorId, role))
-            },
-            onMetadataClick = { contributorId ->
-                backStack.add(ContributorMetadataSearch(contributorId))
-            },
-        )
+        HeroEntry {
+            com.calypsan.listenup.client.features.contributordetail.ContributorDetailScreen(
+                contributorId = args.contributorId,
+                onBackClick = {
+                    backStack.removeAt(backStack.lastIndex)
+                },
+                onBookClick = { bookId ->
+                    backStack.add(BookDetail(bookId))
+                },
+                onEditClick = { contributorId ->
+                    backStack.add(ContributorEdit(contributorId))
+                },
+                onViewAllClick = { contributorId, role ->
+                    backStack.add(ContributorBooks(contributorId, role))
+                },
+                onMetadataClick = { contributorId ->
+                    backStack.add(ContributorMetadataSearch(contributorId))
+                },
+            )
+        }
     }
     entry<ContributorEdit> { args ->
         com.calypsan.listenup.client.features.contributoredit.ContributorEditScreen(

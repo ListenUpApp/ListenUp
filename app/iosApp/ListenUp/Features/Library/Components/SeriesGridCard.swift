@@ -17,6 +17,7 @@ struct SeriesGridCard: View {
         NavigationLink(value: SeriesDestination(id: series.id)) {
             VStack(alignment: .leading, spacing: 16) {
                 CoverStack(covers: series.covers, size: 112, peek: 26, maxCovers: 5)
+                    .heroSource(seriesHeroID(series.id))
                     .frame(maxWidth: .infinity, alignment: .center)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(series.name).font(.headline).foregroundStyle(.primary).lineLimit(1)

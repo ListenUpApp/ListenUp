@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.components.BookCoverModel
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.ProgressOverlay
@@ -387,6 +388,7 @@ private fun BookCardCover(
                 contentDescription = contentDescription,
                 title = title,
                 author = author,
+                heroKey = bookCoverHeroKey(bookId),
                 modifier = Modifier.matchParentSize(),
             )
 

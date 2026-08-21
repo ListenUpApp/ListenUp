@@ -29,6 +29,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.FannedDeck
+import com.calypsan.listenup.client.design.transitions.heroElement
+import com.calypsan.listenup.client.design.transitions.seriesHeroKey
 import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 
@@ -105,7 +107,14 @@ fun SeriesCard(
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             contentAlignment = Alignment.Center,
         ) {
-            FannedDeck(covers = deckCovers, size = 104.dp, peek = 24.dp, max = 5, animate = true)
+            FannedDeck(
+                covers = deckCovers,
+                modifier = Modifier.heroElement(seriesHeroKey(series.id.value)),
+                size = 104.dp,
+                peek = 24.dp,
+                max = 5,
+                animate = true,
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))

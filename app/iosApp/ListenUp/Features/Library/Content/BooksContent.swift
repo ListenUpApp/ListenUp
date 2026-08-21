@@ -207,7 +207,9 @@ struct BooksContent: View {
             // native long-press → context menu → "Select", which iOS arbitrates against the link's
             // own tap so the two never double-fire. (The old `.simultaneousGesture(LongPressGesture)`
             // let a long-press *and* the link's tap-on-release both fire, so releasing navigated.)
-            NavigationLink(value: BookDestination(id: book.id)) { card }
+            NavigationLink(value: BookDestination(id: book.id)) {
+                card.heroSource(bookCoverHeroID(book.id))
+            }
                 .buttonStyle(.plain)
                 .contextMenu {
                     Button(String(localized: "common.select"), systemImage: "checkmark.circle") {

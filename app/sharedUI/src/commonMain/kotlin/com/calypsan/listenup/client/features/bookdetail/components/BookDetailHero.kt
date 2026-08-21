@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.ElevatedCoverCard
+import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.components.ProgressOverlay
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
@@ -115,6 +116,7 @@ fun CompactHero(
             contentDescription = title,
             title = title,
             author = authors.firstOrNull()?.name.orEmpty(),
+            heroKey = bookCoverHeroKey(bookId),
             modifier = Modifier.size(200.dp),
         ) {
             progress?.let { prog ->
@@ -317,6 +319,7 @@ fun WideHeroBand(
                     contentDescription = title,
                     title = title,
                     author = authors.firstOrNull()?.name.orEmpty(),
+                    heroKey = bookCoverHeroKey(bookId),
                     modifier = Modifier.size(240.dp),
                 ) {
                     progress?.let { prog ->

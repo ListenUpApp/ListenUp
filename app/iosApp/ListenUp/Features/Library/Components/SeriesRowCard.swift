@@ -17,6 +17,7 @@ struct SeriesRowCard: View {
         NavigationLink(value: SeriesDestination(id: series.id)) {
             HStack(spacing: 16) {
                 CoverStack(covers: series.covers, size: 76, peek: 17)
+                    .heroSource(seriesHeroID(series.id))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(series.name)
                         .font(.body.weight(.semibold))
