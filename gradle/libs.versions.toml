@@ -57,7 +57,7 @@ concurrent-futures = "1.3.0"
 markdown-renderer = "0.44.0"
 aboutlibraries = "15.0.4"
 google-services = "4.5.0"
-firebase-messaging = "25.1.1"
+firebase-messaging = "25.1.2"
 
 # Desktop
 logback = "1.6.3"
@@ -141,8 +141,6 @@ ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", 
 ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 ktor-client-auth = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
 ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
-# Ktor Resources — @Resource REST-route annotation (used by :server routes/resources)
-ktor-resources = { module = "io.ktor:ktor-resources", version.ref = "ktor" }
 # Ktor IO — multiplatform io.ktor.utils.io.* (ByteReadChannel, etc.)
 ktor-io = { module = "io.ktor:ktor-io", version.ref = "ktor" }
 # Ktor server (core)
@@ -242,7 +240,6 @@ coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.r
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 media3-datasource-okhttp = { module = "androidx.media3:media3-datasource-okhttp", version.ref = "media3" }
 media3-cast = { module = "androidx.media3:media3-cast", version.ref = "media3" }
 # Async/Future support for Media3 callbacks
@@ -277,7 +274,6 @@ androidLibrary = { id = "com.android.library", version.ref = "agp" }
 androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 androidTest = { id = "com.android.test", version.ref = "agp" }
 androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "androidx-baselineprofile" }
-kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 androidx-room = { id = "androidx.room3", version.ref = "room" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
