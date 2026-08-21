@@ -24,6 +24,8 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
+import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.web.features.nowplaying.TransportState
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
@@ -218,6 +220,17 @@ class ClassContractTest :
                             )
                         }
                         AccountMenu(onSignOut = {})
+                        TransportBar(
+                            state =
+                                TransportState(
+                                    title = "The Institute",
+                                    isPlaying = true,
+                                    positionMs = 61_000,
+                                    durationMs = 3_600_000,
+                                ),
+                            onPlayPause = {},
+                            onSeek = {},
+                        )
                     }
                 }
 

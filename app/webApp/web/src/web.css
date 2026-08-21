@@ -466,6 +466,21 @@ body { margin: 0; }
    without it a grid or heading sits flush against the sidebar and the top of the window. */
 .shell-main { flex:1; min-width:0; overflow:auto; padding:24px 28px; }
 
+/* ---- transport bar — the player docked under whatever page is showing.
+   Sticky rather than fixed: it belongs to the content region, so it never
+   overlaps the sidebar and never needs a width computed from it. It renders
+   only when a book is loaded, which is why nothing here reserves space. */
+.tport { position:sticky; bottom:0; z-index:5; display:flex; align-items:center; gap:14px; margin:24px -28px -24px; padding:0 22px; height:64px; background:var(--surface); border-top:1px solid var(--line); box-shadow:0 -10px 30px rgba(20,12,6,.06); }
+.tport-b { width:40px; height:40px; flex:none; border:none; border-radius:50%; cursor:pointer; background:var(--coral); color:var(--on-coral); display:inline-flex; align-items:center; justify-content:center; }
+.tport-b:hover { background:var(--coral-press); }
+.tport-t { font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:none; }
+.tport-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
+.tport-scrub { flex:1; min-width:60px; height:4px; margin:0; accent-color:var(--coral); cursor:pointer; }
+@media (max-width: 759px) {
+  .tport { margin:16px -14px -28px; padding:0 12px; gap:10px; }
+  .tport-t { display:none; }
+}
+
 /* The rail form. ONE mechanism, two triggers: the manual .clpsd class (>=1280 preference)
    and the narrow-viewport media query below, which forces it. Keep the two blocks identical. */
 .sidebar.clpsd { width:76px; padding:16px 14px; align-items:center; }
@@ -489,6 +504,8 @@ body { margin: 0; }
 .bd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
 .bd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
 .bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
+/* One action, deliberately: a browser cannot finish a download, so Play stands alone. */
+.bd-actions { display:flex; gap:10px; margin-top:4px; }
 .bd-cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:var(--colgap); align-items:start; }
 .bd-main, .bd-side { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
 /* the chapter map — the book as a strip; segment width is proportional to duration */

@@ -32,6 +32,12 @@ import org.jetbrains.compose.web.dom.Text
  *
  * The pane is URL state (`?tab=…`), reported through [onSelectTab] so the caller can `replace`
  * the history entry: Back leaves the page, not the pane.
+ *
+ * There is a Play control and there is deliberately NO Download one. `BookDetailUiState.Ready`
+ * carries `canDownload`, and it turns true on the web the moment playback becomes available — but
+ * a browser cannot finish a download (`NoDownloadsService.supportsDownloads` is false), so
+ * rendering that affordance would put a button on the page whose only possible outcome is nothing
+ * happening.
  */
 @Composable
 fun BookDetailPage(
@@ -41,6 +47,7 @@ fun BookDetailPage(
     onOpenLibrary: () -> Unit,
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
+    onPlay: () -> Unit = {},
 ) {
     Div(attrs = { classes("bd") }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that
@@ -68,7 +75,7 @@ fun BookDetailPage(
             }
 
             is BookDetailUiState.Ready -> {
-                BookHeader(state)
+                BookHeader(state, onPlay)
 
                 Tabs(
                     items =
@@ -110,7 +117,10 @@ fun BookDetailPage(
 }
 
 @Composable
-private fun BookHeader(state: BookDetailUiState.Ready) {
+private fun BookHeader(
+    state: BookDetailUiState.Ready,
+    onPlay: () -> Unit,
+) {
     Div(attrs = { classes("bd-head") }) {
         Cover(title = state.book.title, size = COVER_SIZE, radius = COVER_RADIUS)
         Div(attrs = { classes("bd-tblock") }) {
@@ -123,6 +133,20 @@ private fun BookHeader(state: BookDetailUiState.Ready) {
                     percent = (fraction * PERCENT).toInt(),
                     remaining = state.timeRemainingFormatted.orEmpty(),
                 )
+            }
+            // `canPlay` is the ViewModel's word on whether this book has anything to play at all.
+            // A Play button on a book with no audio is a promise the page cannot keep.
+            if (state.canPlay) {
+                Div(attrs = { classes("bd-actions") }) {
+                    Button(attrs = {
+                        classes("btn-c")
+                        attr("type", "button")
+                        onClick { onPlay() }
+                    }) {
+                        Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
+                        Text(if (state.progress != null) "Resume" else "Play")
+                    }
+                }
             }
         }
     }
@@ -251,3 +275,5 @@ private const val COVER_SIZE = 180
 private const val COVER_RADIUS = 16
 
 private const val ICON_SIZE = 24
+
+private const val PLAY_ICON_SIZE = 16
