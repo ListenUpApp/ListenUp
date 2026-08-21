@@ -2,6 +2,7 @@ package com.calypsan.listenup.web.features.nowplaying
 
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.playback.PlaybackState
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.web.playback.HtmlAudioPlayer
@@ -9,12 +10,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.koin.core.Koin
@@ -28,9 +31,11 @@ import org.koin.core.Koin
  */
 class PlaybackSession(
     val state: StateFlow<TransportState?>,
+    val error: StateFlow<String?>,
     val onPlayPause: () -> Unit,
     val onSeek: (Long) -> Unit,
     val onPlayBook: (BookId) -> Unit,
+    val onDismissError: () -> Unit,
     val close: () -> Unit,
 )
 
@@ -61,8 +66,21 @@ fun graphPlayback(koin: Koin): OpenPlayback =
  * render a real, dead Play button and compile clean. Making every caller name its source turns
  * that into a compile error.
  */
-fun fixedPlayback(state: TransportState? = null): OpenPlayback =
-    { PlaybackSession(MutableStateFlow(state), {}, {}, {}, {}) }
+fun fixedPlayback(
+    state: TransportState? = null,
+    error: String? = null,
+): OpenPlayback =
+    {
+        PlaybackSession(
+            state = MutableStateFlow(state),
+            error = MutableStateFlow(error),
+            onPlayPause = {},
+            onSeek = {},
+            onPlayBook = {},
+            onDismissError = {},
+            close = {},
+        )
+    }
 
 /**
  * Everything the transport bar needs, over the real player.
@@ -106,6 +124,30 @@ internal class LivePlayback(
 
     private var preparingJob: Job? = null
 
+    /**
+     * Which [playBook] call currently owns the primed intent.
+     *
+     * A monotonic counter rather than the book id, because the id is not unique over time: an
+     * A → B → A burst of taps can leave job A's deferred `finally` running while the window names
+     * `A` again — the third tap's window — and an id comparison would then withdraw the *new*
+     * prime. A generation is only ever equal to itself.
+     */
+    private var playGeneration: Int = 0
+
+    /**
+     * What went wrong, in words the listener can read, or null.
+     *
+     * [PlaybackManager.playbackError] is the one place both kinds of failure land: everything
+     * [PlaybackManager.reportError] is told about (a prepare that returned nothing or threw), and
+     * the player's own [PlaybackState.Error] — a codec the browser cannot decode, a dropped
+     * connection, a fatal hls.js teardown — which `PlaybackManagerImpl` folds into the same flow
+     * while it observes the player. Reading anywhere else would catch one half and miss the other.
+     */
+    val error: StateFlow<String?> =
+        playbackManager.playbackError
+            .map { it?.message }
+            .stateIn(scope, SharingStarted.Eagerly, playbackManager.playbackError.value?.message)
+
     val state: StateFlow<TransportState?> =
         combine(
             playbackManager.currentBookId,
@@ -144,14 +186,15 @@ internal class LivePlayback(
      * scoped to this call, and [HtmlAudioPlayer] is a Koin singleton that outlives every session —
      * so a prepare that fails, throws, or is cancelled must take the instruction back, or the next
      * book to reach `load()` for any reason at all starts playing on the strength of a tap that
-     * went nowhere. The `finally` does that for every exit that did not reach
-     * [PlaybackController.startPlayback], cancellation included.
+     * went nowhere. The `finally` does that for every exit that did not *complete*
+     * [PlaybackController.startPlayback] — `reachedPlayback` is set only after it returns — with
+     * cancellation and a throwing prepare both unwinding through it.
      *
-     * Both halves of the `finally` are guarded by the same ownership check for the same reason
-     * `NowPlayingViewModel.playBook` guards its own: when a tap for a *different* book supersedes
-     * this one, the cancelled job's `finally` runs *after* the new job has primed and marked. An
-     * unguarded withdrawal there would cancel the new book's intent and leave it silent — trading
-     * this bug for a subtler copy of it.
+     * Both halves of the `finally` are guarded by the same [playGeneration] check for the same
+     * reason `NowPlayingViewModel.playBook` guards its own `finally`: when a tap for a *different*
+     * book supersedes this one, the cancelled job's `finally` runs *after* the new job has primed.
+     * An unguarded withdrawal there would cancel the new book's intent and leave it silent —
+     * trading this bug for a subtler copy of it.
      *
      * [CoroutineStart.UNDISPATCHED] is what makes that `finally` reachable at all. A coroutine
      * cancelled before its first dispatch never enters its `try`, so a plain `launch` here loses
@@ -163,7 +206,23 @@ internal class LivePlayback(
      */
     fun playBook(bookId: BookId) {
         if (playbackManager.preparingBookId.value == bookId) return
+        // Asking to play the book that is already loaded is a resume, never a restart. Falling
+        // through would prime — which unloads the audio mid-sentence, tears down hls.js and
+        // re-runs the whole prepare — only to resume from the *persisted* position, written every
+        // ten seconds. A tap on Resume would cost a drop-out and up to ten seconds of rewind.
+        if (playbackManager.currentBookId.value == bookId &&
+            playbackManager.playbackState.value != PlaybackState.Idle
+        ) {
+            playbackManager.clearError()
+            // Unconditional, deliberately not gated on `isPlaying`: that flow is mirrored from the
+            // player one dispatch behind, so a gate would sometimes read stale and drop the resume
+            // entirely. `play()` on an element that is already playing is a no-op, which is the
+            // right answer for a Play button pressed on the book it names.
+            playbackController.play()
+            return
+        }
         preparingJob?.cancel()
+        val generation = ++playGeneration
         playbackManager.markPreparing(bookId)
         playbackManager.clearError()
         audioPlayer.primeForPlayback()
@@ -178,23 +237,32 @@ internal class LivePlayback(
                 try {
                     val result = playbackManager.prepareForPlayback(bookId)
                     if (result == null) {
-                        playbackManager.reportError(
-                            "Couldn't start this book. Check your connection and try again.",
-                            isRecoverable = true,
-                        )
+                        playbackManager.reportError(PREPARE_FAILED, isRecoverable = true)
                         return@launch
                     }
                     title.value = result.bookTitle
                     playbackManager.activateBook(bookId)
                     playbackController.startPlayback(result)
                     reachedPlayback = true
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Without this the listener gets nothing at all: the handler on [scope] turns
+                    // an escaping failure into a console line, which is not a place anyone looks.
+                    playbackManager.reportError(PREPARE_FAILED, isRecoverable = true)
+                    throw e
                 } finally {
-                    if (playbackManager.preparingBookId.value == bookId) {
+                    if (generation == playGeneration) {
                         if (!reachedPlayback) audioPlayer.pause()
                         playbackManager.clearPreparing()
                     }
                 }
             }
+    }
+
+    /** Clear a reported failure once the listener has seen it. */
+    fun dismissError() {
+        playbackManager.clearError()
     }
 
     /** Resume or pause what is loaded — synchronous, so the `play()` lands inside the click. */
@@ -218,16 +286,46 @@ internal class LivePlayback(
         playbackManager.updatePosition(positionMs)
     }
 
+    /**
+     * End the listening session: stop the audio, then stop observing it.
+     *
+     * [HtmlAudioPlayer.releasePlayer] rather than [HtmlAudioPlayer.pause], because the only thing
+     * that closes a session is the shell unmounting — a sign-out, or any other flip off
+     * `AuthState.Authenticated`. Pausing would leave a signed-out browser holding a live hls.js
+     * instance, still fetching segments with the previous user's signed URLs, for the life of the
+     * tab. Release is not terminal (`load()` revives the player), so the next sign-in gets a clean
+     * one rather than a torn-down one.
+     *
+     * Nothing else covers this. `LogoutUseCase` reaches `PlaybackManagerImpl.clearPlayback()`,
+     * which only zeroes the manager's own flows; [PlaybackController.releasePlayer] is a
+     * documented no-op on web; and the Koin `onClose` hook fires at graph teardown, which a
+     * sign-out is not. Without this the book keeps narrating over the login screen, with no
+     * transport bar left to stop it.
+     */
     fun close() {
+        audioPlayer.releasePlayer()
+        playbackManager.clearPlayback()
         scope.cancel()
     }
 
     fun asSession(): PlaybackSession =
         PlaybackSession(
             state = state,
+            error = error,
             onPlayPause = ::playPause,
             onSeek = ::seek,
             onPlayBook = ::playBook,
+            onDismissError = ::dismissError,
             close = ::close,
         )
 }
+
+/**
+ * What the listener is told when a book will not start.
+ *
+ * One string for both the "prepare returned nothing" and "prepare threw" paths: from where the
+ * listener sits they are the same event, and `PlaybackPreparer` already folds every underlying
+ * cause to `null` before either reaches here, so a more specific message would be invented rather
+ * than reported.
+ */
+private const val PREPARE_FAILED = "Couldn't start this book. Check your connection and try again."

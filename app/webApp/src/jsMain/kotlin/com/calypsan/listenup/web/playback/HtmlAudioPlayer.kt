@@ -128,11 +128,21 @@ internal class HtmlAudioPlayer : AudioPlayer {
      *
      * That makes it a *standing instruction* rather than per-call state — set here, consumed by
      * some later [load] — and this player cannot tell on its own whether the instruction is still
-     * wanted. Nothing clears it but [pause] and [releasePlayer], so **whoever primes owns
-     * withdrawing it on every path that does not reach playback**. `LivePlayback.playBook`'s
-     * `finally` is that owner, and it is the only caller of [primeForPlayback]; a second caller
-     * arriving without the same discipline would leave a stale instruction on this singleton for
-     * the life of the tab. `TransportBarTest` pins the throw and cancellation cases.
+     * wanted.
+     *
+     * Only two things SET it: [play], where the audio is already loaded and starts in the same
+     * call, and [primeForPlayback], where it outlives the call by an RPC round-trip. So
+     * [primeForPlayback] is the only way it can go stale, and **whoever primes owns withdrawing it
+     * on every path that does not reach playback**. `LivePlayback.playBook`'s `finally` is that
+     * owner and the only caller; a second caller arriving without the same discipline would leave
+     * a stale instruction on this singleton for the life of the tab. `TransportBarTest` pins the
+     * throw and cancellation cases.
+     *
+     * Several things CLEAR it, and every one of them marks a point where the listener's request is
+     * genuinely over: [pause] and [releasePlayer], [forgetContent] (so [primeForPlayback] itself
+     * and a `load(emptyList())` do too), [onPlayRejected] when the browser refuses, and
+     * [onSegmentEnded] at the end of the last segment. None of them can strand it set, which is
+     * why the ownership rule above is stated over the setters.
      */
     private var resumeOnReady: Boolean = false
 
@@ -199,8 +209,9 @@ internal class HtmlAudioPlayer : AudioPlayer {
      *
      * [PlaybackState.Buffering] is published rather than left stale for the same reason [attach]
      * publishes it: the honest report between "you asked" and "it is playing" is that the book is
-     * on its way. A prepare that fails withdraws the intent via [pause] and reports the failure —
-     * see `LivePlayback.playBook`.
+     * on its way. A prepare that does not complete withdraws the intent via [pause] — see
+     * `LivePlayback.playBook`, which owns that and is also what turns the failure into something
+     * the listener can read.
      */
     internal fun primeForPlayback() {
         released = false
@@ -264,6 +275,16 @@ internal class HtmlAudioPlayer : AudioPlayer {
     /** Reads back what [setVolume] wrote — the read half of that seam, for tests to observe. */
     internal val volume: Double
         get() = element.volume
+
+    /**
+     * Whether the underlying element is actually stopped.
+     *
+     * Separate from [state] on purpose: [state] is this player's *report*, and the failure worth
+     * asserting against — a session that tore itself down while the audio kept going — is exactly
+     * the one where the report and the element disagree. Only the element can answer that.
+     */
+    internal val isPaused: Boolean
+        get() = element.paused
 
     /**
      * Return to the resting state: nothing loaded, nothing playing, every published value zeroed.
