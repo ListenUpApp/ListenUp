@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 /**
  * A [PlaybackManager] that prepares one real, decodable segment and bridges the player's flows
@@ -116,6 +117,12 @@ private class FakePlaybackManager(
     }
 
     override suspend fun prepareForPlayback(bookId: BookId): PlaybackManager.PrepareResult {
+        // A real prepare is an RPC round-trip, so it always suspends. Without this the fake returns
+        // inline — and because `LivePlayback.playBook` launches UNDISPATCHED, the whole
+        // prepare -> activate -> load chain would run to completion *before* `playBook` returns.
+        // A spec asserting on state "while the prepare is in flight" would then silently read the
+        // finished state instead, which is how the no-restart spec passed with its own fix deleted.
+        yield()
         when (prepare) {
             PrepareOutcome.SUCCEEDS -> Unit
 
