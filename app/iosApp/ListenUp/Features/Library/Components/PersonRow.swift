@@ -27,6 +27,7 @@ struct PersonRow: View {
                     streamsContributorPhoto: true
                 )
                 .frame(width: 50, height: 50)
+                .heroSource(contributorHeroID(contributor.id))
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text(name)
