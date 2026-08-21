@@ -317,9 +317,17 @@ class SyncDomainCompletenessSpec :
                     )
                 val gated = catalog.mirrored.filter { it.accessGate != null }
 
-                // The five access-gated domains — the same set AccessGateParitySpec pins to the server.
+                // The access-gated domains — the same set AccessGateParitySpec pins to the server.
                 gated.map { it.key.name }.toSet() shouldBe
-                    setOf("books", "activities", "collections", "collection_books", "collection_shares")
+                    setOf(
+                        "books",
+                        "activities",
+                        "collections",
+                        "collection_books",
+                        "collection_shares",
+                        "book_tags",
+                        "book_moods",
+                    )
 
                 // The Targeted domains, in their declared dependency order. Changing an order or moving a
                 // domain between Targeted and LiveTailOnly is a product decision — update this spec
@@ -330,7 +338,7 @@ class SyncDomainCompletenessSpec :
                         (domain.accessGate!!.delta as? AccessDeltaPolicy.Targeted)?.let { domain.key.name to it.order }
                     }.sortedBy { it.second }
                     .map { it.first } shouldBe
-                    listOf("collections", "collection_books", "books", "activities")
+                    listOf("collections", "collection_books", "books", "activities", "book_tags", "book_moods")
 
                 // The one LiveTailOnly domain — deliberately NOT fetched in the delta.
                 gated

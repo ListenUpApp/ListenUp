@@ -66,7 +66,7 @@ class TagServiceImplReadAccessTest :
                     seriesRepository = SeriesRepository(sql, bus, registry),
                     genreRepository = GenreRepository(sql, bus, registry),
                 )
-            val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+            val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
             val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
             return TagReadAccessFixture(
                 service =

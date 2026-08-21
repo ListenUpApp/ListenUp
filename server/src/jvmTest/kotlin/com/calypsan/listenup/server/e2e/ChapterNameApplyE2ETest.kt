@@ -186,7 +186,7 @@ private fun wire(
                         CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), 10L * 1024 * 1024)),
                     imageHome = Path(tempDir.toString()),
                 ),
-            enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, registry),
+            enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, bus, registry),
             permissionPolicy = UserPermissionPolicy(dbs.sql),
             sqlDb = dbs.sql,
             genreRepository = genreRepo,

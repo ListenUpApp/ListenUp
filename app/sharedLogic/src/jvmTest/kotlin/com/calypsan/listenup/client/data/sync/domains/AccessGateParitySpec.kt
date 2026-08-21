@@ -39,7 +39,17 @@ class AccessGateParitySpec :
             // catalog gutted to empty (which would make the parity check vacuously green).
             withClue("server ACCESS_FILTERS no longer declares the expected per-row gates") {
                 serverPerRowGated shouldBe
-                    setOf("books", "activities", "collections", "collection_shares", "collection_books")
+                    setOf(
+                        "books",
+                        "activities",
+                        "collections",
+                        "collection_shares",
+                        "collection_books",
+                        // Junction rows are `(bookId, tagId)` / `(bookId, moodId)` — an ungated one
+                        // names a book the member cannot see and classifies it.
+                        "book_tags",
+                        "book_moods",
+                    )
             }
 
             val db = createInMemoryTestDatabase()

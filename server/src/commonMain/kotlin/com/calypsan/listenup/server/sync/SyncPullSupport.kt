@@ -26,7 +26,7 @@ internal const val MAX_TARGETED_IDS = 100
 // input — and matching BOOK_ID against a domain WITHOUT a `book_id` column would be a SQL error —
 // so a request naming any other domain fails with SyncError.UnsupportedMatch rather than querying
 // a phantom column.
-internal val BOOK_ID_MATCH_DOMAINS = setOf(ACTIVITIES_DOMAIN)
+internal val BOOK_ID_MATCH_DOMAINS = setOf(ACTIVITIES_DOMAIN, BOOK_TAGS_DOMAIN, BOOK_MOODS_DOMAIN)
 
 // Domains whose rows carry a `collection_id` column, so [TargetedMatch.COLLECTION_ID] (the
 // collection-membership half of the scoped AccessChanged delta) can match on it — the sibling
@@ -118,6 +118,10 @@ internal val ACCESS_FILTERS: Map<String, AccessFilterSpec> =
             AccessFilterSpec.PerRow { policy, userId, role -> policy.visibleCollectionGrantIdsSql(userId, role) },
         COLLECTION_BOOKS_DOMAIN to
             AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleCollectionBookIdsSql(userId, role) },
+        BOOK_TAGS_DOMAIN to
+            AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleBookTagIdsSql(userId, role) },
+        BOOK_MOODS_DOMAIN to
+            AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleBookMoodIdsSql(userId, role) },
         LIBRARY_FOLDERS_DOMAIN to AccessFilterSpec.RoleGatedHide(LIBRARY_FOLDERS_HIDDEN),
         ADMIN_USER_ROSTER_DOMAIN to AccessFilterSpec.RoleGatedHide(ADMIN_USER_ROSTER_HIDDEN),
     )

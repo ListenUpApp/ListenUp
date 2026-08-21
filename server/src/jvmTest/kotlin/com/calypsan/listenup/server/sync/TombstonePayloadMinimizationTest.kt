@@ -363,7 +363,7 @@ class TombstonePayloadMinimizationTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
                 runTest {
                     tagRepo.upsert(Tag(id = "some-tag", name = "Sci-Fi", slug = "sci-fi", revision = 0L, updatedAt = 0L))
                     bookTagRepo.upsert(
@@ -397,7 +397,7 @@ class TombstonePayloadMinimizationTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
                 runTest {
                     moodRepo.upsert(Mood(id = "some-mood", name = "Feel-Good", slug = "feel-good", revision = 0L, updatedAt = 0L))
                     bookMoodRepo.upsert(

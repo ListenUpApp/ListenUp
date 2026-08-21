@@ -268,7 +268,8 @@ class SyncReconcilerTest :
 
 /**
  * Fake handler that is BOTH a [SyncDomainHandler] and an [AccessFilteredSyncHandler] — the shape of
- * the four access-gated domains (books + the three collection domains). Records every [pruneTo]
+ * the access-gated domains (books, activities, the three collection domains, and the two
+ * book-junction domains). Records every [pruneTo]
  * call's accessible set so the test can assert the reconciler routed drift through the prune path.
  */
 private fun accessGatedHandler(

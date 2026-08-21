@@ -66,7 +66,7 @@ class MoodServiceImplReadAccessTest :
                     seriesRepository = SeriesRepository(sql, bus, registry),
                     genreRepository = GenreRepository(sql, bus, registry),
                 )
-            val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+            val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
             val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
             return MoodReadAccessFixture(
                 service =

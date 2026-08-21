@@ -42,7 +42,7 @@ class MoodServiceImplTest :
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-            val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+            val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
             return MoodServiceImpl(
                 moodRepository = moodRepo,
                 bookMoodRepository = bookMoodRepo,

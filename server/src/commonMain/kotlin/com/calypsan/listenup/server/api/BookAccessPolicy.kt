@@ -80,21 +80,73 @@ class BookAccessPolicy(
         role: UserRole,
     ): SqlFragment? {
         if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
+        return SqlFragment(sql = accessibleBookIdsSubquery, args = listOf(userId, userId))
+    }
+
+    /**
+     * Visible-book-id rows for a member, as a bindable subquery.
+     *
+     * Extracted so [accessibleBookIdsSql] and the book-junction fragments
+     * ([accessibleBookTagIdsSql], [accessibleBookMoodIdsSql]) share ONE definition of the rule.
+     * A junction domain that restated it would be a second place for the boundary to drift, which
+     * is the exact failure this class exists to prevent — and the failure that let tag and mood
+     * rows leak in the first place.
+     *
+     * Takes two `?` binds, both the user id (owner check, then grant check).
+     */
+    private val accessibleBookIdsSubquery: String =
+        """
+        SELECT b2.id FROM books b2
+        WHERE b2.deleted_at IS NULL AND EXISTS (
+          SELECT 1 FROM collection_books cb
+          JOIN collections c ON c.id = cb.collection_id AND c.deleted_at IS NULL
+          WHERE cb.book_id = b2.id AND cb.deleted_at IS NULL AND (
+            c.owner_id = ?
+            OR EXISTS (
+              SELECT 1 FROM collection_grants g
+              WHERE g.collection_id = c.id AND g.principal_type = 'USER'
+                AND g.principal_id = ? AND g.deleted_at IS NULL
+            )
+          )
+        )
+        """.trimIndent()
+
+    /**
+     * Visible `book_tags` junction-row ids for `(userId, role)`, or null for ROOT/ADMIN.
+     *
+     * A junction row carries `(bookId, tagId)` — precisely the pair
+     * [com.calypsan.listenup.server.sync.BookTagRepository.minimizeTombstone] strips from
+     * tombstones, because "a member who never had access to bookId would otherwise learn the
+     * association from the tombstone alone". Until this fragment existed, the LIVE row leaked that
+     * same pair first, which made the tombstone protection moot.
+     */
+    fun accessibleBookTagIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? = junctionIdsSql("book_tags", userId, role)
+
+    /** Visible `book_moods` junction-row ids — see [accessibleBookTagIdsSql]. */
+    fun accessibleBookMoodIdsSql(
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? = junctionIdsSql("book_moods", userId, role)
+
+    /**
+     * Shared shape for a book-keyed junction table: its row is visible iff its book is.
+     *
+     * [table] is a compile-time constant supplied by this class only — never caller input — so the
+     * interpolation cannot carry untrusted text. The user ids still bind as parameters.
+     */
+    private fun junctionIdsSql(
+        table: String,
+        userId: String,
+        role: UserRole,
+    ): SqlFragment? {
+        if (role == UserRole.ROOT || role == UserRole.ADMIN) return null
         val sql =
             """
-            SELECT b2.id FROM books b2
-            WHERE b2.deleted_at IS NULL AND EXISTS (
-              SELECT 1 FROM collection_books cb
-              JOIN collections c ON c.id = cb.collection_id AND c.deleted_at IS NULL
-              WHERE cb.book_id = b2.id AND cb.deleted_at IS NULL AND (
-                c.owner_id = ?
-                OR EXISTS (
-                  SELECT 1 FROM collection_grants g
-                  WHERE g.collection_id = c.id AND g.principal_type = 'USER'
-                    AND g.principal_id = ? AND g.deleted_at IS NULL
-                )
-              )
-            )
+            SELECT j.id FROM $table j
+            WHERE j.book_id IN ($accessibleBookIdsSubquery)
             """.trimIndent()
         return SqlFragment(sql = sql, args = listOf(userId, userId))
     }

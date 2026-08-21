@@ -21,6 +21,7 @@ import kotlin.time.Clock
  */
 internal fun testEnrichmentDeps(
     sql: ListenUpDatabase,
+    driver: app.cash.sqldelight.db.SqlDriver,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
@@ -30,12 +31,12 @@ internal fun testEnrichmentDeps(
             BookMoodWriter(
                 clock = clock,
                 moodRepository = MoodRepository(sql, bus, registry),
-                bookMoodRepository = BookMoodRepository(sql, bus, registry),
+                bookMoodRepository = BookMoodRepository(sql, bus, registry, driver = driver),
             ),
         bookTagWriter =
             BookTagWriter(
                 clock = clock,
                 tagRepository = TagRepository(sql, bus, registry),
-                bookTagRepository = BookTagRepository(sql, bus, registry),
+                bookTagRepository = BookTagRepository(sql, bus, registry, driver = driver),
             ),
     )

@@ -306,7 +306,7 @@ class DigestParityE2ETest :
             val serverDriver =
                 DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).sqlDriver
             val serverSqlDb = ServerSqlDatabase(serverDriver)
-            val bookTagRepo = BookTagRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
+            val bookTagRepo = BookTagRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry(), driver = serverDriver)
 
             val clientDb = createInMemoryTestDatabase()
             try {

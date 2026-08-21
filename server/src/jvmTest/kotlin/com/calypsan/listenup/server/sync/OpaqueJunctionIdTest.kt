@@ -82,7 +82,7 @@ class OpaqueJunctionIdTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     tagRepo.upsert(Tag(id = "tag-1", name = "Sci-Fi", slug = "sci-fi", revision = 0L, updatedAt = 0L))
@@ -112,7 +112,7 @@ class OpaqueJunctionIdTest :
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val moodRepo = MoodRepository(db = sql, bus = bus, registry = registry)
-                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry)
+                val bookMoodRepo = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
                 runTest {
                     moodRepo.upsert(Mood(id = "mood-1", name = "Feel-Good", slug = "feel-good", revision = 0L, updatedAt = 0L))

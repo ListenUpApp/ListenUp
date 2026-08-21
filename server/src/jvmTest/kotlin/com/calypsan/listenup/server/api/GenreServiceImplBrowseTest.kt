@@ -44,7 +44,7 @@ class GenreServiceImplBrowseTest :
             val genreRepo = GenreRepository(db.sql, bus, registry, fixedClock)
             val contributorRepo = ContributorRepository(db.sql, bus, registry)
             val seriesRepo = SeriesRepository(db.sql, bus, registry)
-            val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry)
+            val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = registry, driver = db.driver)
             val tagRepo = TagRepository(db = db.sql, bus = bus, registry = registry)
             val bookRepo =
                 BookRepository(

@@ -369,7 +369,7 @@ private fun buildService(
                 coverImageStore = coverImageStore,
                 imageHome = Path(tempDir),
             ),
-        enrichmentDeps = testEnrichmentDeps(dbs.sql, ChangeBus(), SyncRegistry()),
+        enrichmentDeps = testEnrichmentDeps(dbs.sql, dbs.driver, ChangeBus(), SyncRegistry()),
         permissionPolicy = UserPermissionPolicy(dbs.sql),
         sqlDb = dbs.sql,
         genreRepository = genreRepo,

@@ -80,7 +80,7 @@ private fun makeTagPermService(dbs: SqlTestDatabases): TagServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry, driver = dbs.driver)
     return TagServiceImpl(
         tagRepository = tagRepo,
         bookTagRepository = bookTagRepo,

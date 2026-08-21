@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -48,6 +49,13 @@ class BookTagRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
+    /**
+     * Required for the ACCESS-FILTERED read path. This domain's rows are `(bookId, …)` pairs, so
+     * the generic filtered `pullSince`/`pullByIds`/`digest` splice the caller's visible-book
+     * subquery through this driver — without it the domain would serve every junction on the
+     * server to every member.
+     */
+    override val driver: SqlDriver,
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<BookTagSyncPayload, BookTagId>(
         db = db,

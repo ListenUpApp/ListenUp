@@ -114,8 +114,8 @@ internal fun SqlTestDatabases.collectionAccessHarness(
             seriesRepository = SeriesRepository(sql, bus, registry),
             genreRepository = GenreRepository(sql, bus, registry),
             collectionBookRepository = collectionBookRepo,
-            bookTagRepository = BookTagRepository(db = sql, bus = bus, registry = registry),
-            bookMoodRepository = BookMoodRepository(db = sql, bus = bus, registry = registry),
+            bookTagRepository = BookTagRepository(db = sql, bus = bus, registry = registry, driver = driver),
+            bookMoodRepository = BookMoodRepository(db = sql, bus = bus, registry = registry, driver = driver),
         )
     return CollectionAccessHarness(
         service = service,
