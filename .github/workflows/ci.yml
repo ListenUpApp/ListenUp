@@ -237,8 +237,12 @@ jobs:
         with:
           packages: ffmpeg
 
-      # Deliberately fatal, and deliberately OUTSIDE the conditional install above — see
-      # test-jvm's identical step for why this must be unconditional.
+      # Deliberately fatal, and deliberately OUTSIDE the conditional install above. test-jvm's
+      # identical step guards a DIFFERENT failure: there the drift gate skips when ffmpeg is absent,
+      # so a missing binary silently no-ops a real test. Here it does not go quiet — it goes
+      # confusing. `:server:generateSeedLibrary` `require`s ffmpeg and dies, and if it somehow got
+      # past that, the transcoder probes Unavailable and the proof spec fails on `hlsUrl == null`
+      # three layers from the cause. This step is what makes the missing binary say so itself.
       - name: Verify FFmpeg is usable (anti-fake-green)
         run: |
           ffmpeg -version | head -1
