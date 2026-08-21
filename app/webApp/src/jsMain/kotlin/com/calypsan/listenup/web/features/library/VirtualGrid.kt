@@ -69,11 +69,16 @@ internal fun VirtualBookGrid(
     var viewportHeight by remember { mutableStateOf(0.0) }
 
     ObserveScrollport(
-        onMeasure = { top, height ->
+        onScroll = { top, height ->
             scrollTop = top
             viewportHeight = height
-            metrics = measure(metrics)
         },
+        // ⛔ Re-measured on resize ONLY, never per scroll frame. `measure` reads whichever card is
+        // currently first in the DOM, so measuring while scrolling samples a different element each
+        // time; a row height that wobbles by a pixel moves every offset below it, changes the total
+        // height, and the browser lurches — a one-notch scroll could jump a quarter of the library.
+        // Geometry depends on the window, not on where the reader is in the list.
+        onResize = { metrics = measure(metrics) },
     )
 
     val rows = remember(books, metrics.columns, letterOf) { layOut(books, metrics.columns, letterOf) }
@@ -159,7 +164,10 @@ private fun Spacer(pixels: Double) {
  * layout on every one of them.
  */
 @Composable
-private fun ObserveScrollport(onMeasure: (Double, Double) -> Unit) {
+private fun ObserveScrollport(
+    onScroll: (Double, Double) -> Unit,
+    onResize: () -> Unit,
+) {
     DisposableEffect(Unit) {
         val port = document.querySelector(SCROLLPORT)
         var pending = false
@@ -169,7 +177,7 @@ private fun ObserveScrollport(onMeasure: (Double, Double) -> Unit) {
             if (node != null) {
                 val top: Double = node.scrollTop
                 val height: Double = node.clientHeight
-                onMeasure(top, height)
+                onScroll(top, height)
             }
         }
         val schedule: (Event) -> Unit = {
@@ -178,12 +186,20 @@ private fun ObserveScrollport(onMeasure: (Double, Double) -> Unit) {
                 window.requestAnimationFrame { read() }
             }
         }
+        val remeasure: (Event) -> Unit = {
+            onResize()
+            schedule(it)
+        }
         port?.addEventListener("scroll", schedule)
-        window.addEventListener("resize", schedule)
-        window.requestAnimationFrame { read() }
+        window.addEventListener("resize", remeasure)
+        // First measurement once the initial slice has painted, so there is a card to measure.
+        window.requestAnimationFrame {
+            onResize()
+            read()
+        }
         onDispose {
             port?.removeEventListener("scroll", schedule)
-            window.removeEventListener("resize", schedule)
+            window.removeEventListener("resize", remeasure)
         }
     }
 }

@@ -613,7 +613,16 @@ body { margin: 0; }
 .lib-sort-option { cursor: pointer; opacity: 0.6; }
 .lib-sort-option.is-active { opacity: 1; font-weight: 600; }
 .lib-sort-direction { cursor: pointer; user-select: none; }
-.lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1.25rem; }
+.lib-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1.25rem;
+  /* ⛔ Load-bearing for the virtualiser. The spacers above and below the rendered window resize on
+     every scroll, and Chrome's scroll anchoring responds to content resizing above the viewport by
+     adjusting `scrollTop` to keep something pinned — which fights the windowing and throws the
+     scroll position. Measured with it on: fifty deliberate 60px scrolls produced jumps of 366px,
+     794px, 1281px, up to 3479px, so one notch of the wheel could travel a quarter of the library.
+     The virtualiser controls the scroll extent itself; the browser must not second-guess it. */
+  overflow-anchor: none;
+}
 /* `loading="lazy"` on the cover carries the scroll win on its own: measured at 1195 books, only the
    covers near the viewport are fetched and decoded instead of all 1195 at once.
    `content-visibility: auto` was tried here as well and REVERTED — on a grid item it skips the
@@ -622,8 +631,13 @@ body { margin: 0; }
    `.lib-card`; if more is needed, contain a section wrapper, not the grid items. */
 .lib-card {
   cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem;
-  animation: lib-card-in 260ms ease-out both;
 }
+
+/* ⛔ `lib-card-in` is NOT applied to `.lib-card` any more, and must not be re-added.
+   The grid is virtualised: cards mount and unmount continuously as the reader scrolls — measured,
+   149 nodes were inserted across 2,400px of scrolling — so an insertion animation replays on every
+   one of them and the grid flickers the whole way down. A book genuinely arriving or leaving is
+   animated by the View Transition instead, which can tell the two apart; CSS cannot. */
 
 /* Books arrive in batches during the initial seed, ~100 at a time. The animation is on the CARD
    rather than the grid so it plays per element as each is inserted — a grid-level transition would
@@ -685,7 +699,7 @@ body { margin: 0; }
 .lib-progress.is-empty { visibility: hidden; }
 
 /* Spans the grid so the rows above and below the rendered window keep the scrollbar honest. */
-.lib-spacer { grid-column: 1 / -1; }
+.lib-spacer { grid-column: 1 / -1; overflow-anchor: none; }
 .lib-progress-fill { height: 100%; background: var(--luw-accent, #7aa2f7); }
 
 /* ---- view transitions ----
