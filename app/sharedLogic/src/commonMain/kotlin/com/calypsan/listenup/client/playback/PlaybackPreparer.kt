@@ -467,9 +467,9 @@ class PlaybackPreparer internal constructor(
         val downloadedCount = localPaths.values.count { it != null }
         val missingCount = localPaths.size - downloadedCount
 
-        val signedUrls: Map<String, String> =
+        val preparedUrls: PreparedUrls =
             if (missingCount == 0) {
-                emptyMap() // fully downloaded — never touch the server (offline-first)
+                PreparedUrls() // fully downloaded — never touch the server (offline-first)
             } else {
                 // Some files are missing → we need signed streaming URLs for them. prepare() returns
                 // per-file URLs for the whole book; localPath still wins in playbackUri, so downloaded
@@ -481,7 +481,13 @@ class PlaybackPreparer internal constructor(
                 when (val result = prepareRepository.prepare(bookId)) {
                     is AppResult.Success -> {
                         serverResumePosition = result.data.resumePosition
-                        result.data.audioFiles.associate { it.fileId to serverUrl + it.url }
+                        PreparedUrls(
+                            direct = result.data.audioFiles.associate { it.fileId to serverUrl + it.url },
+                            hls =
+                                result.data.audioFiles
+                                    .mapNotNull { file -> file.hlsUrl?.let { file.fileId to serverUrl + it } }
+                                    .toMap(),
+                        )
                     }
 
                     is AppResult.Failure -> {
@@ -499,7 +505,7 @@ class PlaybackPreparer internal constructor(
                             "prepare() failed for ${bookId.value} (${result.error.code}); playing $downloadedCount " +
                                 "downloaded file(s) offline, $missingCount unavailable until reconnect."
                         }
-                        emptyMap()
+                        PreparedUrls()
                     }
                 }
             }
@@ -516,7 +522,8 @@ class PlaybackPreparer internal constructor(
                             durationMs = file.duration,
                             size = file.size,
                             localPath = localPaths[file.id],
-                            streamingUrl = signedUrls[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
+                            streamingUrl = preparedUrls.direct[file.id] ?: "", // "" when downloaded — localPath wins in playbackUri
+                            hlsUrl = preparedUrls.hls[file.id],
                         )
                     },
             )
@@ -586,8 +593,12 @@ class PlaybackPreparer internal constructor(
         bookId: BookId,
         timeline: PlaybackTimeline,
     ) {
-        if (!deviceContext.supportsDownloads) {
-            logger.info { "Device does not support downloads, streaming only" }
+        // Two independent gates: form factor (should THIS KIND of device download at all —
+        // TV/Auto/Xr never should) and backend capability (CAN the DownloadService actually
+        // finish one). A coarse-pointer mobile browser answers yes to the first and no to the
+        // second — see DownloadService.supportsDownloads — so neither alone is sufficient.
+        if (!deviceContext.supportsDownloads || !downloadService.supportsDownloads) {
+            logger.info { "Device/backend does not support downloads, streaming only" }
         } else if (!timeline.isFullyDownloaded && !downloadService.wasExplicitlyDeleted(bookId)) {
             logger.info { "Book not fully downloaded, triggering background download" }
             scope.launch { logBackgroundDownloadFailure(bookId) }
@@ -641,6 +652,21 @@ class PlaybackPreparer internal constructor(
 private data class TimelineBuildResult(
     val timeline: PlaybackTimeline,
     val serverResumePosition: PlaybackPositionSyncPayload?,
+)
+
+/**
+ * [PlaybackPreparer.buildTimeline]'s per-file URL maps from one `prepare()` call. Both default
+ * empty — [direct] is empty on the fully-downloaded and prepare-failed branches, and [hls] is
+ * empty whenever no file in the response needed a transcode.
+ *
+ * On the fully-downloaded branch every file's [TimelineFileInput.localPath] carries playback. On
+ * the prepare-failed branch only the downloaded files do: a missing file ends up with neither a
+ * local path nor a URL, which is the honest gap the never-stranded fallback deliberately leaves
+ * rather than papering over with a URL that would fail anyway.
+ */
+private data class PreparedUrls(
+    val direct: Map<String, String> = emptyMap(),
+    val hls: Map<String, String> = emptyMap(),
 )
 
 /**

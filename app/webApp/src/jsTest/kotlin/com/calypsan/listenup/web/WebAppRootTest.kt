@@ -13,6 +13,7 @@ import org.jetbrains.compose.web.renderComposable
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
 /**
  * The root wiring: the sidebar drives the URL and the URL drives the sidebar. This is where the
@@ -36,7 +37,7 @@ class WebAppRootTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary()) }
+            renderComposable(root = host) { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary(), fixedPlayback()) }
             return host to router
         }
 

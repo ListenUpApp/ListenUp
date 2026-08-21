@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Platform-agnostic command-side abstraction for the playback layer.
  *
  * Android wraps Media3's [androidx.media3.session.MediaController] (asynchronous,
- * service-bound) via [MediaControllerHolder]. Desktop and Apple wrap the shared
+ * service-bound) via [MediaControllerHolder]. Desktop, Apple, and Web wrap the shared
  * [AudioPlayer] interface directly.
  *
  * VMs consume this interface for all command-side operations (play/pause, seek,
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
  * polling, etc.) continues to flow through [PlaybackManager].
  *
  * Lifecycle: [acquire]/[releasePlayer] are refcounted on Android (Media3 service binding);
- * no-ops on Desktop/Apple (AudioPlayer instances are eagerly ready).
+ * no-ops on Desktop/Apple/Web (AudioPlayer instances are eagerly ready).
  *
  * Note: [releasePlayer] is a refcount decrement, NOT a permanent resource release.
  * Do NOT confuse with [AudioPlayer.releasePlayer] which tears down the player permanently.
@@ -50,9 +50,9 @@ expect interface PlaybackController {
 
     /**
      * Set output volume multiplier (0.0 = silent, 1.0 = normal). Used for sleep
-     * timer fade-out on Android (Media3 supports per-controller volume); on
-     * Desktop/Apple the underlying [AudioPlayer] does NOT expose volume control,
-     * so this is a no-op with a debug log.
+     * timer fade-out on Android (Media3 supports per-controller volume) and on Web (an
+     * `HTMLMediaElement` has a real `volume` property); on Desktop/Apple the underlying
+     * [AudioPlayer] does NOT expose volume control, so it is a no-op with a debug log there.
      */
     fun setVolume(volume: Float)
 
@@ -90,6 +90,10 @@ expect interface PlaybackController {
  * (used by Android's Media3 [androidx.media3.common.MediaMetadata] for Android
  * Auto, lock screen, notification). Desktop and Apple actuals ignore the
  * metadata fields when constructing their internal [AudioSegment].
+ *
+ * Deliberately carries no `hlsUrl` — [setMediaQueue] is the Android-shaped queue-replace lane,
+ * not the HLS one. The HLS-carrying lane is [PlaybackController.startPlayback] →
+ * [PlaybackManager.startPlayback], which builds [AudioSegment]s straight from the timeline.
  */
 data class PlaybackMediaItem(
     val mediaId: String,

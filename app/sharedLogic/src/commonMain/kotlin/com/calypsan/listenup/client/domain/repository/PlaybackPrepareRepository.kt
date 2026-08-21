@@ -18,8 +18,26 @@ import com.calypsan.listenup.core.BookId
  * passes through untouched.
  */
 interface PlaybackPrepareRepository {
-    /** Signed stream URLs for [bookId] plus the caller's resume position — one round-trip. */
-    suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback>
+    /**
+     * Signed stream URLs for [bookId] plus the caller's resume position — one round-trip.
+     *
+     * The device's decodable codecs are NOT a parameter: they are a property of the device, so the
+     * implementation carries them and every caller declares them by construction. That guarantee is
+     * sound for the local direct-play path; the Android Cast handoff and the shared download-URL
+     * resolver call through here too, but both read only `it.url` and drop `hlsUrl`, so the
+     * declaration reaches the server and its transcode decision is discarded. Cast is a
+     * known-unsolved case beyond that: the decoding device is the receiver, not this phone, so this
+     * phone's codec set is the wrong set to have declared at all. See
+     * [com.calypsan.listenup.client.playback.platformCodecCapabilities].
+     *
+     * @param forceTranscode reserved for a later task's manual escape hatch in the Never-Stranded
+     *   ledger — ask the server for a transcoded stream even when this device could decode the
+     *   original. No production call site sets it yet.
+     */
+    suspend fun prepare(
+        bookId: BookId,
+        forceTranscode: Boolean = false,
+    ): AppResult<PreparedPlayback>
 
     /**
      * The server-authoritative resume position for [bookId], or null if the server has none.

@@ -195,6 +195,7 @@ class PlaybackPreparerTest :
         // and its server-authoritative resumePosition participates in the merge.
         fun streamingDownloadService(): DownloadService {
             val downloadService: DownloadService = mock()
+            every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(any()) } returns null
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns
@@ -225,6 +226,7 @@ class PlaybackPreparerTest :
         // authoritative position must instead come from the best-effort getPosition() call (B8).
         fun downloadedDownloadService(): DownloadService {
             val downloadService: DownloadService = mock()
+            every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
             everySuspend { downloadService.getLocalPath(audioFile2) } returns "/local/af-prep-2.mp3"
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
@@ -640,6 +642,7 @@ class PlaybackPreparerTest :
                 val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
+                every { downloadService.supportsDownloads } returns true
                 everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
                 everySuspend { downloadService.getLocalPath(audioFile2) } returns "/local/af-prep-2.mp3"
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
@@ -678,6 +681,7 @@ class PlaybackPreparerTest :
                 val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
+                every { downloadService.supportsDownloads } returns true
                 everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
                 everySuspend { downloadService.getLocalPath(audioFile2) } returns null // missing
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
@@ -726,6 +730,7 @@ class PlaybackPreparerTest :
                 val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
+                every { downloadService.supportsDownloads } returns true
                 // Both files NOT downloaded → streaming path
                 everySuspend { downloadService.getLocalPath(any()) } returns null
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
@@ -771,6 +776,7 @@ class PlaybackPreparerTest :
                 val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
+                every { downloadService.supportsDownloads } returns true
                 everySuspend { downloadService.getLocalPath(any()) } returns null
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
 
@@ -795,6 +801,7 @@ class PlaybackPreparerTest :
                 val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
+                every { downloadService.supportsDownloads } returns true
                 everySuspend { downloadService.getLocalPath(any()) } returns null
                 everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
 
@@ -863,7 +870,10 @@ private class FakePlaybackService(
 private class FakePlaybackPrepareRepository(
     private val service: PlaybackService,
 ) : PlaybackPrepareRepository {
-    override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> = service.prepare(bookId)
+    override suspend fun prepare(
+        bookId: BookId,
+        forceTranscode: Boolean,
+    ): AppResult<ContractPreparedPlayback> = service.prepare(bookId, forceTranscode = forceTranscode)
 
     override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = service.getPosition(bookId)
 }

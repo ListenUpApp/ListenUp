@@ -110,6 +110,48 @@ class RouterTest :
             }
         }
 
+        test("the outgoing route is announced before current moves, on every path that moves it") {
+            // The shared-element flight reads the page it is leaving while that page is still laid
+            // out, so what this pins is ordering: the hook runs while `current` — and therefore
+            // everything composed from it — is still the outgoing page.
+            //
+            // ⛔ `window.location` is NOT the outgoing page on the Back path: popstate fires after
+            // the browser has already moved the URL. `current` is the only outgoing-route reading
+            // that holds on all three paths, which is why the hook is defined against it.
+            val seen = mutableListOf<List<String>>()
+            var observed: Router? = null
+            val router = Router(beforeRouteChange = { observed?.let { seen += it.current.segments } })
+            observed = router
+
+            try {
+                router.navigate(Route(listOf("library")))
+                router.replace(Route(listOf("library"), mapOf("sort" to "title")))
+                router.navigate(Route(listOf("book", "42")))
+                window.history.back()
+                nextPopstate()
+
+                seen.size shouldBe 4
+                seen[1] shouldBe listOf("library")
+                seen[2] shouldBe listOf("library")
+                seen[3] shouldBe listOf("book", "42")
+            } finally {
+                router.dispose()
+            }
+        }
+
+        test("a disposed router stops announcing the outgoing route") {
+            var announced = 0
+            val router = Router(beforeRouteChange = { announced++ })
+            router.navigate(Route(listOf("library")))
+            val atDispose = announced
+            router.dispose()
+
+            window.history.back()
+            nextPopstate()
+
+            announced shouldBe atDispose
+        }
+
         test("a disposed router stops following history") {
             val router = Router()
             router.navigate(Route(listOf("library")))

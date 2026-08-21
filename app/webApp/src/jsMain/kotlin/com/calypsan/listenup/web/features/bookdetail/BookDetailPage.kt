@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
@@ -32,6 +33,16 @@ import org.jetbrains.compose.web.dom.Text
  *
  * The pane is URL state (`?tab=…`), reported through [onSelectTab] so the caller can `replace`
  * the history entry: Back leaves the page, not the pane.
+ *
+ * There is a Play control and there is deliberately NO Download one. `BookDetailUiState.Ready`
+ * carries `canDownload`, and it turns true on the web the moment playback becomes available — but
+ * a browser cannot finish a download (`NoDownloadsService.supportsDownloads` is false), so
+ * rendering that affordance would put a button on the page whose only possible outcome is nothing
+ * happening.
+ *
+ * [onPlay] has no default for the same reason `WebAppRoot`'s `openPlayback` has none: a defaulted
+ * no-op here would render a real, enabled Play button — gated on the book's own `canPlay`, which
+ * knows nothing about whether a handler was supplied — and compile clean.
  */
 @Composable
 fun BookDetailPage(
@@ -39,17 +50,23 @@ fun BookDetailPage(
     tab: String,
     onSelectTab: (String) -> Unit,
     onOpenLibrary: () -> Unit,
+    onPlay: () -> Unit,
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
+    bookId: String? = null,
 ) {
     Div(attrs = { classes("bd") }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that
         // cannot show what you asked for must still show the way out of it.
         Breadcrumb(listOf("Library", crumb(state)), onNavigate = { onOpenLibrary() })
 
+        SharedHeader(state = state, bookId = bookId, onPlay = onPlay)
+
         when (state) {
             is BookDetailUiState.Loading -> {
-                EmptyState(WebIcon.Clock, "Loading", "Reading this book from your library.")
+                // The header (and with it the cover) is rendered ABOVE this `when`, so nothing to
+                // do here — see the note on [SharedHeader].
+                Unit
             }
 
             is BookDetailUiState.Error -> {
@@ -68,8 +85,6 @@ fun BookDetailPage(
             }
 
             is BookDetailUiState.Ready -> {
-                BookHeader(state)
-
                 Tabs(
                     items =
                         listOf(
@@ -109,10 +124,95 @@ fun BookDetailPage(
     }
 }
 
+/**
+ * The book's header, rendered in every state from one call site.
+ *
+ * ⛔ **The single call site is the whole point, and it is load-bearing for the shared-element
+ * flight.** The cover used to be rendered inside each `when (state)` branch, which meant Compose
+ * destroyed and rebuilt its DOM node when Loading became Ready. A `view-transition-name` on a node
+ * that is removed mid-transition has its animation **cancelled** — and with every animation gone,
+ * the transition simply ends. Measured: `ready` fired at 55 ms with five animations correctly
+ * configured at their full duration, and `finished` fired at 66 ms. The flight was being cut down
+ * 11 ms in, by this page rendering its own content.
+ *
+ * Keeping one call site means Compose updates that node rather than replacing it, so the cover
+ * survives the state change and the morph runs to completion.
+ *
+ * The cover falls back to the id from the URL while the book is still loading — a cover URL needs
+ * nothing else — so the thing the reader tapped is on screen immediately, with the text filling in
+ * around it.
+ */
 @Composable
-private fun BookHeader(state: BookDetailUiState.Ready) {
+private fun SharedHeader(
+    state: BookDetailUiState,
+    bookId: String?,
+    onPlay: () -> Unit,
+) {
+    // Error renders no header at all: a page that cannot show the book must not show a cover and
+    // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
+    // both pin that the failure states offer their explanation and a way back, nothing else.
+    if (state is BookDetailUiState.Error) return
+    val ready = state as? BookDetailUiState.Ready
+    val id = ready?.book?.id?.value ?: bookId ?: return
+
     Div(attrs = { classes("bd-head") }) {
-        Cover(title = state.book.title, size = COVER_SIZE, radius = COVER_RADIUS)
+        Cover(
+            title = ready?.book?.title.orEmpty(),
+            imageUrl = coverUrl(id, ready?.book?.coverHash, COVER_RUNG),
+            size = COVER_SIZE,
+            radius = COVER_RADIUS,
+            heroName = HERO_COVER,
+            heroBookId = id,
+        )
+        Div(attrs = { classes("bd-tblock") }) {
+            if (ready == null) {
+                // Says it is loading rather than showing a silent skeleton — `BookDetailTest` pins
+                // that, because a quiet empty header is indistinguishable from a book with no
+                // metadata at all.
+                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+            } else {
+                H1(attrs = { classes("bd-t") }) { Text(ready.book.title) }
+                byline(ready)?.let { line -> Div(attrs = { classes("bd-by") }) { Text(line) } }
+                ready.progress?.let { fraction ->
+                    ProgressLine(
+                        percent = (fraction * PERCENT).toInt(),
+                        remaining = ready.timeRemainingFormatted.orEmpty(),
+                    )
+                }
+                if (ready.canPlay) {
+                    Div(attrs = { classes("bd-actions") }) {
+                        Button(attrs = {
+                            classes("btn")
+                            attr("type", "button")
+                            onClick { onPlay() }
+                        }) {
+                            Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
+                            Text(if (ready.progress != null) "Resume" else "Play")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BookHeader(
+    state: BookDetailUiState.Ready,
+    onPlay: () -> Unit,
+) {
+    Div(attrs = { classes("bd-head") }) {
+        // The detail hero is the largest cover the web client shows, so it asks for its own rung
+        // rather than reusing the grid's — a 300px derivative upscaled to 180 CSS px looks soft on
+        // a 2x display. `coverHash` rides along so a re-covered book is not served a year-stale
+        // image from cache; see [coverUrl].
+        Cover(
+            title = state.book.title,
+            imageUrl = coverUrl(state.book.id.value, state.book.coverHash, COVER_RUNG),
+            size = COVER_SIZE,
+            radius = COVER_RADIUS,
+            heroName = HERO_COVER,
+        )
         Div(attrs = { classes("bd-tblock") }) {
             H1(attrs = { classes("bd-t") }) { Text(state.book.title) }
             byline(state)?.let { line -> Div(attrs = { classes("bd-by") }) { Text(line) } }
@@ -123,6 +223,20 @@ private fun BookHeader(state: BookDetailUiState.Ready) {
                     percent = (fraction * PERCENT).toInt(),
                     remaining = state.timeRemainingFormatted.orEmpty(),
                 )
+            }
+            // `canPlay` is the ViewModel's word on whether this book has anything to play at all.
+            // A Play button on a book with no audio is a promise the page cannot keep.
+            if (state.canPlay) {
+                Div(attrs = { classes("bd-actions") }) {
+                    Button(attrs = {
+                        classes("btn-c")
+                        attr("type", "button")
+                        onClick { onPlay() }
+                    }) {
+                        Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
+                        Text(if (state.progress != null) "Resume" else "Play")
+                    }
+                }
             }
         }
     }
@@ -246,8 +360,16 @@ internal fun PaneHint(text: String) {
 
 private const val PERCENT = 100
 
+/** Shared with the library grid's tapped tile, so the cover flies between the two. */
+const val HERO_COVER = "book-cover"
+
 private const val COVER_SIZE = 180
+
+/** Twice [COVER_SIZE], so the hero stays sharp on a 2x display. */
+private const val COVER_RUNG = 360
 
 private const val COVER_RADIUS = 16
 
 private const val ICON_SIZE = 24
+
+private const val PLAY_ICON_SIZE = 16

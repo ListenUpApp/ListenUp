@@ -4,6 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import com.calypsan.listenup.web.motion.CoverSurface
+import com.calypsan.listenup.web.motion.flyHeroInto
+import com.calypsan.listenup.web.motion.releaseHero
+import com.calypsan.listenup.web.motion.trackHero
 import androidx.compose.runtime.setValue
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
@@ -30,11 +34,25 @@ fun Cover(
     imageUrl: String? = null,
     size: Int = DEFAULT_COVER_SIZE,
     radius: Int = DEFAULT_COVER_RADIUS,
+    heroName: String? = null,
+    heroBookId: String? = null,
 ) {
     var failed by remember(imageUrl) { mutableStateOf(false) }
     val showImage = imageUrl != null && !failed
 
     Div(attrs = {
+        // The arrival half of the cover's flight. `ref` fires when this node is attached, which is
+        // exactly when its final geometry is known and the origin recorded at click time can be
+        // animated from. See [flyHeroInto] for why this is a FLIP rather than a View Transition.
+        if (heroBookId != null) {
+            ref { element ->
+                flyHeroInto(heroBookId, CoverSurface.HERO, element)
+                // Tracked, not measured: the return leg's origin is read at route-change time, while
+                // this node is still laid out. See [captureHeroOriginBeforeRouteChange].
+                trackHero(heroBookId, element)
+                onDispose { releaseHero(element) }
+            }
+        }
         style {
             property("width", "${size}px")
             property("height", "${size}px")
@@ -42,6 +60,12 @@ fun Cover(
             property("overflow", "hidden")
             property("flex-shrink", "0")
             property("position", "relative")
+            // The shared-element handle. When the grid tile the reader tapped carries the same
+            // name, the browser interpolates between the two boxes instead of crossfading the
+            // pages — the cover appears to fly from the grid into this hero, Flutter-Hero style.
+            // ⛔ A `view-transition-name` must be unique at any instant, which is why only ONE
+            // grid tile is ever named: see `HERO_COVER` in the library grid.
+            heroName?.let { property("view-transition-name", it) }
             if (!showImage) property("background", gradientFor(title))
         }
     }) {
@@ -107,3 +131,32 @@ private const val HUE_SPREAD = 24
 private const val MIN_FALLBACK_TEXT = 10
 
 private const val MAX_FALLBACK_TEXT = 22
+
+/**
+ * A same-origin relative URL, authenticated by the cookie the browser already holds.
+ *
+ * Relative rather than absolute on purpose: the server serves this bundle in the normal deployment,
+ * and a cookie cannot cross origins anyway — so an absolute URL pointing at a different server would
+ * produce an unauthenticated request rather than a working image.
+ *
+ * **`w`** asks for a rung of the server's derivative ladder. The server rounds it up to a rung it
+ * has, and serves the full-size original for anything it cannot derive — so a width is a request,
+ * never a demand, and a cover that declines is no worse off than before the parameter existed.
+ *
+ * ⛔ **`v` is the artwork's content hash, and it is load-bearing.** Covers are served
+ * `immutable` for a year, so the URL is the only thing that can tell a browser the artwork changed;
+ * without it, a re-covered book stays stale on web until the cache expires. Android and desktop
+ * have always done this — web had not, which was a live bug rather than a missing nicety.
+ */
+internal fun coverUrl(
+    bookId: String,
+    coverHash: String?,
+    width: Int? = null,
+): String {
+    val query =
+        listOfNotNull(
+            width?.let { "w=$it" },
+            coverHash?.let { "v=$it" },
+        ).joinToString("&")
+    return "/api/v1/books/$bookId/cover" + if (query.isEmpty()) "" else "?$query"
+}

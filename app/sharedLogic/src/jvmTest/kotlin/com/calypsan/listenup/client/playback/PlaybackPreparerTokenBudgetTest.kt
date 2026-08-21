@@ -148,6 +148,7 @@ class PlaybackPreparerTokenBudgetTest :
         // Every file has a local path — buildTimeline skips prepare() entirely (offline-first).
         fun downloadedDownloadService(): DownloadService {
             val downloadService: DownloadService = mock()
+            every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-token-budget-1.mp3"
             everySuspend { downloadService.getLocalPath(audioFile2) } returns "/local/af-token-budget-2.mp3"
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
@@ -159,6 +160,7 @@ class PlaybackPreparerTokenBudgetTest :
         // No file has a local path — buildTimeline calls prepare() for signed streaming URLs.
         fun streamingDownloadService(): DownloadService {
             val downloadService: DownloadService = mock()
+            every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(any()) } returns null
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns

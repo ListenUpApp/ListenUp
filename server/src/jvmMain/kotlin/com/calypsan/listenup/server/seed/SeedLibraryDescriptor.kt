@@ -15,6 +15,12 @@ data class SeedTrack(
     val fileName: String,
     val durationSeconds: Int,
     val trackNumber: Int,
+    /**
+     * Encoder override. Null means "infer from the extension", which is what every book but the
+     * transcode fixture wants. `"eac3"` exists so one seed book is undecodable by browsers and
+     * therefore actually exercises the server's transcoder.
+     */
+    val codecOverride: String? = null,
 )
 
 /** A chapter marker, used for single-file books that carry embedded chapters. */
@@ -60,6 +66,7 @@ object SeedLibraryDescriptor {
         buildList {
             addRepresentativeBooks()
             addEdgeCaseBooks()
+            addTranscodeFixtureBook()
         }
 }
 
@@ -312,6 +319,39 @@ private fun MutableList<SeedBook>.addEdgeCaseBooks() {
             sidecar = SeedSidecar.READER_TXT,
             hasCover = true,
             description = "A lighthouse keeper. Eleven months of silence. One letter that changes everything.",
+        ),
+    )
+}
+
+/**
+ * The one book in the library no browser can decode. Every other seed track is MP3 or AAC, which
+ * Chrome, Firefox and Safari all play directly — so without this book, capability negotiation
+ * would never choose Transcode and the browser proof would pass while exercising nothing. `eac3`
+ * is reachable with a stock ffmpeg, unlike xHE-AAC, which ffmpeg can neither encode nor decode.
+ */
+private fun MutableList<SeedBook>.addTranscodeFixtureBook() {
+    add(
+        SeedBook(
+            folderPath = "$AUTHOR_WREN_HALLOWAY/The Undecodable Hour",
+            title = "The Undecodable Hour",
+            authors = listOf(AUTHOR_WREN_HALLOWAY),
+            narrators = listOf(NARRATOR_MARLOWE_FINCH),
+            series = null,
+            // 20 seconds: the browser proof seeks to 10s and then asserts that decoding continues
+            // past it. A shorter book leaves no room after the seek.
+            tracks =
+                listOf(
+                    SeedTrack(
+                        fileName = TRACK_SINGLE_M4B,
+                        durationSeconds = 20,
+                        trackNumber = 1,
+                        codecOverride = "eac3",
+                    ),
+                ),
+            chapters = emptyList(),
+            sidecar = SeedSidecar.NONE,
+            hasCover = false,
+            description = "A fixture whose only job is to be undecodable in a browser.",
         ),
     )
 }

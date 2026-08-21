@@ -14,6 +14,7 @@ import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.library.OpenLibrary
+import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -39,6 +40,7 @@ fun AuthGate(
     router: Router,
     openBookDetail: OpenBookDetail,
     openLibrary: OpenLibrary,
+    openPlayback: OpenPlayback,
 ) {
     val scope = rememberCoroutineScope()
     val authState by authGraph.authState.collectAsState()
@@ -92,6 +94,7 @@ fun AuthGate(
                     openBookDetail = openBookDetail,
                     openLibrary = openLibrary,
                     onSignOut = { scope.launch { authGraph.signOut() } },
+                    openPlayback = openPlayback,
                 )
             }
         }

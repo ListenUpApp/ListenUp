@@ -26,6 +26,27 @@ sealed interface DownloadError : AppError {
         override val isRetryable: Boolean = true
     }
 
+    /**
+     * This platform's download backend cannot complete a download at all — e.g. a browser,
+     * where offline audio is undesigned rather than temporarily unavailable. Distinct from
+     * [DownloadFailed]: that one is a transient failure worth retrying, this one never will be,
+     * no matter how many times it's asked.
+     *
+     * No `bookTitle` — unlike the other subtypes here, [message] never interpolates one (there is
+     * nothing book-specific about a platform's download capability), and no producer has one to
+     * pass.
+     */
+    @Serializable
+    @SerialName("DownloadError.NotSupported")
+    data class NotSupported(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : DownloadError {
+        override val message: String = "Downloads aren't supported on this device."
+        override val code: String = "DOWNLOAD_NOT_SUPPORTED"
+        override val isRetryable: Boolean = false
+    }
+
     /** Not enough storage space to complete download. User must free space. */
     @Serializable
     @SerialName("DownloadError.InsufficientStorage")

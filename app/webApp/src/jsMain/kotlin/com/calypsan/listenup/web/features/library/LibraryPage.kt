@@ -12,6 +12,11 @@ import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.client.util.sortLetter
+import com.calypsan.listenup.web.design.coverUrl
+import com.calypsan.listenup.web.motion.CoverSurface
+import com.calypsan.listenup.web.motion.flyHeroInto
+import com.calypsan.listenup.web.motion.recordHeroOrigin
+import org.w3c.dom.Element
 import org.jetbrains.compose.web.attributes.alt
 import org.jetbrains.compose.web.css.percent
 import org.jetbrains.compose.web.css.width
@@ -46,11 +51,12 @@ fun LibraryPage(
     state: LibraryUiState,
     onEvent: (LibraryUiEvent) -> Unit,
     onOpenBook: (String) -> Unit,
+    heroBookId: String? = null,
 ) {
     when (state) {
         is LibraryUiState.Loading -> Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
         is LibraryUiState.Error -> Div(attrs = { classes("empty") }) { P { Text(state.message) } }
-        is LibraryUiState.Loaded -> LoadedLibrary(state, onEvent, onOpenBook)
+        is LibraryUiState.Loaded -> LoadedLibrary(state, onEvent, onOpenBook, heroBookId)
     }
 }
 
@@ -59,6 +65,7 @@ private fun LoadedLibrary(
     state: LibraryUiState.Loaded,
     onEvent: (LibraryUiEvent) -> Unit,
     onOpenBook: (String) -> Unit,
+    heroBookId: String?,
 ) {
     Div(attrs = { classes("lib-header") }) {
         H3 { Text("Library") }
@@ -70,21 +77,13 @@ private fun LoadedLibrary(
         return
     }
 
-    Div(attrs = { classes("lib-grid") }) {
-        var currentLetter: Char? = null
-        state.books.forEach { book ->
-            val letter = book.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles)
-            if (letter != null && letter != currentLetter) {
-                currentLetter = letter
-                Div(attrs = { classes("lib-section") }) { Text(letter.toString()) }
-            }
-            BookCard(
-                book = book,
-                progress = state.bookProgress[book.id] ?: 0f,
-                onOpen = { onOpenBook(book.id.value) },
-            )
-        }
-    }
+    VirtualBookGrid(
+        books = state.books,
+        letterOf = { it.sectionLetter(state.booksSortState.category, state.ignoreTitleArticles) },
+        progressOf = { state.bookProgress[it.id] ?: 0f },
+        onOpenBook = onOpenBook,
+        heroBookId = heroBookId,
+    )
 }
 
 /**
@@ -128,10 +127,11 @@ private fun EmptyLibrary(isBuilding: Boolean) {
 }
 
 @Composable
-private fun BookCard(
+internal fun BookCard(
     book: BookListItem,
     progress: Float,
     onOpen: () -> Unit,
+    isHero: Boolean = false,
 ) {
     // A library of any size has books the server holds no artwork for, and a bare <img> renders
     // those as a broken-image icon. The book detail page already falls back to a titled tile; this
@@ -140,15 +140,38 @@ private fun BookCard(
 
     Div(attrs = {
         classes("lib-card")
-        onClick { onOpen() }
+        onClick { event ->
+            // Where this cover is *right now*, so the detail page's hero can fly in from here.
+            // Recorded at click time because by the time that hero mounts, this element is gone —
+            // the grid has unmounted and a rect read from a detached node is zero.
+            (event.currentTarget as? Element)
+                ?.querySelector(".lib-cover")
+                ?.let { recordHeroOrigin(book.id.value, CoverSurface.GRID, it) }
+            onOpen()
+        }
     }) {
+        // The return leg of the flight: this is the tile the reader last opened, so when it mounts
+        // it flies in from wherever the detail hero was standing. The outbound leg is recorded in
+        // the click handler above; the two are symmetric.
+        val flyBack: (org.jetbrains.compose.web.attributes.AttrsScope<*>) -> Unit = { scope ->
+            if (isHero) {
+                scope.ref { element ->
+                    flyHeroInto(book.id.value, CoverSurface.GRID, element)
+                    onDispose { }
+                }
+            }
+        }
         if (coverFailed) {
-            Div(attrs = { classes("lib-cover", "lib-cover-fallback") }) { Text(book.title) }
+            Div(attrs = {
+                classes("lib-cover", "lib-cover-fallback")
+                flyBack(this)
+            }) { Text(book.title) }
         } else {
             Img(
                 src = coverUrl(book.id.value, book.coverHash, GRID_RUNG),
                 attrs = {
                     classes("lib-cover")
+                    flyBack(this)
                     alt(book.title)
                     // Which rung a display needs is the browser's call, not ours — it knows the
                     // device pixel ratio and we do not. Stating both lets a 1x screen take 300px
@@ -163,12 +186,17 @@ private fun BookCard(
             )
         }
         Div(attrs = { classes("lib-title") }) { Text(book.title) }
-        val authorLine = book.authors.joinToString(", ") { it.name }
-        if (authorLine.isNotEmpty()) {
-            Div(attrs = { classes("lib-author") }) { Text(authorLine) }
-        }
-        if (progress > 0f) {
-            Div(attrs = { classes("lib-progress") }) {
+        // Rendered even when empty, and likewise the progress rail below: the grid is virtualised,
+        // and that only works because every card is exactly the same height. A card that dropped
+        // its author line would be shorter than its neighbours and the row arithmetic would drift.
+        Div(attrs = { classes("lib-author") }) { Text(book.authors.joinToString(", ") { it.name }) }
+        run {
+            Div(attrs = {
+                classes("lib-progress")
+                // Holds its row so every card is the same height, but shows nothing until there is
+                // progress to show — a rail on an unstarted book would claim the reader had begun it.
+                if (progress <= 0f) classes("is-empty")
+            }) {
                 Div(attrs = {
                     classes("lib-progress-fill")
                     style { width((progress * PERCENT).percent) }
@@ -202,35 +230,6 @@ private fun SortControl(
             onClick { onEvent(LibraryUiEvent.BooksDirectionToggled) }
         }) { Text(if (state.booksSortState.direction == SortDirection.ASCENDING) "↑" else "↓") }
     }
-}
-
-/**
- * A same-origin relative URL, authenticated by the cookie the browser already holds.
- *
- * Relative rather than absolute on purpose: the server serves this bundle in the normal deployment,
- * and a cookie cannot cross origins anyway — so an absolute URL pointing at a different server would
- * produce an unauthenticated request rather than a working image.
- *
- * **`w`** asks for a rung of the server's derivative ladder. The server rounds it up to a rung it
- * has, and serves the full-size original for anything it cannot derive — so a width is a request,
- * never a demand, and a cover that declines is no worse off than before the parameter existed.
- *
- * ⛔ **`v` is the artwork's content hash, and it is load-bearing.** Covers are served
- * `immutable` for a year, so the URL is the only thing that can tell a browser the artwork changed;
- * without it, a re-covered book stays stale on web until the cache expires. Android and desktop
- * have always done this — web had not, which was a live bug rather than a missing nicety.
- */
-private fun coverUrl(
-    bookId: String,
-    coverHash: String?,
-    width: Int? = null,
-): String {
-    val query =
-        listOfNotNull(
-            width?.let { "w=$it" },
-            coverHash?.let { "v=$it" },
-        ).joinToString("&")
-    return "/api/v1/books/$bookId/cover" + if (query.isEmpty()) "" else "?$query"
 }
 
 /** The same cover at both rungs, for the browser to choose between by pixel density. */

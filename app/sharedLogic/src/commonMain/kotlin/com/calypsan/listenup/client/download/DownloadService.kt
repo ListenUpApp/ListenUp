@@ -18,9 +18,27 @@ private val downloadServiceLogger = KotlinLogging.logger {}
  *
  * Android: Implemented by DownloadManager (WorkManager-based)
  * iOS: AppleDownloadService (NSURLSession background downloads)
- * Desktop: StubDownloadService (no-op)
+ * Desktop and browser: NoDownloadsService (no-op)
  */
 interface DownloadService {
+    /**
+     * Whether this backend can actually complete a download. No default — every implementation
+     * states the fact explicitly, so a new backend that forgets to override this fails to
+     * compile rather than silently inheriting the wrong answer. There are exactly three
+     * implementations (Android's `DownloadManager`, iOS's `AppleDownloadService`, and
+     * `NoDownloadsService` for Desktop and the browser), so the abstract declaration costs each
+     * of them one line.
+     *
+     * [PlaybackPreparer.triggerBackgroundDownloadIfNeeded] asks this rather than inferring
+     * download capability from `DeviceContext`'s form factor: those are different questions, and
+     * conflating them is exactly the bug this property exists to prevent — a coarse-pointer
+     * mobile browser reads as `DeviceType.Phone`/`Tablet` (which DOES support downloads as a form
+     * factor) even though its `DownloadService` cannot finish one. `DeviceContext.supportsDownloads`
+     * stays in play alongside this as the form-factor half of the gate (TV/Auto/Xr never want
+     * downloads regardless of backend); this is the backend-capability half.
+     */
+    val supportsDownloads: Boolean
+
     /**
      * Get local file path for an audio file if downloaded.
      * Returns null if not downloaded or file missing.

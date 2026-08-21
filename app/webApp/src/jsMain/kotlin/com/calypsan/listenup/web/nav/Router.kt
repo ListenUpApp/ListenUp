@@ -58,9 +58,19 @@ class Route(
  * [navigate] pushes an entry — moving between pages grows history so Back walks pages.
  * [replace] rewrites the current entry — filter and selection changes stay on the same entry so
  * Back leaves the page rather than unwinding every filter click.
+ *
+ * [beforeRouteChange] runs before [current] moves, on every path that moves it — a link, a
+ * breadcrumb, or the Back button. It exists so a caller can read the outgoing page while it is
+ * still on screen; Compose renders on a later frame, so this is the last moment its layout is
+ * measurable. The shared-element flight uses it to learn where the cover it must fly back to is.
  */
-class Router {
-    private val onPopstate: (Event) -> Unit = { current = locationRoute() }
+class Router(
+    private val beforeRouteChange: () -> Unit = {},
+) {
+    private val onPopstate: (Event) -> Unit = {
+        beforeRouteChange()
+        current = locationRoute()
+    }
 
     /** The route the window currently shows; observable from composition. */
     var current: Route by mutableStateOf(locationRoute())
@@ -72,12 +82,14 @@ class Router {
 
     /** Pushes [route] onto history and makes it current. */
     fun navigate(route: Route) {
+        beforeRouteChange()
         window.history.pushState(null, "", route.toUrl())
         current = route
     }
 
     /** Replaces the current history entry with [route]. */
     fun replace(route: Route) {
+        beforeRouteChange()
         window.history.replaceState(null, "", route.toUrl())
         current = route
     }

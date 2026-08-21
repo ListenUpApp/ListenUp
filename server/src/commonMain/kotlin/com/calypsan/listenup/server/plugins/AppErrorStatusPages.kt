@@ -234,8 +234,15 @@ private fun SyncError.toHttpStatus(): HttpStatusCode =
 private fun DownloadError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is DownloadError.DownloadFailed -> HttpStatusCode.ServiceUnavailable
+
         is DownloadError.InsufficientStorage -> HttpStatusCode.InsufficientStorage
+
         is DownloadError.DeleteFailed -> HttpStatusCode.InternalServerError
+
+        // Never actually minted server-side — NotSupported is a client-local fact about a
+        // platform's download backend (see NoDownloadsService) that never crosses the wire.
+        // Mapped for exhaustiveness only.
+        is DownloadError.NotSupported -> HttpStatusCode.ServiceUnavailable
     }
 
 private fun ImportError.toHttpStatus(): HttpStatusCode =

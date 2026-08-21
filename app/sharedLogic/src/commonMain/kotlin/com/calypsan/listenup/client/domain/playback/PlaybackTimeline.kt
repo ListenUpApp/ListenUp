@@ -29,6 +29,8 @@ data class PlaybackTimeline(
         val durationMs: Long,
         val size: Long,
         val streamingUrl: String,
+        /** See [TimelineFileInput.hlsUrl]. Deliberately NOT consulted by [playbackUri]. */
+        val hlsUrl: String? = null,
         // Local file path if downloaded, null otherwise
         val localPath: String?,
         // Index in ExoPlayer playlist
@@ -140,6 +142,7 @@ data class PlaybackTimeline(
                             durationMs = file.durationMs,
                             size = file.size,
                             streamingUrl = file.streamingUrl,
+                            hlsUrl = file.hlsUrl,
                             localPath = file.localPath,
                             mediaItemIndex = index,
                         )
@@ -162,6 +165,13 @@ data class TimelineFileInput(
     val localPath: String?,
     /** Full signed streaming URL, or "" when the file is downloaded (local path wins). */
     val streamingUrl: String,
+    /**
+     * Signed HLS master playlist, set only when the server decided this client needs a transcode.
+     * Null is the overwhelmingly common answer. [streamingUrl] stays populated whenever HLS is —
+     * it is the Never-Stranded fallback, which is why the server mints it unconditionally. A
+     * downloaded file's [localPath] wins over both.
+     */
+    val hlsUrl: String? = null,
 )
 
 /**

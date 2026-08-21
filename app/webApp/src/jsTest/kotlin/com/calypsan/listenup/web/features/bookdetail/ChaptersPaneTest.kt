@@ -14,6 +14,7 @@ import org.w3c.dom.HTMLElement
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.web.features.library.fakeLibrary
+import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
 
 /**
  * The chapters workbench through its URL contract: `?tab=chapters&sel=9,10` names the selection,
@@ -37,7 +38,7 @@ class ChaptersPaneTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary()) }
+            renderComposable(root = host) { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary(), fixedPlayback()) }
             return host to router
         }
 

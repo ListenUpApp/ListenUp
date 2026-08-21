@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.PlaybackPrepareRepositoryImpl
+import com.calypsan.listenup.client.playback.platformCodecCapabilities
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
@@ -144,7 +145,13 @@ internal val clientSyncModule =
         // The single public seam every PlaybackService.prepare caller shares. Wrapping the internal
         // channel lets cross-module callers (Cast in :app:sharedUI) reach prepare without touching it.
         single<PlaybackPrepareRepository> {
-            PlaybackPrepareRepositoryImpl(channel = rpcChannel<PlaybackService>())
+            PlaybackPrepareRepositoryImpl(
+                channel = rpcChannel<PlaybackService>(),
+                // Asked once at graph construction: the answer is a device property and does not
+                // change within a session. Android queries MediaCodecList, the browser asks
+                // canPlayType, the JVM answers "all".
+                codecCapabilities = platformCodecCapabilities(),
+            )
         }
 
         // The outbox sender map derives from OutboxChannels.all and is completeness-

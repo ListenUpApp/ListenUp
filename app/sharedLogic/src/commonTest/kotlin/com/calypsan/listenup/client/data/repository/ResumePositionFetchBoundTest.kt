@@ -44,7 +44,8 @@ class ResumePositionFetchBoundTest :
         test("getPosition is bounded well under a second and never retries") {
             runTest {
                 val dispatch = RecordingDispatch<PlaybackService>(NoOpPlaybackService)
-                val repo = PlaybackPrepareRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+                val repo =
+                    PlaybackPrepareRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed), codecCapabilities = emptySet())
 
                 repo.getPosition(BookId("book-1"))
 
@@ -61,7 +62,8 @@ class ResumePositionFetchBoundTest :
         test("prepare keeps the full default bound — its result is required, not optional") {
             runTest {
                 val dispatch = RecordingDispatch<PlaybackService>(NoOpPlaybackService)
-                val repo = PlaybackPrepareRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed))
+                val repo =
+                    PlaybackPrepareRepositoryImpl(RpcChannel(dispatch, RpcPolicy.Authed), codecCapabilities = emptySet())
 
                 repo.prepare(BookId("book-1"))
 
@@ -94,8 +96,12 @@ private class RecordingDispatch<S : Any>(
     override suspend fun invalidate() = Unit
 }
 
-/** Minimal [PlaybackService] stand-in — the tests assert on dispatch policy, not on payloads. */
-private object NoOpPlaybackService : PlaybackService {
+/**
+ * Minimal [PlaybackService] stand-in — this file's tests assert on dispatch policy, not on
+ * payloads. `internal` (not `private`) so [PrepareCapabilityDeclarationTest] can delegate to it
+ * rather than repeating the same three no-op overrides.
+ */
+internal object NoOpPlaybackService : PlaybackService {
     override suspend fun prepare(
         bookId: BookId,
         capabilities: Set<CodecCapability>?,

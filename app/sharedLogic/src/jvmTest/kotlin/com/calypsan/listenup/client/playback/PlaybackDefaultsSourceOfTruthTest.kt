@@ -131,6 +131,7 @@ class PlaybackDefaultsSourceOfTruthTest :
             // Fully downloaded: prepare() is never called, and getPosition() fails the way an
             // unreachable server does — so resolution falls entirely to the local stores.
             val downloadService: DownloadService = mock()
+            every { downloadService.supportsDownloads } returns true
             everySuspend { downloadService.getLocalPath(audioFileId) } returns "/local/$audioFileId.mp3"
             everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
             everySuspend { downloadService.downloadBook(any()) } returns

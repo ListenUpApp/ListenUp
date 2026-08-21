@@ -32,7 +32,7 @@ class RpcTransportTest :
         //
         // That would normally be a lane quietly running fewer tests — the exact failure this
         // project keeps discovered-test-count floors to prevent. The floors are what make it
-        // safe: `webKotest` requires 144 and `pnpm test:auth` sets KOTEST_MIN_TESTS=147, so each
+        // safe: `webKotest` requires 211 and `pnpm test:auth` sets KOTEST_MIN_TESTS=217, so each
         // lane pins its own count and neither can silently drop a spec. Skipping here is a
         // declared configuration difference, not an escape hatch.
         val serverBooted = js("window.__LU_SERVER_URL").unsafeCast<String?>() != null

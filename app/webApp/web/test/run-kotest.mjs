@@ -20,13 +20,13 @@ import { isSettled, problemsFor } from './settle.mjs'
 //
 // The default is the SERVER-FREE lane's count (`pnpm test` / :app:webApp:webKotest). The
 // server-backed lane (`pnpm test:auth`) compiles the same bundle but additionally enables the
-// three specs that need a live server, so it overrides this to its own higher count. Two lanes,
+// six specs that need a live server, so it overrides this to its own higher count. Two lanes,
 // two exact floors — that is what keeps "this lane skips some specs" from decaying into "this
 // lane silently stopped running them".
 //
 // Counted against `testStarted`, so a spec that quietly becomes server-gated trips the floor the
-// same as one that stops compiling: 147 specs, 144 run here, all 147 run under `test:auth`.
-const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 144)
+// same as one that stops compiling: 217 specs, 211 run here, all 217 run under `test:auth`.
+const MIN_TESTS = Number(process.env.KOTEST_MIN_TESTS ?? 211)
 
 // Kotest's JS engine emits no "run finished" marker — `mainWrapper()` calls a suspend `main` with
 // an empty continuation, so there is no promise to await either. Completion is therefore inferred
@@ -56,7 +56,14 @@ const server =
 const BASE = server ? server.resolvedUrls.local[0].replace(/\/$/, '') : arg.replace(/\/$/, '')
 console.log(`mode: ${mode}  base: ${BASE}`)
 
-const browser = await chromium.launch()
+// --autoplay-policy: a headless browser has no user gestures, so Chrome's default policy
+// rejects every unmuted element.play() with NotAllowedError. That would leave the whole
+// Playing / advance / release / error surface of HtmlAudioPlayer unreachable by any spec.
+// The karma lane sets the identical flag (../../karma.config.d/autoplay.js) so the two
+// lanes cannot disagree about which paths are reachable.
+const browser = await chromium.launch({
+  args: ['--autoplay-policy=no-user-gesture-required'],
+})
 const page = await browser.newPage()
 
 const started = []

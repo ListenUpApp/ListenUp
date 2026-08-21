@@ -158,6 +158,99 @@ jobs:
       - name: Run Kotest specs in Chromium
         run: ./gradlew :app:webApp:webKotest --no-daemon
 
+  test-web-browser-server:
+    name: Test (web browser, server-backed)
+    runs-on: ubuntu-latest
+    # This lane's proof is the point of the whole branch: a real Chromium playing a
+    # server-transcoded book it cannot natively decode, via hls.js, against a real Ktor
+    # server. It's a separate job from test-web-browser (not a second Gradle target in that
+    # job) because both specs run sync-kotlin.mjs, which collides on
+    # `mkdir app/webApp/web/kotlin` with EEXIST if they run concurrently in one invocation —
+    # separate jobs also means separate runners, so the collision cannot occur. 45m (vs. the
+    # other lane's 30m) because this one also builds :server, generates the seed library, and
+    # boots Ktor before Chromium ever opens a page.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5.6.0
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.13.1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: app/webApp/web/pnpm-lock.yaml
+
+      - name: Install JS toolchain
+        working-directory: app/webApp/web
+        run: pnpm install --frozen-lockfile
+
+      # Playwright brings its own Chromium rather than reusing a system browser: karma's
+      # equivalent step was a long-running source of CHROME_BIN drift, and a pinned download
+      # removes the variable entirely.
+      # `--with-deps` shells out to apt itself, so it inherits the same black-holed mirror that
+      # stalled this step for the job's full 30 minutes on 2026-08-19. The policy is all this job
+      # needs — there are no packages to install here, only apt's behaviour to make sane.
+      - name: Apply apt mirror and timeout policy
+        uses: ./.github/actions/apt-install
+
+      - name: Install Playwright Chromium
+        working-directory: app/webApp/web
+        timeout-minutes: 12
+        run: pnpm exec playwright install --with-deps chromium
+
+      # This lane needs ffmpeg twice over: :server:generateSeedLibrary shells out to it to
+      # build the fixture library, and the transcoder under test spawns it per session. A job
+      # that proceeded without ffmpeg would fail much later as a confusing hlsUrl == null,
+      # rather than here where the cause is obvious. Mirrors the probe/install/verify shape
+      # from test-jvm's FFmpeg steps.
+      - name: Probe for a preinstalled FFmpeg
+        id: ffmpeg-probe
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install FFmpeg (seed library + transcoder)
+        if: steps.ffmpeg-probe.outputs.present != 'true'
+        timeout-minutes: 16
+        uses: ./.github/actions/apt-install
+        with:
+          packages: ffmpeg
+
+      # Deliberately fatal, and deliberately OUTSIDE the conditional install above. test-jvm's
+      # identical step guards a DIFFERENT failure: there the drift gate skips when ffmpeg is absent,
+      # so a missing binary silently no-ops a real test. Here it does not go quiet — it goes
+      # confusing. `:server:generateSeedLibrary` `require`s ffmpeg and dies, and if it somehow got
+      # past that, the transcoder probes Unavailable and the proof spec fails on `hlsUrl == null`
+      # three layers from the cause. This step is what makes the missing binary say so itself.
+      - name: Verify FFmpeg is usable (anti-fake-green)
+        run: |
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Run Kotest specs in Chromium against a real server
+        run: ./gradlew :app:webApp:webAuthKotest --no-daemon
+
   test-jvm:
     name: Test (JVM)
     runs-on: ubuntu-latest

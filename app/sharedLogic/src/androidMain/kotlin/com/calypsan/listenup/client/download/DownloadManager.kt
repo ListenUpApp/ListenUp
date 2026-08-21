@@ -56,6 +56,8 @@ class DownloadManager internal constructor(
     private val transactionRunner: TransactionRunner,
     private val errorBus: ErrorBus,
 ) : DownloadService {
+    override val supportsDownloads: Boolean = true
+
     companion object {
         private const val STORAGE_BUFFER_MULTIPLIER = 1.1 // 10% buffer for download size estimates
         private const val DECIMAL_BYTES_PER_MB = 1_000_000L

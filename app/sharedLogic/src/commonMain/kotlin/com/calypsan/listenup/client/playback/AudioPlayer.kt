@@ -54,6 +54,14 @@ interface AudioPlayer {
  */
 data class AudioSegment(
     val url: String,
+    /**
+     * Signed HLS playlist for this segment, or null. [localPath] wins over both this and [url]
+     * when set — never stream a file already sitting on disk. Between the two network options,
+     * a player that can consume HLS should prefer this over [url] only when streaming: its
+     * presence means the server decided this client needs a transcode. [url] remains valid as
+     * the fallback either way.
+     */
+    val hlsUrl: String? = null,
     val localPath: String?,
     val durationMs: Long,
     val offsetMs: Long,

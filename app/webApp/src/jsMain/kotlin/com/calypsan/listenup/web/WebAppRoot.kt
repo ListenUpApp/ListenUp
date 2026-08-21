@@ -2,6 +2,7 @@ package com.calypsan.listenup.web
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -13,6 +14,12 @@ import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.LibrarySession
 import com.calypsan.listenup.web.features.library.OpenLibrary
+import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
+import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
+import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
+import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.nav.Route
 import com.calypsan.listenup.web.nav.Router
@@ -35,15 +42,28 @@ import org.jetbrains.compose.web.dom.Text
  * [com.calypsan.listenup.web.design.WebAppSurface] is applied by
  * [com.calypsan.listenup.web.features.auth.AuthGate], not here — every auth branch needs it too,
  * and applying it in both places would nest `.luw` inside `.luw`.
+ *
+ * [openPlayback] is scoped to the shell rather than to a route: what is playing outlives the page
+ * the listener happened to start it from. It has no default on purpose — see [fixedPlayback], which
+ * is what a spec passes instead.
  */
 @Composable
 fun WebAppRoot(
     router: Router,
     openBookDetail: OpenBookDetail,
     openLibrary: OpenLibrary,
+    openPlayback: OpenPlayback,
     onSignOut: () -> Unit = {},
 ) {
     var collapsed by remember { mutableStateOf(false) }
+
+    // Which grid tile is the shared element. Set on the way into a book and kept afterwards, so the
+    // flight works in both directions: out to the detail hero, and back to the same tile on return.
+    // The library's scrollport is the shell's, which does not unmount on a route change, so coming
+    // back lands at the same offset and the tile is usually still on screen. When it is not — the
+    // grid is virtualised — there is simply nothing to fly to and the pages crossfade instead.
+    var heroBookId by remember { mutableStateOf<String?>(null) }
+    val playback = playbackState(openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
     // A book lives in the library, so the deep link keeps Library lit in the sidebar.
@@ -61,6 +81,12 @@ fun WebAppRoot(
         },
     ) {
         AccountMenu(onSignOut = onSignOut)
+        // Opened once for the shell's lifetime rather than per visit. Closing it on the way to a
+        // book meant coming back rebuilt the ViewModel and re-queried all 1,204 rows — measured at
+        // **478 ms** of "Loading…" every single time, for a list the reader had just been looking
+        // at. A Room-backed flow costs almost nothing to keep subscribed, and keeping it is what
+        // makes going back instant instead of merely fast.
+        val librarySession = libraryState(openLibrary)
         val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
         if (bookId != null) {
             BookDetailPage(
@@ -69,9 +95,12 @@ fun WebAppRoot(
                 // replace, not navigate: panes and selection are page state, and Back should
                 // leave the page rather than unwind every pane and toggle.
                 onSelectTab = { tab ->
+                    // Animated: switching a pane is a page-level change. The selection change
+                    // below deliberately is not — see Router.replace.
                     router.replace(Route(route.segments, route.query + ("tab" to tab)))
                 },
                 onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+                bookId = bookId,
                 selection = parseSelection(route.query["sel"]),
                 onSelectionChange = { selection ->
                     val query =
@@ -82,18 +111,49 @@ fun WebAppRoot(
                         }
                     router.replace(Route(route.segments, query))
                 },
+                onPlay = { playback.onPlayBook(BookId(bookId)) },
             )
         } else if (active == LIBRARY_KEY) {
-            val session = libraryState(openLibrary)
             LibraryPage(
-                state = session.state.collectAsState().value,
-                onEvent = session.onEvent,
-                onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
+                state = animatedLibrary(librarySession),
+                onEvent = librarySession.onEvent,
+                onOpenBook = { id ->
+                    heroBookId = id
+                    router.navigate(Route(listOf(BOOK_KEY, id)))
+                },
+                heroBookId = heroBookId,
             )
         } else {
             PagePlaceholder(active)
         }
+
+        // Both last inside the content region, so they sit under whatever page is showing and
+        // stay put as the reader moves between them. The notice comes first because it is often
+        // the only one of the two rendering: the failures it reports are exactly the ones that
+        // leave nothing playing, and therefore no bar.
+        PlaybackNotice(
+            message = playback.error.collectAsState().value,
+            onDismiss = playback.onDismissError,
+        )
+        TransportBar(
+            state = playback.state.collectAsState().value,
+            onPlayPause = playback.onPlayPause,
+            onSeek = playback.onSeek,
+        )
     }
+}
+
+/**
+ * Opens the playback session for as long as the shell is mounted, and closes it when it is not.
+ *
+ * `remember` with no key on purpose: this session is the shell's, not a route's, so a navigation
+ * must not tear the player down mid-sentence.
+ */
+@Composable
+private fun playbackState(openPlayback: OpenPlayback): PlaybackSession {
+    val session = remember { openPlayback() }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session
 }
 
 /**
@@ -120,6 +180,28 @@ private fun libraryState(openLibrary: OpenLibrary): LibrarySession {
     val session = remember { openLibrary() }
     DisposableEffect(session) { onDispose { session.close() } }
     return session
+}
+
+/**
+ * The library list, mirrored into local state.
+ *
+ * ⛔ **This used to wrap each change in a View Transition, and that has been removed** — not tuned,
+ * removed. The browser's shared-element API needs the DOM change to happen inside its update
+ * callback, and **Compose HTML cannot render in there**: the browser suppresses rendering while the
+ * callback is outstanding, and Compose's scheduler needs a frame. Measured, the destination had
+ * still not rendered **361 ms** into the callback, so every transition captured an identical before
+ * and after — it animated nothing while holding the old page frozen for the settle, which is what
+ * read as a lurch and a flash on every navigation.
+ *
+ * The cover's flight between the grid and the book survives, because it does not depend on that
+ * callback at all — see `HeroFlight`.
+ */
+@Composable
+private fun animatedLibrary(session: LibrarySession): LibraryUiState {
+    val upstream = session.state.collectAsState().value
+    var shown by remember { mutableStateOf(upstream) }
+    LaunchedEffect(upstream) { shown = upstream }
+    return shown
 }
 
 /**

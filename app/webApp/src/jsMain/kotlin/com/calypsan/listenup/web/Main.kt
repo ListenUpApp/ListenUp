@@ -7,10 +7,13 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.core.ServerUrl
+import com.calypsan.listenup.web.di.webPlaybackModule
 import com.calypsan.listenup.web.features.auth.AuthGate
 import com.calypsan.listenup.web.features.auth.graphAuth
 import com.calypsan.listenup.web.features.bookdetail.graphBookDetail
 import com.calypsan.listenup.web.features.library.graphLibrary
+import com.calypsan.listenup.web.features.nowplaying.graphPlayback
+import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -43,7 +46,7 @@ fun main() {
     // so it is the browser application's contribution to an otherwise shared graph.
     val koin =
         startKoin {
-            modules(jsSharedModules() + module { single<Worker> { createSqliteWorker() } })
+            modules(jsSharedModules() + webPlaybackModule + module { single<Worker> { createSqliteWorker() } })
         }.koin
 
     // The server URL must be seeded before the composition mounts, or a ViewModel's first RPC
@@ -54,13 +57,14 @@ fun main() {
         seedServerUrlIfNeeded(koin)
         connectSyncWhenAuthenticated(koin, this)
 
-        val router = Router()
+        val router = Router(beforeRouteChange = ::captureHeroOriginBeforeRouteChange)
         renderComposable(root = mount) {
             AuthGate(
                 authGraph = graphAuth(koin),
                 router = router,
                 openBookDetail = graphBookDetail(koin),
                 openLibrary = graphLibrary(koin),
+                openPlayback = graphPlayback(koin),
             )
         }
     }

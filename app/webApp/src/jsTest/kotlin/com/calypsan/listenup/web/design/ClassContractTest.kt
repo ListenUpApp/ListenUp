@@ -24,6 +24,9 @@ import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.contractBook
 import com.calypsan.listenup.web.features.library.contractLibrary
+import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
+import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.web.features.nowplaying.TransportState
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
@@ -123,12 +126,14 @@ class ClassContractTest :
                             tab = "overview",
                             onSelectTab = {},
                             onOpenLibrary = {},
+                            onPlay = {},
                         )
                         BookDetailPage(
                             state = readyBook(),
                             tab = "chapters",
                             onSelectTab = {},
                             onOpenLibrary = {},
+                            onPlay = {},
                             selection = setOf(1, 2),
                         )
                         // The states with no book draw classes of their own, so they belong in
@@ -139,12 +144,14 @@ class ClassContractTest :
                             tab = "overview",
                             onSelectTab = {},
                             onOpenLibrary = {},
+                            onPlay = {},
                         )
                         BookDetailPage(
                             state = BookDetailUiState.Loading,
                             tab = "overview",
                             onSelectTab = {},
                             onOpenLibrary = {},
+                            onPlay = {},
                         )
                         // Every Library state draws classes of its own — the grid and sort row
                         // from a loaded page, and the two empty states, which are the ones most
@@ -218,6 +225,18 @@ class ClassContractTest :
                             )
                         }
                         AccountMenu(onSignOut = {})
+                        PlaybackNotice(message = "Couldn't start this book.", onDismiss = {})
+                        TransportBar(
+                            state =
+                                TransportState(
+                                    title = "The Institute",
+                                    isPlaying = true,
+                                    positionMs = 61_000,
+                                    durationMs = 3_600_000,
+                                ),
+                            onPlayPause = {},
+                            onSeek = {},
+                        )
                     }
                 }
 

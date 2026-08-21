@@ -139,10 +139,16 @@ class LibraryPageTest :
             root.querySelector(".lib-author")!!.textContent!! shouldBe "Frank Herbert"
         }
 
-        test("a card with no author renders no author line rather than an empty one") {
+        // Changed deliberately when the grid was virtualised: the author line now always occupies
+        // its row, empty or not, because the windowing arithmetic requires every card to be exactly
+        // the same height — a card that dropped a line would be shorter than its neighbours and the
+        // row offsets would drift. It renders no text, so nothing is visible either way; what is
+        // pinned here is that the element is present and blank rather than absent.
+        test("a card with no author still reserves the author line, and leaves it empty") {
             val root = render(loadedWith(listOf(bookItem("b1", "Dune"))))
 
-            root.querySelectorAll(".lib-author").length shouldBe 0
+            root.querySelectorAll(".lib-author").length shouldBe 1
+            root.querySelector(".lib-author")!!.textContent!! shouldBe ""
         }
 
         test("an empty library that is still being built says so, not 'empty'") {
