@@ -7,8 +7,6 @@ import com.calypsan.listenup.client.features.bookdetail.DesktopBookDetailPlatfor
 import com.calypsan.listenup.client.features.settings.DesktopSettingsPlatformActions
 import com.calypsan.listenup.client.features.settings.SettingsPlatformActions
 import com.calypsan.listenup.client.download.DownloadFileManager
-import com.calypsan.listenup.client.download.DownloadService
-import com.calypsan.listenup.client.download.NoDownloadsService
 import com.calypsan.listenup.client.platform.DesktopAudioTokenProvider
 import com.calypsan.listenup.client.platform.StubBackgroundSyncScheduler
 import com.calypsan.listenup.client.device.DeviceInfoProvider
@@ -92,11 +90,11 @@ val platformModule: Module =
             )
         }
 
-        // Download service (stub)
-        single<DownloadService> { NoDownloadsService() }
-
-        // DownloadEnqueuer seam (Desktop no-op) is bound in `:app:sharedLogic`'s
-        // `desktopDownloadModule` so the now-`internal` `DownloadEntity` need not be public.
+        // Download service (stub) AND the DownloadEnqueuer seam (Desktop no-op) are both bound in
+        // `:app:sharedLogic`'s `desktopDownloadModule` — DownloadEnqueuer because its signature
+        // names the now-`internal` `DownloadEntity`, DownloadService because `NoDownloadsService`
+        // is `internal` to keep a no-op stub off every client's Swift-Export surface. Neither type
+        // can be constructed from this module.
 
         // Progress tracker
         single {

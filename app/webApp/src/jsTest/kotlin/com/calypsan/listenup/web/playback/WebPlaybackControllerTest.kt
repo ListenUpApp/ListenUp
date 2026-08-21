@@ -32,6 +32,7 @@ class WebPlaybackControllerTest :
             sut.setVolume(HALF_VOLUME)
 
             player.volume shouldBe HALF_VOLUME.toDouble()
+            player.releasePlayer()
         }
 
         test("setVolume clamps above 1.0 to silence the element's own IndexSizeError") {
@@ -41,6 +42,7 @@ class WebPlaybackControllerTest :
             sut.setVolume(ABOVE_MAX_VOLUME)
 
             player.volume shouldBe 1.0
+            player.releasePlayer()
         }
 
         test("setVolume clamps below 0.0") {
@@ -50,6 +52,7 @@ class WebPlaybackControllerTest :
             sut.setVolume(BELOW_MIN_VOLUME)
 
             player.volume shouldBe 0.0
+            player.releasePlayer()
         }
     })
 

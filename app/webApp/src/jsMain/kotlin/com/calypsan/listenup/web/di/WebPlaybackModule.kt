@@ -32,9 +32,11 @@ import org.koin.dsl.onClose
  *
  * `onClose { it?.releasePlayer() }` matters for the same reason `browserPlaybackModule`'s
  * playback-scoped `CoroutineScope` cancels on close: a browser tab's Koin graph starts and stops
- * far more often than a native process exits (once per spec in this test suite), and without it
- * every `stopKoin()` would leave a detached `<audio>` element with live DOM listeners on the
- * shared test page.
+ * far more often than a native process exits (once per spec in this test suite). Without it, a
+ * `stopKoin()` mid-playback leaves the `<audio>` element exactly as it was — playing, buffering,
+ * still attached to whatever it was streaming, including a live `hls.js` instance still holding
+ * buffers and fetching segments — rather than [HtmlAudioPlayer.releasePlayer] pausing it, tearing
+ * down `hls.js`, and returning the element to its resting state.
  */
 internal val webPlaybackModule: Module =
     module {
