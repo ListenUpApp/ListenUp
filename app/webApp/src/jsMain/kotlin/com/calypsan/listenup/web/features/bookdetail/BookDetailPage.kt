@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.coverUrl
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.MetaEntry
 import com.calypsan.listenup.web.design.MetaList
@@ -126,7 +127,16 @@ private fun BookHeader(
     onPlay: () -> Unit,
 ) {
     Div(attrs = { classes("bd-head") }) {
-        Cover(title = state.book.title, size = COVER_SIZE, radius = COVER_RADIUS)
+        // The detail hero is the largest cover the web client shows, so it asks for its own rung
+        // rather than reusing the grid's — a 300px derivative upscaled to 180 CSS px looks soft on
+        // a 2x display. `coverHash` rides along so a re-covered book is not served a year-stale
+        // image from cache; see [coverUrl].
+        Cover(
+            title = state.book.title,
+            imageUrl = coverUrl(state.book.id.value, state.book.coverHash, COVER_RUNG),
+            size = COVER_SIZE,
+            radius = COVER_RADIUS,
+        )
         Div(attrs = { classes("bd-tblock") }) {
             H1(attrs = { classes("bd-t") }) { Text(state.book.title) }
             byline(state)?.let { line -> Div(attrs = { classes("bd-by") }) { Text(line) } }
@@ -275,6 +285,9 @@ internal fun PaneHint(text: String) {
 private const val PERCENT = 100
 
 private const val COVER_SIZE = 180
+
+/** Twice [COVER_SIZE], so the hero stays sharp on a 2x display. */
+private const val COVER_RUNG = 360
 
 private const val COVER_RADIUS = 16
 

@@ -464,7 +464,23 @@ body { margin: 0; }
 .sb-expand { margin:0 auto 10px; }
 /* Every page's content lands here, so this is the one place that owes it breathing room —
    without it a grid or heading sits flush against the sidebar and the top of the window. */
-.shell-main { flex:1; min-width:0; overflow:auto; padding:24px 28px; }
+/* A flex column so the transport bar can be pushed to the bottom by an auto top margin. Without
+   it, `.tport`'s `position:sticky; bottom:0` only pins once the content is tall enough to scroll —
+   on a short page the bar rendered mid-screen, floating above the fold. */
+.shell-main { flex:1; min-width:0; overflow:auto; padding:24px 28px; display:flex; flex-direction:column; }
+
+/* The bottom group. Whichever of these comes first absorbs the free space; when the notice is
+   present it takes the auto margin and the bar tucks directly beneath it, so the two stay a pair
+   rather than splitting the gap between them. */
+.shell-main > .tport-note, .shell-main > .tport { margin-top:auto; }
+.shell-main > .tport-note ~ .tport { margin-top:0; }
+
+/* The bar's own `margin-bottom:-24px` cannot cancel the container's bottom padding here: in a flex
+   column an `auto` top margin absorbs the free space AFTER the other margins are counted, so a
+   negative bottom margin only enlarges what the auto margin then eats — it never overhangs. So the
+   padding is dropped instead, and only when a bar is actually present. */
+.shell-main:has(> .tport) { padding-bottom:0; }
+.shell-main > .tport { margin-bottom:0; }
 
 /* ---- transport bar — the player docked under whatever page is showing.
    Sticky rather than fixed: it belongs to the content region, so it never

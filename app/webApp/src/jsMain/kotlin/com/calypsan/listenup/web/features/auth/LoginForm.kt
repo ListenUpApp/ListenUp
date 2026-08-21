@@ -37,14 +37,26 @@ fun LoginForm(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
-    val error = (state as? LoginUiState.Error)?.type
+    // Whether the listener has touched a field since this state arrived. Keyed on [state], so every
+    // new state (including a fresh failure) starts untouched and the red returns.
+    //
+    // Without it the error outlives what produced it: `state` only changes on submit, so a field
+    // flagged invalid stayed red while the listener corrected it, and the message underneath went
+    // on describing a value no longer on screen. A field asserting something false about its own
+    // contents is worse than no validation at all.
+    var edited by remember(state) { mutableStateOf(false) }
+
+    val error = (state as? LoginUiState.Error)?.type?.takeUnless { edited }
     val badField = (error as? LoginErrorType.ValidationError)?.field
 
     Div(attrs = { classes("auth-fields") }) {
         Field(
             label = "Email",
             value = email,
-            onInput = { email = it },
+            onInput = {
+                email = it
+                edited = true
+            },
             leading = WebIcon.Mail,
             placeholder = "you@example.com",
             type = InputType.Email,
@@ -54,7 +66,10 @@ fun LoginForm(
         PasswordField(
             label = "Password",
             value = password,
-            onInput = { password = it },
+            onInput = {
+                password = it
+                edited = true
+            },
             error = badField == LoginField.PASSWORD,
             id = PASSWORD_ID,
         )
