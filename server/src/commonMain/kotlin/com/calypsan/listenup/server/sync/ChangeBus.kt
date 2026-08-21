@@ -3,6 +3,10 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.logging.loggerFor
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.channels.BufferOverflow
@@ -15,6 +19,33 @@ private val log = loggerFor<ChangeBus>()
 
 private const val LIVE_TAIL_BUFFER = 256
 
+/**
+ * How many out-of-turn publish slots the sequencer holds before it abandons its stalled head.
+ *
+ * Only slots that resolved *early* are held, and a slot can only be reserved once its predecessor's
+ * transaction has committed (the revision bump holds SQLite's write lock until then), so the real
+ * depth is the number of writers inside the post-commit window — single digits. Reaching this bound
+ * means a slot was stranded, not that the server is busy.
+ *
+ * This is the burst trigger; [STALLED_SLOT_TIMEOUT] is the one that matters on a quiet server.
+ */
+private const val MAX_HELD_SLOTS = 256
+
+/**
+ * How long the sequencer waits on an unresolved head before abandoning it.
+ *
+ * The count bound alone is the wrong trigger for a self-hosted server with one active user: strand
+ * the head there and the firehose stays silent until 256 *more* writes arrive, which can be days.
+ * Silence hurts most exactly where the counter moves slowest, so elapsed time is the primary
+ * trigger and the count is the burst backstop.
+ *
+ * 30s is three orders of magnitude above the gap this queue actually exists to cover — the window
+ * between a COMMIT and its own post-commit hook, which is microseconds — so it cannot fire on a
+ * merely slow write, while still healing well inside the span of one user's attention. It is
+ * evaluated lazily on the next [resolve], so a stranded slot costs at most one further write's
+ * latency rather than a background timer.
+ */
+private val STALLED_SLOT_TIMEOUT = 30.seconds
 
 /**
  * Type-bound bus entry. The source repository travels alongside the event so
@@ -82,7 +113,10 @@ class PublishSlot internal constructor(
  * so it always reflects the actual buffer floor, including after DROP_OLDEST
  * evictions.
  */
-class ChangeBus {
+class ChangeBus(
+    private val timeSource: TimeSource = TimeSource.Monotonic,
+    private val stalledSlotTimeout: Duration = STALLED_SLOT_TIMEOUT,
+) {
     private val flow =
         MutableSharedFlow<BusEvent<*>>(
             replay = LIVE_TAIL_BUFFER,
@@ -111,6 +145,11 @@ class ChangeBus {
     private var nextReservedSequence = 0L
     private var nextSequenceToPublish = 0L
     private val resolvedSlots = mutableMapOf<Long, BusEvent<*>?>()
+
+    // When each still-unresolved slot was reserved, so a stalled head can be aged out by
+    // [STALLED_SLOT_TIMEOUT]. Entries are dropped as their slot resolves (or is abandoned), so this
+    // holds only what is genuinely in flight.
+    private val reservedAt = mutableMapOf<Long, TimeMark>()
 
     /**
      * Publishes [event] onto the bus, paired with the source [repo] so consumers
@@ -149,7 +188,9 @@ class ChangeBus {
         userId: String? = null,
     ): PublishSlot =
         synchronized(orderLock) {
-            PublishSlot(sequence = nextReservedSequence++, entry = BusEvent(repo, event, userId))
+            val sequence = nextReservedSequence++
+            reservedAt[sequence] = timeSource.markNow()
+            PublishSlot(sequence = sequence, entry = BusEvent(repo, event, userId))
         }
 
     /**
@@ -193,10 +234,53 @@ class ChangeBus {
         entry: BusEvent<*>?,
     ) = synchronized(orderLock) {
         resolvedSlots[sequence] = entry
+        reservedAt.remove(sequence)
+        abandonStalledHeadIfNeeded()
         while (resolvedSlots.containsKey(nextSequenceToPublish)) {
             resolvedSlots.remove(nextSequenceToPublish)?.let { flow.tryEmit(it) }
+            reservedAt.remove(nextSequenceToPublish)
             nextSequenceToPublish++
         }
+    }
+
+    /**
+     * Liveness valve: gives up on a head slot that is never going to resolve.
+     *
+     * SQLDelight resolves a slot exactly once through the hooks [emitInPublishOrder] registers —
+     * but it invokes post-commit hooks with a bare `forEach`, so a hook that throws skips the rest
+     * of the list, and it calls `endTransaction()` from inside a `finally` whose result is
+     * discarded if the COMMIT itself throws, in which case no hook list runs at all. Either path
+     * strands a slot. Before this queue existed those paths caused *reordering*; with a queue in
+     * front of them they would instead cause *silence* — the entire firehose, every domain, every
+     * user, for the life of the process. That is a strictly worse failure than the one the queue
+     * repairs, which is what makes this valve load-bearing rather than defensive padding.
+     *
+     * Fires on elapsed time or held count, whichever comes first, and only ever abandons the run of
+     * unresolved slots below the lowest slot that *has* resolved — one jump, not one-at-a-time. If
+     * the slot after the drained run is also unresolved the queue simply re-blocks there, and that
+     * new head is aged independently on a later [resolve]: at most one abandonment per call, never
+     * a cascade that drains the whole queue in one pass, and no spin (the drain loop is bounded by
+     * the map, removing an entry per iteration).
+     */
+    private fun abandonStalledHeadIfNeeded() {
+        if (resolvedSlots.isEmpty() || resolvedSlots.containsKey(nextSequenceToPublish)) return
+        val heldFor = reservedAt[nextSequenceToPublish]?.elapsedNow()
+        val timedOut = heldFor != null && heldFor >= stalledSlotTimeout
+        if (!timedOut && resolvedSlots.size <= MAX_HELD_SLOTS) return
+
+        val abandoned = nextSequenceToPublish
+        val resumeAt = resolvedSlots.keys.min()
+        // A silent self-healing valve hides the defect it compensates for — this must be greppable.
+        log.warn {
+            "publish slot $abandoned never resolved (held ${heldFor ?: "unknown"}, " +
+                "${resolvedSlots.size} writes queued behind it); abandoning slots $abandoned..${resumeAt - 1}"
+        }
+        var skipped = abandoned
+        while (skipped < resumeAt) {
+            reservedAt.remove(skipped)
+            skipped++
+        }
+        nextSequenceToPublish = resumeAt
     }
 
     fun subscribe(): SharedFlow<BusEvent<*>> = flow.asSharedFlow()

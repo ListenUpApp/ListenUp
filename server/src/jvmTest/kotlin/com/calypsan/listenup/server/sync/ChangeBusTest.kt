@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TestTimeSource
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -210,8 +212,49 @@ class ChangeBusTest :
             }
         }
 
+        test("a stranded slot is aged out so the next single write still reaches the bus") {
+            withSqlDatabase {
+                // A quiet server is the case the count bound cannot serve: strand the head and
+                // nothing more is published until 256 further writes arrive, which may be days.
+                val time = TestTimeSource()
+                val bus = ChangeBus(timeSource = time)
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+
+                bus.reserve(repo = repo, event = tagCreated("stranded", 1L))
+                bus.release(bus.reserve(repo = repo, event = tagCreated("held", 2L)))
+                bus.subscribe().replayCache.shouldBeEmpty()
+
+                time += 31.seconds
+
+                // ONE subsequent write, not 256 — both it and the write it was holding up land.
+                bus.release(bus.reserve(repo = repo, event = tagCreated("next", 3L)))
+                bus.subscribe().replayCache.map { it.event.id } shouldBe listOf("held", "next")
+            }
+        }
+
+        test("a stranded slot is abandoned rather than holding the bus silent forever") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = TagRepository(db = sql, bus = bus, registry = SyncRegistry())
+                // Strand the head: reserved, never released, never discarded — what a throwing
+                // afterCommit hook, or a COMMIT that throws before SQLDelight reaches its hooks,
+                // leaves behind.
+                bus.reserve(repo = repo, event = tagCreated("stranded", 1L))
+
+                repeat(HELD_SLOT_VALVE + 1) { i ->
+                    bus.release(bus.reserve(repo = repo, event = tagCreated("after-$i", (i + 2).toLong())))
+                }
+
+                // Silence would be a worse failure than reordering, so the queue gives up on its
+                // stalled head and flushes what was waiting behind it. Without the valve nothing
+                // here ever reaches a subscriber; the head slot holds all of it forever.
+                bus.subscribe().replayCache.map { it.event.id } shouldContain "after-$HELD_SLOT_VALVE"
+            }
+        }
     })
 
+/** Mirrors `MAX_HELD_SLOTS` in [ChangeBus] — the depth at which a stalled head is abandoned. */
+private const val HELD_SLOT_VALVE = 256
 
 /** A `tags` [SyncEvent.Created] carrying [revision], for driving the bus's sequencer directly. */
 private fun tagCreated(
