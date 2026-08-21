@@ -124,14 +124,32 @@ buildscript {
 // =============================================================================
 // SPOTLESS - Code Formatting
 // =============================================================================
+// Source roots for Spotless, discovered by a walk that PRUNES `build` rather than filtering it.
+//
+// The distinction is the whole fix. `target("**/*.kt")` roots its file tree at the repo root, and
+// Gradle snapshots a filtered tree by snapshotting the root directory in full and applying the
+// filter afterwards — so `targetExclude("**/build", ...)` never stopped the walk descending into
+// build/. It raced the transient files tests create and delete there (sharedLogic's
+// `e2e-retries.log` is the reliable offender) and failed the whole gate with "Could not read path"
+// on a file Spotless has no interest in and would never have formatted.
+//
+// Rooting each tree at a module's `src/` removes the race by construction: no `src/` directory in
+// this repo contains a `build/` (or `node_modules/`), so there is nothing transient in the walk.
+// Coverage is unchanged — every .kt file in the repo lives under some `src/`.
+//
+// Discovered rather than hardcoded so a new module is covered the day it appears. `EXPECTED_MODULE_DIRS`
+// pins the module list for Konsist, but nothing would connect a hardcoded list here to it, and
+// silently-unformatted code is a worse failure than a slow walk.
+val kotlinSourceRoots: List<File> =
+    rootDir
+        .walkTopDown()
+        .onEnter { it.name !in setOf("build", "node_modules", ".git", ".worktrees", ".gradle", ".kotlin") }
+        .filter { it.isDirectory && it.name == "src" }
+        .toList()
+
 spotless {
     kotlin {
-        target("**/*.kt")
-        // "**/build" (the directory itself, not just its contents) is what makes Gradle PRUNE the
-        // walk instead of merely filtering matches: with only "**/build/**" the file tree still
-        // descends into build/ and races tests that create and delete transient files there
-        // (e.g. sharedLogic's e2e-retries.log) — "Could not read path" mid-snapshot.
-        targetExclude("**/build", "**/build/**", "**/.worktrees/**")
+        target(kotlinSourceRoots.map { fileTree(it) { include("**/*.kt") } })
         ktlint(libs.versions.ktlint.get())
         // Suppress max-line-length for API files with complex Ktor builders
         suppressLintsFor {
@@ -140,8 +158,16 @@ spotless {
         }
     }
     kotlinGradle {
-        target("**/*.gradle.kts")
-        targetExclude("**/build", "**/build/**", "**/.worktrees/**")
+        // Build scripts live at project roots, beside the `build/` dirs, so they cannot be
+        // src-rooted like the sources above. Handed to Spotless as a concrete FILE LIST instead of
+        // a pattern: a list of files has no directory left to walk, so it cannot race either.
+        target(
+            rootDir
+                .walkTopDown()
+                .onEnter { it.name !in setOf("build", "node_modules", ".git", ".worktrees", ".gradle", ".kotlin") }
+                .filter { it.isFile && it.name.endsWith(".gradle.kts") }
+                .toList(),
+        )
         ktlint(libs.versions.ktlint.get())
         // Mirror the `kotlin` block: max-line-length is not enforced on build scripts. Beyond the
         // long dependency-coordinate / URL strings that motivate it for source, the embedded-Kotlin
