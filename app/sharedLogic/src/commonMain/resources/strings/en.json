@@ -847,6 +847,9 @@
     "server_version": "Server version",
     "share_logs": "Share logs",
     "share_logs_subtitle": "Export recent app logs for troubleshooting",
+    "test_notification": "Send a test notification",
+    "test_notification_subtitle": "Check that push notifications reach this device",
+    "test_notification_sent": "Test notification sent — check your notifications.",
     "sign_out_confirm_title": "Sign Out",
     "skip_backward": "Skip backward",
     "skip_forward": "Skip forward",
@@ -1385,6 +1388,11 @@
     "registration_approved_title": "You're in!",
     "registration_approved_body": "Your registration was approved — sign in to start listening.",
     "registration_denied_title": "Registration update",
-    "registration_denied_body": "Your registration was declined."
+    "registration_denied_body": "Your registration was declined.",
+    "registration_request_title": "Someone wants to join",
+    "registration_request_body": "%1$s is waiting for you to approve access.",
+    "registration_request_body_unknown": "A new request is waiting for your approval.",
+    "registration_action_approve": "Approve",
+    "registration_action_deny": "Deny"
   }
 }

@@ -1,5 +1,10 @@
 package com.calypsan.listenup.client.presentation.settings
 
+import kotlinx.coroutines.flow.first
+import io.kotest.matchers.types.shouldBeInstanceOf
+import dev.mokkery.MockMode
+import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.client.domain.repository.PushRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -52,6 +57,8 @@ class SettingsViewModelTest :
             val instanceRepository: InstanceRepository = mock()
             val serverConfig: ServerConfig = mock()
             val logoutUseCase: LogoutUseCase = mock()
+            val pushRepository: PushRepository = mock(MockMode.autoUnit)
+            val errorBus = ErrorBus()
 
             // StateFlows for local preferences (mocked as MutableStateFlow)
             val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
@@ -81,6 +88,8 @@ class SettingsViewModelTest :
                     instanceRepository = instanceRepository,
                     serverConfig = serverConfig,
                     logoutUseCase = logoutUseCase,
+                    pushRepository = pushRepository,
+                    errorBus = errorBus,
                 )
         }
 
@@ -368,6 +377,44 @@ class SettingsViewModelTest :
 
                 // Then — the whole logout flow runs, server revoke included.
                 verifySuspend { fixture.logoutUseCase.invoke() }
+            }
+        }
+        // The one push in the app a user can trigger deliberately. Every other notification is a
+        // side effect of something else, so before this there was no way to tell a dead relay from
+        // a stale token from a revoked OS permission — all three just meant "nothing arrived".
+        test("a successful test notification reports sent") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.pushRepository.sendTestNotification() } returns AppResult.Success(Unit)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.sendTestNotification()
+                advanceUntilIdle()
+
+                viewModel.events.first().shouldBeInstanceOf<SettingsEvent.TestNotificationSent>()
+                verifySuspend { fixture.pushRepository.sendTestNotification() }
+            }
+        }
+
+        // The failure has to be legible, not silent: "push is disabled on this server" and "your
+        // token expired" are different problems with different fixes, and the typed error is what
+        // carries that distinction to the user.
+        test("a refused test notification reports the failure rather than a false success") {
+            runTest {
+                val fixture = createFixture()
+                val error =
+                    com.calypsan.listenup.api.error.TransportError
+                        .NetworkUnavailable()
+                everySuspend { fixture.pushRepository.sendTestNotification() } returns AppResult.Failure(error)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.sendTestNotification()
+                advanceUntilIdle()
+
+                val event = viewModel.events.first()
+                event.shouldBeInstanceOf<SettingsEvent.TestNotificationFailed>().error shouldBe error
             }
         }
     })

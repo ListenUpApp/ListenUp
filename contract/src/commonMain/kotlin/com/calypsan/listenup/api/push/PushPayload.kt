@@ -63,8 +63,28 @@ sealed interface PushPayload {
         val approved: Boolean,
     ) : PushPayload
 
+    /**
+     * Someone has requested access and is waiting on an admin decision (#1068).
+     *
+     * Delivered to every live ROOT/ADMIN device. This is the link that makes the rest of the
+     * registration chain reachable: [RegistrationDecision] wakes the registrant once a decision
+     * exists, but until this payload shipped nothing woke the person who has to make it. An admin
+     * with a closed app learned of a pending request only by happening to open the Admin screen,
+     * so a registration could sit unseen indefinitely.
+     *
+     * Carries the id and nothing else, per the IDs-only rule above. The recipient is an admin, so
+     * their client already holds the pending user in its synced `ADMIN_USER_ROSTER` mirror and
+     * resolves the display name locally — the name never crosses the relay.
+     */
+    @Serializable
+    @SerialName("registration_approval")
+    data class RegistrationApproval(
+        /** The pending registration's user id — the row to look up, and the one to decide on. */
+        @SerialName("userId")
+        val userId: String,
+    ) : PushPayload
+
     // Reserved future discriminators (documented, NOT implemented):
-    // "registration_approval" — admin approval request with Approve/Deny background actions.
     // "password_reset_request" / "password_reset_decision" — spec 2026-08-11 §3, land with the
     // password-reset notification step once the watch mechanism (this file's sibling) is in.
 }

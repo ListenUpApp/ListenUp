@@ -54,6 +54,17 @@ sealed interface ShortcutAction {
     data class NavigateToAbsImport(
         val importId: String,
     ) : ShortcutAction
+
+    /**
+     * Open the admin pending-approvals list (from a registration-request notification, #1068).
+     *
+     * Carries [userId] for logging and for a future jump straight to that person; the screen it
+     * opens is the pending LIST, because that is where approve/deny actually lives — an admin who
+     * taps must land somewhere they can decide, not somewhere they can only read.
+     */
+    data class NavigateToPendingApprovals(
+        val userId: String,
+    ) : ShortcutAction
 }
 
 /**

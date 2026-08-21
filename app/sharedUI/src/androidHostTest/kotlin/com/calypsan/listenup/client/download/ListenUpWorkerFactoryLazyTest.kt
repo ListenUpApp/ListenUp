@@ -27,6 +27,7 @@ class ListenUpWorkerFactoryLazyTest :
                     fileManager = lazy { error("fileManager forced at construction") },
                     audioFileDownloader = lazy { error("audioFileDownloader forced at construction") },
                     errorBus = lazy { error("errorBus forced at construction") },
+                    adminRepository = lazy { error("adminRepository forced at construction") },
                 )
             // If we reach here, no dep was forced — the factory was safely constructed.
             factory shouldNotBe null

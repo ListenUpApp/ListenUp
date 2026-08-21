@@ -1130,10 +1130,15 @@ One beautiful library.</string>
     <string name="push_campfire_invite_title_unknown">You have an invite to listen together</string>
     <string name="push_generic_body">Something happened on your server.</string>
     <string name="push_generic_title">ListenUp</string>
+    <string name="push_registration_action_approve">Approve</string>
+    <string name="push_registration_action_deny">Deny</string>
     <string name="push_registration_approved_body">Your registration was approved — sign in to start listening.</string>
     <string name="push_registration_approved_title">You're in!</string>
     <string name="push_registration_denied_body">Your registration was declined.</string>
     <string name="push_registration_denied_title">Registration update</string>
+    <string name="push_registration_request_body">%1$s is waiting for you to approve access.</string>
+    <string name="push_registration_request_body_unknown">A new request is waiting for your approval.</string>
+    <string name="push_registration_request_title">Someone wants to join</string>
     <string name="push_test_body">Push notifications are working.</string>
     <string name="push_test_title">Test notification</string>
     <string name="scan_building_subtitle">Building your library.</string>
@@ -1246,6 +1251,9 @@ One beautiful library.</string>
     <string name="settings_speed_used_for_new_books">Speed used for new books</string>
     <string name="settings_storage_available">%1$s available</string>
     <string name="settings_storage_size_files">%1$s · %2$d files</string>
+    <string name="settings_test_notification">Send a test notification</string>
+    <string name="settings_test_notification_sent">Test notification sent — check your notifications.</string>
+    <string name="settings_test_notification_subtitle">Check that push notifications reach this device</string>
     <string name="settings_theme_automatic">Automatic</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_light">Light</string>

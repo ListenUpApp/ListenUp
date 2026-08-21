@@ -563,6 +563,15 @@ private suspend fun handleShortcutAction(
             backStack.add(AdminBackups)
             backStack.add(ImportFlow)
         }
+
+        is ShortcutAction.NavigateToPendingApprovals -> {
+            // Lands on the Admin screen, which carries the pending list and its approve/deny
+            // controls — the point of the notification is to make the decision reachable in one
+            // tap, so it has to open somewhere the decision can actually be made.
+            logger.info { "Navigating to pending approvals for ${action.userId}" }
+            resetToShell(backStack)
+            backStack.add(Admin)
+        }
     }
 }
 

@@ -176,6 +176,20 @@ internal fun Application.resolvePushRelayUrl(): String {
     return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() } ?: PushConfig.DEFAULT_RELAY_URL
 }
 
+/**
+ * Push relay sender credential: `push.senderToken` config key, else LISTENUP_PUSH_SENDER_TOKEN env,
+ * else null.
+ *
+ * Null is a valid, working configuration today — the relay's rollout accepts an absent credential
+ * during its migration window (PROTOCOL.md "Sender credential") — but stops being one when that
+ * window closes. A fork pointing at its own relay leaves this unset.
+ */
+internal fun Application.resolvePushSenderToken(): String? {
+    val fromConfig = environment.config.propertyOrNull("push.senderToken")?.getString()
+    val fromEnv = readEnv("LISTENUP_PUSH_SENDER_TOKEN")
+    return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() }
+}
+
 internal fun ApplicationConfig.rescanOnStartup(): Boolean =
     propertyOrNull("scan.rescanOnStartup")?.getString()?.toBoolean() ?: true
 

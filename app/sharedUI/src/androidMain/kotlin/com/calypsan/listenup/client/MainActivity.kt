@@ -148,6 +148,28 @@ class MainActivity : ComponentActivity() {
 
         // Check for shortcut actions
         when (intent.action) {
+            ShortcutActions.PUSH_TAP -> {
+                // The extra has been written since push landed and read by nothing — tapping a
+                // notification just opened the app wherever it was last. An admin told "someone
+                // wants to join" then had to find the pending list themselves.
+                val type = intent.getStringExtra(ShortcutActions.EXTRA_PUSH_TYPE)
+                val subjectId = intent.getStringExtra(ShortcutActions.EXTRA_PUSH_SUBJECT_ID)
+                logger.debug { "Push tapped: type=$type" }
+                // An `if` while exactly one type routes; this becomes a `when` the moment a
+                // second one lands. Every other type — including a discriminator from a server
+                // newer than this client — falls through and simply opens the app: a tap must
+                // never be worse than a no-op.
+                if (type == PUSH_TYPE_REGISTRATION_APPROVAL) {
+                    if (subjectId != null) {
+                        shortcutActionManager.setPendingAction(
+                            ShortcutAction.NavigateToPendingApprovals(subjectId),
+                        )
+                    } else {
+                        logger.warn { "registration_approval push tapped with no subject id" }
+                    }
+                }
+            }
+
             ShortcutActions.RESUME -> {
                 logger.debug { "Received RESUME shortcut action" }
                 shortcutActionManager.setPendingAction(ShortcutAction.Resume)
@@ -272,3 +294,11 @@ fun ListenUpApp(localPreferences: LocalPreferences = koinInject()) {
         }
     }
 }
+
+/**
+ * The `@SerialName` of [com.calypsan.listenup.api.push.PushPayload.RegistrationApproval].
+ *
+ * A literal because an Intent extra is a string by the time it gets here; it is pinned to the
+ * contract by `MainActivityPushRoutingTest` so the two cannot drift apart silently.
+ */
+internal const val PUSH_TYPE_REGISTRATION_APPROVAL = "registration_approval"

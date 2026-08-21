@@ -8,52 +8,52 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 
 /**
- * Android actual for [RequestPostNotificationsPermission].
+ * Android actual for [rememberPostNotificationsPermission].
  *
- * [Manifest.permission.POST_NOTIFICATIONS] was introduced in API 33 (Android 13 /
- * TIRAMISU). Without a runtime grant the playback media notification is silently
- * suppressed; playback itself is unaffected.
+ * [Manifest.permission.POST_NOTIFICATIONS] arrived in API 33 and minSdk is 33, so this is *always*
+ * a runtime grant — there is no version below which it is implicitly held. Without it,
+ * `NotificationManagerCompat.notify` is a silent no-op: nothing throws, nothing logs, the
+ * notification simply never appears.
  *
- * The request is launched at most once per session:
- * - [rememberSaveable] ensures the flag survives configuration changes, so a
- *   device rotation while the dialog is visible does not trigger a second prompt.
- * - The already-granted check skips the dialog when the user has previously
- *   accepted.
- *
- * The app's minSdk is 33, so the permission always exists at runtime.
+ * The request fires at most once per session ([rememberSaveable] survives a rotation while the
+ * dialog is up), but the returned state is re-read on every composition entry, so a user who grants
+ * the permission in system Settings and returns sees the caller update without a restart.
  */
 @Composable
-actual fun RequestPostNotificationsPermission() {
+actual fun rememberPostNotificationsPermission(): Boolean {
     val context = LocalContext.current
     val permission = Manifest.permission.POST_NOTIFICATIONS
 
-    // rememberSaveable must be called unconditionally.
-    // It survives configuration changes so a rotation does not re-trigger the dialog.
+    fun currentlyGranted() = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+    var granted by remember { mutableStateOf(currentlyGranted()) }
+    // Survives configuration changes so a rotation mid-dialog does not prompt twice.
     var alreadyAsked by rememberSaveable { mutableStateOf(false) }
 
     val launcher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
-            onResult = {
-                // Grant or deny — playback works either way; no action required here.
-            },
+            // The result is the whole point now: a caller gating a "we'll notify you" promise
+            // needs the answer, not merely the knowledge that it asked.
+            onResult = { isGranted -> granted = isGranted },
         )
 
-    // LaunchedEffect(Unit) runs once per composition session. The alreadyAsked guard
-    // inside covers the re-entry case (e.g. after a configuration change LaunchedEffect
-    // re-fires but rememberSaveable preserves the true value).
     LaunchedEffect(Unit) {
-        if (!alreadyAsked &&
-            ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
-        ) {
+        // Re-read rather than trusting the initial snapshot: the permission may have been granted
+        // in system Settings since this composable last ran.
+        granted = currentlyGranted()
+        if (!granted && !alreadyAsked) {
             alreadyAsked = true
             launcher.launch(permission)
         }
     }
+
+    return granted
 }

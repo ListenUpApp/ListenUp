@@ -194,6 +194,14 @@ SELECT id FROM users WHERE deleted_at IS NULL AND status IN ('ACTIVE', 'PENDING_
 countActiveAdmins:
 SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND role IN ('ROOT', 'ADMIN');
 
+-- Ids of every LIVE, ACTIVE ROOT+ADMIN user — the fan-out set for the "someone is waiting on
+-- approval" push (#1068). ROOT is included deliberately: on a single-owner server it is the only
+-- role that exists, and excluding it would mean the most common install never gets told at all.
+-- ACTIVE-only because a pending or suspended admin cannot act on the request anyway.
+selectAdminIds:
+SELECT id FROM users
+WHERE deleted_at IS NULL AND status = 'ACTIVE' AND role IN ('ROOT', 'ADMIN');
+
 -- Admin edit of a user's display name / role / permission flags + a fresh updated_at.
 -- The service reads the row, validates the safety rails, then writes the merged values.
 updateAdminFields:

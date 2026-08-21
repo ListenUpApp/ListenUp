@@ -7,23 +7,32 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.client.MainActivity
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.notifications.NotificationChannels
+import com.calypsan.listenup.client.shortcuts.ShortcutActions
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.push_campfire_invite_body
 import listenup.composeapp.generated.resources.push_campfire_invite_title
 import listenup.composeapp.generated.resources.push_campfire_invite_title_unknown
 import listenup.composeapp.generated.resources.push_generic_body
+import listenup.composeapp.generated.resources.push_registration_action_approve
+import listenup.composeapp.generated.resources.push_registration_action_deny
 import listenup.composeapp.generated.resources.push_registration_approved_body
 import listenup.composeapp.generated.resources.push_registration_approved_title
 import listenup.composeapp.generated.resources.push_registration_denied_body
 import listenup.composeapp.generated.resources.push_registration_denied_title
+import listenup.composeapp.generated.resources.push_registration_request_body
+import listenup.composeapp.generated.resources.push_registration_request_body_unknown
+import listenup.composeapp.generated.resources.push_registration_request_title
 import listenup.composeapp.generated.resources.push_generic_title
 import listenup.composeapp.generated.resources.push_test_body
 import listenup.composeapp.generated.resources.push_test_title
 import org.jetbrains.compose.resources.getString
 
 private const val RES_TYPE_DRAWABLE = "drawable"
-private const val EXTRA_PUSH_TYPE = "push_type"
 
 /** Title + body of a rendered local notification, pre-enrichment. */
 private data class NotificationContent(
@@ -45,6 +54,7 @@ class PushNotificationRenderer(
     private val context: Context,
     private val bookTitleLookup: suspend (String) -> String?,
     private val inviterNameLookup: suspend (String) -> String?,
+    private val pendingUserNameLookup: suspend (String) -> String?,
 ) {
     private val smallIcon: Int by lazy {
         context.resources
@@ -91,6 +101,21 @@ class PushNotificationRenderer(
                     }
                 }
 
+                is PushPayload.RegistrationApproval -> {
+                    // Enriched, unlike RegistrationDecision: the recipient here is an ADMIN, and
+                    // an admin's client already mirrors the pending user in its synced roster. The
+                    // name is resolved locally precisely so it never has to cross the relay — a
+                    // push naming everyone who requests access to a private server would leak
+                    // exactly what a self-hosted install exists to keep private.
+                    val name = runCatching { pendingUserNameLookup(payload.userId) }.getOrNull()
+                    NotificationContent(
+                        title = getString(Res.string.push_registration_request_title),
+                        body =
+                            name?.let { getString(Res.string.push_registration_request_body, it) }
+                                ?: getString(Res.string.push_registration_request_body_unknown),
+                    )
+                }
+
                 null -> {
                     NotificationContent(
                         title = getString(Res.string.push_generic_title),
@@ -104,8 +129,17 @@ class PushNotificationRenderer(
                 context,
                 payload.hashCode(),
                 Intent(context, MainActivity::class.java).apply {
+                    // An explicit action, so MainActivity dispatches this through the same
+                    // `when (intent.action)` as every shortcut rather than sniffing extras.
+                    action = ShortcutActions.PUSH_TAP
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    payload?.let { putExtra(EXTRA_PUSH_TYPE, it::class.simpleName) }
+                    // The STABLE wire discriminator, not simpleName: R8 renames classes in a
+                    // release build, so a simpleName match would work in debug and quietly stop
+                    // matching in the build users actually run.
+                    payload?.let { putExtra(ShortcutActions.EXTRA_PUSH_TYPE, it.wireType()) }
+                    (payload as? PushPayload.RegistrationApproval)?.let {
+                        putExtra(ShortcutActions.EXTRA_PUSH_SUBJECT_ID, it.userId)
+                    }
                     // Campfire deep-link target lands with the Campfire arc; the single seam
                     // for per-type actions/routing is actionsFor() + this intent.
                 },
@@ -123,19 +157,102 @@ class PushNotificationRenderer(
                 .apply { actionsFor(payload).forEach(::addAction) }
                 .build()
 
-        // POST_NOTIFICATIONS may be denied (Android 13+): notify() is then a silent no-op — acceptable,
-        // the in-app SSE-fed surface still carries the same event.
+        // POST_NOTIFICATIONS may still be denied, and notify() is then a silent no-op. That is
+        // survivable rather than acceptable: the same event is reachable from the synced admin
+        // roster and the pending-approval status stream, so nothing is lost — only slower to
+        // notice. What is NOT survivable is claiming otherwise, which is why PendingApprovalScreen
+        // now gates its "we'll notify you" line on the real permission state.
         NotificationManagerCompat.from(context).notify(notificationId(payload), notification)
     }
 
     /**
-     * THE per-type action seam. v1 always returns an empty list — no notification carries action
-     * buttons yet. The Campfire arc adds a "Join" action (deep-link); registration approvals add
-     * "Approve"/"Deny" (background API calls via WorkManager). New actions are added here, not
-     * scattered across call sites — [ignored] is the future dispatch key.
+     * THE per-type action seam. Registration approvals carry Approve/Deny; everything else is
+     * tap-only. The Campfire arc adds its "Join" deep-link here rather than at a call site — an
+     * `if` while exactly one type has actions, a `when` the moment a second does.
      */
-    private fun actionsFor(ignored: PushPayload?): List<NotificationCompat.Action> = emptyList()
+    private suspend fun actionsFor(payload: PushPayload?): List<NotificationCompat.Action> =
+        if (payload is PushPayload.RegistrationApproval) {
+            listOf(
+                decisionAction(
+                    payload.userId,
+                    approve = true,
+                    label = getString(Res.string.push_registration_action_approve),
+                ),
+                decisionAction(
+                    payload.userId,
+                    approve = false,
+                    label = getString(Res.string.push_registration_action_deny),
+                ),
+            )
+        } else {
+            emptyList()
+        }
+
+    /**
+     * One Approve/Deny button, broadcast to [PushActionReceiver] and applied by
+     * [RegistrationDecisionWorker].
+     *
+     * `setAuthenticationRequired(true)` is the load-bearing line. Granting someone access to a
+     * private server is a privileged mutation, and without this it could be performed from the
+     * lock screen of an unattended phone by whoever picked it up — no app open, no unlock, no
+     * trace until an admin noticed a stranger in the roster. The OS demands a device unlock before
+     * it will fire the intent, which is the same bar the in-app path effectively has. minSdk is 33,
+     * so this is always available; there is no older path to fall back to.
+     *
+     * `requestCode` mixes the user id with the decision so Approve and Deny cannot collide into one
+     * PendingIntent — `FLAG_UPDATE_CURRENT` on a shared request code would quietly make both
+     * buttons do whatever the last one registered.
+     */
+    private fun decisionAction(
+        userId: String,
+        approve: Boolean,
+        label: String,
+    ): NotificationCompat.Action {
+        val intent =
+            Intent(context, PushActionReceiver::class.java).apply {
+                action = PushActionReceiver.ACTION_DECIDE_REGISTRATION
+                putExtra(PushActionReceiver.EXTRA_USER_ID, userId)
+                putExtra(PushActionReceiver.EXTRA_APPROVE, approve)
+                putExtra(PushActionReceiver.EXTRA_NOTIFICATION_ID, registrationNotificationId(userId))
+            }
+        val pending =
+            PendingIntent.getBroadcast(
+                context,
+                (userId + approve).hashCode(),
+                intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        return NotificationCompat.Action
+            .Builder(smallIcon, label, pending)
+            .setAuthenticationRequired(true)
+            .build()
+    }
+
+    /** Stable per-pending-user id, so the receiver can dismiss the exact notification it acted on. */
+    private fun registrationNotificationId(userId: String): Int = userId.hashCode()
+
+    /**
+     * The payload's stable `@SerialName`, read off its own serializer rather than restated here —
+     * a second hand-maintained copy of the discriminator is a copy that drifts.
+     */
+    private fun PushPayload.wireType(): String =
+        contractJson.encodeToString(PushPayload.serializer(), this).let { encoded ->
+            Json
+                .parseToJsonElement(encoded)
+                .jsonObject["type"]
+                ?.jsonPrimitive
+                ?.content
+                .orEmpty()
+        }
 
     private fun notificationId(payload: PushPayload?): Int =
-        if (payload is PushPayload.CampfireInvite) payload.campfireId.hashCode() else payload.hashCode()
+        when (payload) {
+            is PushPayload.CampfireInvite -> payload.campfireId.hashCode()
+
+            // Keyed on the waiting user, matching the relay's collapse key and the id the action
+            // buttons dismiss — a re-sent request replaces its notification instead of stacking.
+            is PushPayload.RegistrationApproval -> registrationNotificationId(payload.userId)
+
+            else -> payload.hashCode()
+        }
 }

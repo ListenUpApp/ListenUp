@@ -11291,6 +11291,26 @@
         }
       }
     },
+    "push.registration_action_approve": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve"
+          }
+        }
+      }
+    },
+    "push.registration_action_deny": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deny"
+          }
+        }
+      }
+    },
     "push.registration_approved_body": {
       "localizations": {
         "en": {
@@ -11327,6 +11347,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Registration update"
+          }
+        }
+      }
+    },
+    "push.registration_request_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is waiting for you to approve access."
+          }
+        }
+      }
+    },
+    "push.registration_request_body_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A new request is waiting for your approval."
+          }
+        }
+      }
+    },
+    "push.registration_request_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone wants to join"
           }
         }
       }
@@ -12447,6 +12497,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · %2$d files"
+          }
+        }
+      }
+    },
+    "settings.test_notification": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send a test notification"
+          }
+        }
+      }
+    },
+    "settings.test_notification_sent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test notification sent — check your notifications."
+          }
+        }
+      }
+    },
+    "settings.test_notification_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check that push notifications reach this device"
           }
         }
       }

@@ -37,7 +37,8 @@ class PushNotificationRendererTest {
     private fun renderer(
         bookTitleLookup: suspend (String) -> String? = { null },
         inviterNameLookup: suspend (String) -> String? = { null },
-    ) = PushNotificationRenderer(context, bookTitleLookup, inviterNameLookup)
+        pendingUserNameLookup: suspend (String) -> String? = { null },
+    ) = PushNotificationRenderer(context, bookTitleLookup, inviterNameLookup, pendingUserNameLookup)
 
     private fun onlyPosted(): Notification = Shadows.shadowOf(notificationManager).allNotifications.single()
 
@@ -89,6 +90,53 @@ class PushNotificationRendererTest {
             posted.extras.getString(Notification.EXTRA_TITLE) shouldBe "Test notification"
             posted.extras.getString(Notification.EXTRA_TEXT) shouldBe "Push notifications are working."
             posted.channelId shouldBe NotificationChannels.SOCIAL
+        }
+
+    // The admin-facing half of the registration loop (#1068). The name is resolved from the
+    // recipient's own synced roster, never from the payload — see PushPayload's IDs-only rule.
+    @Test
+    fun `registration request names the waiting person from the local roster`() =
+        runTest {
+            NotificationChannels.registerAll(context)
+
+            renderer(
+                pendingUserNameLookup = { id -> "Alice".takeIf { id == "pending-1" } },
+            ).render(PushPayload.RegistrationApproval(userId = "pending-1"))
+
+            val posted = onlyPosted()
+            posted.extras.getString(Notification.EXTRA_TITLE) shouldBe "Someone wants to join"
+            posted.extras.getString(Notification.EXTRA_TEXT) shouldBe
+                "Alice is waiting for you to approve access."
+            posted.channelId shouldBe NotificationChannels.SOCIAL
+        }
+
+    // Degrade, never drop. An admin whose roster has not synced yet still gets told that somebody
+    // is waiting — losing the notification would put the loop back exactly where it was.
+    @Test
+    fun `registration request still notifies when the roster cannot name them`() =
+        runTest {
+            NotificationChannels.registerAll(context)
+
+            renderer(pendingUserNameLookup = { null })
+                .render(PushPayload.RegistrationApproval(userId = "pending-1"))
+
+            val posted = onlyPosted()
+            posted.extras.getString(Notification.EXTRA_TITLE) shouldBe "Someone wants to join"
+            posted.extras.getString(Notification.EXTRA_TEXT) shouldBe
+                "A new request is waiting for your approval."
+        }
+
+    // A lookup that throws is a failed local read, not a reason to stay silent.
+    @Test
+    fun `registration request survives a lookup that throws`() =
+        runTest {
+            NotificationChannels.registerAll(context)
+
+            renderer(pendingUserNameLookup = { error("roster unavailable") })
+                .render(PushPayload.RegistrationApproval(userId = "pending-1"))
+
+            onlyPosted().extras.getString(Notification.EXTRA_TEXT) shouldBe
+                "A new request is waiting for your approval."
         }
 
     @Test

@@ -59,6 +59,8 @@ import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.push.PushTokenProvider
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.playback.cast.initializeCast
@@ -157,10 +159,16 @@ val androidModule =
         single {
             val bookRepository = get<BookRepository>()
             val userProfileRepository = get<UserProfileRepository>()
+            val adminRepository = get<AdminRepository>()
             PushNotificationRenderer(
                 context = androidContext(),
                 bookTitleLookup = { id -> bookRepository.getBookListItem(id)?.title },
                 inviterNameLookup = { id -> userProfileRepository.getById(id)?.displayName },
+                // Reads the synced admin roster (Room first) — the recipient is an admin, so the
+                // pending user is already mirrored locally and the name never crosses the relay.
+                pendingUserNameLookup = { id ->
+                    (adminRepository.getUser(id) as? AppResult.Success)?.data?.displayName
+                },
             )
         }
 
@@ -375,6 +383,7 @@ class ListenUp :
                 fileManager = lazy { get() },
                 audioFileDownloader = lazy { get() },
                 errorBus = lazy { get() },
+                adminRepository = lazy { get() },
             )
 
         val workManagerConfig =

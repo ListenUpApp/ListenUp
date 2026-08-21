@@ -81,11 +81,22 @@ class RelayPushNotifier(
         val collapseKey = collapseKeyFor(payload)
 
         val response =
-            attempt(tokens, payloadJson, collapseKey)
-                ?: run {
-                    delay(RETRY_DELAY)
-                    attempt(tokens, payloadJson, collapseKey)
+            try {
+                attempt(tokens, payloadJson, collapseKey)
+                    ?: run {
+                        delay(RETRY_DELAY)
+                        attempt(tokens, payloadJson, collapseKey)
+                    }
+            } catch (e: RelaySenderCredentialRejected) {
+                // ERROR, not warn, and no retry: this is not a blip. Every push will fail
+                // identically until someone sets the credential, and push's own best-effort
+                // contract means nothing else will ever surface it. The message names the fix.
+                log.error(e) {
+                    "Relay rejected this server's sender credential — push is DISABLED until " +
+                        "LISTENUP_PUSH_SENDER_TOKEN is set to the relay's expected value."
                 }
+                return
+            }
                 ?: run {
                     log.warn { "push dropped after retry: type=${payload::class.simpleName} tokens=${tokens.size}" }
                     return
@@ -113,6 +124,10 @@ class RelayPushNotifier(
             relay.send(tokens, payloadJson, collapseKey)
         } catch (e: CancellationException) {
             throw e
+        } catch (e: RelaySenderCredentialRejected) {
+            // Rethrown, not swallowed: retrying a refused credential just fails again, and the
+            // caller logs it once with the remedy.
+            throw e
         } catch (e: Exception) {
             // Never log token/payload contents — error class name only.
             log.debug { "relay attempt failed: ${e::class.simpleName}" }
@@ -127,6 +142,11 @@ class RelayPushNotifier(
 
             // One notification per decided registration: a re-decide replaces, never stacks.
             is PushPayload.RegistrationDecision -> "registration_decision:${payload.userId}"
+
+            // One per WAITING registrant, not one per admin — the key is the pending user, and
+            // every admin's device collapses on the same one. A second push about the same person
+            // (a retry, or a re-registration) replaces the first rather than stacking.
+            is PushPayload.RegistrationApproval -> "registration_approval:${payload.userId}"
         }
 
     private companion object {
