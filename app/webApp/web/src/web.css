@@ -719,7 +719,7 @@ body { margin: 0; }
 /* The shared cover. Longer than the page fade because it is travelling a real distance — a morph
    that finishes as fast as a crossfade reads as a jump rather than a flight. */
 ::view-transition-group(book-cover) {
-  animation-duration: 300ms;
+  animation-duration: 320ms;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
 /* ⛔ Do NOT set `animation: none` on `::view-transition-old(book-cover)` / `-new(...)`. It looks

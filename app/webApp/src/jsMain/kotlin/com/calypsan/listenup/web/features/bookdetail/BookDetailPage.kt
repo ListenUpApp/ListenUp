@@ -60,42 +60,13 @@ fun BookDetailPage(
         // cannot show what you asked for must still show the way out of it.
         Breadcrumb(listOf("Library", crumb(state)), onNavigate = { onOpenLibrary() })
 
+        SharedHeader(state = state, bookId = bookId, onPlay = onPlay)
+
         when (state) {
             is BookDetailUiState.Loading -> {
-                // The loading state is the book's own header, not a spinner. Two reasons:
-                //
-                // 1. The cover is knowable from the URL alone — a cover URL needs only the id — so
-                //    the thing the reader tapped can be on screen immediately, with the text
-                //    filling in around it.
-                // 2. The shared-element flight has to land in the RIGHT PLACE. Frozen mid-flight,
-                //    an earlier version showed the cover morphing to a *centred* position and then
-                //    jumping left when the real content replaced the spinner. The hero only lands
-                //    correctly if this state lays the header out exactly as [BookHeader] does —
-                //    same `bd-head` flex row, same empty `bd-tblock` taking the remaining width.
-                //
-                // The empty text block is deliberately empty rather than a fake title: reserving
-                // the space is what positions the cover, and inventing text would be a lie that
-                // lasts a few hundred milliseconds.
-                bookId?.let {
-                    Div(attrs = { classes("bd-head") }) {
-                        Cover(
-                            title = "",
-                            imageUrl = coverUrl(it, null, COVER_RUNG),
-                            size = COVER_SIZE,
-                            radius = COVER_RADIUS,
-                            heroName = HERO_COVER,
-                        )
-                        // The loading word goes HERE, where the title will be, rather than in a
-                        // centred block below. `BookDetailTest` pins that this state says it is
-                        // loading rather than showing an empty shell — a silent skeleton is
-                        // indistinguishable from a book with no metadata, which is the failure that
-                        // spec exists to prevent. Saying so *in the header's own shape* keeps both
-                        // promises: the page is honest, and the cover still lands where it belongs.
-                        Div(attrs = { classes("bd-tblock") }) {
-                            Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
-                        }
-                    }
-                }
+                // The header (and with it the cover) is rendered ABOVE this `when`, so nothing to
+                // do here — see the note on [SharedHeader].
+                Unit
             }
 
             is BookDetailUiState.Error -> {
@@ -114,8 +85,6 @@ fun BookDetailPage(
             }
 
             is BookDetailUiState.Ready -> {
-                BookHeader(state, onPlay)
-
                 Tabs(
                     items =
                         listOf(
@@ -148,6 +117,77 @@ fun BookDetailPage(
 
                     else -> {
                         OverviewPane(state)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The book's header, rendered in every state from one call site.
+ *
+ * ⛔ **The single call site is the whole point, and it is load-bearing for the shared-element
+ * flight.** The cover used to be rendered inside each `when (state)` branch, which meant Compose
+ * destroyed and rebuilt its DOM node when Loading became Ready. A `view-transition-name` on a node
+ * that is removed mid-transition has its animation **cancelled** — and with every animation gone,
+ * the transition simply ends. Measured: `ready` fired at 55 ms with five animations correctly
+ * configured at their full duration, and `finished` fired at 66 ms. The flight was being cut down
+ * 11 ms in, by this page rendering its own content.
+ *
+ * Keeping one call site means Compose updates that node rather than replacing it, so the cover
+ * survives the state change and the morph runs to completion.
+ *
+ * The cover falls back to the id from the URL while the book is still loading — a cover URL needs
+ * nothing else — so the thing the reader tapped is on screen immediately, with the text filling in
+ * around it.
+ */
+@Composable
+private fun SharedHeader(
+    state: BookDetailUiState,
+    bookId: String?,
+    onPlay: () -> Unit,
+) {
+    // Error renders no header at all: a page that cannot show the book must not show a cover and
+    // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
+    // both pin that the failure states offer their explanation and a way back, nothing else.
+    if (state is BookDetailUiState.Error) return
+    val ready = state as? BookDetailUiState.Ready
+    val id = ready?.book?.id?.value ?: bookId ?: return
+
+    Div(attrs = { classes("bd-head") }) {
+        Cover(
+            title = ready?.book?.title.orEmpty(),
+            imageUrl = coverUrl(id, ready?.book?.coverHash, COVER_RUNG),
+            size = COVER_SIZE,
+            radius = COVER_RADIUS,
+            heroName = HERO_COVER,
+        )
+        Div(attrs = { classes("bd-tblock") }) {
+            if (ready == null) {
+                // Says it is loading rather than showing a silent skeleton — `BookDetailTest` pins
+                // that, because a quiet empty header is indistinguishable from a book with no
+                // metadata at all.
+                Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+            } else {
+                H1(attrs = { classes("bd-t") }) { Text(ready.book.title) }
+                byline(ready)?.let { line -> Div(attrs = { classes("bd-by") }) { Text(line) } }
+                ready.progress?.let { fraction ->
+                    ProgressLine(
+                        percent = (fraction * PERCENT).toInt(),
+                        remaining = ready.timeRemainingFormatted.orEmpty(),
+                    )
+                }
+                if (ready.canPlay) {
+                    Div(attrs = { classes("bd-actions") }) {
+                        Button(attrs = {
+                            classes("btn")
+                            attr("type", "button")
+                            onClick { onPlay() }
+                        }) {
+                            Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
+                            Text(if (ready.progress != null) "Resume" else "Play")
+                        }
                     }
                 }
             }
