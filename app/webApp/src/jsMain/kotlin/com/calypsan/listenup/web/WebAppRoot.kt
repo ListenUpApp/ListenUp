@@ -14,6 +14,7 @@ import com.calypsan.listenup.web.features.library.LibraryPage
 import com.calypsan.listenup.web.features.library.LibrarySession
 import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
+import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.core.BookId
@@ -105,8 +106,14 @@ fun WebAppRoot(
             PagePlaceholder(active)
         }
 
-        // Last inside the content region, so it sits under whatever page is showing and stays put
-        // as the reader moves between them.
+        // Both last inside the content region, so they sit under whatever page is showing and
+        // stay put as the reader moves between them. The notice comes first because it is often
+        // the only one of the two rendering: the failures it reports are exactly the ones that
+        // leave nothing playing, and therefore no bar.
+        PlaybackNotice(
+            message = playback.error.collectAsState().value,
+            onDismiss = playback.onDismissError,
+        )
         TransportBar(
             state = playback.state.collectAsState().value,
             onPlayPause = playback.onPlayPause,

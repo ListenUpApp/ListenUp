@@ -38,6 +38,10 @@ import org.jetbrains.compose.web.dom.Text
  * a browser cannot finish a download (`NoDownloadsService.supportsDownloads` is false), so
  * rendering that affordance would put a button on the page whose only possible outcome is nothing
  * happening.
+ *
+ * [onPlay] has no default for the same reason `WebAppRoot`'s `openPlayback` has none: a defaulted
+ * no-op here would render a real, enabled Play button — gated on the book's own `canPlay`, which
+ * knows nothing about whether a handler was supplied — and compile clean.
  */
 @Composable
 fun BookDetailPage(
@@ -45,9 +49,9 @@ fun BookDetailPage(
     tab: String,
     onSelectTab: (String) -> Unit,
     onOpenLibrary: () -> Unit,
+    onPlay: () -> Unit,
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
-    onPlay: () -> Unit = {},
 ) {
     Div(attrs = { classes("bd") }) {
         // The breadcrumb renders in every state, including the ones with no book: a page that

@@ -476,9 +476,16 @@ body { margin: 0; }
 .tport-t { font-size:14px; font-weight:700; letter-spacing:-.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26ch; flex:none; }
 .tport-time { font-size:12px; color:var(--ink-3); font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
 .tport-scrub { flex:1; min-width:60px; height:4px; margin:0; accent-color:var(--coral); cursor:pointer; }
+/* The playback failure notice. Sits directly above the bar and, more often, alone — the failures
+   worth reporting are the ones that leave nothing playing. */
+.tport-note { position:sticky; bottom:64px; z-index:6; display:flex; align-items:center; gap:10px; margin:16px -28px 0; padding:10px 22px; background:var(--coral-soft); color:var(--coral); border-top:1px solid var(--line); font-size:13.5px; font-weight:600; }
+.tport-note-t { flex:1; min-width:0; }
+.tport-note-x { width:28px; height:28px; flex:none; border:none; border-radius:8px; background:transparent; color:inherit; opacity:.7; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+.tport-note-x:hover { opacity:1; background:var(--surface-2); }
 @media (max-width: 759px) {
   .tport { margin:16px -14px -28px; padding:0 12px; gap:10px; }
   .tport-t { display:none; }
+  .tport-note { margin:16px -14px 0; padding:10px 12px; }
 }
 
 /* The rail form. ONE mechanism, two triggers: the manual .clpsd class (>=1280 preference)
