@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.auth.DEVICE_FIELD_MAX
 import com.calypsan.listenup.client.diagnostics.probeBookDetailPresentation
 import com.calypsan.listenup.client.diagnostics.probeClientGraph
 import com.calypsan.listenup.client.diagnostics.probeDeviceInfo
+import com.calypsan.listenup.client.diagnostics.probeRuntimeEntryPoints
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -36,6 +37,19 @@ class ClientGraphProbeTest :
 
             probe.viewModelResolved shouldBe true
             probe.readyTitle shouldBe "Foundation"
+        }
+
+        test("every runtime entry point the browser resolves can actually be constructed") {
+            // ⛔ Not a restatement of "the graph boots". Koin builds `single`s lazily, so a hole
+            // stays invisible until the first caller asks — and every caller here sits inside a
+            // catch-and-continue, which downgrades a wiring break to a log line. `PushRegistrar`
+            // was exactly that: `PushPlatform` is bound only on Android and iOS, so resolving it
+            // threw on web AND desktop and silently truncated the server-info refetch.
+            val dbName = "listenup-entrypoints-${Random.nextInt(0, Int.MAX_VALUE)}.db"
+
+            val probe = probeRuntimeEntryPoints(createSqliteWorker(), dbName)
+
+            probe.failures shouldBe emptyMap()
         }
 
         test("DeviceInfoProvider resolves in the browser graph and builds a valid DeviceInfo") {

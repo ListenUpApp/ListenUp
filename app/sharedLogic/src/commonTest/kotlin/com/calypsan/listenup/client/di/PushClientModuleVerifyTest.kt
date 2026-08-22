@@ -19,12 +19,17 @@ import org.koin.test.verify.verify
  *  - [ServerConfig] — owned by `settingsModule`.
  *  - [RpcAuthRecovery] — owned by `networkModule`.
  *  - [InstanceRepository] — owned by `settingsModule`.
- *  - [PushPlatform] — owned by the Android platform module (`androidModule`).
- *  - [PushTokenProvider] — owned by the Android platform module. Resolved
- *    nullable in [pushClientModule] via `getOrNull()`, but still declared here
- *    because `verify()`'s static analysis needs every referenced type
- *    resolvable, nullable or not — the nullability is a runtime distinction,
- *    not a static-graph one.
+ *  - [PushPlatform] and [PushTokenProvider] — owned by the Android and iOS platform modules.
+ *    Both are resolved nullable in [pushClientModule] via `getOrNull()`, but both are still
+ *    declared here because `verify()`'s static analysis needs every referenced type resolvable,
+ *    nullable or not — the nullability is a runtime distinction, not a static-graph one.
+ *
+ *    ⛔ **And that gap is exactly why this test cannot be the whole story.** `verify()` proves the
+ *    module's references are satisfiable *somewhere*; it says nothing about whether the graph a
+ *    given platform actually assembles can build them. `PushPlatform` was a hard `get()` here and
+ *    this test stayed green, while web and desktop — which have no value to bind — threw on every
+ *    resolution. The counterpart gate is `probeRuntimeEntryPoints`, which resolves the real
+ *    browser graph. `verify()` is also JVM-only, so it can never cover Kotlin/JS by itself.
  */
 @OptIn(KoinExperimentalAPI::class)
 class PushClientModuleVerifyTest :

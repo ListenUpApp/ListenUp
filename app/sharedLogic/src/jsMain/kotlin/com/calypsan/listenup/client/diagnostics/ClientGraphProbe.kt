@@ -8,9 +8,15 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.buildConfigured
 import com.calypsan.listenup.client.data.repository.BookIngestPort
+import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.di.jsSharedModules
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import com.calypsan.listenup.core.BookId
@@ -163,6 +169,66 @@ fun probeDeviceInfo(
             clientVersion = info.clientVersion,
             deviceName = info.deviceName,
         )
+    } finally {
+        app.close()
+    }
+}
+
+/**
+ * Which of the browser graph's runtime entry points could not be constructed, and why.
+ *
+ * A map rather than a boolean so a failure names itself: the whole point is that these breakages
+ * are invisible until someone exercises the exact path, so the report has to say which one.
+ */
+data class RuntimeEntryPointProbe(
+    /** Entry-point name → the construction failure's message. Empty means the graph is whole. */
+    val failures: Map<String, String>,
+)
+
+/**
+ * Resolves everything the browser resolves *after* startup, and reports what cannot be built.
+ *
+ * ⛔ **This exists because "the graph starts" is not the same as "the graph works."** Koin builds
+ * `single`s lazily, so a binding with a missing dependency is silent until the first caller asks
+ * for it — and the callers here are all inside `catch`-and-continue paths, which turns a wiring
+ * hole into a log line nobody reads. Three have landed this way already: `DeviceInfoProvider` had
+ * no JS binding at all and white-screened sign-in, `PlaybackManager` was never bound, and
+ * `PushPlatform` took down the server-info refetch on both web and desktop.
+ *
+ * Koin's own `module.verify()` is JVM-only (it uses `kotlin.reflect`), so there is no
+ * whole-graph gate available on Kotlin/JS. This is the honest substitute: an explicit list, in one
+ * place, of what the running app asks the graph for once it is past boot. **Add to it whenever
+ * something new is resolved lazily at runtime** — that is cheaper than the next silent hole.
+ */
+fun probeRuntimeEntryPoints(
+    worker: Worker,
+    dbName: String,
+): RuntimeEntryPointProbe {
+    val app = browserGraph(worker, dbName)
+    val failures = mutableMapOf<String, String>()
+
+    fun check(
+        name: String,
+        resolve: () -> Any?,
+    ) {
+        try {
+            val _ = resolve()
+        } catch (e: Exception) {
+            failures[name] = e.message ?: e.toString()
+        }
+    }
+
+    return try {
+        // Resolved by ClientSyncModule's `refetchServerInfo`, inside runRefetchSafely's catch.
+        check("PushRegistrar") { app.koin.get<PushRegistrar>() }
+        // Resolved by Main.kt after the auth state turns Authenticated.
+        check("SyncRepository") { app.koin.get<SyncRepository>() }
+        check("AuthSession") { app.koin.get<AuthSession>() }
+        check("ServerConfig") { app.koin.get<ServerConfig>() }
+        // Resolved by the sync module's other refresh strategies, same swallowing catch.
+        check("InstanceRepository") { app.koin.get<InstanceRepository>() }
+        check("UserPreferencesRepository") { app.koin.get<UserPreferencesRepository>() }
+        RuntimeEntryPointProbe(failures)
     } finally {
         app.close()
     }
