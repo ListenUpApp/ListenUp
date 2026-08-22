@@ -23,3 +23,7 @@ SELECT * FROM notification_prefs WHERE user_id = :userId AND type = :type;
 upsert:
 INSERT OR REPLACE INTO notification_prefs (user_id, type, in_app, push, updated_at)
 VALUES (:user_id, :type, :in_app, :push, :updated_at);
+
+-- Sweep on user deletion.
+deleteForUser:
+DELETE FROM notification_prefs WHERE user_id = :user_id;

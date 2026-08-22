@@ -39,8 +39,9 @@ import com.calypsan.listenup.server.services.RootPasswordResetService
 import com.calypsan.listenup.server.services.SessionRevoker
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
-import com.calypsan.listenup.api.push.PushPayload
+import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.notifications.NotificationAudience
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -136,9 +137,9 @@ class AuthServiceImpl(
     // dropped — the status stream and poll still carry the decision (never stranded).
     internal val pushWatchTokens: com.calypsan.listenup.server.push.PushWatchTokenStore? = null,
     // Nullable for the same reason as pushWatchTokens above. Null means admins simply are not
-    // woken — the pending row still lands in the admin roster, so the request is never lost,
+    // notified — the pending row still lands in the admin roster, so the request is never lost,
     // only slower to be noticed (never stranded).
-    internal val pushNotifier: com.calypsan.listenup.server.push.PushNotifier? = null,
+    internal val notifications: com.calypsan.listenup.server.notifications.NotificationEmitter? = null,
     /**
      * Non-null with no default: a construction site that forgets to wire this is a compile
      * error, not a silent skip. The alternative — a nullable fallback — used to make
@@ -298,34 +299,24 @@ class AuthServiceImpl(
     }
 
     /**
-     * Wakes every admin so a pending registration is noticed rather than waited on (#1068).
+     * Notifies every admin so a pending registration is noticed rather than waited on (#1068).
      *
-     * This closes the registration loop. [RegistrationDecision][com.calypsan.listenup.api.push.PushPayload.RegistrationDecision]
-     * already wakes the registrant once a decision exists — but nothing woke the person who has to
-     * make it, so an admin whose app was closed learned of a request only by happening to open the
-     * Admin screen. The request was never lost (it lands in the synced admin roster either way),
-     * it could simply sit unseen for days.
+     * This closes the registration loop. [RegistrationDecision][com.calypsan.listenup.api.notifications.NotificationEvent.RegistrationDecision]
+     * already reaches the registrant once a decision exists — but nothing woke the person who has
+     * to make it, so an admin whose app was closed learned of a request only by happening to open
+     * the Admin screen. The request was never lost (it lands in the synced admin roster either
+     * way), it could simply sit unseen for days.
      *
-     * Best-effort, and deliberately after the row is committed: push is a wake-up accelerant, not
-     * the record. A relay outage must never fail someone's registration, so this cannot throw —
-     * [PushNotifier]'s contract already forbids it, and the catch here is the belt to that braces.
-     * `CancellationException` is re-raised so a shutdown still cancels promptly.
+     * Best-effort, and deliberately after the row is committed: a notification is a wake-up
+     * accelerant, not the record. The emitter owns audience fan-out, per-user preference checks,
+     * inbox-row minting, and push delivery — and its contract already forbids throwing (short of
+     * cancellation), so a relay outage can never fail someone's registration.
      */
     private suspend fun notifyAdminsOfPendingRegistration(pendingUserId: String) {
-        val notifier = pushNotifier ?: return
-        try {
-            val adminIds = suspendTransaction(db) { db.usersQueries.selectAdminIds().executeAsList() }
-            // Fan out one at a time rather than concurrently: an install has a handful of admins,
-            // and the notifier already fans out across each admin's devices internally.
-            adminIds.forEach { adminId ->
-                notifier.notify(adminId, PushPayload.RegistrationApproval(userId = pendingUserId))
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // Class name only — never the payload or a token (PushNotifier's logging contract).
-            logger.warn { "Admin registration push failed: ${e::class.simpleName}" }
-        }
+        notifications?.emit(
+            NotificationEvent.RegistrationApproval(userId = pendingUserId),
+            to = NotificationAudience.Admins,
+        )
     }
 
     override suspend fun setupRoot(request: RegisterRequest): AppResult<AuthSession> {

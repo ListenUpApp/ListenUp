@@ -73,6 +73,7 @@ private fun org.koin.core.module.Module.adminUserServiceSingle() {
             adminUserRosterMaintainer = getOrNull(),
             pushNotifier = getOrNull(),
             pushWatchTokens = getOrNull(),
+            notifications = getOrNull(),
             passwordResetService = get(),
         )
     }
@@ -272,6 +273,8 @@ private fun Scope.buildAuthService(): AuthServiceImpl =
         adminUserRosterMaintainer = getOrNull(),
         // Nullable — the push module may not be loaded in minimal test containers.
         pushWatchTokens = getOrNull(),
+        // Nullable — the notification module may not be loaded in minimal test containers.
+        notifications = getOrNull(),
         // The same singleton AdminUserServiceImpl notifies on a decision — must be shared,
         // not the constructor's default fresh instance, or observeRegistrationStatus would
         // never see a live approve/deny push.

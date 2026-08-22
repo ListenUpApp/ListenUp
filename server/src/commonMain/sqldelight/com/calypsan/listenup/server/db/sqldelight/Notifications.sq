@@ -68,3 +68,8 @@ SELECT id FROM notifications
 WHERE user_id = :userId AND deleted_at IS NULL
 ORDER BY created_at ASC, id ASC
 LIMIT :limit;
+
+-- Sweep on user deletion. Hard delete, not tombstone: rows are userScoped, so no other
+-- user ever syncs them, and the owner's devices are ejected by the UserDeleted control frame.
+deleteForUser:
+DELETE FROM notifications WHERE user_id = :user_id;
