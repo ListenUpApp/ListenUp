@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
@@ -16,9 +17,15 @@ import kotlinx.coroutines.await
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.web.renderComposable
+import org.khronos.webgl.Int8Array
+import org.w3c.dom.DataTransfer
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.events.Event
+import org.w3c.files.File
+import org.w3c.files.FilePropertyBag
 
 private fun coverField(
     state: BookEditUiState,
@@ -37,6 +44,16 @@ private fun withCover(): BookEditUiState =
         title = "The $100 Startup",
         coverHash = "abc123",
     )
+
+private fun imageFile(
+    name: String = "new-cover.png",
+    bytes: ByteArray = byteArrayOf(1, 2, 3),
+    type: String = "image/png",
+): File = File(arrayOf(bytes.unsafeCast<Int8Array>()), name, FilePropertyBag(type = type))
+
+private suspend fun awaitFirstEvent(events: List<BookEditUiEvent>) {
+    withTimeout(2_000) { while (events.isEmpty()) delay(10) }
+}
 
 /**
  * The cover control on Book Edit.
@@ -84,7 +101,29 @@ class CoverFieldTest :
                 while ((root.querySelector(".cover-pick img") as HTMLImageElement).src == firstUrl) delay(10)
             }
 
+            // Positive control: the CURRENT preview's URL must fetch fine — proving the
+            // rejection below is revocation, not an environment that can't fetch blob: at all.
+            window.fetch((root.querySelector(".cover-pick img") as HTMLImageElement).src).await()
+
             // A revoked blob: URL is unfetchable — that rejection IS the assertion.
             shouldThrowAny { window.fetch(firstUrl).await() }
+        }
+
+        test("choosing a file reports UploadCover with its bytes and name") {
+            val events = mutableListOf<BookEditUiEvent>()
+            val root = coverField(withCover()) { events += it }
+
+            val input = root.querySelector("#edit-cover-input") as HTMLInputElement
+            // DataTransfer has no public Kotlin constructor (external abstract class) — construct
+            // the native object directly, same as any other browser-native test seam here.
+            val transfer = js("new DataTransfer()").unsafeCast<DataTransfer>()
+            transfer.items.add(imageFile())
+            input.asDynamic().files = transfer.files
+            input.dispatchEvent(Event("change", js("({bubbles:true})")))
+
+            awaitFirstEvent(events)
+            val upload = events.filterIsInstance<BookEditUiEvent.UploadCover>().single()
+            upload.filename shouldBe "new-cover.png"
+            upload.imageData.toList() shouldBe listOf<Byte>(1, 2, 3)
         }
     })
