@@ -525,6 +525,32 @@ internal val profilePresentationModule =
     }
 
 /**
+ * Notification surface ViewModels — the shell bell, the inbox list, and the Settings toggles.
+ */
+internal val notificationsPresentationModule =
+    module {
+        // Bell badge count for the shell header — factory (NOT single), scoped to the shell's
+        // ViewModelStore like SyncIndicatorViewModel below.
+        factory {
+            com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel(
+                repo = get(),
+            )
+        }
+        factory {
+            com.calypsan.listenup.client.presentation.notifications.NotificationsViewModel(
+                repo = get(),
+                errorBus = get(),
+            )
+        }
+        factory {
+            com.calypsan.listenup.client.presentation.notifications.NotificationPrefsViewModel(
+                repo = get(),
+                errorBus = get(),
+            )
+        }
+    }
+
+/**
  * Settings and sync indicator ViewModels.
  */
 internal val settingsPresentationModule =
@@ -592,6 +618,7 @@ internal val allPresentationModules =
         shelfPresentationModule,
         browsePresentationModule,
         profilePresentationModule,
+        notificationsPresentationModule,
         settingsPresentationModule,
         startupPresentationModule,
     )

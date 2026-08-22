@@ -421,6 +421,8 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.metadata.MetadataUiState" to 3,
             "com.calypsan.listenup.client.presentation.metadata.PreviewLoadState" to 3,
             "com.calypsan.listenup.client.presentation.metadata.SearchLoadState" to 4,
+            "com.calypsan.listenup.client.presentation.notifications.NotificationPrefsUiState" to 3,
+            "com.calypsan.listenup.client.presentation.notifications.NotificationsUiState" to 3,
             "com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction" to 1,
             "com.calypsan.listenup.client.presentation.profile.AvatarChange" to 3,
             "com.calypsan.listenup.client.presentation.profile.EditProfileEvent" to 2,
