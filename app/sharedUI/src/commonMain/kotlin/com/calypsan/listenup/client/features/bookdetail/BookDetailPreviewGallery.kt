@@ -37,7 +37,7 @@ import com.calypsan.listenup.client.features.bookdetail.components.ChapterListIt
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
-import com.calypsan.listenup.client.features.bookdetail.components.CountBadge
+import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner

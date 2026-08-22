@@ -17,7 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.features.bookdetail.components.CountBadge
+import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
 import com.calypsan.listenup.client.playback.NowPlayingChapter
 import kotlin.time.Duration.Companion.milliseconds

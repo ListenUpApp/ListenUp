@@ -39,6 +39,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.NotificationBell
 import com.calypsan.listenup.client.design.components.UserAvatarMenu
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.SyncState
@@ -82,6 +83,8 @@ typealias AppHeaderSlot = @Composable (leadingContent: @Composable () -> Unit) -
  * @param onSettingsClick Callback when settings is clicked.
  * @param onSignOutClick Callback when sign out is clicked.
  * @param onMyProfileClick Callback when "my profile" is clicked.
+ * @param unreadNotificationCount Unread notification count for the bell badge; zero hides it.
+ * @param onNotificationsClick Callback when the notification bell is clicked.
  * @param onSyncIndicatorClick Callback when the sync indicator is clicked.
  * @param isSyncDetailsExpanded Whether the sync details dropdown is expanded.
  * @param syncIndicatorUiState UI state for the sync details dropdown content.
@@ -110,6 +113,8 @@ fun AppHeader(
     onSettingsClick: () -> Unit,
     onSignOutClick: () -> Unit,
     onMyProfileClick: () -> Unit,
+    unreadNotificationCount: Int,
+    onNotificationsClick: () -> Unit,
     onSyncIndicatorClick: () -> Unit = {},
     isSyncDetailsExpanded: Boolean = false,
     syncIndicatorUiState: SyncIndicatorUiState? = null,
@@ -187,6 +192,11 @@ fun AppHeader(
                     onRetryAll = onRetryAll,
                     onDismissAll = onDismissAll,
                     onSyncDetailsDismiss = onSyncDetailsDismiss,
+                )
+
+                NotificationBell(
+                    unreadCount = unreadNotificationCount,
+                    onClick = onNotificationsClick,
                 )
 
                 if (showAvatar) {

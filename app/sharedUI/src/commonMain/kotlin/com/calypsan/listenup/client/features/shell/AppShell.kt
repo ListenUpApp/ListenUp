@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.features.shell.components.AppNavigationSuite
 
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.features.search.SearchResultsOverlay
+import com.calypsan.listenup.client.presentation.notifications.NotificationBellViewModel
 import com.calypsan.listenup.client.presentation.search.SearchViewModel
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent
@@ -74,6 +75,7 @@ private val logger = KotlinLogging.logger {}
  * @param onTagClick Callback when a tag is clicked (tag id, tag name)
  * @param onAdminClick Callback when administration is clicked (only shown for admin users)
  * @param onSettingsClick Callback when settings is clicked
+ * @param onNotificationsClick Callback when the header's notification bell is clicked
  * @param onSignOut Callback when sign out is triggered
  * @param onUserProfileClick Callback when a user profile is clicked
  * @param homeContent Content composable for Home destination
@@ -92,6 +94,7 @@ fun AppShell(
     onTagClick: (String, String) -> Unit,
     onAdminClick: (() -> Unit)? = null,
     onSettingsClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {},
     onSignOut: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     homeContent: @Composable (PaddingValues, appHeader: AppHeaderSlot, onNavigateToLibrary: () -> Unit) -> Unit,
@@ -107,6 +110,7 @@ fun AppShell(
     val downloadService: DownloadService = koinInject()
     val searchViewModel: SearchViewModel = koinViewModel()
     val syncIndicatorViewModel: SyncIndicatorViewModel = koinViewModel()
+    val notificationBellViewModel: NotificationBellViewModel = koinViewModel()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // Request POST_NOTIFICATIONS once at the post-auth entry point. The composable is
@@ -149,6 +153,7 @@ fun AppShell(
     val searchState by searchViewModel.state.collectAsStateWithLifecycle()
     val syncIndicatorState by syncIndicatorViewModel.state.collectAsStateWithLifecycle()
     val isSyncDetailsExpanded by syncIndicatorViewModel.isExpanded.collectAsStateWithLifecycle()
+    val unreadNotificationCount by notificationBellViewModel.unreadCount.collectAsStateWithLifecycle()
 
     // Search overlay expansion lives in the UI — purely presentational state.
     var isSearchExpanded by rememberSaveable { mutableStateOf(false) }
@@ -252,6 +257,8 @@ fun AppShell(
             onSettingsClick = onSettingsClick,
             onSignOutClick = onSignOut,
             onMyProfileClick = { user?.id?.value?.let(onUserProfileClick) },
+            unreadNotificationCount = unreadNotificationCount,
+            onNotificationsClick = onNotificationsClick,
             onSyncIndicatorClick = { syncIndicatorViewModel.toggleExpanded() },
             isSyncDetailsExpanded = isSyncDetailsExpanded,
             syncIndicatorUiState = syncIndicatorState,
