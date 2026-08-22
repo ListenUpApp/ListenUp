@@ -27,12 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,17 +90,6 @@ fun NowPlayingBar(
         )
         val focusBorderShape = MaterialTheme.shapes.large
 
-        // Swipe up to expand, alongside the tap. Accumulated in dp so the decision is
-        // density-independent, and evaluated only on release — a drag that never commits leaves the
-        // bar exactly as it was. `draggable` sits OUTSIDE the Surface's own click handling, so the
-        // inner play/pause and skip buttons keep their taps; a drag simply cancels the press.
-        val density = LocalDensity.current
-        var travelDp by remember { mutableFloatStateOf(0f) }
-        val dragState =
-            rememberDraggableState { deltaPx ->
-                travelDp += with(density) { deltaPx.toDp().value }
-            }
-
         Surface(
             onClick = onTap,
             interactionSource = interactionSource,
@@ -113,15 +97,8 @@ fun NowPlayingBar(
                 Modifier
                     .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                     .fillMaxWidth()
-                    .draggable(
-                        state = dragState,
-                        orientation = Orientation.Vertical,
-                        onDragStarted = { travelDp = 0f },
-                        onDragStopped = { velocityPxPerSec ->
-                            val velocityDpPerSec = with(density) { velocityPxPerSec.toDp().value }
-                            if (NowPlayingGestureMath.shouldExpand(travelDp, velocityDpPerSec)) onTap()
-                        },
-                    ).graphicsLayer {
+                    .swipeUpToExpand(onTap)
+                    .graphicsLayer {
                         scaleX = focusScale
                         scaleY = focusScale
                     }.then(
