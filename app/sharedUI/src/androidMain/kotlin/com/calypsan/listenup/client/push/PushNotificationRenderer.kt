@@ -11,9 +11,6 @@ import com.calypsan.listenup.client.MainActivity
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.push_campfire_invite_body
 import listenup.composeapp.generated.resources.push_campfire_invite_title
@@ -129,15 +126,16 @@ class PushNotificationRenderer(
                     // `when (intent.action)` as every shortcut rather than sniffing extras.
                     action = ShortcutActions.PUSH_TAP
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    // The STABLE wire discriminator, not simpleName: R8 renames classes in a
-                    // release build, so a simpleName match would work in debug and quietly stop
-                    // matching in the build users actually run.
-                    payload?.let { putExtra(ShortcutActions.EXTRA_PUSH_TYPE, it.wireType()) }
-                    (payload as? PushPayload.RegistrationApproval)?.let {
-                        putExtra(ShortcutActions.EXTRA_PUSH_SUBJECT_ID, it.userId)
+                    // The whole payload in its STABLE wire encoding, not per-type extras:
+                    // MainActivity decodes it and routes through the same target mapping as the
+                    // in-app notification list, so the shade and the app cannot disagree about
+                    // where a tap lands — and R8 renames cannot break it in a release build.
+                    payload?.let {
+                        putExtra(
+                            ShortcutActions.EXTRA_PUSH_PAYLOAD,
+                            contractJson.encodeToString(PushPayload.serializer(), it),
+                        )
                     }
-                    // Campfire deep-link target lands with the Campfire arc; the single seam
-                    // for per-type actions/routing is actionsFor() + this intent.
                 },
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
@@ -226,20 +224,6 @@ class PushNotificationRenderer(
 
     /** Stable per-pending-user id, so the receiver can dismiss the exact notification it acted on. */
     private fun registrationNotificationId(userId: String): Int = userId.hashCode()
-
-    /**
-     * The payload's stable `@SerialName`, read off its own serializer rather than restated here —
-     * a second hand-maintained copy of the discriminator is a copy that drifts.
-     */
-    private fun PushPayload.wireType(): String =
-        contractJson.encodeToString(PushPayload.serializer(), this).let { encoded ->
-            Json
-                .parseToJsonElement(encoded)
-                .jsonObject["type"]
-                ?.jsonPrimitive
-                ?.content
-                .orEmpty()
-        }
 
     private fun notificationId(payload: PushPayload?): Int =
         when (payload) {
