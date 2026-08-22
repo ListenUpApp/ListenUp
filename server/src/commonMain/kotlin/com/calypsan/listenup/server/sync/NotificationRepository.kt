@@ -17,6 +17,11 @@ import kotlin.time.Clock
  * There is deliberately NO `ACCESS_FILTERS` entry and no client `AccessGate`: `pullByIds` on a
  * userScoped domain returns an empty page by construction (pinned by NotificationUserScopingTest),
  * which is the leak-proof property this domain relies on.
+ *
+ * Service-layer helpers beyond the base substrate — both route through the substrate's
+ * [upsert]/[softDelete] so every mutation bumps a revision and publishes to the change bus:
+ *  - [markRead] — stamp a notification read for its owner (first read wins), ownership fail-closed
+ *  - [pruneToRetention] — tombstone the oldest live rows beyond a per-user retention cap
  */
 class NotificationRepository(
     db: ListenUpDatabase,
@@ -142,7 +147,9 @@ class NotificationRepository(
     }
 
     /**
-     * Marks [notificationId] read for [userId]. Idempotent; a row that does not exist, is
+     * Marks [notificationId] read for [userId]. Idempotent, and **first read wins**: a second call
+     * with a fresher [readAtMs] deliberately does NOT re-stamp the row — cross-device read state
+     * converges on the FIRST read, not the latest re-read. A row that does not exist, is
      * tombstoned, or belongs to someone else is NotFound (fail closed — ownership is checked
      * against the stored `user_id`, never trusted from the caller's payload).
      */
@@ -161,6 +168,11 @@ class NotificationRepository(
             )
         }
         if (row.read_at != null) return AppResult.Success(Unit)
+        // Not one transaction with the read above — the base's upsert always opens its own
+        // suspendTransaction, so the check-then-write window is structural. It is acceptable:
+        // ownership was already verified, so the only race is the owner's own row vs their own
+        // prune — worst case a just-tombstoned row is resurrected FOR ITS OWNER (writePayload's
+        // update branch writes deleted_at = null), never a cross-user effect.
         return when (val result = upsert(row.toSyncPayload().copy(readAt = readAtMs), userId = userId)) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> result
@@ -176,6 +188,8 @@ class NotificationRepository(
         userId: String,
         keep: Int,
     ): Int {
+        // Count/select/delete run in separate transactions for the same structural reason as
+        // markRead's window: softDelete opens its own — and the race is again owner-only.
         val live = suspendTransaction(db) { db.notificationsQueries.countLiveForUser(userId).executeAsOne() }
         val excess = (live - keep).toInt()
         if (excess <= 0) return 0

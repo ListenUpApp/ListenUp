@@ -2,11 +2,7 @@
 
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.api.notifications.NotificationEvent
-import com.calypsan.listenup.api.sync.NotificationSyncPayload
 import com.calypsan.listenup.api.sync.SyncFrame
-import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.domainFrames
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rpcFirehose
@@ -33,7 +29,7 @@ import kotlinx.coroutines.test.runTest
 class NotificationUserScopingTest :
     FunSpec({
 
-        test("(1) pullSince for user A returns only A's rows") {
+        test("pullSince for user A returns only A's rows") {
             withSqlDatabase {
                 val repo = notificationFixture()
                 runTest {
@@ -51,7 +47,7 @@ class NotificationUserScopingTest :
             }
         }
 
-        test("(2) firehose delivers A's row to A's stream and never to B's stream") {
+        test("firehose delivers A's row to A's stream and never to B's stream") {
             withSqlDatabase {
                 val bus = ChangeBus()
                 val repo = notificationFixture(bus)
@@ -83,7 +79,7 @@ class NotificationUserScopingTest :
             }
         }
 
-        test("(3) digest for A counts only A's live rows") {
+        test("digest for A counts only A's live rows") {
             withSqlDatabase {
                 val repo = notificationFixture()
                 runTest {
@@ -103,7 +99,7 @@ class NotificationUserScopingTest :
             }
         }
 
-        test("(4) pullByIds as A returns an EMPTY page — the userScoped short-circuit") {
+        test("pullByIds as A returns an EMPTY page — the userScoped short-circuit") {
             withSqlDatabase {
                 val repo = notificationFixture()
                 runTest {
@@ -128,7 +124,7 @@ class NotificationUserScopingTest :
             }
         }
 
-        test("(5) a tombstoned row still reaches its owner's pull") {
+        test("a tombstoned row still reaches its owner's pull") {
             withSqlDatabase {
                 val repo = notificationFixture()
                 runTest {
@@ -144,27 +140,3 @@ class NotificationUserScopingTest :
             }
         }
     })
-
-/** A [NotificationRepository] over the test database with throwaway bus/registry fixtures. */
-internal fun SqlTestDatabases.notificationFixture(bus: ChangeBus = ChangeBus()) = NotificationRepository(sql, bus, SyncRegistry())
-
-/** A wire payload for [id] carrying a real encoded [NotificationEvent]; substrate authors the rest. */
-internal fun notificationPayload(
-    id: String,
-    event: NotificationEvent =
-        NotificationEvent.CampfireInvite(
-            campfireId = "camp-1",
-            bookId = "book-1",
-            inviterUserId = "inviter-1",
-        ),
-): NotificationSyncPayload =
-    NotificationSyncPayload(
-        id = id,
-        type = event.wireType,
-        body = contractJson.encodeToString(NotificationEvent.serializer(), event),
-        createdAt = 0L,
-        updatedAt = 0L,
-        readAt = null,
-        revision = 0L,
-        deletedAt = null,
-    )

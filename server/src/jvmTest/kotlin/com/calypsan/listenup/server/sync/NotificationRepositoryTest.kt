@@ -95,8 +95,7 @@ class NotificationRepositoryTest :
         test("pruneToRetention tombstones the oldest live rows beyond keep, per user") {
             withSqlDatabase {
                 val clock = MutableClock(Instant.fromEpochMilliseconds(1_000_000L))
-                val bus = ChangeBus()
-                val repo = NotificationRepository(db = sql, bus = bus, registry = SyncRegistry(), clock = clock)
+                val repo = notificationFixture(clock = clock)
                 runTest {
                     // A's rows, created oldest → newest under the advancing clock.
                     for (i in 1..4) {
