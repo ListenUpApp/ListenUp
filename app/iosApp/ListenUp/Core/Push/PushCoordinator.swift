@@ -49,13 +49,16 @@ final class PushCoordinator: NSObject {
 }
 
 extension PushCoordinator: UNUserNotificationCenterDelegate {
-    /// Foreground suppression (Android parity): while the app is visible, the SSE-fed in-app
-    /// surface already shows the event, so the system banner stays hidden.
+    /// Foreground suppression (Android parity): while the app is visible the running UI is the
+    /// better surface, so the system banner stays hidden — EXCEPT for a test notification, whose
+    /// whole purpose is to prove a banner can reach this device, and which is triggered from
+    /// Settings and therefore always arrives foregrounded. See `PushForegroundPolicy`.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        []
+        let userInfo = notification.request.content.userInfo
+        return PushForegroundPolicy.presentsInForeground(userInfo: userInfo) ? [.banner, .sound] : []
     }
 
     /// Tap-through. Today every payload type opens the app (the SSE-fed surfaces catch up on
