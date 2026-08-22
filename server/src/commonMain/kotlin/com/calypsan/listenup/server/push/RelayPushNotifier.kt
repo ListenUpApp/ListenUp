@@ -76,7 +76,10 @@ class RelayPushNotifier(
         payload: PushPayload,
         deleteDead: suspend (List<String>) -> Unit,
     ) {
-        if (tokens.isEmpty()) return
+        if (tokens.isEmpty()) {
+            log.info { "push skipped: type=${payload::class.simpleName} — no live tokens for the audience" }
+            return
+        }
         val payloadJson = contractJson.encodeToJsonElement(PushPayload.serializer(), payload)
         val collapseKey = collapseKeyFor(payload)
 
@@ -101,6 +104,22 @@ class RelayPushNotifier(
                     log.warn { "push dropped after retry: type=${payload::class.simpleName} tokens=${tokens.size}" }
                     return
                 }
+        // The success path's only signal. Push swallows its own failures by design, so without this
+        // a delivered push and one that was never sent look exactly alike from the outside — which
+        // is precisely the hole that made a silent failure take two blind rounds to chase. Counts
+        // and statuses only: never a token, never payload contents.
+        log.info {
+            // Sorted by hand for a stable, greppable line: toSortedMap() is a JVM-only java.util API
+            // and this file is commonMain — it has to compile for linuxX64 too.
+            val byStatus =
+                response.results
+                    .groupingBy { it.status }
+                    .eachCount()
+                    .entries
+                    .sortedBy { it.key }
+                    .joinToString(separator = ", ") { "${it.key}=${it.value}" }
+            "push sent: type=${payload::class.simpleName} tokens=${tokens.size} verdicts=[$byStatus]"
+        }
         val invalid = response.results.filter { it.status == "invalid" }.map { it.token }
         if (invalid.isNotEmpty()) {
             deleteDead(invalid)
@@ -129,8 +148,10 @@ class RelayPushNotifier(
             // caller logs it once with the remedy.
             throw e
         } catch (e: Exception) {
-            // Never log token/payload contents — error class name only.
-            log.debug { "relay attempt failed: ${e::class.simpleName}" }
+            // Never log token/payload contents — error class name only. WARN, not debug: this is the
+            // relay being unreachable, and at debug it is invisible in production, which made a push
+            // that silently went nowhere indistinguishable from one that worked.
+            log.warn { "relay attempt failed: ${e::class.simpleName}" }
             null
         }
 
