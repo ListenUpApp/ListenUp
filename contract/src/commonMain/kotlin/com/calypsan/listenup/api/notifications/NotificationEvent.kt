@@ -36,8 +36,8 @@ data class NotificationDescriptor(
  * add its copy. Everything else (row minting, push, preferences, sync, badge) derives from this.
  *
  * Clients MUST render unknown discriminators as a generic notification — see
- * `NotificationSyncPayload` in `api/sync/`, which carries the event opaquely so an old client's
- * sync never breaks on a new type.
+ * [com.calypsan.listenup.api.sync.NotificationSyncPayload], which carries the event opaquely so an
+ * old client's sync never breaks on a new type.
  */
 @Serializable
 sealed interface NotificationEvent {

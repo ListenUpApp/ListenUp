@@ -84,6 +84,9 @@ object SyncDomains {
      */
     val ACTIVITIES = SyncDomainKey("activities", ActivitySyncPayload.serializer())
 
+    /** Per-user notification inbox rows — the in-app notification surface. */
+    val NOTIFICATIONS = SyncDomainKey("notifications", NotificationSyncPayload.serializer())
+
     /** Every key, for completeness tests and registry-driven iteration. */
     val all: List<SyncDomainKey<*>> =
         listOf(
@@ -108,5 +111,6 @@ object SyncDomains {
             SHELF_BOOKS,
             PUBLIC_PROFILES,
             ACTIVITIES,
+            NOTIFICATIONS,
         )
 }
