@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.playback
 
 import android.content.Context
+import com.calypsan.listenup.client.composeapp.R
 import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
@@ -21,8 +22,6 @@ import com.google.common.collect.ImmutableList
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
-
-private const val RES_TYPE_DRAWABLE = "drawable"
 
 /**
  * Custom notification provider for audiobook playback.
@@ -81,12 +80,14 @@ class AudiobookNotificationProvider(
         loadResourceIds()
     }
 
+    // Static R references, NOT Resources.getIdentifier. A name-based lookup is invisible to the
+    // release build's resource shrinker (`isShrinkResources = true`), which stripped these drawables
+    // for want of any static reference — getIdentifier then returned 0 and every notification fell
+    // back to a system icon. Debug builds never showed it, because they are not shrunk.
     private fun loadResourceIds() {
-        val resources = context.resources
-        val packageName = context.packageName
-        icNotification = resources.getIdentifier("ic_notification", RES_TYPE_DRAWABLE, packageName)
-        icPlay = resources.getIdentifier("ic_play", RES_TYPE_DRAWABLE, packageName)
-        icPause = resources.getIdentifier("ic_pause", RES_TYPE_DRAWABLE, packageName)
+        icNotification = R.drawable.ic_notification
+        icPlay = R.drawable.ic_play
+        icPause = R.drawable.ic_pause
     }
 
     /** LRU artwork cache — Media3 re-emits createNotification on every state tick. */

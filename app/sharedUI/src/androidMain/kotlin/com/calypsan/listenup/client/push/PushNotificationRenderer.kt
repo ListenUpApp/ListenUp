@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.push
 
 import android.app.PendingIntent
 import android.content.Context
+import com.calypsan.listenup.client.composeapp.R
 import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -32,8 +33,6 @@ import listenup.composeapp.generated.resources.push_test_body
 import listenup.composeapp.generated.resources.push_test_title
 import org.jetbrains.compose.resources.getString
 
-private const val RES_TYPE_DRAWABLE = "drawable"
-
 /** Title + body of a rendered local notification, pre-enrichment. */
 private data class NotificationContent(
     val title: String,
@@ -56,12 +55,9 @@ class PushNotificationRenderer(
     private val inviterNameLookup: suspend (String) -> String?,
     private val pendingUserNameLookup: suspend (String) -> String?,
 ) {
-    private val smallIcon: Int by lazy {
-        context.resources
-            .getIdentifier("ic_notification", RES_TYPE_DRAWABLE, context.packageName)
-            .takeIf { it != 0 }
-            ?: android.R.drawable.ic_dialog_info
-    }
+    // Static R reference — see AudiobookNotificationProvider.loadResourceIds. The old name-based
+    // lookup is why this shipped showing a system info icon instead of ListenUp's mark.
+    private val smallIcon: Int = R.drawable.ic_notification
 
     /** Decodes, enriches, and posts a local notification for [payload]. `null` renders generic copy. */
     suspend fun render(payload: PushPayload?) {
