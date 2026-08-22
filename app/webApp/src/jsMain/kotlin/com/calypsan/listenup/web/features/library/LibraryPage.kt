@@ -106,6 +106,22 @@ private fun BookListItem.sectionLetter(
     }
 
 /**
+ * Opens [bookId], first recording where its cover is so the detail page's hero can fly in from it.
+ *
+ * Shared by the pointer and keyboard paths so the flight is not a mouse-only courtesy. The rect is
+ * read now rather than later because by the time that hero mounts this element is gone — the grid
+ * has unmounted, and a rect read from a detached node is zero.
+ */
+private fun openWithOrigin(
+    bookId: String,
+    card: Element?,
+    onOpen: () -> Unit,
+) {
+    card?.querySelector(".lib-cover")?.let { recordHeroOrigin(bookId, CoverSurface.GRID, it) }
+    onOpen()
+}
+
+/**
  * Zero books means one of two very different things, and saying the wrong one is worse than saying
  * nothing: a library mid-seed is not an empty library.
  *
@@ -140,14 +156,21 @@ internal fun BookCard(
 
     Div(attrs = {
         classes("lib-card")
+        // A click target owes the same affordance to a reader who is not using a mouse. A bare
+        // Div is not focusable, so before this the library could not be reached by keyboard at
+        // all — and a focus ring had nothing to attach to.
+        tabIndex(0)
+        attr("role", "button")
+        onKeyDown { event ->
+            if (event.key == "Enter" || event.key == " ") {
+                // Space scrolls the page by default, which on a grid means the card the reader
+                // just activated jumps away underneath them.
+                event.preventDefault()
+                openWithOrigin(book.id.value, event.currentTarget as? Element, onOpen)
+            }
+        }
         onClick { event ->
-            // Where this cover is *right now*, so the detail page's hero can fly in from here.
-            // Recorded at click time because by the time that hero mounts, this element is gone —
-            // the grid has unmounted and a rect read from a detached node is zero.
-            (event.currentTarget as? Element)
-                ?.querySelector(".lib-cover")
-                ?.let { recordHeroOrigin(book.id.value, CoverSurface.GRID, it) }
-            onOpen()
+            openWithOrigin(book.id.value, event.currentTarget as? Element, onOpen)
         }
     }) {
         // The return leg of the flight: this is the tile the reader last opened, so when it mounts
