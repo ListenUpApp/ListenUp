@@ -55,13 +55,28 @@ fun CoverField(
     }
     val scope = rememberCoroutineScope()
     var fileInput by remember { mutableStateOf<HTMLInputElement?>(null) }
+    var dragOver by remember { mutableStateOf(false) }
     Div(attrs = { classes("cover-field") }) {
         Button(attrs = {
             classes("cover-pick")
+            if (dragOver) classes("cover-drag")
             attr("type", "button")
             attr("aria-label", "Change cover")
             if (state.isUploadingCover) attr("disabled", "")
             onClick { fileInput?.click() }
+            onDragOver { event ->
+                event.preventDefault()
+                dragOver = true
+            }
+            onDragLeave { dragOver = false }
+            onDrop { event ->
+                event.preventDefault()
+                dragOver = false
+                // disabled suppresses click, not drop — guard the in-flight state here.
+                if (state.isUploadingCover) return@onDrop
+                val file = event.dataTransfer?.files?.item(0) ?: return@onDrop
+                if (file.type.startsWith("image/")) pickCover(scope, file, onEvent)
+            }
         }) {
             if (previewUrl != null) {
                 Img(src = previewUrl, alt = "New cover preview", attrs = {

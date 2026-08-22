@@ -19,6 +19,8 @@ import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.web.renderComposable
 import org.khronos.webgl.Int8Array
 import org.w3c.dom.DataTransfer
+import org.w3c.dom.DragEvent
+import org.w3c.dom.DragEventInit
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
@@ -125,5 +127,49 @@ class CoverFieldTest :
             val upload = events.filterIsInstance<BookEditUiEvent.UploadCover>().single()
             upload.filename shouldBe "new-cover.png"
             upload.imageData.toList() shouldBe listOf<Byte>(1, 2, 3)
+            input.value shouldBe ""
+        }
+
+        test("dropping an image routes the same upload path") {
+            val events = mutableListOf<BookEditUiEvent>()
+            val root = coverField(withCover()) { events += it }
+
+            val transfer = js("new DataTransfer()").unsafeCast<DataTransfer>()
+            transfer.items.add(imageFile())
+            (root.querySelector(".cover-pick") as HTMLElement)
+                .dispatchEvent(DragEvent("drop", DragEventInit(dataTransfer = transfer, bubbles = true)))
+
+            awaitFirstEvent(events)
+            events.filterIsInstance<BookEditUiEvent.UploadCover>().single().filename shouldBe "new-cover.png"
+        }
+
+        test("dropping a non-image is a no-op") {
+            // The accept attribute filters the picker, but a drop bypasses it — the type check in
+            // the drop handler is the only thing standing between a PDF and the cover slot.
+            val events = mutableListOf<BookEditUiEvent>()
+            val root = coverField(withCover()) { events += it }
+
+            val transfer = js("new DataTransfer()").unsafeCast<DataTransfer>()
+            transfer.items.add(imageFile(name = "not-a-cover.pdf", type = "application/pdf"))
+            (root.querySelector(".cover-pick") as HTMLElement)
+                .dispatchEvent(DragEvent("drop", DragEventInit(dataTransfer = transfer, bubbles = true)))
+
+            delay(150)
+            events.shouldBeEmpty()
+        }
+
+        test("dropping while an upload is in flight is ignored") {
+            // disabled suppresses CLICK, not the drag-and-drop machinery — the drop handler
+            // must guard isUploadingCover itself.
+            val events = mutableListOf<BookEditUiEvent>()
+            val root = coverField(withCover().copy(isUploadingCover = true)) { events += it }
+
+            val transfer = js("new DataTransfer()").unsafeCast<DataTransfer>()
+            transfer.items.add(imageFile())
+            (root.querySelector(".cover-pick") as HTMLElement)
+                .dispatchEvent(DragEvent("drop", DragEventInit(dataTransfer = transfer, bubbles = true)))
+
+            delay(150)
+            events.shouldBeEmpty()
         }
     })
