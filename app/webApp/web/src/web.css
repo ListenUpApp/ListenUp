@@ -534,6 +534,12 @@ body { margin: 0; }
 .bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
 /* One action, deliberately: a browser cannot finish a download, so Play stands alone. */
 .bd-actions { display:flex; gap:10px; margin-top:4px; }
+/* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as
+   inline style on a single paragraph. */
+.bd-desc { font-size:14.5px; line-height:1.6; color:var(--ink-2); }
+.bd-desc p { margin:0 0 14px; }
+.bd-desc p:last-child { margin-bottom:0; }
+.bd-desc a { color:var(--coral); }
 .bd-cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:var(--colgap); align-items:start; }
 .bd-main, .bd-side { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
 /* the chapter map — the book as a strip; segment width is proportional to duration */
