@@ -6,6 +6,7 @@ import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
 import com.calypsan.listenup.client.design.transitions.HeroEntry
+import com.calypsan.listenup.client.design.transitions.heroEntryTransitions
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
 import com.calypsan.listenup.client.navigation.BookDetail
@@ -25,7 +26,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 /** Book navigation entries. */
 internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavKey>) {
-    entry<BookDetail> { args ->
+    entry<BookDetail>(metadata = heroEntryTransitions) { args ->
         HeroEntry {
             com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
                 bookId = args.bookId,

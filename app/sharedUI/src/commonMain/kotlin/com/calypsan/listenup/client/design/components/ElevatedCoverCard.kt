@@ -8,6 +8,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -63,6 +64,7 @@ fun ElevatedCoverCard(
                 author = author,
                 coverHash = coverHash,
                 heroKey = heroKey,
+                heroClipShape = shape,
                 refreshKey = refreshKey,
                 overlay = overlay,
             )
@@ -81,6 +83,7 @@ fun ElevatedCoverCard(
                 author = author,
                 coverHash = coverHash,
                 heroKey = heroKey,
+                heroClipShape = shape,
                 refreshKey = refreshKey,
                 overlay = overlay,
             )
@@ -97,6 +100,7 @@ private fun CoverContent(
     author: String?,
     coverHash: String?,
     heroKey: Any?,
+    heroClipShape: Shape?,
     refreshKey: Any?,
     overlay: @Composable (BoxScope.() -> Unit)?,
 ) {
@@ -110,6 +114,7 @@ private fun CoverContent(
                 author = author,
                 coverHash = coverHash,
                 heroKey = heroKey,
+                heroClipShape = heroClipShape,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )

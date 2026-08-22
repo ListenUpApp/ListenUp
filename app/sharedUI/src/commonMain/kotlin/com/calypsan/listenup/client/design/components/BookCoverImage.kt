@@ -9,6 +9,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
@@ -54,6 +55,7 @@ fun BookCoverImage(
     modifier: Modifier = Modifier,
     coverHash: String? = null,
     heroKey: Any? = null,
+    heroClipShape: Shape? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
 ) {
@@ -61,7 +63,7 @@ fun BookCoverImage(
 
     var showFallback by remember(bookId, coverPath) { mutableStateOf(false) }
 
-    Box(modifier = modifier.heroElement(heroKey)) {
+    Box(modifier = modifier.heroElement(heroKey, heroClipShape)) {
         // Bottom layer: gradient placeholder when there's no image to show or it failed to load.
         if (title != null && (imageRequest == null || showFallback)) {
             BookCoverFallback(
