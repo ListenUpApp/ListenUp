@@ -13,7 +13,8 @@ struct PushForegroundPolicyTests {
 
     @Test("an ordinary payload stays suppressed in the foreground")
     func ordinaryPayloadSuppressed() {
-        #expect(!PushForegroundPolicy.presentsInForeground(userInfo: userInfo(#"{"type":"registration_approval","userId":"u1"}"#)))
+        let approval = #"{"type":"registration_approval","userId":"u1"}"#
+        #expect(!PushForegroundPolicy.presentsInForeground(userInfo: userInfo(approval)))
     }
 
     @Test("an unknown discriminator stays suppressed rather than presenting by accident")
