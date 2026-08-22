@@ -3,7 +3,9 @@ package com.calypsan.listenup.web.features.auth
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
+import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.nav.Router
 import io.kotest.core.spec.style.FunSpec
@@ -36,6 +38,7 @@ private fun mountGate(graph: FakeAuthGraph): HTMLElement {
             authGraph = graph,
             router = router,
             openBookDetail = fixedBookDetail(readyBook()),
+            openBookEdit = fixedBookEdit(BookEditUiState()),
             openLibrary = fakeLibrary(),
             openPlayback = fixedPlayback(),
         )

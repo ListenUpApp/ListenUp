@@ -540,6 +540,31 @@ body { margin: 0; }
 .bd-desc p { margin:0 0 14px; }
 .bd-desc p:last-child { margin-bottom:0; }
 .bd-desc a { color:var(--coral); }
+/* ---- book edit form ---- */
+/* Two fields to a row where they are short, one where they are not. `minmax(0,1fr)` rather than
+   `1fr` so a long placeholder cannot push the column wider than its share. */
+/* The form's vertical rhythm. Fields are stacked siblings, so without this they sit flush against
+   each other and a label reads as belonging to the input above it rather than below. */
+.edit-form { display:flex; flex-direction:column; gap:20px; }
+.edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--gap); }
+.edit-actions { display:flex; justify-content:flex-end; gap:10px; }
+.edit-actions button[disabled] { opacity:.55; cursor:default; }
+.edit-error {
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:14px 16px; border-radius:12px;
+  background:var(--coral-soft); border:1.5px solid var(--coral); color:var(--ink);
+}
+.edit-error p { margin:0; font-size:14px; }
+/* A text area is the one field whose height is content, not chrome, so it opts out of `.f-box`'s
+   fixed height rather than fighting it. */
+.f-box-area { height:auto; padding:12px 15px; }
+.f-area { resize:vertical; min-height:120px; line-height:1.55; font-weight:450; padding:0; }
+.f-select { appearance:none; cursor:pointer; background:none; }
+.f-check {
+  display:inline-flex; align-items:center; gap:10px; cursor:pointer;
+  font-size:14px; font-weight:600; color:var(--ink-2);
+}
+.f-check input { width:18px; height:18px; accent-color:var(--coral); cursor:pointer; }
 .bd-cols { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:var(--colgap); align-items:start; }
 .bd-main, .bd-side { display:flex; flex-direction:column; gap:var(--gap); min-width:0; }
 /* the chapter map — the book as a strip; segment width is proportional to duration */

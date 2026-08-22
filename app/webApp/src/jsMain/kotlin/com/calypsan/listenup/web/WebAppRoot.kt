@@ -9,6 +9,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
+import com.calypsan.listenup.web.features.bookedit.BookEditPage
+import com.calypsan.listenup.web.features.bookedit.BookEditSession
+import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.library.LibraryPage
@@ -51,6 +55,7 @@ import org.jetbrains.compose.web.dom.Text
 fun WebAppRoot(
     router: Router,
     openBookDetail: OpenBookDetail,
+    openBookEdit: OpenBookEdit,
     openLibrary: OpenLibrary,
     openPlayback: OpenPlayback,
     onSignOut: () -> Unit = {},
@@ -88,7 +93,23 @@ fun WebAppRoot(
         // makes going back instant instead of merely fast.
         val librarySession = libraryState(openLibrary)
         val bookId = if (page == BOOK_KEY) route.segments.getOrNull(1) else null
-        if (bookId != null) {
+        // `/book/{id}/edit` — a route of its own rather than a mode of Book Detail, so the form is
+        // linkable, Back leaves it, and a half-finished edit cannot be mistaken for the book.
+        val editingBookId = if (bookId != null && route.segments.getOrNull(2) == EDIT_KEY) bookId else null
+        if (editingBookId != null) {
+            val editSession =
+                bookEditState(
+                    bookId = editingBookId,
+                    openBookEdit = openBookEdit,
+                    onLeave = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
+                )
+            BookEditPage(
+                state = editSession.state.collectAsState().value,
+                onEvent = editSession.onEvent,
+                onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+                onOpenBook = { router.navigate(Route(listOf(BOOK_KEY, editingBookId))) },
+            )
+        } else if (bookId != null) {
             BookDetailPage(
                 state = bookDetailState(bookId, openBookDetail),
                 tab = route.query["tab"] ?: "overview",
@@ -112,6 +133,7 @@ fun WebAppRoot(
                     router.replace(Route(route.segments, query))
                 },
                 onPlay = { playback.onPlayBook(BookId(bookId)) },
+                onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
             )
         } else if (active == LIBRARY_KEY) {
             LibraryPage(
@@ -172,6 +194,35 @@ private fun bookDetailState(
 }
 
 /**
+ * An open Book Edit session, closed when the route leaves it.
+ *
+ * The ViewModel's [BookEditNavAction]s are honoured here rather than in the page, because they are
+ * navigation and the page is deliberately pure: `NavigateBack` fires on Cancel *and* on a
+ * successful Save, so the reader lands back on the book they were editing either way.
+ */
+@Composable
+private fun bookEditState(
+    bookId: String,
+    openBookEdit: OpenBookEdit,
+    onLeave: () -> Unit,
+): BookEditSession {
+    val session = remember(bookId) { openBookEdit(bookId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    LaunchedEffect(session) {
+        session.navActions.collect { action ->
+            when (action) {
+                is BookEditNavAction.NavigateBack -> onLeave()
+
+                // The save-success message has nowhere to go yet: the web shell has no snackbar.
+                // Swallowed deliberately rather than dropped silently — see W-follow-ups.
+                is BookEditNavAction.ShowSaveSuccess -> Unit
+            }
+        }
+    }
+    return session
+}
+
+/**
  * Opens a Library session while the page is showing and closes it when it stops, so the ViewModel's
  * flows do not outlive the route.
  */
@@ -228,6 +279,9 @@ private fun parseSelection(raw: String?): Set<Int> =
 private const val HOME_KEY = "home"
 
 private const val BOOK_KEY = "book"
+
+/** The trailing segment that turns a book route into its edit form. */
+private const val EDIT_KEY = "edit"
 
 private const val LIBRARY_KEY = "library"
 
