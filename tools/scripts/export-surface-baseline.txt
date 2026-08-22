@@ -315,11 +315,17 @@ MoodId
 MoodRepository
 NanoId
 NetworkMonitor
+NotificationBellViewModel
 NotificationDescriptor
 NotificationEvent
 NotificationPreference
+NotificationPreferenceDto
+NotificationPrefsUiState
+NotificationPrefsViewModel
 NotificationRepository
 NotificationTarget
+NotificationsUiState
+NotificationsViewModel
 NowPlayingChapter
 NowPlayingNavAction
 NowPlayingOverlay
