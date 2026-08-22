@@ -99,15 +99,24 @@ sealed interface NotificationEvent {
 object NotificationTypes {
     /** [NotificationEvent.CampfireInvite]. */
     val CAMPFIRE_INVITE =
-        NotificationDescriptor(pushEligible = true, defaultPreference = NotificationPreference(inApp = true, push = true))
+        NotificationDescriptor(
+            pushEligible = true,
+            defaultPreference = NotificationPreference(inApp = true, push = true),
+        )
 
     /** [NotificationEvent.RegistrationDecision]. */
     val REGISTRATION_DECISION =
-        NotificationDescriptor(pushEligible = true, defaultPreference = NotificationPreference(inApp = true, push = true))
+        NotificationDescriptor(
+            pushEligible = true,
+            defaultPreference = NotificationPreference(inApp = true, push = true),
+        )
 
     /** [NotificationEvent.RegistrationApproval]. */
     val REGISTRATION_APPROVAL =
-        NotificationDescriptor(pushEligible = true, defaultPreference = NotificationPreference(inApp = true, push = true))
+        NotificationDescriptor(
+            pushEligible = true,
+            defaultPreference = NotificationPreference(inApp = true, push = true),
+        )
 
     /** Every type, keyed by wire discriminator. */
     val all: Map<String, NotificationDescriptor> =

@@ -49,7 +49,9 @@ class NotificationEventContractTest :
             // The sealed serializer's element 1 ("value") enumerates every subclass descriptor —
             // works in commonTest, no JVM reflection needed.
             val declared =
-                NotificationEvent.serializer().descriptor
+                NotificationEvent
+                    .serializer()
+                    .descriptor
                     .getElementDescriptor(1)
                     .elementDescriptors
                     .map { it.serialName }

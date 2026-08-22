@@ -31,7 +31,8 @@ class NotificationSyncPayloadContractTest :
         }
 
         test("decodeEvent on an unknown future type is null, never a throw") {
-            payload.copy(type = "books_added", body = """{"type":"books_added","count":37}""")
+            payload
+                .copy(type = "books_added", body = """{"type":"books_added","count":37}""")
                 .decodeEvent()
                 .shouldBeNull()
         }

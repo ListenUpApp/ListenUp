@@ -10,10 +10,15 @@ import com.calypsan.listenup.api.push.PushPayload
  */
 fun NotificationEvent.toPushPayload(): PushPayload? =
     when (this) {
-        is NotificationEvent.CampfireInvite ->
+        is NotificationEvent.CampfireInvite -> {
             PushPayload.CampfireInvite(campfireId = campfireId, bookId = bookId, inviterUserId = inviterUserId)
-        is NotificationEvent.RegistrationDecision ->
+        }
+
+        is NotificationEvent.RegistrationDecision -> {
             PushPayload.RegistrationDecision(userId = userId, approved = approved)
-        is NotificationEvent.RegistrationApproval ->
+        }
+
+        is NotificationEvent.RegistrationApproval -> {
             PushPayload.RegistrationApproval(userId = userId)
+        }
     }
