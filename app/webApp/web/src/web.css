@@ -547,6 +547,33 @@ body { margin: 0; }
    each other and a label reads as belonging to the input above it rather than below. */
 .edit-form { display:flex; flex-direction:column; gap:20px; }
 .edit-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:var(--gap); }
+/* ---- relation chips (genres, tags, moods, collections, series, contributors) ---- */
+.rel-chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.rel-chip {
+  display:inline-flex; align-items:center; gap:7px;
+  padding:5px 6px 5px 12px; border-radius:999px;
+  background:var(--surface-2); border:1.5px solid var(--line);
+  font-size:13px; font-weight:600; color:var(--ink);
+}
+.rel-x {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:20px; height:20px; padding:0; border:none; border-radius:50%;
+  background:var(--surface-3); color:var(--ink-2);
+  font-family:inherit; font-size:14px; line-height:1; cursor:pointer;
+}
+.rel-x:hover { background:var(--coral); color:var(--on-coral); }
+.rel-results {
+  display:flex; flex-direction:column; margin-top:8px;
+  border:1.5px solid var(--line); border-radius:12px; overflow:hidden;
+  background:var(--surface);
+}
+.rel-result {
+  text-align:left; padding:10px 14px; border:none; background:none; cursor:pointer;
+  font-family:inherit; font-size:14px; color:var(--ink);
+}
+.rel-result:hover, .rel-result:focus-visible { background:var(--surface-3); outline:none; }
+.rel-create { font-weight:700; color:var(--coral); }
+.rel-hint { padding:10px 14px; font-size:13.5px; color:var(--ink-3); }
 .edit-actions { display:flex; justify-content:flex-end; gap:10px; }
 .edit-actions button[disabled] { opacity:.55; cursor:default; }
 .edit-error {
