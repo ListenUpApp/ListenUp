@@ -581,6 +581,12 @@ private suspend fun handleShortcutAction(
             resetToShell(backStack)
             backStack.add(Admin)
         }
+
+        is ShortcutAction.NavigateToUserProfile -> {
+            logger.info { "Navigating to user profile ${action.userId}" }
+            resetToShell(backStack)
+            backStack.add(UserProfile(action.userId))
+        }
     }
 }
 
