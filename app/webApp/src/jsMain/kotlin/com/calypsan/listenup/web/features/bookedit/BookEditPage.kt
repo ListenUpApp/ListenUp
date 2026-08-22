@@ -12,6 +12,11 @@ import com.calypsan.listenup.web.design.RelationField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.TextAreaField
+import com.calypsan.listenup.api.dto.ContributorRole
+import com.calypsan.listenup.client.presentation.bookedit.displayName
+import com.calypsan.listenup.web.design.RelationChip
+import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.dom.Input
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.P
@@ -63,16 +68,29 @@ fun BookEditPage(
             }
         }
 
-        Panel(title = "Details") {
-            Div(attrs = { classes("edit-form") }) { CoreFields(state, onEvent) }
-        }
-        Panel(title = "Classification") {
-            Div(attrs = { classes("edit-form") }) { ClassificationFields(state, onEvent) }
-        }
-        Panel(title = "Identifiers") {
-            Div(attrs = { classes("edit-form") }) { IdentifierFields(state, onEvent) }
-        }
+        EditSection("Details") { CoreFields(state, onEvent) }
+        EditSection("People") { ContributorFields(state, onEvent) }
+        EditSection("Series") { SeriesFields(state, onEvent) }
+        EditSection("Classification") { ClassificationFields(state, onEvent) }
+        EditSection("Identifiers") { IdentifierFields(state, onEvent) }
         EditActions(state, onEvent)
+    }
+}
+
+/**
+ * One titled block of form rows.
+ *
+ * The panel and the row rhythm always travel together — a section that forgot the rhythm would
+ * render its fields flush against each other — so they are one thing rather than two lines to
+ * remember at five call sites.
+ */
+@Composable
+private fun EditSection(
+    title: String,
+    content: @Composable () -> Unit,
+) {
+    Panel(title = title) {
+        Div(attrs = { classes("edit-form") }) { content() }
     }
 }
 
@@ -226,6 +244,123 @@ private fun ClassificationFields(
             placeholder = "Search collections…",
             id = "edit-collections",
         )
+    }
+}
+
+/**
+ * Contributors, one section per role.
+ *
+ * A contributor is keyed by NAME rather than id, because a newly-typed one has no id until Save —
+ * [com.calypsan.listenup.client.domain.model.EditableContributor]'s `id` is nullable for exactly
+ * that reason, and keying on it would make a just-added author unremovable.
+ *
+ * Only roles already in use are shown, plus whatever the reader opens: a book with an author and a
+ * narrator should not present eight empty boxes for adapters and illustrators.
+ */
+@Composable
+private fun ContributorFields(
+    state: BookEditUiState,
+    onEvent: (BookEditUiEvent) -> Unit,
+) {
+    state.visibleRoles.sortedBy { it.ordinal }.forEach { role ->
+        val attached = state.contributorsForRole(role)
+        Div(attrs = { classes("rel-section") }) {
+            RelationField(
+                label = "${role.displayName}s",
+                attached = attached.map { RelationChip(id = it.name, label = it.name) },
+                query = state.roleSearchQueries[role].orEmpty(),
+                results = state.roleSearchResults[role].orEmpty().map { RelationChip(id = it.id, label = it.name) },
+                loading = state.roleSearchLoading[role] == true,
+                offline = state.roleOfflineResults[role] == true,
+                onQueryChange = { onEvent(BookEditUiEvent.RoleSearchQueryChanged(role, it)) },
+                onSelect = { chip ->
+                    state.roleSearchResults[role]
+                        .orEmpty()
+                        .firstOrNull { it.id == chip.id }
+                        ?.let { onEvent(BookEditUiEvent.RoleContributorSelected(role, it)) }
+                },
+                onRemove = { chip ->
+                    attached
+                        .firstOrNull { it.name == chip.id }
+                        ?.let { onEvent(BookEditUiEvent.RemoveContributor(it, role)) }
+                },
+                onCreate = { name -> onEvent(BookEditUiEvent.RoleContributorEntered(role, name)) },
+                placeholder = "Add ${indefiniteArticle(role.displayName)} ${role.displayName.lowercase()}…",
+                id = "edit-role-${role.name.lowercase()}",
+            )
+            Button(attrs = {
+                classes("rel-drop")
+                attr("type", "button")
+                onClick { onEvent(BookEditUiEvent.RemoveRoleSection(role)) }
+            }) { Text("Remove all ${role.displayName.lowercase()}s") }
+        }
+    }
+
+    val hidden = ContributorRole.entries.filterNot { it in state.visibleRoles }
+    if (hidden.isNotEmpty()) {
+        Div(attrs = { classes("rel-add-roles") }) {
+            hidden.forEach { role ->
+                Button(attrs = {
+                    classes("rel-add-role")
+                    attr("type", "button")
+                    onClick { onEvent(BookEditUiEvent.AddRoleSection(role)) }
+                }) { Text("+ ${role.displayName}") }
+            }
+        }
+    }
+}
+
+/**
+ * "a" or "an" for [word].
+ *
+ * Six of the ten contributor roles start with a vowel — author, editor, illustrator, adapter,
+ * afterword, introduction — so a hardcoded "a" is wrong more often than it is right.
+ */
+private fun indefiniteArticle(word: String): String =
+    if (word.firstOrNull()?.lowercaseChar() in listOf('a', 'e', 'i', 'o', 'u')) "an" else "a"
+
+/**
+ * Series, with this book's place in each.
+ *
+ * Keyed by name for the same reason contributors are — a series typed in here has no id until it
+ * is saved. The sequence is free text rather than a number box: "1.5" and "0" are both real
+ * positions in real series, and so is "Prequel".
+ */
+@Composable
+private fun SeriesFields(
+    state: BookEditUiState,
+    onEvent: (BookEditUiEvent) -> Unit,
+) {
+    RelationField(
+        label = "Series",
+        attached = state.series.map { RelationChip(id = it.name, label = it.name) },
+        query = state.seriesSearchQuery,
+        results = state.seriesSearchResults.map { RelationChip(id = it.id, label = it.name) },
+        loading = state.seriesSearchLoading,
+        offline = state.seriesOfflineResult,
+        onQueryChange = { onEvent(BookEditUiEvent.SeriesSearchQueryChanged(it)) },
+        onSelect = { chip ->
+            state.seriesSearchResults
+                .firstOrNull { it.id == chip.id }
+                ?.let { onEvent(BookEditUiEvent.SeriesSelected(it)) }
+        },
+        onRemove = { chip ->
+            state.series.firstOrNull { it.name == chip.id }?.let { onEvent(BookEditUiEvent.RemoveSeries(it)) }
+        },
+        onCreate = { name -> onEvent(BookEditUiEvent.SeriesEntered(name)) },
+        placeholder = "Search series…",
+        id = "edit-series",
+    ) { chip ->
+        val series = state.series.firstOrNull { it.name == chip.id }
+        if (series != null) {
+            Input(type = InputType.Text) {
+                classes("rel-seq")
+                value(series.sequence.orEmpty())
+                attr("placeholder", "#")
+                attr("aria-label", "Position in ${series.name}")
+                onInput { event -> onEvent(BookEditUiEvent.SeriesSequenceChanged(series, event.value)) }
+            }
+        }
     }
 }
 

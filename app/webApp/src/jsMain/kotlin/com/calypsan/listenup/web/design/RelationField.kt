@@ -32,6 +32,9 @@ data class RelationChip(
  * offer what already exists. Tags and moods pass a handler, and typing a name that matches nothing
  * offers to create it.
  *
+ * [trailing] renders inside each chip, before its remove button — the seam series uses for its
+ * sequence number.
+ *
  * ⛔ **Creating is a deliberate, separate affordance — never a side effect of pressing Enter.**
  * These records are global: a mistyped tag invented here shows up in everybody's library, not just
  * on this book. Making it a distinct "Create" button costs one click and makes accidental
@@ -48,8 +51,10 @@ fun RelationField(
     onRemove: (RelationChip) -> Unit,
     loading: Boolean = false,
     onCreate: ((String) -> Unit)? = null,
+    offline: Boolean = false,
     placeholder: String = "Search…",
     id: String? = null,
+    trailing: (@Composable (RelationChip) -> Unit)? = null,
 ) {
     Div(attrs = { classes("f-wrap", "rel") }) {
         Label(attrs = { classes("f-label") }) { Text(label) }
@@ -59,6 +64,10 @@ fun RelationField(
                 attached.forEach { chip ->
                     Div(attrs = { classes("rel-chip") }) {
                         Text(chip.label)
+                        // A slot rather than a second component: series is this same chip plus a
+                        // sequence box, and forking the control over one input would leave two
+                        // search fields to keep in step.
+                        trailing?.invoke(chip)
                         Button(attrs = {
                             classes("rel-x")
                             attr("type", "button")
@@ -112,6 +121,11 @@ fun RelationField(
                     else -> {
                         Div(attrs = { classes("rel-hint") }) { Text("No matches.") }
                     }
+                }
+                if (offline) {
+                    // Never stranded: the search fell back to what this device already holds, and
+                    // saying so is the difference between "no such series" and "could not ask".
+                    Div(attrs = { classes("rel-hint") }) { Text("Offline — showing matches held on this device.") }
                 }
             }
         }
