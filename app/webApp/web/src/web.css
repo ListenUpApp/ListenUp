@@ -348,6 +348,10 @@ body { margin: 0; }
 .btn-c:hover { background:var(--coral-press); }
 .btn-o { height:40px; padding:0 16px; border-radius:11px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:600; background:var(--surface); color:var(--ink); border:1.5px solid var(--line); display:inline-flex; align-items:center; gap:8px; white-space:nowrap; }
 .btn-o:hover { background:var(--surface-3); }
+/* Square icon-only companion to `.btn` — same height and radius, outline weight, so a primary
+   action and its icon sibling read as one row rather than two generations of button. */
+.btn-sq { height:52px; width:52px; flex-shrink:0; padding:0; border-radius:13px; cursor:pointer; background:var(--surface); color:var(--ink); border:1.5px solid var(--line); display:inline-flex; align-items:center; justify-content:center; }
+.btn-sq:hover { background:var(--surface-3); }
 .btn-d { background:#C0392B; color:#fff; }
 .btn-d:hover { background:#A5301F; }
 

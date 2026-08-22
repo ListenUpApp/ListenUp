@@ -196,11 +196,15 @@ private fun SharedHeader(
                             Text(if (ready.progress != null) "Resume" else "Play")
                         }
                     }
+                    // Icon-only, so the accessible name is the attribute, not the content —
+                    // BookDetailEditButtonTest pins both the label and that it matches Play's height.
                     Button(attrs = {
-                        classes("btn-o")
+                        classes("btn-sq")
                         attr("type", "button")
+                        attr("aria-label", "Edit book")
+                        attr("title", "Edit book")
                         onClick { onEdit() }
-                    }) { Text("Edit") }
+                    }) { Icon(WebIcon.Pencil) }
                 }
             }
         }
