@@ -38,6 +38,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.deleteNotificationRowsForUser
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -257,11 +258,10 @@ class AdminUserServiceImpl(
                 }
                 sql.usersQueries.markDeletedAt(deleted_at = clock.now().toEpochMilliseconds(), id = id.value)
                 sql.passwordResetRequestsQueries.deleteForUser(id.value)
-                // Hard-delete like the reset-request sweep above: notifications are userScoped —
-                // no other user ever syncs them, and the owner's devices are being ejected via
-                // the UserDeleted control frame, so tombstones would propagate to nobody.
-                sql.notificationsQueries.deleteForUser(id.value)
-                sql.notificationPrefsQueries.deleteForUser(id.value)
+                // Same-transaction sweep of the user's notification rows and preference
+                // overrides. The seam lives in server/sync/ (see its KDoc for why it is a
+                // hard delete rather than a substrate tombstone).
+                sql.deleteNotificationRowsForUser(id.value)
                 AppResult.Success(Unit)
             }
 

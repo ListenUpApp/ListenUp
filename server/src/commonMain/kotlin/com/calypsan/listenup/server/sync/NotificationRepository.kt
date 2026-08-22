@@ -222,3 +222,19 @@ class NotificationRepository(
         const val SQLITE_IN_CHUNK = 900
     }
 }
+
+/**
+ * Hard-deletes every `notifications` and `notification_prefs` row belonging to [userId] — the
+ * user-deletion sweep. Call ONLY from inside the deletion's open transaction (the caller's
+ * `suspendTransaction` body) so the sweep commits or rolls back atomically with the user row.
+ *
+ * Deliberately a hard delete that bypasses the substrate's revision/ChangeBus path: both tables
+ * are visible only to their owner (`notifications` is userScoped; `notification_prefs` is not
+ * syncable at all), and the owner's devices are ejected by the `UserDeleted` control frame — a
+ * tombstone would sync to nobody. Living in `server/sync/` keeps the raw write inside the
+ * repository layer, per `SyncWritesGoThroughRepositoryRule`.
+ */
+fun ListenUpDatabase.deleteNotificationRowsForUser(userId: String) {
+    notificationsQueries.deleteForUser(userId)
+    notificationPrefsQueries.deleteForUser(userId)
+}
