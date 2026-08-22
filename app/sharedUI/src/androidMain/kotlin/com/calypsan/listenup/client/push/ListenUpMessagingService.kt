@@ -29,19 +29,19 @@ class ListenUpMessagingService :
     private val registrar: PushRegistrar by inject()
 
     override fun onMessageReceived(message: RemoteMessage) {
-        // Foreground suppression: the in-app SSE-fed surface already shows live events, so a
-        // foregrounded app skips the local notification entirely.
+        // Decode BEFORE deciding: whether to render depends on what arrived, and a test
+        // notification is exempt from foreground suppression (see PushForegroundPolicy).
+        val payload =
+            message.data["payload"]?.let { raw ->
+                runCatching { contractJson.decodeFromString(PushPayload.serializer(), raw) }.getOrNull()
+            } // null (absent OR unknown discriminator) → generic notification, never a crash
+
         val foreground =
             ProcessLifecycleOwner
                 .get()
                 .lifecycle.currentState
                 .isAtLeast(Lifecycle.State.STARTED)
-        if (foreground) return
-
-        val payload =
-            message.data["payload"]?.let { raw ->
-                runCatching { contractJson.decodeFromString(PushPayload.serializer(), raw) }.getOrNull()
-            } // null (absent OR unknown discriminator) → generic notification, never a crash
+        if (!PushForegroundPolicy.shouldRender(payload, appInForeground = foreground)) return
 
         runBlocking { renderer.render(payload) }
     }
