@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.web.design.BookMarkdown
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
@@ -248,15 +249,10 @@ private fun OverviewPane(state: BookDetailUiState.Ready) {
         Div(attrs = { classes("bd-main") }) {
             Panel(title = "About") {
                 if (state.descriptionText.isNotBlank()) {
-                    P(attrs = {
-                        style {
-                            property("margin", "0 0 14px")
-                            property("font-size", "14.5px")
-                            property("line-height", "1.6")
-                            property("color", "var(--ink-2)")
-                        }
-                    }) {
-                        Text(state.descriptionText)
+                    // The description arrives Markdown-flavoured and is untrusted external
+                    // metadata; [BookMarkdown] owns both halves of that.
+                    Div(attrs = { classes("bd-desc") }) {
+                        BookMarkdown(state.descriptionText)
                     }
                 }
                 if (state.genres.isNotEmpty()) {

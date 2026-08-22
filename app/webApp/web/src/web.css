@@ -688,10 +688,15 @@ body { margin: 0; }
    arithmetic rather than measurement, and a row's height does not depend on which books are in it.
    Measured before this rule, card heights were 257 / 274 / 285 depending on how many lines the
    title and author wrapped to — a 28px spread that made exact row maths impossible. */
+/* One line, not two. Reserving a second line for the minority of titles that need it left a
+   visible gap under every single-line title — which is most of them. A long title now truncates
+   with an ellipsis instead of every card paying for the space.
+   ⛔ Still a FIXED height: uniform cards are what make the virtualiser's row offsets arithmetic
+   rather than measurement. One line clamped is fine; "one line usually, two sometimes" is not. */
 .lib-title {
   font-size: 0.9rem; line-height: 1.2;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  height: calc(0.9rem * 1.2 * 2);
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+  height: calc(0.9rem * 1.2);
 }
 .lib-author {
   font-size: 0.8rem; line-height: 1.2; color: var(--ink-2);
