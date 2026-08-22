@@ -114,6 +114,12 @@ class BookEditPageTest :
             events shouldContain BookEditUiEvent.Save
         }
 
+        test("the edit page offers the cover control") {
+            val root = edited(loaded())
+
+            (root.querySelector(".cover-field") != null) shouldBe true
+        }
+
         test("a save in flight disables both actions and says so") {
             val root = edited(loaded().copy(isSaving = true))
 

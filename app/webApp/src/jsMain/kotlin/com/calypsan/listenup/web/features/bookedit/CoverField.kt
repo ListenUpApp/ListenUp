@@ -1,0 +1,172 @@
+package com.calypsan.listenup.web.features.bookedit
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.web.events.SyntheticDragEvent
+import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
+import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.coverUrl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.dom.Button
+import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Img
+import org.jetbrains.compose.web.dom.Input
+import org.jetbrains.compose.web.dom.Text
+import org.khronos.webgl.ArrayBuffer
+import org.khronos.webgl.Int8Array
+import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.url.URL
+import org.w3c.files.Blob
+import org.w3c.files.File
+import org.w3c.files.FileReader
+import kotlin.coroutines.resume
+
+/**
+ * The cover on Book Edit — the web analogue of Android's tappable cover in the identity header.
+ *
+ * The artwork renders at its true 2:3 aspect in a fixed frame; a dropzone card beside it is the
+ * pick affordance — click it, or drop an image on it, to choose a replacement. The current
+ * artwork comes from the server via [coverUrl]; a pending replacement renders from
+ * [BookEditUiState.pendingCoverData] — never from `displayCoverPath`, because the browser's
+ * ImageStorage is bookkeeping-only and its `browser://` paths have no bytes behind them.
+ */
+@Composable
+fun CoverField(
+    state: BookEditUiState,
+    onEvent: (BookEditUiEvent) -> Unit,
+) {
+    val previewUrl =
+        remember(state.pendingCoverData) {
+            state.pendingCoverData?.let { bytes ->
+                URL.createObjectURL(Blob(arrayOf(bytes.unsafeCast<Int8Array>())))
+            }
+        }
+    DisposableEffect(previewUrl) {
+        onDispose { previewUrl?.let(URL::revokeObjectURL) }
+    }
+    val scope = rememberCoroutineScope()
+    var fileInput by remember { mutableStateOf<HTMLInputElement?>(null) }
+    var dragOver by remember { mutableStateOf(false) }
+    Div(attrs = { classes("cover-field") }) {
+        Div(attrs = { classes("cover-art") }) {
+            if (previewUrl != null) {
+                Img(src = previewUrl, alt = "New cover preview", attrs = { classes("cover-preview") })
+            } else {
+                Cover(
+                    title = state.title,
+                    imageUrl = coverUrl(state.bookId, state.coverHash, width = COVER_EDIT_FETCH_WIDTH),
+                    size = COVER_ART_WIDTH,
+                    height = COVER_ART_HEIGHT,
+                )
+            }
+        }
+        Button(attrs = {
+            classes("cover-pick")
+            if (dragOver) classes("cover-drag")
+            attr("type", "button")
+            attr("aria-label", "Change cover")
+            attr("title", "Change cover")
+            if (state.isUploadingCover) attr("disabled", "")
+            onClick { fileInput?.click() }
+            onDragOver { event ->
+                // While an upload is in flight, don't accept the drag at all — the browser
+                // then shows its native no-drop cursor instead of a highlight we'd ignore.
+                if (state.isUploadingCover) return@onDragOver
+                event.preventDefault()
+                dragOver = true
+            }
+            onDragLeave { dragOver = false }
+            onDrop { event ->
+                event.preventDefault()
+                dragOver = false
+                acceptedDroppedCover(event, state.isUploadingCover)?.let { pickCover(scope, it, onEvent) }
+            }
+        }) {
+            Div(attrs = { classes("cover-pick-disc") }) { Icon(WebIcon.Upload, size = UPLOAD_ICON_SIZE) }
+            Div(attrs = { classes("cover-pick-main") }) { Text("Click to choose an image") }
+            Div(attrs = { classes("cover-pick-sub") }) { Text("or drag and drop — JPG, PNG or WebP") }
+        }
+        Input(type = InputType.File, attrs = {
+            id("edit-cover-input")
+            attr("accept", "image/*")
+            style { property("display", "none") }
+            ref { element ->
+                fileInput = element
+                onDispose { fileInput = null }
+            }
+            onChange { event ->
+                val element = event.target as HTMLInputElement
+                val file = element.files?.item(0)
+                if (file != null) pickCover(scope, file, onEvent)
+                // Re-picking the same file must fire change again next time.
+                element.value = ""
+            }
+        })
+    }
+}
+
+/**
+ * The file a drop should upload, or null: nothing while an upload is in flight,
+ * nothing when no file was dropped, and never a non-image — a drop bypasses the
+ * picker's accept filter, so this check is the only gate.
+ */
+private fun acceptedDroppedCover(
+    event: SyntheticDragEvent,
+    isUploadingCover: Boolean,
+): File? {
+    if (isUploadingCover) return null
+    val file = event.dataTransfer?.files?.item(0) ?: return null
+    return file.takeIf { it.type.startsWith("image/") }
+}
+
+/**
+ * Read the picked file and hand its bytes to the shared ViewModel.
+ *
+ * A read failure here is a browser-local dead end (there is no AppError for "your own disk
+ * refused") — it logs and drops the pick; the form is untouched, so the reader just picks again.
+ */
+private fun pickCover(
+    scope: CoroutineScope,
+    file: File,
+    onEvent: (BookEditUiEvent) -> Unit,
+) {
+    scope.launch {
+        val bytes = file.readByteArray() ?: return@launch
+        onEvent(BookEditUiEvent.UploadCover(imageData = bytes, filename = file.name))
+    }
+}
+
+/** [FileReader] as a suspend call; null on a read error rather than an exception. */
+private suspend fun File.readByteArray(): ByteArray? =
+    suspendCancellableCoroutine { continuation ->
+        val reader = FileReader()
+        reader.onload = {
+            val buffer = reader.result.unsafeCast<ArrayBuffer>()
+            continuation.resume(Int8Array(buffer).unsafeCast<ByteArray>())
+        }
+        reader.onerror = {
+            console.error("Cover file could not be read: $name")
+            continuation.resume(null)
+        }
+        reader.readAsArrayBuffer(this)
+    }
+
+private const val COVER_ART_WIDTH = 132
+
+private const val COVER_ART_HEIGHT = 198
+
+/** 2× the rendered width, so the derivative the server picks stays sharp on dense displays. */
+private const val COVER_EDIT_FETCH_WIDTH = 264
+
+private const val UPLOAD_ICON_SIZE = 20
