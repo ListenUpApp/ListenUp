@@ -1377,6 +1377,28 @@
     "not_found": "Library not found.",
     "view_project": "View project"
   },
+  "notifications": {
+    "title": "Notifications",
+    "empty_title": "You're all caught up",
+    "empty_subtitle": "Notifications about your library and community will land here.",
+    "unknown_title": "Notification",
+    "unknown_subtitle": "Update ListenUp to see this notification.",
+    "campfire_invite_title": "Campfire invite",
+    "campfire_invite_body": "You've been invited to listen together.",
+    "registration_decision_approved_title": "You're in",
+    "registration_decision_approved_body": "Your registration was approved. Welcome to ListenUp.",
+    "registration_decision_denied_title": "Registration declined",
+    "registration_decision_denied_body": "An admin declined your registration.",
+    "registration_approval_title": "Registration waiting",
+    "registration_approval_body": "Someone is waiting for approval to join your server.",
+    "settings_row_title": "Notifications",
+    "settings_row_subtitle": "Choose what reaches you, in-app and by push",
+    "settings_in_app": "In-app",
+    "settings_push": "Push",
+    "type_campfire_invite": "Campfire invites",
+    "type_registration_decision": "Registration decisions",
+    "type_registration_approval": "Pending registrations"
+  },
   "push": {
     "test_title": "Test notification",
     "test_body": "Push notifications are working.",

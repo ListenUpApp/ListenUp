@@ -10441,6 +10441,206 @@
         }
       }
     },
+    "notifications.campfire_invite_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You've been invited to listen together."
+          }
+        }
+      }
+    },
+    "notifications.campfire_invite_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfire invite"
+          }
+        }
+      }
+    },
+    "notifications.empty_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications about your library and community will land here."
+          }
+        }
+      }
+    },
+    "notifications.empty_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're all caught up"
+          }
+        }
+      }
+    },
+    "notifications.registration_approval_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone is waiting for approval to join your server."
+          }
+        }
+      }
+    },
+    "notifications.registration_approval_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration waiting"
+          }
+        }
+      }
+    },
+    "notifications.registration_decision_approved_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your registration was approved. Welcome to ListenUp."
+          }
+        }
+      }
+    },
+    "notifications.registration_decision_approved_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You're in"
+          }
+        }
+      }
+    },
+    "notifications.registration_decision_denied_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An admin declined your registration."
+          }
+        }
+      }
+    },
+    "notifications.registration_decision_denied_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration declined"
+          }
+        }
+      }
+    },
+    "notifications.settings_in_app": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In-app"
+          }
+        }
+      }
+    },
+    "notifications.settings_push": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push"
+          }
+        }
+      }
+    },
+    "notifications.settings_row_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose what reaches you, in-app and by push"
+          }
+        }
+      }
+    },
+    "notifications.settings_row_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications"
+          }
+        }
+      }
+    },
+    "notifications.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications"
+          }
+        }
+      }
+    },
+    "notifications.type_campfire_invite": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfire invites"
+          }
+        }
+      }
+    },
+    "notifications.type_registration_approval": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending registrations"
+          }
+        }
+      }
+    },
+    "notifications.type_registration_decision": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registration decisions"
+          }
+        }
+      }
+    },
+    "notifications.unknown_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update ListenUp to see this notification."
+          }
+        }
+      }
+    },
+    "notifications.unknown_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notification"
+          }
+        }
+      }
+    },
     "player.add_more_time": {
       "localizations": {
         "en": {
