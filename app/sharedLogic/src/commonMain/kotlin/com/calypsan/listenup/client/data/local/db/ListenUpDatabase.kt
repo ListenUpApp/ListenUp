@@ -79,8 +79,9 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         AdminUserRosterEntity::class,
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
+        NotificationEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @ColumnTypeConverters(
@@ -163,6 +164,8 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun bookReadershipDao(): BookReadershipDao
 
     abstract fun cachedActiveSessionDao(): CachedActiveSessionDao
+
+    abstract fun notificationDao(): NotificationDao
 }
 
 /**

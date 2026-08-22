@@ -152,3 +152,32 @@ internal val MIGRATION_5_6 =
             connection.executeDdl("CREATE INDEX index_book_series_seriesId ON book_series(seriesId)")
         }
     }
+
+/**
+ * Schema 7 — the `notifications` inbox table arrives.
+ *
+ * A new table for the notifications domain: server-minted inbox rows synced down like any other
+ * aggregate, with the event payload stored verbatim as JSON (`eventJson`) so unknown types survive
+ * on an older client, a local-first `readAt` stamp, and the standard `revision`/`deletedAt` sync
+ * substrate. Non-destructive by construction — pure `CREATE TABLE`/`CREATE INDEX`, touching no
+ * existing rows, per the migration policy in [ListenUpDatabase].
+ *
+ * DDL is copied verbatim from the exported `schemas/…/7.json` `createSql` entries so
+ * `runMigrationsAndValidate` sees an identical schema to a fresh v7 install.
+ */
+internal val MIGRATION_6_7 =
+    object : Migration(6, 7) {
+        override suspend fun migrate(connection: SQLiteConnection) {
+            connection.executeDdl(
+                "CREATE TABLE IF NOT EXISTS `notifications` (`id` TEXT NOT NULL, `type` TEXT NOT NULL, " +
+                    "`eventJson` TEXT NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, " +
+                    "`readAt` INTEGER, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`id`))",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_notifications_deletedAt` ON `notifications` (`deletedAt`)",
+            )
+            connection.executeDdl(
+                "CREATE INDEX IF NOT EXISTS `index_notifications_readAt` ON `notifications` (`readAt`)",
+            )
+        }
+    }
