@@ -94,7 +94,7 @@ fun AppShell(
     onTagClick: (String, String) -> Unit,
     onAdminClick: (() -> Unit)? = null,
     onSettingsClick: () -> Unit,
-    onNotificationsClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit,
     onSignOut: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     homeContent: @Composable (PaddingValues, appHeader: AppHeaderSlot, onNavigateToLibrary: () -> Unit) -> Unit,

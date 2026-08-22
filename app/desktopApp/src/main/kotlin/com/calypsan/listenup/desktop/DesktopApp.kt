@@ -46,7 +46,9 @@ import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.UserDetailViewModel
+import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.features.discover.DiscoverScreen
+import com.calypsan.listenup.client.features.notifications.NotificationsScreen
 import com.calypsan.listenup.client.features.genredestination.GenreDestinationScreen
 import com.calypsan.listenup.client.features.home.HomeScreen
 import com.calypsan.listenup.client.features.contributordetail.ContributorBooksScreen
@@ -193,6 +195,8 @@ sealed interface DetailDestination {
     data object AdminCategories : DetailDestination
 
     data object AdminInbox : DetailDestination
+
+    data object Notifications : DetailDestination
 }
 
 /**
@@ -272,6 +276,9 @@ private fun DesktopAuthenticatedNavigation() {
                         onAdminClick = { navigateTo(DetailDestination.Admin) },
                         onSettingsClick = {
                             navigateTo(DetailDestination.Settings)
+                        },
+                        onNotificationsClick = {
+                            navigateTo(DetailDestination.Notifications)
                         },
                         onSignOut = {
                             scope.launch {
@@ -676,6 +683,33 @@ private fun DetailScreen(
                 onBookClick = { navigateTo(DetailDestination.BookEdit(it)) },
                 // Per-row "Match on Audible" — opens the metadata match wizard for that book (iOS parity).
                 onMatchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
+            )
+        }
+
+        is DetailDestination.Notifications -> {
+            NotificationsScreen(
+                onNavigateBack = navigateBack,
+                // Desktop consumes the shared tap mapping with its own destination switch —
+                // only the actions a notification can produce today need desktop routes.
+                onAction = { action ->
+                    when (action) {
+                        is ShortcutAction.NavigateToBook -> {
+                            navigateTo(DetailDestination.Book(action.bookId))
+                        }
+
+                        is ShortcutAction.NavigateToUserProfile -> {
+                            navigateTo(DetailDestination.UserProfile(action.userId))
+                        }
+
+                        is ShortcutAction.NavigateToPendingApprovals -> {
+                            navigateTo(DetailDestination.Admin)
+                        }
+
+                        else -> {
+                            // Playback/launcher shortcuts never come from a notification tap.
+                        }
+                    }
+                },
             )
         }
 

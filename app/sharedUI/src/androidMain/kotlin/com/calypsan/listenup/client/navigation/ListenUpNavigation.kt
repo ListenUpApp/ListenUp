@@ -99,6 +99,7 @@ import com.calypsan.listenup.client.navigation.entries.adminEntries
 import com.calypsan.listenup.client.navigation.entries.bookEntries
 import com.calypsan.listenup.client.navigation.entries.contributorEntries
 import com.calypsan.listenup.client.navigation.entries.librarySetupEntry
+import com.calypsan.listenup.client.navigation.entries.notificationEntries
 import com.calypsan.listenup.client.navigation.entries.profileEntries
 import com.calypsan.listenup.client.navigation.entries.seriesEntries
 import com.calypsan.listenup.client.navigation.entries.settingsEntries
@@ -772,6 +773,7 @@ private fun AuthenticatedNavigation(
                                     serverConfig = serverConfig,
                                     profileRefreshKey = profileRefreshKey,
                                     onProfileRefreshed = { profileRefreshKey++ },
+                                    homeRepository = homeRepository,
                                 ),
                         )
                     }
@@ -793,6 +795,30 @@ private fun AuthenticatedNavigation(
 }
 
 /**
+ * Builds the dispatch lambda the notification inbox entries consume: every action routes through
+ * [handleShortcutAction] — the SAME handler the shade's [ShortcutActionEffect] uses — so the two
+ * entry points cannot disagree on where a notification lands.
+ */
+private fun shortcutActionDispatcher(
+    scope: CoroutineScope,
+    homeRepository: HomeRepository,
+    nowPlayingViewModel: NowPlayingViewModel,
+    backStack: NavBackStack<NavKey>,
+    onSelectShellDestination: (ShellDestination) -> Unit,
+): (ShortcutAction) -> Unit =
+    { action ->
+        scope.launch {
+            handleShortcutAction(
+                action = action,
+                homeRepository = homeRepository,
+                nowPlayingViewModel = nowPlayingViewModel,
+                backStack = backStack,
+                onSelectShellDestination = onSelectShellDestination,
+            )
+        }
+    }
+
+/**
  * Builds the [entryProvider] block for all authenticated navigation destinations.
  *
  * Extracted from [AuthenticatedNavigation] to keep the orchestrator within complexity budget.
@@ -812,6 +838,7 @@ private fun authenticatedNavEntries(
     serverConfig: ServerConfig,
     profileRefreshKey: Int,
     onProfileRefreshed: () -> Unit,
+    homeRepository: HomeRepository,
 ) = entryProvider {
     shellEntry(
         backStack = backStack,
@@ -833,6 +860,17 @@ private fun authenticatedNavEntries(
         onProfileRefreshed = onProfileRefreshed,
     )
     shelfEntries(backStack)
+    notificationEntries(
+        backStack = backStack,
+        onAction =
+            shortcutActionDispatcher(
+                scope = scope,
+                homeRepository = homeRepository,
+                nowPlayingViewModel = nowPlayingViewModel,
+                backStack = backStack,
+                onSelectShellDestination = onShellDestinationChange,
+            ),
+    )
     settingsEntries(
         backStack = backStack,
         onSignOut = onSignOut,
