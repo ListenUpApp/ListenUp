@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.MoodService
+import com.calypsan.listenup.api.NotificationService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.PlaybackService
@@ -40,6 +41,7 @@ import com.calypsan.listenup.server.api.ImportServiceImpl
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.api.MoodServiceImpl
+import com.calypsan.listenup.server.api.NotificationServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.ProfileServiceImpl
@@ -146,6 +148,9 @@ private fun Route.authedRpc(services: RpcServices) {
             )
         }
         registerScoped<PushService> { guard((services.pushService as PushServiceImpl).copyWith(it)) }
+        registerScoped<NotificationService> {
+            guard((services.notificationService as NotificationServiceImpl).copyWith(it))
+        }
         registerScoped<BackupService> {
             guard(
                 (services.backupService as BackupServiceImpl).copyWith(it),
