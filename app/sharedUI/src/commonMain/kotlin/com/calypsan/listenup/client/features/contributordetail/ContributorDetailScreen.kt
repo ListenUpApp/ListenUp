@@ -76,6 +76,7 @@ import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
+import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.features.contributoredit.components.ContributorColorScheme
 import com.calypsan.listenup.client.features.contributoredit.components.rememberContributorColorScheme
 import com.calypsan.listenup.client.features.library.BookCard
@@ -169,7 +170,7 @@ fun ContributorDetailScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         when (val current = state) {
             ContributorDetailUiState.Idle, ContributorDetailUiState.Loading -> {
-                ListenUpLoadingIndicator(modifier = Modifier.align(Alignment.Center))
+                ContributorDetailLoadingFrame(contributorId = contributorId, onBackClick = onBackClick)
             }
 
             is ContributorDetailUiState.Error -> {
@@ -905,7 +906,9 @@ private fun ElevatedAvatar(
             CardDefaults.elevatedCardColors(
                 containerColor = colorScheme.primary,
             ),
-        modifier = Modifier.size(140.dp),
+        // The hero is the whole avatar — see the note on the Contributors-list half. The photo alone
+        // draws nothing for a contributor without one, which is most of them.
+        modifier = Modifier.size(140.dp).heroElement(contributorHeroKey(contributorId), shape),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -930,7 +933,6 @@ private fun ElevatedAvatar(
                 imagePath = imagePath,
                 contentDescription = stringResource(Res.string.contributor_name_profile_image, name),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                heroKey = contributorHeroKey(contributorId),
                 modifier = Modifier.fillMaxSize(),
                 onState = { state ->
                     if (state is coil3.compose.AsyncImagePainter.State.Success) {
@@ -974,6 +976,66 @@ private fun BiographySection(
                 contentPadding = PaddingValues(0.dp),
             ) {
                 Text(stringResource(if (isExpanded) Res.string.common_read_less else Res.string.common_read_more))
+            }
+        }
+    }
+}
+
+/**
+ * The contributor screen's first frame: the colour banner and the portrait, where the loaded screen
+ * puts them.
+ *
+ * The portrait is the hero transition's landing target — without it the shared element leaving the
+ * Contributors list has nothing to fly into and silently does nothing. Deliberately renders the bare
+ * image rather than [ElevatedAvatar]: that card paints a filled surface and initials immediately,
+ * which would sit here as a finished-looking avatar before the real one arrives.
+ * [com.calypsan.listenup.client.design.components.ContributorCoverImage] resolves a portrait from
+ * [contributorId] alone, so it needs nothing this screen has not got yet.
+ */
+@Composable
+private fun ContributorDetailLoadingFrame(
+    contributorId: String,
+    onBackClick: () -> Unit,
+) {
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
+            NavigationBar(
+                onBackClick = onBackClick,
+                onEditClick = {},
+                onDownloadMetadata = {},
+                onDeleteClick = {},
+                surfaceColor = MaterialTheme.colorScheme.surface,
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // The rim RingedScallopAvatar draws, at the same 152/140 sizes, so the portrait
+                // lands exactly where the loaded hero keeps it.
+                Box(
+                    modifier =
+                        Modifier
+                            .size(152.dp)
+                            .clip(cookieScallopShape())
+                            .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    com.calypsan.listenup.client.design.components.ContributorCoverImage(
+                        contributorId = contributorId,
+                        imagePath = null,
+                        contentDescription = null,
+                        modifier =
+                            Modifier
+                                .size(140.dp)
+                                .heroElement(contributorHeroKey(contributorId), cookieScallopShape()),
+                    )
+                }
             }
         }
     }

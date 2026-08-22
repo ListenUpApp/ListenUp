@@ -4,6 +4,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.design.transitions.HeroEntry
+import com.calypsan.listenup.client.design.transitions.heroEntryTransitions
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.ContributorBooks
 import com.calypsan.listenup.client.navigation.ContributorDetail
@@ -13,7 +14,7 @@ import com.calypsan.listenup.client.navigation.ContributorMetadataSearch
 
 /** Contributor navigation entries. */
 internal fun EntryProviderScope<NavKey>.contributorEntries(backStack: NavBackStack<NavKey>) {
-    entry<ContributorDetail> { args ->
+    entry<ContributorDetail>(metadata = heroEntryTransitions) { args ->
         HeroEntry {
             com.calypsan.listenup.client.features.contributordetail.ContributorDetailScreen(
                 contributorId = args.contributorId,

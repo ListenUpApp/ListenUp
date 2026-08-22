@@ -389,6 +389,7 @@ private fun BookCardCover(
                 title = title,
                 author = author,
                 heroKey = bookCoverHeroKey(bookId),
+                heroClipShape = shape,
                 modifier = Modifier.matchParentSize(),
             )
 

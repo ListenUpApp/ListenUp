@@ -48,6 +48,8 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalNowPlayingInsets
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.design.components.BookCoverImage
+import com.calypsan.listenup.client.design.transitions.bookCoverHeroKey
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.api.result.AppResult
@@ -151,9 +153,7 @@ fun BookDetailScreen(
     ) {
         when (val s = state) {
             is BookDetailUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    ListenUpLoadingIndicator(modifier = Modifier.align(Alignment.Center))
-                }
+                BookDetailLoadingFrame(bookId = bookId, onBackClick = onBackClick)
             }
 
             is BookDetailUiState.Error -> {
@@ -187,6 +187,63 @@ fun BookDetailScreen(
                     onSeeAllReaders = onSeeAllReaders,
                 )
             }
+        }
+    }
+}
+
+/**
+ * The detail screen's first frame, before the book has loaded: the top bar and the cover, placed
+ * where the loaded screen keeps them.
+ *
+ * The cover is here because it is the hero transition's landing target. A bare spinner has none, so
+ * the shared element leaving the library grid had nothing to fly into and silently did nothing —
+ * the animation exists only if this frame carries the same [bookCoverHeroKey] the grid cell did.
+ * [com.calypsan.listenup.client.design.components.BookCoverImage] resolves a cover from [bookId]
+ * alone, and the grid has already warmed Coil's memory cache, so it renders on the first frame.
+ *
+ * Showing the cover you tapped also beats a lone spinner on its own terms: the screen answers "did
+ * my tap land?" straight away instead of making you wait to find out.
+ */
+@Composable
+private fun BookDetailLoadingFrame(
+    bookId: String,
+    onBackClick: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        BookDetailTopBar(
+            title = "",
+            isComplete = false,
+            hasProgress = false,
+            isAdmin = false,
+            onBackClick = onBackClick,
+            onEditClick = {},
+            onFindMetadataClick = {},
+            onMarkCompleteClick = {},
+            onMarkNotStartedClick = {},
+            onRestartClick = {},
+            onAddToShelfClick = {},
+            onAddToCollectionClick = {},
+            onShareClick = {},
+            onDeleteClick = {},
+        )
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // The cover ALONE — deliberately not an ElevatedCoverCard. The card draws its elevation
+            // shadow and surface immediately, which would sit here as an empty lit frame while the
+            // hero is still in flight, announcing the destination before the thing that belongs in
+            // it arrives. Only the shared element itself should be visible during the transition;
+            // the card's chrome comes with the loaded screen. Same 200.dp box and 16.dp corner as
+            // CompactHero's cover, so the hero lands where the loaded screen keeps it.
+            BookCoverImage(
+                bookId = bookId,
+                coverPath = null,
+                contentDescription = null,
+                heroKey = bookCoverHeroKey(bookId),
+                heroClipShape = RoundedCornerShape(16.dp),
+                modifier = Modifier.size(200.dp),
+            )
         }
     }
 }

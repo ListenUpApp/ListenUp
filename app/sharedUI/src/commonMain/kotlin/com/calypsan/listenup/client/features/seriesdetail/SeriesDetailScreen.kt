@@ -61,8 +61,6 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.design.components.FannedDeck
-import com.calypsan.listenup.client.design.transitions.heroElement
-import com.calypsan.listenup.client.design.transitions.seriesHeroKey
 import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
@@ -376,7 +374,6 @@ private fun HeroBody(
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         FannedDeck(
             covers = state.books.map { it.toDeckCover() },
-            modifier = Modifier.heroElement(seriesHeroKey(state.seriesId)),
             size = 150.dp,
             peek = 34.dp,
             max = 4,

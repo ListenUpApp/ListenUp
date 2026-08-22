@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.ContributorCoverImage
 import com.calypsan.listenup.client.design.transitions.contributorHeroKey
+import com.calypsan.listenup.client.design.transitions.heroElement
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
 import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.client.design.components.cookieScallopShape
@@ -195,7 +196,13 @@ internal fun ContributorCard(
             Surface(
                 shape = cookieScallopShape(),
                 color = Color.hsl((contributor.id.value.hashCode() and 0x7FFFFFFF).rem(360).toFloat(), 0.4f, 0.65f),
-                modifier = Modifier.size(48.dp),
+                // The hero is the whole avatar, not the photo inside it. Most contributors have no
+                // photo — ContributorCoverImage draws nothing at all for them, and the initials that
+                // stand in are a sibling — so a photo-only shared element had nothing to animate.
+                modifier =
+                    Modifier
+                        .size(48.dp)
+                        .heroElement(contributorHeroKey(contributor.id.value), cookieScallopShape()),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     var imageLoaded by remember(contributor.id.value) { mutableStateOf(false) }
@@ -227,7 +234,6 @@ internal fun ContributorCard(
                                 contributor.name,
                             ),
                         contentScale = ContentScale.Crop,
-                        heroKey = contributorHeroKey(contributor.id.value),
                         modifier = Modifier.fillMaxSize(),
                         onState = { state ->
                             if (state is coil3.compose.AsyncImagePainter.State.Success) {

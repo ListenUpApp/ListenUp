@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import coil3.compose.AsyncImagePainter
@@ -49,6 +50,7 @@ fun ContributorCoverImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     heroKey: Any? = null,
+    heroClipShape: Shape? = null,
     stagingImagePath: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onState: ((AsyncImagePainter.State) -> Unit)? = null,
@@ -61,7 +63,7 @@ fun ContributorCoverImage(
         AsyncImage(
             model = ImageRequest.Builder(context).data(stagingImagePath).build(),
             contentDescription = contentDescription,
-            modifier = modifier.heroElement(heroKey),
+            modifier = modifier.heroElement(heroKey, heroClipShape),
             contentScale = contentScale,
             onState = onState,
         )
@@ -142,7 +144,7 @@ fun ContributorCoverImage(
         AsyncImage(
             model = it,
             contentDescription = contentDescription,
-            modifier = modifier.heroElement(heroKey),
+            modifier = modifier.heroElement(heroKey, heroClipShape),
             contentScale = contentScale,
             onState = onState,
         )
