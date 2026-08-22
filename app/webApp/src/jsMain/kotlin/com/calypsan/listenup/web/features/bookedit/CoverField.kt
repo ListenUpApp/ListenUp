@@ -1,14 +1,20 @@
 package com.calypsan.listenup.web.features.bookedit
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
+import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
+import org.khronos.webgl.Int8Array
+import org.w3c.dom.url.URL
+import org.w3c.files.Blob
 
 /**
  * The cover on Book Edit — the web analogue of Android's tappable cover in the identity header.
@@ -24,6 +30,15 @@ fun CoverField(
     state: BookEditUiState,
     onEvent: (BookEditUiEvent) -> Unit,
 ) {
+    val previewUrl =
+        remember(state.pendingCoverData) {
+            state.pendingCoverData?.let { bytes ->
+                URL.createObjectURL(Blob(arrayOf(bytes.unsafeCast<Int8Array>())))
+            }
+        }
+    DisposableEffect(previewUrl) {
+        onDispose { previewUrl?.let(URL::revokeObjectURL) }
+    }
     Div(attrs = { classes("cover-field") }) {
         Button(attrs = {
             classes("cover-pick")
@@ -31,11 +46,21 @@ fun CoverField(
             attr("aria-label", "Change cover")
             if (state.isUploadingCover) attr("disabled", "")
         }) {
-            Cover(
-                title = state.title,
-                imageUrl = coverUrl(state.bookId, state.coverHash, width = COVER_EDIT_FETCH_WIDTH),
-                size = COVER_EDIT_SIZE,
-            )
+            if (previewUrl != null) {
+                Img(src = previewUrl, alt = "New cover preview", attrs = {
+                    classes("cover-preview")
+                    style {
+                        property("width", "${COVER_EDIT_SIZE}px")
+                        property("height", "${COVER_EDIT_SIZE}px")
+                    }
+                })
+            } else {
+                Cover(
+                    title = state.title,
+                    imageUrl = coverUrl(state.bookId, state.coverHash, width = COVER_EDIT_FETCH_WIDTH),
+                    size = COVER_EDIT_SIZE,
+                )
+            }
         }
         Span(attrs = { classes("cover-hint") }) { Text("Click the cover or drop an image on it") }
     }

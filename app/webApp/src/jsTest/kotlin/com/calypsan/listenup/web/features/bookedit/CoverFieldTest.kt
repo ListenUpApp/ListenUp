@@ -1,11 +1,20 @@
 package com.calypsan.listenup.web.features.bookedit
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import io.kotest.assertions.throwables.shouldThrowAny
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldStartWith
 import kotlinx.browser.document
+import kotlinx.browser.window
+import kotlinx.coroutines.await
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.compose.web.renderComposable
 import org.w3c.dom.HTMLButtonElement
 import org.w3c.dom.HTMLElement
@@ -50,6 +59,32 @@ class CoverFieldTest :
         test("an upload in flight disables the control") {
             val root = coverField(withCover().copy(isUploadingCover = true))
 
-            (root.querySelector(".cover-pick") as HTMLButtonElement).disabled shouldBe true
+            val button = root.querySelector(".cover-pick") as HTMLButtonElement
+            button.disabled shouldBe true
+            button.getAttribute("aria-label") shouldBe "Change cover"
+            button.getAttribute("type") shouldBe "button"
+        }
+
+        test("pending bytes render as a local preview, not a server fetch") {
+            val root = coverField(withCover().copy(pendingCoverData = byteArrayOf(9, 9, 9)))
+
+            val img = root.querySelector(".cover-pick img") as HTMLImageElement
+            img.src shouldStartWith "blob:"
+        }
+
+        test("a replaced preview releases its object URL") {
+            var state by mutableStateOf(withCover().copy(pendingCoverData = byteArrayOf(1)))
+            val root = document.createElement("div") as HTMLElement
+            document.body?.appendChild(root)
+            renderComposable(root = root) { CoverField(state = state, onEvent = {}) }
+            val firstUrl = (root.querySelector(".cover-pick img") as HTMLImageElement).src
+
+            state = state.copy(pendingCoverData = byteArrayOf(2))
+            withTimeout(2_000) {
+                while ((root.querySelector(".cover-pick img") as HTMLImageElement).src == firstUrl) delay(10)
+            }
+
+            // A revoked blob: URL is unfetchable — that rejection IS the assertion.
+            shouldThrowAny { window.fetch(firstUrl).await() }
         }
     })
