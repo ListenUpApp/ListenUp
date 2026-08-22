@@ -19,9 +19,9 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
  *  - [com.calypsan.listenup.client.data.remote.RpcAuthRecovery] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.InstanceRepository] — `settingsModule`
- *  - [PushPlatform] — bound `ANDROID` in the Android platform module
- *    (`androidModule` in `ListenUp.kt`); the iOS `IOS` binding lands with the
- *    iOS push work.
+ *  - [PushPlatform] — bound `ANDROID` in the Android platform module (`androidModule` in
+ *    `ListenUp.kt`) and `IOS` in the iOS one. Resolved with `getOrNull()`: web and desktop have
+ *    no value to bind, and a hard `get()` made this whole module unconstructable there.
  *  - [PushTokenProvider] — bound only where a real platform hook exists (the
  *    Android platform module binds `FcmTokenProvider`); resolved here via
  *    `getOrNull()` so its absence (desktop, or an Android build without Play
@@ -40,7 +40,6 @@ internal val pushClientModule: Module =
                 // Owned by clientAuthModule — the same public channel the pre-auth status
                 // streams ride; watch registration is a pre-auth call by definition (#1068).
                 publicAuthChannel = rpcChannel(),
-                platform = get(),
             )
         }
 
@@ -52,6 +51,10 @@ internal val pushClientModule: Module =
                 instanceRepository = get(),
                 pushRepository = get(),
                 tokenProvider = getOrNull(),
+                // Optional for the same reason the provider is — and absent in the same builds.
+                // A hard `get()` here made the whole push graph unconstructable on web and
+                // desktop, where the enum has no value to bind.
+                platform = getOrNull(),
             )
         }
     }

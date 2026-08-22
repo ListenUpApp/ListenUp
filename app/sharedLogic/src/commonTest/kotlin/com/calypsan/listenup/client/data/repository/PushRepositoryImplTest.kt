@@ -33,10 +33,9 @@ class PushRepositoryImplTest :
                     PushRepositoryImpl(
                         RpcChannel.forTest(service),
                         RpcChannel.forTest(mock<AuthServicePublic>()),
-                        PushPlatform.ANDROID,
                     )
 
-                val result = repo.registerToken("t")
+                val result = repo.registerToken("t", PushPlatform.ANDROID)
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend { service.registerToken("t", PushPlatform.ANDROID) }
@@ -55,10 +54,9 @@ class PushRepositoryImplTest :
                     PushRepositoryImpl(
                         RpcChannel.forTest(mock<PushService>()),
                         RpcChannel.forTest(publicService),
-                        PushPlatform.ANDROID,
                     )
 
-                repo.registerRegistrationWatchToken("u1", "t").shouldBeInstanceOf<AppResult.Success<Unit>>()
+                repo.registerRegistrationWatchToken("u1", "t", PushPlatform.ANDROID).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend { publicService.registerRegistrationWatchToken("u1", "t", PushPlatform.ANDROID) }
             }
         }
@@ -74,7 +72,6 @@ class PushRepositoryImplTest :
                     PushRepositoryImpl(
                         RpcChannel.forTest(service),
                         RpcChannel.forTest(mock<AuthServicePublic>()),
-                        PushPlatform.ANDROID,
                     )
 
                 val result = repo.sendTestNotification()
