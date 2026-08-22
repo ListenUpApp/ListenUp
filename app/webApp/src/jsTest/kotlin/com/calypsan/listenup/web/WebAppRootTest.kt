@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import com.calypsan.listenup.web.nav.Router
@@ -37,7 +39,15 @@ class WebAppRootTest :
             val router = Router()
             val host = document.createElement("div") as HTMLElement
             document.body!!.appendChild(host)
-            renderComposable(root = host) { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary(), fixedPlayback()) }
+            renderComposable(root = host) {
+                WebAppRoot(
+                    router,
+                    fixedBookDetail(readyBook()),
+                    fixedBookEdit(BookEditUiState()),
+                    fakeLibrary(),
+                    fixedPlayback(),
+                )
+            }
             return host to router
         }
 

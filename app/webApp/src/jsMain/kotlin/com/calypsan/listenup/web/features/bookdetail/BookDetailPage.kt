@@ -52,6 +52,7 @@ fun BookDetailPage(
     onSelectTab: (String) -> Unit,
     onOpenLibrary: () -> Unit,
     onPlay: () -> Unit,
+    onEdit: () -> Unit = {},
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
@@ -61,7 +62,7 @@ fun BookDetailPage(
         // cannot show what you asked for must still show the way out of it.
         Breadcrumb(listOf("Library", crumb(state)), onNavigate = { onOpenLibrary() })
 
-        SharedHeader(state = state, bookId = bookId, onPlay = onPlay)
+        SharedHeader(state = state, bookId = bookId, onPlay = onPlay, onEdit = onEdit)
 
         when (state) {
             is BookDetailUiState.Loading -> {
@@ -148,6 +149,7 @@ private fun SharedHeader(
     state: BookDetailUiState,
     bookId: String?,
     onPlay: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     // Error renders no header at all: a page that cannot show the book must not show a cover and
     // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
@@ -180,8 +182,11 @@ private fun SharedHeader(
                         remaining = ready.timeRemainingFormatted.orEmpty(),
                     )
                 }
-                if (ready.canPlay) {
-                    Div(attrs = { classes("bd-actions") }) {
+                // The row itself is not gated on `canPlay`: a book with no playable audio is
+                // exactly the one whose metadata most needs correcting, so Edit has to survive
+                // the absence of Play.
+                Div(attrs = { classes("bd-actions") }) {
+                    if (ready.canPlay) {
                         Button(attrs = {
                             classes("btn")
                             attr("type", "button")
@@ -191,6 +196,11 @@ private fun SharedHeader(
                             Text(if (ready.progress != null) "Resume" else "Play")
                         }
                     }
+                    Button(attrs = {
+                        classes("btn-o")
+                        attr("type", "button")
+                        onClick { onEdit() }
+                    }) { Text("Edit") }
                 }
             }
         }
