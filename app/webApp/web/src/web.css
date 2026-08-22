@@ -636,6 +636,25 @@ body { margin: 0; }
    `.lib-card`; if more is needed, contain a section wrapper, not the grid items. */
 .lib-card {
   cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem;
+  border-radius: 8px;
+}
+/* ⛔ Hover and focus may move the cover but must NEVER change the card's height. The grid is
+   virtualised on the assumption that every card is exactly the same height, so a treatment that
+   grew the box would drift the row offsets under the reader's cursor. `transform` is safe because
+   it does not participate in layout; padding, border-width and font-size are not. */
+.lib-card:hover .lib-cover,
+.lib-card:focus-visible .lib-cover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+}
+.lib-cover { transition: transform .16s ease, box-shadow .16s ease; }
+.lib-card:hover .lib-title { color: var(--coral); }
+/* `:focus-visible`, not `:focus` — a mouse click should not leave a ring behind, but a reader
+   arriving by Tab must be able to see where they are. */
+.lib-card:focus { outline: none; }
+.lib-card:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 3px;
 }
 
 /* ⛔ `lib-card-in` is NOT applied to `.lib-card` any more, and must not be re-added.
@@ -668,6 +687,11 @@ body { margin: 0; }
    reader who asked for less of it feel worse. */
 @media (prefers-reduced-motion: reduce) {
   .lib-card { animation: none; }
+  /* The focus ring and the hover colour stay — they are information, not decoration. Only the
+     movement goes. */
+  .lib-cover { transition: none; }
+  .lib-card:hover .lib-cover,
+  .lib-card:focus-visible .lib-cover { transform: none; }
 }
 /* The background is what a lazy cover shows while it is still being fetched, so an unloaded card
    reads as a waiting tile rather than a hole in the grid. */
@@ -697,6 +721,7 @@ body { margin: 0; }
   font-size: 0.9rem; line-height: 1.2;
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
   height: calc(0.9rem * 1.2);
+  transition: color .16s ease;
 }
 .lib-author {
   font-size: 0.8rem; line-height: 1.2; color: var(--ink-2);
