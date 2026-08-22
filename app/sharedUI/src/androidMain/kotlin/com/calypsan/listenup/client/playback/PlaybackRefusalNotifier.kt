@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.playback
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import com.calypsan.listenup.client.composeapp.R
 import androidx.core.app.NotificationCompat
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.client.localization.SystemStringsHolder
@@ -10,8 +11,6 @@ import com.calypsan.listenup.client.notifications.NotificationChannels
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
-
-private const val RES_TYPE_DRAWABLE = "drawable"
 
 /**
  * Notification id for the refusal notice.
@@ -63,11 +62,8 @@ internal class PlaybackRefusalNotifier(
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
 
-        val icon =
-            context.resources
-                .getIdentifier("ic_notification", RES_TYPE_DRAWABLE, context.packageName)
-                .takeIf { it != 0 }
-                ?: android.R.drawable.ic_media_play
+        // Static R reference — see AudiobookNotificationProvider.loadResourceIds.
+        val icon = R.drawable.ic_notification
 
         val notification =
             NotificationCompat
