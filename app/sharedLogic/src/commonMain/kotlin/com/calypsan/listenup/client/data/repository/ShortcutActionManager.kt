@@ -65,6 +65,15 @@ sealed interface ShortcutAction {
     data class NavigateToPendingApprovals(
         val userId: String,
     ) : ShortcutAction
+
+    /**
+     * Open a user's profile screen.
+     *
+     * @property userId The ID of the user whose profile to view
+     */
+    data class NavigateToUserProfile(
+        val userId: String,
+    ) : ShortcutAction
 }
 
 /**
