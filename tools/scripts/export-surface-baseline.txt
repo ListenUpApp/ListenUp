@@ -31,6 +31,7 @@ AdminUiState
 AdminUserInfo
 AdminViewModel
 AppError
+AppNotification
 AppResult
 AppStartupState
 AppStartupViewModel
@@ -314,6 +315,11 @@ MoodId
 MoodRepository
 NanoId
 NetworkMonitor
+NotificationDescriptor
+NotificationEvent
+NotificationPreference
+NotificationRepository
+NotificationTarget
 NowPlayingChapter
 NowPlayingNavAction
 NowPlayingOverlay
