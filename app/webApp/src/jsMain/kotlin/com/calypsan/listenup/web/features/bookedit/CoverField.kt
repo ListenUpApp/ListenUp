@@ -65,6 +65,9 @@ fun CoverField(
             if (state.isUploadingCover) attr("disabled", "")
             onClick { fileInput?.click() }
             onDragOver { event ->
+                // While an upload is in flight, don't accept the drag at all — the browser
+                // then shows its native no-drop cursor instead of a highlight we'd ignore.
+                if (state.isUploadingCover) return@onDragOver
                 event.preventDefault()
                 dragOver = true
             }
