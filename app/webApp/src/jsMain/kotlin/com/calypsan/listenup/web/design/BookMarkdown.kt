@@ -27,30 +27,41 @@ import org.jetbrains.compose.web.dom.Text
 @Composable
 internal fun BookMarkdown(description: String) {
     parseBookDescription(description).forEach { paragraph ->
-        P {
-            paragraph.forEach { span ->
-                when (span) {
-                    is MarkdownSpan.Plain -> {
-                        Text(span.text)
-                    }
+        P { Spans(paragraph) }
+    }
+}
 
-                    is MarkdownSpan.Strong -> {
-                        Strong { Text(span.text) }
-                    }
+/**
+ * Renders a run of spans, descending into nested emphasis rather than flattening it to text.
+ *
+ * ⛔ The recursion is the point. `**a _b_ c**` is the *first line* of a real Audible description,
+ * and while strong runs held their content as flat text the inner `_b_` reached the reader as
+ * literal underscores inside correctly-bolded text — which reads as a rendering bug rather than
+ * as markup nobody handled.
+ */
+@Composable
+private fun Spans(spans: List<MarkdownSpan>) {
+    spans.forEach { span ->
+        when (span) {
+            is MarkdownSpan.Plain -> {
+                Text(span.text)
+            }
 
-                    is MarkdownSpan.Emphasis -> {
-                        Em { Text(span.text) }
-                    }
+            is MarkdownSpan.Strong -> {
+                Strong { Spans(span.children) }
+            }
 
-                    is MarkdownSpan.Link -> {
-                        A(href = span.href, attrs = {
-                            attr("target", "_blank")
-                            // The description is someone else's text; a tab it opens must not keep
-                            // a handle on this one.
-                            attr("rel", "noopener noreferrer")
-                        }) { Text(span.text) }
-                    }
-                }
+            is MarkdownSpan.Emphasis -> {
+                Em { Spans(span.children) }
+            }
+
+            is MarkdownSpan.Link -> {
+                A(href = span.href, attrs = {
+                    attr("target", "_blank")
+                    // The description is someone else's text; a tab it opens must not keep a
+                    // handle on this one.
+                    attr("rel", "noopener noreferrer")
+                }) { Text(span.text) }
             }
         }
     }
@@ -63,14 +74,14 @@ internal sealed interface MarkdownSpan {
         val text: String,
     ) : MarkdownSpan
 
-    /** `**strong**`. */
+    /** `**strong**`, which may itself contain emphasis or a link. */
     data class Strong(
-        val text: String,
+        val children: List<MarkdownSpan>,
     ) : MarkdownSpan
 
-    /** `*emphasis*` or `_emphasis_`. */
+    /** `*emphasis*` or `_emphasis_`, which may itself contain strong text or a link. */
     data class Emphasis(
-        val text: String,
+        val children: List<MarkdownSpan>,
     ) : MarkdownSpan
 
     /** `[label](https://…)`, only ever with a scheme [isSafeHref] allows. */
@@ -88,6 +99,12 @@ internal fun parseBookDescription(description: String): List<List<MarkdownSpan>>
         .filter { it.isNotEmpty() }
         .map { parseSpans(it) }
 
+/**
+ * Scans one paragraph into spans.
+ *
+ * Recursive through [matchStrong] and [matchEmphasis], which parse their own contents. That
+ * terminates because a delimited run's content is always strictly shorter than the run itself.
+ */
 private fun parseSpans(paragraph: String): List<MarkdownSpan> {
     val spans = mutableListOf<MarkdownSpan>()
     val plain = StringBuilder()
@@ -128,7 +145,7 @@ private fun matchStrong(
     if (!text.startsWith("**", start)) return null
     val close = text.indexOf("**", start + 2)
     if (close <= start + 2) return null
-    return SpanMatch(MarkdownSpan.Strong(text.substring(start + 2, close)), close + 2)
+    return SpanMatch(MarkdownSpan.Strong(parseSpans(text.substring(start + 2, close))), close + 2)
 }
 
 private fun matchEmphasis(
@@ -145,7 +162,7 @@ private fun matchEmphasis(
     if (marker == '_' && close + 1 < text.length && text[close + 1].isLetterOrDigit()) return null
     val content = text.substring(start + 1, close)
     if (content.first().isWhitespace() || content.last().isWhitespace()) return null
-    return SpanMatch(MarkdownSpan.Emphasis(content), close + 1)
+    return SpanMatch(MarkdownSpan.Emphasis(parseSpans(content)), close + 1)
 }
 
 private fun matchLink(

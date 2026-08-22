@@ -37,6 +37,24 @@ class BookMarkdownTest :
             host.textContent!! shouldNotContain "_earn"
         }
 
+        test("emphasis nested inside strong is rendered, not left as literal underscores") {
+            // ⛔ Found by looking at the running app, not by a test: this is the FIRST LINE of a
+            // real Audible description, and the inner `_…_` was rendering as literal underscores
+            // because a strong run kept its content as flat text and never parsed inside it.
+            val host = mount { BookMarkdown("**Lead a life of adventure—_and earn a good living._**") }
+
+            val strong = host.querySelector("strong")!!
+            strong.querySelector("em")!!.textContent shouldBe "and earn a good living."
+            host.textContent!! shouldNotContain "_"
+        }
+
+        test("strong nested inside emphasis works the same way round") {
+            val host = mount { BookMarkdown("_a whole *phrase* emphasised_") }
+
+            host.querySelector("em")!!.querySelector("em").let { it != null } shouldBe true
+            host.textContent!! shouldNotContain "*"
+        }
+
         test("a blank line starts a new paragraph") {
             val host = mount { BookMarkdown("First para.\n\nSecond para.") }
 
