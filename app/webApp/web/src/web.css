@@ -606,6 +606,16 @@ body { margin: 0; }
 .rel-hint { padding:10px 14px; font-size:13.5px; color:var(--ink-3); }
 .edit-actions { display:flex; justify-content:flex-end; gap:10px; }
 .edit-actions button[disabled] { opacity:.55; cursor:default; }
+/* The cover is the button: click it or drop an image on it. */
+.cover-field { display:flex; align-items:center; gap:14px; }
+.cover-pick {
+  padding:0; border:2px dashed transparent; border-radius:16px; cursor:pointer;
+  background:none; line-height:0;
+}
+.cover-pick:hover, .cover-pick.cover-drag { border-color:var(--coral); }
+.cover-pick[disabled] { opacity:.55; cursor:default; }
+.cover-preview { width:180px; height:180px; border-radius:14px; object-fit:cover; display:block; }
+.cover-hint { font-size:12.5px; font-weight:600; color:var(--ink-3); }
 .edit-error {
   display:flex; align-items:center; justify-content:space-between; gap:16px;
   padding:14px 16px; border-radius:12px;

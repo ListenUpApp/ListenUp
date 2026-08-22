@@ -36,8 +36,8 @@ import org.jetbrains.compose.web.dom.Text
  * out is not the same as dropping them: an unedited field keeps whatever the book already had,
  * because Save sends the ViewModel's whole state, not this form's subset.
  *
- * There is no Cancel-confirms-discard dialog, and no cover control. Both are deliberate omissions
- * rather than oversights — see the notes on [EditActions].
+ * There is no Cancel-confirms-discard dialog. That is a deliberate omission rather than an
+ * oversight — see the notes on [EditActions].
  */
 @Composable
 fun BookEditPage(
@@ -68,6 +68,7 @@ fun BookEditPage(
             }
         }
 
+        EditSection("Cover") { CoverField(state, onEvent) }
         EditSection("Details") { CoreFields(state, onEvent) }
         EditSection("People") { ContributorFields(state, onEvent) }
         EditSection("Series") { SeriesFields(state, onEvent) }
