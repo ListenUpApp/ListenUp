@@ -1,0 +1,25 @@
+-- notification_prefs: per-user per-type delivery overrides. Server-owned, NOT a sync domain --
+-- absence of a row means the type's default preference applies.
+-- Column set matches V63__notifications.sql exactly.
+CREATE TABLE notification_prefs (
+    user_id    TEXT    NOT NULL,
+    type       TEXT    NOT NULL,
+    in_app     INTEGER NOT NULL,
+    push       INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, type)
+);
+
+selectForUser:
+SELECT * FROM notification_prefs WHERE user_id = :userId;
+
+selectForUserAndType:
+SELECT * FROM notification_prefs WHERE user_id = :userId AND type = :type;
+
+-- Upsert. (user_id, type) is the primary key and every non-PK column is written, so
+-- INSERT OR REPLACE atomically replaces an existing row on conflict — the repo's
+-- established upsert idiom (see PushTokens.sq, MetadataCache.sq); this project's
+-- SQLDelight dialect (sqlite_3_18) predates SQLite's ON CONFLICT ... DO UPDATE syntax.
+upsert:
+INSERT OR REPLACE INTO notification_prefs (user_id, type, in_app, push, updated_at)
+VALUES (:user_id, :type, :in_app, :push, :updated_at);
