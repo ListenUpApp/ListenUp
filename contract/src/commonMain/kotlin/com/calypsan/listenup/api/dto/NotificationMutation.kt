@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 sealed interface NotificationMutation {
     /** Mark one notification read (idempotent; last-write-wins on the server row). */
     @Serializable
-    @SerialName("mark_read")
+    @SerialName("NotificationMutation.MarkRead")
     data class MarkRead(
         @SerialName("notificationId") val notificationId: String,
     ) : NotificationMutation
