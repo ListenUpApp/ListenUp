@@ -106,6 +106,7 @@ fun DockedNowPlayingBar(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .swipeUpToExpand(onTap)
                     .graphicsLayer {
                         scaleX = focusScale
                         scaleY = focusScale
