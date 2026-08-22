@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.web.events.SyntheticDragEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.design.Cover
@@ -75,10 +76,7 @@ fun CoverField(
             onDrop { event ->
                 event.preventDefault()
                 dragOver = false
-                // disabled suppresses click, not drop — guard the in-flight state here.
-                if (state.isUploadingCover) return@onDrop
-                val file = event.dataTransfer?.files?.item(0) ?: return@onDrop
-                if (file.type.startsWith("image/")) pickCover(scope, file, onEvent)
+                acceptedDroppedCover(event, state.isUploadingCover)?.let { pickCover(scope, it, onEvent) }
             }
         }) {
             if (previewUrl != null) {
@@ -115,6 +113,20 @@ fun CoverField(
         })
         Span(attrs = { classes("cover-hint") }) { Text("Click the cover or drop an image on it") }
     }
+}
+
+/**
+ * The file a drop should upload, or null: nothing while an upload is in flight,
+ * nothing when no file was dropped, and never a non-image — a drop bypasses the
+ * picker's accept filter, so this check is the only gate.
+ */
+private fun acceptedDroppedCover(
+    event: SyntheticDragEvent,
+    isUploadingCover: Boolean,
+): File? {
+    if (isUploadingCover) return null
+    val file = event.dataTransfer?.files?.item(0) ?: return null
+    return file.takeIf { it.type.startsWith("image/") }
 }
 
 /**

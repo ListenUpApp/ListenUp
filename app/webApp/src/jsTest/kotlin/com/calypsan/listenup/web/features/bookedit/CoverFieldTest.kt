@@ -29,6 +29,12 @@ import org.w3c.dom.events.Event
 import org.w3c.files.File
 import org.w3c.files.FilePropertyBag
 
+/** How long a spec waits for an event that SHOULD arrive. */
+private const val EVENT_TIMEOUT_MS = 2_000L
+
+/** How long a spec waits before declaring an event correctly did NOT arrive. */
+private const val NO_EVENT_GRACE_MS = 150L
+
 private fun coverField(
     state: BookEditUiState,
     onEvent: (BookEditUiEvent) -> Unit = {},
@@ -54,7 +60,7 @@ private fun imageFile(
 ): File = File(arrayOf(bytes.unsafeCast<Int8Array>()), name, FilePropertyBag(type = type))
 
 private suspend fun awaitFirstEvent(events: List<BookEditUiEvent>) {
-    withTimeout(2_000) { while (events.isEmpty()) delay(10) }
+    withTimeout(EVENT_TIMEOUT_MS) { while (events.isEmpty()) delay(10) }
 }
 
 /**
@@ -99,7 +105,7 @@ class CoverFieldTest :
             val firstUrl = (root.querySelector(".cover-pick img") as HTMLImageElement).src
 
             state = state.copy(pendingCoverData = byteArrayOf(2))
-            withTimeout(2_000) {
+            withTimeout(EVENT_TIMEOUT_MS) {
                 while ((root.querySelector(".cover-pick img") as HTMLImageElement).src == firstUrl) delay(10)
             }
 
@@ -154,7 +160,7 @@ class CoverFieldTest :
             (root.querySelector(".cover-pick") as HTMLElement)
                 .dispatchEvent(DragEvent("drop", DragEventInit(dataTransfer = transfer, bubbles = true)))
 
-            delay(150)
+            delay(NO_EVENT_GRACE_MS)
             events.shouldBeEmpty()
         }
 
@@ -169,7 +175,7 @@ class CoverFieldTest :
             (root.querySelector(".cover-pick") as HTMLElement)
                 .dispatchEvent(DragEvent("drop", DragEventInit(dataTransfer = transfer, bubbles = true)))
 
-            delay(150)
+            delay(NO_EVENT_GRACE_MS)
             events.shouldBeEmpty()
         }
     })
