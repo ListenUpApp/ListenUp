@@ -1,14 +1,12 @@
 package com.calypsan.listenup.client.data.sync.testing
 
-import com.calypsan.listenup.api.NotificationService
 import com.calypsan.listenup.api.SyncStreamService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.NotificationMutation
-import com.calypsan.listenup.api.dto.NotificationPreferenceDto
-import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.notifications.NotificationEvent
-import com.calypsan.listenup.api.notifications.NotificationPreference
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -32,7 +30,10 @@ import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.NotificationRepository as ClientNotificationRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import com.calypsan.listenup.server.api.createNotificationService
+import com.calypsan.listenup.server.api.notificationServiceScopedTo
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.DriverFactory
@@ -145,12 +146,6 @@ internal class NotificationSyncEngineScope(
  *
  *  - **Server writes go through [NotificationEmitter]** (audience → prefs → row mint → prune),
  *    not a bare repository upsert — the emitter IS the production write path for this domain.
- *  - **The outbox drains through [HarnessNotificationService]**, a test implementation of the
- *    [NotificationService] contract delegating to the real server [NotificationRepository.markRead]
- *    ownership-checked path with a fixed caller. `:server`'s `NotificationServiceImpl` is
- *    `internal` with no public `create*`/`*ScopedTo` factories (unlike `createTagService`), so the
- *    real impl cannot be constructed cross-module; the service layer adds only principal
- *    resolution on top of the repository call the double makes verbatim.
  *  - **Multiple devices**: [NotificationSyncEngineScope.newClient] boots extra engines against
  *    the same server (fresh Room DB each), for cross-device convergence cases. All devices
  *    authenticate as [NOTIFICATION_E2E_USER] — the harness client sends no bearer, so
@@ -175,6 +170,16 @@ internal fun withNotificationSyncEngineAgainstServer(block: suspend Notification
                 repo = serverNotificationRepo,
                 prefs = prefsRepo,
                 notifier = NoOpPushNotifier(),
+            )
+        // Real in-process NotificationService, scoped to the harness's signed-in user exactly as
+        // the RPC route scopes it per-request — the same shape as the tag harness's
+        // `tagServiceScopedTo(tagService, PrincipalProvider { rootPrincipal })` binding.
+        val notificationService = createNotificationService(serverNotificationRepo, prefsRepo)
+        val e2ePrincipal =
+            UserPrincipal(
+                UserId(NOTIFICATION_E2E_USER),
+                SessionId("test-session-$NOTIFICATION_E2E_USER"),
+                UserRole.ROOT,
             )
 
         application {
@@ -225,7 +230,7 @@ internal fun withNotificationSyncEngineAgainstServer(block: suspend Notification
         val bootedClients = mutableListOf<NotificationSyncClient>()
 
         // Boots one "device": fresh Room DB, real production sync-domain catalog, real engine,
-        // and the production-shaped notifications outbox binding over the harness service.
+        // and the production-shaped notifications outbox binding over the real scoped service.
         suspend fun bootClient(): NotificationSyncClient {
             val clientDb = createInMemoryTestDatabase()
             val registry = ClientSyncDomainRegistry()
@@ -234,8 +239,8 @@ internal fun withNotificationSyncEngineAgainstServer(block: suspend Notification
             val state = SyncEngineState()
             val store = SyncCursorStore(clientDb.syncCursorDao())
             val notificationChannel =
-                RpcChannel.forTest<NotificationService>(
-                    HarnessNotificationService(serverNotificationRepo, prefsRepo, NOTIFICATION_E2E_USER),
+                RpcChannel.forTest(
+                    notificationServiceScopedTo(notificationService, PrincipalProvider { e2ePrincipal }),
                 )
             val queue =
                 PendingOperationQueue(
@@ -344,35 +349,4 @@ internal fun withNotificationSyncEngineAgainstServer(block: suspend Notification
             }
         }
     }
-}
-
-/**
- * [NotificationService] over the real server [NotificationRepository]/[NotificationPrefsRepository]
- * with a fixed caller — what `NotificationServiceImpl` does after principal resolution. Exists
- * because that impl is `internal` to `:server` with no public factory (see the harness KDoc).
- */
-private class HarnessNotificationService(
-    private val repo: NotificationRepository,
-    private val prefs: NotificationPrefsRepository,
-    private val userId: String,
-) : NotificationService {
-    override suspend fun markRead(notificationId: String): AppResult<Unit> =
-        repo.markRead(
-            notificationId = notificationId,
-            userId = userId,
-            readAtMs = System.currentTimeMillis(),
-        )
-
-    override suspend fun getPreferences(): AppResult<List<NotificationPreferenceDto>> =
-        AppResult.Success(prefs.listResolved(userId))
-
-    override suspend fun updatePreference(
-        type: String,
-        preference: NotificationPreference,
-    ): AppResult<Unit> =
-        if (prefs.update(userId, type, preference)) {
-            AppResult.Success(Unit)
-        } else {
-            AppResult.Failure(SyncError.NotFound(domain = "notification_prefs", entityId = type))
-        }
 }

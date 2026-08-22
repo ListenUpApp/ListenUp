@@ -57,3 +57,30 @@ internal class NotificationServiceImpl(
         }
     }
 }
+
+/**
+ * Builds a [NotificationService] over the given repositories.
+ *
+ * Public so cross-module test harnesses can mount a real [NotificationService] without piercing
+ * the `internal` access on [NotificationServiceImpl]. Production wiring builds
+ * [NotificationServiceImpl] directly in the Koin graph. Mirrors [createTagService].
+ */
+fun createNotificationService(
+    notificationRepository: NotificationRepository,
+    prefsRepository: NotificationPrefsRepository,
+): NotificationService =
+    NotificationServiceImpl(
+        repo = notificationRepository,
+        prefs = prefsRepository,
+    )
+
+/**
+ * Scopes a [NotificationService] built by [createNotificationService] to [principal] for one
+ * request. Public so cross-module test harnesses can bind the authenticated caller without
+ * piercing the `internal` access on [NotificationServiceImpl.copyWith]. Production wiring calls
+ * [NotificationServiceImpl.copyWith] directly in the RPC route. Mirrors [tagServiceScopedTo].
+ */
+fun notificationServiceScopedTo(
+    service: NotificationService,
+    principal: PrincipalProvider,
+): NotificationService = (service as NotificationServiceImpl).copyWith(principal)
