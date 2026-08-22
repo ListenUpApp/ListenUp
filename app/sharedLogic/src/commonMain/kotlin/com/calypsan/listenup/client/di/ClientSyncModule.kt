@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.MoodService
+import com.calypsan.listenup.api.NotificationService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.SeriesService
@@ -67,6 +68,7 @@ import com.calypsan.listenup.api.dto.CollectionBookMutation
 import com.calypsan.listenup.api.dto.CollectionMutation
 import com.calypsan.listenup.api.dto.ContributorMutation
 import com.calypsan.listenup.api.dto.GenreMutation
+import com.calypsan.listenup.api.dto.NotificationMutation
 import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.ShelfBookMutation
 import com.calypsan.listenup.api.dto.ShelfMutation
@@ -169,6 +171,7 @@ internal val clientSyncModule =
             val moodChannel = rpcChannel<MoodService>()
             val shelfChannel = rpcChannel<ShelfService>()
             val genreChannel = rpcChannel<GenreService>()
+            val notificationChannel = rpcChannel<NotificationService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -334,6 +337,14 @@ internal val clientSyncModule =
 
                             is CollectionMutation.Delete -> {
                                 collectionChannel.call { it.deleteCollection(CollectionId(id)) }.orSuccessIfNotFound()
+                            }
+                        }
+                    },
+                    // The op's entityId is the notification id; the mutation carries it too.
+                    outboxBinding(OutboxChannels.Notifications) { _, mutation ->
+                        when (mutation) {
+                            is NotificationMutation.MarkRead -> {
+                                notificationChannel.call { it.markRead(mutation.notificationId) }
                             }
                         }
                     },

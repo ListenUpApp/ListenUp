@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.CollectionBookMutation
 import com.calypsan.listenup.api.dto.CollectionMutation
 import com.calypsan.listenup.api.dto.ContributorMutation
 import com.calypsan.listenup.api.dto.GenreMutation
+import com.calypsan.listenup.api.dto.NotificationMutation
 import com.calypsan.listenup.api.dto.ShelfBookMutation
 import com.calypsan.listenup.api.dto.ShelfMutation
 import com.calypsan.listenup.api.dto.TagMutation
@@ -158,6 +159,15 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
+    /** markRead ops for the notifications inbox — per-row last-write-wins, safely re-fired. */
+    val Notifications =
+        OutboxChannel(
+            SyncDomains.NOTIFICATIONS.name,
+            NotificationMutation.serializer(),
+            setOf(OpKind.Update),
+            idempotent = true,
+        )
+
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
         listOf(
@@ -176,6 +186,7 @@ internal object OutboxChannels {
             ShelfBooks,
             Collections,
             CollectionBooks,
+            Notifications,
         )
 
     private val byName: Map<String, OutboxChannel<*>> = all.associateBy { it.name }

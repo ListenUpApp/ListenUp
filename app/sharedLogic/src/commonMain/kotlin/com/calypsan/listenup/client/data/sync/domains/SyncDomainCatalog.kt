@@ -68,6 +68,7 @@ internal fun syncDomainCatalog(
                     documentStorage = documentStorage,
                 ),
                 adminUserRosterDomain(database = database),
+                notificationsDomain(database = database),
             ),
         refreshed =
             listOf(

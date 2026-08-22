@@ -36,7 +36,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 /**
  * The Phase-2 closing invariant: the contract ([SyncDomains.all]), the client
  * descriptor catalog ([syncDomainCatalog]), and the server's registered
- * repositories list exactly the same 21 mirrored domains — 1:1:1. A domain
+ * repositories list exactly the same 22 mirrored domains — 1:1:1. A domain
  * declared on one side and not the others fails this spec before any runtime
  * symptom (a missing SSE stream, an un-bootstrapped table) can appear.
  *
@@ -118,6 +118,7 @@ class SyncDomainCompletenessSpec :
                 // collections, and collection_books joined when their update/delete/add/remove surfaces
                 // went offline-first (create stays online — the server mints the shelf/collection id).
                 // genres joined when update/delete went offline-first (create/move/merge stay online).
+                // notifications joined with the inbox — markRead is its one (idempotent) write.
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -133,6 +134,7 @@ class SyncDomainCompletenessSpec :
                         "shelf_books",
                         "collections",
                         "collection_books",
+                        "notifications",
                     )
             } finally {
                 db.close()

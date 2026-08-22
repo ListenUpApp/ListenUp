@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.MoodEntity
+import com.calypsan.listenup.client.data.local.db.NotificationEntity
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
@@ -405,6 +406,22 @@ class LibraryResetHelperTest :
                                 )
                             },
                             isGone = { db.bookDao().getById(BookId("b1")) == null },
+                        ),
+                        DomainProbe(
+                            domainName = "notifications",
+                            seed = {
+                                db.notificationDao().upsert(
+                                    NotificationEntity(
+                                        id = "seed-notification",
+                                        type = "registration_approval",
+                                        eventJson = """{"type":"registration_approval","userId":"u1"}""",
+                                        createdAt = 0L,
+                                        updatedAt = 0L,
+                                        readAt = null,
+                                    ),
+                                )
+                            },
+                            isGone = { db.notificationDao().revisionOf("seed-notification") == null },
                         ),
                         DomainProbe(
                             domainName = "admin_user_roster",
