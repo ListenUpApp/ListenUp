@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.push
 
 import com.calypsan.listenup.api.result.onFailure
+import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.PushRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -24,6 +25,15 @@ class PushRegistrar internal constructor(
     private val instanceRepository: InstanceRepository,
     private val pushRepository: PushRepository,
     private val tokenProvider: PushTokenProvider?,
+    /**
+     * Which push transport this build speaks, or null where it speaks none.
+     *
+     * Nullable for the same reason [tokenProvider] is, and it is always null in exactly the same
+     * builds: a platform with no token hook has no platform value either. Kept here rather than
+     * inside `PushRepository` so that "this build has no push" is expressed once, in the class
+     * that already returns early for it.
+     */
+    private val platform: PushPlatform?,
 ) {
     /**
      * Registers this device's current push token with the server, if push is
@@ -32,11 +42,12 @@ class PushRegistrar internal constructor(
      */
     suspend fun syncRegistration() {
         val provider = tokenProvider ?: return
+        val platform = platform ?: return
         val info = instanceRepository.getServerInfoOrNull() ?: return
         if (!info.pushEnabled) return
         val token = provider.currentToken() ?: return
         pushRepository
-            .registerToken(token)
+            .registerToken(token, platform)
             .onFailure { logger.warn { "push token registration failed: ${it.code}" } }
     }
 
@@ -50,10 +61,11 @@ class PushRegistrar internal constructor(
      */
     suspend fun registerRegistrationWatch(userId: String): Boolean {
         val provider = tokenProvider ?: return false
+        val platform = platform ?: return false
         val info = instanceRepository.getServerInfoOrNull() ?: return false
         if (!info.pushEnabled) return false
         val token = provider.currentToken() ?: return false
-        return when (val result = pushRepository.registerRegistrationWatchToken(userId, token)) {
+        return when (val result = pushRepository.registerRegistrationWatchToken(userId, token, platform)) {
             is com.calypsan.listenup.api.result.AppResult.Success -> {
                 true
             }
@@ -70,10 +82,11 @@ class PushRegistrar internal constructor(
      * `onNewToken`). No-ops if the server has push disabled.
      */
     suspend fun onTokenRotated(newToken: String) {
+        val platform = platform ?: return
         val info = instanceRepository.getServerInfoOrNull() ?: return
         if (!info.pushEnabled) return
         pushRepository
-            .registerToken(newToken)
+            .registerToken(newToken, platform)
             .onFailure { logger.warn { "push token rotation registration failed: ${it.code}" } }
     }
 }

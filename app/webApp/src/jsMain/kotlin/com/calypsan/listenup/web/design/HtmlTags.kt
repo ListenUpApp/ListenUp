@@ -25,6 +25,7 @@ private class HtmlElementBuilder(
 }
 
 private val dlBuilder = HtmlElementBuilder("dl")
+private val strongBuilder = HtmlElementBuilder("strong")
 private val dtBuilder = HtmlElementBuilder("dt")
 private val ddBuilder = HtmlElementBuilder("dd")
 
@@ -48,3 +49,15 @@ fun Dd(
     attrs: AttrBuilderContext<HTMLElement>? = null,
     content: ContentBuilder<HTMLElement>? = null,
 ) = TagElement(ddBuilder, attrs, content)
+
+/**
+ * Strong importance.
+ *
+ * Compose HTML wraps `<b>`, which is presentational — "bold this" — where a book description's
+ * `**…**` is the author's emphasis and should reach a screen reader as such.
+ */
+@Composable
+fun Strong(
+    attrs: AttrBuilderContext<HTMLElement>? = null,
+    content: ContentBuilder<HTMLElement>? = null,
+) = TagElement(strongBuilder, attrs, content)

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.web
 
+import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
+import com.calypsan.listenup.web.features.bookedit.fixedBookEdit
 import com.calypsan.listenup.web.features.bookdetail.fixedBookDetail
 import com.calypsan.listenup.web.features.bookdetail.readyBook
 import androidx.compose.runtime.Composable
@@ -36,7 +38,16 @@ class ComposeHtmlRenderTest :
 
         test("a composable emits real DOM elements") {
             val router = Router()
-            val host = mount { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary(), fixedPlayback()) }
+            val host =
+                mount {
+                    WebAppRoot(
+                        router,
+                        fixedBookDetail(readyBook()),
+                        fixedBookEdit(BookEditUiState()),
+                        fakeLibrary(),
+                        fixedPlayback(),
+                    )
+                }
             router.dispose()
 
             val brand = host.querySelector(".sb-name")
@@ -48,7 +59,16 @@ class ComposeHtmlRenderTest :
             // the root element, every token lookup silently falls back and the page renders
             // unstyled rather than broken.
             val router = Router()
-            val host = mount { WebAppRoot(router, fixedBookDetail(readyBook()), fakeLibrary(), fixedPlayback()) }
+            val host =
+                mount {
+                    WebAppRoot(
+                        router,
+                        fixedBookDetail(readyBook()),
+                        fixedBookEdit(BookEditUiState()),
+                        fakeLibrary(),
+                        fixedPlayback(),
+                    )
+                }
             router.dispose()
 
             val root = host.querySelector(".luw") as? HTMLElement

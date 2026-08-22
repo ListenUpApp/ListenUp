@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
+import com.calypsan.listenup.web.design.BookMarkdown
 import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.Cover
 import com.calypsan.listenup.web.design.coverUrl
@@ -51,6 +52,7 @@ fun BookDetailPage(
     onSelectTab: (String) -> Unit,
     onOpenLibrary: () -> Unit,
     onPlay: () -> Unit,
+    onEdit: () -> Unit = {},
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
@@ -60,7 +62,7 @@ fun BookDetailPage(
         // cannot show what you asked for must still show the way out of it.
         Breadcrumb(listOf("Library", crumb(state)), onNavigate = { onOpenLibrary() })
 
-        SharedHeader(state = state, bookId = bookId, onPlay = onPlay)
+        SharedHeader(state = state, bookId = bookId, onPlay = onPlay, onEdit = onEdit)
 
         when (state) {
             is BookDetailUiState.Loading -> {
@@ -147,6 +149,7 @@ private fun SharedHeader(
     state: BookDetailUiState,
     bookId: String?,
     onPlay: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     // Error renders no header at all: a page that cannot show the book must not show a cover and
     // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
@@ -179,8 +182,11 @@ private fun SharedHeader(
                         remaining = ready.timeRemainingFormatted.orEmpty(),
                     )
                 }
-                if (ready.canPlay) {
-                    Div(attrs = { classes("bd-actions") }) {
+                // The row itself is not gated on `canPlay`: a book with no playable audio is
+                // exactly the one whose metadata most needs correcting, so Edit has to survive
+                // the absence of Play.
+                Div(attrs = { classes("bd-actions") }) {
+                    if (ready.canPlay) {
                         Button(attrs = {
                             classes("btn")
                             attr("type", "button")
@@ -190,6 +196,15 @@ private fun SharedHeader(
                             Text(if (ready.progress != null) "Resume" else "Play")
                         }
                     }
+                    // Icon-only, so the accessible name is the attribute, not the content —
+                    // BookDetailEditButtonTest pins both the label and that it matches Play's height.
+                    Button(attrs = {
+                        classes("btn-sq")
+                        attr("type", "button")
+                        attr("aria-label", "Edit book")
+                        attr("title", "Edit book")
+                        onClick { onEdit() }
+                    }) { Icon(WebIcon.Pencil) }
                 }
             }
         }
@@ -248,15 +263,10 @@ private fun OverviewPane(state: BookDetailUiState.Ready) {
         Div(attrs = { classes("bd-main") }) {
             Panel(title = "About") {
                 if (state.descriptionText.isNotBlank()) {
-                    P(attrs = {
-                        style {
-                            property("margin", "0 0 14px")
-                            property("font-size", "14.5px")
-                            property("line-height", "1.6")
-                            property("color", "var(--ink-2)")
-                        }
-                    }) {
-                        Text(state.descriptionText)
+                    // The description arrives Markdown-flavoured and is untrusted external
+                    // metadata; [BookMarkdown] owns both halves of that.
+                    Div(attrs = { classes("bd-desc") }) {
+                        BookMarkdown(state.descriptionText)
                     }
                 }
                 if (state.genres.isNotEmpty()) {
