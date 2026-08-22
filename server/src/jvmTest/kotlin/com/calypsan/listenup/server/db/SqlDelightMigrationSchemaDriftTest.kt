@@ -124,6 +124,8 @@ private val SQ_TABLES =
         "password_reset_requests",
         "push_tokens",
         "push_watch_tokens",
+        "notifications",
+        "notification_prefs",
     )
 
 /** A table's comparable shape: column → storage-class category, and the set of its indexes. */

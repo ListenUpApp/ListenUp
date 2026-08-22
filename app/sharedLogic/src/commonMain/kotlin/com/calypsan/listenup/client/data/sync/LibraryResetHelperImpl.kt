@@ -56,7 +56,7 @@ internal class LibraryResetHelperImpl(
             database.activityDao().deleteAll()
             database.libraryFolderDao().deleteAll()
 
-            // Every mirrored sync domain's root table (SyncDomainCatalog — 21 domains; see
+            // Every mirrored sync domain's root table (SyncDomainCatalog — 22 domains; see
             // LibraryResetHelperTest's drift-proof coverage test for the full accounting).
             database.bookDao().deleteAll()
             database.seriesDao().deleteAll()
@@ -70,6 +70,7 @@ internal class LibraryResetHelperImpl(
             database.userStatsDao().deleteAll()
             database.publicProfileDao().deleteAll()
             database.adminUserRosterDao().deleteAll()
+            database.notificationDao().deleteAll()
 
             // The local FTS5 index mirrors books/contributors/series content, not a domain of
             // its own — clear it alongside its source tables so no stale entry lingers between

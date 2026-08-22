@@ -447,6 +447,8 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.api.dto.imports.ImportEvent" to 6,
             "com.calypsan.listenup.api.error.DownloadError" to 2,
             "com.calypsan.listenup.api.error.ServerConnectError" to 5,
+            "com.calypsan.listenup.api.notifications.NotificationEvent" to 3,
+            "com.calypsan.listenup.api.notifications.NotificationTarget" to 5,
         )
 
     /**

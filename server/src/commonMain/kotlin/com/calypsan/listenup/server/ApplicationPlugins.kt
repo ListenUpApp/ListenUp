@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.di.importModule
 import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.mdnsModule
 import com.calypsan.listenup.server.di.metadataModule
+import com.calypsan.listenup.server.di.notificationModule
 import com.calypsan.listenup.server.di.playbackModule
 import com.calypsan.listenup.server.di.profileModule
 import com.calypsan.listenup.server.di.publicProfileModule
@@ -102,6 +103,7 @@ internal fun Application.installDependencies(
         modules += adminUserRosterModule()
         modules += shelfModule()
         modules += pushModule()
+        modules += notificationModule()
         val httpPort =
             environment.config
                 .propertyOrNull("ktor.deployment.port")

@@ -8,17 +8,22 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.notifications.NotificationEmitter
+import com.calypsan.listenup.server.notifications.NotificationPrefsRepository
 import com.calypsan.listenup.server.push.PushNotifier
 import com.calypsan.listenup.server.push.PushWatchKind
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.db.UserRoleColumn
+import com.calypsan.listenup.server.sync.notificationFixture
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testPasswordResetService
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
@@ -45,7 +50,7 @@ class AdminRegistrationPushTest :
         test("a pending registration notifies every admin, and nobody else") {
             withSqlDatabase {
                 val notifier = RecordingPushNotifier()
-                val svc = authService(sql, RegistrationPolicy.APPROVAL_QUEUE, clock, pepper, notifier)
+                val svc = authService(sql, RegistrationPolicy.APPROVAL_QUEUE, clock, pepper, emitter(notifier))
 
                 runTest {
                     val root = svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
@@ -73,6 +78,22 @@ class AdminRegistrationPushTest :
                         payload.shouldBeInstanceOf<PushPayload.RegistrationApproval>().userId shouldBe
                             pending.userId.value
                     }
+
+                    // The durable half: each admin also gets a registration_approval inbox row
+                    // (the push is only the wake-up accelerant), and nobody else does.
+                    listOf(root.user.id.value, "second-admin").forEach { adminId ->
+                        val ids =
+                            sql.notificationsQueries
+                                .selectLiveIdsForUserOldestFirst(adminId, 10)
+                                .executeAsList()
+                        ids shouldHaveSize 1
+                        sql.notificationsQueries
+                            .selectById(ids.first())
+                            .executeAsOne()
+                            .type shouldBe "registration_approval"
+                    }
+                    sql.notificationsQueries.countLiveForUser("plain-member").executeAsOne() shouldBe 0L
+                    sql.notificationsQueries.countLiveForUser("ex-admin").executeAsOne() shouldBe 0L
                 }
             }
         }
@@ -82,15 +103,16 @@ class AdminRegistrationPushTest :
         test("an OPEN instance notifies nobody — there is no decision to make") {
             withSqlDatabase {
                 val notifier = RecordingPushNotifier()
-                val svc = authService(sql, RegistrationPolicy.OPEN, clock, pepper, notifier)
+                val svc = authService(sql, RegistrationPolicy.OPEN, clock, pepper, emitter(notifier))
 
                 runTest {
-                    svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                    val root = svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
                     notifier.sent.clear()
 
                     svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice")).shouldSucceed()
 
                     notifier.sent.shouldBeEmpty()
+                    sql.notificationsQueries.countLiveForUser(root.user.id.value).executeAsOne() shouldBe 0L
                 }
             }
         }
@@ -101,14 +123,17 @@ class AdminRegistrationPushTest :
         // Without this, an unreachable relay would stop people signing up at all.
         test("a notifier that throws does not fail the registration") {
             withSqlDatabase {
-                val svc = authService(sql, RegistrationPolicy.APPROVAL_QUEUE, clock, pepper, ThrowingPushNotifier)
+                val svc = authService(sql, RegistrationPolicy.APPROVAL_QUEUE, clock, pepper, emitter(ThrowingPushNotifier))
 
                 runTest {
-                    svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
+                    val root = svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
 
                     val out = svc.register(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
 
                     out.shouldSucceed().shouldBeInstanceOf<RegisterResult.PendingApproval>()
+                    // The inbox row is minted before the push attempt, so the durable record
+                    // survives the relay outage that ate the wake-up.
+                    sql.notificationsQueries.countLiveForUser(root.user.id.value).executeAsOne() shouldBe 1L
                 }
             }
         }
@@ -116,7 +141,7 @@ class AdminRegistrationPushTest :
         test("no notifier bound at all is simply quiet, not broken") {
             withSqlDatabase {
                 // Forks without a relay assemble the auth module with no push module at all.
-                val svc = authService(sql, RegistrationPolicy.APPROVAL_QUEUE, clock, pepper, notifier = null)
+                val svc = authService(sql, RegistrationPolicy.APPROVAL_QUEUE, clock, pepper, notifications = null)
 
                 runTest {
                     svc.setupRoot(RegisterRequest("root@x", "x".repeat(8), "Root")).shouldSucceed()
@@ -162,13 +187,22 @@ private object ThrowingPushNotifier : PushNotifier {
     ) = Unit
 }
 
+/** A real [NotificationEmitter] over the test database, delivering pushes to [notifier]. */
+private fun SqlTestDatabases.emitter(notifier: PushNotifier): NotificationEmitter =
+    NotificationEmitter(
+        db = sql,
+        repo = notificationFixture(),
+        prefs = NotificationPrefsRepository(sql),
+        notifier = notifier,
+    )
+
 @OptIn(ExperimentalTime::class)
 private fun authService(
     db: ListenUpDatabase,
     policy: RegistrationPolicy,
     clock: FixedClock,
     pepper: ByteArray,
-    notifier: PushNotifier?,
+    notifications: NotificationEmitter?,
 ): AuthServiceImpl {
     val sessions = SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
     val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
@@ -181,7 +215,7 @@ private fun authService(
         clock = clock,
         settings = ServerSettingsRepository(db, default = policy),
         passwordResetService = testPasswordResetService(db, clock),
-        pushNotifier = notifier,
+        notifications = notifications,
     )
 }
 

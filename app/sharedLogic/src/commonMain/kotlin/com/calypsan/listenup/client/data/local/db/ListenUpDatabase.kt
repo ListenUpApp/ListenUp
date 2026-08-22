@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v5** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
+ * Schema is at **v7** — the Room 3 baseline (v1) plus the [MIGRATION_1_2] volume-boost columns, the
  * [MIGRATION_2_3] `books.normalizationGainDb` tag-fallback column, the [MIGRATION_3_4] per-user
  * permission flags (`admin_user_roster.canEdit`, `users.canEdit`/`canShare`), and the
  * [MIGRATION_4_5] presence-cache columns (`cached_active_sessions.lastActiveAtMs`/`isLive`).
@@ -79,8 +79,9 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         AdminUserRosterEntity::class,
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
+        NotificationEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 @ColumnTypeConverters(
@@ -163,6 +164,8 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun bookReadershipDao(): BookReadershipDao
 
     abstract fun cachedActiveSessionDao(): CachedActiveSessionDao
+
+    abstract fun notificationDao(): NotificationDao
 }
 
 /**

@@ -15,9 +15,11 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.AdminError
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.notifications.NotificationEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.notifications.NotificationAudience
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.services.ActivityRecorder
@@ -36,6 +38,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.deleteNotificationRowsForUser
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -85,6 +88,12 @@ class AdminUserServiceImpl(
     /** Nullable with [pushNotifier]; evicts the decided registration's watch tokens. */
     private val pushWatchTokens: com.calypsan.listenup.server.push.PushWatchTokenStore? = null,
     /**
+     * Nullable with [pushNotifier]; mints the applicant's `registration_decision` inbox row.
+     * Distinct from the watch push above: pre-auth watch devices have no user tokens, so the
+     * watch push is the only banner reaching them — the emitter carries the durable inbox row.
+     */
+    private val notifications: com.calypsan.listenup.server.notifications.NotificationEmitter? = null,
+    /**
      * Nullable so the auth module assembles independently of the admin-roster module (test
      * environments, phased startup). A null value means admin-roster changes here are not
      * published — the roster self-heals via [AdminUserRosterMaintainer.backfillAll] at startup.
@@ -117,6 +126,7 @@ class AdminUserServiceImpl(
             defaultGrantIssuer = defaultGrantIssuer,
             pushNotifier = pushNotifier,
             pushWatchTokens = pushWatchTokens,
+            notifications = notifications,
             adminUserRosterMaintainer = adminUserRosterMaintainer,
             passwordResetService = passwordResetService,
         )
@@ -248,6 +258,10 @@ class AdminUserServiceImpl(
                 }
                 sql.usersQueries.markDeletedAt(deleted_at = clock.now().toEpochMilliseconds(), id = id.value)
                 sql.passwordResetRequestsQueries.deleteForUser(id.value)
+                // Same-transaction sweep of the user's notification rows and preference
+                // overrides. The seam lives in server/sync/ (see its KDoc for why it is a
+                // hard delete rather than a substrate tombstone).
+                sql.deleteNotificationRowsForUser(id.value)
                 AppResult.Success(Unit)
             }
 
@@ -327,6 +341,14 @@ class AdminUserServiceImpl(
             pushWatchTokens?.evict(
                 com.calypsan.listenup.server.push.PushWatchKind.REGISTRATION,
                 request.userId.value,
+            )
+            // The inbox row: unreadable until the user can sign in, then it syncs like any other.
+            notifications?.emit(
+                NotificationEvent.RegistrationDecision(
+                    userId = request.userId.value,
+                    approved = request.approved,
+                ),
+                to = NotificationAudience.User(request.userId.value),
             )
             // Refresh the public-profile projection only on approval; denied users are never
             // active and should not appear in the public roster.

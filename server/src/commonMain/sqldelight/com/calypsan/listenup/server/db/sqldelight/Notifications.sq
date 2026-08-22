@@ -1,0 +1,75 @@
+-- notifications: per-user inbox rows. Syncable, soft-deletable, revision-tracked, userScoped.
+-- Column set matches V63__notifications.sql exactly.
+CREATE TABLE notifications (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    user_id      TEXT    NOT NULL,
+    type         TEXT    NOT NULL,
+    payload      TEXT    NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    read_at      INTEGER,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT
+);
+
+CREATE INDEX idx_notifications_user ON notifications(user_id, created_at);
+CREATE INDEX idx_notifications_revision ON notifications(revision);
+
+-- Substrate queries.
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM notifications WHERE id = :id);
+
+softDeleteById:
+UPDATE notifications
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM notifications WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM notifications WHERE deleted_at IS NULL AND revision <= :cursor;
+
+selectIdsAboveRevisionForUser:
+SELECT id, revision FROM notifications
+WHERE user_id = :userId AND revision > :cursor
+ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMostForUser:
+SELECT id, revision FROM notifications
+WHERE user_id = :userId AND deleted_at IS NULL AND revision <= :cursor;
+
+-- Domain queries.
+
+insert:
+INSERT INTO notifications (id, user_id, type, payload, created_at, updated_at, read_at, revision, deleted_at, client_op_id)
+VALUES (:id, :user_id, :type, :payload, :created_at, :updated_at, :read_at, :revision, :deleted_at, :client_op_id);
+
+update:
+UPDATE notifications
+SET type = :type, payload = :payload, read_at = :read_at, revision = :revision,
+    updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id;
+
+selectById:
+SELECT * FROM notifications WHERE id = :id;
+
+selectByIds:
+SELECT * FROM notifications WHERE id IN :ids;
+
+countLiveForUser:
+SELECT COUNT(*) FROM notifications WHERE user_id = :userId AND deleted_at IS NULL;
+
+selectLiveIdsForUserOldestFirst:
+SELECT id FROM notifications
+WHERE user_id = :userId AND deleted_at IS NULL
+ORDER BY created_at ASC, id ASC
+LIMIT :limit;
+
+-- Sweep on user deletion. Hard delete, not tombstone: rows are userScoped, so no other
+-- user ever syncs them, and the owner's devices are ejected by the UserDeleted control frame.
+deleteForUser:
+DELETE FROM notifications WHERE user_id = :user_id;
