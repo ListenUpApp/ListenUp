@@ -76,9 +76,13 @@ class CoverFieldTest :
         test("no pending cover renders the book's current artwork, hash-busted") {
             val root = coverField(withCover())
 
-            val img = root.querySelector(".cover-pick img") as HTMLImageElement
+            val img = root.querySelector(".cover-art img") as HTMLImageElement
             img.src shouldContain "/api/v1/books/b1/cover"
             img.src shouldContain "v=abc123"
+
+            val pick = root.querySelector(".cover-pick") as HTMLElement
+            pick.textContent!! shouldContain "Click to choose an image"
+            pick.textContent!! shouldContain "drag and drop"
         }
 
         test("an upload in flight disables the control") {
@@ -93,7 +97,7 @@ class CoverFieldTest :
         test("pending bytes render as a local preview, not a server fetch") {
             val root = coverField(withCover().copy(pendingCoverData = byteArrayOf(9, 9, 9)))
 
-            val img = root.querySelector(".cover-pick img") as HTMLImageElement
+            val img = root.querySelector(".cover-art img") as HTMLImageElement
             img.src shouldStartWith "blob:"
         }
 
@@ -102,16 +106,16 @@ class CoverFieldTest :
             val root = document.createElement("div") as HTMLElement
             document.body?.appendChild(root)
             renderComposable(root = root) { CoverField(state = state, onEvent = {}) }
-            val firstUrl = (root.querySelector(".cover-pick img") as HTMLImageElement).src
+            val firstUrl = (root.querySelector(".cover-art img") as HTMLImageElement).src
 
             state = state.copy(pendingCoverData = byteArrayOf(2))
             withTimeout(EVENT_TIMEOUT_MS) {
-                while ((root.querySelector(".cover-pick img") as HTMLImageElement).src == firstUrl) delay(10)
+                while ((root.querySelector(".cover-art img") as HTMLImageElement).src == firstUrl) delay(10)
             }
 
             // Positive control: the CURRENT preview's URL must fetch fine — proving the
             // rejection below is revocation, not an environment that can't fetch blob: at all.
-            window.fetch((root.querySelector(".cover-pick img") as HTMLImageElement).src).await()
+            window.fetch((root.querySelector(".cover-art img") as HTMLImageElement).src).await()
 
             // A revoked blob: URL is unfetchable — that rejection IS the assertion.
             shouldThrowAny { window.fetch(firstUrl).await() }

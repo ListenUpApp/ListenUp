@@ -11,6 +11,8 @@ import androidx.compose.web.events.SyntheticDragEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent
 import com.calypsan.listenup.client.presentation.bookedit.BookEditUiState
 import com.calypsan.listenup.web.design.Cover
+import com.calypsan.listenup.web.design.Icon
+import com.calypsan.listenup.web.design.WebIcon
 import com.calypsan.listenup.web.design.coverUrl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -20,7 +22,6 @@ import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
-import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.khronos.webgl.ArrayBuffer
 import org.khronos.webgl.Int8Array
@@ -34,11 +35,11 @@ import kotlin.coroutines.resume
 /**
  * The cover on Book Edit — the web analogue of Android's tappable cover in the identity header.
  *
- * The cover itself is the button: click it (or, later tasks, drop an image on it) to choose a
- * replacement. The current artwork comes from the server via [coverUrl]; a pending replacement
- * renders from [BookEditUiState.pendingCoverData] — never from `displayCoverPath`, because the
- * browser's ImageStorage is bookkeeping-only and its `browser://` paths have no bytes behind
- * them.
+ * The artwork renders at its true 2:3 aspect in a fixed frame; a dropzone card beside it is the
+ * pick affordance — click it, or drop an image on it, to choose a replacement. The current
+ * artwork comes from the server via [coverUrl]; a pending replacement renders from
+ * [BookEditUiState.pendingCoverData] — never from `displayCoverPath`, because the browser's
+ * ImageStorage is bookkeeping-only and its `browser://` paths have no bytes behind them.
  */
 @Composable
 fun CoverField(
@@ -58,11 +59,24 @@ fun CoverField(
     var fileInput by remember { mutableStateOf<HTMLInputElement?>(null) }
     var dragOver by remember { mutableStateOf(false) }
     Div(attrs = { classes("cover-field") }) {
+        Div(attrs = { classes("cover-art") }) {
+            if (previewUrl != null) {
+                Img(src = previewUrl, alt = "New cover preview", attrs = { classes("cover-preview") })
+            } else {
+                Cover(
+                    title = state.title,
+                    imageUrl = coverUrl(state.bookId, state.coverHash, width = COVER_EDIT_FETCH_WIDTH),
+                    size = COVER_ART_WIDTH,
+                    height = COVER_ART_HEIGHT,
+                )
+            }
+        }
         Button(attrs = {
             classes("cover-pick")
             if (dragOver) classes("cover-drag")
             attr("type", "button")
             attr("aria-label", "Change cover")
+            attr("title", "Change cover")
             if (state.isUploadingCover) attr("disabled", "")
             onClick { fileInput?.click() }
             onDragOver { event ->
@@ -79,21 +93,9 @@ fun CoverField(
                 acceptedDroppedCover(event, state.isUploadingCover)?.let { pickCover(scope, it, onEvent) }
             }
         }) {
-            if (previewUrl != null) {
-                Img(src = previewUrl, alt = "New cover preview", attrs = {
-                    classes("cover-preview")
-                    style {
-                        property("width", "${COVER_EDIT_SIZE}px")
-                        property("height", "${COVER_EDIT_SIZE}px")
-                    }
-                })
-            } else {
-                Cover(
-                    title = state.title,
-                    imageUrl = coverUrl(state.bookId, state.coverHash, width = COVER_EDIT_FETCH_WIDTH),
-                    size = COVER_EDIT_SIZE,
-                )
-            }
+            Div(attrs = { classes("cover-pick-disc") }) { Icon(WebIcon.Upload, size = UPLOAD_ICON_SIZE) }
+            Div(attrs = { classes("cover-pick-main") }) { Text("Click to choose an image") }
+            Div(attrs = { classes("cover-pick-sub") }) { Text("or drag and drop — JPG, PNG or WebP") }
         }
         Input(type = InputType.File, attrs = {
             id("edit-cover-input")
@@ -111,7 +113,6 @@ fun CoverField(
                 element.value = ""
             }
         })
-        Span(attrs = { classes("cover-hint") }) { Text("Click the cover or drop an image on it") }
     }
 }
 
@@ -161,7 +162,11 @@ private suspend fun File.readByteArray(): ByteArray? =
         reader.readAsArrayBuffer(this)
     }
 
-private const val COVER_EDIT_SIZE = 180
+private const val COVER_ART_WIDTH = 132
 
-/** 2× the rendered size, so the derivative the server picks stays sharp on dense displays. */
-private const val COVER_EDIT_FETCH_WIDTH = 360
+private const val COVER_ART_HEIGHT = 198
+
+/** 2× the rendered width, so the derivative the server picks stays sharp on dense displays. */
+private const val COVER_EDIT_FETCH_WIDTH = 264
+
+private const val UPLOAD_ICON_SIZE = 20

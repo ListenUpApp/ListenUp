@@ -27,12 +27,16 @@ import kotlin.math.abs
  * The fallback colour is derived from the title rather than random, so a given book keeps the
  * same cover across sessions, devices and reloads. A cover that changes on refresh reads as a
  * bug even when nothing is wrong.
+ *
+ * [height] defaults to [size], so every existing call site keeps rendering a square frame; a
+ * caller that wants the cover's true 2:3 portrait aspect passes both explicitly.
  */
 @Composable
 fun Cover(
     title: String,
     imageUrl: String? = null,
     size: Int = DEFAULT_COVER_SIZE,
+    height: Int = size,
     radius: Int = DEFAULT_COVER_RADIUS,
     heroName: String? = null,
     heroBookId: String? = null,
@@ -55,7 +59,7 @@ fun Cover(
         }
         style {
             property("width", "${size}px")
-            property("height", "${size}px")
+            property("height", "${height}px")
             property("border-radius", "${radius}px")
             property("overflow", "hidden")
             property("flex-shrink", "0")
