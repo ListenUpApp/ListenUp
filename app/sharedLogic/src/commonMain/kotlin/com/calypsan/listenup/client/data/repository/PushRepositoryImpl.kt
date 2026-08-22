@@ -11,21 +11,22 @@ import com.calypsan.listenup.client.domain.repository.PushRepository
  * Production implementation of [PushRepository].
  *
  * Purely RPC-dispatched — there is no local mirror to keep in sync, since a push
- * token is a transient credential the platform SDK re-issues on rotation. [platform]
- * is a client-build fact (which platform this binary IS), not a per-call argument —
- * injected so the impl never hardcodes a platform value; the Android Koin module
- * binds [PushPlatform.ANDROID], iOS binds `IOS`.
+ * token is a transient credential the platform SDK re-issues on rotation.
+ *
+ * The [PushPlatform] arrives with the token rather than being injected here. A build with no push
+ * hook has no platform to inject, and demanding one anyway made this class unconstructable on web
+ * and desktop — which surfaced as a swallowed `Refresh refetch failed` on every refresh.
  *
  * @property channel Bounded, self-healing dispatch for the authed [PushService].
- * @property platform This build's [PushPlatform], supplied by the calling platform's DI.
  */
 internal class PushRepositoryImpl(
     private val channel: RpcChannel<PushService>,
     private val publicAuthChannel: RpcChannel<AuthServicePublic>,
-    private val platform: PushPlatform,
 ) : PushRepository {
-    override suspend fun registerToken(token: String): AppResult<Unit> =
-        channel.call { it.registerToken(token, platform) }
+    override suspend fun registerToken(
+        token: String,
+        platform: PushPlatform,
+    ): AppResult<Unit> = channel.call { it.registerToken(token, platform) }
 
     override suspend fun unregisterToken(token: String): AppResult<Unit> = channel.call { it.unregisterToken(token) }
 
@@ -34,5 +35,6 @@ internal class PushRepositoryImpl(
     override suspend fun registerRegistrationWatchToken(
         userId: String,
         token: String,
+        platform: PushPlatform,
     ): AppResult<Unit> = publicAuthChannel.call { it.registerRegistrationWatchToken(userId, token, platform) }
 }

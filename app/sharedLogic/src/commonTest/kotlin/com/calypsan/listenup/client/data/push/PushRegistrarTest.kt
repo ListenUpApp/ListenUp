@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.push
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.error.PushError
+import com.calypsan.listenup.api.push.PushPlatform
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.PushRepository
@@ -45,12 +46,12 @@ class PushRegistrarTest :
                     }
                 val pushRepository =
                     mock<PushRepository> {
-                        everySuspend { registerRegistrationWatchToken(any(), any()) } returns AppResult.Success(Unit)
+                        everySuspend { registerRegistrationWatchToken(any(), any(), any()) } returns AppResult.Success(Unit)
                     }
-                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"))
+                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"), PushPlatform.ANDROID)
 
                 registrar.registerRegistrationWatch("user-1") shouldBe true
-                verifySuspend { pushRepository.registerRegistrationWatchToken("user-1", "token-1") }
+                verifySuspend { pushRepository.registerRegistrationWatchToken("user-1", "token-1", PushPlatform.ANDROID) }
             }
         }
 
@@ -66,18 +67,18 @@ class PushRegistrarTest :
                     }
                 val failing =
                     mock<PushRepository> {
-                        everySuspend { registerRegistrationWatchToken(any(), any()) } returns
+                        everySuspend { registerRegistrationWatchToken(any(), any(), any()) } returns
                             AppResult.Failure(PushError.PushDisabled())
                     }
                 val unusedRepo = mock<PushRepository>()
 
-                PushRegistrar(enabled, unusedRepo, tokenProvider = null)
+                PushRegistrar(enabled, unusedRepo, tokenProvider = null, platform = PushPlatform.ANDROID)
                     .registerRegistrationWatch("u") shouldBe false
-                PushRegistrar(enabled, unusedRepo, FakePushTokenProvider(null))
+                PushRegistrar(enabled, unusedRepo, FakePushTokenProvider(null), PushPlatform.ANDROID)
                     .registerRegistrationWatch("u") shouldBe false
-                PushRegistrar(disabled, unusedRepo, FakePushTokenProvider("t"))
+                PushRegistrar(disabled, unusedRepo, FakePushTokenProvider("t"), PushPlatform.ANDROID)
                     .registerRegistrationWatch("u") shouldBe false
-                PushRegistrar(enabled, failing, FakePushTokenProvider("t"))
+                PushRegistrar(enabled, failing, FakePushTokenProvider("t"), PushPlatform.ANDROID)
                     .registerRegistrationWatch("u") shouldBe false
             }
         }
@@ -90,13 +91,13 @@ class PushRegistrarTest :
                     }
                 val pushRepository =
                     mock<PushRepository> {
-                        everySuspend { registerToken(any()) } returns AppResult.Success(Unit)
+                        everySuspend { registerToken(any(), any()) } returns AppResult.Success(Unit)
                     }
-                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"))
+                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"), PushPlatform.ANDROID)
 
                 registrar.syncRegistration()
 
-                verifySuspend { pushRepository.registerToken("token-1") }
+                verifySuspend { pushRepository.registerToken("token-1", PushPlatform.ANDROID) }
             }
         }
 
@@ -107,11 +108,11 @@ class PushRegistrarTest :
                         everySuspend { getServerInfoOrNull() } returns serverInfo(pushEnabled = false)
                     }
                 val pushRepository = mock<PushRepository>()
-                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"))
+                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"), PushPlatform.ANDROID)
 
                 registrar.syncRegistration()
 
-                verifySuspend(exactly(0)) { pushRepository.registerToken(any()) }
+                verifySuspend(exactly(0)) { pushRepository.registerToken(any(), any()) }
             }
         }
 
@@ -119,12 +120,12 @@ class PushRegistrarTest :
             runTest {
                 val instanceRepository = mock<InstanceRepository>()
                 val pushRepository = mock<PushRepository>()
-                val registrar = PushRegistrar(instanceRepository, pushRepository, tokenProvider = null)
+                val registrar = PushRegistrar(instanceRepository, pushRepository, tokenProvider = null, platform = PushPlatform.ANDROID)
 
                 registrar.syncRegistration()
 
                 verifySuspend(exactly(0)) { instanceRepository.getServerInfoOrNull() }
-                verifySuspend(exactly(0)) { pushRepository.registerToken(any()) }
+                verifySuspend(exactly(0)) { pushRepository.registerToken(any(), any()) }
             }
         }
 
@@ -135,11 +136,11 @@ class PushRegistrarTest :
                         everySuspend { getServerInfoOrNull() } returns serverInfo(pushEnabled = true)
                     }
                 val pushRepository = mock<PushRepository>()
-                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider(null))
+                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider(null), PushPlatform.ANDROID)
 
                 registrar.syncRegistration()
 
-                verifySuspend(exactly(0)) { pushRepository.registerToken(any()) }
+                verifySuspend(exactly(0)) { pushRepository.registerToken(any(), any()) }
             }
         }
 
@@ -151,13 +152,43 @@ class PushRegistrarTest :
                     }
                 val pushRepository =
                     mock<PushRepository> {
-                        everySuspend { registerToken(any()) } returns AppResult.Success(Unit)
+                        everySuspend { registerToken(any(), any()) } returns AppResult.Success(Unit)
                     }
-                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("stale"))
+                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("stale"), PushPlatform.ANDROID)
 
                 registrar.onTokenRotated("rotated-token")
 
-                verifySuspend { pushRepository.registerToken("rotated-token") }
+                verifySuspend { pushRepository.registerToken("rotated-token", PushPlatform.ANDROID) }
+            }
+        }
+
+        // ⛔ The web/desktop regression. `PushPlatform` has values only for Android and iOS, and it
+        // used to be a hard `get()` inside `PushRepositoryImpl`'s construction — so on a build with
+        // no push at all, merely RESOLVING the push graph threw. That happened inside
+        // `refetchServerInfo`, whose caller swallows exceptions, so it showed up as nothing but a
+        // recurring "Refresh refetch failed" line while silently truncating that refetch.
+        test("a build with no push platform registers nothing instead of failing to construct") {
+            runTest {
+                val instanceRepository =
+                    mock<InstanceRepository> {
+                        everySuspend { getServerInfoOrNull() } returns serverInfo(pushEnabled = true)
+                    }
+                val pushRepository = mock<PushRepository>()
+                val registrar =
+                    PushRegistrar(
+                        instanceRepository,
+                        pushRepository,
+                        FakePushTokenProvider("token-1"),
+                        platform = null,
+                    )
+
+                registrar.syncRegistration()
+                registrar.onTokenRotated("rotated")
+                val watched = registrar.registerRegistrationWatch("user-1")
+
+                watched shouldBe false
+                verifySuspend(exactly(0)) { pushRepository.registerToken(any(), any()) }
+                verifySuspend(exactly(0)) { pushRepository.registerRegistrationWatchToken(any(), any(), any()) }
             }
         }
 
@@ -169,9 +200,9 @@ class PushRegistrarTest :
                     }
                 val pushRepository =
                     mock<PushRepository> {
-                        everySuspend { registerToken(any()) } returns AppResult.Failure(PushError.PushDisabled())
+                        everySuspend { registerToken(any(), any()) } returns AppResult.Failure(PushError.PushDisabled())
                     }
-                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"))
+                val registrar = PushRegistrar(instanceRepository, pushRepository, FakePushTokenProvider("token-1"), PushPlatform.ANDROID)
 
                 // Must not throw.
                 registrar.syncRegistration()
