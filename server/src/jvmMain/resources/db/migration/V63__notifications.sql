@@ -2,7 +2,7 @@
 --
 -- No FK on user_id -- SQLDelight cannot express cross-.sq references and the .sq definition
 -- must match this file exactly. Rows are bounded by retention pruning (NotificationEmitter)
--- and swept on user deletion like every other per-user aggregate.
+-- and hard-deleted on user deletion, like the password-reset sweep.
 CREATE TABLE notifications (
     id           TEXT    NOT NULL PRIMARY KEY,
     user_id      TEXT    NOT NULL,
