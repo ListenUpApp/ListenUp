@@ -41,5 +41,8 @@ fun NotificationSyncPayload.decodeEvent(): NotificationEvent? =
     } catch (_: SerializationException) {
         null
     } catch (_: IllegalArgumentException) {
+        // Not redundant with the clause above (SerializationException extends IAE): this one
+        // catches `init`-block `require` validation on future event cases — the contract
+        // convention — which throws plain IllegalArgumentException.
         null
     }

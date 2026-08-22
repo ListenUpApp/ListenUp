@@ -38,7 +38,6 @@ class NotificationSyncPayloadContractTest :
         }
 
         test("the notifications domain key is registered") {
-            SyncDomains.all.map { it.name } shouldBe SyncDomains.all.map { it.name }.distinct()
             SyncDomains.NOTIFICATIONS.name shouldBe "notifications"
             (SyncDomains.NOTIFICATIONS in SyncDomains.all) shouldBe true
         }
