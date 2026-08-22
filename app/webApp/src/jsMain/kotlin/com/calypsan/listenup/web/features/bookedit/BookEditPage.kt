@@ -8,6 +8,7 @@ import com.calypsan.listenup.web.design.Breadcrumb
 import com.calypsan.listenup.web.design.CheckboxField
 import com.calypsan.listenup.web.design.Field
 import com.calypsan.listenup.web.design.Panel
+import com.calypsan.listenup.web.design.RelationField
 import com.calypsan.listenup.web.design.SelectField
 import com.calypsan.listenup.web.design.SelectOption
 import com.calypsan.listenup.web.design.TextAreaField
@@ -64,6 +65,9 @@ fun BookEditPage(
 
         Panel(title = "Details") {
             Div(attrs = { classes("edit-form") }) { CoreFields(state, onEvent) }
+        }
+        Panel(title = "Classification") {
+            Div(attrs = { classes("edit-form") }) { ClassificationFields(state, onEvent) }
         }
         Panel(title = "Identifiers") {
             Div(attrs = { classes("edit-form") }) { IdentifierFields(state, onEvent) }
@@ -127,6 +131,102 @@ private fun CoreFields(
         emptyLabel = "Not recorded",
         id = "edit-language",
     )
+}
+
+/**
+ * Genres, tags, moods and collections — four relations, one control.
+ *
+ * Genres and collections pass no `onCreate`: a genre is system-controlled and a collection is
+ * curated, so both may only be chosen. Tags and moods may be invented, and [RelationField] makes
+ * that an explicit button rather than something Enter does by accident.
+ *
+ * Collections render only for an admin, because [BookEditUiState.isAdmin] is the ViewModel's word
+ * on whether this reader may attach one — offering the control to everyone else would be a form
+ * field whose save is refused.
+ */
+@Composable
+private fun ClassificationFields(
+    state: BookEditUiState,
+    onEvent: (BookEditUiEvent) -> Unit,
+) {
+    RelationField(
+        label = "Genres",
+        attached = state.genres.map { it.toChip() },
+        query = state.genreSearchQuery,
+        results = state.genreSearchResults.map { it.toChip() },
+        onQueryChange = { onEvent(BookEditUiEvent.GenreSearchQueryChanged(it)) },
+        onSelect = { chip ->
+            state.genreSearchResults.firstOrNull { it.id == chip.id }?.let {
+                onEvent(
+                    BookEditUiEvent.GenreSelected(it),
+                )
+            }
+        },
+        onRemove = { chip ->
+            state.genres.firstOrNull { it.id == chip.id }?.let { onEvent(BookEditUiEvent.RemoveGenre(it)) }
+        },
+        placeholder = "Search genres…",
+        id = "edit-genres",
+    )
+    RelationField(
+        label = "Tags",
+        attached = state.tags.map { it.toChip() },
+        query = state.tagSearchQuery,
+        results = state.tagSearchResults.map { it.toChip() },
+        loading = state.tagSearchLoading,
+        onQueryChange = { onEvent(BookEditUiEvent.TagSearchQueryChanged(it)) },
+        onSelect = { chip ->
+            state.tagSearchResults.firstOrNull { it.id == chip.id }?.let { onEvent(BookEditUiEvent.TagSelected(it)) }
+        },
+        onRemove = { chip ->
+            state.tags.firstOrNull { it.id == chip.id }?.let { onEvent(BookEditUiEvent.RemoveTag(it)) }
+        },
+        onCreate = { name -> onEvent(BookEditUiEvent.TagEntered(name)) },
+        placeholder = "Search tags…",
+        id = "edit-tags",
+    )
+    RelationField(
+        label = "Moods",
+        attached = state.moods.map { it.toChip() },
+        query = state.moodSearchQuery,
+        results = state.moodSearchResults.map { it.toChip() },
+        loading = state.moodSearchLoading,
+        onQueryChange = { onEvent(BookEditUiEvent.MoodSearchQueryChanged(it)) },
+        onSelect = { chip ->
+            state.moodSearchResults.firstOrNull { it.id == chip.id }?.let { onEvent(BookEditUiEvent.MoodSelected(it)) }
+        },
+        onRemove = { chip ->
+            state.moods.firstOrNull { it.id == chip.id }?.let { onEvent(BookEditUiEvent.RemoveMood(it)) }
+        },
+        onCreate = { name -> onEvent(BookEditUiEvent.MoodEntered(name)) },
+        placeholder = "Search moods…",
+        id = "edit-moods",
+    )
+    if (state.isAdmin) {
+        RelationField(
+            label = "Collections",
+            attached = state.collections.map { it.toChip() },
+            query = state.collectionSearchQuery,
+            results = state.collectionSearchResults.map { it.toChip() },
+            onQueryChange = { onEvent(BookEditUiEvent.CollectionSearchQueryChanged(it)) },
+            onSelect = { chip ->
+                state.collectionSearchResults.firstOrNull { it.id == chip.id }?.let {
+                    onEvent(
+                        BookEditUiEvent.CollectionSelected(it),
+                    )
+                }
+            },
+            onRemove = { chip ->
+                state.collections.firstOrNull { it.id == chip.id }?.let {
+                    onEvent(
+                        BookEditUiEvent.RemoveCollection(it),
+                    )
+                }
+            },
+            placeholder = "Search collections…",
+            id = "edit-collections",
+        )
+    }
 }
 
 /** ISBN, ASIN and the abridged flag — rarely touched, so they sit below the fold. */
