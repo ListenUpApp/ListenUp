@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
  * The canonical Material 3 Expressive button — a fully-rounded pill with an animated
@@ -54,6 +55,7 @@ fun ListenUpButton(
     leadingIcon: ImageVector? = null,
     trailingIcon: ImageVector? = null,
 ) {
+    val haptics = LocalHaptics.current
     val widthModifier = if (fillMaxWidth) Modifier.fillMaxWidth() else Modifier
     val spinnerColor =
         if (filled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
@@ -91,16 +93,21 @@ fun ListenUpButton(
             }
         }
     }
+    // Compose won't invoke onClick on a disabled Button, so the haptic can't fire on one either.
+    val clickWithHaptic: () -> Unit = {
+        haptics.press()
+        onClick()
+    }
     if (filled) {
         Button(
-            onClick = onClick,
+            onClick = clickWithHaptic,
             enabled = enabled && !isLoading,
             shape = CircleShape,
             modifier = modifier.then(widthModifier).height(56.dp),
         ) { label() }
     } else {
         OutlinedButton(
-            onClick = onClick,
+            onClick = clickWithHaptic,
             enabled = enabled && !isLoading,
             shape = CircleShape,
             modifier = modifier.then(widthModifier).height(56.dp),

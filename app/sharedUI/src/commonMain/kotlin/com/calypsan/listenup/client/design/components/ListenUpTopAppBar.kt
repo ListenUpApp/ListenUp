@@ -12,6 +12,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
@@ -39,6 +40,7 @@ fun ListenUpTopAppBar(
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val haptics = LocalHaptics.current
     TopAppBar(
         modifier = modifier,
         title = {
@@ -50,7 +52,12 @@ fun ListenUpTopAppBar(
         },
         navigationIcon = {
             if (onBack != null) {
-                IconButton(onClick = onBack) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onBack()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = stringResource(Res.string.common_back),

@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
  * Design system component for displaying cover images in elevated cards.
@@ -46,12 +47,16 @@ fun ElevatedCoverCard(
     onClick: (() -> Unit)? = null,
     overlay: @Composable (BoxScope.() -> Unit)? = null,
 ) {
+    val haptics = LocalHaptics.current
     val shape = RoundedCornerShape(cornerRadius)
     val cardElevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation)
 
     if (onClick != null) {
         ElevatedCard(
-            onClick = onClick,
+            onClick = {
+                haptics.press()
+                onClick()
+            },
             shape = shape,
             elevation = cardElevation,
             modifier = modifier,

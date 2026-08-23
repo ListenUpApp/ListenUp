@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_select_category
@@ -65,6 +66,7 @@ fun SortSplitButton(
     visible: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     var categoryMenuExpanded by remember { mutableStateOf(false) }
 
     AnimatedVisibility(
@@ -86,7 +88,10 @@ fun SortSplitButton(
                 ) {
                     // Leading: Category selector
                     Surface(
-                        onClick = { categoryMenuExpanded = true },
+                        onClick = {
+                            haptics.press()
+                            categoryMenuExpanded = true
+                        },
                         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0f),
                         modifier = Modifier.height(46.dp),
                     ) {
@@ -121,7 +126,10 @@ fun SortSplitButton(
 
                     // Trailing: Direction toggle
                     Surface(
-                        onClick = onDirectionToggle,
+                        onClick = {
+                            haptics.press()
+                            onDirectionToggle()
+                        },
                         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0f),
                         modifier = Modifier.height(46.dp),
                     ) {

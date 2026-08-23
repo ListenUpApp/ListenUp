@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_back
@@ -55,6 +56,7 @@ fun HeroNavRow(
     applyStatusBarInset: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier =
             modifier
@@ -68,7 +70,10 @@ fun HeroNavRow(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         IconButton(
-            onClick = onBack,
+            onClick = {
+                haptics.press()
+                onBack()
+            },
             modifier = Modifier.size(HERO_NAV_BUTTON_SIZE).background(buttonBackground, CircleShape),
         ) {
             Icon(

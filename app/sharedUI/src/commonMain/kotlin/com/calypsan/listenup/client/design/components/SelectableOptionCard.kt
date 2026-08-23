@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 private const val SUBTITLE_ALPHA = 0.85f
 private val INDICATOR_SIZE = 24.dp
@@ -52,13 +53,17 @@ fun SelectableOptionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val colors = MaterialTheme.colorScheme
     val containerColor = if (selected) colors.secondaryContainer else colors.surfaceContainerLow
     val titleColor = if (selected) colors.onSecondaryContainer else colors.onSurface
     val subtitleColor =
         if (selected) colors.onSecondaryContainer.copy(alpha = SUBTITLE_ALPHA) else colors.onSurfaceVariant
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.press()
+            onClick()
+        },
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         color = containerColor,

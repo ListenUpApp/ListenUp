@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_administration
@@ -103,8 +104,12 @@ private fun UserAvatarPill(
     user: User,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.press()
+            onClick()
+        },
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurface,
@@ -141,6 +146,7 @@ private fun UserAvatarCircle(
     user: User?,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     if (user != null) {
         UserAvatar(
             userId = user.id.value,
@@ -156,7 +162,10 @@ private fun UserAvatarCircle(
                     .size(AvatarSize.Medium.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                    .clickable(onClick = onClick),
+                    .clickable {
+                        haptics.press()
+                        onClick()
+                    },
         ) {
             Text(
                 text = "?",
@@ -176,6 +185,8 @@ private fun UserAvatarMenuContent(
     onSettingsClick: (() -> Unit)?,
     onSignOutClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
+
     // Header with user info (non-clickable)
     Column(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -207,6 +218,7 @@ private fun UserAvatarMenuContent(
         text = { Text(stringResource(Res.string.common_my_profile)) },
         leadingIcon = { Icon(Icons.Outlined.AccountCircle, contentDescription = null) },
         onClick = {
+            haptics.press()
             onExpandedChange(false)
             onMyProfileClick()
         },
@@ -218,6 +230,7 @@ private fun UserAvatarMenuContent(
             text = { Text(stringResource(Res.string.common_administration)) },
             leadingIcon = { Icon(Icons.Outlined.AdminPanelSettings, contentDescription = null) },
             onClick = {
+                haptics.press()
                 onExpandedChange(false)
                 onAdminClick()
             },
@@ -229,6 +242,7 @@ private fun UserAvatarMenuContent(
             text = { Text(stringResource(Res.string.common_settings)) },
             leadingIcon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
             onClick = {
+                haptics.press()
                 onExpandedChange(false)
                 onSettingsClick()
             },
@@ -239,6 +253,7 @@ private fun UserAvatarMenuContent(
         text = { Text(stringResource(Res.string.common_sign_out)) },
         leadingIcon = { Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null) },
         onClick = {
+            haptics.press()
             onExpandedChange(false)
             onSignOutClick()
         },

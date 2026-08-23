@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /** Leading-icon column width: tile (44) + row gap (14) ≈ the divider's inset start. */
 private val DIVIDER_INSET = 70.dp
@@ -60,10 +61,20 @@ fun SettingRow(
     leading: @Composable (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
+    val haptics = LocalHaptics.current
     val rowModifier =
         modifier
             .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable {
+                        haptics.press()
+                        onClick()
+                    }
+                } else {
+                    Modifier
+                },
+            )
     Column(modifier = rowModifier) {
         if (showDivider) {
             HorizontalDivider(

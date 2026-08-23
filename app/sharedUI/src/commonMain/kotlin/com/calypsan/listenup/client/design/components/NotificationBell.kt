@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.notifications_title
 import listenup.composeapp.generated.resources.notifications_unread_count_a11y
@@ -40,6 +41,7 @@ fun NotificationBell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Box(modifier = modifier) {
         // The badge is a sibling of the button, so a screen reader focusing the button would
         // otherwise announce "Notifications" identically at zero and at ninety-nine. The count
@@ -53,7 +55,10 @@ fun NotificationBell(
                 null
             }
         IconButton(
-            onClick = onClick,
+            onClick = {
+                haptics.press()
+                onClick()
+            },
             modifier =
                 Modifier.semantics {
                     unreadAnnouncement?.let { stateDescription = it }

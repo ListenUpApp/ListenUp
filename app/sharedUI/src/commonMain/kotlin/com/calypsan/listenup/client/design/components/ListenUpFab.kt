@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
  * Standard ListenUp icon-only floating action button.
@@ -26,8 +27,14 @@ fun ListenUpFab(
     contentDescription: String,
     enabled: Boolean = true,
 ) {
+    val haptics = LocalHaptics.current
     FloatingActionButton(
-        onClick = { if (enabled) onClick() },
+        onClick = {
+            if (enabled) {
+                haptics.press()
+                onClick()
+            }
+        },
         containerColor =
             if (enabled) {
                 MaterialTheme.colorScheme.primaryContainer
@@ -67,6 +74,7 @@ fun ListenUpExtendedFab(
     enabled: Boolean = true,
     isLoading: Boolean = false,
 ) {
+    val haptics = LocalHaptics.current
     val contentColor =
         if (enabled) {
             MaterialTheme.colorScheme.onPrimaryContainer
@@ -75,7 +83,12 @@ fun ListenUpExtendedFab(
         }
 
     ExtendedFloatingActionButton(
-        onClick = { if (enabled && !isLoading) onClick() },
+        onClick = {
+            if (enabled && !isLoading) {
+                haptics.press()
+                onClick()
+            }
+        },
         icon = {
             if (isLoading) {
                 ListenUpLoadingIndicatorSmall(color = contentColor)
