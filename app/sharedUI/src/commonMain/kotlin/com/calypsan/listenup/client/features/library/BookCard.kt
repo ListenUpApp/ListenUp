@@ -175,7 +175,10 @@ fun BookCard(
                             // Our gated haptics.longPress() owns the feel; suppress
                             // combinedClickable's built-in long-press haptic so it doesn't double up.
                             hapticFeedbackEnabled = false,
-                            onClick = onClick,
+                            onClick = {
+                                haptics.press()
+                                onClick()
+                            },
                             onLongClick = {
                                 haptics.longPress()
                                 onLongPress()
@@ -185,7 +188,10 @@ fun BookCard(
                         Modifier.clickable(
                             interactionSource = interactionSource,
                             indication = null,
-                            onClick = onClick,
+                            onClick = {
+                                haptics.press()
+                                onClick()
+                            },
                         )
                     },
                 ),
