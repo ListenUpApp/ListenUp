@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import io.ktor.http.encodeURLParameter
 import kotlin.time.Duration.Companion.milliseconds
@@ -64,28 +65,53 @@ internal suspend fun rpcMountUrl(
  * Latency budget for [mintSocketTicket] — see its KDoc. The mint runs INSIDE [RpcProxyCache.lease],
  * before that call's own `withTimeout` starts, so it sits outside every caller's budget unless
  * bounded here explicitly — on every web reconnect, not just a rare recovery path. A hung mint
- * already degrades gracefully to a ticket-less URL (→ 401 → the existing [RpcAuthRecovery] heal),
- * so this can be short: a failure here costs nothing beyond one extra round-trip through that
- * already-correct heal, so there is no reason to wait anywhere near the 15s RPC default for it.
+ * folds to a transport failure (not an [AuthError]), so it degrades to a ticket-less URL without
+ * burning a refresh, and the next reconnect attempt simply mints again — no reason to wait
+ * anywhere near the 15s RPC default for that.
  */
 private val TICKET_MINT_TIMEOUT = 800.milliseconds
 
 /**
  * Trades this client's access token for a one-connection ticket, or null when there is no session
- * or the server declines.
+ * or the mint cannot be made good.
  *
- * Null is deliberately not an error here. It yields a ticket-less upgrade, which the server answers
- * with a 401, which is precisely the signal [RpcAuthRecovery] already knows how to heal — refresh
- * the token and retry once. Inventing a second recovery path for "the mint failed" would duplicate
- * a mechanism that is already correct, and a stale token is by far the likeliest reason to be here.
+ * **The mint's typed failure is the one auth signal a browser can see.** This function used to
+ * return null on any failure, on the theory that a ticket-less upgrade 401s into the existing
+ * [RpcAuthRecovery] heal — but a DOM `WebSocket` error carries no status code, so on the only
+ * platform that mints tickets that 401 was invisible, the heal never fired, and an expired access
+ * token wedged the client into a reconnect loop the server kept refusing. So the heal runs HERE:
+ * an [AuthError] from the mint is the server saying "that access token is dead", and [recoverAuth]
+ * (the same single-flight [RpcAuthRecovery] the header-carrying platforms use) refreshes it and
+ * the mint retries once with the fresh token.
+ *
+ * Null still falls back to a ticket-less upgrade: for a transient refresh failure the next
+ * reconnect attempt tries again, and for a server-confirmed dead session [RpcAuthRecovery] has
+ * already lapsed the state — a successful later refresh flips it back
+ * (`AuthSessionStore.saveAuthTokens`), which is what makes the lapse recoverable rather than
+ * sticky.
  */
 internal suspend fun mintSocketTicket(
     accessToken: suspend () -> String?,
     authChannel: () -> RpcChannel<AuthServicePublic>,
+    recoverAuth: suspend () -> AuthRecoveryOutcome,
 ): String? {
     val token = accessToken() ?: return null
     // Not idempotent: every call deliberately mints a NEW ticket, so a re-fire is never a no-op.
-    val result =
-        authChannel().call(timeout = TICKET_MINT_TIMEOUT, idempotent = false) { it.issueSocketTicket(token) }
-    return (result as? AppResult.Success)?.data?.value
+    val first = authChannel().call(timeout = TICKET_MINT_TIMEOUT, idempotent = false) { it.issueSocketTicket(token) }
+    when (first) {
+        is AppResult.Success -> {
+            return first.data.value
+        }
+
+        is AppResult.Failure -> {
+            // Only an auth-shaped refusal implicates the token. Burning a rotation on a network
+            // blip would invalidate a sibling tab's refresh token for nothing.
+            if (first.error !is AuthError) return null
+        }
+    }
+    if (recoverAuth() != AuthRecoveryOutcome.Refreshed) return null
+    val fresh = accessToken() ?: return null
+    val retried =
+        authChannel().call(timeout = TICKET_MINT_TIMEOUT, idempotent = false) { it.issueSocketTicket(fresh) }
+    return (retried as? AppResult.Success)?.data?.value
 }

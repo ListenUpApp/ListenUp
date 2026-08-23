@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.remote
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.dto.auth.SocketTicket
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import dev.mokkery.MockMode
 import dev.mokkery.answering.calls
@@ -131,6 +132,7 @@ class WsUpgradeHeadersTest :
                     mintSocketTicket(
                         accessToken = { "header.payload.signature" },
                         authChannel = { RpcChannel.forTest(service) },
+                        recoverAuth = { error("a successful mint must not refresh") },
                     )
 
                 ticket shouldBe "tKt2sM9"
@@ -149,14 +151,83 @@ class WsUpgradeHeadersTest :
                             }
                     }
 
-                val ticket = mintSocketTicket(accessToken = { null }, authChannel = { RpcChannel.forTest(service) })
+                val ticket =
+                    mintSocketTicket(
+                        accessToken = { null },
+                        authChannel = { RpcChannel.forTest(service) },
+                        recoverAuth = { error("no session, nothing to refresh") },
+                    )
 
                 ticket.shouldBeNull()
                 called shouldBe false
             }
         }
 
-        test("a declined mint yields no ticket, so the upgrade 401s into the existing refresh path") {
+        // The mint's typed failure is the ONE auth signal a browser can see. The old fallback —
+        // "a ticket-less URL 401s into the existing refresh path" — assumed the handshake 401 was
+        // observable, but a DOM WebSocket error carries no status code, so on the only platform
+        // that mints tickets the heal never fired and an expired access token wedged the client
+        // into a reconnect loop the server kept refusing.
+        test("a stale-token mint refreshes and mints again with the fresh token") {
+            runTest {
+                var token = "stale.token.here"
+                var recoveries = 0
+                val service =
+                    mock<AuthServicePublic>(MockMode.autofill) {
+                        everySuspend { issueSocketTicket("stale.token.here") } returns
+                            AppResult.Failure(AuthError.SessionExpired())
+                        everySuspend { issueSocketTicket("fresh.token.here") } returns
+                            AppResult.Success(SocketTicket("tKt2sM9"))
+                    }
+
+                val ticket =
+                    mintSocketTicket(
+                        accessToken = { token },
+                        authChannel = { RpcChannel.forTest(service) },
+                        recoverAuth = {
+                            recoveries++
+                            token = "fresh.token.here"
+                            AuthRecoveryOutcome.Refreshed
+                        },
+                    )
+
+                ticket shouldBe "tKt2sM9"
+                recoveries shouldBe 1
+            }
+        }
+
+        test("a dead session yields no ticket and exactly one recovery attempt") {
+            runTest {
+                var recoveries = 0
+                var mints = 0
+                val service =
+                    mock<AuthServicePublic>(MockMode.autofill) {
+                        everySuspend { issueSocketTicket(any()) } calls
+                            {
+                                mints++
+                                AppResult.Failure(AuthError.SessionExpired())
+                            }
+                    }
+
+                val ticket =
+                    mintSocketTicket(
+                        accessToken = { "stale.token.here" },
+                        authChannel = { RpcChannel.forTest(service) },
+                        recoverAuth = {
+                            recoveries++
+                            AuthRecoveryOutcome.SessionInvalid
+                        },
+                    )
+
+                // The session is server-confirmed dead: null lets the lapse path stand — no
+                // second mint, no loop.
+                ticket.shouldBeNull()
+                recoveries shouldBe 1
+                mints shouldBe 1
+            }
+        }
+
+        test("a transiently failed refresh yields no ticket rather than a doomed re-mint") {
             runTest {
                 val service =
                     mock<AuthServicePublic>(MockMode.autofill) {
@@ -168,11 +239,36 @@ class WsUpgradeHeadersTest :
                     mintSocketTicket(
                         accessToken = { "stale.token.here" },
                         authChannel = { RpcChannel.forTest(service) },
+                        recoverAuth = { AuthRecoveryOutcome.Transient },
                     )
 
-                // Not an exception and not a retry here — a ticket-less URL is a 401, and
-                // RpcAuthRecovery already knows how to refresh and retry that exactly once.
                 ticket.shouldBeNull()
+            }
+        }
+
+        test("a non-auth mint failure never triggers a refresh") {
+            runTest {
+                var recoveries = 0
+                val service =
+                    mock<AuthServicePublic>(MockMode.autofill) {
+                        everySuspend { issueSocketTicket(any()) } returns
+                            AppResult.Failure(TransportError.NetworkUnavailable())
+                    }
+
+                val ticket =
+                    mintSocketTicket(
+                        accessToken = { "good.token.here" },
+                        authChannel = { RpcChannel.forTest(service) },
+                        recoverAuth = {
+                            recoveries++
+                            AuthRecoveryOutcome.Refreshed
+                        },
+                    )
+
+                // The token is not the problem — burning a rotation on a network blip would
+                // invalidate a sibling tab's refresh token for nothing.
+                ticket.shouldBeNull()
+                recoveries shouldBe 0
             }
         }
 
@@ -193,6 +289,7 @@ class WsUpgradeHeadersTest :
                     mintSocketTicket(
                         accessToken = { "stale.token.here" },
                         authChannel = { RpcChannel.forTest(service) },
+                        recoverAuth = { AuthRecoveryOutcome.Transient },
                     )
                 val elapsedMs = testScheduler.currentTime - startedAt
 
