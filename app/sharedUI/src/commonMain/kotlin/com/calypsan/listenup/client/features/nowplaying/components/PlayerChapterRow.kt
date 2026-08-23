@@ -48,6 +48,7 @@ fun PlayerChapterRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val shape = RoundedCornerShape(12.dp)
     val containerColor = MaterialTheme.colorScheme.primaryContainer
     val numberColor =
@@ -82,8 +83,10 @@ fun PlayerChapterRow(
                 .clip(shape)
                 .drawBehind {
                     if (isCurrent) drawRect(containerColor)
-                }.clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                }.clickable {
+                    haptics.press()
+                    onClick()
+                }.padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Chapter number — fixed minimum width so titles align.

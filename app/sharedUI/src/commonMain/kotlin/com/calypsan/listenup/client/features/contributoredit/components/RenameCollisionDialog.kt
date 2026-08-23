@@ -52,7 +52,7 @@ fun RenameCollisionDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    haptics.press()
+                    haptics.commit()
                     onMerge()
                 },
             ) {

@@ -118,6 +118,7 @@ private fun AliasChip(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.commit()
                         showConfirm = false
                         onUnmerge()
                     },

@@ -32,7 +32,7 @@ fun RestartBookDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    haptics.press()
+                    haptics.commit()
                     onConfirm()
                 },
             ) {

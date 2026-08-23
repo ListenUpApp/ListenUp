@@ -151,7 +151,12 @@ fun SeriesMergeDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { selected?.let(onConfirm) },
+                onClick = {
+                    selected?.let {
+                        haptics.commit()
+                        onConfirm(it)
+                    }
+                },
                 enabled = selected != null,
             ) {
                 Text(

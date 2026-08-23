@@ -783,6 +783,7 @@ private fun NavigationBar(
     onDeleteClick: () -> Unit,
     surfaceColor: Color,
     applyStatusBarInset: Boolean = true,
+    actionsEnabled: Boolean = true,
 ) {
     HeroNavRow(
         onBack = onBackClick,
@@ -795,6 +796,7 @@ private fun NavigationBar(
                 onDownloadMetadata = onDownloadMetadata,
                 onDeleteClick = onDeleteClick,
                 surfaceColor = surfaceColor,
+                actionsEnabled = actionsEnabled,
             )
         }
     }
@@ -809,6 +811,7 @@ private fun OverflowMenu(
     onDownloadMetadata: () -> Unit,
     onDeleteClick: () -> Unit,
     surfaceColor: Color,
+    actionsEnabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
@@ -846,6 +849,7 @@ private fun OverflowMenu(
                     showMenu = false
                     onEditClick()
                 },
+                enabled = actionsEnabled,
             )
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.contributor_find_on_audible)) },
@@ -855,6 +859,7 @@ private fun OverflowMenu(
                     showMenu = false
                     onDownloadMetadata()
                 },
+                enabled = actionsEnabled,
             )
             HorizontalDivider()
             DropdownMenuItem(
@@ -876,6 +881,7 @@ private fun OverflowMenu(
                     showMenu = false
                     onDeleteClick()
                 },
+                enabled = actionsEnabled,
             )
         }
     }
@@ -1027,6 +1033,9 @@ private fun ContributorDetailLoadingFrame(
                 onDownloadMetadata = {},
                 onDeleteClick = {},
                 surfaceColor = MaterialTheme.colorScheme.surface,
+                // Stub callbacks while the contributor loads: disable the rows so none of
+                // them confirms a tap that does nothing.
+                actionsEnabled = false,
             )
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),

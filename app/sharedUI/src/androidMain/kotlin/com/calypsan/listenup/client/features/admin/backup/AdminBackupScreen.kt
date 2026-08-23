@@ -211,6 +211,7 @@ fun AdminBackupScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.commit()
                         absImportViewModel.deleteImport(import.id)
                         deleteConfirmImport = null
                     },
@@ -247,7 +248,7 @@ private fun DeleteBackupDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    haptics.press()
+                    haptics.commit()
                     onConfirm()
                 },
             ) {

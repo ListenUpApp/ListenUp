@@ -21,6 +21,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 
 /**
@@ -112,6 +113,7 @@ fun ListenUpTextField(
     trailingContent: (@Composable () -> Unit)? = null,
     transform: ((String) -> String)? = null,
 ) {
+    val haptics = LocalHaptics.current
     val isHero = variant == ListenUpTextFieldVariant.Hero
     val heroTextStyle =
         MaterialTheme.typography.headlineSmall.copy(
@@ -166,7 +168,14 @@ fun ListenUpTextField(
                 ?: trailingIcon?.let { icon ->
                     {
                         if (onTrailingClick != null) {
-                            IconButton(onClick = onTrailingClick) { Icon(icon, contentDescription = null) }
+                            // The trailing affordance is a button (reveal password, clear, …), not
+                            // text entry — so it answers back even though the field itself must not.
+                            IconButton(
+                                onClick = {
+                                    haptics.press()
+                                    onTrailingClick()
+                                },
+                            ) { Icon(icon, contentDescription = null) }
                         } else {
                             Icon(icon, contentDescription = null)
                         }

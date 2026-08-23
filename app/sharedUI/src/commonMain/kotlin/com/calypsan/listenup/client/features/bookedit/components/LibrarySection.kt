@@ -70,7 +70,10 @@ fun LibrarySection(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        datePickerState.selectedDateMillis?.let { onAddedAtChange(it) }
+                        datePickerState.selectedDateMillis?.let {
+                            haptics.commit()
+                            onAddedAtChange(it)
+                        }
                         showDatePicker = false
                     },
                 ) {

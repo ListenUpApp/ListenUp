@@ -160,7 +160,10 @@ private fun BannerPill(
                 )
             }
             Button(
-                onClick = onAction,
+                onClick = {
+                    haptics.press()
+                    onAction()
+                },
                 colors =
                     ButtonDefaults.buttonColors(
                         containerColor = onContainer,

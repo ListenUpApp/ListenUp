@@ -405,7 +405,10 @@ private fun CreateCollectionDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onCreate(collectionName.trim()) },
+                onClick = {
+                    haptics.commit()
+                    onCreate(collectionName.trim())
+                },
                 enabled = isValid,
             ) {
                 Text(stringResource(Res.string.library_create_add))

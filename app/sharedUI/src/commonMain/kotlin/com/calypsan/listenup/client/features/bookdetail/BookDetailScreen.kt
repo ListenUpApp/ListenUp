@@ -226,6 +226,9 @@ private fun BookDetailLoadingFrame(
             onAddToCollectionClick = {},
             onShareClick = {},
             onDeleteClick = {},
+            // Every callback above is a stub while the book loads; disable the rows so none
+            // of them confirms a tap that does nothing.
+            actionsEnabled = false,
         )
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.screenMargin),

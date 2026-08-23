@@ -228,10 +228,8 @@ private fun RoleContributorSection(
                         } else {
                             null
                         },
-                    onClick = {
-                        haptics.selectionTick()
-                        onResultSelected(result)
-                    },
+                    // No haptic here: AutocompleteResultItem already ticks for the pick.
+                    onClick = { onResultSelected(result) },
                 )
             },
             placeholder = "Add ${role.displayName.lowercase()}...",

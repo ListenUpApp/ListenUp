@@ -163,6 +163,7 @@ fun FolderRow(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val scheme = MaterialTheme.colorScheme
     val rowBackground = if (selected) scheme.primaryContainer else Color.Transparent
     val tileBackground = if (selected) scheme.primary.copy(alpha = 0.22f) else scheme.surfaceContainerHigh
@@ -221,7 +222,15 @@ fun FolderRow(
                 color = subtitleColor,
             )
         }
-        Box(modifier = Modifier.clip(CircleShape).clickableNoRipple(onToggle).padding(2.dp)) {
+        Box(
+            modifier =
+                Modifier
+                    .clip(CircleShape)
+                    .clickableNoRipple {
+                        haptics.toggle(on = !selected)
+                        onToggle()
+                    }.padding(2.dp),
+        ) {
             SetupCheckbox(on = selected)
         }
         Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
@@ -325,13 +334,9 @@ fun LibrarySummaryCard(
 }
 
 @Composable
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier {
-    val haptics = LocalHaptics.current
-    return this.clickable(
+private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
+    this.clickable(
         interactionSource = remember { MutableInteractionSource() },
         indication = null,
-    ) {
-        haptics.press()
-        onClick()
-    }
-}
+        onClick = onClick,
+    )

@@ -78,7 +78,10 @@ fun IdentifiersSection(
             }
             Switch(
                 checked = abridged,
-                onCheckedChange = onAbridgedChange,
+                onCheckedChange = {
+                    haptics.toggle(on = it)
+                    onAbridgedChange(it)
+                },
             )
         }
     }

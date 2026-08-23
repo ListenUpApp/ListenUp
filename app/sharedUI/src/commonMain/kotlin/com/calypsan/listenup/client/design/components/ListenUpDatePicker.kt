@@ -129,8 +129,10 @@ fun ListenUpDatePicker(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        haptics.commit()
                         datePickerState.selectedDateMillis?.let { millis ->
+                            // Inside the let: OK with nothing selected commits nothing, so it
+                            // must not play the heaviest verb.
+                            haptics.commit()
                             val selectedDate = epochMillisToLocalDate(millis)
                             onValueChange(formatIsoDate(selectedDate))
                         }

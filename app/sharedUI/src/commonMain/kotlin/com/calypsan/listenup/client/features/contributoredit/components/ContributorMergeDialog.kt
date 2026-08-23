@@ -128,7 +128,12 @@ fun ContributorMergeDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { selected?.let(onConfirm) },
+                onClick = {
+                    selected?.let {
+                        haptics.commit()
+                        onConfirm(it)
+                    }
+                },
                 enabled = selected != null,
             ) {
                 Text(stringResource(Res.string.contributor_merge_confirm))

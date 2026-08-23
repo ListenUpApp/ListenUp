@@ -100,7 +100,7 @@ internal fun MergeGenreDialog(
             if (target != null) {
                 TextButton(
                     onClick = {
-                        haptics.press()
+                        haptics.commit()
                         onConfirm(target.id)
                     },
                 ) {

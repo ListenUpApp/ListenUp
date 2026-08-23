@@ -67,6 +67,7 @@ fun BookActionsMenu(
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    actionsEnabled: Boolean = true,
 ) {
     DropdownMenu(
         expanded = expanded,
@@ -77,6 +78,7 @@ fun BookActionsMenu(
             label = stringResource(Res.string.book_detail_edit_book),
             icon = Icons.Default.Edit,
             onClick = onEditClick,
+            enabled = actionsEnabled,
         )
 
         // Find Metadata
@@ -84,6 +86,7 @@ fun BookActionsMenu(
             label = stringResource(Res.string.metadata_match_on_audible),
             icon = Icons.Default.Search,
             onClick = onFindMetadataClick,
+            enabled = actionsEnabled,
         )
 
         HorizontalDivider()
@@ -94,6 +97,7 @@ fun BookActionsMenu(
                 label = stringResource(Res.string.book_detail_mark_as_finished),
                 icon = Icons.Default.CheckCircle,
                 onClick = onMarkCompleteClick,
+                enabled = actionsEnabled,
             )
         }
 
@@ -103,6 +107,7 @@ fun BookActionsMenu(
                 label = stringResource(Res.string.book_detail_mark_as_not_started),
                 icon = Icons.Default.RadioButtonUnchecked,
                 onClick = onMarkNotStartedClick,
+                enabled = actionsEnabled,
             )
         }
 
@@ -112,6 +117,7 @@ fun BookActionsMenu(
                 label = stringResource(Res.string.book_detail_restart_book),
                 icon = Icons.Default.RestartAlt,
                 onClick = onRestartClick,
+                enabled = actionsEnabled,
             )
         }
 
@@ -120,6 +126,7 @@ fun BookActionsMenu(
             label = stringResource(Res.string.book_detail_add_to_shelf),
             icon = Icons.AutoMirrored.Filled.PlaylistAdd,
             onClick = onAddToShelfClick,
+            enabled = actionsEnabled,
         )
 
         // Add to Collection (admin only)
@@ -128,6 +135,7 @@ fun BookActionsMenu(
                 label = stringResource(Res.string.book_detail_add_to_collection),
                 icon = Icons.AutoMirrored.Filled.PlaylistAdd,
                 onClick = onAddToCollectionClick,
+                enabled = actionsEnabled,
             )
         }
 
@@ -136,6 +144,7 @@ fun BookActionsMenu(
             label = stringResource(Res.string.common_share),
             icon = Icons.Default.Share,
             onClick = onShareClick,
+            enabled = actionsEnabled,
         )
 
         // Delete Book (admin only) — not yet implemented
@@ -174,6 +183,7 @@ private fun ActionMenuItem(
     label: String,
     icon: ImageVector,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
     DropdownMenuItem(
@@ -183,5 +193,6 @@ private fun ActionMenuItem(
             haptics.press()
             onClick()
         },
+        enabled = enabled,
     )
 }

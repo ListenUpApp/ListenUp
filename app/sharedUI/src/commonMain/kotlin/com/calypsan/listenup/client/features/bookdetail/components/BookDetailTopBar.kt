@@ -49,6 +49,7 @@ fun BookDetailTopBar(
     onShareClick: () -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
+    actionsEnabled: Boolean = true,
 ) {
     val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
@@ -87,6 +88,7 @@ fun BookDetailTopBar(
                     isComplete = isComplete,
                     hasProgress = hasProgress,
                     isAdmin = isAdmin,
+                    actionsEnabled = actionsEnabled,
                     onEditClick = {
                         showMenu = false
                         onEditClick()

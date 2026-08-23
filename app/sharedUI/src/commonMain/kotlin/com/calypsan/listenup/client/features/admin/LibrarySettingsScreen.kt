@@ -192,10 +192,13 @@ private fun LibrarySettingsContent(
                 Text(stringResource(Res.string.admin_remove_path_from_library_scan, folder.rootPath ?: folder.id))
             },
             confirmButton = {
-                TextButton(onClick = {
-                    onRemoveFolder(folder.id)
-                    folderToRemove = null
-                }) {
+                TextButton(
+                    onClick = {
+                        haptics.commit()
+                        onRemoveFolder(folder.id)
+                        folderToRemove = null
+                    },
+                ) {
                     Text(stringResource(Res.string.common_remove))
                 }
             },
