@@ -12,6 +12,13 @@ interface Haptics {
     /** A discrete value changed during a continuous gesture (scrubber, picker, alphabet index). */
     fun selectionTick()
 
+    /**
+     * A transport button did its thing — skip, chapter step. Distinct from [selectionTick] (which
+     * belongs to continuous gestures) and from [commit] (which is heavier, for actions that
+     * complete): a press is light and safe to repeat five times in a row.
+     */
+    fun press()
+
     /** A switch/toggle flipped. [on] selects the on vs. off feel. */
     fun toggle(on: Boolean)
 
@@ -31,6 +38,8 @@ internal class HapticFeedbackHaptics(
 ) : Haptics {
     override fun selectionTick() = feedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
 
+    override fun press() = feedback.performHapticFeedback(HapticFeedbackType.VirtualKey)
+
     override fun toggle(on: Boolean) =
         feedback.performHapticFeedback(
             if (on) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff,
@@ -46,6 +55,8 @@ internal class HapticFeedbackHaptics(
 /** A [Haptics] that does nothing — the default on platforms/contexts without haptics (Desktop). */
 internal object NoOpHaptics : Haptics {
     override fun selectionTick() = Unit
+
+    override fun press() = Unit
 
     override fun toggle(on: Boolean) = Unit
 
