@@ -151,6 +151,10 @@ private fun FacetChip(
  * [onRemove] is what turns a tag into an applied-filter chip; supplying it adds the dismiss
  * affordance, so the same component covers "this book is Horror" and "you are filtering by
  * Horror".
+ *
+ * A non-null [onClick] makes the pill a real control, not just a styled label — it picks up the
+ * same keyboard contract [FacetChip] does (focusable, `role="button"`, Enter/Space activation),
+ * so a chip that toggles something is reachable without a mouse.
  */
 @Composable
 fun Pill(
@@ -163,7 +167,17 @@ fun Pill(
     Span(attrs = {
         classes("pill")
         if (selected) classes("on")
-        onClick?.let { click -> onClick { click() } }
+        onClick?.let { click ->
+            attr("role", "button")
+            tabIndex(0)
+            onClick { click() }
+            onKeyDown { event ->
+                if (event.key == "Enter" || event.key == " ") {
+                    event.preventDefault()
+                    click()
+                }
+            }
+        }
     }) {
         icon?.let { Icon(it, size = PILL_ICON_SIZE) }
         Text(label)

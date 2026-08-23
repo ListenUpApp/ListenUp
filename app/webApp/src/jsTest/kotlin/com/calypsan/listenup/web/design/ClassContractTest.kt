@@ -36,6 +36,11 @@ import com.calypsan.listenup.web.features.library.contractLibrary
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.web.features.nowplaying.TransportState
+import com.calypsan.listenup.client.presentation.search.SearchUiState
+import com.calypsan.listenup.web.features.search.SearchPage
+import com.calypsan.listenup.web.features.search.bookHit
+import com.calypsan.listenup.web.features.search.contributorHit
+import com.calypsan.listenup.web.features.search.searchResult
 import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
@@ -248,6 +253,71 @@ class ClassContractTest :
                             onOpenLibrary = {},
                             onOpenContributors = {},
                             onOpenBook = {},
+                        )
+                        // Every SearchUiState variant: Idle, TooShort, Searching, Error, a
+                        // zero-hit Results and a populated one. The page joins this contract by
+                        // hand, same as ContributorsPage above — a state nobody adds here is a
+                        // state whose invented classes nothing catches.
+                        SearchPage(
+                            state = SearchUiState.Idle(),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                        )
+                        SearchPage(
+                            state = SearchUiState.TooShort(query = "du", selectedTypes = emptySet()),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                        )
+                        SearchPage(
+                            state = SearchUiState.Searching(query = "dun", selectedTypes = emptySet()),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                        )
+                        SearchPage(
+                            state = SearchUiState.Error(query = "dune", selectedTypes = emptySet(), message = "oops"),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                        )
+                        SearchPage(
+                            state =
+                                SearchUiState.Results(
+                                    query = "zzzzz",
+                                    selectedTypes = emptySet(),
+                                    result = searchResult(query = "zzzzz", hits = emptyList()),
+                                ),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
+                        )
+                        SearchPage(
+                            state =
+                                SearchUiState.Results(
+                                    query = "dune",
+                                    selectedTypes = emptySet(),
+                                    result =
+                                        searchResult(
+                                            query = "dune",
+                                            hits =
+                                                listOf(
+                                                    bookHit("b1", "Dune", author = "Frank Herbert"),
+                                                    contributorHit("c1", "Frank Herbert"),
+                                                ),
+                                            isOfflineResult = true,
+                                        ),
+                                ),
+                            onQueryChanged = {},
+                            onToggleType = {},
+                            onOpenHit = {},
+                            onRetry = {},
                         )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {

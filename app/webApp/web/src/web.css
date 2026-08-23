@@ -967,6 +967,36 @@ body { margin: 0; }
 .cd-series-info { flex:1; min-width:0; }
 .cd-series-name { font-size:15px; font-weight:800; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cd-series-count { font-size:12.5px; color:var(--ink-2); font-weight:500; }
+/* Search — federated results across books, contributors, series and tags. */
+.search-page { width: 100%; padding: 24px 28px 40px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.search-header h3 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); }
+.search-types { display: flex; flex-wrap: wrap; gap: 9px; }
+.search-summary { font-size: 13.5px; color: var(--ink-2); font-weight: 500; }
+
+.search-results { display: flex; flex-direction: column; }
+.search-group + .search-group { margin-top: 22px; }
+.search-group-h { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px 3px; }
+.search-group-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; }
+.search-group-count { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+
+.search-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px; border-radius: 14px; cursor: pointer; }
+.search-row:hover { background: var(--surface-2); }
+.search-row:focus { outline: none; }
+.search-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+.search-badge {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3);
+  display: flex; align-items: center; justify-content: center;
+}
+.search-info { flex-grow: 1; min-width: 0; }
+.search-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-meta { font-size: 13px; color: var(--ink-2); font-weight: 500; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-chevron { color: var(--ink-3); display: flex; flex-shrink: 0; }
+
+.is-error .ico { color: var(--coral); }
+.is-tooshort .ico { color: var(--coral); }
+.is-idle .ico, .is-noresults .ico, .is-searching .ico { color: var(--ink-3); }
+@media (prefers-reduced-motion: no-preference) { .is-searching .ico { animation: scanPulse 1.3s ease-in-out infinite; } }
 
 /* ---- page background ----
    Painted on the root because the shell's own surface does not cover the whole canvas during a

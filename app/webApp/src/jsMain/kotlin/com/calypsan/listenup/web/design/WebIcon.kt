@@ -55,6 +55,9 @@ enum class WebIcon(
     PanelLeft("M4 5h16v14H4z M9.5 5v14"),
     Pause("M8 5h3.2v14H8z M12.8 5H16v14h-3.2z", solid = true),
     Pencil("M4 20h4L20 8l-4-4L4 16z M14.5 5.5l4 4"),
+    Person(
+        "M10 8.5m-3.5 0a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0 M3 20c0-3.4 3.1-5.5 7-5.5s7 2.1 7 5.5",
+    ),
     Play("M8 5l11 7-11 7z", solid = true),
     Search("M11 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0 M20 20l-3.6-3.6"),
     Shield("M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z M9 12l2 2 4-4"),
