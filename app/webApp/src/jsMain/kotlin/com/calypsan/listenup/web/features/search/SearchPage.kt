@@ -37,6 +37,12 @@ import org.jetbrains.compose.web.dom.Text
  * bar and no match highlighting. `SearchRepositoryImpl` returns empty facets and never populates
  * [SearchHit.highlight]; inventing any of those here would be a number or a span this page made
  * up. A hit's row shows only the fields it actually carries — [hitMeta] never fabricates one.
+ *
+ * [openableTypes] names which [SearchHitType]s actually have a destination to navigate to —
+ * decided by the router, not this page, since routes come and go independently of what search can
+ * find. A hit type outside it renders its data with none of the button contract (no tabindex, no
+ * role, no chevron, no click) rather than as a click that silently does nothing — the dead-affordance
+ * shape this kit refuses everywhere else.
  */
 @Composable
 fun SearchPage(
@@ -45,6 +51,7 @@ fun SearchPage(
     onToggleType: (SearchHitType) -> Unit,
     onOpenHit: (SearchHit) -> Unit,
     onRetry: () -> Unit,
+    openableTypes: Set<SearchHitType>,
 ) {
     Div(attrs = { classes("search-page") }) {
         Div(attrs = { classes("search-header") }) { H3 { Text("Search") } }
@@ -66,11 +73,25 @@ fun SearchPage(
         }
 
         when (state) {
-            is SearchUiState.Idle -> IdlePrompt()
-            is SearchUiState.TooShort -> TooShortPrompt()
-            is SearchUiState.Searching -> SearchingPrompt()
-            is SearchUiState.Error -> ErrorPrompt(message = state.message, onRetry = onRetry)
-            is SearchUiState.Results -> ResultsBody(result = state.result, onOpenHit = onOpenHit)
+            is SearchUiState.Idle -> {
+                IdlePrompt()
+            }
+
+            is SearchUiState.TooShort -> {
+                TooShortPrompt()
+            }
+
+            is SearchUiState.Searching -> {
+                SearchingPrompt()
+            }
+
+            is SearchUiState.Error -> {
+                ErrorPrompt(message = state.message, onRetry = onRetry)
+            }
+
+            is SearchUiState.Results -> {
+                ResultsBody(result = state.result, openableTypes = openableTypes, onOpenHit = onOpenHit)
+            }
         }
     }
 }
@@ -97,6 +118,7 @@ private fun SearchField(
 @Composable
 private fun ResultsBody(
     result: SearchResult,
+    openableTypes: Set<SearchHitType>,
     onOpenHit: (SearchHit) -> Unit,
 ) {
     if (result.hits.isEmpty()) {
@@ -104,12 +126,13 @@ private fun ResultsBody(
         return
     }
     Div(attrs = { classes("search-summary") }) { Text(summaryText(result)) }
-    ResultsList(result = result, onOpenHit = onOpenHit)
+    ResultsList(result = result, openableTypes = openableTypes, onOpenHit = onOpenHit)
 }
 
 @Composable
 private fun ResultsList(
     result: SearchResult,
+    openableTypes: Set<SearchHitType>,
     onOpenHit: (SearchHit) -> Unit,
 ) {
     Div(attrs = { classes("search-results") }) {
@@ -124,7 +147,9 @@ private fun ResultsList(
                         Span(attrs = { classes("search-group-label") }) { Text(type.label()) }
                         Span(attrs = { classes("search-group-count") }) { Text(hits.size.toString()) }
                     }
-                    hits.forEach { hit -> SearchRow(hit = hit, onOpen = { onOpenHit(hit) }) }
+                    hits.forEach { hit ->
+                        SearchRow(hit = hit, isOpenable = type in openableTypes, onOpen = { onOpenHit(hit) })
+                    }
                 }
             }
         }
@@ -134,19 +159,24 @@ private fun ResultsList(
 @Composable
 private fun SearchRow(
     hit: SearchHit,
+    isOpenable: Boolean,
     onOpen: () -> Unit,
 ) {
     Div(attrs = {
         classes("search-row")
-        tabIndex(0)
-        attr("role", "button")
-        onKeyDown { event ->
-            if (event.key == "Enter" || event.key == " ") {
-                event.preventDefault()
-                onOpen()
+        if (isOpenable) {
+            tabIndex(0)
+            attr("role", "button")
+            onKeyDown { event ->
+                if (event.key == "Enter" || event.key == " ") {
+                    event.preventDefault()
+                    onOpen()
+                }
             }
+            onClick { onOpen() }
+        } else {
+            classes("is-static")
         }
-        onClick { onOpen() }
     }) {
         if (hit.type == SearchHitType.BOOK) {
             Cover(
@@ -167,7 +197,11 @@ private fun SearchRow(
             hitMeta(hit)?.let { meta -> Div(attrs = { classes("search-meta") }) { Text(meta) } }
         }
 
-        Div(attrs = { classes("search-chevron") }) { Icon(WebIcon.ChevronRight, size = SEARCH_CHEVRON_SIZE) }
+        // The chevron promises "this leads somewhere" — showing it on a hit type with no
+        // destination would be the same dead affordance as the click itself.
+        if (isOpenable) {
+            Div(attrs = { classes("search-chevron") }) { Icon(WebIcon.ChevronRight, size = SEARCH_CHEVRON_SIZE) }
+        }
     }
 }
 

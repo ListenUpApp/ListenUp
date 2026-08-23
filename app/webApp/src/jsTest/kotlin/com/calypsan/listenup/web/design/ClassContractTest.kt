@@ -36,6 +36,7 @@ import com.calypsan.listenup.web.features.library.contractLibrary
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
 import com.calypsan.listenup.web.features.nowplaying.TransportState
+import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.search.SearchPage
 import com.calypsan.listenup.web.features.search.bookHit
@@ -291,6 +292,7 @@ class ClassContractTest :
                             onToggleType = {},
                             onOpenHit = {},
                             onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
                         )
                         SearchPage(
                             state = SearchUiState.TooShort(query = "du", selectedTypes = emptySet()),
@@ -298,6 +300,7 @@ class ClassContractTest :
                             onToggleType = {},
                             onOpenHit = {},
                             onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
                         )
                         SearchPage(
                             state = SearchUiState.Searching(query = "dun", selectedTypes = emptySet()),
@@ -305,6 +308,7 @@ class ClassContractTest :
                             onToggleType = {},
                             onOpenHit = {},
                             onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
                         )
                         SearchPage(
                             state = SearchUiState.Error(query = "dune", selectedTypes = emptySet(), message = "oops"),
@@ -312,6 +316,7 @@ class ClassContractTest :
                             onToggleType = {},
                             onOpenHit = {},
                             onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
                         )
                         SearchPage(
                             state =
@@ -324,7 +329,11 @@ class ClassContractTest :
                             onToggleType = {},
                             onOpenHit = {},
                             onRetry = {},
+                            openableTypes = SearchHitType.entries.toSet(),
                         )
+                        // A book hit (openable — real chevron and button semantics) alongside a
+                        // contributor hit (not in openableTypes — exercises `.is-static`, the
+                        // class a hit type with no destination renders instead of a dead click).
                         SearchPage(
                             state =
                                 SearchUiState.Results(
@@ -345,6 +354,7 @@ class ClassContractTest :
                             onToggleType = {},
                             onOpenHit = {},
                             onRetry = {},
+                            openableTypes = setOf(SearchHitType.BOOK),
                         )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {

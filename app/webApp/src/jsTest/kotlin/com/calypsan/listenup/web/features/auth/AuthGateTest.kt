@@ -20,9 +20,11 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.web.features.contributordetail.fixedContributorDetail
+import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.contributors.fixedContributors
 import com.calypsan.listenup.web.features.library.fakeLibrary
 import com.calypsan.listenup.web.features.nowplaying.fixedPlayback
+import com.calypsan.listenup.web.features.search.fixedSearch
 
 /**
  * Routers created by [mountGate], disposed together after the spec.
@@ -46,6 +48,7 @@ private fun mountGate(graph: FakeAuthGraph): HTMLElement {
             openContributorDetail = fixedContributorDetail(ContributorDetailUiState.Loading),
             openContributors = fixedContributors(emptyList()),
             openLibrary = fakeLibrary(),
+            openSearch = fixedSearch(SearchUiState.Idle()),
             openPlayback = fixedPlayback(),
             observeIsAdmin = { flowOf(false) },
         )

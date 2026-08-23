@@ -16,6 +16,7 @@ import com.calypsan.listenup.web.features.contributordetail.graphContributorDeta
 import com.calypsan.listenup.web.features.contributors.graphContributors
 import com.calypsan.listenup.web.features.library.graphLibrary
 import com.calypsan.listenup.web.features.nowplaying.graphPlayback
+import com.calypsan.listenup.web.features.search.graphSearch
 import com.calypsan.listenup.web.motion.captureHeroOriginBeforeRouteChange
 import com.calypsan.listenup.web.nav.Router
 import kotlinx.browser.document
@@ -71,6 +72,7 @@ fun main() {
                 openContributorDetail = graphContributorDetail(koin),
                 openContributors = graphContributors(koin),
                 openLibrary = graphLibrary(koin),
+                openSearch = graphSearch(koin),
                 openPlayback = graphPlayback(koin),
                 observeIsAdmin = { koin.get<UserRepository>().observeIsAdmin() },
             )

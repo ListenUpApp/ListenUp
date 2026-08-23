@@ -23,6 +23,7 @@ private fun searchPage(
     onToggleType: (SearchHitType) -> Unit = {},
     onOpenHit: (SearchHit) -> Unit = {},
     onRetry: () -> Unit = {},
+    openableTypes: Set<SearchHitType> = SearchHitType.entries.toSet(),
 ): HTMLElement {
     val root = document.createElement("div") as HTMLElement
     document.body?.appendChild(root)
@@ -33,6 +34,7 @@ private fun searchPage(
             onToggleType = onToggleType,
             onOpenHit = onOpenHit,
             onRetry = onRetry,
+            openableTypes = openableTypes,
         )
     }
     return root
@@ -296,5 +298,34 @@ class SearchPageTest :
                 )
 
             root.querySelector(".banner.info") shouldBe null
+        }
+
+        test("a hit type with no destination renders non-interactively, never as a dead click") {
+            // Only BOOK is in openableTypes here — CONTRIBUTOR has no route wired yet. Its row
+            // must show its data but carry none of the button contract: no tabindex, no role, no
+            // chevron promising a destination that doesn't exist, and a click must not fire.
+            val opened = mutableListOf<SearchHit>()
+            val root =
+                searchPage(
+                    state =
+                        SearchUiState.Results(
+                            query = "weir",
+                            selectedTypes = emptySet(),
+                            result = searchResult(query = "weir", hits = listOf(contributorHit("c1", "Andy Weir"))),
+                        ),
+                    onOpenHit = { opened += it },
+                    openableTypes = setOf(SearchHitType.BOOK),
+                )
+
+            val row = root.querySelector(".search-row") as HTMLElement
+            row.textContent!! shouldContain "Andy Weir"
+            row.getAttribute("tabindex") shouldBe null
+            row.getAttribute("role") shouldBe null
+            row.querySelector(".search-chevron") shouldBe null
+            row.classList.contains("is-static") shouldBe true
+
+            row.click()
+
+            opened shouldBe emptyList()
         }
     })

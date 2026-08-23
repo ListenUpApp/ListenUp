@@ -983,6 +983,9 @@ body { margin: 0; }
 .search-row:hover { background: var(--surface-2); }
 .search-row:focus { outline: none; }
 .search-row:focus-visible { outline: 2px solid var(--coral); outline-offset: 3px; }
+/* A hit type with no destination yet — no pointer cursor, no hover fill, nothing that promises a click leads anywhere. */
+.search-row.is-static { cursor: default; }
+.search-row.is-static:hover { background: none; }
 .search-badge {
   width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
   background: var(--surface-2); border: 1px solid var(--line); color: var(--ink-3);
