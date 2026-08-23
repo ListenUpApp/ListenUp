@@ -41,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -77,6 +78,7 @@ fun ShelfPickerSheet(
     onDismiss: () -> Unit,
     isLoading: Boolean = false,
 ) {
+    val haptics = LocalHaptics.current
     var showCreateDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
@@ -162,7 +164,10 @@ fun ShelfPickerSheet(
                         ) { shelf ->
                             ShelfRow(
                                 shelf = shelf,
-                                onClick = { onShelfSelected(shelf.id.value) },
+                                onClick = {
+                                    haptics.commit()
+                                    onShelfSelected(shelf.id.value)
+                                },
                                 enabled = !isLoading,
                             )
                         }
@@ -194,6 +199,7 @@ fun ShelfPickerSheet(
             onDismiss = { showCreateDialog = false },
             onCreate = { name ->
                 showCreateDialog = false
+                haptics.commit()
                 onCreateAndAddToShelf(name)
             },
         )

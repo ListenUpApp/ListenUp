@@ -4,6 +4,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_delete
@@ -21,6 +22,7 @@ fun DeleteDownloadDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     ListenUpDestructiveDialog(
         onDismissRequest = onDismiss,
         title = stringResource(Res.string.book_delete_download),
@@ -29,7 +31,10 @@ fun DeleteDownloadDialog(
                 "This will free up ${formatFileSize(downloadSize)}. " +
                 stringResource(Res.string.book_detail_you_can_redownload_anytime_by),
         confirmText = stringResource(Res.string.common_delete),
-        onConfirm = onConfirm,
+        onConfirm = {
+            haptics.commit()
+            onConfirm()
+        },
         onDismiss = onDismiss,
         icon = Icons.Default.Delete,
     )
