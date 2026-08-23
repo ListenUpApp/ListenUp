@@ -11,13 +11,16 @@ enum NotificationTapOutcome: Equatable {
 
 /// Routes notification taps (system shade AND in-app inbox) to destinations. The DECODE and the
 /// target projection live in Kotlin (`PushTapRouting` — the one mapping, shared with Android);
-/// this type owns the ONE Swift switch from `NotificationTarget` to native outcomes. The shade
-/// entry point (holding a cold-launch tap's outcome until the tab shell mounts) arrives with
-/// `PushCoordinator.didReceive` wiring; the in-app inbox list consumes `outcome(for:)` directly.
-/// Mirrors `DeepLinkRouter`.
+/// this type owns the ONE Swift switch from `NotificationTarget` to native outcomes, and holds a
+/// shade tap's outcome until the tab shell is mounted (cold-launch taps arrive before MainTabView
+/// exists — the state lives on RootView, which outlives the shell). The in-app inbox list consumes
+/// `outcome(for:)` directly, never `pending`. Mirrors `DeepLinkRouter`.
 @Observable
 @MainActor
 final class PushTapRouter {
+    /// A shade tap's resolved destination, held until `MainTabView`'s consumer appends it.
+    private(set) var pending: NotificationTapOutcome?
+
     /// THE target switch. `.unknown` degrades to nil-route (open app) with a log, per house rule.
     nonisolated static func outcome(for target: NotificationTarget) -> NotificationTapOutcome {
         switch onEnum(of: target) {
@@ -33,4 +36,17 @@ final class PushTapRouter {
             return .none
         }
     }
+
+    /// Shade entry point: decode in Kotlin (`PushTapRouting` — null for diagnostics, unknown
+    /// future types, and malformed input, all of which mean "just open the app"), switch here,
+    /// hold until consumed.
+    func handleTap(payloadJson: String?) {
+        guard let raw = payloadJson,
+              let target = PushTapRouting.shared.targetForPayloadJson(raw: raw)
+        else { return }
+        let outcome = Self.outcome(for: target)
+        if outcome != .none { pending = outcome }
+    }
+
+    func consume() { pending = nil }
 }

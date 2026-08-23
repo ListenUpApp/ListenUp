@@ -53,6 +53,9 @@ private struct RootView: View {
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
     @State private var deepLinkRouter = DeepLinkRouter()
+    /// Owned here (not by MainTabView) so a cold-launch shade tap's outcome survives until the
+    /// tab shell mounts; `PushCoordinator` reaches it through its `tapRouter` reference.
+    @State private var pushTapRouter = PushTapRouter()
     @State private var syncSession: SyncSessionController?
     @State private var showReauthSheet = false
     @Environment(\.scenePhase) private var scenePhase
@@ -63,6 +66,7 @@ private struct RootView: View {
             .environment(currentUser)
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
+            .environment(pushTapRouter)
             // Universal links: `.onOpenURL` is the reliable SwiftUI App-lifecycle delivery path
             // (cold launch *and* while running). `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`
             // does not fire for universal links under the SwiftUI lifecycle — kept only as a
@@ -90,8 +94,13 @@ private struct RootView: View {
                 // auth gate (shared) owns resuming the firehose + forced reconcile.
                 if newState == .authenticated { showReauthSheet = false }
                 // Post-auth is the one moment a notification prompt makes sense (Android parity:
-                // AppShell's once-per-session request). No-op on every later transition.
-                if newState == .authenticated { PushCoordinator.shared.activate() }
+                // AppShell's once-per-session request). No-op on every later transition. The tap
+                // router is wired BEFORE activate() so `didReceive` (delegate set inside
+                // activate) can never fire against a nil router; re-assigning is idempotent.
+                if newState == .authenticated {
+                    PushCoordinator.shared.tapRouter = pushTapRouter
+                    PushCoordinator.shared.activate()
+                }
                 activateSyncIfAuthenticated()
             }
             .onChange(of: scenePhase) { _, newPhase in

@@ -12,6 +12,7 @@ import Shared
 struct MainTabView: View {
     @Environment(\.dependencies) private var deps
     @Environment(DeepLinkRouter.self) private var deepLinkRouter
+    @Environment(PushTapRouter.self) private var pushTapRouter
     @State private var selectedTab: Tab = .home
     @State private var playerCoordinator: PlayerCoordinator?
     @State private var bookLinkError: BookLinkError?
@@ -103,6 +104,14 @@ struct MainTabView: View {
                 break
             }
         }
+        // Shade-tap consumer (in-app inbox taps append directly via `routeNotificationTap` —
+        // they never go through `pending`). `initial: true` covers the cold-launch tap held
+        // from before this shell mounted.
+        .onChange(of: pushTapRouter.pending, initial: true) { _, pending in
+            guard let pending else { return }
+            routeNotificationTap(pending, on: selectedTab)
+            pushTapRouter.consume()
+        }
         .alert(item: $bookLinkError) { error in
             Alert(title: Text(error.message))
         }
@@ -183,8 +192,9 @@ struct MainTabView: View {
         paths[selectedTab, default: NavigationPath()].append(ContributorDestination(id: contributorId))
     }
 
-    /// Where an in-app inbox tap lands: append the outcome's destination onto the inbox's own
-    /// tab stack. `.none` (unknown types, campfire until #1065, decision notices) stays put.
+    /// Where a notification tap lands: append the outcome's destination onto the given tab's
+    /// stack. In-app inbox taps pass the inbox's own tab; the shade consumer passes the selected
+    /// tab. `.none` (unknown types, campfire until #1065, decision notices) stays put.
     private func routeNotificationTap(_ outcome: NotificationTapOutcome, on tab: Tab) {
         switch outcome {
         case .book(let id):
