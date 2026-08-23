@@ -180,6 +180,7 @@ private fun CategoryDropdownMenu(
     categories: List<SortCategory>,
     onCategorySelected: (SortCategory) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
@@ -201,7 +202,10 @@ private fun CategoryDropdownMenu(
                             },
                     )
                 },
-                onClick = { onCategorySelected(category) },
+                onClick = {
+                    haptics.selectionTick()
+                    onCategorySelected(category)
+                },
                 leadingIcon =
                     if (isSelected) {
                         {

@@ -70,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpFab
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.domain.model.Genre
@@ -258,11 +259,17 @@ private fun CategoriesTopBar(
     onBackClick: () -> Unit,
     onToggleAll: (allExpanded: Boolean) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Column {
         TopAppBar(
             title = { Text(stringResource(Res.string.common_categories)) },
             navigationIcon = {
-                IconButton(onClick = onBackClick) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onBackClick()
+                    },
+                ) {
                     Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(Res.string.common_back))
                 }
             },
@@ -275,7 +282,10 @@ private fun CategoriesTopBar(
                                 ready.tree.any { root -> hasChildren(root, it.id) }
                             }
                     IconButton(
-                        onClick = { onToggleAll(allExpanded) },
+                        onClick = {
+                            haptics.press()
+                            onToggleAll(allExpanded)
+                        },
                     ) {
                         Icon(
                             imageVector = if (allExpanded) Icons.Outlined.UnfoldLess else Icons.Outlined.UnfoldMore,
@@ -548,6 +558,7 @@ private fun GenreNameDialog(
     onDismiss: () -> Unit,
     subtitle: String? = null,
 ) {
+    val haptics = LocalHaptics.current
     var name by remember { mutableStateOf(initialName) }
 
     AlertDialog(
@@ -577,14 +588,22 @@ private fun GenreNameDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(name.trim()) },
+                onClick = {
+                    haptics.commit()
+                    onConfirm(name.trim())
+                },
                 enabled = name.isNotBlank(),
             ) {
                 Text(confirmLabel)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },
@@ -843,13 +862,25 @@ private fun CategoryRowContent(
     onToggleExpanded: () -> Unit,
     onLongClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .combinedClickable(
-                    onClick = { if (hasChildren) onToggleExpanded() },
-                    onLongClick = onLongClick,
+                    // Our gated haptics.longPress() owns the feel; suppress combinedClickable's
+                    // built-in long-press haptic so it doesn't double up (same as BookCard).
+                    hapticFeedbackEnabled = false,
+                    onClick = {
+                        if (hasChildren) {
+                            haptics.press()
+                            onToggleExpanded()
+                        }
+                    },
+                    onLongClick = {
+                        haptics.longPress()
+                        onLongClick()
+                    },
                 ).padding(
                     start = (16 + node.depth * 24).dp,
                     end = 16.dp,
@@ -926,6 +957,7 @@ private fun CategoryContextMenu(
     onMove: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
@@ -933,6 +965,7 @@ private fun CategoryContextMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.admin_add_subgenre)) },
             onClick = {
+                haptics.press()
                 onDismiss()
                 onAddChild()
             },
@@ -941,6 +974,7 @@ private fun CategoryContextMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.common_rename)) },
             onClick = {
+                haptics.press()
                 onDismiss()
                 onRename()
             },
@@ -949,6 +983,7 @@ private fun CategoryContextMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.admin_merge_into)) },
             onClick = {
+                haptics.press()
                 onDismiss()
                 onMerge()
             },
@@ -957,6 +992,7 @@ private fun CategoryContextMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.admin_move_to)) },
             onClick = {
+                haptics.press()
                 onDismiss()
                 onMove()
             },
@@ -965,6 +1001,7 @@ private fun CategoryContextMenu(
         DropdownMenuItem(
             text = { Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error) },
             onClick = {
+                haptics.press()
                 onDismiss()
                 onDelete()
             },
@@ -1022,6 +1059,7 @@ private fun MoveGenreDialog(
     onConfirmTopLevel: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(Res.string.admin_move_to_named, sourceName)) },
@@ -1032,8 +1070,10 @@ private fun MoveGenreDialog(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { onConfirmTopLevel() }
-                                .padding(vertical = 12.dp),
+                                .clickable {
+                                    haptics.selectionTick()
+                                    onConfirmTopLevel()
+                                }.padding(vertical = 12.dp),
                     ) {
                         Text(
                             text = stringResource(Res.string.admin_top_level),
@@ -1056,8 +1096,10 @@ private fun MoveGenreDialog(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .clickable { onConfirmTarget(candidate.id) }
-                                .padding(vertical = 12.dp),
+                                .clickable {
+                                    haptics.selectionTick()
+                                    onConfirmTarget(candidate.id)
+                                }.padding(vertical = 12.dp),
                     ) {
                         Column {
                             Text(text = candidate.name, style = MaterialTheme.typography.bodyLarge)
@@ -1073,7 +1115,12 @@ private fun MoveGenreDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) { Text(stringResource(Res.string.common_cancel)) }
         },
     )
 }

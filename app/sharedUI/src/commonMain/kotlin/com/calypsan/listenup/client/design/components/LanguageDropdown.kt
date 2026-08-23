@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.Language
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -45,6 +46,7 @@ fun LanguageDropdown(
     modifier: Modifier = Modifier,
     label: String = "Language",
 ) {
+    val haptics = LocalHaptics.current
     var expanded by remember { mutableStateOf(false) }
     var filterText by remember { mutableStateOf("") }
 
@@ -112,6 +114,7 @@ fun LanguageDropdown(
                         )
                     },
                     onClick = {
+                        haptics.selectionTick()
                         onLanguageSelected(null)
                         expanded = false
                     },
@@ -123,6 +126,7 @@ fun LanguageDropdown(
                 DropdownMenuItem(
                     text = { Text(name) },
                     onClick = {
+                        haptics.selectionTick()
                         onLanguageSelected(code)
                         expanded = false
                     },

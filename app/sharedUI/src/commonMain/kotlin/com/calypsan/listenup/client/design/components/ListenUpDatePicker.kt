@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,6 +59,7 @@ fun ListenUpDatePicker(
     modifier: Modifier = Modifier,
     placeholder: String? = null,
 ) {
+    val haptics = LocalHaptics.current
     var showDialog by remember { mutableStateOf(false) }
 
     // Parse the current value to display and for initial picker state
@@ -82,7 +84,12 @@ fun ListenUpDatePicker(
             modifier = Modifier.fillMaxWidth(),
             trailingIcon = {
                 if (value.isNotEmpty()) {
-                    IconButton(onClick = { onValueChange("") }) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onValueChange("")
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Clear,
                             contentDescription = stringResource(Res.string.common_clear_date),
@@ -104,7 +111,10 @@ fun ListenUpDatePicker(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null, // No ripple, the text field handles that
-                    ) { showDialog = true },
+                    ) {
+                        haptics.press()
+                        showDialog = true
+                    },
         )
     }
 
@@ -119,6 +129,7 @@ fun ListenUpDatePicker(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.commit()
                         datePickerState.selectedDateMillis?.let { millis ->
                             val selectedDate = epochMillisToLocalDate(millis)
                             onValueChange(formatIsoDate(selectedDate))
@@ -130,7 +141,12 @@ fun ListenUpDatePicker(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        showDialog = false
+                    },
+                ) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },

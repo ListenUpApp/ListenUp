@@ -80,6 +80,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.PillChip
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.RoleChip
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
@@ -677,6 +678,7 @@ private fun RegistrationPolicyControl(
     onChange: (RegistrationPolicy) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val options = listOf(RegistrationPolicy.OPEN, RegistrationPolicy.APPROVAL_QUEUE, RegistrationPolicy.CLOSED)
     Column(
         modifier = modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
@@ -710,7 +712,12 @@ private fun RegistrationPolicyControl(
             options.forEachIndexed { index, option ->
                 SegmentedButton(
                     selected = policy == option,
-                    onClick = { if (policy != option) onChange(option) },
+                    onClick = {
+                        if (policy != option) {
+                            haptics.selectionTick()
+                            onChange(option)
+                        }
+                    },
                     enabled = !isToggling,
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                 ) {
@@ -852,6 +859,7 @@ private fun UserRow(
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val isRoot = user.isRoot || user.role == "admin"
     val roleLabel =
         if (user.isRoot) {
@@ -875,7 +883,12 @@ private fun UserRow(
                 if (isDeleting) {
                     ListenUpLoadingIndicatorSmall()
                 } else {
-                    IconButton(onClick = onDeleteClick) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            onDeleteClick()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.Outlined.Delete,
                             contentDescription = stringResource(Res.string.common_delete),
@@ -939,6 +952,7 @@ private fun PendingUserRow(
     onApproveClick: () -> Unit,
     onDenyClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val name =
         user.displayName
             ?: "${user.firstName ?: ""} ${user.lastName ?: ""}".trim().ifEmpty { user.email }
@@ -961,14 +975,24 @@ private fun PendingUserRow(
 
                 compact -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        OutlinedIconButton(onClick = onDenyClick) {
+                        OutlinedIconButton(
+                            onClick = {
+                                haptics.press()
+                                onDenyClick()
+                            },
+                        ) {
                             Icon(
                                 imageVector = Icons.Outlined.Close,
                                 contentDescription = denyLabel,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
-                        FilledTonalIconButton(onClick = onApproveClick) {
+                        FilledTonalIconButton(
+                            onClick = {
+                                haptics.press()
+                                onApproveClick()
+                            },
+                        ) {
                             Icon(
                                 imageVector = Icons.Outlined.Check,
                                 contentDescription = approveLabel,
@@ -980,7 +1004,12 @@ private fun PendingUserRow(
 
                 else -> {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onDenyClick) {
+                        OutlinedButton(
+                            onClick = {
+                                haptics.press()
+                                onDenyClick()
+                            },
+                        ) {
                             Icon(
                                 imageVector = Icons.Outlined.Close,
                                 contentDescription = null,
@@ -989,7 +1018,12 @@ private fun PendingUserRow(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(denyLabel)
                         }
-                        FilledTonalButton(onClick = onApproveClick) {
+                        FilledTonalButton(
+                            onClick = {
+                                haptics.press()
+                                onApproveClick()
+                            },
+                        ) {
                             Icon(
                                 imageVector = Icons.Outlined.Check,
                                 contentDescription = null,
@@ -1039,6 +1073,7 @@ private fun InviteRow(
     onCopyClick: () -> Unit,
     onRevokeClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     SettingRow(
         icon = Icons.Outlined.PersonAdd,
         accent = accent,
@@ -1051,7 +1086,12 @@ private fun InviteRow(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             RoleChip(label = invite.role.replaceFirstChar { it.uppercase() })
-            IconButton(onClick = onCopyClick) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onCopyClick()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.ContentCopy,
                     contentDescription = stringResource(Res.string.admin_copy_link),
@@ -1061,7 +1101,12 @@ private fun InviteRow(
             if (isRevoking) {
                 ListenUpLoadingIndicatorSmall()
             } else {
-                IconButton(onClick = onRevokeClick) {
+                IconButton(
+                    onClick = {
+                        haptics.press()
+                        onRevokeClick()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
                         contentDescription = stringResource(Res.string.common_revoke),
@@ -1120,6 +1165,7 @@ private fun PasswordResetRow(
     onApproveClick: () -> Unit,
     onDenyClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val approveLabel = stringResource(Res.string.admin_approve_reset)
     val denyLabel = stringResource(Res.string.admin_deny_reset)
     SettingRow(
@@ -1138,14 +1184,24 @@ private fun PasswordResetRow(
             ListenUpLoadingIndicatorSmall()
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                OutlinedIconButton(onClick = onDenyClick) {
+                OutlinedIconButton(
+                    onClick = {
+                        haptics.press()
+                        onDenyClick()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = denyLabel,
                         modifier = Modifier.size(18.dp),
                     )
                 }
-                FilledTonalIconButton(onClick = onApproveClick) {
+                FilledTonalIconButton(
+                    onClick = {
+                        haptics.press()
+                        onApproveClick()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.Outlined.Check,
                         contentDescription = approveLabel,
@@ -1172,6 +1228,7 @@ private fun PasswordResetCodeDialog(
     onCopyClick: () -> Unit,
     onDone: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val name = recipientName ?: stringResource(Res.string.admin_reset_code_recipient_fallback)
     AlertDialog(
         onDismissRequest = {},
@@ -1201,12 +1258,22 @@ private fun PasswordResetCodeDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDone) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDone()
+                },
+            ) {
                 Text(stringResource(Res.string.admin_reset_code_done))
             }
         },
         dismissButton = {
-            TextButton(onClick = onCopyClick) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onCopyClick()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.ContentCopy,
                     contentDescription = null,
