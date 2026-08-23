@@ -12,6 +12,13 @@ interface Haptics {
     /** A discrete value changed during a continuous gesture (scrubber, picker, alphabet index). */
     fun selectionTick()
 
+    /**
+     * A transport button did its thing — skip, chapter step. Distinct from [selectionTick] (which
+     * belongs to continuous gestures) and from [commit] (which is heavier, for actions that
+     * complete): a press is light and safe to repeat five times in a row.
+     */
+    fun press()
+
     /** A switch/toggle flipped. [on] selects the on vs. off feel. */
     fun toggle(on: Boolean)
 
@@ -21,7 +28,7 @@ interface Haptics {
     /** A gesture crossed an activation threshold (pull-to-refresh fired, a drag was picked up). */
     fun thresholdActivate()
 
-    /** A deliberate action committed (a swipe action, a sleep timer firing). */
+    /** A deliberate action completed — a download started, a delete confirmed, a book shelved. */
     fun commit()
 }
 
@@ -30,6 +37,10 @@ internal class HapticFeedbackHaptics(
     private val feedback: HapticFeedback,
 ) : Haptics {
     override fun selectionTick() = feedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
+
+    // iOS maps this verb to `.impact(weight: .light)` deliberately; the platforms are meant to
+    // differ here, so don't "fix" either side into parity.
+    override fun press() = feedback.performHapticFeedback(HapticFeedbackType.VirtualKey)
 
     override fun toggle(on: Boolean) =
         feedback.performHapticFeedback(
@@ -40,12 +51,16 @@ internal class HapticFeedbackHaptics(
 
     override fun thresholdActivate() = feedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
 
+    // iOS maps this verb to `.success` — Apple's notification family is what "a task completed"
+    // means there. The divergence is the point; don't "fix" either side into parity.
     override fun commit() = feedback.performHapticFeedback(HapticFeedbackType.Confirm)
 }
 
 /** A [Haptics] that does nothing — the default on platforms/contexts without haptics (Desktop). */
 internal object NoOpHaptics : Haptics {
     override fun selectionTick() = Unit
+
+    override fun press() = Unit
 
     override fun toggle(on: Boolean) = Unit
 

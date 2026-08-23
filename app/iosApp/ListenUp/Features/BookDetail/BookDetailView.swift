@@ -16,6 +16,9 @@ struct BookDetailView: View {
     @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: BookDetailObserver?
     @State private var readersObserver: BookReadersObserver?
+    /// Counts completed book actions (download, delete download, mark finished) so `commit`
+    /// fires once per deliberate action.
+    @State private var bookActionCount = 0
 
     var body: some View {
         Group {
@@ -117,6 +120,10 @@ struct BookDetailView: View {
                 }
             }
             .padding(.bottom, 32)
+            // One modifier for every book action, above the layout branch. `resumeBar` and
+            // `actionPills` are siblings in whichever branch renders, so a modifier on each
+            // would put two in the hierarchy at once and fire `.success` twice per tap.
+            .haptic(.commit, trigger: bookActionCount)
         }
     }
 
@@ -250,9 +257,15 @@ struct BookDetailView: View {
             canDownload: observer.canDownload,
             isPlayPending: observer.isPlayPending,
             onResume: { observer.play() },
-            onDownload: { observer.downloadBook() },
+            onDownload: {
+                bookActionCount += 1
+                observer.downloadBook()
+            },
             onCancelDownload: { observer.cancelDownload() },
-            onDeleteDownload: { observer.deleteDownload() }
+            onDeleteDownload: {
+                bookActionCount += 1
+                observer.deleteDownload()
+            }
         )
     }
 
@@ -272,7 +285,10 @@ struct BookDetailView: View {
             isComplete: observer.isComplete,
             isMarkingComplete: observer.isMarkingComplete,
             onAddToShelf: { observer.openShelfPicker() },
-            onMarkFinished: { observer.markFinished() }
+            onMarkFinished: {
+                bookActionCount += 1
+                observer.markFinished()
+            }
         )
     }
 

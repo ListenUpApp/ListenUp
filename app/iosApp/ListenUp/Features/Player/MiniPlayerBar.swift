@@ -22,6 +22,10 @@ struct MiniPlayerBar: View {
     /// Counts user taps on play/pause so the haptic fires only on a deliberate tap — not on
     /// programmatic `isPlaying` changes (audio-session interruptions, route changes, end of book).
     @State private var playPauseTapCount = 0
+    /// The state the tap *moves to*, captured at tap time. Reading `isPlaybackActive` in the
+    /// modifier would race the Kotlin StateFlow's trip through FlowBridge, so the verb could
+    /// describe the state we just left. Mirrors Compose's `haptics.toggle(on = !isPlaying)`.
+    @State private var playPauseWillBeActive = false
 
     var body: some View {
         Button(action: onTap) {
@@ -173,6 +177,7 @@ struct MiniPlayerBar: View {
 
     private var playPauseButton: some View {
         Button {
+            playPauseWillBeActive = !observer.isPlaybackActive
             playPauseTapCount += 1
             observer.togglePlayback()
         } label: {
@@ -205,6 +210,6 @@ struct MiniPlayerBar: View {
                     ? String(localized: "player.pause")
                     : String(localized: "player.play"))
         )
-        .haptic(.toggleOn, trigger: playPauseTapCount)
+        .haptic(playPauseWillBeActive ? .toggleOn : .toggleOff, trigger: playPauseTapCount)
     }
 }

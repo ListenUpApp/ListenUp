@@ -79,7 +79,7 @@ struct NotificationPrefsView: View {
                         title: String(localized: "notifications.settings_in_app"),
                         isOn: inAppBinding(row, observer: observer)
                     )
-                    .haptic(.toggleOn, trigger: row.inApp)
+                    .haptic(row.inApp ? .toggleOn : .toggleOff, trigger: row.inApp)
                 case .push:
                     // ToggleRow has no disabled affordance of its own (its only state affordance is
                     // isBusy, which swaps in a spinner), so ineligibility wraps the row here:
@@ -89,7 +89,7 @@ struct NotificationPrefsView: View {
                         title: String(localized: "notifications.settings_push"),
                         isOn: pushBinding(row, observer: observer)
                     )
-                    .haptic(.toggleOn, trigger: row.push)
+                    .haptic(row.push ? .toggleOn : .toggleOff, trigger: row.push)
                     .disabled(!row.pushEligible)
                     .opacity(row.pushEligible ? 1 : 0.45)
                 }

@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.util.formatDateLong
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -57,6 +58,7 @@ fun MarkCompleteDialog(
     onConfirm: (startedAt: Long, finishedAt: Long) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val now = remember { currentEpochMilliseconds() }
 
     // Initial values: startedAt from existing progress or today, finishedAt = today
@@ -90,7 +92,10 @@ fun MarkCompleteDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(startDateMillis, finishDateMillis) }) {
+            TextButton(onClick = {
+                haptics.commit()
+                onConfirm(startDateMillis, finishDateMillis)
+            }) {
                 Text(stringResource(Res.string.book_detail_mark_as_read))
             }
         },

@@ -20,6 +20,7 @@ class HapticFeedbackHapticsTest :
             val haptics = HapticFeedbackHaptics(recorder)
 
             haptics.selectionTick()
+            haptics.press()
             haptics.toggle(on = true)
             haptics.toggle(on = false)
             haptics.longPress()
@@ -29,6 +30,7 @@ class HapticFeedbackHapticsTest :
             recorder.performed shouldBe
                 listOf(
                     HapticFeedbackType.SegmentTick,
+                    HapticFeedbackType.VirtualKey,
                     HapticFeedbackType.ToggleOn,
                     HapticFeedbackType.ToggleOff,
                     HapticFeedbackType.LongPress,

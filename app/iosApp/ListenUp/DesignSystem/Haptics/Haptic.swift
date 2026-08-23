@@ -5,6 +5,7 @@ import SwiftUI
 /// haptics setting.
 enum Haptic {
     case selectionTick
+    case press
     case toggleOn
     case toggleOff
     case longPress
@@ -15,9 +16,13 @@ enum Haptic {
     var feedback: SensoryFeedback {
         switch self {
         case .selectionTick: .selection
+        // A transport press: the restrained end of Apple's palette, not a notification buzz.
+        case .press: .impact(weight: .light)
         case .toggleOn, .toggleOff, .longPress: .impact(weight: .light)
         case .thresholdActivate: .impact(flexibility: .rigid)
-        case .commit: .impact(weight: .medium)
+        // Apple's notification family means "a task completed" — that is exactly this verb.
+        // Android maps the same verb to Confirm; the platforms are meant to differ here.
+        case .commit: .success
         }
     }
 

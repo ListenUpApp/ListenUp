@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -54,6 +55,7 @@ fun DownloadButton(
     enabled: Boolean = true,
     shape: Shape = MaterialTheme.shapes.medium,
 ) {
+    val haptics = LocalHaptics.current
     val containerColor =
         if (enabled) {
             MaterialTheme.colorScheme.secondaryContainer
@@ -80,7 +82,13 @@ fun DownloadButton(
         ) {
             when (status) {
                 is BookDownloadStatus.NotDownloaded -> {
-                    IconButton(onClick = onDownloadClick, enabled = enabled) {
+                    IconButton(
+                        onClick = {
+                            haptics.commit()
+                            onDownloadClick()
+                        },
+                        enabled = enabled,
+                    ) {
                         Icon(
                             Icons.Outlined.Download,
                             contentDescription = stringResource(Res.string.book_detail_download_book),
@@ -138,7 +146,13 @@ fun DownloadButton(
                 is BookDownloadStatus.Failed,
                 is BookDownloadStatus.Paused,
                 -> {
-                    IconButton(onClick = onDownloadClick, enabled = enabled) {
+                    IconButton(
+                        onClick = {
+                            haptics.commit()
+                            onDownloadClick()
+                        },
+                        enabled = enabled,
+                    ) {
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = stringResource(Res.string.book_detail_retry_download),
