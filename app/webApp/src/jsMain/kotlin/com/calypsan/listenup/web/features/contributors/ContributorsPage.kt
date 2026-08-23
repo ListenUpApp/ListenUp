@@ -9,7 +9,8 @@ import com.calypsan.listenup.web.design.FacetRow
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.LibraryFacet
 import com.calypsan.listenup.web.design.WebIcon
-import com.calypsan.listenup.web.design.tintGradient
+import com.calypsan.listenup.web.design.avatarTintFor
+import com.calypsan.listenup.web.design.initialsFor
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
@@ -154,45 +155,6 @@ private fun roleLabel(role: ContributorRole): String = if (role == ContributorRo
 
 /** "1 book" vs "6 books" — the artboard only ever shows the plural, but a one-book credit is real. */
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
-
-/** Up to two initials: the first letter of the first and last name tokens, or just one for a single-word name. */
-private fun initialsFor(name: String): String {
-    val parts = name.trim().split(WHITESPACE).filter { it.isNotBlank() }
-    return when {
-        parts.isEmpty() -> "?"
-        parts.size == 1 -> parts.first().take(1).uppercase()
-        else -> (parts.first().take(1) + parts.last().take(1)).uppercase()
-    }
-}
-
-/**
- * A stable, name-derived tint for a contributor's avatar.
- *
- * Shares [tintGradient] with [com.calypsan.listenup.web.design.Cover]'s fallback for a book with
- * no artwork — the same hash-the-string-into-a-hue trick, tuned darker and more saturated so
- * two-letter initials stay legible at 58px against it.
- */
-private fun avatarTintFor(name: String): String =
-    tintGradient(
-        seed = name,
-        angleDegrees = AVATAR_GRADIENT_ANGLE,
-        firstSaturation = AVATAR_FIRST_SATURATION,
-        firstLightness = AVATAR_FIRST_LIGHTNESS,
-        secondSaturation = AVATAR_SECOND_SATURATION,
-        secondLightness = AVATAR_SECOND_LIGHTNESS,
-    )
-
-private val WHITESPACE = Regex("\\s+")
-
-private const val AVATAR_GRADIENT_ANGLE = 150
-
-private const val AVATAR_FIRST_SATURATION = 42
-
-private const val AVATAR_FIRST_LIGHTNESS = 20
-
-private const val AVATAR_SECOND_SATURATION = 46
-
-private const val AVATAR_SECOND_LIGHTNESS = 8
 
 private const val CHEVRON_SIZE = 20
 
