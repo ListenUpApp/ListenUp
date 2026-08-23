@@ -58,27 +58,30 @@ fun LibraryPage(
     onSelectFacet: (LibraryFacet) -> Unit,
     heroBookId: String? = null,
 ) {
+    // Header and facet row render in EVERY state, because they are navigation rather than data: a
+    // first sync can run for minutes, and hiding the row until the books land would strand a reader
+    // at "Loading…" with no way to reach the people already in their library — an error state would
+    // strand them for good. Sorting is the exception, and stays with the loaded branch: offering to
+    // reorder nothing is an affordance whose only outcome is nothing.
+    Div(attrs = { classes("lib-header") }) {
+        H3 { Text("Library") }
+        if (state is LibraryUiState.Loaded) SortControl(state, onEvent)
+    }
+    FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
+
     when (state) {
         is LibraryUiState.Loading -> Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
         is LibraryUiState.Error -> Div(attrs = { classes("empty") }) { P { Text(state.message) } }
-        is LibraryUiState.Loaded -> LoadedLibrary(state, onEvent, onOpenBook, onSelectFacet, heroBookId)
+        is LibraryUiState.Loaded -> LoadedLibrary(state, onOpenBook, heroBookId)
     }
 }
 
 @Composable
 private fun LoadedLibrary(
     state: LibraryUiState.Loaded,
-    onEvent: (LibraryUiEvent) -> Unit,
     onOpenBook: (String) -> Unit,
-    onSelectFacet: (LibraryFacet) -> Unit,
     heroBookId: String?,
 ) {
-    Div(attrs = { classes("lib-header") }) {
-        H3 { Text("Library") }
-        SortControl(state, onEvent)
-    }
-    FacetRow(active = LibraryFacet.Books, onSelect = onSelectFacet)
-
     if (state.books.isEmpty()) {
         EmptyLibrary(isBuilding = state.isBuildingInitialLibrary)
         return
