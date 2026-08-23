@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.bookdetail
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.web.design.BookMarkdown
 import com.calypsan.listenup.web.design.Breadcrumb
@@ -22,6 +23,7 @@ import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
+import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 
 /**
@@ -44,6 +46,10 @@ import org.jetbrains.compose.web.dom.Text
  * [onPlay] has no default for the same reason `WebAppRoot`'s `openPlayback` has none: a defaulted
  * no-op here would render a real, enabled Play button — gated on the book's own `canPlay`, which
  * knows nothing about whether a handler was supplied — and compile clean.
+ *
+ * [onOpenContributor] reports a tap or activation on one of the byline's names, carrying that
+ * person's [BookContributor.id]. The page stays pure the same way [onEdit] and [onPlay] keep it
+ * pure: navigating to that person's own page is `WebAppRoot`'s call, not this one's.
  */
 @Composable
 fun BookDetailPage(
@@ -53,6 +59,7 @@ fun BookDetailPage(
     onOpenLibrary: () -> Unit,
     onPlay: () -> Unit,
     onEdit: () -> Unit = {},
+    onOpenContributor: (String) -> Unit = {},
     selection: Set<Int> = emptySet(),
     onSelectionChange: (Set<Int>) -> Unit = {},
     bookId: String? = null,
@@ -62,7 +69,13 @@ fun BookDetailPage(
         // cannot show what you asked for must still show the way out of it.
         Breadcrumb(listOf("Library", crumb(state)), onNavigate = { onOpenLibrary() })
 
-        SharedHeader(state = state, bookId = bookId, onPlay = onPlay, onEdit = onEdit)
+        SharedHeader(
+            state = state,
+            bookId = bookId,
+            onPlay = onPlay,
+            onEdit = onEdit,
+            onOpenContributor = onOpenContributor,
+        )
 
         when (state) {
             is BookDetailUiState.Loading -> {
@@ -150,6 +163,7 @@ private fun SharedHeader(
     bookId: String?,
     onPlay: () -> Unit,
     onEdit: () -> Unit,
+    onOpenContributor: (String) -> Unit,
 ) {
     // Error renders no header at all: a page that cannot show the book must not show a cover and
     // the word "Loading" above the reason it failed. `BookDetailPanesTest` and `BookDetailTest`
@@ -175,7 +189,7 @@ private fun SharedHeader(
                 Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
             } else {
                 H1(attrs = { classes("bd-t") }) { Text(ready.book.title) }
-                byline(ready)?.let { line -> Div(attrs = { classes("bd-by") }) { Text(line) } }
+                Byline(ready, onOpenContributor)
                 ready.progress?.let { fraction ->
                     ProgressLine(
                         percent = (fraction * PERCENT).toInt(),
@@ -189,7 +203,7 @@ private fun SharedHeader(
                     if (ready.canPlay) {
                         Button(attrs = {
                             classes("btn")
-                            attr("type", "button")
+                            attr("type", BUTTON_VALUE)
                             onClick { onPlay() }
                         }) {
                             Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
@@ -200,7 +214,7 @@ private fun SharedHeader(
                     // BookDetailEditButtonTest pins both the label and that it matches Play's height.
                     Button(attrs = {
                         classes("btn-sq")
-                        attr("type", "button")
+                        attr("type", BUTTON_VALUE)
                         attr("aria-label", "Edit book")
                         attr("title", "Edit book")
                         onClick { onEdit() }
@@ -230,7 +244,7 @@ private fun BookHeader(
         )
         Div(attrs = { classes("bd-tblock") }) {
             H1(attrs = { classes("bd-t") }) { Text(state.book.title) }
-            byline(state)?.let { line -> Div(attrs = { classes("bd-by") }) { Text(line) } }
+            Byline(state, onOpenContributor = {})
             // Only a book actually in progress gets a progress line — a 0% bar on an unstarted
             // book is decoration that reads as data.
             state.progress?.let { fraction ->
@@ -245,7 +259,7 @@ private fun BookHeader(
                 Div(attrs = { classes("bd-actions") }) {
                     Button(attrs = {
                         classes("btn-c")
-                        attr("type", "button")
+                        attr("type", BUTTON_VALUE)
                         onClick { onPlay() }
                     }) {
                         Icon(WebIcon.Play, size = PLAY_ICON_SIZE)
@@ -307,11 +321,71 @@ private fun details(state: BookDetailUiState.Ready): List<MetaEntry> =
         if (state.book.narratorNames.isNotBlank()) add(MetaEntry("Narrator", state.book.narratorNames))
     }
 
-/** "Author · read by Narrator", dropping either half when the book doesn't name it. */
-private fun byline(state: BookDetailUiState.Ready): String? {
-    val authors = state.book.authorNames.takeIf { it.isNotBlank() }
-    val narrators = state.narrators.takeIf { it.isNotBlank() }?.let { "read by $it" }
-    return listOfNotNull(authors, narrators).joinToString(" · ").takeIf { it.isNotBlank() }
+/**
+ * "Author · read by Narrator", dropping either half when the book doesn't name it — same sentence
+ * [byline] used to render as a flat string, but every person in it is now their own activatable
+ * control carrying [BookContributor.id], not a name a caller would have to look back up.
+ *
+ * Renders nothing at all, not an empty `.bd-by`, when the book names neither an author nor a
+ * narrator — an empty container is a blank line a reader has to explain to themselves.
+ */
+@Composable
+private fun Byline(
+    state: BookDetailUiState.Ready,
+    onOpenContributor: (String) -> Unit,
+) {
+    val authors = state.book.authors
+    val narrators = state.book.narrators
+    if (authors.isEmpty() && narrators.isEmpty()) return
+
+    Div(attrs = { classes("bd-by") }) {
+        if (authors.isNotEmpty()) {
+            ContributorNames(authors, onOpenContributor)
+        }
+        if (authors.isNotEmpty() && narrators.isNotEmpty()) {
+            Text(" $BYLINE_SEPARATOR read by ")
+        } else if (narrators.isNotEmpty()) {
+            Text("read by ")
+        }
+        if (narrators.isNotEmpty()) {
+            ContributorNames(narrators, onOpenContributor)
+        }
+    }
+}
+
+/** One half of the byline: [contributors]' names, comma-joined, each its own activatable control. */
+@Composable
+private fun ContributorNames(
+    contributors: List<BookContributor>,
+    onOpen: (String) -> Unit,
+) {
+    contributors.forEachIndexed { index, contributor ->
+        if (index > 0) Text(", ")
+        ContributorNameLink(contributor, onOpen)
+    }
+}
+
+/**
+ * One person's name in the byline — focusable and keyboard-activatable to the same standard as
+ * `.lib-card` and `.contrib-row`, since activating it is the same kind of navigation they offer.
+ */
+@Composable
+private fun ContributorNameLink(
+    contributor: BookContributor,
+    onOpen: (String) -> Unit,
+) {
+    Span(attrs = {
+        classes("bd-by-name")
+        tabIndex(0)
+        attr("role", BUTTON_VALUE)
+        onKeyDown { event ->
+            if (event.key == "Enter" || event.key == " ") {
+                event.preventDefault()
+                onOpen(contributor.id)
+            }
+        }
+        onClick { onOpen(contributor.id) }
+    }) { Text(contributor.name) }
 }
 
 private fun crumb(state: BookDetailUiState): String = if (state is BookDetailUiState.Ready) state.book.title else "Book"
@@ -369,6 +443,12 @@ internal fun PaneHint(text: String) {
 }
 
 private const val PERCENT = 100
+
+/** The byline's author/narrator divider — "Author · read by Narrator". */
+private const val BYLINE_SEPARATOR = "·"
+
+/** `type="button"` on every `<button>` here, and `role="button"` on the byline's name spans. */
+private const val BUTTON_VALUE = "button"
 
 /** Shared with the library grid's tapped tile, so the cover flies between the two. */
 const val HERO_COVER = "book-cover"

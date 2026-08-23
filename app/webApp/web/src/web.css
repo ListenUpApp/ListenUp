@@ -541,6 +541,11 @@ body { margin: 0; }
 .bd-tblock { display:flex; flex-direction:column; gap:10px; min-width:0; flex:1; }
 .bd-t { margin:0; font-size:34px; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
 .bd-by { font-size:15px; font-weight:600; color:var(--ink-2); }
+/* A byline name is a control, not decoration — same activation contract as `.contrib-row`. */
+.bd-by-name { cursor:pointer; border-radius:4px; }
+.bd-by-name:hover { color:var(--coral); text-decoration:underline; }
+.bd-by-name:focus { outline:none; }
+.bd-by-name:focus-visible { outline:2px solid var(--coral); outline-offset:2px; }
 /* One action, deliberately: a browser cannot finish a download, so Play stands alone. */
 .bd-actions { display:flex; gap:10px; margin-top:4px; }
 /* The About body. `BookMarkdown` emits its own <p> runs, so the type lives here rather than as
@@ -896,6 +901,72 @@ body { margin: 0; }
 .contrib-role-chip.is-narrator { background: var(--surface-3); color: var(--ink-2); }
 .contrib-book-count { font-size: 13px; color: var(--ink-2); font-weight: 500; }
 .contrib-chevron { color: var(--ink-3); display: flex; }
+
+/* Contributor Detail — the person behind the books. Values pulled from the approved artboard;
+   `.cd` itself mirrors `.bd`'s page-container shape (width, max-width, gap). */
+.cd { width:100%; padding:24px 28px 40px; max-width:1160px; margin:0 auto; display:flex; flex-direction:column; gap:20px; }
+.cd-hero { display:flex; align-items:center; gap:22px; }
+.cd-avatar {
+  width:104px; height:104px; border-radius:999px; flex-shrink:0;
+  color:#FFFFFF; display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:35px; letter-spacing:-0.01em;
+  box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--coral);
+}
+.cd-name-block { flex:1; min-width:0; }
+.cd-name { margin:0; font-size:42px; font-weight:800; letter-spacing:-0.04em; line-height:1.04; color:var(--ink); }
+.cd-roles { display:flex; align-items:center; gap:8px; margin-top:10px; }
+.cd-role-chip {
+  height:23px; padding:0 10px; border-radius:999px; display:inline-flex; align-items:center;
+  font-size:11.5px; font-weight:800; letter-spacing:0.02em; background:var(--coral-soft); color:var(--coral);
+}
+.cd-role-chip.is-muted { background:var(--surface-3); color:var(--ink-2); }
+.cd-alias { font-size:13px; font-weight:500; color:var(--ink-3); }
+.cd-stats { display:flex; gap:10px; margin-top:14px; }
+.cd-stat {
+  display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 14px 0 11px; border-radius:999px;
+  background:var(--surface); border:1px solid var(--line); color:var(--ink-2);
+}
+.cd-stat-label { font-size:13.5px; font-weight:700; color:var(--ink); }
+/* Panel wrappers carry no look of their own — Panel draws the card — but need to shrink inside
+   the page's flex column the same way `.bd-main`/`.bd-side` do. */
+.cd-role-section, .cd-series-section { min-width:0; }
+.cd-count-badge {
+  min-width:24px; height:22px; padding:0 8px; border-radius:999px;
+  background:var(--coral-soft); color:var(--coral);
+  display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:800;
+}
+.cd-tile-grid { display:grid; grid-template-columns:repeat(6, minmax(0,1fr)); gap:18px; }
+.cd-tile { cursor:pointer; min-width:0; }
+.cd-tile:focus { outline:none; }
+.cd-tile:focus-visible { outline:2px solid var(--coral); outline-offset:3px; }
+.cd-tile-frame {
+  position:relative; width:100%; aspect-ratio:1/1; border-radius:12px; overflow:hidden; box-shadow:var(--shadow-card);
+}
+.cd-tile-cover { width:100%; height:100%; object-fit:cover; display:block; }
+/* Shown in place of the <img> when the server holds no artwork, so a coverless book reads as a
+   titled tile rather than the browser's broken-image icon — same treatment as `.lib-cover-fallback`. */
+.cd-tile-fallback {
+  position:absolute; inset:0; display:flex; align-items:flex-end; padding:10px;
+  background:linear-gradient(150deg, var(--coral-soft), var(--paper-2));
+  color:var(--ink-2); font-size:13px; font-weight:800; line-height:1.15; overflow:hidden;
+}
+.cd-tile-progress { position:absolute; left:0; bottom:0; height:4px; background:var(--coral); }
+.cd-tile-title {
+  font-size:12.5px; font-weight:600; color:var(--ink); margin-top:8px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.cd-series-grid { display:flex; gap:22px; flex-wrap:wrap; }
+.cd-series-card {
+  flex:1; min-width:260px; display:flex; align-items:center; gap:16px; padding:14px; border-radius:16px;
+  background:var(--surface); border:1px solid var(--line); box-shadow:var(--shadow-card);
+}
+.cd-series-fan { position:relative; height:82px; flex-shrink:0; }
+.cd-fan-tile { position:absolute; border-radius:10px; outline:2px solid var(--surface); }
+.cd-fan-tile.is-front { box-shadow:var(--shadow-pop); display:flex; align-items:flex-end; padding:8px; box-sizing:border-box; }
+.cd-fan-title { color:#FFFFFF; font-size:11px; font-weight:800; line-height:1.1; }
+.cd-series-info { flex:1; min-width:0; }
+.cd-series-name { font-size:15px; font-weight:800; letter-spacing:-0.01em; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cd-series-count { font-size:12.5px; color:var(--ink-2); font-weight:500; }
 
 /* ---- page background ----
    Painted on the root because the shell's own surface does not cover the whole canvas during a
