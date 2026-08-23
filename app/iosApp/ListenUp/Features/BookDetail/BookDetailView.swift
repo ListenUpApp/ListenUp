@@ -16,6 +16,9 @@ struct BookDetailView: View {
     @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: BookDetailObserver?
     @State private var readersObserver: BookReadersObserver?
+    /// Counts completed book actions (download, delete download, mark finished) so `commit`
+    /// fires once per deliberate action.
+    @State private var bookActionCount = 0
 
     var body: some View {
         Group {
@@ -250,10 +253,17 @@ struct BookDetailView: View {
             canDownload: observer.canDownload,
             isPlayPending: observer.isPlayPending,
             onResume: { observer.play() },
-            onDownload: { observer.downloadBook() },
+            onDownload: {
+                bookActionCount += 1
+                observer.downloadBook()
+            },
             onCancelDownload: { observer.cancelDownload() },
-            onDeleteDownload: { observer.deleteDownload() }
+            onDeleteDownload: {
+                bookActionCount += 1
+                observer.deleteDownload()
+            }
         )
+        .haptic(.commit, trigger: bookActionCount)
     }
 
     /// The "server unreachable" banner — shown only when the server is genuinely unreachable AND
@@ -272,8 +282,12 @@ struct BookDetailView: View {
             isComplete: observer.isComplete,
             isMarkingComplete: observer.isMarkingComplete,
             onAddToShelf: { observer.openShelfPicker() },
-            onMarkFinished: { observer.markFinished() }
+            onMarkFinished: {
+                bookActionCount += 1
+                observer.markFinished()
+            }
         )
+        .haptic(.commit, trigger: bookActionCount)
     }
 
     /// The social "Readers" block. Renders only when the readers VM has data; loading, empty,
