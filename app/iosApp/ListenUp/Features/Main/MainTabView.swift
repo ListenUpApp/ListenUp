@@ -118,6 +118,11 @@ struct MainTabView: View {
                 .pushedDestination(for: SearchSeeAllDestination.self) { destination in
                     SeeAllSearchView(destination: destination, path: pathBinding(tab))
                 }
+                // Registered here (not in `contentDestinations()`) because a tapped row's
+                // outcome appends onto THIS tab's path — the same reason SeeAllSearch lives here.
+                .pushedDestination(for: NotificationsDestination.self) { _ in
+                    NotificationsView { outcome in routeNotificationTap(outcome, on: tab) }
+                }
                 // Probe the *system* bottom inset (home indicator + floating tab bar)
                 // BEFORE reserving the mini-bar band below, so it measures only the bar.
                 .background(tabBarInsetProbe)
@@ -176,6 +181,21 @@ struct MainTabView: View {
 
     private func pushContributor(_ contributorId: String) {
         paths[selectedTab, default: NavigationPath()].append(ContributorDestination(id: contributorId))
+    }
+
+    /// Where an in-app inbox tap lands: append the outcome's destination onto the inbox's own
+    /// tab stack. `.none` (unknown types, campfire until #1065, decision notices) stays put.
+    private func routeNotificationTap(_ outcome: NotificationTapOutcome, on tab: Tab) {
+        switch outcome {
+        case .book(let id):
+            paths[tab, default: NavigationPath()].append(BookDestination(id: id))
+        case .profile(let userId):
+            paths[tab, default: NavigationPath()].append(ProfileDestination(userId: userId))
+        case .adminApprovals:
+            paths[tab, default: NavigationPath()].append(AdminDestination())
+        case .none:
+            break
+        }
     }
 }
 
