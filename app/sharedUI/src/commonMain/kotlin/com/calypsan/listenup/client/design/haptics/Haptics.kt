@@ -28,7 +28,7 @@ interface Haptics {
     /** A gesture crossed an activation threshold (pull-to-refresh fired, a drag was picked up). */
     fun thresholdActivate()
 
-    /** A deliberate action committed (a swipe action, a sleep timer firing). */
+    /** A deliberate action completed — a download started, a delete confirmed, a book shelved. */
     fun commit()
 }
 
@@ -38,6 +38,8 @@ internal class HapticFeedbackHaptics(
 ) : Haptics {
     override fun selectionTick() = feedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
 
+    // iOS maps this verb to `.impact(weight: .light)` deliberately; the platforms are meant to
+    // differ here, so don't "fix" either side into parity.
     override fun press() = feedback.performHapticFeedback(HapticFeedbackType.VirtualKey)
 
     override fun toggle(on: Boolean) =
@@ -49,6 +51,8 @@ internal class HapticFeedbackHaptics(
 
     override fun thresholdActivate() = feedback.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
 
+    // iOS maps this verb to `.success` — Apple's notification family is what "a task completed"
+    // means there. The divergence is the point; don't "fix" either side into parity.
     override fun commit() = feedback.performHapticFeedback(HapticFeedbackType.Confirm)
 }
 
