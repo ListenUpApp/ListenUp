@@ -246,6 +246,7 @@ private fun ActiveDockedContent(
             onClick = onExpand,
             size = 40.dp,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            pressFeedback = false,
         )
     }
 }

@@ -96,6 +96,10 @@ fun PlayPauseFab(
  * @param onClick Click callback.
  * @param size Touch-target diameter.
  * @param tint Icon colour.
+ * @param pressFeedback Whether tapping fires [Haptics.press]. Defaults to true because every
+ * transport use of this button *does* something (skip, chapter step); pass false for chrome that
+ * merely navigates, like the docked bar's expand control — you should feel a transport press, not
+ * a trip to another screen.
  */
 @Composable
 fun Ctrl(
@@ -104,9 +108,14 @@ fun Ctrl(
     onClick: () -> Unit,
     size: Dp = 60.dp,
     tint: Color = MaterialTheme.colorScheme.onSurface,
+    pressFeedback: Boolean = true,
 ) {
+    val haptics = LocalHaptics.current
     IconButton(
-        onClick = onClick,
+        onClick = {
+            if (pressFeedback) haptics.press()
+            onClick()
+        },
         modifier = Modifier.size(size),
     ) {
         Icon(
