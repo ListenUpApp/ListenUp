@@ -77,8 +77,14 @@ struct PlayerSheetsTests {
     }
 
     @Test func pillFormatDropsTheUnitSoTheControlNeverTruncates() {
-        #expect(BoostPickerSheet.formatBoostPill(0) == "Off")
         #expect(BoostPickerSheet.formatBoostPill(6) == "+6")
         #expect(BoostPickerSheet.formatBoostPill(12) == "+12")
+    }
+
+    /// The pill carries no label of its own, so "Off" never said WHAT was off. Spelling the unit
+    /// out at the floor — the state most listeners see — is also what lets the bare "+6" above
+    /// read as decibels. The sheet keeps "Off": there the heading supplies the context.
+    @Test func pillFormatNamesTheUnitAtTheFloor() {
+        #expect(BoostPickerSheet.formatBoostPill(0) == "0 dB")
     }
 }

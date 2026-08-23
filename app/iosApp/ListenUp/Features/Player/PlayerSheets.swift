@@ -183,10 +183,12 @@ struct BoostPickerSheet: View {
         return String(format: String(localized: "player.boost_db"), rounded)
     }
 
-    /// The pill variant: "Off" or "+N" with no unit, so the control never truncates.
+    /// The pill variant: "0 dB" at the floor, else "+N" with no unit so the control never
+    /// truncates. The floor spells the unit out because the pill carries no label of its own —
+    /// "Off" never said WHAT was off — and naming it there is what makes the bare "+N" legible.
     nonisolated static func formatBoostPill(_ db: Float) -> String {
         let rounded = Int(db.rounded())
-        if rounded == 0 { return String(localized: "player.boost_off") }
+        if rounded == 0 { return String(localized: "player.boost_pill_zero_db") }
         return String(format: String(localized: "player.boost_pill_db"), rounded)
     }
 }

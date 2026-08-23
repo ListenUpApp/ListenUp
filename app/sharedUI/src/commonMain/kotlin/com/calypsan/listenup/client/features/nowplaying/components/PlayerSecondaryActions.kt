@@ -21,7 +21,7 @@ import com.calypsan.listenup.client.features.nowplaying.VolumeBoostPresets
 import com.calypsan.listenup.client.features.settings.PlaybackSpeedPresets
 import kotlin.math.roundToInt
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.player_boost_off
+import listenup.composeapp.generated.resources.player_boost_pill_zero_db
 import listenup.composeapp.generated.resources.player_boost_pill_db
 import listenup.composeapp.generated.resources.player_chapters
 import listenup.composeapp.generated.resources.player_sleep_timer
@@ -64,10 +64,14 @@ fun PlayerSecondaryActions(
         )
 
         LabelPill(
+            // "0 dB" rather than "Off" at the floor: the pill sits unlabelled beside the speed
+            // pill, so "Off" never says WHAT is off. Naming the unit once, in the state a user
+            // sees by default, is what makes the boosted "+3" legible later. The boosted label
+            // stays unit-less deliberately — see the pill note on VolumeBoostPresets.format.
             label =
                 VolumeBoostPresets.format(
                     db = volumeBoostDb,
-                    offLabel = stringResource(Res.string.player_boost_off),
+                    offLabel = stringResource(Res.string.player_boost_pill_zero_db),
                     dbLabel = stringResource(Res.string.player_boost_pill_db, volumeBoostDb.roundToInt()),
                 ),
             onClick = onBoostClick,

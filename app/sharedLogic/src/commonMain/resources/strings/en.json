@@ -1225,6 +1225,7 @@
     "boost_off": "Off",
     "boost_db": "+%1$d dB",
     "boost_pill_db": "+%1$d",
+    "boost_pill_zero_db": "0 dB",
     "boost_use_default": "Use default (%1$s)",
     "volume_boost": "Volume Boost",
     "unknown_book": "Unknown Book",
