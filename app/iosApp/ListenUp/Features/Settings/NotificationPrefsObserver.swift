@@ -44,16 +44,15 @@ struct NotificationPrefRowModel: Identifiable, Equatable {
 
 /// Observes `NotificationPrefsViewModel`, flattening its state into a native phase and forwarding
 /// toggle writes. The ViewModel applies toggles optimistically and reverts on server refusal, so
-/// there is no rollback here; the per-toggle `busy` marks ride until the next state emission,
-/// feeding `ToggleRow.isBusy` so a second flip cannot land before the write reflects.
-/// Mirrors `DevicesObserver`.
+/// there is no rollback here.
+///
+/// There is deliberately NO in-flight guard on the toggles: the preference write is idempotent and
+/// last-write-wins, so a rapid double-flip is harmless — the optimistic state already gives
+/// immediate feedback, and the server converges on the final value. Mirrors `DevicesObserver`.
 @Observable
 @MainActor
 final class NotificationPrefsObserver {
     private(set) var phase: NotificationPrefsPhase = .loading
-
-    /// Toggles with a write in flight, keyed "<type>:inApp" / "<type>:push".
-    private var busy: Set<String> = []
 
     private let viewModel: NotificationPrefsViewModel
     private let bridge = FlowBridge()
@@ -71,24 +70,17 @@ final class NotificationPrefsObserver {
 
     func setInApp(type: String, isOn: Bool) {
         guard let row = row(type) else { return }
-        busy.insert(Self.busyKey(type: type, push: false))
         viewModel.setPreference(type: type, preference: NotificationPreference(inApp: isOn, push: row.push))
     }
 
     func setPush(type: String, isOn: Bool) {
         guard let row = row(type) else { return }
-        busy.insert(Self.busyKey(type: type, push: true))
         viewModel.setPreference(type: type, preference: NotificationPreference(inApp: row.inApp, push: isOn))
-    }
-
-    func isBusy(type: String, push: Bool) -> Bool {
-        busy.contains(Self.busyKey(type: type, push: push))
     }
 
     // MARK: - State mapping
 
     private func apply(_ state: NotificationPrefsUiState) {
-        busy = []
         switch onEnum(of: state) {
         case .loading:
             phase = .loading
@@ -105,9 +97,5 @@ final class NotificationPrefsObserver {
     private func row(_ type: String) -> NotificationPrefRowModel? {
         guard case .ready(let rows) = phase else { return nil }
         return rows.first { $0.type == type }
-    }
-
-    private static func busyKey(type: String, push: Bool) -> String {
-        "\(type):\(push ? "push" : "inApp")"
     }
 }

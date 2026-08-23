@@ -24,10 +24,24 @@ struct NotificationBell: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(String(localized: "notifications.title"))
+        // The badge Text is swallowed by the link's own label, so the count has to be announced
+        // explicitly — otherwise VoiceOver says "Notifications" identically at 0 and at 99. Announced
+        // as a value (not folded into the label) so it re-reads when the count changes, and omitted
+        // entirely at zero: "0 unread" is noise, and the unbadged bell already means "nothing new".
+        .accessibilityValue(unreadAnnouncement)
         .onAppear {
             if observer == nil {
                 observer = NotificationBellObserver(viewModel: deps.createNotificationBellViewModel())
             }
         }
+    }
+
+    /// "N unread" while anything is unread, empty at zero (nothing extra is announced). Uses the
+    /// true count, not the badge's "99+" cap — the cap exists so the pill can't stretch, which is
+    /// a visual concern VoiceOver does not share.
+    private var unreadAnnouncement: String {
+        let count = observer?.unreadCount ?? 0
+        guard count > 0 else { return "" }
+        return String(format: String(localized: "notifications.unread_count_a11y"), count)
     }
 }

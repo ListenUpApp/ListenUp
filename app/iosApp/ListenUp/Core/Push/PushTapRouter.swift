@@ -19,6 +19,8 @@ enum NotificationTapOutcome: Equatable {
 @MainActor
 final class PushTapRouter {
     /// A shade tap's resolved destination, held until `MainTabView`'s consumer appends it.
+    /// Last tap wins: a second tap arriving before consumption overwrites the first, deliberately —
+    /// the destination the user tapped most recently is the one they asked for.
     private(set) var pending: NotificationTapOutcome?
 
     /// THE target switch. `.unknown` degrades to nil-route (open app) with a log, per house rule.

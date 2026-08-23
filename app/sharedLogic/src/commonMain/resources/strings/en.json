@@ -1397,7 +1397,8 @@
     "settings_push": "Push",
     "type_campfire_invite": "Campfire invites",
     "type_registration_decision": "Registration decisions",
-    "type_registration_approval": "Pending registrations"
+    "type_registration_approval": "Pending registrations",
+    "unread_count_a11y": "%1$d unread"
   },
   "push": {
     "test_title": "Test notification",

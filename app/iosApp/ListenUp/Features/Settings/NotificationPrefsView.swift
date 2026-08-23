@@ -77,18 +77,17 @@ struct NotificationPrefsView: View {
                     ToggleRow(
                         systemImage: "app.badge",
                         title: String(localized: "notifications.settings_in_app"),
-                        isOn: inAppBinding(row, observer: observer),
-                        isBusy: observer.isBusy(type: row.type, push: false)
+                        isOn: inAppBinding(row, observer: observer)
                     )
                     .haptic(.toggleOn, trigger: row.inApp)
                 case .push:
-                    // ToggleRow has no disabled affordance of its own (isBusy swaps in a spinner,
-                    // nothing more), so ineligibility wraps the row: non-interactive and dimmed.
+                    // ToggleRow has no disabled affordance of its own (its only state affordance is
+                    // isBusy, which swaps in a spinner), so ineligibility wraps the row here:
+                    // non-interactive and dimmed.
                     ToggleRow(
                         systemImage: "iphone.radiowaves.left.and.right",
                         title: String(localized: "notifications.settings_push"),
-                        isOn: pushBinding(row, observer: observer),
-                        isBusy: observer.isBusy(type: row.type, push: true)
+                        isOn: pushBinding(row, observer: observer)
                     )
                     .haptic(.toggleOn, trigger: row.push)
                     .disabled(!row.pushEligible)
