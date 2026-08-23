@@ -18,6 +18,11 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.browser.document
 import org.jetbrains.compose.web.dom.Text
+import com.calypsan.listenup.client.domain.model.Contributor
+import com.calypsan.listenup.client.domain.model.ContributorRole
+import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import org.jetbrains.compose.web.renderComposable
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
@@ -164,6 +169,22 @@ class ClassContractTest :
                         LibraryPage(state = contractLibrary(syncing = true), onEvent = {}, onOpenBook = {})
                         LibraryPage(state = contractLibrary(), onEvent = {}, onOpenBook = {})
                         LibraryPage(state = LibraryUiState.Loading, onEvent = {}, onOpenBook = {})
+                        // Both contributor states: a populated A→Z list and the empty one. The
+                        // page joins this contract by hand — the render list below is explicit,
+                        // so a page nobody adds here is a page whose invented classes nothing
+                        // catches (which is exactly how `.contrib-list` shipped undefined).
+                        ContributorsPage(
+                            state = listOf(contractContributor("c1", "Andy Weir", 3)),
+                            role = ContributorRole.AUTHOR.apiValue,
+                            onSelectRole = {},
+                            onOpenContributor = {},
+                        )
+                        ContributorsPage(
+                            state = emptyList(),
+                            role = ContributorRole.NARRATOR.apiValue,
+                            onSelectRole = {},
+                            onOpenContributor = {},
+                        )
                         BulkBar(count = 2, actions = listOf(BulkAction("Merge", WebIcon.Merge) {}), onClear = {})
                         Panel(title = "Details", trailing = { Text("x") }) {
                             MetaList(listOf(MetaEntry("Duration", "18:40:11", machine = true)))
@@ -246,3 +267,14 @@ class ClassContractTest :
     })
 
 private val CLASS_SELECTOR = Regex("\\.([A-Za-z][A-Za-z0-9_-]*)")
+
+/** One contributor row's worth of data — enough for the page to draw every class it owns. */
+private fun contractContributor(
+    id: String,
+    name: String,
+    bookCount: Int,
+): ContributorWithBookCount =
+    ContributorWithBookCount(
+        contributor = Contributor(id = ContributorId(id), name = name),
+        bookCount = bookCount,
+    )

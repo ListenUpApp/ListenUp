@@ -859,6 +859,11 @@ body { margin: 0; }
 }
 .contrib-toggle-chip.is-active { border-color: transparent; background: var(--coral); color: var(--on-coral); }
 
+/* The browse card the A→Z sections sit in — the artboard's "Browse all" surface. */
+.contrib-list {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  padding: 22px 26px; box-shadow: var(--shadow-card);
+}
 .contrib-section + .contrib-section { margin-top: 8px; }
 .contrib-letter-row { display: flex; align-items: center; gap: 14px; margin: 8px 0 6px; }
 .contrib-letter {
