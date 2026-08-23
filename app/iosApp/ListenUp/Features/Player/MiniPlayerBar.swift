@@ -205,6 +205,6 @@ struct MiniPlayerBar: View {
                     ? String(localized: "player.pause")
                     : String(localized: "player.play"))
         )
-        .haptic(.toggleOn, trigger: playPauseTapCount)
+        .haptic(observer.isPlaybackActive ? .toggleOn : .toggleOff, trigger: playPauseTapCount)
     }
 }
