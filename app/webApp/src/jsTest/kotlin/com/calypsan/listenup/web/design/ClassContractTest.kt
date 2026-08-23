@@ -61,18 +61,37 @@ import org.w3c.dom.css.CSSStyleSheet
 class ClassContractTest :
     FunSpec({
 
-        /** Every class selector defined anywhere in the loaded sheets. */
+        // Every class selector defined anywhere in the loaded sheets, including inside `@media`
+        // and `@supports` blocks.
+        //
+        // Recursion is not a nicety: a grouping rule carries no `selectorText` of its own, so a
+        // pass that reads only top-level rules skips its whole body. A class styled *only* under
+        // a media query then looked undefined, and the page rendering it failed this contract —
+        // a false alarm whose obvious "fix" is to restructure correct CSS until the test stops
+        // complaining. `.scan-pulse` is such a class today; the spec below pins it.
         fun definedClasses(): Set<String> {
             val defined = mutableSetOf<String>()
+
+            fun collect(rules: dynamic) {
+                val length = rules.length as? Int ?: return
+                for (j in 0 until length) {
+                    val rule = rules.item(j)
+                    val selector = rule?.selectorText as? String
+                    if (selector != null) {
+                        CLASS_SELECTOR.findAll(selector).forEach { defined += it.groupValues[1] }
+                    } else {
+                        // @media / @supports and friends: the selectors live one level down.
+                        val nested = rule?.cssRules
+                        if (nested != null) collect(nested)
+                    }
+                }
+            }
+
             val sheets = document.styleSheets
             for (i in 0 until sheets.length) {
                 val sheet = sheets.item(i) as? CSSStyleSheet ?: continue
-                val rules =
-                    runCatching { sheet.cssRules }.getOrNull() ?: continue
-                for (j in 0 until rules.length) {
-                    val selector = rules.item(j).asDynamic().selectorText as? String ?: continue
-                    CLASS_SELECTOR.findAll(selector).forEach { defined += it.groupValues[1] }
-                }
+                val rules = runCatching { sheet.cssRules }.getOrNull() ?: continue
+                collect(rules.asDynamic())
             }
             return defined
         }
@@ -99,6 +118,14 @@ class ClassContractTest :
             // assertion below would fail loudly rather than silently — but a *partially* loaded
             // sheet would not. Pin a class we know the sheet defines.
             definedClasses().contains("tblwrap") shouldBe true
+        }
+
+        test("a class defined only inside @media is still seen as defined") {
+            // `.scan-pulse` exists solely inside web.css's prefers-reduced-motion block. Reading
+            // top-level rules alone missed it — a grouping rule has no selectorText of its own —
+            // so a page rendering such a class failed this contract even though the sheet defines
+            // it perfectly well, and the tempting "fix" was to restructure correct CSS.
+            definedClasses().contains("scan-pulse") shouldBe true
         }
 
         test("every class the kit renders is defined in the design sheet") {
