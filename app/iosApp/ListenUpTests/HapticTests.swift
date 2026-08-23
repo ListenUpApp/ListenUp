@@ -23,7 +23,7 @@ import Testing
 
     @Test func theGateSilencesEveryVerb() {
         let verbs: [Haptic] = [
-            .selectionTick, .press, .toggleOn, .toggleOff, .longPress, .thresholdActivate, .commit,
+            .selectionTick, .press, .toggleOn, .toggleOff, .longPress, .thresholdActivate, .commit
         ]
         for haptic in verbs {
             #expect(haptic.feedback(enabled: false) == nil)
