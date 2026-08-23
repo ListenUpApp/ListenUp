@@ -10711,6 +10711,16 @@
         }
       }
     },
+    "player.boost_pill_zero_db": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 dB"
+          }
+        }
+      }
+    },
     "player.boost_use_default": {
       "localizations": {
         "en": {

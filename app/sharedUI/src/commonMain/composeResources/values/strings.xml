@@ -1072,6 +1072,7 @@ One beautiful library.</string>
     <string name="player_boost_db">+%1$d dB</string>
     <string name="player_boost_off">Off</string>
     <string name="player_boost_pill_db">+%1$d</string>
+    <string name="player_boost_pill_zero_db">0 dB</string>
     <string name="player_boost_use_default">Use default (%1$s)</string>
     <string name="player_cancel_timer">Cancel timer</string>
     <string name="player_cast_session_lost">Casting stopped — playing on this device instead.</string>
