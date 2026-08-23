@@ -9,8 +9,11 @@ import Foundation
 /// would be a poor trade — and a framework that fails to load here means the notification falls
 /// back to generic text, which is the exact failure this extension exists to remove.
 ///
-/// The discriminators are the wire `@SerialName`s. `PushPayloadContentTests` pins them against
-/// the values the server actually emits, because nothing else connects these two files.
+/// The discriminators are the wire `@SerialName`s. No test compiles this file directly (it
+/// belongs to the extension target only); the pins are `PushForegroundPolicyTests` — whose
+/// `PushForegroundPolicy` reads the identical wire shape for the `test` discriminator — and,
+/// transitively, the Kotlin contract tests on `PushPayload` plus `NotificationCopy`'s rendering
+/// of what is decoded here.
 enum PushPayloadContent {
     case registrationApproval(userId: String)
     case registrationDecision(approved: Bool)

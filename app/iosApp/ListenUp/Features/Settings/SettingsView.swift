@@ -269,6 +269,15 @@ struct SettingsView: View {
     @ViewBuilder
     private func accountInfoSection(_ observer: SettingsObserver) -> some View {
         Section(String(localized: "common.account")) {
+            NavigationLink(value: NotificationPrefsDestination()) {
+                SettingsLabel(
+                    title: String(localized: "notifications.settings_row_title"),
+                    subtitle: String(localized: "notifications.settings_row_subtitle"),
+                    systemImage: "bell.badge",
+                    tint: .red
+                )
+            }
+
             NavigationLink(value: DevicesDestination()) {
                 SettingsLabel(
                     title: String(localized: "settings.devices"),

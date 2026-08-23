@@ -331,6 +331,9 @@ private extension View {
             .pushedDestination(for: DevicesDestination.self) { _ in
                 DevicesView()
             }
+            .pushedDestination(for: NotificationPrefsDestination.self) { _ in
+                NotificationPrefsView()
+            }
             .pushedDestination(for: LicensesDestination.self) { _ in
                 LicensesView()
             }
