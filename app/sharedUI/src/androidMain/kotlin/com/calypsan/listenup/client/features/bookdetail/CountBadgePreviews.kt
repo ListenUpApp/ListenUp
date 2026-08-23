@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
-import com.calypsan.listenup.client.features.bookdetail.components.CountBadge
+import com.calypsan.listenup.client.design.components.CountBadge
 
 @Preview(name = "CountBadge · light", widthDp = 200, heightDp = 80)
 @Composable

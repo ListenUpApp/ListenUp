@@ -27,4 +27,20 @@ class NotificationPushProjectionTest :
             NotificationEvent.RegistrationApproval("u-9").toPushPayload() shouldBe
                 PushPayload.RegistrationApproval(userId = "u-9")
         }
+
+        test("toNotificationEvent inverts toPushPayload for every event case") {
+            val cases: List<NotificationEvent> =
+                listOf(
+                    NotificationEvent.CampfireInvite("cf-1", "b-1", "u-1"),
+                    NotificationEvent.RegistrationDecision("u-7", approved = true),
+                    NotificationEvent.RegistrationApproval("u-9"),
+                )
+            cases.forEach { event ->
+                event.toPushPayload()?.toNotificationEvent() shouldBe event
+            }
+        }
+
+        test("a TestNotification push has no notification event — it is a diagnostic") {
+            PushPayload.TestNotification(sentAtMs = 1L).toNotificationEvent() shouldBe null
+        }
     })

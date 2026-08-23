@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.presentation.settings.SettingsEvent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -112,6 +113,8 @@ import listenup.composeapp.generated.resources.settings_haptic_feedback_subtitle
 import listenup.composeapp.generated.resources.settings_hide_series_with_only_one
 import listenup.composeapp.generated.resources.settings_hide_singlebook_series
 import listenup.composeapp.generated.resources.settings_ignore_articles_when_sorting
+import listenup.composeapp.generated.resources.notifications_settings_row_subtitle
+import listenup.composeapp.generated.resources.notifications_settings_row_title
 import listenup.composeapp.generated.resources.settings_manage_storage
 import listenup.composeapp.generated.resources.settings_open_source_licenses
 import listenup.composeapp.generated.resources.settings_rewind_a_few_seconds_when
@@ -215,6 +218,7 @@ private val ContentMaxWidth = 640.dp
  * @param onNavigateToDevices Optional callback to navigate to the devices screen
  * @param onNavigateToStorage Optional callback to navigate to the storage screen
  * @param onNavigateToLicenses Optional callback to navigate to licenses screen
+ * @param onNavigateToNotificationSettings Optional callback to navigate to notification settings
  * @param showDynamicColors Whether the dynamic-colors toggle is available on this platform
  * @param showSleepTimer Whether the sleep-timer group is shown
  * @param viewModel SettingsViewModel injected via Koin
@@ -226,6 +230,7 @@ fun SettingsScreen(
     onNavigateToDevices: (() -> Unit)? = null,
     onNavigateToStorage: (() -> Unit)? = null,
     onNavigateToLicenses: (() -> Unit)? = null,
+    onNavigateToNotificationSettings: (() -> Unit)? = null,
     showDynamicColors: Boolean = false,
     showSleepTimer: Boolean = true,
     viewModel: SettingsViewModel = koinViewModel(),
@@ -336,6 +341,7 @@ fun SettingsScreen(
                     onNavigateToLicenses = onNavigateToLicenses,
                     onShareLogs = platformActions::shareLogs,
                     onSendTestNotification = viewModel::sendTestNotification,
+                    onNavigateToNotificationSettings = onNavigateToNotificationSettings,
                 )
             }
         }
@@ -625,6 +631,7 @@ private fun AboutSection(
     onNavigateToLicenses: (() -> Unit)?,
     onShareLogs: () -> Unit,
     onSendTestNotification: () -> Unit,
+    onNavigateToNotificationSettings: (() -> Unit)?,
 ) {
     val accent = MaterialTheme.colorScheme.onSurfaceVariant
     SectionGroup(
@@ -665,6 +672,16 @@ private fun AboutSection(
             onClick = onShareLogs,
             showDivider = true,
         )
+        if (onNavigateToNotificationSettings != null) {
+            NavigationRow(
+                icon = Icons.Default.Notifications,
+                accent = accent,
+                title = stringResource(Res.string.notifications_settings_row_title),
+                subtitle = stringResource(Res.string.notifications_settings_row_subtitle),
+                onClick = onNavigateToNotificationSettings,
+                showDivider = true,
+            )
+        }
         // Beside Share logs deliberately: both answer "is this thing actually working?", which is
         // the only question a user has when a notification never arrived.
         NavigationRow(

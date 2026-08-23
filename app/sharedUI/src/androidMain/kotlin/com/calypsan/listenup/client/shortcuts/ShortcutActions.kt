@@ -30,7 +30,8 @@ object ShortcutActions {
     const val RESUME = "com.calypsan.listenup.action.RESUME"
 
     /**
-     * A tapped push notification, dispatched by [EXTRA_PUSH_TYPE].
+     * A tapped push notification, routed by decoding [EXTRA_PUSH_PAYLOAD] through the shared
+     * notification target mapping.
      *
      * Lives here rather than in the push package because [com.calypsan.listenup.client.MainActivity]
      * dispatches it through the same `when (intent.action)` as the shortcut actions — one entry
@@ -126,12 +127,10 @@ object ShortcutActions {
     const val MAX_BOOK_SHORTCUTS = 4
 
     /**
-     * The tapped payload's STABLE wire discriminator (`registration_approval`, …) — the value of
-     * its `@SerialName`, not `simpleName`, which R8 is free to rename and which would silently
-     * stop matching in a release build while working perfectly in debug.
+     * The tapped notification's whole [com.calypsan.listenup.api.push.PushPayload], encoded with
+     * `contractJson` — the STABLE wire format, so R8 renames cannot break routing in a release
+     * build. `MainActivity` decodes it and routes through the same target mapping as the in-app
+     * notification list; per-type extras would be a second protocol to keep in step.
      */
-    const val EXTRA_PUSH_TYPE = "push_type"
-
-    /** The subject of the tapped notification, when its type has one (e.g. the pending user). */
-    const val EXTRA_PUSH_SUBJECT_ID = "push_subject_id"
+    const val EXTRA_PUSH_PAYLOAD = "push_payload"
 }

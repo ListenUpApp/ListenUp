@@ -3,10 +3,12 @@ package com.calypsan.listenup.client.navigation.entries
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.calypsan.listenup.client.features.settings.NotificationSettingsScreen
 import com.calypsan.listenup.client.features.settings.SettingsScreen
 import com.calypsan.listenup.client.navigation.Devices
 import com.calypsan.listenup.client.navigation.LicenseDetail
 import com.calypsan.listenup.client.navigation.Licenses
+import com.calypsan.listenup.client.navigation.NotificationSettings
 import com.calypsan.listenup.client.navigation.Settings
 import com.calypsan.listenup.client.navigation.Storage
 
@@ -29,6 +31,16 @@ internal fun EntryProviderScope<NavKey>.settingsEntries(
             },
             onNavigateToLicenses = {
                 backStack.add(Licenses)
+            },
+            onNavigateToNotificationSettings = {
+                backStack.add(NotificationSettings)
+            },
+        )
+    }
+    entry<NotificationSettings> {
+        NotificationSettingsScreen(
+            onNavigateBack = {
+                backStack.removeAt(backStack.lastIndex)
             },
         )
     }

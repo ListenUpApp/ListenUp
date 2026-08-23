@@ -17,6 +17,9 @@ import androidx.compose.runtime.getValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.notifications.toNotificationEvent
+import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
@@ -33,6 +36,7 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.navigation.ListenUpNavigation
 import com.calypsan.listenup.client.shortcuts.ShortcutActions
 import com.calypsan.listenup.client.foldable.PostureProvider
+import com.calypsan.listenup.client.presentation.notifications.toShortcutAction
 import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -149,25 +153,20 @@ class MainActivity : ComponentActivity() {
         // Check for shortcut actions
         when (intent.action) {
             ShortcutActions.PUSH_TAP -> {
-                // The extra has been written since push landed and read by nothing — tapping a
-                // notification just opened the app wherever it was last. An admin told "someone
-                // wants to join" then had to find the pending list themselves.
-                val type = intent.getStringExtra(ShortcutActions.EXTRA_PUSH_TYPE)
-                val subjectId = intent.getStringExtra(ShortcutActions.EXTRA_PUSH_SUBJECT_ID)
-                logger.debug { "Push tapped: type=$type" }
-                // An `if` while exactly one type routes; this becomes a `when` the moment a
-                // second one lands. Every other type — including a discriminator from a server
-                // newer than this client — falls through and simply opens the app: a tap must
-                // never be worse than a no-op.
-                if (type == PUSH_TYPE_REGISTRATION_APPROVAL) {
-                    if (subjectId != null) {
-                        shortcutActionManager.setPendingAction(
-                            ShortcutAction.NavigateToPendingApprovals(subjectId),
-                        )
-                    } else {
-                        logger.warn { "registration_approval push tapped with no subject id" }
-                    }
-                }
+                // Decode the payload the renderer wrote and route through the SAME target mapping
+                // as the in-app notification list — one mapping, so the two surfaces cannot
+                // disagree. Anything that doesn't decode or doesn't map — including a payload from
+                // a server newer than this client — yields null and simply opens the app: a tap
+                // must never be worse than a no-op.
+                val action =
+                    intent
+                        .getStringExtra(ShortcutActions.EXTRA_PUSH_PAYLOAD)
+                        ?.let { raw ->
+                            runCatching { contractJson.decodeFromString(PushPayload.serializer(), raw) }.getOrNull()
+                        }?.toNotificationEvent()
+                        ?.toShortcutAction()
+                logger.debug { "Push tapped: action=${action?.let { it::class.simpleName }}" }
+                action?.let(shortcutActionManager::setPendingAction)
             }
 
             ShortcutActions.RESUME -> {
@@ -294,11 +293,3 @@ fun ListenUpApp(localPreferences: LocalPreferences = koinInject()) {
         }
     }
 }
-
-/**
- * The `@SerialName` of [com.calypsan.listenup.api.push.PushPayload.RegistrationApproval].
- *
- * A literal because an Intent extra is a string by the time it gets here; it is pinned to the
- * contract by `MainActivityPushRoutingTest` so the two cannot drift apart silently.
- */
-internal const val PUSH_TYPE_REGISTRATION_APPROVAL = "registration_approval"

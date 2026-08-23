@@ -22,3 +22,27 @@ fun NotificationEvent.toPushPayload(): PushPayload? =
             PushPayload.RegistrationApproval(userId = userId)
         }
     }
+
+/**
+ * Inverts [toPushPayload]: recovers the typed [NotificationEvent] a push was projected from, or
+ * null for pushes that are not notifications ([PushPayload.TestNotification] — a diagnostic).
+ * The shade tap and the in-app list route through the same target mapping because both start here.
+ */
+fun PushPayload.toNotificationEvent(): NotificationEvent? =
+    when (this) {
+        is PushPayload.CampfireInvite -> {
+            NotificationEvent.CampfireInvite(campfireId = campfireId, bookId = bookId, inviterUserId = inviterUserId)
+        }
+
+        is PushPayload.RegistrationDecision -> {
+            NotificationEvent.RegistrationDecision(userId = userId, approved = approved)
+        }
+
+        is PushPayload.RegistrationApproval -> {
+            NotificationEvent.RegistrationApproval(userId = userId)
+        }
+
+        is PushPayload.TestNotification -> {
+            null
+        }
+    }

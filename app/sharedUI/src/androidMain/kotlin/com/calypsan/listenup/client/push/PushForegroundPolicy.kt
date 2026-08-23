@@ -14,8 +14,9 @@ internal object PushForegroundPolicy {
     /**
      * Whether [payload] should be rendered.
      *
-     * A foregrounded app normally skips the local notification — the running UI is already the
-     * better surface for anything it would say. [PushPayload.TestNotification] is the exception,
+     * A foregrounded app normally skips the local notification — the in-app notification inbox
+     * (bell + list) already shows the row, so the badge has moved by the time the banner would
+     * render. [PushPayload.TestNotification] is the exception,
      * and has to be: it exists purely to prove a notification can reach this device, and it is
      * triggered from Settings — which means the app is necessarily in the foreground when it
      * arrives. Suppressing it guaranteed the one thing it was built to demonstrate could never be

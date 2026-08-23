@@ -65,6 +65,10 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 // state is driven by RPC push events, a poll fallback, and user actions
                 // (requestReset/completeReset), not projected from a single upstream flow.
                 "ForgotPasswordViewModel",
+                // By-design: preferences are online RPC (load → optimistic toggle → revert on
+                // refusal), driven by user actions with no upstream flow to project — the same
+                // imperative shape as the admin command-pipeline VMs above.
+                "NotificationPrefsViewModel",
             )
 
         test("every UiState-exposing ViewModel uses stateIn(WhileSubscribed) (excluding legacy backlog)") {

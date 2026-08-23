@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.ContributorDetail
+import com.calypsan.listenup.client.navigation.Notifications
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.Settings
 import com.calypsan.listenup.client.navigation.Shell
@@ -111,6 +112,9 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                     },
                 onSettingsClick = {
                     backStack.add(Settings)
+                },
+                onNotificationsClick = {
+                    backStack.add(Notifications)
                 },
                 onSignOut = onSignOut,
                 onUserProfileClick = { userId ->

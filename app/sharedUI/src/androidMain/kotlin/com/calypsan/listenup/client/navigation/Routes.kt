@@ -366,6 +366,18 @@ data object RestoreFromFile : Route
 data object ImportFlow : Route
 
 /**
+ * Notifications screen - the in-app notification inbox.
+ */
+@Serializable
+data object Notifications : Route
+
+/**
+ * Notification settings screen - per-type In-app/Push delivery preferences.
+ */
+@Serializable
+data object NotificationSettings : Route
+
+/**
  * Settings screen - app preferences and configuration.
  */
 @Serializable
