@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -435,6 +436,7 @@ private fun FolderList(
     modifier: Modifier = Modifier,
     listBottomPadding: Dp = 0.dp,
 ) {
+    val haptics = LocalHaptics.current
     val slideSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
     val scaleSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
@@ -484,6 +486,7 @@ private fun FolderList(
                                 onToggle = { onToggle(entry.path) },
                                 modifier =
                                     Modifier.clickable {
+                                        haptics.press()
                                         if (entry.hasChildren) onOpen(entry.path) else onToggle(entry.path)
                                     },
                             )

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -131,6 +132,7 @@ private fun SeriesChipWithSequence(
     onSequenceChange: (String) -> Unit,
     onRemove: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -147,7 +149,10 @@ private fun SeriesChipWithSequence(
                     modifier =
                         Modifier
                             .size(InputChipDefaults.AvatarSize)
-                            .clickable { onRemove() },
+                            .clickable {
+                                haptics.press()
+                                onRemove()
+                            },
                 )
             },
             modifier =
