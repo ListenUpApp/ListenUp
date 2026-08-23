@@ -96,7 +96,8 @@ fun PlayPauseFab(
  * @param onClick Click callback.
  * @param size Touch-target diameter.
  * @param tint Icon colour.
- * @param pressFeedback Whether tapping fires [Haptics.press]. Defaults to true because every
+ * @param pressFeedback Whether tapping fires
+ * [com.calypsan.listenup.client.design.haptics.Haptics.press]. Defaults to true because every
  * transport use of this button *does* something (skip, chapter step); pass false for chrome that
  * merely navigates, like the docked bar's expand control — you should feel a transport press, not
  * a trip to another screen.
