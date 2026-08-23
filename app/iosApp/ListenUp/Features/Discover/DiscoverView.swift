@@ -50,6 +50,9 @@ struct DiscoverView: View {
         .navigationBarTitleDisplayMode(selection?.isSelecting == true ? .inline : .large)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                NotificationBell()
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(value: UserProfileDestination()) {
                     UserAvatarView(user: user, size: 32)
                 }

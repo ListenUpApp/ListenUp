@@ -129,6 +129,13 @@ struct ABSImportDestination: Hashable {}
 /// The Devices screen — lists the user's active sessions and lets them revoke devices.
 struct DevicesDestination: Hashable {}
 
+/// The notifications inbox, reached from the toolbar bell on the Home, Library, and
+/// Discover tab roots (and, once routed, from a system push tap).
+struct NotificationsDestination: Hashable {}
+
+/// Per-type notification delivery preferences, reached from Settings › Account.
+struct NotificationPrefsDestination: Hashable {}
+
 /// The Open Source Licenses screen — curated list of all bundled open-source libraries.
 struct LicensesDestination: Hashable {}
 
