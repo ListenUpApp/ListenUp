@@ -1,16 +1,18 @@
 package com.calypsan.listenup.web.features.contributors
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
 import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
+import com.calypsan.listenup.web.design.tintGradient
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H3
+import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
-import kotlin.math.abs
 
 /**
  * The Contributors list — every author and narrator in the library, A to Z.
@@ -21,23 +23,37 @@ import kotlin.math.abs
  * [ContributorsSession]'s call, the same split [com.calypsan.listenup.web.features.library.LibraryPage]
  * makes between rendering sort state and owning it.
  *
+ * [state] is `null` until the session has actually answered. An empty list and an unanswered query
+ * are different facts, and saying the wrong one — "No authors yet." before the database has had a
+ * chance to say otherwise — is worse than saying nothing, the same distinction
+ * [com.calypsan.listenup.web.features.library.LibraryPage] draws between `Loading` and a `Loaded`
+ * state with zero books. The header and role toggle still render while `null`: they are
+ * navigation, not data, so there is nothing about them to wait for.
+ *
  * ⛔ No hours in the "N books" line. The artboard's row reads "6 books · 58h", but
  * [ContributorWithBookCount] carries no duration — inventing one here would be a number this page
  * made up. It stays books-only until a summed projection exists.
  */
 @Composable
 fun ContributorsPage(
-    state: List<ContributorWithBookCount>,
-    role: String,
-    onSelectRole: (String) -> Unit,
+    state: List<ContributorWithBookCount>?,
+    role: ContributorRole,
+    onSelectRole: (ContributorRole) -> Unit,
     onOpenContributor: (String) -> Unit,
 ) {
     Div(attrs = { classes("contrib-header") }) {
         Div(attrs = { classes("contrib-title-row") }) {
             H3 { Text("Contributors") }
-            Span(attrs = { classes("contrib-count") }) { Text(state.size.toString()) }
+            // Withheld rather than shown as "0" while state is null — a count is a fact about the
+            // answer, and there isn't one yet.
+            state?.let { list -> Span(attrs = { classes("contrib-count") }) { Text(list.size.toString()) } }
         }
         RoleToggle(role, onSelectRole)
+    }
+
+    if (state == null) {
+        Div(attrs = { classes("empty") }) { P { Text("Loading…") } }
+        return
     }
 
     if (state.isEmpty()) {
@@ -46,7 +62,10 @@ fun ContributorsPage(
     }
 
     Div(attrs = { classes("contrib-list") }) {
-        groupByLetter(state).forEach { group ->
+        // `state` is re-sorted and re-grouped on every recomposition otherwise; keyed on the list
+        // itself, the same precedent `VirtualBookGrid` sets for its own `layOut(...)` call.
+        val groups = remember(state) { groupByLetter(state) }
+        groups.forEach { group ->
             Div(attrs = { classes("contrib-section") }) {
                 LetterHeading(group.letter)
                 group.contributors.forEach { entry ->
@@ -63,19 +82,19 @@ fun ContributorsPage(
 
 @Composable
 private fun RoleToggle(
-    role: String,
-    onSelectRole: (String) -> Unit,
+    role: ContributorRole,
+    onSelectRole: (ContributorRole) -> Unit,
 ) {
     Div(attrs = { classes("contrib-toggle") }) {
         RoleChip(
             label = "Authors",
-            forRole = ContributorRole.AUTHOR.apiValue,
+            forRole = ContributorRole.AUTHOR,
             activeRole = role,
             onSelectRole = onSelectRole,
         )
         RoleChip(
             label = "Narrators",
-            forRole = ContributorRole.NARRATOR.apiValue,
+            forRole = ContributorRole.NARRATOR,
             activeRole = role,
             onSelectRole = onSelectRole,
         )
@@ -85,14 +104,17 @@ private fun RoleToggle(
 @Composable
 private fun RoleChip(
     label: String,
-    forRole: String,
-    activeRole: String,
-    onSelectRole: (String) -> Unit,
+    forRole: ContributorRole,
+    activeRole: ContributorRole,
+    onSelectRole: (ContributorRole) -> Unit,
 ) {
+    val isActive = forRole == activeRole
     Span(attrs = {
         classes("contrib-toggle-chip")
-        if (forRole == activeRole) classes("is-active")
+        if (isActive) classes("is-active")
         attr("role", "button")
+        // A visual class alone doesn't tell a screen reader which chip is selected.
+        attr("aria-pressed", isActive.toString())
         tabIndex(0)
         onClick { onSelectRole(forRole) }
         onKeyDown { event ->
@@ -115,7 +137,7 @@ private fun LetterHeading(letter: Char) {
 @Composable
 private fun ContributorRow(
     entry: ContributorWithBookCount,
-    role: String,
+    role: ContributorRole,
     onOpen: () -> Unit,
 ) {
     Div(attrs = {
@@ -132,6 +154,9 @@ private fun ContributorRow(
     }) {
         Div(attrs = {
             classes("contrib-avatar")
+            // Decorative: the row's accessible name should read "Andy Weir, Author, 6 books", not
+            // lead with the two-letter monogram.
+            attr("aria-hidden", "true")
             style { property("background", avatarTintFor(entry.contributor.name)) }
         }) { Text(initialsFor(entry.contributor.name)) }
 
@@ -140,7 +165,7 @@ private fun ContributorRow(
             Div(attrs = { classes("contrib-meta") }) {
                 Span(attrs = {
                     classes("contrib-role-chip")
-                    if (role == ContributorRole.NARRATOR.apiValue) classes("is-narrator")
+                    if (role == ContributorRole.NARRATOR) classes("is-narrator")
                 }) { Text(roleLabel(role)) }
                 Span(attrs = { classes("contrib-book-count") }) { Text(bookCountLabel(entry.bookCount)) }
             }
@@ -157,13 +182,13 @@ private fun ContributorRow(
  * empty, in the reader's own words, rather than leaving the page looking broken.
  */
 @Composable
-private fun EmptyContributors(role: String) {
+private fun EmptyContributors(role: ContributorRole) {
     Div(attrs = { classes("empty") }) {
-        H3 { Text(if (role == ContributorRole.NARRATOR.apiValue) "No narrators yet." else "No authors yet.") }
+        H3 { Text(if (role == ContributorRole.NARRATOR) "No narrators yet." else "No authors yet.") }
     }
 }
 
-private fun roleLabel(role: String): String = if (role == ContributorRole.NARRATOR.apiValue) "Narrator" else "Author"
+private fun roleLabel(role: ContributorRole): String = if (role == ContributorRole.NARRATOR) "Narrator" else "Author"
 
 /** "1 book" vs "6 books" — the artboard only ever shows the plural, but a one-book credit is real. */
 private fun bookCountLabel(count: Int): String = if (count == 1) "1 book" else "$count books"
@@ -181,21 +206,31 @@ private fun initialsFor(name: String): String {
 /**
  * A stable, name-derived tint for a contributor's avatar.
  *
- * The same trick [com.calypsan.listenup.web.design.Cover]'s `gradientFor` uses for a book with no
- * artwork — hash the string, derive a hue, offset a second stop off it — tuned darker and more
- * saturated so two-letter initials stay legible at 58px against it.
+ * Shares [tintGradient] with [com.calypsan.listenup.web.design.Cover]'s fallback for a book with
+ * no artwork — the same hash-the-string-into-a-hue trick, tuned darker and more saturated so
+ * two-letter initials stay legible at 58px against it.
  */
-private fun avatarTintFor(name: String): String {
-    val hue = abs(name.hashCode()) % HUE_RANGE
-    val second = (hue + HUE_SPREAD) % HUE_RANGE
-    return "linear-gradient(150deg, hsl($hue 42% 20%), hsl($second 46% 8%))"
-}
+private fun avatarTintFor(name: String): String =
+    tintGradient(
+        seed = name,
+        angleDegrees = AVATAR_GRADIENT_ANGLE,
+        firstSaturation = AVATAR_FIRST_SATURATION,
+        firstLightness = AVATAR_FIRST_LIGHTNESS,
+        secondSaturation = AVATAR_SECOND_SATURATION,
+        secondLightness = AVATAR_SECOND_LIGHTNESS,
+    )
 
 private val WHITESPACE = Regex("\\s+")
 
-private const val HUE_RANGE = 360
+private const val AVATAR_GRADIENT_ANGLE = 150
 
-private const val HUE_SPREAD = 24
+private const val AVATAR_FIRST_SATURATION = 42
+
+private const val AVATAR_FIRST_LIGHTNESS = 20
+
+private const val AVATAR_SECOND_SATURATION = 46
+
+private const val AVATAR_SECOND_LIGHTNESS = 8
 
 private const val CHEVRON_SIZE = 20
 
@@ -213,6 +248,10 @@ data class LetterGroup(
  * A person's name is never article-stripped ("The Rolling Stones" files under T), so every
  * platform files a given contributor under the same letter. Names with no leading letter (blank,
  * numeric, symbolic) group under `#`, sorted first — [nameLetter]'s own contract.
+ *
+ * Sorted with `lowercase()` rather than relying on the caller's own order: SQLite's default
+ * BINARY collation is case-sensitive, so a repository result ordered by that collation would put
+ * "Zoe" before "andy" — this sort is what actually puts both under the right letter in A→Z order.
  */
 fun groupByLetter(contributors: List<ContributorWithBookCount>): List<LetterGroup> =
     contributors
