@@ -11,9 +11,12 @@ import kotlinx.serialization.Serializable
  * notification kinds are new subtypes; the relay and server plumbing never
  * change. Clients MUST render unknown discriminators as a generic notification.
  *
- * NOTE: unlike [com.calypsan.listenup.api.sync.SyncControl], this hierarchy is
- * NOT hidden from the ObjC/Swift export — the iOS client consumes it to render
- * notifications.
+ * NOTE: this hierarchy does not reach Swift — it appears in no exported public
+ * signature, so Swift Export drops it from the surface. iOS parses payloads with
+ * the NSE's own minimal parser (rendering) and, for tap routing, through the
+ * Kotlin seam `com.calypsan.listenup.client.presentation.notifications.PushTapRouting`,
+ * which decodes here in Kotlin and hands Swift an exported
+ * [com.calypsan.listenup.api.notifications.NotificationTarget].
  */
 @Serializable
 sealed interface PushPayload {
