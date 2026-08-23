@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.core.formatSeriesSequence
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -604,12 +605,15 @@ private fun SeriesChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier =
             modifier
                 .clip(RoundedCornerShape(percent = 50))
-                .clickable(onClick = onClick)
-                .background(contentColor.copy(alpha = 0.12f))
+                .clickable {
+                    haptics.press()
+                    onClick()
+                }.background(contentColor.copy(alpha = 0.12f))
                 .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.FannedDeck
 import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
@@ -48,6 +49,7 @@ fun SeriesCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val series = seriesWithBooks.series
     val bookCount = seriesWithBooks.books.size
 
@@ -97,8 +99,10 @@ fun SeriesCard(
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
-                    onClick = onClick,
-                ).padding(24.dp),
+                ) {
+                    haptics.press()
+                    onClick()
+                }.padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(

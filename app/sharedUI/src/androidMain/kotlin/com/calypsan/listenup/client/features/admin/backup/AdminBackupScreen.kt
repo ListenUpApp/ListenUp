@@ -32,6 +32,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ActionTile
 import com.calypsan.listenup.client.design.components.ListenUpFab
 import com.calypsan.listenup.client.design.components.ScallopBadge
@@ -114,6 +115,7 @@ fun AdminBackupScreen(
     onABSImportHubClick: (String) -> Unit,
     onNewImportClick: () -> Unit = {},
 ) {
+    val haptics = LocalHaptics.current
     val backupState by backupViewModel.state.collectAsStateWithLifecycle()
     val absImportListState by absImportViewModel.listState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -217,7 +219,12 @@ fun AdminBackupScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deleteConfirmImport = null }) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        deleteConfirmImport = null
+                    },
+                ) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
@@ -231,18 +238,29 @@ private fun DeleteBackupDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = MaterialTheme.shapes.large,
         title = { Text(stringResource(Res.string.admin_delete_backup)) },
         text = { Text(stringResource(Res.string.admin_confirm_delete_backup, backup.id)) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onConfirm()
+                },
+            ) {
                 Text(stringResource(Res.string.common_delete), color = MaterialTheme.colorScheme.error)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },
@@ -404,6 +422,7 @@ private fun BackupCard(
     onDownloadClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
@@ -435,7 +454,12 @@ private fun BackupCard(
                     )
                 }
                 Box {
-                    IconButton(onClick = { showMenu = true }) {
+                    IconButton(
+                        onClick = {
+                            haptics.press()
+                            showMenu = true
+                        },
+                    ) {
                         Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.common_menu))
                     }
                     DropdownMenu(
@@ -540,6 +564,7 @@ private fun ABSImportSummaryCard(
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var showMenu by remember { mutableStateOf(false) }
     val localDateTime =
         Instant
@@ -571,7 +596,12 @@ private fun ABSImportSummaryCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StatusBadge(status = import.status)
                     Box {
-                        IconButton(onClick = { showMenu = true }) {
+                        IconButton(
+                            onClick = {
+                                haptics.press()
+                                showMenu = true
+                            },
+                        ) {
                             Icon(Icons.Default.MoreVert, contentDescription = stringResource(Res.string.common_menu))
                         }
                         DropdownMenu(

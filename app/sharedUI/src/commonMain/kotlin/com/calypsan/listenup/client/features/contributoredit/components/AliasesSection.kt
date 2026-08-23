@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
@@ -90,6 +91,7 @@ private fun AliasChip(
     alias: String,
     onUnmerge: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var showConfirm by remember { mutableStateOf(false) }
 
     InputChip(
@@ -124,7 +126,12 @@ private fun AliasChip(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirm = false }) {
+                TextButton(
+                    onClick = {
+                        haptics.press()
+                        showConfirm = false
+                    },
+                ) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },

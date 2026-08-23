@@ -25,6 +25,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.BookFacet
 import com.calypsan.listenup.client.design.components.FacetChipRow
 import com.calypsan.listenup.client.design.components.MarkdownText
@@ -154,6 +155,7 @@ private fun AboutDescriptionBlock(
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val isLong = description.length > DESCRIPTION_EXPAND_THRESHOLD
 
     if (isExpanded || !isLong) {
@@ -184,7 +186,10 @@ private fun AboutDescriptionBlock(
             modifier =
                 Modifier
                     .padding(top = 4.dp)
-                    .clickable(onClick = onToggleExpanded),
+                    .clickable {
+                        haptics.press()
+                        onToggleExpanded()
+                    },
         )
     }
 }

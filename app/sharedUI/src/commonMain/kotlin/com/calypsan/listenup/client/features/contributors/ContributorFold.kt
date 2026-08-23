@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.BookContributor
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -57,12 +58,21 @@ fun ClickableContributorLine(
     overflowTextRes: StringResource? = null,
     onOverflowClick: (() -> Unit)? = null,
 ) {
+    val haptics = LocalHaptics.current
     // Fold to "{lead}, N other …" once the inline list would exceed [foldLimit]; the whole line
     // becomes one tap target that opens the full-cast overlay.
     val folded = overflowTextRes != null && onOverflowClick != null && contributors.size > foldLimit
 
     FlowRow(
-        modifier = if (folded) modifier.clickable(onClick = onOverflowClick) else modifier,
+        modifier =
+            if (folded) {
+                modifier.clickable {
+                    haptics.press()
+                    onOverflowClick?.invoke()
+                }
+            } else {
+                modifier
+            },
         horizontalArrangement = horizontalArrangement,
         verticalArrangement = Arrangement.Center,
     ) {

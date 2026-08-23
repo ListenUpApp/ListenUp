@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.RankBadge
 import com.calypsan.listenup.client.design.components.UserAvatar
@@ -120,13 +121,16 @@ private fun LeaderboardEntryRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.large)
-                .clickable(onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+                .clickable {
+                    haptics.press()
+                    onClick()
+                }.padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Animated rank badge — slides up/down when rank changes

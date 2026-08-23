@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortDirection
@@ -140,12 +141,16 @@ private fun SortTrigger(
     onDirectionToggle: () -> Unit,
     onToggleArticles: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var menuExpanded by remember { mutableStateOf(false) }
     val triggerLabel = stringResource(Res.string.library_sort_options)
 
     Box {
         Surface(
-            onClick = { menuExpanded = true },
+            onClick = {
+                haptics.press()
+                menuExpanded = true
+            },
             shape = RoundedCornerShape(50),
             color = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -214,6 +219,7 @@ private fun SortMenu(
     onDirectionToggle: () -> Unit,
     onToggleArticles: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
@@ -245,7 +251,10 @@ private fun SortMenu(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             },
-            onClick = onDirectionToggle,
+            onClick = {
+                haptics.selectionTick()
+                onDirectionToggle()
+            },
             leadingIcon = {
                 Icon(
                     imageVector = state.direction.arrowIcon(),
@@ -277,6 +286,7 @@ private fun CheckableMenuItem(
     checked: Boolean,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     DropdownMenuItem(
         text = {
             Text(
@@ -290,7 +300,10 @@ private fun CheckableMenuItem(
                     },
             )
         },
-        onClick = onClick,
+        onClick = {
+            haptics.selectionTick()
+            onClick()
+        },
         leadingIcon = {
             if (checked) {
                 Icon(

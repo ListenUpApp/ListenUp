@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.presentation.sync.PendingOperationUi
 import com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiState
@@ -223,6 +224,7 @@ private fun FailedOperationsSection(
     onRetryAll: () -> Unit,
     onDismissAll: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     // Section header with bulk actions
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -245,10 +247,20 @@ private fun FailedOperationsSection(
         }
 
         Row {
-            TextButton(onClick = onRetryAll) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onRetryAll()
+                },
+            ) {
                 Text(stringResource(Res.string.shell_retry_all))
             }
-            TextButton(onClick = onDismissAll) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismissAll()
+                },
+            ) {
                 Text(stringResource(Res.string.shell_dismiss_all))
             }
         }
@@ -278,6 +290,7 @@ private fun FailedOperationItem(
     onRetry: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.small,
@@ -302,7 +315,12 @@ private fun FailedOperationItem(
                 }
             }
 
-            IconButton(onClick = onRetry) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onRetry()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = stringResource(Res.string.common_retry),
@@ -310,7 +328,12 @@ private fun FailedOperationItem(
                 )
             }
 
-            IconButton(onClick = onDismiss) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = stringResource(Res.string.common_dismiss),

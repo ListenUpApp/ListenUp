@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.features.bookedit.components
 
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.MIN_SEARCH_QUERY_LENGTH
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -148,6 +149,7 @@ private fun RoleContributorSection(
     onRemoveContributor: (EditableContributor) -> Unit,
     onRemoveSection: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Role header with remove button
         Row(
@@ -161,7 +163,10 @@ private fun RoleContributorSection(
                 fontWeight = FontWeight.Medium,
             )
             IconButton(
-                onClick = onRemoveSection,
+                onClick = {
+                    haptics.press()
+                    onRemoveSection()
+                },
                 modifier = Modifier.size(32.dp),
             ) {
                 Icon(
@@ -223,7 +228,10 @@ private fun RoleContributorSection(
                         } else {
                             null
                         },
-                    onClick = { onResultSelected(result) },
+                    onClick = {
+                        haptics.selectionTick()
+                        onResultSelected(result)
+                    },
                 )
             },
             placeholder = "Add ${role.displayName.lowercase()}...",
@@ -236,7 +244,10 @@ private fun RoleContributorSection(
         val hasExactMatch = searchResults.any { it.name.equals(trimmedQuery, ignoreCase = true) }
         if (trimmedQuery.length >= MIN_SEARCH_QUERY_LENGTH && !isSearching && !hasExactMatch) {
             AssistChip(
-                onClick = { onNameEntered(trimmedQuery) },
+                onClick = {
+                    haptics.press()
+                    onNameEntered(trimmedQuery)
+                },
                 label = { Text(stringResource(Res.string.book_edit_add_trimmedquery, trimmedQuery)) },
                 leadingIcon = {
                     Icon(Icons.Default.Add, null, Modifier.size(18.dp))
@@ -280,11 +291,15 @@ private fun AddRoleButton(
     availableRoles: List<ContributorRole>,
     onRoleSelected: (ContributorRole) -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var expanded by remember { mutableStateOf(false) }
 
     Box {
         AssistChip(
-            onClick = { expanded = true },
+            onClick = {
+                haptics.press()
+                expanded = true
+            },
             label = { Text(stringResource(Res.string.book_edit_add_role)) },
             leadingIcon = {
                 Icon(Icons.Default.Add, null, Modifier.size(18.dp))
@@ -299,6 +314,7 @@ private fun AddRoleButton(
                 DropdownMenuItem(
                     text = { Text(role.displayName) },
                     onClick = {
+                        haptics.selectionTick()
                         expanded = false
                         onRoleSelected(role)
                     },

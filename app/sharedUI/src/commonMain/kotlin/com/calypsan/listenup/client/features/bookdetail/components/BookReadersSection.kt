@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.CountBadge
 import com.calypsan.listenup.client.design.components.UserAvatar
@@ -195,6 +196,7 @@ fun BookReadersContent(
     onSeeAllClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     if (readers.isEmpty()) return
 
     val innerPadding = if (isCard) Spacing.screenMargin else 0.dp
@@ -223,7 +225,12 @@ fun BookReadersContent(
                 Spacer(modifier = Modifier.weight(1f))
 
                 if (totalCount > readers.size) {
-                    TextButton(onClick = onSeeAllClick) {
+                    TextButton(
+                        onClick = {
+                            haptics.press()
+                            onSeeAllClick()
+                        },
+                    ) {
                         Text(
                             text = stringResource(Res.string.common_see_all),
                             color = MaterialTheme.colorScheme.primary,

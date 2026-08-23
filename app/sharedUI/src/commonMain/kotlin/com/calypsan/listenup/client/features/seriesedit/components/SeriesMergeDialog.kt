@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.presentation.seriesedit.MAX_MERGE_CANDIDATES
 import com.calypsan.listenup.client.presentation.seriesedit.SeriesCandidate
@@ -76,6 +77,7 @@ fun SeriesMergeDialog(
     onConfirm: (SeriesId) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     var selected by remember { mutableStateOf<SeriesId?>(null) }
 
     AlertDialog(
@@ -159,7 +161,12 @@ fun SeriesMergeDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    haptics.press()
+                    onDismiss()
+                },
+            ) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },
@@ -172,6 +179,7 @@ private fun CandidateRow(
     isSelected: Boolean,
     onClick: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val highlight =
         if (isSelected) {
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = SELECTED_BG_ALPHA)
@@ -185,6 +193,9 @@ private fun CandidateRow(
             Modifier
                 .fillMaxWidth()
                 .background(highlight)
-                .clickable(onClick = onClick),
+                .clickable {
+                    haptics.press()
+                    onClick()
+                },
     )
 }

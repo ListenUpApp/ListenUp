@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
 import com.calypsan.listenup.client.design.components.DistributionMeter
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
@@ -327,6 +328,7 @@ private fun LicensesWideLayout(
 
 @Composable
 private fun LicensesWideHero(onNavigateBack: () -> Unit) {
+    val haptics = LocalHaptics.current
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
         shape = RoundedCornerShape(16.dp),
@@ -337,7 +339,12 @@ private fun LicensesWideHero(onNavigateBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            IconButton(onClick = onNavigateBack) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onNavigateBack()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = null,
@@ -400,13 +407,16 @@ private fun LicenseLibraryRow(
     showDivider: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Column(modifier = modifier) {
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onClick)
-                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                    .clickable {
+                        haptics.press()
+                        onClick()
+                    }.padding(horizontal = 16.dp, vertical = 15.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {

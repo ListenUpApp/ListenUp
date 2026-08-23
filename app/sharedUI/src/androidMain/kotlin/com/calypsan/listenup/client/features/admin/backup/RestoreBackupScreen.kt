@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -59,6 +60,7 @@ fun RestoreBackupScreen(
     onBackClick: () -> Unit,
     onComplete: () -> Unit,
 ) {
+    val haptics = LocalHaptics.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
 
@@ -73,7 +75,12 @@ fun RestoreBackupScreen(
                 title = { Text(stringResource(Res.string.admin_restore_backup)) },
                 navigationIcon = {
                     if (canNavigateBack) {
-                        IconButton(onClick = onBackClick) {
+                        IconButton(
+                            onClick = {
+                                haptics.press()
+                                onBackClick()
+                            },
+                        ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource(Res.string.common_back),

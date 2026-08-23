@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.library_collection
@@ -49,6 +50,7 @@ fun SelectionToolbar(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.primaryContainer,
@@ -62,7 +64,12 @@ fun SelectionToolbar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Close button
-            IconButton(onClick = onClose) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onClose()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource(Res.string.library_exit_selection_mode),

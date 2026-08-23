@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.api.dto.DirectoryEntry
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import listenup.composeapp.generated.resources.Res
@@ -324,9 +325,13 @@ fun LibrarySummaryCard(
 }
 
 @Composable
-private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier =
-    this.clickable(
+private fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier {
+    val haptics = LocalHaptics.current
+    return this.clickable(
         interactionSource = remember { MutableInteractionSource() },
         indication = null,
-        onClick = onClick,
-    )
+    ) {
+        haptics.press()
+        onClick()
+    }
+}

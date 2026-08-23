@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -215,6 +216,7 @@ private fun ProfileColorHero(
     onEditClick: () -> Unit,
 ) {
     val ink = MaterialTheme.colorScheme.onPrimaryContainer
+    val haptics = LocalHaptics.current
     Box(
         modifier =
             Modifier
@@ -237,7 +239,10 @@ private fun ProfileColorHero(
             HeroNavRow(onBack = onBack) {
                 if (state.isOwnProfile) {
                     IconButton(
-                        onClick = onEditClick,
+                        onClick = {
+                            haptics.press()
+                            onEditClick()
+                        },
                         modifier =
                             Modifier.size(48.dp).background(
                                 MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
@@ -523,6 +528,7 @@ private fun ShelfTile(
     modifier: Modifier = Modifier,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val haptics = LocalHaptics.current
     val (container, onContainer) =
         when (colorIndex.mod(3)) {
             0 -> scheme.primaryContainer to scheme.onPrimaryContainer
@@ -535,7 +541,10 @@ private fun ShelfTile(
                 .height(112.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(container)
-                .clickable(onClick = onClick),
+                .clickable {
+                    haptics.press()
+                    onClick()
+                },
     ) {
         HeroBlob(
             modifier = Modifier.align(Alignment.BottomEnd).offset(x = 22.dp, y = 22.dp).size(84.dp),
@@ -568,13 +577,17 @@ private fun AddShelfTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Column(
         modifier =
             modifier
                 .height(112.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .border(2.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
-                .clickable(onClick = onClick),
+                .clickable {
+                    haptics.press()
+                    onClick()
+                },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -630,8 +643,13 @@ private fun RecentBookCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     Column(
-        modifier = modifier.width(140.dp).clickable(onClick = onClick),
+        modifier =
+            modifier.width(140.dp).clickable {
+                haptics.press()
+                onClick()
+            },
     ) {
         Box(
             modifier =

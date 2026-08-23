@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.BookCoverImage
 import com.calypsan.listenup.client.playback.NowPlayingState
@@ -50,6 +51,7 @@ internal fun ReaderNowPlayingStrip(
     onPlayPause: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     if (state !is NowPlayingState.Active) return
 
     Surface(
@@ -100,7 +102,12 @@ internal fun ReaderNowPlayingStrip(
 
             Spacer(Modifier.width(8.dp))
 
-            IconButton(onClick = onPlayPause) {
+            IconButton(
+                onClick = {
+                    haptics.press()
+                    onPlayPause()
+                },
+            ) {
                 Icon(
                     imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription =
