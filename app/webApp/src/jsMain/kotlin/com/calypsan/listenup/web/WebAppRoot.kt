@@ -295,14 +295,21 @@ private fun SearchRoute(
     LaunchedEffect(session) {
         session.navActions.collect { action ->
             when (action) {
-                is SearchNavAction.NavigateToBook -> router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
+                is SearchNavAction.NavigateToBook -> {
+                    router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
+                }
 
-                // No destination on this branch yet. SEARCH_OPENABLE_TYPES keeps these hit
-                // types' rows non-interactive, so a click never reaches here in practice.
-                is SearchNavAction.NavigateToContributor,
+                is SearchNavAction.NavigateToContributor -> {
+                    router.navigate(Route(listOf(CONTRIBUTOR_KEY, action.contributorId)))
+                }
+
+                // No destination yet. SEARCH_OPENABLE_TYPES keeps these hit types' rows
+                // non-interactive, so a click never reaches here in practice.
                 is SearchNavAction.NavigateToSeries,
                 is SearchNavAction.NavigateToTag,
-                -> Unit
+                -> {
+                    Unit
+                }
             }
         }
     }
@@ -542,7 +549,7 @@ private const val SEARCH_QUERY_KEY = "q"
  * Hit types with a real place to navigate to. Contributor, Series and Tag detail routes don't
  * exist on this branch yet — see [SearchRoute]'s KDoc.
  */
-private val SEARCH_OPENABLE_TYPES = setOf(SearchHitType.BOOK)
+private val SEARCH_OPENABLE_TYPES = setOf(SearchHitType.BOOK, SearchHitType.CONTRIBUTOR)
 
 private val PRIMARY_NAV =
     NavSection(

@@ -41,6 +41,7 @@ import com.calypsan.listenup.client.presentation.search.SearchNavAction
 import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.search.bookHit
 import com.calypsan.listenup.web.features.search.contributorHit
+import com.calypsan.listenup.web.features.search.seriesHit
 import com.calypsan.listenup.web.features.search.searchResult
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotContain
@@ -392,10 +393,37 @@ class WebAppRootTest :
             }
         }
 
+        test("clicking a contributor hit navigates to that person's page") {
+            // The counterpart to the non-openable spec below: /contributor/{id} exists now, so a
+            // person found in search must actually be reachable from it.
+            val result =
+                searchResult(
+                    query = "herbert",
+                    hits = listOf(bookHit("b1", "Dune"), contributorHit("c9", "Frank Herbert")),
+                )
+            val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
+
+            try {
+                val row =
+                    host.querySelectorAll(".search-row").let { rows ->
+                        (0 until rows.length)
+                            .map { rows.item(it) as HTMLElement }
+                            .first { it.textContent.orEmpty().contains("Frank Herbert") }
+                    }
+                row.click()
+                withTimeout(RECOMPOSE_TIMEOUT_MS) {
+                    while (window.location.pathname != "/contributor/c9") delay(10)
+                }
+            } finally {
+                router.dispose()
+            }
+        }
+
         test("a hit type with no destination is not clickable and never navigates") {
-            // CONTRIBUTOR has no route on this branch yet — its row must carry no button
-            // semantics, and clicking it must leave the reader exactly where they were.
-            val result = searchResult(query = "weir", hits = listOf(contributorHit("c1", "Andy Weir")))
+            // SERIES has no route at all — its row must carry no button semantics, and
+            // clicking it must leave the reader exactly where they were. (CONTRIBUTOR used to
+            // sit here; it became openable the moment /contributor/{id} landed.)
+            val result = searchResult(query = "dune", hits = listOf(seriesHit("s1", "Dune")))
             val (host, router) = mountAt("/search", openSearch = hitNavigatingSearch(result))
 
             try {
