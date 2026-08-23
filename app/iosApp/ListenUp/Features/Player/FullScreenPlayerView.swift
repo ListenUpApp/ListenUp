@@ -56,6 +56,10 @@ struct FullScreenPlayerView: View {
     /// arriving from elsewhere (a remote command, the lock screen). Mirrors `MiniPlayerBar`.
     @State private var transportTapCount = 0
     @State private var playPauseTapCount = 0
+    /// The state the tap *moves to*, captured at tap time. Reading `isPlaybackActive` in the
+    /// modifier would race the Kotlin StateFlow's trip through FlowBridge, so the verb could
+    /// describe the state we just left. Mirrors Compose's `haptics.toggle(on = !isPlaying)`.
+    @State private var playPauseWillBeActive = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
@@ -451,6 +455,7 @@ struct FullScreenPlayerView: View {
 
             // Play/Pause
             Button {
+                playPauseWillBeActive = !observer.isPlaybackActive
                 playPauseTapCount += 1
                 observer.togglePlayback()
             } label: {
@@ -509,7 +514,7 @@ struct FullScreenPlayerView: View {
             .accessibilityLabel(String(localized: "player.next_chapter"))
         }
         .haptic(.press, trigger: transportTapCount)
-        .haptic(observer.isPlaybackActive ? .toggleOn : .toggleOff, trigger: playPauseTapCount)
+        .haptic(playPauseWillBeActive ? .toggleOn : .toggleOff, trigger: playPauseTapCount)
     }
 
     // MARK: - Secondary controls

@@ -120,6 +120,10 @@ struct BookDetailView: View {
                 }
             }
             .padding(.bottom, 32)
+            // One modifier for every book action, above the layout branch. `resumeBar` and
+            // `actionPills` are siblings in whichever branch renders, so a modifier on each
+            // would put two in the hierarchy at once and fire `.success` twice per tap.
+            .haptic(.commit, trigger: bookActionCount)
         }
     }
 
@@ -263,7 +267,6 @@ struct BookDetailView: View {
                 observer.deleteDownload()
             }
         )
-        .haptic(.commit, trigger: bookActionCount)
     }
 
     /// The "server unreachable" banner — shown only when the server is genuinely unreachable AND
@@ -287,7 +290,6 @@ struct BookDetailView: View {
                 observer.markFinished()
             }
         )
-        .haptic(.commit, trigger: bookActionCount)
     }
 
     /// The social "Readers" block. Renders only when the readers VM has data; loading, empty,
