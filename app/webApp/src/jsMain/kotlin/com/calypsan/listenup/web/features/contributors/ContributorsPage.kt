@@ -3,6 +3,7 @@ package com.calypsan.listenup.web.features.contributors
 import androidx.compose.runtime.Composable
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.ContributorWithBookCount
+import com.calypsan.listenup.client.util.nameLetter
 import com.calypsan.listenup.web.design.Icon
 import com.calypsan.listenup.web.design.WebIcon
 import org.jetbrains.compose.web.dom.Div
@@ -207,36 +208,18 @@ data class LetterGroup(
 /**
  * Splits [contributors] into A→Z sections for the letter-square rail this list renders under.
  *
- * A leading "The " or "A " is stripped before the first letter is taken, so a contributor credited
- * under a name like "The Kingkiller Trio" files under K rather than T — the artboard's grouping
- * rule for this particular list.
- *
- * ⚠️ This is a narrower, deliberately different rule from
- * [com.calypsan.listenup.client.util.nameLetter], which a *person's* name never article-strips
- * ("The Rolling Stones" stays under T) and which Library's own author/narrator letter rail still
- * uses correctly. The two are not meant to be reconciled by this change — flagged here so the
- * divergence is a decision on record, not a drift nobody noticed.
- *
- * Names with no leading letter (blank, numeric, symbolic) group under `#`, sorted first.
+ * The letter itself is delegated to the shared [nameLetter] — the same rule Android, iOS and
+ * Library's own author/narrator rail use for a *person's* name — rather than reinterpreted here.
+ * A person's name is never article-stripped ("The Rolling Stones" files under T), so every
+ * platform files a given contributor under the same letter. Names with no leading letter (blank,
+ * numeric, symbolic) group under `#`, sorted first — [nameLetter]'s own contract.
  */
 fun groupByLetter(contributors: List<ContributorWithBookCount>): List<LetterGroup> =
     contributors
-        .sortedBy {
-            it.contributor.name
-                .strippedForLetter()
-                .lowercase()
-        }.groupBy { it.contributor.name.letterOf() }
+        .sortedBy { it.contributor.name.lowercase() }
+        .groupBy { it.contributor.name.nameLetter() }
         .entries
         .sortedBy { (letter, _) -> if (letter == HASH_LETTER) Int.MIN_VALUE else letter.code }
         .map { (letter, group) -> LetterGroup(letter, group) }
 
-private val LEADING_ARTICLE = Regex("^(The|A)\\s+", RegexOption.IGNORE_CASE)
-
 private const val HASH_LETTER = '#'
-
-private fun String.strippedForLetter(): String = replace(LEADING_ARTICLE, "")
-
-private fun String.letterOf(): Char {
-    val first = strippedForLetter().trimStart().firstOrNull()?.uppercaseChar()
-    return if (first != null && first.isLetter()) first else HASH_LETTER
-}

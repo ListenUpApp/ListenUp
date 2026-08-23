@@ -69,7 +69,7 @@ class ContributorsPageTest :
             root.textContent!! shouldContain "1 book"
         }
 
-        test("letter sections appear in order, with a leading article stripped") {
+        test("letter sections appear in order; a person's name is never article-stripped") {
             val root =
                 contributorsPage(
                     state =
@@ -84,7 +84,7 @@ class ContributorsPageTest :
                 root.querySelectorAll(".contrib-letter").let { nodes ->
                     (0 until nodes.length).map { (nodes.item(it) as HTMLElement).textContent }
                 }
-            letters shouldBe listOf("A", "K", "Z")
+            letters shouldBe listOf("A", "T", "Z")
         }
 
         test("the narrator chip fires onSelectRole with the narrator role") {
@@ -139,8 +139,8 @@ class ContributorsPageTest :
             groups.map { it.letter } shouldBe listOf('#', 'A', 'Z')
         }
 
-        test("""groupByLetter strips a leading "The " or "A " before taking the letter""") {
-            groupByLetter(listOf(contributor("c1", "The Kingkiller Trio"))).single().letter shouldBe 'K'
-            groupByLetter(listOf(contributor("c2", "A Perfect Circle"))).single().letter shouldBe 'P'
+        test("groupByLetter never article-strips a person's name, matching the shared nameLetter rule") {
+            groupByLetter(listOf(contributor("c1", "The Kingkiller Trio"))).single().letter shouldBe 'T'
+            groupByLetter(listOf(contributor("c2", "A Perfect Circle"))).single().letter shouldBe 'A'
         }
     })
