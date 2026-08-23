@@ -9,11 +9,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ContributorRole
+import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.client.presentation.search.SearchNavAction
+import com.calypsan.listenup.client.presentation.search.SearchUiState
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
 import com.calypsan.listenup.web.features.bookedit.BookEditSession
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
@@ -31,9 +33,11 @@ import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
 import com.calypsan.listenup.web.features.nowplaying.PlaybackNotice
 import com.calypsan.listenup.web.features.nowplaying.PlaybackSession
 import com.calypsan.listenup.web.features.nowplaying.TransportBar
+import com.calypsan.listenup.web.features.search.CommandPalette
 import com.calypsan.listenup.web.features.search.OpenSearch
 import com.calypsan.listenup.web.features.search.SearchPage
 import com.calypsan.listenup.web.features.search.SearchSession
+import com.calypsan.listenup.web.features.search.openableSearchHits
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.web.design.LibraryFacet
@@ -44,11 +48,17 @@ import com.calypsan.listenup.web.shell.AccountMenu
 import com.calypsan.listenup.web.shell.NavEntry
 import com.calypsan.listenup.web.shell.NavSection
 import com.calypsan.listenup.web.shell.Shell
+import kotlinx.browser.document
+import kotlinx.browser.window
 import kotlinx.coroutines.flow.Flow
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.P
 import org.jetbrains.compose.web.dom.Text
+import org.w3c.dom.Element
+import org.w3c.dom.HTMLElement
+import org.w3c.dom.events.Event
+import org.w3c.dom.events.KeyboardEvent
 
 /**
  * The root of the ListenUp web body: the Shell A chrome around a router-driven content region.
@@ -150,6 +160,9 @@ fun WebAppRoot(
             onPlayPause = playback.onPlayPause,
             onSeek = playback.onSeek,
         )
+
+        // Last of all: the palette overlays everything above it, including the transport bar.
+        CommandPaletteHost(router = router, openSearch = openSearch)
     }
 }
 
@@ -342,6 +355,218 @@ private fun onSearchFieldChanged(
         }
     router.replace(Route(router.current.segments, newQuery))
 }
+
+/**
+ * The ⌘K / Ctrl+K / `/` command palette's lifecycle, wiring and single keyboard listener.
+ *
+ * Mounted once at the shell's root, like [playbackState], so the shortcut works from every route
+ * — not just `/search`. Opens its OWN [SearchSession] on each open and closes it on each close,
+ * never the one [SearchRoute] holds: the palette is a transient jump tool, and sharing a session
+ * would mean either leaking one across every open/close cycle a page never tore down, or fighting
+ * the `/search` route over whose query wins. A fresh session every time also means the palette
+ * always starts at [SearchUiState.Idle] — the same "start clean" contract [bookDetailState] gives
+ * a fresh book visit.
+ *
+ * All of this palette's keyboard behaviour — opening, arrow navigation, Enter, Shift+Enter, Escape
+ * and the focus trap — lives in ONE `window`-level `keydown` listener, registered for the shell's
+ * whole lifetime rather than only while the palette is open. That is what lets `/` and ⌘K work
+ * from anywhere: a listener scoped to the palette's own composition cannot hear a keystroke fired
+ * before the palette exists. Routing every in-palette key through that same listener — rather than
+ * a second one attached once the panel mounts — is also what makes the "Tab cannot escape" trap
+ * trivial to get right: Tab is simply intercepted and dropped for as long as [isOpen][Boolean] is
+ * true, so focus never has anywhere else to go, regardless of what element happens to hold it.
+ *
+ * Focus discipline: the moment the shortcut fires, `document.activeElement` is captured into
+ * `restoreFocusTo` — before [CommandPalette] mounts and steals it — so closing can hand focus back
+ * to the exact control the reader was on, on every close path alike (Escape, a book hit, or the
+ * Shift+Enter commit).
+ */
+@Composable
+private fun CommandPaletteHost(
+    router: Router,
+    openSearch: OpenSearch,
+) {
+    var isOpen by remember { mutableStateOf(false) }
+    var session by remember { mutableStateOf<SearchSession?>(null) }
+    var highlighted by remember { mutableStateOf<SearchHit?>(null) }
+    var restoreFocusTo by remember { mutableStateOf<HTMLElement?>(null) }
+
+    fun closePalette() {
+        isOpen = false
+        session?.close()
+        session = null
+        highlighted = null
+        restoreFocusTo?.focus()
+        restoreFocusTo = null
+    }
+
+    fun openPalette() {
+        restoreFocusTo = document.activeElement as? HTMLElement
+        val newSession = openSearch()
+        session = newSession
+        // Computed synchronously from the fresh session's own StateFlow.value, not left for the
+        // LaunchedEffect below to fill in — that effect only runs on the composition's next pass,
+        // one recompose later than this. A session opened via [fixedSearch]/[hitNavigatingSearch]
+        // already carries its Results on open, so waiting for the effect meant the very first
+        // frame rendered with no row highlighted at all.
+        highlighted = openableSearchHits(newSession.state.value, SEARCH_OPENABLE_TYPES).firstOrNull()
+        isOpen = true
+    }
+
+    fun moveHighlight(delta: Int) {
+        val hits = openableSearchHits(session?.state?.value ?: return, SEARCH_OPENABLE_TYPES)
+        if (hits.isEmpty()) {
+            highlighted = null
+            return
+        }
+        val currentIndex = hits.indexOf(highlighted).let { if (it < 0) 0 else it }
+        highlighted = hits[(currentIndex + delta).mod(hits.size)]
+    }
+
+    DisposableEffect(Unit) {
+        val onWindowKeyDown =
+            paletteKeyDownHandler(
+                isOpen = { isOpen },
+                onOpen = ::openPalette,
+                onClose = ::closePalette,
+                onMoveHighlight = ::moveHighlight,
+                onActivateHighlighted = {
+                    session?.let { activeSession -> highlighted?.let(activeSession.onOpenHit) }
+                },
+                onCommit = {
+                    session?.let { activeSession ->
+                        val query = activeSession.state.value.query
+                        closePalette()
+                        router.navigate(paletteSearchRoute(query))
+                    }
+                },
+            )
+        window.addEventListener("keydown", onWindowKeyDown)
+        onDispose { window.removeEventListener("keydown", onWindowKeyDown) }
+    }
+
+    val activeSession = session
+    if (isOpen && activeSession != null) {
+        LaunchedEffect(activeSession) {
+            activeSession.navActions.collect { action -> handlePaletteNavAction(action, router, ::closePalette) }
+        }
+
+        val uiState = activeSession.state.collectAsState().value
+        // Keeps the highlight valid as results arrive: resets to the first openable hit whenever
+        // the candidate list changes, so a stale highlight from the previous query never survives
+        // into a new result set, and clears it when nothing is openable at all.
+        LaunchedEffect(activeSession, uiState) {
+            val hits = openableSearchHits(uiState, SEARCH_OPENABLE_TYPES)
+            if (highlighted !in hits) highlighted = hits.firstOrNull()
+        }
+
+        CommandPalette(
+            state = uiState,
+            onQueryChanged = activeSession.onQueryChanged,
+            onOpenHit = activeSession.onOpenHit,
+            openableTypes = SEARCH_OPENABLE_TYPES,
+            highlighted = highlighted,
+        )
+    }
+}
+
+/**
+ * Builds [CommandPaletteHost]'s single `window`-level `keydown` handler from the callbacks it
+ * needs invoked. Pulled out of the composable itself so its own branching doesn't count against
+ * [CommandPaletteHost]'s cognitive/cyclomatic complexity — this is a plain dispatch table, not
+ * state the composable needs to reason about.
+ */
+private fun paletteKeyDownHandler(
+    isOpen: () -> Boolean,
+    onOpen: () -> Unit,
+    onClose: () -> Unit,
+    onMoveHighlight: (Int) -> Unit,
+    onActivateHighlighted: () -> Unit,
+    onCommit: () -> Unit,
+): (Event) -> Unit =
+    handler@{ event ->
+        val keyboardEvent = event as KeyboardEvent
+        if (!isOpen()) {
+            val isShortcut =
+                keyboardEvent.key.equals(PALETTE_SHORTCUT_KEY, ignoreCase = true) &&
+                    (keyboardEvent.metaKey || keyboardEvent.ctrlKey)
+            val isSlash = keyboardEvent.key == "/" && !isEditableTarget(document.activeElement)
+            if (!isShortcut && !isSlash) return@handler
+            keyboardEvent.preventDefault()
+            onOpen()
+            return@handler
+        }
+        when (keyboardEvent.key) {
+            "Escape" -> {
+                keyboardEvent.preventDefault()
+                onClose()
+            }
+
+            // The whole focus trap: with nowhere else in the palette to tab to, Tab simply does
+            // nothing while it's open.
+            "Tab" -> {
+                keyboardEvent.preventDefault()
+            }
+
+            "ArrowDown" -> {
+                keyboardEvent.preventDefault()
+                onMoveHighlight(1)
+            }
+
+            "ArrowUp" -> {
+                keyboardEvent.preventDefault()
+                onMoveHighlight(-1)
+            }
+
+            "Enter" -> {
+                keyboardEvent.preventDefault()
+                if (keyboardEvent.shiftKey) onCommit() else onActivateHighlighted()
+            }
+        }
+    }
+
+/**
+ * The palette's half of [SearchRoute]'s own nav-action handling — only [SearchNavAction.NavigateToBook]
+ * has a destination on this branch yet, same reasoning as there. Pulled out for the same
+ * complexity-budget reason as [paletteKeyDownHandler].
+ */
+private fun handlePaletteNavAction(
+    action: SearchNavAction,
+    router: Router,
+    closePalette: () -> Unit,
+) {
+    when (action) {
+        is SearchNavAction.NavigateToBook -> {
+            closePalette()
+            router.navigate(Route(listOf(BOOK_KEY, action.bookId)))
+        }
+
+        // No destination on this branch yet. openableSearchHits keeps these types unreachable by
+        // keyboard, and their rows render inert, so this path is only ever exercised in theory.
+        is SearchNavAction.NavigateToContributor,
+        is SearchNavAction.NavigateToSeries,
+        is SearchNavAction.NavigateToTag,
+        -> {
+            Unit
+        }
+    }
+}
+
+/** Where the palette's Shift+Enter commits: `/search`, or `/search?q=…` for a non-blank query. */
+private fun paletteSearchRoute(query: String): Route =
+    if (query.isBlank()) Route(listOf(SEARCH_KEY)) else Route(listOf(SEARCH_KEY), mapOf(SEARCH_QUERY_KEY to query))
+
+/**
+ * True for a text input, a textarea, or a `contenteditable` region — everywhere `/` must type the
+ * character rather than open the palette out from under the reader.
+ */
+private fun isEditableTarget(target: Element?): Boolean {
+    val element = target as? HTMLElement ?: return false
+    return element.isContentEditable || element.tagName == "INPUT" || element.tagName == "TEXTAREA"
+}
+
+/** The letter half of the ⌘K / Ctrl+K shortcut. */
+private const val PALETTE_SHORTCUT_KEY = "k"
 
 /**
  * Opens the playback session for as long as the shell is mounted, and closes it when it is not.
