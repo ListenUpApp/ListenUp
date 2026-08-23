@@ -11,11 +11,14 @@ import androidx.compose.runtime.setValue
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction
+import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState
 import com.calypsan.listenup.web.features.bookedit.BookEditPage
 import com.calypsan.listenup.web.features.bookedit.BookEditSession
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
 import com.calypsan.listenup.web.features.bookdetail.BookDetailPage
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
+import com.calypsan.listenup.web.features.contributordetail.ContributorDetailPage
+import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributors.ContributorsPage
 import com.calypsan.listenup.web.features.contributors.ContributorsSession
 import com.calypsan.listenup.web.features.contributors.OpenContributors
@@ -66,6 +69,7 @@ fun WebAppRoot(
     router: Router,
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
+    openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
     openPlayback: OpenPlayback,
@@ -86,8 +90,9 @@ fun WebAppRoot(
     val playback = playbackState(openPlayback)
     val route = router.current
     val page = route.segments.firstOrNull() ?: HOME_KEY
-    // A book lives in the library, so the deep link keeps Library lit in the sidebar.
-    val active = if (page == BOOK_KEY) LIBRARY_KEY else page
+    // A book — or the person behind it — lives in the library, so either deep link keeps
+    // Library lit in the sidebar.
+    val active = if (page == BOOK_KEY || page == CONTRIBUTOR_KEY) LIBRARY_KEY else page
 
     Shell(
         sections = listOf(PRIMARY_NAV),
@@ -114,6 +119,7 @@ fun WebAppRoot(
             active = active,
             openBookDetail = openBookDetail,
             openBookEdit = openBookEdit,
+            openContributorDetail = openContributorDetail,
             openContributors = openContributors,
             librarySession = librarySession,
             playback = playback,
@@ -150,6 +156,7 @@ private fun RouteContent(
     active: String,
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
+    openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
     librarySession: LibrarySession,
     playback: PlaybackSession,
@@ -163,6 +170,9 @@ private fun RouteContent(
     // `/library/contributors` — the second segment turns the Library route into the people
     // behind it, rather than a route of its own, so the sidebar stays lit on Library either way.
     val isContributors = active == LIBRARY_KEY && route.segments.getOrNull(1) == CONTRIBUTORS_KEY
+    // `/contributor/{id}` — the person behind the books, a route of its own (unlike the list, one
+    // book's worth of detail is not a facet of anything else).
+    val contributorId = if (page == CONTRIBUTOR_KEY) route.segments.getOrNull(1) else null
 
     if (editingBookId != null) {
         val editSession =
@@ -202,6 +212,7 @@ private fun RouteContent(
             },
             onPlay = { playback.onPlayBook(BookId(bookId)) },
             onEdit = { router.navigate(Route(listOf(BOOK_KEY, bookId, EDIT_KEY))) },
+            onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
         )
     } else if (isContributors) {
         val role = parseContributorRole(route.query[ROLE_QUERY_KEY])
@@ -210,8 +221,14 @@ private fun RouteContent(
             state = contributorsSession.state.collectAsState().value,
             role = role,
             onSelectFacet = { facet -> router.navigate(routeFor(facet)) },
-            // No contributor detail route yet — see Task B2 of the Web Contributors plan.
-            onOpenContributor = {},
+            onOpenContributor = { id -> router.navigate(Route(listOf(CONTRIBUTOR_KEY, id))) },
+        )
+    } else if (contributorId != null) {
+        ContributorDetailPage(
+            state = contributorDetailState(contributorId, openContributorDetail),
+            onOpenLibrary = { router.navigate(Route(listOf(LIBRARY_KEY))) },
+            onOpenContributors = { router.navigate(Route(listOf(LIBRARY_KEY, CONTRIBUTORS_KEY))) },
+            onOpenBook = { id -> router.navigate(Route(listOf(BOOK_KEY, id))) },
         )
     } else if (active == LIBRARY_KEY) {
         LibraryPage(
@@ -301,6 +318,22 @@ private fun contributorsState(
     val session = remember(role) { openContributors(role) }
     DisposableEffect(session) { onDispose { session.close() } }
     return session
+}
+
+/**
+ * Opens a Contributor Detail session for [contributorId] and collects it, closing the previous one
+ * whenever the person changes or the page goes away. Keyed on [contributorId] for the same reason
+ * [bookDetailState] keys on `bookId` — a bare `remember { }` would keep showing the first person
+ * forever after navigating to a second one.
+ */
+@Composable
+private fun contributorDetailState(
+    contributorId: String,
+    openContributorDetail: OpenContributorDetail,
+): ContributorDetailUiState {
+    val session = remember(contributorId) { openContributorDetail(contributorId) }
+    DisposableEffect(session) { onDispose { session.close() } }
+    return session.state.collectAsState().value
 }
 
 /**
@@ -402,6 +435,9 @@ private const val LIBRARY_KEY = "library"
 
 /** The trailing segment that turns the Library route into the Contributors list. */
 private const val CONTRIBUTORS_KEY = "contributors"
+
+/** The path segment that opens a contributor's own page — `/contributor/{id}`. */
+private const val CONTRIBUTOR_KEY = "contributor"
 
 private const val ROLE_QUERY_KEY = "role"
 

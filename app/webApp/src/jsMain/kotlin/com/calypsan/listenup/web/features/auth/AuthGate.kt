@@ -14,6 +14,7 @@ import com.calypsan.listenup.web.WebAppRoot
 import com.calypsan.listenup.web.design.WebAppSurface
 import com.calypsan.listenup.web.features.bookdetail.OpenBookDetail
 import com.calypsan.listenup.web.features.bookedit.OpenBookEdit
+import com.calypsan.listenup.web.features.contributordetail.OpenContributorDetail
 import com.calypsan.listenup.web.features.contributors.OpenContributors
 import com.calypsan.listenup.web.features.library.OpenLibrary
 import com.calypsan.listenup.web.features.nowplaying.OpenPlayback
@@ -43,6 +44,7 @@ fun AuthGate(
     router: Router,
     openBookDetail: OpenBookDetail,
     openBookEdit: OpenBookEdit,
+    openContributorDetail: OpenContributorDetail,
     openContributors: OpenContributors,
     openLibrary: OpenLibrary,
     openPlayback: OpenPlayback,
@@ -99,6 +101,7 @@ fun AuthGate(
                     router = router,
                     openBookDetail = openBookDetail,
                     openBookEdit = openBookEdit,
+                    openContributorDetail = openContributorDetail,
                     openContributors = openContributors,
                     openLibrary = openLibrary,
                     onSignOut = { scope.launch { authGraph.signOut() } },
